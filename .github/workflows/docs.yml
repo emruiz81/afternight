@@ -12,6 +12,9 @@ on:
     paths:
       - 'docs/user-guide/**'
       - 'docs/dev/USER_GUIDE_AUTHORING.md'
+      - 'docs/dev/USER_GUIDE_STYLE.md'
+      - 'build/scripts/tools/check_user_guide.py'
+      - 'build/scripts/tools/check_user_guide_test.py'
       - 'README.md'
       - 'AGENTS.md'
       - '.github/workflows/docs.yml'
@@ -26,11 +29,15 @@ on:
       - 'src/AfterNightControls/app/DesktopUtils.h'
       - 'src/AfterNightControls/app/MenuActionManager.*'
       - 'src/AfterNightControls/controls/DashboardIdentityBar.*'
+      - 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
 
   push:
     branches: [main]
     paths:
       - 'docs/user-guide/**'
+      - 'build/scripts/tools/check_user_guide.py'
+      - 'src/AfterNightControls/app/AfterNightAppUiBuilder.h'
+      - 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
       - '.github/workflows/docs.yml'
 
   workflow_call:
@@ -103,8 +110,24 @@ jobs:
       - name: Install MkDocs and plugins
         run: pip install --require-hashes -r docs/user-guide/requirements.txt
 
+      # A release names its version, which the guide's footer and home page state; any other build says it comes from
+      # the development line.
       - name: Build documentation
+        env:
+          AFTERNIGHT_GUIDE_VERSION: ${{ inputs.release_version }}
         run: mkdocs build -f docs/user-guide/mkdocs.yml --strict
+
+      # The strict build holds the pages' links; the check holds each page's front matter against the guide's data and
+      # the application's menus, and what the built site references, which is what the installers bundle and Help
+      # opens from disk. The registry and the UI builder are read for the menus, so a change to either runs this.
+      - name: Test the guide model and hooks
+        run: python -m unittest discover -s docs/user-guide/hooks -p "*_test.py"
+
+      - name: Test the guide check
+        run: python build/scripts/tools/check_user_guide_test.py
+
+      - name: Check the guide and the built site
+        run: python build/scripts/tools/check_user_guide.py --site docs/user-guide/site
 
       - name: Upload docs site artifact
         uses: actions/upload-artifact@v6

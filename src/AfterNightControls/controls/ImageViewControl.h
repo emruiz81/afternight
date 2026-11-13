@@ -206,6 +206,11 @@ public:
     /// @param measures whether the preview measures them.
     void setMeasuresPreviewStatistics(bool measures);
 
+    /// Whether the static preview's owner has it measure the statistics its overlay shows
+    /// (`setMeasuresPreviewStatistics`). A preview whose presentation choices are not offered measures none
+    /// whatever this says, and measures again as its owner set once they are offered.
+    [[nodiscard]] bool measuresPreviewStatistics() const;
+
     /// Shows statistics in the static preview's overlay, measured elsewhere for the image it shows.
     ///
     /// @param statistics the statistics, or nothing to show none.
@@ -213,6 +218,14 @@ public:
 
     /// The statistics the static preview's overlay shows now, or nothing.
     [[nodiscard]] std::optional<an::ui::ViewImageStatistics> previewStatistics() const;
+
+    /// Whether the static preview offers the choices of how its image is presented - the channel, the display mode,
+    /// the stretch's settings and the statistics overlay - or its zoom alone, for a preview whose owner decides how the
+    /// image is presented (`setViewMode`, `ImageViewWidget::setAutostretchSettings`). One that offers none measures no
+    /// statistics, shows no autostretch banner, and opens no stretch settings by their shortcut.
+    ///
+    /// @param offered whether the choices are offered; they are unless told otherwise.
+    void setPresentationChoicesOffered(bool offered);
 
     /// Writes the view's image to a file, in the container its extension names, as the export settings decide. The
     /// write runs on the calling thread under a read lease; the view's pending changes are cleared only when the
@@ -306,6 +319,9 @@ public:
     void executeSummaryViewer();
 
     void executePlateSolve();
+
+    /// Opens the Annotate Image window over the view's solved image, or raises the one open.
+    void executeAnnotateImage();
 
     void adjustImageToWindow();
 
@@ -529,7 +545,10 @@ public:
 
     [[nodiscard]] QCheckBox* getRTPreviewAreaCheckBox() const;
 
-    void setAutostretchSettingsActionEnabled(bool enabled);
+    /// Tells the view whether its Autostretch Settings window is open. The window's button and shortcut are
+    /// offered only while the view shows its image stretched and no such window is open, and the display mode
+    /// stays as it is while one is.
+    void setAutostretchSettingsOpen(bool open);
 
     void setViewMode(ImageViewMode mode);
 
@@ -570,6 +589,9 @@ public:
     [[nodiscard]] bool isExifActionEnabled() const;
 
     bool canPlateSolveCurrentImage() const;
+
+    /// Whether the view can annotate its image: a still image that states an astrometric solution.
+    [[nodiscard]] bool canAnnotateCurrentImage() const;
 
     /// What the view's reads, edits and writes came to so far.
     [[nodiscard]] ImageViewWorkTelemetry workTelemetry() const;

@@ -24,6 +24,7 @@
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecRegistry.h>
 #include <AfterNightEngine/IO/CodecRequests.h>
+#include <AfterNightEngine/IO/ObservationCards.h>
 #include <AfterNightEngine/IO/OutputTransaction.h>
 #include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/ConversionPolicy.h>
@@ -43,12 +44,16 @@
 
 #include <AfterNightPlatform/Logging.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace an::ui
 {
@@ -592,8 +597,15 @@ readMaster(const an::consumer::EngineSession& session, const QString& path, an::
 
 /// The white level a mosaic's samples read at full exposure, which every threshold of the demosaic is derived from: an
 /// integer's largest code, and one for a floating sample stated as a fraction of full scale. A floating mosaic in a
-/// physical or sensor-code domain has no full scale, so its own brightest meaningful finite sample stands for one -
-/// never below one, so a frame whose samples lie inside zero to one is demosaiced as a fraction of full scale is.
+/// physical or sensor-code domain has no full scale. One whose meaningful finite samples lie inside zero to one but
+/// for a few - no more than a quarter of them above one - is a fraction of full scale, as a light calibrated into
+/// fractions is, and is demosaiced with a white level of one whatever its brightest sample: a light divided by a flat
+/// whose dark border reads nearly zero holds samples in the hundreds of thousands there, and as its white level they
+/// made the rest of the frame read as nothing, below the demosaic's smallest threshold. Any other floating mosaic's
+/// brightest meaningful finite sample stands for full scale. The quarter, rather than the half a median tells, is
+/// what keeps sensor codes over a dark sky apart: a calibrated light in codes whose sky sits under one code has its
+/// noise - several codes wide - carry far more than a quarter of its samples above one, where fractions of full
+/// scale have next to none there.
 template <typename SampleT>
 [[nodiscard]] an::Result<double> whiteLevelOf(const an::ExecutionContext& execution, const an::Image<SampleT>& mosaic,
                                               const an::ImageView<const SampleT>& view,
@@ -611,18 +623,22 @@ template <typename SampleT>
         {
             return 1.0;
         }
-        // The brightest sample is measured among the finite ones the image's rule admits; it does not restate which
-        // samples mean something.
+        // The brightest sample and the upper quartile are measured among the finite ones the image's rule admits; they
+        // do not restate which samples mean something.
         const an::ValidityDescriptor validity = mosaic.metadata().semantics().validity();
         double brightest = 0.0;
+        bool fractions = false;
         if (validity.isAllValid())
         {
             an::StatisticsSelection selection;
             selection.validity =
                 an::ValidityDescriptor::create(an::ValidityDescriptorRequest{.rule = an::ValidityRule::FiniteOnly})
                     .value_or(validity);
-            const an::Result<an::BasicStatistics> measured = an::computeImageBasicStatistics(
-                execution, an::kSampleTypeOf<SampleT>, view.data(), view.layout(), 0u, selection);
+            constexpr std::array<double, 1u> kUpperQuartile{0.75};
+            std::array<double, 1u> upperQuartile{};
+            const an::Result<an::RobustStatistics> measured = an::computeImageRobustStatistics(
+                execution, an::kSampleTypeOf<SampleT>, view.data(), view.layout(), 0u, selection,
+                an::RobustStatisticsRequest{.quantiles = kUpperQuartile}, upperQuartile);
             if (!measured.hasValue())
             {
                 // A mosaic with no finite sample has no brightest one, and nothing for a white level to clip.
@@ -633,12 +649,16 @@ template <typename SampleT>
                 return measured.status();
             }
             brightest = measured->maximum;
+            fractions = upperQuartile.front() <= 1.0;
         }
         else
         {
             // Another rule may keep a non-finite sample among those that mean something, and the statistics refuse a
             // selection holding one, so the plane is read here: a sample counts when the rule, its mask and its
-            // finiteness all admit it.
+            // finiteness all admit it. Their upper quartile is at most one when no more than a quarter of them lie
+            // above one.
+            std::uint64_t counted = 0u;
+            std::uint64_t aboveOne = 0u;
             for (std::uint32_t y = 0u; y < view.height(); ++y)
             {
                 if (an::Status stopped = execution.checkCancellation(); stopped.failed())
@@ -659,10 +679,16 @@ template <typename SampleT>
                         continue;
                     }
                     brightest = (std::max)(brightest, static_cast<double>(sample));
+                    ++counted;
+                    if (static_cast<double>(sample) > 1.0)
+                    {
+                        ++aboveOne;
+                    }
                 }
             }
+            fractions = aboveOne <= counted / 4u;
         }
-        return std::isfinite(brightest) && brightest > 1.0
+        return !fractions && std::isfinite(brightest) && brightest > 1.0
                    ? (std::min)(brightest, static_cast<double>((std::numeric_limits<float>::max)()))
                    : 1.0;
     }
@@ -969,11 +995,26 @@ orientTyped(const an::consumer::OperationScope& scope, const an::Image<SampleT>&
             return ran.status();
         }
     }
-    const an::Result<an::MetadataTransition> change = an::operationTransition(
+    an::Result<an::MetadataTransition> change = an::operationTransition(
         effect, an::OperationOutcome{.operation = "an::transformImageGeometry", .detail = lineage});
     if (!change.hasValue())
     {
         return change.status();
+    }
+    // A turned or mirrored frame is still that frame: the cards that described its layout go, and its observing context
+    // - optics, site, pointing, camera settings and time - stays, as the engine carries a derived product's.
+    if (change->clearCodecMetadata)
+    {
+        an::Result<an::CodecMetadata> observing = derivedFrameCards(image.metadata().codec());
+        if (!observing.hasValue())
+        {
+            return observing.status();
+        }
+        if (!observing->cards().empty())
+        {
+            change->clearCodecMetadata = false;
+            change->codec = std::move(*observing);
+        }
     }
     if (an::Status stated = result->transition(*change); stated.failed())
     {
@@ -1560,6 +1601,29 @@ an::Result<ViewImageStatistics> measureViewImage(const an::consumer::EngineSessi
         }
         return statistics;
     });
+}
+
+an::Result<an::CodecMetadata> derivedFrameCards(const an::CodecMetadata& frame)
+{
+    // The light the frame holds, as it states it, ahead of its observing context.
+    constexpr std::array<std::string_view, 5u> kIntegrationKeywords{"EXPTIME", "TOTEXP", "LIVETIME", "STACKCNT",
+                                                                    "NCOMBINE"};
+    std::vector<an::CodecCard> light;
+    for (const an::CodecCard& card : frame.cards())
+    {
+        if (card.origin() == an::CodecNamespace::Fits &&
+            std::find(kIntegrationKeywords.begin(), kIntegrationKeywords.end(), card.keyword()) !=
+                kIntegrationKeywords.end())
+        {
+            light.push_back(card);
+        }
+    }
+    an::Result<an::CodecMetadata> kept = an::CodecMetadata::create(an::SourceEncoding{}, std::move(light));
+    if (!kept.hasValue())
+    {
+        return kept.status();
+    }
+    return an::withObservationCards(*kept, frame);
 }
 
 an::Status writeViewImage(const an::consumer::EngineSession& session, const an::consumer::ImageAsset& image,

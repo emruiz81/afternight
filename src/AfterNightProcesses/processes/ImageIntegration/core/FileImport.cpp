@@ -19,6 +19,7 @@
 #include <AfterNightEngine/IO/CodecRequests.h>
 #include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
+#include <AfterNightEngine/Image/RawFrame.h>
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -218,8 +219,15 @@ void sortDetectedFramesForImport(std::vector<DetectedFrameInfo>& detectedFrames)
                      });
 }
 
+FrameSampleLayout sampleLayoutOf(const an::RawFrameDescriptor& descriptor)
+{
+    return FrameSampleLayout{.channels = static_cast<int>(descriptor.extent().channelCount()),
+                             .mosaic = descriptor.cfa().isMosaiced()};
+}
+
 FrameMetadata frameMetadataFromProbe(const an::ImageMetadata& metadata, const FrameType type, const int width,
-                                     const int height, const QFileInfo& fileInfo)
+                                     const int height, const QFileInfo& fileInfo,
+                                     const std::optional<FrameSampleLayout> sampleLayout)
 {
     // A camera RAW probe states the typed record and no card; FITS, XISF and TIFF state cards. A figure is read
     // from the record the decoder stated, and from the cards where the record says nothing.
@@ -257,7 +265,7 @@ FrameMetadata frameMetadataFromProbe(const an::ImageMetadata& metadata, const Fr
     return FrameMetadata(type, QSize(width, height), exposureSeconds, temperature, settingOf(isoOrGain),
                          settingOf(projected.cameraOffset), eitherText(stated.filterName(), carded.filterName),
                          eitherText(stated.objectName(), carded.objectName), capturedAtUtc,
-                         eitherText(stated.instrumentName(), carded.instrumentName));
+                         eitherText(stated.instrumentName(), carded.instrumentName), sampleLayout);
 }
 
 an::consumer::OperationRequest importProbeRequest()
@@ -299,9 +307,9 @@ BuildDetectedFrameInfoResult buildDetectedFrameInfoWithIssue(const an::consumer:
         if (probed.hasValue())
         {
             detection = FrameDetection::detect(filePath, &probed->metadata.codec(), defaultType);
-            metadata = frameMetadataFromProbe(probed->metadata, detection.type,
-                                              clampedDimension(probed->descriptor.extent().width()),
-                                              clampedDimension(probed->descriptor.extent().height()), fileInfo);
+            metadata = frameMetadataFromProbe(
+                probed->metadata, detection.type, clampedDimension(probed->descriptor.extent().width()),
+                clampedDimension(probed->descriptor.extent().height()), fileInfo, sampleLayoutOf(probed->descriptor));
         }
         else if (isUnreadableFormat(probed.status()))
         {

@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The application's menus, invoked on the application's own main window as a person invokes them:
-// the file menu's open and saves through the application's file dialog, the image menu's closes, rename, history and
-// zoom over the active view, its tool windows, the mask menu over a view with a mask, and the application menu's
-// windows. Each case triggers the action the menu holds and observes what it did - a view made or gone, a file written,
-// a window shown, a view's state changed - and answers the dialogs the action opens the way a person would.
+// the file menu's open and saves through the application's file dialog, the image menu's closes, rename, history,
+// zoom and Show in File Browser over the active view and in the image's context menu, its tool windows, the mask menu
+// over a view with a mask, and the application menu's windows. Each case triggers the action the menu holds and
+// observes what it did - a view made or gone, a file written, a window shown, a view's state changed - and answers the
+// dialogs the action opens the way a person would.
 
 #include "ApplicationDriving.h"
 #include "app/ProcessRegistry.h"
@@ -23,6 +24,7 @@
 #include "controls/SettingsDialog.h"
 #include "controls/SystemInformationDialog.h"
 #include "controls/settings/ExtensionManagerPage.h"
+#include "controls/annotation/AnnotateImageControl.h"
 #include "controls/settings/SettingsKeys.h"
 #include "session/ImageDocument.h"
 #include "widgets/MaskRenderer.h"
@@ -34,13 +36,16 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
@@ -82,6 +87,80 @@ using an::tests::app::visibleWidget;
 
 class ApplicationMenu : public an::tests::app::RealWindowCase
 {
+protected:
+    // A view the application's factory makes over a zeroed 8x4 image whose cards state a solution - a tenth of a degree
+    // a pixel about (120, 10) - which becomes the active view.
+    static ImageViewControl* makeSolvedView(const QString& name)
+    {
+        std::vector<an::CodecCard> cards;
+        const auto add = [&cards](const char* keyword, const char* value) {
+            an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, {});
+            EXPECT_TRUE(card.hasValue());
+            if (card.hasValue())
+            {
+                cards.push_back(std::move(*card));
+            }
+        };
+        add("CTYPE1", "'RA---TAN'");
+        add("CTYPE2", "'DEC--TAN'");
+        add("CUNIT1", "'deg'");
+        add("CUNIT2", "'deg'");
+        add("CRPIX1", "4.5");
+        add("CRPIX2", "2.5");
+        add("CRVAL1", "120");
+        add("CRVAL2", "10");
+        add("CD1_1", "-0.1");
+        add("CD1_2", "0");
+        add("CD2_1", "0");
+        add("CD2_2", "0.1");
+        add("RADESYS", "'ICRS'");
+        an::Result<an::CodecMetadata> codec = an::CodecMetadata::create(an::SourceEncoding{}, std::move(cards));
+        EXPECT_TRUE(codec.hasValue());
+        an::Result<an::consumer::SessionHold> hold = session().hold();
+        EXPECT_TRUE(hold.hasValue());
+        if (!codec.hasValue() || !hold.hasValue())
+        {
+            return nullptr;
+        }
+        const std::optional<an::ImageDescriptor> descriptor =
+            an::tests::app::monoFloatDescriptor(hold->engine(), 8u, 4u);
+        EXPECT_TRUE(descriptor.has_value());
+        if (!descriptor.has_value())
+        {
+            return nullptr;
+        }
+        an::Result<an::Image<float>> image = an::Image<float>::create(
+            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed,
+            an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                      an::Provenance{}, std::move(*codec), std::nullopt));
+        EXPECT_TRUE(image.hasValue());
+        if (!image.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::consumer::ImageAsset> asset =
+            an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage(std::move(*image)));
+        EXPECT_TRUE(asset.hasValue());
+        if (!asset.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::ui::ImageDocument> document =
+            an::ui::ImageDocument::create(std::move(*asset), an::ui::DocumentNames{.displayName = name});
+        EXPECT_TRUE(document.hasValue());
+        if (!document.hasValue())
+        {
+            return nullptr;
+        }
+        ImageViewControl* const view = context().getViewFactory()->createNewImageViewControlFromImage(
+            nullptr, std::move(*document), nullptr, name.toStdString());
+        EXPECT_NE(view, nullptr);
+        if (view != nullptr)
+        {
+            s_window->setActiveImageViewControl(view);
+        }
+        return view;
+    }
 };
 
 // ---- The file menu.
@@ -489,10 +568,195 @@ TEST_F(ApplicationMenu, PlateSolveOpensThePlateSolveWindowOverTheActiveView)
         opensToolWindow("actionPlateSolve", [](QWidget* window) { return isA<an::ui::PlateSolveControl>(window); }));
 }
 
+// Annotate Image is offered for a view whose image states a solution, and opens its window over that view.
+TEST_F(ApplicationMenu, AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView)
+{
+    ImageViewControl* const unsolved = makeView(QStringLiteral("unsolved"));
+    ASSERT_NE(unsolved, nullptr);
+    EXPECT_FALSE(menuAction("actionAnnotateImage")->isEnabled());
+
+    ImageViewControl* const view = makeSolvedView(QStringLiteral("solved"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_TRUE(view->canAnnotateCurrentImage());
+    ASSERT_TRUE(processEventsUntil([]() { return menuAction("actionAnnotateImage")->isEnabled(); }));
+
+    invoke("actionAnnotateImage");
+
+    an::ui::AnnotateImageControl* opened = nullptr;
+    EXPECT_TRUE(processEventsUntil([view, &opened]() {
+        for (QWidget* window : visibleChildWindows(*view))
+        {
+            if (auto* annotate = dynamic_cast<an::ui::AnnotateImageControl*>(window); annotate != nullptr)
+            {
+                opened = annotate;
+                return true;
+            }
+        }
+        return false;
+    }));
+    if (opened != nullptr)
+    {
+        EXPECT_TRUE(processEventsUntil([opened]() { return !opened->isWorking(); }));
+        opened->close();
+    }
+}
+
 TEST_F(ApplicationMenu, SummaryOpensTheSummaryWindowOverTheActiveView)
 {
     EXPECT_TRUE(
         opensToolWindow("actionSummary", [](QWidget* window) { return isNamed(window, "ImageSummaryViewerControl"); }));
+}
+
+// ---- The image menu: Show in File Browser, offered while the active view's image is a file.
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedDisabledWithNoView)
+{
+    ASSERT_TRUE(views().empty());
+    QAction* const show = menuAction("actionShow_In_File_Browser");
+    ASSERT_NE(show, nullptr);
+    EXPECT_FALSE(show->isEnabled());
+}
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedDisabledForAnImageThatHasNeverBeenAFile)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made"));
+    ASSERT_NE(view, nullptr);
+    EXPECT_FALSE(menuAction("actionShow_In_File_Browser")->isEnabled());
+}
+
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedForAViewOfAFile)
+{
+    const QString path = filePath(QStringLiteral("shown.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+    EXPECT_TRUE(menuAction("actionShow_In_File_Browser")->isEnabled());
+}
+
+// Saving an image that has never been a file makes it one: the entry is offered as soon as the save lands.
+TEST_F(ApplicationMenu, ShowInFileBrowserIsOfferedOnceAMadeImageIsSaved)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made then saved"), 0.375f);
+    ASSERT_NE(view, nullptr);
+    ASSERT_FALSE(menuAction("actionShow_In_File_Browser")->isEnabled());
+    const QString path = filePath(QStringLiteral("made-then-saved.fits"));
+
+    Answered dialog;
+    chooseInTheNextFileDialog({path}, &dialog);
+    invoke("actionSave_as");
+
+    EXPECT_TRUE(dialog.seen);
+    ASSERT_TRUE(processEventsUntil([&]() { return QFileInfo::exists(path); }));
+    EXPECT_TRUE(processEventsUntil([]() { return menuAction("actionShow_In_File_Browser")->isEnabled(); }));
+}
+
+// A file deleted since it was opened is not handed to the file manager: the entry says the file is not on disk, as the
+// dashboard's recent files do.
+TEST_F(ApplicationMenu, ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk)
+{
+    const QString path = filePath(QStringLiteral("deleted.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+    ASSERT_TRUE(QFile::remove(path));
+
+    Answered warning;
+    answerTheNextMessageBox(&warning);
+    invoke("actionShow_In_File_Browser");
+
+    EXPECT_TRUE(processEventsUntil([&]() { return warning.seen; }));
+    EXPECT_EQ(warning.title, QStringLiteral("File Not Found"));
+    EXPECT_TRUE(warning.text.contains(QDir::cleanPath(path))) << warning.text.toStdString();
+}
+
+// The poll that answers a file dialog's refusal - a message box shown from inside the dialog's accept - ends when the
+// accept returns. Left armed for its ten seconds, it answered the next message box of the case, whichever asked for
+// it: a case that opened a file through the menu and then waited for a box of its own lost that box to the poll
+// about every other run.
+TEST_F(ApplicationMenu, AMessageBoxShownAfterAFileIsOpenedIsAnsweredByNoPollTheOpenLeftBehind)
+{
+    const QString path = filePath(QStringLiteral("opened-before-a-box.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ASSERT_NE(openThroughTheFileMenu(path), nullptr);
+
+    // A box this case asks no poll to answer: nothing presses its button.
+    QMessageBox box(QMessageBox::Information, QStringLiteral("Later"),
+                    QStringLiteral("A box no poll of this case was asked to answer."), QMessageBox::Ok, s_window);
+    box.open();
+    processEventsUntil([]() { return false; }, 300);
+
+    EXPECT_TRUE(box.isVisible()) << "a poll the file dialog left armed answered a box that was not its own";
+    box.close();
+}
+
+// The image's own context menu ends with the same entry, offered as the Image menu offers it.
+class ApplicationMenuContextMenu : public ApplicationMenu
+{
+protected:
+    // The last entry of a menu, as it was when the menu was shown.
+    struct Entry
+    {
+        bool shown = false;
+        QString objectName;
+        QString text;
+        bool enabled = false;
+    };
+
+    // Right-clicks a view as a person does and answers the last entry of the menu it shows, closing the menu.
+    static Entry lastContextMenuEntry(ImageViewControl& view)
+    {
+        auto last = std::make_shared<Entry>();
+        answerWhenShown([last](QWidget* widget) {
+            auto* menu = qobject_cast<QMenu*>(widget);
+            if (menu == nullptr)
+            {
+                return false;
+            }
+            last->shown = true;
+            const QList<QAction*> entries = menu->actions();
+            if (!entries.isEmpty())
+            {
+                last->objectName = entries.back()->objectName();
+                last->text = entries.back()->text();
+                last->enabled = entries.back()->isEnabled();
+            }
+            menu->close();
+            return true;
+        });
+        const QPoint at(4, 4);
+        QContextMenuEvent event(QContextMenuEvent::Mouse, at, view.mapToGlobal(at));
+        QCoreApplication::sendEvent(&view, &event);
+        return *last;
+    }
+};
+
+TEST_F(ApplicationMenuContextMenu, TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile)
+{
+    const QString path = filePath(QStringLiteral("context.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    ImageViewControl* const view = openThroughTheFileMenu(path);
+    ASSERT_NE(view, nullptr);
+    s_window->setActiveImageViewControl(view);
+
+    const Entry last = lastContextMenuEntry(*view);
+
+    ASSERT_TRUE(last.shown) << "the view showed no context menu";
+    EXPECT_EQ(last.objectName, QStringLiteral("actionShow_In_File_Browser")) << last.text.toStdString();
+    EXPECT_TRUE(last.enabled);
+}
+
+TEST_F(ApplicationMenuContextMenu, TheImagesContextMenuOffersShowInFileBrowserDisabledForAnImageThatHasNeverBeenAFile)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made"));
+    ASSERT_NE(view, nullptr);
+
+    const Entry last = lastContextMenuEntry(*view);
+
+    ASSERT_TRUE(last.shown) << "the view showed no context menu";
+    EXPECT_EQ(last.objectName, QStringLiteral("actionShow_In_File_Browser")) << last.text.toStdString();
+    EXPECT_FALSE(last.enabled);
 }
 
 // ---- The mask menu, over a view with a mask.
@@ -758,7 +1022,77 @@ void collectMenuEntries(const QList<QAction*>& actions, std::vector<QAction*>& e
     }
 }
 
+// The repository the suite was built from: the first folder at or above the working directory, the suite's own folder
+// or this source file that holds both `src` and `build`. Empty when there is none.
+QString repositoryRoot()
+{
+    const QStringList seeds = {QDir::currentPath(), QCoreApplication::applicationDirPath(),
+                               QFileInfo(QString::fromUtf8(__FILE__)).absolutePath()};
+    for (const QString& seed : seeds)
+    {
+        QDir folder(seed);
+        do
+        {
+            if (QFileInfo::exists(folder.filePath(QStringLiteral("src"))) &&
+                QFileInfo::exists(folder.filePath(QStringLiteral("build"))))
+            {
+                return folder.absolutePath();
+            }
+        } while (folder.cdUp());
+    }
+    return {};
+}
+
 } // namespace
+
+// Every process of the application states the page of the user guide that Help opens from its window, and the guide
+// has that page: the built guide names a page as its source with `.html` for `.md`. An extension's process has no page
+// of the guide.
+TEST_F(ApplicationMenu, EveryRegisteredProcessStatesAPageTheUserGuideHas)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty()) << "the repository's root was not found";
+    const QDir pages(QDir(root).filePath(QStringLiteral("docs/user-guide/docs/en")));
+    ASSERT_TRUE(pages.exists()) << pages.absolutePath().toStdString();
+
+    std::size_t stated = 0u;
+    for (const an::ui::process_registry::ProcessDescriptor& descriptor :
+         an::ui::process_registry::ProcessRegistry::instance().all())
+    {
+        if (descriptor.is_extension_process)
+        {
+            continue;
+        }
+        const QString helpPath = QString::fromStdString(descriptor.helpPath);
+        ASSERT_TRUE(helpPath.endsWith(QStringLiteral(".html")))
+            << descriptor.id << " states the page '" << descriptor.helpPath << "'";
+        const QString source = helpPath.chopped(5) + QStringLiteral(".md");
+        EXPECT_TRUE(QFileInfo(pages.filePath(source)).isFile())
+            << descriptor.id << " states " << descriptor.helpPath << ", and the guide has no " << source.toStdString();
+        ++stated;
+    }
+    EXPECT_GT(stated, 0u);
+}
+
+// Help answers F1 from every window of the application: a process window is a window of its own, where a shortcut of
+// the main window's context is not heard. No other entry of the menus takes F1.
+TEST_F(ApplicationMenu, UserGuideAnswersF1FromEveryWindowOfTheApplication)
+{
+    QAction* const guide = menuAction("actionUser_Guide");
+    ASSERT_NE(guide, nullptr);
+    EXPECT_EQ(guide->shortcut(), QKeySequence(Qt::Key_F1));
+    EXPECT_EQ(guide->shortcutContext(), Qt::ApplicationShortcut);
+
+    std::vector<QAction*> entries;
+    collectMenuEntries(s_window->menuBar()->actions(), entries);
+    for (const QAction* action : entries)
+    {
+        if (action != guide)
+        {
+            EXPECT_NE(action->shortcut(), QKeySequence(Qt::Key_F1)) << action->objectName().toStdString();
+        }
+    }
+}
 
 // Every process the registry holds is an entry of the window's own menus, reached from its menu bar, and no two entries
 // share a name, so the name a descriptor binds reaches one entry. The names are recorded beside the result, in menu

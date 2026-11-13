@@ -1,239 +1,349 @@
+---
+kind: interface
+summary: >-
+  The Session Console lists AfterNight's messages since it started, each with its time and severity, so that you can
+  follow what it did and read why a step failed: filter, search, export or clear them.
+menu: View > Session Console
+---
 # Session Console
 
-## Purpose, audience, prerequisites, and expected result
+The Session Console is a panel of the [dock workspace](../reference/glossary.md#dock-workspace) that lists
+AfterNight's messages since it started: what it opened, ran and saved, its warnings and its errors, each with the
+time and a severity. It only shows messages, and changes no image and no image's
+[history](../reference/glossary.md#history).
 
-The Session Console is AfterNight's read-only, in-app view of messages emitted
-during the current application session. Use it to correlate a failed file open,
-process warning, or diagnostic event with its timestamp and severity, narrow the
-visible backlog, search it, and export the current view for support.
+It keeps the messages of this session in memory. The [log file](../reference/glossary.md#log-file), which the
+Logging page of [Settings](settings-dialog.md) sets up, keeps them on disk between sessions. The two are separate:
+clearing or filtering the console leaves the file as it is.
 
-After completing the procedure below, you will have a filtered and searchable
-console view and, when requested, a plain-text `.txt` export. You do not need an
-open image, a network connection, an external tool, or a writable log directory
-to inspect messages already retained in memory.
+```figure
+owed: true
+image: ../assets/images/interface/log-viewer.webp
+alt: >-
+  The AfterNight main window with the Carina Nebula master in its view at the top and the Session Console docked
+  below it. The console's tab reads Session Console. Its toolbar holds zoom buttons, a wrap button, a bin, a reload
+  arrow, a terminal icon and a gear, then Show >= with a box reading info, the words File log: info, a magnifier and
+  a disk. Below, two lines of text, each a date and time, the word info in color and a message about the image.
+caption: >-
+  The Session Console after Clear Session and two commands on the Carina master: one line for each.
+pins:
+  - {n: 1, x: 9.6, y: 54.5}
+  - {n: 2, x: 12.4, y: 54.5}
+  - {n: 3, x: 17.3, y: 54.5}
+  - {n: 4, x: 26.9, y: 54.5}
+  - {n: 5, x: 31.2, y: 54.5}
+  - {n: 6, x: 55.0, y: 61.0}
+```
 
-![Session Console with informational and error messages, a visible-level filter, file-log status, search, and settings](../assets/images/interface/log-viewer.png)
+## What you see
 
-*The Session Console keeps severity filtering and file-log state visible above
-the session message stream. Paths shown here belong to the approved
-documentation capture PC.*
+1. **The tab.** **Session Console**, with the cross that closes it. The console docks, tabs and floats as an image
+   view does: see [Docking Panels](docking-panels.md).
+2. **The buttons.** **Zoom In**, **Zoom Out** and **Zoom 100%** for the text size, word wrap, **Clear Session**,
+   **Reload session lines**, **ANSI Colors** and **Settings**.
+3. **Show >=.** The least severe kind of message the console shows.
+4. **File log.** The level of the log file, as the Logging page of Settings sets it.
+5. **Search and export.** **Search...** finds a word in the lines, and **Export visible session text** saves them
+   to a text file.
+6. **The messages.** One line for each message: the date and time to the millisecond, the severity in its color,
+   and the message.
 
-## Reachability and availability
+## What you can do
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **View > Session Console**. This checkable action opens or closes the bottom dock. |
-| Enabled/visible when | Available from the Dashboard and dock workspace; it does not require an active image. Opening it from the Dashboard selects the dock workspace. |
-| Supported inputs/state | Messages emitted after the session-console bridge is initialized, from the main thread or workers, at Trace, Debug, Info, Warn, Error, or Fatal severity. |
-| Outputs/side effects | A read-only dock; optional persistent appearance settings; an optional plain-text export of exactly the visible message pane; clearing can discard the in-memory session backlog. No image, metadata, mask, sequence, or Image History state changes. |
-| Persistence | Appearance, wrap mode, ANSI rendering, and maximum visible lines are `log/*` keys in AfterNight's own interface settings file (an INI file under the application's local data, never the native registry). The **ANSI Colors** toggle and the settings dialog's **Apply**/**OK** save them, and every console close saves all of them again: the wrap mode is therefore saved when the console closes, and the theme colors in force at the first close are stored as explicit values. The severity threshold, search state, zoom offset, console contents, dock visibility, and layout are session/runtime state. The export folder is remembered by the application folder tracker. |
-| External dependencies | None for viewing. Export requires a writable destination. Rotating file logs have separate directory, level, size, and count settings. |
+### Open and close the console
 
-## Before you start
+Choose **View > Session Console**. The console docks across the bottom of the workspace, and from the Dashboard the
+workspace replaces it. The console shows every message kept since AfterNight started, not only the ones after you
+open it. Close it with the same menu entry or the cross on its tab. With no image open, the Dashboard comes back.
 
-- Reproduce the operation first when you need its messages. The console bridge
-  retains only the most recent 10,000 entries in memory and does not recover
-  messages emitted before the bridge existed.
-- Do not use **Clear Session** until you have exported anything needed for a
-  support report. Clear removes the bridge backlog, not merely the filtered
-  pane, and has no undo.
-- Inspect exported text before sharing it. Messages can contain local paths,
-  filenames, tool output, catalog details, or other environment information.
-- The console filter is independent of **Settings > Logging > Minimum Level**.
-  That setting controls the rotating file sink; the console's **Show >=** value
-  controls only this view.
+### Read a message
 
-## Procedure
+A line reads `2026-11-10 21:04:13.512 - info  - AfterNight version ... - engine ...`, which is the first message
+of every session. The severities are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. A process window writes
+a line when its run starts and when it ends or fails, as the "In the Session Console" section of
+[Process Windows Reference](process-windows-reference.md) lists. A file that cannot be opened leaves its error here
+too.
 
-1. Choose **View > Session Console**. From the Dashboard, confirm that the dock
-   workspace appears and the **Session Console** dock opens at the bottom.
-2. Read the **File log: _level_** indicator as context, then choose the least
-   severe entry to show in **Show >=**. The default **info** view includes Info,
-   Warn, Error, and Fatal entries.
-3. If new output is moving the pane, scroll upward. New retained entries keep
-   arriving, but the pane stops following them until you return within four
-   scrollbar units of the bottom.
-4. Select **Search...** or press `Ctrl+F`. Enter a term, choose any search
-   options, and select **Find next** or press `Enter`. A successful match becomes
-   the text selection; a failed search reports **No occurrences found.**
-5. Select **Export visible session text** or press `Ctrl+S`. Choose a path and
-   confirm that the saved `.txt` contains the current severity-filtered,
-   visible-line-limited plain text. Hidden session entries and rotating file-log
-   contents are not added.
-6. Use **Reload session lines** to rebuild the pane from the retained bridge
-   backlog. This clears the current search cursor and selection and returns the
-   view to the bottom; it does not reread log files. **Zoom In**, **Zoom Out**,
-   **Zoom 100%**, a **Show >=** change, the **ANSI Colors** toggle, and settings
-   **Apply**/**OK** rebuild the pane the same way.
-7. Close the dock with **View > Session Console** or its dock close control. If
-   no image view remains, AfterNight returns to the Dashboard. Reopening the
-   console during the same application session rebuilds it from the retained
-   bridge backlog unless that backlog was cleared.
+!!! warning "The lines name your folders"
+    A line about a file names it with its full path, and some name the folders AfterNight uses. Read an export
+    before you share it, and choose **Clear Session** before you take a picture of the console.
 
-## Complete control and action reference
+### Choose what the console shows
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **View > Session Console** | Checkable menu action | Unchecked at startup | Checked or unchecked | Creates/shows or closes the Session Console dock; opening from Dashboard selects the dock workspace | Always available; independent of active image | The dock consumes workspace area and can keep the workspace open after the last image closes | Application window | Visibility/layout not restored |
-| Dock close control | Dock action | Open after menu action | Close current dock | Destroys the console control and unchecks the menu action | Available while the dock exists | Returns to Dashboard when no image view remains | Current console instance | Session only |
-| **Zoom In** | Toolbar action; font point increment | Stored base size | Adds 1 point per click; no explicit toolbar bound | Enlarges current console text | Message pane initialized | Very large text shows fewer characters/lines | Current console instance | Zoom offset not saved |
-| **Zoom Out** | Toolbar action; font point decrement | Stored base size | Subtracts 1 point per click; no explicit toolbar bound | Shrinks current console text | Message pane initialized | Repeated use can make text impractically small | Current console instance | Zoom offset not saved |
-| **Zoom 100%** | Toolbar action | Stored base size | Action | Restores the current text size to **Default font Size** | Message pane initialized | Does not reset font family/style/colors | Current console instance | Base size remains persisted |
-| **Enable word wrap** / **Disable word wrap** | Dynamic toolbar action | Enabled on first run | Widget-width wrap or no wrap | Toggles long-line wrapping and changes its icon/tooltip | Message pane initialized | No-wrap adds horizontal scrolling; new auto-scrolled output keeps the horizontal position at the left edge | Visible pane | `log/line_wrap`, saved when the console closes or settings are next saved |
-| **Clear Session** | Toolbar action | — | Action | Clears the session-console bridge backlog and visible pane; resets the search cursor | Bridge clear is used when available | Destructive for the in-memory backlog; does not clear rotating files or the platform logger's separate in-memory ring buffer | Current application session | Not recoverable through reload |
-| **Reload session lines** | Toolbar action | — | Action | Rebuilds the pane from retained entries using current threshold, ANSI mode, font, and visible-line cap | Bridge must exist to repopulate | Clears selection/search cursor and scrolls to bottom; does not reread disk logs | Retained session backlog | No saved action state |
-| **ANSI Colors** | Checkable toolbar action | On first run | On or off | Both modes remove ANSI control sequences; on additionally renders supported SGR bold/faint/italic/underline/inverse plus standard, bright, 256-color, and RGB foreground/background styles | Applies only when entries contain ANSI escape sequences | ANSI colors can reduce contrast; per-severity coloring still applies to the level word | Visible pane and future reloads | `log/render_ansi_colors` across launches; saved immediately |
-| **Settings** | Toolbar action | Enabled | One settings dialog at a time | Opens **Log viewer settings** | Disabled until that dialog closes | Dialog changes affect presentation and visible retention, not file logging | Console appearance | Dialog action state is session only |
-| **Show >=** | Severity selector | **info** each console initialization | **error**, **warn**, **info**, **debug**, **trace** | Shows entries whose severity is at least the selected threshold; **error** also includes Fatal | Rebuilds from retained bridge entries | Lower thresholds render more text; the choice does not change collection or disk logging | Visible pane | Not saved |
-| **File log: _level_** | Read-only toolbar indicator | Loaded from `logging.conf`, fallback **info** | Current configured file-sink level, including **off** | Reports the separate rotating file-log threshold | Refreshed on initialize, reload, tab activation, and focus | It is status only; a changed setting may not appear until one of those refresh paths | File logging context | Source value persists in `logging.conf` |
-| **Search...** | Toolbar action; `Ctrl+F` | Enabled | One search dialog at a time | Opens **Search log** | Disabled until the search dialog closes | Search operates only on rendered visible text | Visible pane | Dialog/search state not saved |
-| **Export visible session text** | Toolbar action; `Ctrl+S` | Suggested `session_console.txt` | Text files; `.txt` appended when absent; cancel allowed | Writes `toPlainText()` from the current pane | Requires writable selected file | Excludes threshold-hidden and trimmed entries; formatting/ANSI colors are not encoded; overwrite behavior belongs to the platform dialog | Visible pane | Last folder remembered under `__SESSION_CONSOLE_FOLDER__`, stored before the file is opened, so it is kept even when the write fails |
-| Message pane | Read-only selectable text | Empty until retained entries are loaded | Up to configured visible document blocks; multiline entries can consume multiple blocks | Displays `YYYY-MM-DD HH:mm:ss.mmm - level - message`, colors the severity word, supports selection/copy and scrolling | Only entries meeting **Show >=** are inserted | Default cap is 1,000 visible blocks; the bridge itself retains at most 10,000 entries | Current rendered view | Text not saved automatically |
-| **Find** | Search text field | Empty | Any text; regex syntax when enabled | Supplies the search expression | **Find next** disabled while empty | Invalid regular expressions are reported only as no match | Visible pane | Not saved |
-| **Case sensitive** | Search checkbox | Off | On or off | Requires matching capitalization | Applies to literal and regular-expression searches | Can hide otherwise equivalent text | Current search dialog | Not saved |
-| **Match whole word** | Search checkbox | Off | On or off | Adds whole-word matching | Disabled while **Regular expression** is checked | Enabling regex does not clear an already checked value, so the current implementation can still pass the whole-word flag | Current search dialog | Not saved |
-| **Regular expression** | Search checkbox | Off | Qt regular-expression syntax with the extended-pattern option: unescaped whitespace is ignored and `#` starts a comment, so `foo bar` matches `foobar` | Interprets **Find** as a pattern | Disables the **Match whole word** control | No separate invalid-pattern diagnostic | Current search dialog | Not saved |
-| **Backward** | Search checkbox | Off | On or off | Searches toward the start from the current cursor | Applies to literal and regex searches | The wrap fallback searches backward from document position 0 and finds nothing, so a backward search never wraps to the bottom | Current search dialog | Not saved |
-| **Find next** | Search button; `Enter` | Disabled | Enabled when **Find** is nonempty | Selects the next match; forward search wraps to the start after no later match | Search dialog open and query nonempty | Failed match moves the console cursor to the end after notifying | Visible pane | Cursor resets when dialog closes, Clear, reload, or session clear occurs |
-| **Clear** | Search button | Enabled | Action | Resets the search cursor and moves the console cursor to the end | Search dialog open | Does not erase the query or console entries | Current search | Not saved |
-| **Close** | Search button | Enabled | Action | Closes **Search log** and re-enables **Search...** | Search dialog open | Resets the search cursor on destruction | Current search dialog | Not saved |
-| **Font color** + **Select color** | Read-only color value and picker; each picker starts from the console's applied color, not a pending value | Current theme text token | Any color accepted by the color dialog | Changes ordinary console text color in the settings preview | Applied to console only by **Apply** or **OK** | Poor contrast can make messages unreadable | Console appearance | `log/font_color` after apply |
-| **Background color** + **Select color** | Read-only color value and picker | Current theme code-background token | Any color accepted by the color dialog | Changes pane background in preview | Applied by **Apply** or **OK** | Affects ANSI faint/inverse blending and contrast | Console appearance | `log/background_color` after apply |
-| **Font Highlight** + **Select color** | Read-only color value and picker | Current theme text-on-accent token | Any color accepted by the color dialog | Changes selected-text foreground | Applied by **Apply** or **OK** | Poor contrast can obscure search selections | Console selection | `log/font_highlight_color` after apply |
-| **Background Highlight** + **Select color** | Read-only color value and picker | Current theme highlight-background token | Any color accepted by the color dialog | Changes selection background | Applied by **Apply** or **OK** | Poor contrast can obscure selected matches | Console selection | `log/background_highlight_color` after apply |
-| **Default font Size** | Integer spin box, points | 12 pt | 4–30 pt | Sets the saved base size and current console size | Preview updates immediately; console updates on **Apply**/**OK** | Larger text increases wrapping and reduces visible context | Console appearance | `log/font_size` after apply |
-| **Max lines** | Integer spin box, document blocks | 1,000 loaded setting; builder fallback 10,000 is replaced by current console value | 50–50,000 | Caps rendered document blocks and reloads the pane after apply | Effective source backlog is at most 10,000 entries; multiline entries can use multiple blocks | Raising it increases rendering/memory cost but cannot restore entries already evicted from the bridge | Visible pane | `log/max_lines` after apply |
-| **Font** | Font-family selector | System fixed-width font | Installed font families | Changes sample and console family | Console updates on **Apply**/**OK** | Proportional fonts can make aligned diagnostic text harder to scan | Console appearance | `log/font_family` after apply |
-| **Bold** | Settings checkbox | Off | On or off | Makes base console font bold | Preview immediate; console on **Apply**/**OK** | ANSI bold may be indistinguishable when the base is already bold | Console appearance | `log/font_bold` after apply |
-| **Italic** | Settings checkbox | Off | On or off | Makes base console font italic | Preview immediate; console on **Apply**/**OK** | ANSI italic may be indistinguishable when the base is already italic | Console appearance | `log/font_italic` after apply |
-| Settings sample pane | Read-only preview | Six generated sample lines; two selected | Display only | Previews font, colors, severity colors, and selection | Updates while settings fields change | It is synthetic and is not the current session log | Settings dialog | Not persisted |
-| **Apply** | Settings dialog action | — | Action | Applies all fields, rebuilds the console once, and saves settings without closing | Settings dialog open | A lower line cap can immediately remove rendered older blocks; retained bridge entries remain available until bridge eviction/clear | Console appearance/view | Persists settings |
-| **OK** | Settings dialog action | — | Action | Applies and saves, then closes | Settings dialog open | Same side effects as Apply | Console appearance/view | Persists settings |
-| **Reset** | Settings dialog action | — | Action | Restores current-theme colors, fixed-width font, 12 pt, 1,000 lines, Bold/Italic off in the dialog preview | Requires **Apply** or **OK** to affect console | Does not reset wrap, ANSI mode, filter, zoom, contents, or file logging | Pending settings fields | Not persisted until apply |
-| **Cancel** | Settings dialog action | — | Action | Closes without applying pending fields | Settings dialog open | Previously applied changes remain | Current dialog | No new persistence |
+Choose the least severe kind of message in **Show >=**: **info** shows `info`, `warn`, `error` and `fatal`, and
+**error** only the last two. The console shows the lines again at once, from the messages it kept.
 
-## Behavior and state model
+### Find a message
 
-The platform logger initializes three separate sinks: rotating files, an
-in-memory ring buffer of 10,000 records, and a replaceable session-console sink.
-The GUI then initializes a `SessionConsoleBridge` with a 10,000-entry maximum
-and attaches its sink. Every message, from a worker or the main thread, is
-formatted without process/thread columns and queued onto the GUI thread. Focused tests establish that queued worker and main-thread entries keep
-their arrival order, that the oldest entry is evicted at capacity, and that
-clearing drops the bridge backlog.
+1. Choose **Search...** or press ++ctrl+f++. The **Search log** window opens.
+2. Type the text in **Find**, tick the options you need and choose **Find next**, or press ++enter++.
+3. The console selects the next place the text appears. Choose **Find next** again for the one after.
 
-The main logger remains open to Trace so individual sinks can filter
-independently. The console bridge therefore receives all severities; **Show >=**
-filters only while entries are inserted into the pane. Changing the selector or
-reloading rebuilds the pane from the bridge backlog. The separate file sink uses
-**Settings > Logging** and the indicator reports that configured level.
+### Keep the messages for a report
 
-The visible cap is enforced by removing blocks from the start of the document.
-It counts document blocks rather than bridge entries, so an entry containing
-embedded newlines can consume more than one visible line. A configured cap above
-10,000 cannot increase the bridge's fixed entry backlog.
+Choose **Export visible session text**, or press ++ctrl+s++, then name the file. It holds the lines as the console
+shows them, as plain text. Lower **Show >=** first when the report needs the lines it hides.
 
-ANSI parsing always removes recognized CSI control sequences from the displayed
-and exported text. When **ANSI Colors** is on, supported SGR attributes and
-colors become theme-aware rich-text formatting; when off, the same message is
-plain text. The severity token is then colored separately. Fatal messages use
-the visible level name `fatal` and pass the **error** threshold.
+### Clear the console
 
-Auto-scroll is stateful: it follows appended visible entries only while the
-scrollbar is at, or within four units of, its maximum. Scrolling upward pauses
-following. Reload always rebuilds and moves to the bottom. In no-wrap mode,
-automatic movement also returns the horizontal scrollbar to the left.
+Choose **Clear Session**. Every message kept in memory for this session is gone, and **Reload session lines** cannot
+bring it back. New messages appear as they come. The log file keeps what its level let through.
 
-## Inputs, outputs, and metadata
+## Controls
 
-- Input is formatted runtime text plus severity. The console does not parse or
-  change images, metadata, masks, sequences, process parameters, or history.
-- A session entry is formatted as timestamp, severity, and message. Rotating
-  file lines additionally include process and thread fields and are not the
-  same text representation.
-- Export writes the current pane as plain text. It does not write hidden
-  severities, entries trimmed by **Max lines**, bridge entries evicted past
-  10,000, file-log-only history, colors, font styling, or search state.
-- A missing `.txt` suffix is added. Cancel creates no file. A write-open failure
-  shows **File Error: Unable to open file for writing**.
-- Clearing the console does not delete or truncate `AfterNight.log` and its
-  rotated files. Conversely, changing file-log retention does not change the
-  current in-memory bridge capacity.
+### The toolbar
 
-## Performance and responsiveness
+```controls
+window: The toolbar
+controls:
+  - name: Zoom In
+    kind: toolbutton
+    default: ""
+    effect: Makes the text one point larger, and shows the lines again.
+    range: There is no limit. **Zoom 100%** returns to the size of **Default font Size**.
+    persistence: Until the console closes.
+  - name: Zoom Out
+    kind: toolbutton
+    default: ""
+    effect: Makes the text one point smaller, and shows the lines again.
+  - name: Zoom 100%
+    kind: toolbutton
+    default: ""
+    effect: Returns the text to **Default font Size**. The font and the colors stay as they are.
+  - name: Disable word wrap
+    kind: toolbutton
+    default: "On"
+    effect: While long lines wrap at the console's width, its tooltip reads **Disable word wrap**, and it shows them on one line each, with a scroll bar. It then reads **Enable word wrap**.
+    persistence: Kept between sessions as `log/line_wrap`, written when the console closes, when **ANSI Colors** changes and when the settings are applied.
+  - name: Clear Session
+    kind: toolbutton
+    default: ""
+    effect: Removes every message the console keeps for this session, and resets the search.
+    tradeoff: It cannot be undone, and it asks nothing. The log file, `AfterNight.log`, is not touched.
+  - name: Reload session lines
+    kind: toolbutton
+    default: ""
+    effect: Shows the kept messages again, under the present **Show >=**, colors, font and **Max lines**, and moves to the last line.
+    range: It clears the selection and the search position. It reads nothing from the log file.
+    note: A change of **Show >=**, **ANSI Colors**, the zoom or the settings shows the lines again the same way.
+  - name: ANSI Colors
+    kind: toolbutton
+    default: "On"
+    effect: On, the color and style codes some messages carry are drawn - bold, faint, italic, underline, inverse, and the standard, bright, 256 and RGB colors of text and background. Off, the text is plain. Either way the codes themselves are not shown.
+    tradeoff: A colored message can be hard to read on the console's background. The severity keeps its own color.
+    persistence: Kept between sessions as `log/render_ansi_colors`, saved at once with every other value of the console.
+    note: Its tooltip reads "Render ANSI terminal color sequences in session output when present."
+  - name: Settings
+    kind: toolbutton
+    default: ""
+    effect: Opens **Log viewer settings**, for the console's font, colors and line count.
+    enabled: One settings window at a time. The button is disabled while it is open.
+  - name: Show >=
+    kind: combo
+    default: info
+    options: [error, warn, info, debug, trace]
+    effect: Shows the messages of the chosen severity and every more severe one. **error** also shows `fatal`, which has no entry of its own.
+    tradeoff: "**debug** and **trace** show far more lines, which take longer to show and to search."
+    scope: The console only. It changes neither what AfterNight records nor the log file. Its tooltip says so.
+    persistence: Back to **info** each time the console opens.
+    note: AfterNight keeps the messages of every severity, so choosing **debug** shows the debug lines of the whole session.
+  - name: File log
+    kind: readout
+    default: "File log: info"
+    effect: Shows the level the log file keeps, as `logging.conf` states it, such as `warning` or `off`, and `info` when it states none.
+    range: Read again when the console opens, when the lines are shown again, and when the console gets the focus or its tab comes forward. A level changed in Settings shows at one of those moments.
+    note: Its tooltip reads "Current file logging level from Settings > Logging."
+  - name: Search...
+    kind: toolbutton
+    default: ""
+    effect: Opens **Search log**. ++ctrl+f++ does the same.
+    enabled: One search window at a time. The button is disabled while it is open.
+  - name: Export visible session text
+    kind: toolbutton
+    default: ""
+    effect: Asks for a file in "Export visible session text...", suggesting `session_console.txt`, and writes the console's lines to it as plain text. ++ctrl+s++ does the same.
+    range: A name without `.txt` gets it. **Cancel** writes nothing. The file window asks before it replaces a file.
+    tradeoff: Lines **Show >=** hides, lines past **Max lines**, colors and the search are not written.
+    persistence: The folder is remembered for the next export, even when the file then cannot be written.
+    note: A file that cannot be written gives "Unable to open file for writing", titled "File Error".
+```
 
-Appending a visible entry updates the document on the GUI thread and trims from
-its beginning when over the line cap. Lowering **Show >=** or increasing **Max
-lines** can make reload, ANSI parsing, document layout, search, and memory use
-more expensive. Use Info or Warn during ordinary diagnosis, keep the default
-1,000 visible blocks unless older context is necessary, and export before
-clearing. Worker threads do not write widgets directly; their messages use a
-queued bridge callback.
+### The messages
 
-## Worked example
+```controls
+window: The messages
+controls:
+  - name: Message lines
+    kind: readout
+    default: ""
+    effect: Shows each kept message that passes **Show >=**, as `<date> <time> - <severity> - <message>`, with the severity's word in its color. You can select and copy the text, but not change it.
+    range: AfterNight keeps the last 10,000 messages of the session in memory, from every part of it, in the order they arrive, whatever the Logging page's file size and count. Messages from before the console's record started, while AfterNight was starting, are not among them. The console shows at most **Max lines** lines, and a message of several lines takes several.
+    tradeoff: The log file's lines also name the process and the thread, so they read differently from the console's.
+  - name: Following new lines
+    kind: action
+    default: "On"
+    effect: While the view is at the last line, it moves down with each new message. Scroll up to read, and it stays where you are while messages keep arriving. Scroll back to the bottom to follow again.
+    range: Within four steps of the scroll bar's end counts as the bottom. Without word wrap, following also returns to the left edge.
+```
 
-- Evidence mode: Source-and-test-derived.
-- Starting state, actions, settings, checkpoints, result, and limitations:
-  Open **View > Session Console** after reproducing a warning. Leave **Show >=**
-  at **info** and confirm the warning is present. Scroll upward and confirm the
-  view stays in place while later messages are retained. Search a unique word,
-  then export to `session_console.txt`; the selected file contains the current
-  visible plain text. Raise the threshold to **error** and observe that Info and
-  Warn lines disappear from the pane; select **Reload session lines** after
-  returning to **info** to rebuild them from the retained backlog. This example
-  proves source/test-defined state transitions only; it does not claim a
-  production log volume, disk-permission result, timing, or platform rendering.
+### Search log
 
-## Warnings and limitations
+```controls
+window: Search log
+controls:
+  - name: Find
+    kind: field
+    default: ""
+    effect: The text, or the pattern, to look for in the console's lines.
+    range: Only the lines the console shows are searched.
+  - name: Case sensitive
+    kind: check
+    default: "Off"
+    effect: Finds the text only with the same capitals.
+  - name: Match whole word
+    kind: check
+    default: "Off"
+    effect: Finds the text only as a whole word.
+    enabled: Disabled while **Regular expression** is ticked, but a tick it already had still counts.
+  - name: Regular expression
+    kind: check
+    default: "Off"
+    effect: Reads **Find** as a pattern. Spaces in it are ignored and `#` starts a comment, so `foo bar` finds `foobar`.
+    tradeoff: A pattern that is not valid finds nothing, and no message says why.
+  - name: Backward
+    kind: check
+    default: "Off"
+    effect: Searches toward the first line.
+    range: A backward search never wraps around to the last line.
+  - name: Find next
+    kind: button
+    default: ""
+    effect: Selects the next place the text appears. After the last one, a forward search starts again at the top.
+    enabled: While **Find** holds text. ++enter++ does the same.
+    note: When nothing is found, a message titled "Search" says "No occurrences found." and the position moves to the end.
+  - name: Clear
+    kind: button
+    default: ""
+    effect: Starts the search again from the end. The text and the console's lines stay.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes **Search log** and starts the next search from the end.
+```
 
-- **Clear Session** is immediate, session-wide, and not undoable. It does not
-  preserve threshold-hidden entries for later reload.
-- The console is not a complete forensic log. Capacity eviction, visible-line
-  trimming, bridge initialization time, and clearing can all omit messages.
-- The filter has no Fatal item; Fatal is included by the **error** threshold.
-- Search covers only currently rendered text. Forward search wraps; backward
-  search never wraps from the top to the bottom.
-- Enabling regular-expression mode disables but does not clear a selected
-  whole-word option, and an invalid pattern has no dedicated syntax message.
-- Toolbar zoom has no explicit bound and is not saved. Use **Zoom 100%** after
-  an impractical zoom level.
-- Appearance overrides are saved color values, and closing the console once
-  stores the current theme's colors as such values, so a later theme switch
-  keeps them. **Reset** followed by **Apply** is the supported way to resolve
-  them to current-theme defaults again.
-- Exported text can disclose private local context. Review it before sharing.
+### Log viewer settings
 
-## Troubleshooting
+```controls
+window: Log viewer settings
+controls:
+  - name: Font color
+    kind: field
+    default: The theme's text color
+    effect: The color of the console's text, shown by its value. Its **Select color** button opens a color window that starts from the color the console uses now.
+    persistence: Kept between sessions once applied, as every value of this window, in AfterNight's own settings file. This one is `log/font_color`, and the others `log/background_color`, `log/font_highlight_color`, `log/background_highlight_color`, `log/font_size`, `log/font_family`, `log/font_bold`, `log/font_italic` and `log/max_lines`.
+  - name: Background color
+    kind: field
+    default: The theme's background for code
+    effect: The color behind the lines, with its own **Select color** button.
+    tradeoff: It also sets how faint and inverse text from **ANSI Colors** look.
+  - name: Font Highlight
+    kind: field
+    default: The theme's text on the accent color
+    effect: The color of selected text, as a found line is, with its own **Select color** button.
+  - name: Background Highlight
+    kind: field
+    default: The theme's highlight color
+    effect: The color behind selected text, with its own **Select color** button.
+    tradeoff: Too little contrast hides what a search selects.
+  - name: Default font Size
+    kind: spinbox
+    default: "12"
+    widget: {min: 4, max: 30, step: 1}
+    effect: The text size in points, which **Zoom 100%** returns to.
+    tradeoff: Larger text shows fewer lines, and wraps sooner.
+    note: Applying a new size also undoes the toolbar's zoom.
+  - name: Font
+    kind: combo
+    default: The system's fixed-width font
+    options: [The system's fixed-width font, Every font installed]
+    effect: The font of the console's text.
+    tradeoff: A font of varying width makes columns of numbers harder to read.
+  - name: Bold
+    kind: check
+    default: "Off"
+    effect: Draws all the console's text in bold, which hides the bold of **ANSI Colors**.
+  - name: Italic
+    kind: check
+    default: "Off"
+    effect: Draws all the console's text in italics, which hides the italics of **ANSI Colors**.
+  - name: Max lines
+    kind: spinbox
+    default: "1000"
+    widget: {min: 50, max: 50000, step: 1}
+    effect: The most lines the console shows. Older ones leave the top as new ones arrive.
+    range: Above 10,000 it shows no more messages, since that is all AfterNight keeps. Raising it cannot bring back a message already dropped.
+    tradeoff: More lines take more memory and time to show and to search.
+  - name: Sample
+    kind: readout
+    default: ""
+    effect: Six sample lines in the font and colors you choose, of the severities info, debug, info, warn, warn and error, with the third and fourth selected to show the highlight colors.
+    note: It follows each change at once. The console changes only on **Apply** or **OK**.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Applies every value, shows the lines again, saves the values and closes the window.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Applies and saves every value, and keeps the window open.
+    tradeoff: A lower **Max lines** drops the oldest lines from the console at once. AfterNight still keeps them, and a higher value shows them again.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the four colors to the theme's, the font to the fixed-width one, the size to 12, **Max lines** to 1000, and turns **Bold** and **Italic** off, in this window only. Apply them to use them.
+    range: It leaves word wrap, **ANSI Colors**, **Show >=**, the zoom, the messages and the log file as they are.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the window without applying what you changed since the last **Apply**.
+```
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Session Console opened but older expected messages are absent | Message preceded bridge initialization, was evicted beyond 10,000 entries, was cleared, is below the selected threshold, or was trimmed from the visible pane | Lower **Show >=**, raise **Max lines** if appropriate, and reload. If still absent, inspect rotating file logs when their separate level retained the event | `main.cpp`; `SessionConsoleBridge.cpp`; `LogViewerControl.cpp` |
-| Info or Warn lines disappear after selecting **error** | The selector is an inclusive minimum-severity threshold | Select **warn**, **info**, **debug**, or **trace**, then allow the automatic reload | `LogViewerControl::currentMinimumLevel`; `appendSessionEntry` |
-| Session Console still shows messages while file **Minimum Level** is **Off** | The in-memory session sink is independent of the rotating file sink | Use **Show >=** or close/clear the console for its view; use Logging settings for disk output | `Logging.cpp`; `LoggingConfig.cpp`; `LogViewerControl.cpp` |
-| Search reports **No occurrences found.** | Text is not in the rendered pane, options exclude it, or the regular expression is invalid | Lower the severity filter/reload; simplify the query; disable Case sensitive, Match whole word, or Regular expression | `LogViewerControl::findText`; `LogViewerFindTextControl.cpp` |
-| Backward search does not wrap to a later occurrence | The fallback restarts a backward find at document position 0, where nothing precedes it | Clear/reset search, disable **Backward**, find forward, or move the visible cursor near the end before retrying | `LogViewerControl::findText` |
-| Export is shorter than expected | Export writes only the visible pane after threshold filtering and block trimming | Lower the threshold, raise **Max lines** within available backlog, reload, then export; use rotating files for separate disk history | `LogViewerControl::save`; `reloadContent`; `trimVisibleLines` |
-| **File Error: Unable to open file for writing** | Destination could not be opened writable | Choose a writable local folder/name and retry; check permissions and free space | `LogViewerControl::save` |
-| New output keeps jumping or stops following | Auto-scroll follows only while at the bottom | Scroll up intentionally to pause; return to the bottom or reload to resume | `LogViewerControl::initialize`; `appendSessionEntry`; `scrollToBottom` |
-| Colors or selection are unreadable | Persisted colors - including the theme colors stored when the console last closed - have poor contrast for the active theme, or ANSI formatting overrides parts of a line | Open **Settings**, use **Reset**, then **Apply**; optionally turn **ANSI Colors** off | `resolveThemeDefaults`; `LogViewerSettingsControl::on_dialog_box_button_clicked` |
-| File-log indicator looks stale after Logging settings changed | Indicator refresh occurs on initialize, reload, console focus, or active-tab change | Focus the console or select **Reload session lines** | `LogViewerControl::updateFileLogLevelIndicator`; focus/tab handlers |
+## When it goes wrong
 
-## Related workflow steps
+An older message is missing
+:   **Cause.** It came before the console's record started, more than 10,000 messages ago, before a **Clear
+    Session**, below **Show >=**, or past **Max lines**.
+:   **Fix.** Lower **Show >=** and raise **Max lines**. When it is still missing, open the log file from the Logging
+    page of Settings, if its level kept the message.
 
-- [Toolbar & Menus](toolbar-and-menus.md) defines the global View action and
-  its availability.
-- [Settings Dialog](settings-dialog.md) configures the separate rotating file
-  sink, directory, level, size, and file count.
-- [Process Windows](process-windows.md) explains validation, progress,
-  cancellation, and failure states that can emit console diagnostics.
-- The process-specific troubleshooting table for the operation that failed uses
-  the exported console evidence to select the next recovery step.
+The **info** and **warn** lines are gone
+:   **Cause.** **Show >=** is at **error**, which shows only errors.
+:   **Fix.** Choose **info** in **Show >=**.
 
-## References and provenance
+The console still shows messages with the log file's level at **Off (Disable Logging)**
+:   **Cause.** The level of the Logging page applies to the log file only.
+:   **Fix.** Use **Show >=** to see fewer messages, or close the console.
 
-- AfterNight session-console control, bridge, logging sink/configuration, app
-  wiring, and focused tests are the authoritative
-  implementation provenance for this page.
-- The console uses the spdlog severity ordering and message formatting exposed
-  through AfterNight's platform logging wrapper, `AfterNightPlatform/Logging.h`; no external behavior beyond the
-  reviewed vendored/API use is claimed here.
+"No occurrences found."
+:   **Cause.** The text is not in the lines shown, an option excludes it, the pattern is not valid, or **Backward**
+    started at the first line.
+:   **Fix.** Lower **Show >=**, untick **Case sensitive**, **Match whole word** and **Regular expression**, untick
+    **Backward**, and choose **Find next** again.
+
+The exported file has fewer lines than you expected
+:   **Cause.** The export writes the lines the console shows, after **Show >=** and **Max lines**.
+:   **Fix.** Lower **Show >=**, raise **Max lines** and export again, or send the log file.
+
+The text or the selection cannot be read
+:   **Cause.** The console keeps the colors of the theme in force when it first closed, and keeps them after the
+    theme changes, or a message's own colors clash with the background.
+:   **Fix.** Open **Settings**, choose **Reset** and then **Apply**, or turn **ANSI Colors** off.
+
+## Related
+
+- [Interface Overview](overview.md), for the main window the console docks in.
+- [Docking Panels](docking-panels.md), to move, tab, float or close the console like a view.
+- [Process Windows Reference](process-windows-reference.md), for the lines a process window writes here.
+- [Settings](settings-dialog.md), for the log file's folder, level, size and count on the Logging page.
+- [Troubleshooting And Diagnostics](../reference/troubleshooting.md), for what to send when you report a problem.
+- [Toolbar & Menus](toolbar-and-menus.md), for **View > Session Console** among the other menus.

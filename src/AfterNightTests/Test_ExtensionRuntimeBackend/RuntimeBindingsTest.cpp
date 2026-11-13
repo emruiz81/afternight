@@ -918,9 +918,10 @@ except Exception as error:
     EXPECT_NEAR(locals["centre"].cast<double>(), 0.3, 1e-4);
 }
 
-// The stack call measures one star width per frame, so per-channel FWHM weighting can only weigh each channel by its
-// frame's width: the call says so and leaves the option out. It took the option and said nothing.
-TEST(ExtensionRuntimeBackendModuleTest, PerChannelFwhmWeightingIsSaidToWeighEachChannelByItsFramesWidth)
+// The stack call weighs every channel by its frame's one star width, so it offers no per-channel width weighting: asked
+// for one, under any weighting, it says the option is not offered and leaves it out, and it says nothing when the
+// option is not asked for. It said a per-channel weighting needed the FWHM weighting, or a width per channel.
+TEST(ExtensionRuntimeBackendModuleTest, APerChannelFwhmWeightingIsSaidToBeNotOfferedAndLeftOut)
 {
     ASSERT_SHARED_RUNTIME();
     py::gil_scoped_acquire gil;
@@ -940,24 +941,38 @@ for index, value in enumerate((0.2, 0.3, 0.4)):
     path = os.path.join(root, "flat_%d.fits" % index)
     rt.save_image(rt.image_from_numpy(np.full((96, 96), value, np.float32), {"IMAGETYP": "LIGHT"}), path)
     paths.append(path)
-output_path = os.path.join(root, "stacked.fits")
-with warnings.catch_warnings(record=True) as caught:
-    warnings.simplefilter("always")
-    rt.stack_sequence_paths(paths, output_path, method="average",
-                            params={"weighting": "fwhm", "enable_per_channel_fwhm_weighting": True})
-said = [str(warning.message) for warning in caught]
+said = {}
+for label, params in (("fwhm", {"weighting": "fwhm", "enable_per_channel_fwhm_weighting": True}),
+                      ("noise", {"weighting": "noise", "enable_per_channel_fwhm_weighting": True}),
+                      ("not asked", {"weighting": "fwhm", "enable_per_channel_fwhm_weighting": False})):
+    output_path = os.path.join(root, "stacked_%s.fits" % label.replace(" ", "_"))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rt.stack_sequence_paths(paths, output_path, method="average", params=params)
+    said[label] = [str(warning.message) for warning in caught]
 )PY",
              locals, locals);
 
-    std::string joined;
-    bool saidSo = false;
-    for (const py::handle warning : locals["said"].cast<py::list>())
+    const py::dict said = locals["said"].cast<py::dict>();
+    const auto saysNotOffered = [&said](const char* label, std::string& joined) {
+        bool notOffered = false;
+        for (const py::handle warning : said[py::str(label)].cast<py::list>())
+        {
+            const std::string text = warning.cast<std::string>();
+            joined += text + "\n";
+            notOffered =
+                notOffered || text.find("enable_per_channel_fwhm_weighting is not offered") != std::string::npos;
+        }
+        return notOffered;
+    };
+    for (const char* asked : {"fwhm", "noise"})
     {
-        const std::string text = warning.cast<std::string>();
-        joined += text + "\n";
-        saidSo = saidSo || text.find("one star width per frame") != std::string::npos;
+        std::string joined;
+        EXPECT_TRUE(saysNotOffered(asked, joined)) << asked << ":\n" << joined;
     }
-    EXPECT_TRUE(saidSo) << joined;
+    std::string joined;
+    EXPECT_FALSE(saysNotOffered("not asked", joined)) << joined;
+    EXPECT_EQ(joined.find("per-channel"), std::string::npos) << joined;
 }
 
 // The drizzle keeps the flux each light's pixel carried, so a frame drizzled onto a canvas twice as fine holds a

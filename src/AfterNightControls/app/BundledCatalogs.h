@@ -24,6 +24,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <stop_token>
 #include <string_view>
 
@@ -41,7 +43,7 @@ enum class BundledCatalog : std::uint8_t
     /// The deep-sky objects: galaxies, nebulae and clusters, with their sizes.
     DeepSky,
 
-    /// The bright stars, to visual magnitude 6.5, with their proper names and Bayer letters.
+    /// The bright stars, to visual magnitude 9, with their proper names and Bayer and Flamsteed designations.
     BrightStars
 };
 
@@ -61,14 +63,19 @@ enum class BundledCatalog : std::uint8_t
 /// source - a copy of its own, or a test's catalog. Called on a worker.
 using BundledCatalogSource = std::function<an::Result<QByteArray>(BundledCatalog catalog)>;
 
-/// A catalog text in a bundled catalog's columns, read into a sky catalog with its name index.
+/// A catalog text in a bundled catalog's columns, read into a sky catalog.
+///
+/// A reader that only asks what lies in a field builds no name index: the index holds about twice what the entries
+/// do - some 30 MiB for the bright stars - and only a search by name reads it.
 ///
 /// @param execution the operation reading it.
 /// @param catalog which catalog's columns the text has.
 /// @param text the text.
+/// @param nameIndex whether to build the index a search by name reads.
 /// @return the catalog; or what the text parse or the catalog build refused.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::SkyCatalog>
-buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalog, std::string_view text);
+buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalog, std::string_view text,
+                    bool nameIndex = true);
 
 /// A bundled catalog read from the product's resources, under an operation admitted in the session. For a worker: the
 /// admission waits.
@@ -77,22 +84,39 @@ buildBundledCatalog(const an::ExecutionContext& execution, BundledCatalog catalo
 /// @param catalog which catalog.
 /// @param stop the read's stop.
 /// @param source where the text comes from; empty reads the product's resources.
+/// @param nameIndex whether to build the index a search by name reads; a reader of fields alone leaves it out.
 /// @return the catalog; or what the text read, the admission, the text parse or the catalog build refused.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::SkyCatalog>
 loadBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop,
-                   const BundledCatalogSource& source = {});
+                   const BundledCatalogSource& source = {}, bool nameIndex = true);
 
-/// The region query a bundled catalog is asked for an overlay: the deep-sky objects admit a named object nobody
-/// measured a magnitude for, and the bright stars do not.
+/// A bundled catalog as every reader of fields shares it: read once from the product's resources, without the index
+/// a search by name reads, and kept while any reader holds it. Every solved view's overlay and every Annotate Image
+/// window ask what lies in a field of the same two catalogs, and each used to read and keep a copy of its own - the
+/// bright stars alone are tens of megabytes. A reader that names a source of its own reads its own
+/// (`loadBundledCatalog`), and so does a search by name, which needs the index.
+///
+/// The catalog belongs to the engine context the session held when it was read: a session that holds another one
+/// since reads it again. For a worker: the read waits for the admission, and a second reader waits for the first
+/// one's read instead of making its own.
+///
+/// @param session the process's session.
+/// @param catalog which catalog.
+/// @param stop the read's stop.
+/// @return the shared catalog; or what the text read, the admission, the text parse or the catalog build refused.
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<std::shared_ptr<const an::SkyCatalog>>
+sharedBundledCatalog(const an::consumer::EngineSession& session, BundledCatalog catalog, std::stop_token stop);
+
+/// The region query a bundled catalog is asked for an overlay: at a limit, the deep-sky objects admit a named object
+/// nobody measured a magnitude for, and the bright stars do not; with none, every entry of the region is admitted.
 ///
 /// @param catalog which catalog.
 /// @param center the cone's centre.
 /// @param radiusDegrees the cone's radius.
-/// @param magnitudeLimit the faintest magnitude admitted.
+/// @param magnitudeLimit the faintest magnitude admitted, or nothing for every magnitude, measured or not.
 /// @return the query.
-[[nodiscard]] AFTERNIGHTCONTROLS_API an::CatalogRegionQuery bundledCatalogRegionQuery(BundledCatalog catalog,
-                                                                                      const an::SkyCoordinate& center,
-                                                                                      double radiusDegrees,
-                                                                                      double magnitudeLimit);
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::CatalogRegionQuery
+bundledCatalogRegionQuery(BundledCatalog catalog, const an::SkyCoordinate& center, double radiusDegrees,
+                          std::optional<double> magnitudeLimit);
 
 } // namespace an::ui

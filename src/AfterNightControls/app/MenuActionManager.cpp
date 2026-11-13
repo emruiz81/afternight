@@ -222,6 +222,7 @@ void MenuActionManager::connectNonProcessActions() const
     connectImageOp(m_ui->actionUndo, &ImageOperationsCoordinator::undo);
     connectImageOp(m_ui->actionRedo, &ImageOperationsCoordinator::redo);
     connectImageOp(m_ui->actionImage_History, &ImageOperationsCoordinator::imageHistory);
+    connectImageOp(m_ui->actionShow_In_File_Browser, &ImageOperationsCoordinator::showInFileBrowser);
 
     connectImageOp(m_ui->actionHorizontal_Mirror, &ImageOperationsCoordinator::horizontalMirror);
     connectImageOp(m_ui->actionVertical_Mirror, &ImageOperationsCoordinator::verticalMirror);
@@ -244,6 +245,7 @@ void MenuActionManager::connectNonProcessActions() const
     connectImageOp(m_ui->actionAstrometryInfo, &ImageOperationsCoordinator::imageAstrometryInfo);
     connectImageOp(m_ui->actionImage_EXIFViewer, &ImageOperationsCoordinator::exifViewer);
     connectImageOp(m_ui->actionPlateSolve, &ImageOperationsCoordinator::plateSolve);
+    connectImageOp(m_ui->actionAnnotateImage, &ImageOperationsCoordinator::annotateImage);
     connectImageOp(m_ui->actionSummary, &ImageOperationsCoordinator::imageSummary);
     connectImageOp(m_ui->actionFit_Images_To_Window, &ImageOperationsCoordinator::fitImageAllWindows);
 
@@ -556,6 +558,7 @@ void MenuActionManager::setActionIcons() const
     m_ui->actionExtract_Sequence->setIcon(iconManager->getIcon("movie"));
     m_ui->actionExport->setIcon(iconManager->getIcon("movie"));
     m_ui->actionRename->setIcon(iconManager->getIcon("edit"));
+    m_ui->actionShow_In_File_Browser->setIcon(iconManager->getIcon("folder_open"));
     m_ui->actionSave_File->setIcon(iconManager->getIcon("file_save"));
 
     m_ui->actionConvert_to_8_bit->setIcon(iconManager->getIcon(""));
@@ -604,6 +607,7 @@ void MenuActionManager::setActionIcons() const
     m_ui->actionFITSHeader->setIcon(iconManager->getIcon("header"));
     m_ui->actionAstrometryInfo->setIcon(iconManager->getIcon("summary"));
     m_ui->actionPlateSolve->setIcon(iconManager->getIcon("grid"));
+    m_ui->actionAnnotateImage->setIcon(iconManager->getIcon("panorama"));
     m_ui->actionSummary->setIcon(iconManager->getIcon("summary"));
 
     m_ui->actionSelect_Mask->setIcon(iconManager->getIcon(""));

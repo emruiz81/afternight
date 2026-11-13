@@ -1,0 +1,24 @@
+{
+  "id": "filters.actionMorphological_Transformation",
+  "window": "Morphological Transformation <{image}>",
+  "controls": [
+    {"label": "Operator", "kind": "combo", "object": "operatorSelector", "group": "Morphological Filter", "visible": true, "default": "Erosion (Minimum)", "options": ["Erosion (Minimum)", "Dilation (Maximum)", "Opening (Dilation + Erosion)", "Closing (Erosion + Dilation)", "Morphological Selection"]},
+    {"label": "Iterations", "kind": "spinbox", "object": "iterationsValue", "group": "Morphological Filter", "visible": true, "default": "1", "min": 1, "max": 20, "step": 1},
+    {"label": "Amount", "kind": "spinbox", "object": "amountValue", "group": "Morphological Filter", "visible": true, "default": "1.00", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Selection", "kind": "spinbox", "object": "selectionValue", "group": "Morphological Filter", "visible": true, "default": "0.50", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Size", "kind": "combo", "object": "seSizeSelector", "group": "Structuring Element", "visible": true, "default": "3 (9 elements)", "options": ["3 (9 elements)", "5 (25 elements)", "7 (49 elements)", "9 (81 elements)", "11 (121 elements)", "13 (169 elements)", "15 (225 elements)", "17 (289 elements)", "19 (361 elements)", "21 (441 elements)", "23 (529 elements)", "25 (625 elements)"]},
+    {"label": "Clear grid", "kind": "button", "object": "seClearButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Fill grid", "kind": "button", "object": "seFillButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Invert", "kind": "button", "object": "seInvertButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Circular structure", "kind": "button", "object": "seCircularButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Diamond structure", "kind": "button", "object": "seDiamondButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Cross structure", "kind": "button", "object": "seCrossButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Diagonal structure", "kind": "button", "object": "seDiagonalButton", "group": "Structuring Element", "visible": true, "default": ""},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Channel", "kind": "combo", "object": "channelSelector", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "Red", "Green", "Blue", "CIE L* (Lightness)", "CIE a*", "CIE b*", "CIE c*", "CIE h*", "CIE X", "CIE Y (Luminance)", "CIE Z", "HSL Hue", "HSL Saturation", "HSL Lightness", "HSV Hue", "HSV Saturation", "HSV Value", "YCbCr Luma", "YCbCr Blue Chroma", "YCbCr Red Chroma"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

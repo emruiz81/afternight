@@ -53,7 +53,10 @@ namespace an
 {
 namespace
 {
-/// The property under which a written image names the engine that produced it.
+/// The property under which earlier versions of this engine stated their version in every image they wrote.
+///
+/// The specification defines no such property - the unit's `XISF:CreatorApplication` names the application that wrote
+/// it, name and version - so it is no longer written, and a copy a source carries or an intent states is dropped.
 constexpr std::string_view kXisfSoftwareKeyword = "Instrument:Software:Name";
 
 /// The keywords of the structural cards the encoder consumes and restates.
@@ -125,8 +128,9 @@ bool commentaryKeyword(std::string_view keyword) noexcept
 /// Whether a card states a fact the encoder decides for itself from the frame it was handed.
 ///
 /// The XISF keywords are the structural facts a written image states as attributes and elements of the image
-/// rather than as properties, the property naming the writer, and the unit's own metadata, which every writer
-/// states for itself; they are consumed below and re-stated from the image actually being written. A FITS
+/// rather than as properties, and the unit's own metadata, which every writer states for itself; they are consumed
+/// below and re-stated from the image actually being written. The property earlier versions of this engine stated
+/// their version in is consumed too, and not written again: the unit's creator names the writer. A FITS
 /// structural keyword describes the FITS file a frame arrived in and says nothing true about the XISF file being
 /// written.
 bool managedXisfCard(CodecNamespace origin, std::string_view keyword) noexcept
@@ -485,10 +489,6 @@ openxisf::image_info outputImage(const CodecEncodeRequest& request, const RawFra
         }
         image.properties.set(xisfPropertyOf(card.keyword, card.value, card.comment));
     }
-    image.properties.set({.id = std::string(kXisfSoftwareKeyword),
-                          .value = std::string(kEngineVersionString),
-                          .format = {},
-                          .comment = "engine that wrote the file"});
     return image;
 }
 

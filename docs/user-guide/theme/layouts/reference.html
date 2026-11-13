@@ -1,0 +1,7 @@
+{#- A reference page: breadcrumbs, the head, then the body. Also the layout of a page whose kind is unknown. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = true %}
+{%- set wide = false %}
+{% include "partials/document.html" %}
+{% endblock %}

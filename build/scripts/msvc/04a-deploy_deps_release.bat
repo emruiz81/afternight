@@ -16,7 +16,7 @@ xcopy /Y /E ..\..\..\3rdparty\bin\msvc\release\*.dll ..\..\..\bin\msvc\release\
 echo ****************Deploying MSVC vcpkg deps****************
 REM Every library the binaries import is required: a copy that finds no file - a port the triplet does not
 REM hold - fails the step here rather than the first program that loads it.
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cfitsio.dll ..\..\..\bin\msvc\release\ || exit /b 1
+xcopy /Y ..\..\..\openfits\build-msvc-install\bin\openfits-1.0.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\pugixml.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\openxisf\build-msvc-install\bin\openxisf-1.1.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\zstd.dll ..\..\..\bin\msvc\release\ || exit /b 1
@@ -58,9 +58,6 @@ xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libx264-164.dll
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\aom.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libwebpmux.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\swresample-6.dll ..\..\..\bin\msvc\release\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\pthreadVC3.dll ..\..\..\bin\msvc\release\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm.dll ..\..\..\bin\msvc\release\ || exit /b 1
-xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\cmark-gfm-extensions.dll ..\..\..\bin\msvc\release\ || exit /b 1
 xcopy /Y ..\..\..\vcpkg\installed\%AFTERNIGHT_VCPKG_TRIPLET%\bin\libvpl.dll ..\..\..\bin\msvc\release\ || exit /b 1
 
 echo ****************Deploying crashpad_handler****************

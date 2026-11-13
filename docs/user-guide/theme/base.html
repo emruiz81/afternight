@@ -1,0 +1,62 @@
+{#- The frame every layout shares: the head, a skip link, the header, the stage stepper, the layout block and the
+    footer, then the guide's scripts and the site's extra scripts. The theme is set before the first paint by the
+    inline script, from the reader's stored choice or else the system's colour scheme. The guide's hooks put `guide`
+    (the data every page shares) and `gp` (this page's, none on the 404 page) in the context. -#}
+<!doctype html>
+<html lang="{{ config.theme.locale|default('en') }}" data-theme="dark" data-base="{{ base_url }}"
+      data-search-index="{{ 'search/search_index.js'|url }}" data-search-engine="{{ 'assets/guide/vendor/lunr-2.3.9.min.js'|url }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {%- block title %}
+  <title>{% if gp and gp.kind != 'home' %}{{ gp.title }} - {% endif %}AfterNight Guide</title>
+  {%- endblock %}
+  {%- if gp and gp.summary %}
+  <meta name="description" content="{{ gp.summary|e }}">
+  {%- elif config.site_description %}
+  <meta name="description" content="{{ config.site_description|e }}">
+  {%- endif %}
+  {%- if page and page.canonical_url %}
+  <link rel="canonical" href="{{ page.canonical_url }}">
+  {%- endif %}
+  <link rel="icon" href="{{ config.theme.favicon|url }}">
+  <script>
+    (function () {
+      var theme = null;
+      try { theme = window.localStorage.getItem("afternight-guide-theme"); } catch (error) { theme = null; }
+      if (theme !== "light" && theme !== "dark") {
+        theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ 'assets/guide/css/fonts.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/tokens.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/guide-tokens.css'|url }}">
+  <style>{{ guide.stage_css }}</style>
+  <link rel="stylesheet" href="{{ 'assets/guide/css/base.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/layout.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/markdown.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/components.css'|url }}">
+  <link rel="stylesheet" href="{{ 'assets/guide/css/print.css'|url }}" media="print">
+  {%- for path in config.extra_css %}
+  <link rel="stylesheet" href="{{ path|url }}">
+  {%- endfor %}
+</head>
+<body class="kind-{{ gp.kind if gp else 'error' }}">
+  <a class="skip-link" href="#content">Skip to content</a>
+  {% include "partials/header.html" %}
+  <div class="drawer-backdrop"></div>
+  {% block stepper %}{% include "partials/stepper.html" %}{% endblock %}
+  {% block layout %}{% endblock %}
+  {% include "partials/footer.html" %}
+  <script src="{{ 'assets/guide/js/theme.js'|url }}"></script>
+  <script src="{{ 'assets/guide/js/nav.js'|url }}"></script>
+  <script src="{{ 'assets/guide/js/search.js'|url }}"></script>
+  <script src="{{ 'assets/guide/js/copy.js'|url }}"></script>
+  <script src="{{ 'assets/guide/js/checklist.js'|url }}"></script>
+  {%- for script in config.extra_javascript %}
+  {{ script|script_tag }}
+  {%- endfor %}
+</body>
+</html>

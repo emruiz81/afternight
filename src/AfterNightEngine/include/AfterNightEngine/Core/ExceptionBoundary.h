@@ -44,7 +44,7 @@ namespace an
 /// a message.
 struct ExternalBoundary
 {
-    /// The library being called - `"cfitsio"`, `"libtiff"`, `"opencv"`. Must be a string literal or
+    /// The library being called - `"OpenFITS"`, `"libtiff"`, `"opencv"`. Must be a string literal or
     /// otherwise outlive the call; it is copied into the failure, so it need not outlive the
     /// failure. Null is treated as an unnamed library.
     const char* library = nullptr;
@@ -114,21 +114,21 @@ struct ExternalBoundary
 /// @code
 /// // The one place this library's own vocabulary exists.
 /// constexpr an::ExternalBoundary kBoundary{
-///     .library = "cfitsio", .operation = "FitsDecoder::open", .domain = an::ErrorDomain::Io};
+///     .library = "zlib", .operation = "InflateStream::open", .domain = an::ErrorDomain::Io};
 ///
-/// an::Status FitsDecoder::open(const char* path)
+/// an::Status InflateStream::open()
 /// {
-///     int libraryStatus = 0;
+///     int libraryStatus = Z_OK;
 ///     const an::Status thrown =
-///         an::callAcrossBoundary(kBoundary, [&] { fits_open_file(&m_file, path, 0, &libraryStatus); });
+///         an::callAcrossBoundary(kBoundary, [&] { libraryStatus = inflateInit(&m_stream); });
 ///     if (thrown.failed())
 ///     {
 ///         return thrown;
 ///     }
-///     if (libraryStatus != 0)
+///     if (libraryStatus != Z_OK)
 ///     {
 ///         return an::translateExternalCode(kBoundary, an::ErrorCode::InvalidData, libraryStatus,
-///                                          errorText(libraryStatus));
+///                                          m_stream.msg);
 ///     }
 ///     return an::Status::success();
 /// }

@@ -723,6 +723,46 @@ struct GeometryResult
     bool exactStoredValues = false;
 };
 
+/// Which destination samples a rotation or a warp writes.
+enum class WarpCoverage : std::uint8_t
+{
+    /// Every destination sample: the border rule stands in for whatever lies outside the source.
+    WholeDestination = 0u,
+
+    /// Only a destination sample whose position lies on the source's pixels (`liesOnPlanePixels`).
+    /// Every other one is left unwritten and its bit clear, whatever the border rule, which then
+    /// resolves only the taps of a position on the source that fall outside it: a frame placed on a
+    /// canvas holds nothing where it does not reach.
+    SourcePixels = 1u
+};
+
+/// Whether a value names a warp-coverage rule.
+///
+/// @param coverage the value to inspect.
+/// @return true for the whole destination or the source's pixels.
+[[nodiscard]] constexpr bool isWarpCoverage(WarpCoverage coverage) noexcept
+{
+    return static_cast<std::uint8_t>(coverage) <= static_cast<std::uint8_t>(WarpCoverage::SourcePixels);
+}
+
+/// Whether a position lies on a plane's pixels: from half a pixel before its first pixel centre up
+/// to, and not including, half a pixel past its last, on both axes. Pixel centres sit at integers,
+/// so a pixel's own centre lies on it and so does every position its area holds; a position on the
+/// far edge of the last pixel belongs to the next pixel, which the plane does not hold. A position
+/// that is not a number lies on nothing.
+///
+/// Thread-safe, allocation-free, and usable in a constant expression.
+///
+/// @param x the column position, pixel centres at integers.
+/// @param y the row position, pixel centres at integers.
+/// @param width the plane's columns.
+/// @param height the plane's rows.
+/// @return true when the position lies on one of the plane's pixels.
+[[nodiscard]] constexpr bool liesOnPlanePixels(double x, double y, std::uint32_t width, std::uint32_t height) noexcept
+{
+    return x >= -0.5 && x < static_cast<double>(width) - 0.5 && y >= -0.5 && y < static_cast<double>(height) - 0.5;
+}
+
 /// Executes a crop, resize, integer resample, rotation, warp or orientation plan over every channel.
 ///
 /// Source and destination must be disjoint and their layouts must agree with the plan's source and
@@ -762,6 +802,33 @@ transformImageGeometry(const ExecutionContext& execution, SampleType sampleType,
                        const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout,
                        const GeometryPlan& plan, const GeometrySelection& selection,
                        const ValidityMaskView<std::uint8_t>& destinationValidity);
+
+/// Executes a plan as the call above does, a rotation or a warp writing the destination samples a
+/// coverage names.
+///
+/// Under `WarpCoverage::SourcePixels` a rotation or a warp leaves every destination sample whose
+/// position lies off the source's pixels unwritten and its bit clear, and reads no window for it; a
+/// sample whose position lies on them is the one the call above writes, bit for bit. Only a rotation
+/// and a warp read the coverage: every other operation, and every operation under
+/// `WarpCoverage::WholeDestination`, is the call above.
+///
+/// @param execution the operation policy and engine-context lease.
+/// @param sampleType resident representation used by both images and both descriptors.
+/// @param source first byte of the source image.
+/// @param sourceLayout where source samples sit.
+/// @param destination first byte of the disjoint destination image.
+/// @param destinationLayout where destination samples sit.
+/// @param plan a checked plan whose source and destination descriptors match the call.
+/// @param selection source validity rule and optional packed bits.
+/// @param destinationValidity packed output bits, one shared plane or one per channel.
+/// @param coverage which destination samples a rotation or a warp writes.
+/// @return what the call above returns; or `ErrorCode::InvalidArgument` for a coverage outside its
+///         enumeration, before anything is written.
+[[nodiscard]] AFTERNIGHTENGINE_API Result<GeometryResult>
+transformImageGeometry(const ExecutionContext& execution, SampleType sampleType, const void* source,
+                       const ImageLayout& sourceLayout, void* destination, const ImageLayout& destinationLayout,
+                       const GeometryPlan& plan, const GeometrySelection& selection,
+                       const ValidityMaskView<std::uint8_t>& destinationValidity, WarpCoverage coverage);
 
 /// Geometry operations state a new descriptor, invalidate astrometry, drop source codec cards and
 /// withdraw an output intent. Their explicit output mask is the regenerated validity claim.

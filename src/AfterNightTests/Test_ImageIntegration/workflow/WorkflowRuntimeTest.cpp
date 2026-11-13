@@ -341,10 +341,10 @@ TEST_F(WorkflowRuntimeTest, ASuccessfulRunCommitsThroughTheArchiveItsComposerNam
     RecordingArchive::Calls calls;
     const QString reportDirectory = m_output.filePath(QStringLiteral("history/run"));
     ASSERT_TRUE(QDir().mkpath(reportDirectory));
-    calls.reportPath = QDir(reportDirectory).filePath(QStringLiteral("workflow_report.md"));
     QFile html(QDir(reportDirectory).filePath(QStringLiteral("workflow_report.html")));
     ASSERT_TRUE(html.open(QIODevice::WriteOnly));
     html.close();
+    calls.reportPath = html.fileName();
 
     QString archivedFor;
     StageObservation observation;

@@ -6,7 +6,6 @@
 #include "Test_ControlsAstrometry/AstrometryTestSupport.h"
 
 #include "app/BundledCatalogs.h"
-#include "controls/BrightStarAnnotationDisplayModule.h"
 
 #include <AfterNightEngine/Algorithms/Catalog/SkyCatalog.h>
 
@@ -18,11 +17,8 @@ namespace
 {
 
 using an::tests::astrometry::DirectExecution;
-using an::tests::astrometry::northUpPlane;
 using an::tests::astrometry::openExecution;
 using an::tests::astrometry::regionEntries;
-using an::tests::astrometry::solutionOf;
-using an::tests::astrometry::tangentPlaneCards;
 
 /// The bright stars of a catalog text, built as the overlay builds its catalog; fails the case when they are refused.
 std::optional<an::SkyCatalog> brightStars(const DirectExecution& direct, const std::string_view text)
@@ -47,7 +43,7 @@ an::CatalogRegionQuery brightQuery(const double ra, const double dec, const doub
 
 } // namespace
 
-TEST(BrightStarAnnotationDisplayModule, BundledCatalogFileLoadsSuccessfully)
+TEST(BrightStarCatalog, BundledCatalogFileLoadsSuccessfully)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -69,7 +65,7 @@ TEST(BrightStarAnnotationDisplayModule, BundledCatalogFileLoadsSuccessfully)
     EXPECT_TRUE(contains_name("Rigel"));
 }
 
-TEST(BrightStarAnnotationDisplayModule, QueryRegionFiltersByMagnitude)
+TEST(BrightStarCatalog, QueryRegionFiltersByMagnitude)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -86,7 +82,7 @@ TEST(BrightStarAnnotationDisplayModule, QueryRegionFiltersByMagnitude)
     EXPECT_EQ(bright_only.front()->commonName, "Sirius");
 }
 
-TEST(BrightStarAnnotationDisplayModule, QueryRegionNearRaWrapAround)
+TEST(BrightStarCatalog, QueryRegionNearRaWrapAround)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -100,7 +96,7 @@ TEST(BrightStarAnnotationDisplayModule, QueryRegionNearRaWrapAround)
     EXPECT_EQ(matches.front()->commonName, "Wrap Star");
 }
 
-TEST(BrightStarAnnotationDisplayModule, AStarWithNoMagnitudeIsNeverLabelledUnderALimit)
+TEST(BrightStarCatalog, AStarWithNoMagnitudeIsNeverLabelledUnderALimit)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -111,44 +107,7 @@ TEST(BrightStarAnnotationDisplayModule, AStarWithNoMagnitudeIsNeverLabelledUnder
     EXPECT_TRUE(regionEntries(direct->execution(), *catalog, brightQuery(101.3, -16.7, 2.0, 6.5)).empty());
 }
 
-TEST(BrightStarAnnotationDisplayModule, FormatLabelPrefersCommonNameThenBayerThenId)
-{
-    an::CatalogEntry common;
-    common.identifier = "HIP 32349";
-    common.commonName = "Sirius";
-    common.designation = "alf CMa";
-    EXPECT_EQ(an::ui::detail::formatBrightStarAnnotationLabel(common), QStringLiteral("Sirius"));
-
-    an::CatalogEntry bayer_only;
-    bayer_only.identifier = "HIP 27989";
-    bayer_only.designation = "alf Ori";
-    EXPECT_EQ(an::ui::detail::formatBrightStarAnnotationLabel(bayer_only), QStringLiteral("alf Ori"));
-
-    an::CatalogEntry id_only;
-    id_only.identifier = "HIP 12345";
-    EXPECT_EQ(an::ui::detail::formatBrightStarAnnotationLabel(id_only), QStringLiteral("HIP 12345"));
-}
-
-TEST(BrightStarAnnotationDisplayModule, ProjectionMapsStarToTheCentreOfItsPixel)
-{
-    // CRPIX counts pixel centres from one, so (500, 400) is the engine's (499.5, 399.5): the centre of the pixel at
-    // 499, 399.
-    const auto cards = tangentPlaneCards(northUpPlane(500.0, 400.0, 101.2872, -16.7161, 0.01));
-    const std::optional<an::WcsSolution> wcs = solutionOf(cards, 1000u, 800u);
-    ASSERT_TRUE(wcs.has_value());
-
-    an::CatalogEntry star;
-    star.identifier = "HIP 32349";
-    star.commonName = "Sirius";
-    star.coordinate = {.rightAscensionDegrees = 101.2872, .declinationDegrees = -16.7161};
-
-    const auto projected = an::ui::detail::projectBrightStarAnnotation(*wcs, star, 1.0);
-    ASSERT_TRUE(projected.isValid());
-    EXPECT_NEAR(projected.center.x(), 499.5, 1e-9);
-    EXPECT_NEAR(projected.center.y(), 399.5, 1e-9);
-}
-
-TEST(BrightStarAnnotationDisplayModule, LoadFromCsvRejectsInvalidRows)
+TEST(BrightStarCatalog, LoadFromCsvRejectsInvalidRows)
 {
     std::unique_ptr<DirectExecution> direct = openExecution();
     ASSERT_NE(direct, nullptr);
@@ -158,16 +117,4 @@ TEST(BrightStarAnnotationDisplayModule, LoadFromCsvRejectsInvalidRows)
                                     "HIP 1,Sirius,alf CMa,not_a_number,-16.7161,-1.46,A1V\n");
     ASSERT_FALSE(catalog.hasValue());
     EXPECT_FALSE(std::string(catalog.status().message()).empty());
-}
-
-TEST(BrightStarAnnotationDisplayModule, FormatLabelReturnsEmptyForStarWithAllBlankFields)
-{
-    an::CatalogEntry empty_star;
-    EXPECT_TRUE(an::ui::detail::formatBrightStarAnnotationLabel(empty_star).isEmpty());
-
-    an::CatalogEntry whitespace_star;
-    whitespace_star.identifier = "   ";
-    whitespace_star.commonName = "  ";
-    whitespace_star.designation = " ";
-    EXPECT_TRUE(an::ui::detail::formatBrightStarAnnotationLabel(whitespace_star).isEmpty());
 }

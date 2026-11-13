@@ -121,7 +121,8 @@ enum class LogLevel : char
 /// are removed, numbered from `maxFiles + 1` upward until the first number with no file. Call it from the
 /// thread that starts the process, before any other thread logs.
 /// @param logFile The log file; its directory must exist. spdlog throws `spdlog::spdlog_ex` when it cannot
-/// open the file.
+/// open the file, and nothing is created. Empty starts the logger without a file sink: the records reach the
+/// ring buffer and the session console only.
 /// @param maxFiles How many rotated files to keep besides the active one.
 /// @param maxFileSizeMb The size in mebibytes at which the file rotates.
 /// @param maxRingBufferLines How many recent records the ring buffer keeps.
@@ -167,12 +168,15 @@ AFTERNIGHTPLATFORM_API void clearSessionConsoleSink();
 /// Points the file sink at a new file with new rotation limits and a new threshold, without a restart.
 ///
 /// The sink's slot in the logger keeps its identity: only its target changes. Pending records are flushed to
-/// the old file first, and the change is logged to the new one. Does nothing before initialization.
+/// the old file first, and the change is logged to the new one. A new file that cannot be opened changes
+/// nothing: the log stays in its file, with a warning that names the one refused. Does nothing before
+/// initialization.
 /// @param logFile The new log file; its directory must exist.
 /// @param maxFiles How many rotated files to keep besides the active one.
 /// @param maxFileSizeMb The size in mebibytes at which the file rotates.
 /// @param level The file sink's threshold, clamped to the enumeration.
-AFTERNIGHTPLATFORM_API void reconfigureFileSink(const std::string& logFile, std::size_t maxFiles,
+/// @return False when the new file cannot be opened; true otherwise, before initialization too.
+AFTERNIGHTPLATFORM_API bool reconfigureFileSink(const std::string& logFile, std::size_t maxFiles,
                                                 std::size_t maxFileSizeMb, LogLevel level);
 
 /// Hands one record directly to `sink`, bypassing the process logger.

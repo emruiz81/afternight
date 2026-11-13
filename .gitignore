@@ -40,8 +40,12 @@
 !/build/scripts/tools/rawspeed/CMakeLists.txt
 !LICENSES/*.txt
 !docs/user-guide/requirements.txt
-!docs/user-guide/docs/en/assets/javascripts/iframe-worker/LICENSE-MIT.txt
+!docs/user-guide/requirements-capture.txt
 !docs/user-guide/docs/en/assets/javascripts/mathjax/LICENSE-Apache-2.0.txt
+!docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/LICENSE-Apache-2.0.txt
+!docs/user-guide/docs/en/assets/javascripts/mathjax/fonts/mathjax-newcm-font/GUST-FONT-LICENSE.txt
+!docs/user-guide/theme/assets/guide/fonts/LICENSE-*.txt
+!docs/user-guide/theme/assets/guide/vendor/LICENSE-*.txt
 !build/scripts/tools/fuzz_targets.txt
 !build/scripts/tools/sanitizer_matrix.txt
 !build/scripts/tools/leak_suppressions.txt
@@ -97,15 +101,17 @@ python/python/**
 python/python*.zip
 *.autosave
 Qt6/**
-# OpenXISF, fetched from its published release and built by build/scripts/*/_build_openxisf.*
+# OpenXISF and OpenFITS, fetched from their published releases and built by build/scripts/*/_build_openxisf.* and
+# build/scripts/*/_build_openfits.*
 /openxisf/
+/openfits/
 AfterNight.code-workspace
 *.pyc
 __pycache__/
 *.whl
 catalogs/**
 
-# Documentation build output and MkDocs Material privacy/offline plugin cache
+# Documentation build output
 docs/user-guide/site/
 docs/user-guide/.venv/
 .cache/

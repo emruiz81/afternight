@@ -31,7 +31,7 @@ namespace an::ui
 /// The version of the product, which the application states: the crash reports, the about and system information
 /// dialogs, the dashboard and the extension manager's minimum-version checks read it as the application's version.
 /// The engine reports its own beside it.
-inline constexpr char kProductVersion[] = "1.0.1";
+inline constexpr char kProductVersion[] = "1.1.0";
 
 /// The settings the application's session is opened with under the stored limits: the product's codecs, and the
 /// thread ceiling and memory budget the limits state.

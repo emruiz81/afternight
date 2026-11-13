@@ -54,8 +54,10 @@
 #include <AfterNightEngine/Algorithms/Drizzle/DrizzleModel.h>
 #include <AfterNightEngine/Algorithms/Drizzle/DrizzleStackSource.h>
 #include <AfterNightEngine/Algorithms/Geometry/Geometry.h>
+#include <AfterNightEngine/Algorithms/Normalization/DrizzleLocalNormalization.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackExecutor.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackQuality.h>
+#include <AfterNightEngine/Algorithms/Stacking/StackSource.h>
 #include <AfterNightEngine/Algorithms/Stacking/StackingModel.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/IO/CodecIO.h>
@@ -370,7 +372,7 @@ struct GroupPlan
     QString policy;
 
     /// Lights left out and why.
-    QStringList dropped;
+    std::vector<DroppedLight> dropped;
 };
 
 struct PlanOutcome
@@ -876,6 +878,27 @@ struct RejectionScans
     return record;
 }
 
+/// The record of a master made of several stacks - a stars and comet composite, an exposure merge - which no one
+/// stack's report describes: the lights the master combines, each with the weight its own stack gave it. The list is
+/// what names a light as one the master was made of; the figures of one stack are left unstated.
+///
+/// @param lights the lights the master combines.
+/// @param weights the weight of each, in the lights' order; a light with none is given one.
+[[nodiscard]] StackQualityRecord combinedLightsRecord(const std::vector<FrameId>& lights,
+                                                      const std::vector<double>& weights)
+{
+    StackQualityRecord record;
+    record.valid = true;
+    record.inputFrameCount = static_cast<std::uint64_t>(lights.size());
+    record.lightWeights.reserve(lights.size());
+    for (std::size_t index = 0u; index < lights.size(); ++index)
+    {
+        record.lightWeights.push_back(StackLightWeight{.light = lights[index].canonicalPath(),
+                                                       .weight = index < weights.size() ? weights[index] : 1.0});
+    }
+    return record;
+}
+
 /// A stack run over a frame source: the result, the frames' rejection rates, which frames stood out, and what brought
 /// the frames to the reference.
 struct StackRun
@@ -1036,6 +1059,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     bool anyGroupSucceeded = false;
     std::vector<IntegrationGroupResult> completedGroupResults;
     completedGroupResults.reserve(groups.size());
+    std::vector<ReusedIntegrationGroup> reusedGroups;
+    std::vector<FailedIntegrationGroup> failedGroups;
     QSet<QString> processedGroupKeys;
     QStringList stageWarnings;
 
@@ -1051,6 +1076,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
+            cancelled.reusedGroups = std::move(reusedGroups);
+            cancelled.failedGroups = std::move(failedGroups);
             return cancelled;
         }
         if (group.lightFiles.empty())
@@ -1206,7 +1233,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     ImageIntegration::DrizzleGroupGeometry& geometry = *resolution.geometry;
                     for (const QString& missing : geometry.withoutTransform)
                     {
-                        plan.dropped << QStringLiteral("%1 (no registration transform)").arg(missing);
+                        plan.dropped.push_back(
+                            DroppedLight{.light = missing, .reason = DroppedLightReason::NoRegistrationTransform});
                     }
                     if (geometry.intersectionReplaced)
                     {
@@ -1312,7 +1340,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                              });
                             if (star == products.starBaseProducts.end())
                             {
-                                plan.dropped << QStringLiteral("%1 (no star base product)").arg(light.canonicalPath());
+                                plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                                    .reason = DroppedLightReason::NoStarBaseProduct});
                                 continue;
                             }
                             stage_utils::StackFrameRead read;
@@ -1353,7 +1382,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                          });
                         if (output == products.registeredOutputs.end() || !output->succeeded)
                         {
-                            plan.dropped << QStringLiteral("%1 (no comet-aligned image)").arg(light.canonicalPath());
+                            plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                                .reason = DroppedLightReason::NoCometAlignedImage});
                             continue;
                         }
                         stage_utils::StackFrameRead read;
@@ -1555,7 +1585,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     if (record == outputs.end() || !record->second.succeeded || record->second.outputPath.isEmpty() ||
                         !QFileInfo::exists(record->second.outputPath))
                     {
-                        plan.dropped << QStringLiteral("%1 (no registered output)").arg(light.canonicalPath());
+                        plan.dropped.push_back(DroppedLight{.light = light.canonicalPath(),
+                                                            .reason = DroppedLightReason::NoRegisteredOutput});
                         continue;
                     }
                     const std::optional<FileRevisionStamp> revision = currentRegisteredOutputRevision(record->second);
@@ -1618,11 +1649,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 return *planned.result;
             }
             GroupPlan& plan = *planned.plan;
-            if (!plan.dropped.isEmpty())
+            if (!plan.dropped.empty())
             {
+                QStringList dropped;
+                for (const DroppedLight& light : plan.dropped)
+                {
+                    dropped << QStringLiteral("%1 (%2)").arg(light.light, droppedLightReasonText(light.reason));
+                }
                 warn(QStringLiteral("Skipping %1 light frame(s): %2")
-                         .arg(plan.dropped.size())
-                         .arg(plan.dropped.join(QStringLiteral("; "))));
+                         .arg(dropped.size())
+                         .arg(dropped.join(QStringLiteral("; "))));
             }
             if (plan.frames.frames.size() < 2u)
             {
@@ -1678,7 +1714,11 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 reporter.logger().operationDetail(QStringLiteral("Skipping"), QStringLiteral("Output up-to-date"));
                 report(1.0f, QStringLiteral("Lights stacking (skipped)"));
                 reporter.logger().groupCompleted(groupIndex, totalGroups, groupLabel, groupTiming.elapsedNowMs());
-                return StageResult::success();
+                // The group leaves no result, so the run is told its master stands as it is.
+                StageResult reused = StageResult::success();
+                reused.reusedGroups.push_back(
+                    ReusedIntegrationGroup{.groupKey = group.groupKey.toString(), .outputPath = outputPath});
+                return reused;
             }
             if (canSkip)
             {
@@ -1714,9 +1754,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                               QStringLiteral("Lights: %1 | Stacked: %2")
                                                   .arg(static_cast<int>(inputFrames.size()))
                                                   .arg(static_cast<int>(stackedLights.size())));
-            reporter.logger().operationDetail(
-                QStringLiteral("Settings"),
-                stage_utils::describeStackingSettings(group.stacking, plan.route == GroupRoute::Drizzle));
+            reporter.logger().operationDetail(QStringLiteral("Settings"),
+                                              stage_utils::describeStackingSettings(group.stacking));
             reporter.logger().operationDetail(QStringLiteral("Stack method"), methodRan);
             reporter.logger().operationDetail(QStringLiteral("STACKING reference frame"),
                                               stage_utils::describeReferenceSelection(group.stacking, referenceFrames));
@@ -1818,28 +1857,23 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             std::optional<ImageIntegration::NormalizationCoefficientSet> coefficients;
             if (sanitized.normalizationMode != NormalizationMode::None && !sanitized.hdr.enabled)
             {
-                // A drizzled Local group's stack fits its surfaces itself and applies no document, so none is read: one
-                // an earlier run measured, under settings the group may no longer state, would only be said refused.
-                if (!ImageIntegration::localNormalizationFittedByDrizzledStack(group))
+                const QString path = stage_utils::normalizationArtifactPath(manifest, group);
+                ImageIntegration::NormalizationDocumentRead read =
+                    ImageIntegration::readStackNormalizationCoefficients(path, group, referenceFrames);
+                if (read.coefficients.has_value())
                 {
-                    const QString path = stage_utils::normalizationArtifactPath(manifest, group);
-                    ImageIntegration::NormalizationDocumentRead read =
-                        ImageIntegration::readStackNormalizationCoefficients(path, group, referenceFrames);
-                    if (read.coefficients.has_value())
-                    {
-                        coefficients = std::move(read.coefficients);
-                    }
-                    else if (read.failure == ImageIntegration::NormalizationDocumentFailure::OtherSettings)
-                    {
-                        warn(QStringLiteral("The normalization coefficients were measured under settings other than "
-                                            "the group's; the stack measures its own."));
-                    }
-                    else if (QFileInfo::exists(path))
-                    {
-                        warn(QStringLiteral("The normalization coefficients could not be read (%1); the stack measures "
-                                            "its own.")
-                                 .arg(read.message));
-                    }
+                    coefficients = std::move(read.coefficients);
+                }
+                else if (read.failure == ImageIntegration::NormalizationDocumentFailure::OtherSettings)
+                {
+                    warn(QStringLiteral("The normalization coefficients were measured under settings other than the "
+                                        "group's; the stack measures its own."));
+                }
+                else if (QFileInfo::exists(path))
+                {
+                    warn(QStringLiteral("The normalization coefficients could not be read (%1); the stack measures its "
+                                        "own.")
+                             .arg(read.message));
                 }
                 shape.estimator = ImageIntegration::scaleEstimatorFor(sanitized.scaleEstimator);
                 if (wantsLocal)
@@ -1860,14 +1894,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             }
 
             // Runs one stack over the frames a source reads, the normalization the group's coefficients state where
-            // they describe those frames.
-            const auto runStack = [&](an::StackFrameSource& source, const an::ImageDescriptor& input,
-                                      const std::vector<std::uint32_t>& frames, const bool cometLayer,
-                                      const std::optional<std::vector<std::uint32_t>>& normalizationFrames,
-                                      const NormalizationMeasurementPlane measuredPlane,
-                                      const std::optional<ImageIntegration::DrizzleAnalysisPlaneRecord>& drizzlePlane,
-                                      const std::optional<std::pair<std::uint32_t, std::uint32_t>>& measuredExtent)
-                -> an::Result<StackRun> {
+            // they describe those frames. A source whose frames lie on the plane the coefficients were measured on
+            // enlarged - a drizzled group's - names where, and a local document is read there.
+            const auto runStack =
+                [&](an::StackFrameSource& source, const an::ImageDescriptor& input,
+                    const std::vector<std::uint32_t>& frames, const bool cometLayer,
+                    const std::optional<std::vector<std::uint32_t>>& normalizationFrames,
+                    const NormalizationMeasurementPlane measuredPlane,
+                    const std::optional<ImageIntegration::DrizzleAnalysisPlaneRecord>& drizzlePlane,
+                    const std::optional<std::pair<std::uint32_t, std::uint32_t>>& measuredExtent,
+                    const std::optional<an::StackPlaneMapping>& documentPlane) -> an::Result<StackRun> {
                 StackRun run;
                 StackShape runShape = shape;
                 const auto frameCount = static_cast<std::uint32_t>(frames.size());
@@ -1929,8 +1965,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                                  .arg(reason));
                     }
                     else if (prepared->local.has_value() &&
-                             (drizzlePlane.has_value() ||
-                              runShape.normalization == an::StackNormalizationScope::Global))
+                             runShape.normalization == an::StackNormalizationScope::Global)
                     {
                         prepared.reset();
                     }
@@ -2000,6 +2035,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     if (prepared->local.has_value())
                     {
                         contract.localNormalization = &*prepared->local;
+                        contract.localNormalizationPlane = documentPlane;
                     }
                 }
                 run.rates.assign(frameCount, an::FrameRejectionRate{});
@@ -2091,17 +2127,6 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                         run.normalization =
                             QStringLiteral("The normalization stage's coefficients, reference %1").arg(reference);
                     }
-                    else if (drizzlePlane.has_value() &&
-                             runShape.normalization == an::StackNormalizationScope::LocalThenGlobal)
-                    {
-                        // A drizzled Local group has no document: the stack fits the surfaces on the drizzled lights,
-                        // reading none of the analysis the normalization stage makes.
-                        run.normalization =
-                            QStringLiteral("Local normalization fitted by the drizzled stack, reference %1; the "
-                                           "reference strategy, the evaluation, the PSF flux scale and the hot-pixel "
-                                           "and noise filters do not apply")
-                                .arg(reference);
-                    }
                     else
                     {
                         run.normalization = QStringLiteral("Measured by the stack, reference %1").arg(reference);
@@ -2146,7 +2171,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     return described.status();
                 }
                 sayFrameReads(source);
-                return runStack(source, *described, frames, false, frames, plan.plane, std::nullopt, std::nullopt);
+                return runStack(source, *described, frames, false, frames, plan.plane, std::nullopt, std::nullopt,
+                                std::nullopt);
             };
 
             std::vector<std::uint32_t> allFrames(stackedLights.size());
@@ -2159,6 +2185,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 refusal(an::ErrorCode::Internal, QStringLiteral("the group was not stacked"));
             std::optional<an::Image<float>> exposureMerged;
             std::optional<StarsPlusCometCompositeOutput> composite;
+            // The weight each light took in the stack it was part of, for a master made of several stacks.
+            std::vector<double> combinedLightWeights;
             std::optional<an::ImageMetadata> referenceMetadata;
             StackQualityRecord quality;
             std::optional<DrizzleMasterGeometry> drizzleMaster;
@@ -2256,9 +2284,26 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 // plane measured - at the lights' own level - apply at the level they were measured at.
                 const double drizzleScale = drizzleModel->request().parameters.scale;
                 stage_utils::ScaledStackFrameSource atLightsLevel(*drizzledSource, drizzleScale * drizzleScale);
-                stacked = runStack(atLightsLevel, drizzleModel->outputDescriptor(), allFrames, false, allFrames,
-                                   NormalizationMeasurementPlane::DrizzleAnalysisPlane, drizzlePlane,
-                                   std::pair{geometry.canvas.analysisWidth, geometry.canvas.analysisHeight});
+                // The normalization stage measured the lights on the canvas's analysis plane, which the drizzled lights
+                // lie on enlarged by the scale: a local document is read where each drizzled pixel lies on it.
+                std::optional<an::StackPlaneMapping> documentPlane;
+                if (wantsLocal)
+                {
+                    an::Result<an::StackPlaneMapping> mapped =
+                        an::drizzleLocalNormalizationPlane(geometry.canvas, drizzleScale);
+                    if (!mapped.hasValue())
+                    {
+                        return engineFailure(mapped.status(), IntegrationErrorCode::DrizzleFailed,
+                                             QStringLiteral("The drizzle canvas does not lie on the plane its lights "
+                                                            "were normalized on"),
+                                             outputPath);
+                    }
+                    documentPlane = *mapped;
+                }
+                stacked =
+                    runStack(atLightsLevel, drizzleModel->outputDescriptor(), allFrames, false, allFrames,
+                             NormalizationMeasurementPlane::DrizzleAnalysisPlane, drizzlePlane,
+                             std::pair{geometry.canvas.analysisWidth, geometry.canvas.analysisHeight}, documentPlane);
                 masterGuard = geometry.canvas.edgeGuard;
                 masterWidth = geometry.canvas.outputWidth;
                 masterHeight = geometry.canvas.outputHeight;
@@ -2300,7 +2345,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     }
                     an::Result<StackRun> run = runStack(
                         source, *described, allFrames, cometLayer, cometLayer ? std::nullopt : std::optional(allFrames),
-                        NormalizationMeasurementPlane::RegisteredCanvas, std::nullopt, std::nullopt);
+                        NormalizationMeasurementPlane::RegisteredCanvas, std::nullopt, std::nullopt, std::nullopt);
                     if (!run.hasValue())
                     {
                         return run.status();
@@ -2338,6 +2383,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 if (starRun.has_value())
                 {
                     stacked = std::move(*starRun);
+                    // Every light is in both layers; the weight said of each is its weight among the stars.
+                    combinedLightWeights = stacked->frameWeights;
                 }
             }
             else if (sanitized.hdr.enabled)
@@ -2368,6 +2415,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 std::vector<an::Image<float>> bucketStacks;
                 // Which samples each bucket holds: its stack's mask, or the samples its one light's rule admits.
                 std::vector<an::ValidityMask> bucketSamples;
+                // A light's weight is the one its exposure's stack gave it; the one light of a bucket has one.
+                combinedLightWeights.assign(stackedLights.size(), 1.0);
                 for (const ImageIntegration::ExposureBucket& bucket : *buckets)
                 {
                     if (bucket.frames.size() == 1u)
@@ -2414,6 +2463,16 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                     {
                         return engineFailure(image.status(), IntegrationErrorCode::StackingFailed,
                                              QStringLiteral("An exposure bucket could not be stacked"), outputPath);
+                    }
+                    if (run->frameWeights.size() == bucket.frames.size())
+                    {
+                        for (std::size_t index = 0u; index < bucket.frames.size(); ++index)
+                        {
+                            if (bucket.frames[index] < combinedLightWeights.size())
+                            {
+                                combinedLightWeights[bucket.frames[index]] = run->frameWeights[index];
+                            }
+                        }
                     }
                     bucketStacks.push_back(std::move(*image));
                     bucketSamples.push_back(std::move(run->result->mask));
@@ -2507,8 +2566,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                 {
                     referenceMetadata = *source.firstMetadata();
                 }
-                stacked =
-                    runStack(source, *described, allFrames, false, allFrames, plan.plane, std::nullopt, std::nullopt);
+                stacked = runStack(source, *described, allFrames, false, allFrames, plan.plane, std::nullopt,
+                                   std::nullopt, std::nullopt);
             }
 
             if (!exposureMerged.has_value() && !stacked.hasValue())
@@ -2636,10 +2695,12 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             if (composite.has_value())
             {
                 master = an::Result<an::Image<float>>(std::move(composite->composite));
+                quality = combinedLightsRecord(stackedLights, combinedLightWeights);
             }
             else if (exposureMerged.has_value())
             {
                 master = an::Result<an::Image<float>>(std::move(*exposureMerged));
+                quality = combinedLightsRecord(stackedLights, combinedLightWeights);
             }
             else
             {
@@ -2651,15 +2712,6 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
                              .arg(sanitized.weighting.trimmed(),
                                   QString::fromLatin1(
                                       an::stackFrameWeightingDispositionName(engineReport.weighting.disposition))));
-                }
-                // The engine weighs a channel by its own width only where every light carries one; the registration
-                // measures one width per light, so a stored per-channel choice weighs each channel by the light's.
-                if (shape.weighting == an::StackWeighting::Fwhm && sanitized.perChannelFwhmWeighting &&
-                    !engineReport.weighting.perChannel)
-                {
-                    warn(QStringLiteral("Group '%1' asks for per-channel FWHM weighting, but the registration measures "
-                                        "one star width per frame, so each channel was weighed by its frame's width.")
-                             .arg(groupLabel));
                 }
                 quality = qualityRecordOf(engineReport, static_cast<std::uint32_t>(stackedLights.size()),
                                           stacked->rates, scans);
@@ -2759,6 +2811,7 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
             groupResult.registrationGroupKey = group.registrationGroupKey.toString();
             groupResult.registrationInputPolicy = plan.policy;
             groupResult.lightFrameCount = static_cast<int>(stackedLights.size());
+            groupResult.droppedLights = plan.dropped;
             groupTiming.beginFinalization();
 
             const bool embedsWcs = stage_utils::supportsEmbeddedWcsOutput(outputPath);
@@ -3242,6 +3295,10 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             completedGroupResults.push_back(std::move(result));
         }
+        for (auto& reused : groupResult.reusedGroups)
+        {
+            reusedGroups.push_back(std::move(reused));
+        }
         appendUniqueWarnings(stageWarnings, groupResult.warnings);
         if (groupResult.isSuccess())
         {
@@ -3251,10 +3308,19 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         {
             StageResult cancelled = StageResult::cancelled();
             cancelled.groupResults = std::move(completedGroupResults);
+            cancelled.reusedGroups = std::move(reusedGroups);
+            cancelled.failedGroups = std::move(failedGroups);
             return cancelled;
         }
         if (groupResult.status == StageResult::Status::Failure)
         {
+            // A group that failed before its master's finalization made no result: the run is told which group
+            // failed and why, so its report does not find a planned master with no record at all.
+            if (groupResult.groupResults.empty())
+            {
+                failedGroups.push_back(FailedIntegrationGroup{.groupKey = group.groupKey.toString(),
+                                                              .error = groupResult.error.toUserString()});
+            }
             errorReport.addError(groupResult.error);
             reporter.logger().warning(QStringLiteral("Group '%1' failed: %2 - continuing with remaining groups")
                                           .arg(groupLabel, groupResult.error.toUserString()));
@@ -3273,6 +3339,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
     {
         StageResult cancelled = StageResult::cancelled();
         cancelled.groupResults = std::move(completedGroupResults);
+        cancelled.reusedGroups = std::move(reusedGroups);
+        cancelled.failedGroups = std::move(failedGroups);
         return cancelled;
     }
 
@@ -3299,6 +3367,8 @@ StageResult LightsStackingStage::execute(const WorkflowManifest& manifest, Cance
         outcome.warnings = stageWarnings;
     }
     outcome.groupResults = std::move(completedGroupResults);
+    outcome.reusedGroups = std::move(reusedGroups);
+    outcome.failedGroups = std::move(failedGroups);
     if (executionCounterAccumulator() != nullptr && countersTouched)
     {
         outcome.engineExecutionCounters = engineCounters;

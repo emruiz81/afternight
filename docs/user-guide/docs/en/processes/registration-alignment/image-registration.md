@@ -1,576 +1,1189 @@
+---
+kind: process
+stage: register
+menu: Process > Preprocess > Image Registration
+summary: >-
+  Matches the stars of a set of calibrated frames with a reference frame, records each frame's transform and figures,
+  and writes every included frame resampled onto one shared grid, ready for stacking.
+data_in: linear
+data_out: linear
+destructive: false
+preview: none
+sequences: false
+masks: none
+external: >-
+  Optional: a configured plate solver for Auto-solve unsolved frames, and a Gaia catalog installed in the settings for
+  Enrich with Gaia catalog
+glance:
+  enabled: >-
+    Always. The window opens without an image and chooses its frames itself. Register needs two frames and an output
+    directory. Align needs a registration that answers the frames and settings as they are, and two included,
+    registered frames.
+  inputs: >-
+    Still image files of one width, height, pixel type and channel count: calibrated mono, color-filter or RGB lights.
+    No mask, and no sequence or video: extract its frames to files first.
+  outputs: >-
+    The file registration_metrics.db in the output directory, with every frame's stars, figures and transform, and on
+    Align one 32-bit floating-point FITS file for each included, registered frame, named after it with _reg added. The
+    source files are not changed.
+  state: Calibrated linear lights of one target, before normalization and stacking.
+derived: true
+---
 # Image Registration
 
-## Purpose and expected result
+Image Registration finds where each frame of a set lies on a
+[reference frame](../../reference/glossary.md#reference-frame), then resamples the frames onto one grid so that a
+stack can add them. **Register** detects the stars of every frame, pairs them with the reference's stars and fits a
+transform to the pairs. It records the transforms and each frame's figures in the output directory and lists them in
+the table. **Align** writes each included, registered frame onto the reference's grid as a new 32-bit floating-point
+[FITS](../../reference/glossary.md#fits) file. The source files are never changed. Use the window to choose the
+reference and the transform yourself, look at each frame's figures and leave out weak frames, without the whole
+Image Integration workflow.
 
-![Image Registration with completed frame metrics and alignment controls](../../assets/images/processes/registration-alignment/image-registration.png)
-
-*The populated frame list shows the reference and completed registration metrics
-alongside the registration, alignment, and output controls.*
-
-Image Registration is the focused batch tool for measuring transforms between
-compatible still frames and, in a separate step, resampling included successful
-frames onto one output geometry. Use it after calibration when you want to
-inspect per-frame registration metrics, choose a reference and transform family,
-exclude weak frames, or align files without running the complete
-[Image Integration](../stacking-integration/image-integration.md) workflow.
-
-**Register** detects or correlates features, computes transforms, and writes
-`registration_metrics.db`; it normally does not write aligned science images.
-**Align** consumes current matching registration state and writes new
-`<source-stem>_reg.fits` files. Original inputs are not modified. Comet/Asteroid
-Tracking is the exception: **Register** also materializes comet-aligned products
-after a valid track is fitted.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Preprocess > Image Registration** |
-| Enabled when | The top-level window is always available; no active image is required. The Registration card is usable with at least two listed frames, and **Register** reports an error until an **Output Directory** is selected. Alignment needs the output directory, current recorded registration state and at least two included successful frames. |
-| Inputs | Supported still-image files with identical width, height, pixel type, and channel count. Calibrated linear mono, CFA, or RGB lights are the intended input. A fixed reference, an embedded WCS solution or one found with **Solve...**, a configured solver, and a local Gaia catalog can contribute to particular paths. |
-| Outputs | `registration_metrics.db` containing group state, star cache, metrics, and transforms, shared with Image Integration; and one 32-bit floating FITS `<source-stem>_reg.fits` per included aligned frame. No chromatic-aberration cache files are written. Comet mode writes role-qualified products under `comet_aligned/<run-id>/`. Sources remain unchanged. |
-| Recommended image state | Calibrated linear stills before normalization and stacking. Do not register stretched display exports when calibrated linear sources exist. |
-| Preview support | Static preview of the selected source only. Registration and alignment settings do not render a calculated preview. **Blink Compare...** provides a separate source-comparison view. |
-| Sequence support | No direct SER, video, or image-list sequence input. Extract/export sequence frames to still files first. |
-| Mask support | Not supported. No active application mask is read, transformed, or blended. |
-| External dependencies | Star matching and phase correlation are native engine paths. **Auto-solve unsolved frames** needs a configured ASTAP, local/online Astrometry.net, or internal Gaia solver route. **Enrich with Gaia catalog** needs a ready local Gaia catalog and valid WCS. No external service is contacted unless the selected plate-solver configuration does so. |
+```figure
+image: ../../assets/images/processes/registration-alignment/image-registration.webp
+alt: >-
+  The Image Registration window. On the left, a preview of one frame above the Frame List, a table of the 35 frames, five of them in view, with the
+  columns File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point and RMS, and under it a row of buttons
+  from Add to Clear All with the Current, Registered and Reference counts. On the right, the Registration card with
+  Method at Star Matching, Transformation at Homography, Reference at Manual and 1, Min Star Pairs, Max Stars per
+  Frame, three check boxes, Skip already-registered frames ticked and the Register button; the Alignment card with
+  Standard chosen, Interpolation at Auto and the Align button; Extended Settings and the Output Directory with its
+  path. Reset and Close run along the bottom.
+caption: >-
+  Image Registration after Register and Align on 35 calibrated lights of NGC 253, every setting at its default: the
+  table holds each frame's figures, and the first frame is the reference.
+pins:
+  - {n: 2, x: 9.6, y: 62.8}
+  - {n: 3, x: 70.9, y: 55.8}
+  - {n: 4, x: 69.1, y: 10.3}
+  - {n: 5, x: 71.1, y: 19.8}
+  - {n: 6, x: 68.2, y: 51.7}
+  - {n: 7, x: 69.8, y: 29.7}
+  - {n: 8, x: 58.5, y: 82.7}
+  - {n: 9, x: 68.4, y: 35.8}
+  - {n: 10, x: 69.8, y: 45.8}
+```
 
 ## Before you start
 
-- Calibrate the frames first and keep them linear. This window does not select
-  or apply bias, dark, flat, cosmetic-correction, or normalization settings.
-- Use one compatible batch. Registration and alignment stop when width/height,
-  pixel type, or channel count differs; gain/ISO, offset, exposure, filter,
-  camera, CFA pattern, and session are displayed or hashed but are not batch
-  compatibility gates here.
-- Overlap is counted in stars, not as a share of the frame. A frame - a mosaic
-  panel, or one that drifted - that shares at least **Min Star Pairs** stars
-  with the reference, or with a frame registered near it, is registered by
-  them, however small a part of its stars they are.
-- Choose a dedicated output directory; it is created if it does not exist. It
-  owns `registration_metrics.db`, registration cache state, and aligned outputs.
-  Existing destinations are overwritten without a prompt, and sources from
-  different folders with the same stem collide.
-- For CFA data, confirm **CFA Pattern** and the demosaicing **Method** in
-  **Extended Settings... > Advanced Settings...**. Star detection and alignment
-  debayer CFA inputs on load; saved registered outputs are RGB rather than CFA.
-- Configure [Plate Solving settings](../../interface/settings-dialog.md#plate-solving-settings) before
-  enabling auto-solve, and install a local Gaia pack before enabling catalog
-  enrichment. A frame's solution - from its own cards, **Solve...**, or the
-  automatic solve - is used for Gaia enrichment and never replaces a transform.
-  A SIP distortion the frame's own cards state is used: star matching corrects
-  the frame's stars by it, and **Align** undoes it while resampling.
-- Expect no WCS on standalone aligned outputs. **Align** copies each source's
-  metadata but drops its plate solution (WCS) cards, because the warp
-  invalidates them; plate solve an aligned or final product when you need sky
+- Calibrate the frames first and keep them linear: this window applies no bias, dark, flat, cosmetic correction or
+  normalization. Leave color-filter frames as mosaics. The window
+  [debayers](../../reference/glossary.md#debayer) each one as it reads it, the aligned files are RGB, and the mosaics
+  stay on disk for any step that needs them.
+- Every frame must have the width, height, [pixel type](../../reference/glossary.md#pixel-type) and channel count of
+  the others. Gain, offset, exposure, filter, camera, [CFA](../../reference/glossary.md#cfa) pattern and session are
+  not compared.
+- Give each set an empty output directory of its own: it holds the registration and the aligned files.
+- For a mosaic, choose **Mosaic** in **Extended Settings...** before you register. The window's own **Alignment** card
+  stays disabled until a registration is recorded, and a switch to or from **Mosaic** needs a new one.
+- **Auto-solve unsolved frames** needs a plate solver set up in [Settings](../../interface/settings-dialog.md), and
+  **Enrich with Gaia catalog** an installed [Gaia](../../reference/glossary.md#gaia) catalog. A frame's
+  [plate solution](../../reference/glossary.md#plate-solution) gives it catalog figures, never its transform.
+- The aligned files carry no [WCS](../../reference/glossary.md#wcs) cards, which the warp would make wrong, and of the
+  source's other cards only its observing context. Plate solve the stack, or an aligned frame, when you need sky
   coordinates.
 
-## Procedure
+## Steps
 
-1. Open **Process > Preprocess > Image Registration**. The empty top-level
-   window is available without an active document.
-2. Select **Add** or **Add Folder**, then inspect the **File**, **Filter**,
-   **Exposure**, and preview for every intended still. The folder dialog's
-   **Frame Type** and **Filter Name** narrow the files it adds; remove any other
-   unintended rows manually. File headers are read in the
-   background, and the window then reports how many files were added, skipped
-   (already listed or filtered out) and could not be read.
-3. Select **Browse** to choose a dedicated **Output
-   Directory**. If that directory contains a matching recorded registration in
-   `registration_metrics.db`, the process restores metrics/transforms; otherwise
-   the table remains **Not registered**.
-4. Leave **Method** at **Star Matching**, **Transformation** at **Homography**,
-   **Reference** at **Manual**, **Min Star Pairs** at `10`, and **Max Stars
-   per Frame** at `2000` for a first source-derived trial. Pick a sharp,
-   representative reference row.
-5. Open **Extended Settings...** only if detection, CFA/demosaic, chromatic
-   aberration, phase-correlation, or comet settings need adjustment. Select
-   **OK** to copy accepted dialog values back to the main window.
-6. Select **Register**. Confirm that successful rows show **Registered** plus
-   Stars, FWHM, SNR, Ecc., Zero Point where Gaia enrichment succeeded, and RMS.
-   A frame matched by fewer star pairs than **Min Star Pairs** is retried through the frames
-   already registered nearest it, and is marked failed only when none of them matches it either;
-   a match of fewer than ten candidate pairs is also refused when under four fifths of them agree.
-   Failed rows remain inspectable and can be reached with **Next Failed**.
-7. Select at least two questionable rows (Ctrl-click or Shift-click) and use
-   **Blink Compare...**. Press `X` on a weak current frame, which excludes it in
-   the window when the comparator closes, or use **Exclude selected frames** in the table context
-   menu. Alternatively set quality limits and select **Apply
-   Thresholds**. Exclusions affect subsequent reuse/reference/alignment but do
-   not delete files.
-8. Choose **Standard**, **Mosaic**, or **Intersection**, then select an
-   **Interpolation** method. **Auto** resolves to **Lanczos4** in this window.
-   Changing the interpolation, or between **Standard** and **Intersection**,
-   after **Register** keeps the recorded registration; switching to or from
-   **Mosaic** makes it stale, so **Align** stays disabled until you register
-   again. Decide on **Mosaic** before registering.
-9. Select **Align**. Confirm `<source-stem>_reg.fits` exists for every included,
-   successfully registered frame. Reopen representative outputs at 100% and
-   verify common geometry, borders, star shape, 32-bit floating precision, and
-   linear state, and plate solve where sky coordinates are needed, before [Image Stacking](../stacking-integration/image-stacking.md).
+1. **Open the window.** Choose **Process > Preprocess > Image Registration**. No image needs to be open. The window
+   opens with an empty **Frame List**, and its **Registration** card stays disabled until it lists two frames.
+2. **Add the frames.** Choose **Add** and pick the calibrated lights, or **Add Folder** to take a folder's images. The
+   table lists each file with its filter and exposure, **Status** reads "Not registered", and an arrow marks the first
+   row as the reference.
+3. **Choose the output directory.** Choose **Browse** and pick an empty folder of its own for this set. When the
+   folder already holds a registration of these frames with these settings, the table shows it at once.
+4. **Choose how the frames are matched.** Leave **Method** at **Star Matching** and **Transformation** at
+   **Homography** for most deep-sky data. Choose **Similarity** for frames that only shift and turn, and a polynomial
+   for a wide field whose corners do not line up.
+5. **Choose the reference.** Type the row number of a sharp, well-guided frame in the **Reference** box, or
+   right-click its row and choose **Set as reference**. The arrow moves to that row.
+6. **Check the extended settings.** For color-filter frames, open **Extended Settings... > Advanced Settings...** and
+   check **CFA Pattern** and **Method**. For a mosaic, choose **Mosaic** there now. Choose **OK** in each dialog to
+   keep the values.
+7. **Register.** Choose **Register**. A progress window follows the frames, then each row reads **Registered** or
+   **Failed** with its **Stars**, **FWHM**, **SNR**, **Ecc.** and **RMS**, and the line under the output directory
+   says how many registered.
+8. **Look at the frames.** Sort by **File**, **Filter** or **Exposure**, step through failures with **Next Failed**,
+   and select two rows or more for **Blink Compare...**. Exclude a weak frame from its row's menu, or set limits under
+   **Quality Thresholds** and choose **Apply Thresholds**. Excluded rows are marked, and need no new registration.
+9. **Choose the canvas.** Under **Alignment**, keep **Standard**, or choose **Intersection** to keep only the part
+   every frame covers. Leave **Interpolation** at **Auto**. Neither choice needs a new registration.
+10. **Align.** Choose **Align**. A progress window follows the frames. The output directory then holds one
+    `<name>_reg.fits` for each included, registered frame, and the line under it reads "Registration and alignment
+    completed successfully".
 
-## Complete parameter and action reference
+## Controls
 
-### Preview, import, frame list, and inspection
+The preview pane's zoom, channel and display mode work as in [Process Windows](../../interface/process-windows.md),
+which also says what ++esc++, the window's kept size and its kept values do. This window has no **Apply**:
+**Register** and **Align** are its runs, and each works on files.
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Fit To Window | Preview toolbar action | First loaded image is fit automatically | None | One action | Rescales the selected source to the preview area | Requires a readable selected source | Display-only resampling; no registration effect | Selected source preview | View-local |
-| Zoom In | Preview toolbar action | Fit-to-window scale after first load | None | Repeated action up to the shared viewer maximum | Increases display magnification | Requires a readable source | Helps inspect stars but shows less field | Selected source preview | View-local |
-| Zoom Out | Preview toolbar action | Fit-to-window scale after first load | None | Repeated action down to the shared viewer minimum | Decreases display magnification | Requires a readable source | Hides pixel-scale defects at low scale | Selected source preview | View-local |
-| Zoom 100% | Preview toolbar action | Fit-to-window scale after first load | None | One action | Displays one image pixel per screen pixel | Requires a readable source | Preferred for judging interpolation artifacts | Selected source preview | View-local |
-| View Channel | Preview selector | Grayscale for mono; RGB for RGB/debayered CFA | None | Shared mono/RGB/component channel list | Changes display composition only | Populated after load | Different components expose different star/color artifacts | Selected source preview | View-local |
-| Display Mode | Preview selector | Linear | None | Linear, Autostretch | Applies a display-only stretch when Autostretch is selected | Populated after load | Autostretch can reveal faint stars but does not change registration input | Selected source preview | View-local |
-| Autostretch Settings | Preview dialog action | Disabled in Linear mode | Shared viewer state loads when opened | Opens shared settings | Tunes display stretch | Autostretch mode only | Aggressive display settings can exaggerate noise | Selected source preview | Viewer-scoped |
-| Show statistics | Checkable preview action | On | None | On/off | Shows or hides selected-source statistics | Values need a loaded source | Diagnostic only | Selected source preview | View-local |
-| Image Preview canvas | Mouse interaction | Quick zoom enabled | Global zoom modifier/sensitivity may differ | Left-drag quick zoom; middle-drag pan; configured wheel zoom | Navigates the selected source | Requires a readable source | No transform or output effect | Selected source preview | View position is not process JSON |
-| Add | File-picker action | Empty list | Last picker directory may be remembered | Any supported still-image codec; duplicate full paths are skipped | Reads file headers in the background; the window stays responsive | Always available while the window is open | Large lists cost metadata I/O; unreadable files do not stop the others, and the window reports how many files were added, skipped (already listed or filtered out) and could not be read | Still-file list only | The list is saved with the window's settings; picker path may be remembered |
-| Add Folder | Folder picker and options action | No folder | Last directory is remembered | Existing directory followed by options below | Scans supported image extensions | Always available | Recursive scans can be I/O-heavy | Still-file list only | Folder path remembered; options per invocation |
-| Include subfolders (recursive) | Checkbox | On | None | On/off | Includes descendant directories in the scan | Add Folder dialog only | Broader scans can import mixed sessions/roles | Folder import | Per invocation |
-| Frame Type | Selector | All | None | All, Light, Dark, Flat, Bias, Dark Flat | Keeps only files whose frame-type metadata matches; Bias also accepts OFFSET, Dark excludes Flat, Flat excludes Dark, and Dark Flat needs both | Add Folder dialog only | A file whose metadata states no type is read as Light | Folder import | Per invocation |
-| Filter Name | Text | Empty | None | Case-insensitive exact match after trimming | Empty accepts all filters; text keeps only files whose filter metadata equals it | Add Folder dialog only | Missing or misspelled filter metadata excludes a file | Folder import | Per invocation |
-| Frame List table | Sortable multi-row selection table (Ctrl-click/Shift-click) | Empty | None | File, Filter, Exposure, Status, Stars, FWHM, SNR, Ecc., Zero Point, RMS | Selecting loads the source preview; clicking a supported header reorders the list and reference index | Populated after import | Reordering changes the 1-based reference row and execution order; source files are unchanged | Whole still batch | The list is saved with the window's settings and imported again, in the order it was saved, when it reopens; status comes from the registration database |
-| Remove / Remove | Button/context action | Disabled | None | Selected rows | Removes every selected row from this window only | Needs a selection | No source-file loss; changes registration identity | List and later execution | Not serialized |
-| Remove Failed | Button | Disabled | None | All rows whose registration failed | Removes failed rows from the table, not disk | Enabled after failures exist | Convenient cleanup but hides diagnostics and changes the persisted group hash | List only | Not serialized |
-| Move Up / Move Down | Buttons/context actions | Disabled | None | Current row within bounds | Reorders the list and keeps reference tracking synchronized | Enabled when movement is possible | Affects current row/reference numbering, not pixel math | List/execution order | Not serialized |
-| Next Failed | Button | Disabled | None | Cycles failed rows | Selects the next failed source for preview | Enabled after a failed registration | Diagnostic only | Frame list/preview | Not persisted |
-| Blink Compare... | Button/context action | Disabled | Dialog size may restore | At least two selected rows | Opens a blinking comparison over the selected frames; `Space` plays/pauses, arrows navigate, `X` excludes current, `1`–`9` assigns a dialog-only rating | Needs at least two selected files | Loading/display can cost I/O/memory; frames excluded in the comparator are excluded in the window when it closes | Selected still sources | Exclusions remain process-session only; ratings are not returned |
-| Current / Registered / Reference | Read-only counters | `0`, `0/0`, `0` | Restored matching DB state can repopulate registered/reference values | Derived 1-based values and summary | Reports selected row, success/failure/exclusion counts, and reference row | Always visible | No processing effect | List state | Derived, not serialized |
-| Clear All | Button | Disabled | None | All rows | Clears the list, the preview, and the counters, stops files still being read - none of them is added afterwards - and forgets the frames' exclusions and registration results; a registration recorded in the output directory is read back when frames are listed again | Enabled with rows | Does not delete sources, aligned outputs, or the on-disk metrics DB | Current window | Not serialized |
-| Set as reference | Context action | Current reference disabled | None | One row | Changes the manual reference spin box | Row context menu | Makes current transforms stale until Register runs again | Registration reference | Session only |
-| Exclude selected frames / Include selected frames | Context actions | Included | None | Selected rows; Include is enabled when any selection is manually/threshold excluded | Exclusion removes rows from reuse scoring and alignment; Include clears both manual and threshold exclusion for selected rows | Context menu | Too few included successes disables alignment | Session/list only | Not serialized or stored in DB |
-| Solve... | Context action | Available | Plate-solver settings are global | One selected source | Opens Plate Solve over the frame in the static preview; when that window closes, the solution it applied is kept for this frame's registration in this window | Needs a readable row | May invoke the configured local/online solver; the source file is not rewritten; the solution is used for Gaia enrichment, not for the transform | Selected still | Held by the window for this session only |
-| Delete From Disk | Context action | No | None | Selected row plus confirmation | Removes the row, then requests permanent file deletion | Context menu only | Destructive; a failed deletion is reported | Source file and list | Not serialized |
+### Image Registration
 
-### Registration, alignment, quality, output, and window actions
+```controls
+window: Image Registration
+controls:
+  - name: Method
+    kind: combo
+    default: Star Matching
+    options: [Star Matching, Phase Correlation, Comet / Asteroid Tracking]
+    effect: >-
+      Chooses how a frame is placed on the reference. **Star Matching** pairs its stars with the reference's and fits
+      **Transformation** to the pairs. **Phase Correlation** measures a shift alone, from the whole picture - the green channel of a color frame. **Comet /
+      Asteroid Tracking** follows a moving object you mark in **Track Comet**, so that the object stays still and the
+      stars trail.
+    enabled: >-
+      **Phase Correlation** and **Comet / Asteroid Tracking** set **Reference** to **Manual** and disable it.
+      **Phase Correlation** also disables **Transformation**.
+    tradeoff: >-
+      Star matching follows a shift, a turn, a change of scale and what else **Transformation** allows. Phase
+      correlation suits frames that differ by a shift only, and judges no answer, so any shift it measures is taken.
+      Comet tracking needs a `DATE-OBS` card on every frame and two marked positions of the object.
+    scope: The whole list. Phase correlation still detects every frame's stars first, though its shift does not use them.
+    persistence: Kept for the next window. **Reset** returns **Star Matching**.
+  - name: Transformation
+    kind: combo
+    default: Homography
+    options: [Similarity, Affine, Homography, Polynomial 2, Polynomial 3, Polynomial 4, Auto]
+    effect: >-
+      Chooses what a frame's transform may do. **Similarity** shifts, turns and scales, **Affine** also shears and
+      scales each axis apart, and **Homography** also follows perspective. **Polynomial 2** to **Polynomial 4** refine
+      a homography with a correction for the optics' distortion. **Auto** keeps the homography unless a polynomial is
+      clearly better.
+    range: >-
+      A polynomial order needs as many star pairs as it has terms, 6, 10 and 15 for orders 2, 3 and 4. A frame matched
+      by fewer keeps the linear transform its stars matched, and the log file says so.
+    enabled: >-
+      With **Star Matching**. **Phase Correlation** disables it. It stays enabled for **Comet / Asteroid Tracking**,
+      which does not read it.
+    tradeoff: More freedom needs more well-spread pairs, and on few or poor pairs it can bend the frame where it should not.
+    persistence: Kept for the next window. **Reset** returns **Homography**.
+  - name: Reference
+    object: referenceModeSelector
+    kind: combo
+    default: Manual
+    options: [Manual, Auto]
+    effect: >-
+      **Manual** takes the frame whose row number the box beside it holds. **Auto** chooses the frame with the best
+      star figures, from more stars, a higher SNR, a smaller FWHM and rounder stars, before the frames are matched.
+    enabled: Disabled, at **Manual**, for **Phase Correlation** and **Comet / Asteroid Tracking**.
+    tradeoff: >-
+      Every transform is measured against the reference, so a soft or trailed reference weakens them all. **Auto**
+      leaves out excluded frames and, with several named filters, compares each frame with the others of its filter.
+    scope: >-
+      Choosing **Auto** picks a frame at once from the figures the table holds, and **Register** picks again from the
+      figures of its own detection. The row it chose is the reference afterwards.
+    persistence: Kept for the next window. **Reset** returns **Manual**.
+  - name: Reference
+    object: referenceImageValue
+    kind: spinbox
+    default: "1"
+    widget: {min: 1, max: 100000, step: 1}
+    effect: Makes the frame of that row the reference. An arrow marks its row, and the **Reference** count shows the number.
+    range: From 1 to the number of listed frames. The reference stays the same file when the rows are sorted or moved, and its number follows it.
+    enabled: With **Reference** at **Manual**.
+    tradeoff: >-
+      The reference fixes the grid **Standard** writes onto, its framing and its size. A frame near the middle of the
+      session and free of trailing serves best.
+    persistence: The reference file is kept for the next window and recorded with the registration. Choosing another makes a recorded registration out of date.
+  - name: Min Star Pairs
+    kind: spinbox
+    default: "10"
+    widget: {min: 5, max: 10000, step: 1}
+    effect: >-
+      Sets the fewest matched star pairs a frame needs, with the reference or with a frame registered near it, however
+      small a part of its stars they are. A frame matched by fewer is marked **Failed**.
+    range: >-
+      A match of fewer than ten candidate pairs also needs four fifths of them to fit its transform, unless either
+      frame holds 1,000 stars or more.
+    enabled: Read by **Star Matching**. It stays enabled for the other methods, which do not read it.
+    tradeoff: Higher refuses sparse fields and narrowband frames. Lower accepts weaker matches.
+    persistence: Kept for the next window. **Reset** returns 10.
+  - name: Max Stars per Frame
+    kind: spinbox
+    default: "2000"
+    widget: {min: 10, max: 20000, step: 1}
+    effect: >-
+      Sets how many stars are detected in each frame and offered for matching, the brightest first. A changed value
+      detects the frames again.
+    tradeoff: Higher helps a crowded field and costs detection and matching time. Lower can leave parts of the field without stars.
+    scope: Every method's detection, though only **Star Matching** pairs the stars.
+    persistence: Kept for the next window. **Reset** returns 2000.
+  - name: Auto-solve unsolved frames
+    kind: check
+    default: "Off"
+    effect: >-
+      Before the stars are detected, sends each included frame whose header holds no plate solution, and that you did
+      not solve with **Solve...**, to the plate solver set up in the settings, one frame at a time.
+    enabled: >-
+      When ASTAP, a local or online astrometry.net, or the internal Gaia solver is set up. Without one the box shows
+      off, and the choice you made is kept for when one is.
+    tradeoff: >-
+      Each solve adds time, and an online solver needs the network. A frame that fails to solve is logged as a warning,
+      and the registration goes on.
+    scope: A solution serves **Enrich with Gaia catalog** and the arcsecond **RMS** only. It never places a frame, and it is not written to the file.
+    persistence: Kept for the next window. **Reset** returns off. The solver's own settings are the application's.
+  - name: Enrich with Gaia catalog
+    kind: check
+    default: "Off"
+    effect: >-
+      After matching, pairs the stars of each frame that has a plate solution with the Gaia catalog, and fills the
+      **Zero Point** column. The frame's limiting magnitude, the scatter of its zero point and its count of catalog
+      stars are recorded too, and its **RMS** is given in arcseconds.
+    enabled: >-
+      When a Gaia catalog is installed and ready. Without one the box shows off, and the choice you made is kept for
+      when one is.
+    tradeoff: Adds the catalog's work for each solved frame. A frame without a solution gets no catalog figures.
+    scope: >-
+      The frames whose stars this run detected. A frame whose stars are reused but has no catalog figures is detected
+      again. Stars are placed in the catalog at the frame's date of observation.
+    persistence: Kept for the next window. **Reset** turns it on, shown ticked while a catalog is ready.
+  - name: Chromatic aberration correction
+    kind: check
+    default: "Off"
+    effect: >-
+      Before detection, moves the red and blue channels of a color frame onto the green one, with the settings of
+      **Extended Settings...**. The frame is changed in memory only, and no file is written.
+    enabled: Always. A grayscale frame is left as it is, and a channel whose correction fails is left uncorrected, with a warning in the log file.
+    tradeoff: >-
+      Stars are detected in the green channel, which the correction does not move, and **Align** reads the original
+      files. So the correction changes neither the transforms nor the aligned files, and only adds time.
+    persistence: Kept for the next window with its settings. **Reset** returns off.
+  - name: Skip already-registered frames
+    kind: check
+    default: "On"
+    effect: >-
+      Reuses what the output directory holds of an earlier registration of these frames. With the same frames and
+      settings, the whole registration is reused. Otherwise the stars it found are, where the detection settings and
+      the files have not changed. Off detects and matches every frame again.
+    tradeoff: On saves most of the time of a second run. A record that does not answer the frames and settings is not used.
+    scope: The registration database in the output directory. Excluded frames that failed do not stand in the way of a reuse.
+    persistence: Kept for the next window. **Reset** turns it on.
+  - name: Clear Registered Data
+    kind: button
+    default: ""
+    effect: Deletes this set's registration from the database in the output directory, without asking, and clears the figures from the table.
+    enabled: When the table holds a registration and no run works.
+    scope: The records of these frames only. The aligned files and the comet files stay.
+  - name: Register
+    kind: button
+    default: ""
+    effect: >-
+      Detects the stars of every frame, solves and corrects frames where those options ask, chooses the reference,
+      matches each frame with it, fits its transform and records the result in `registration_metrics.db` in the output
+      directory. The table then shows what was recorded.
+    enabled: >-
+      With two frames or more and no run working. Without an output directory the run stops at once with an error.
+    tradeoff: >-
+      Each frame is read whole and debayered when it is a mosaic, which costs time and memory. Cancel stops the run,
+      and a stopped run records nothing.
+    scope: Every listed frame, excluded ones too. With **Comet / Asteroid Tracking**, it also writes the comet-aligned files.
+    persistence: >-
+      The record replaces any earlier one of these frames. Changing **Method**, **Transformation**, **Reference** or the
+      reference, **Min Star Pairs**, **Max Stars per Frame**, **Auto-solve unsolved frames**, **Enrich with Gaia
+      catalog**, **Chromatic aberration correction**, a detection setting, the frames, or a switch to or from
+      **Mosaic** makes it out of date, and **Align** waits for a new one.
+  - name: Standard / Mosaic / Intersection
+    kind: radio
+    default: Standard
+    options: [Standard, Mosaic, Intersection]
+    effect: >-
+      Chooses the canvas the aligned frames share. **Standard** is the reference's own frame. **Mosaic** is the
+      smallest rectangle that holds every frame. **Intersection** is the rectangle every frame covers.
+    range: >-
+      **Standard** and **Mosaic** round the canvas up to whole pixels and **Intersection** rounds it down. An
+      intersection the frames do not share is refused.
+    enabled: With a registration that answers the frames and settings, and two included, registered frames.
+    tradeoff: >-
+      **Standard** gives a predictable size, and a frame's shifted part falls outside it. **Mosaic** keeps everything
+      at the largest size, time and disk. **Intersection** gives clean edges and drops the strips some frames miss.
+    persistence: >-
+      Kept for the next window. **Reset** returns **Standard**. A change between **Standard** and **Intersection** keeps
+      the registration. A switch to or from **Mosaic** makes it out of date, and disables this card until you register
+      again.
+  - name: Interpolation
+    kind: combo
+    default: Auto
+    options: [Auto, Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
+    effect: Chooses how each aligned pixel is sampled from the frame. **Auto** is **Lanczos4**.
+    enabled: With the canvas choice.
+    tradeoff: >-
+      **Nearest Neighbor** is blocky, and **Bilinear** fast and slightly soft. **Bicubic** and **Lanczos4** keep fine
+      detail and can ring beside bright stars. **Pixel Area Relation** averages, and the two **Bit Exact** choices give
+      the same result on every computer.
+    scope: Every channel of every aligned frame. A change keeps the registration.
+    persistence: Kept for the next window. **Reset** returns **Auto**.
+  - name: Align
+    kind: button
+    default: ""
+    effect: >-
+      Plans the canvas, then reads each included, registered frame, maps every pixel of the canvas back into it through
+      its transform and writes the result as `<name>_reg.fits` in the output directory, in 32-bit floating point.
+    enabled: >-
+      With an output directory, a registration that answers the frames and settings, every frame registered or failed,
+      two included, registered frames, and no run working.
+    tradeoff: >-
+      Time and memory grow with the canvas and the interpolation. Each file holds three channels for a color or
+      debayered frame. A stopped or failed run keeps the files it finished, and the frame it was writing leaves no file.
+    scope: The included, registered frames, in the list's order. Failed and excluded frames are left out.
+    persistence: Replaces a file of the same name without asking. Nothing of the window's settings changes.
+  - name: Extended Settings...
+    kind: button
+    default: ""
+    effect: Opens **Registration Settings**, the full settings of the registration and the alignment, and the detection, color-filter and comet settings behind them.
+    enabled: With a frame in the list and no run working.
+    persistence: The values you accept with **OK** replace the window's.
+  - name: Output Directory
+    kind: readout
+    default: ""
+    effect: Shows the folder that holds the registration database and the aligned files. You cannot type in it.
+    range: A folder that no longer exists is made again by the next **Register** or **Align**.
+    persistence: Kept for the next window. **Reset** leaves it.
+  - name: Browse
+    kind: button
+    default: ""
+    effect: >-
+      Opens a folder dialog and makes the folder you choose the output directory. A registration of these frames and
+      settings found there is read and shown.
+    range: >-
+      The dialog starts at the present folder, else at the last folder chosen, else at the first frame's folder. It
+      offers existing folders.
+    tradeoff: A folder shared by two sets mixes their files, and two sources of one name write one aligned file.
+  - name: Status line
+    kind: readout
+    default: ""
+    effect: >-
+      Says where the set stands, under the output directory. "Registration needs update", "Select at least two
+      included, successfully registered frames to align", "Images ready to align", "Registration completed. N images
+      registered." with "M failed." after it when some failed, and "Registration and alignment completed successfully".
+    enabled: Empty while the list is.
+  - name: Frame List
+    kind: readout
+    default: ""
+    effect: >-
+      Lists each frame with its **File**, **Filter**, **Exposure** in seconds and **Status**, and after **Register**
+      its **Stars**, **FWHM** in pixels, **SNR**, **Ecc.**, **Zero Point** and **RMS**. A figure the frame does not have
+      reads "-".
+    range: >-
+      **Status** reads "Not registered", "Registered", "Failed", "Excluded manually" or "Excluded by quality
+      thresholds". An arrow marks the reference, a red mark a failed row and a struck-through circle an excluded one.
+      **RMS** is in pixels, or in arcseconds with a catalog match, and the reference's reads "-". In pixels, compare it
+      between frames as how well each transform fits.
+    enabled: >-
+      Selecting a row shows its frame in the preview. ++ctrl++ and ++shift++ select several. Clicking **File**,
+      **Filter** or **Exposure** sorts the list by it in descending order, and a second click reverses the order. The
+      other columns do not sort.
+    persistence: The frames and their order are kept for the next window, which reads their headers again. The figures come from the database.
+    note: Hover over a file name to see its full path.
+  - name: Add
+    kind: button
+    default: ""
+    effect: >-
+      Opens a file dialog and adds the image files you choose. Their headers are read away from the window, which stays
+      responsive.
+    range: A file already listed is passed over. A message says how many were added, passed over and could not be read, when any were not added.
+    enabled: While no run works.
+    persistence: The dialog remembers its folder, shared with **Add Folder**.
+  - name: Add Folder
+    kind: button
+    default: ""
+    effect: Opens a folder dialog, then **Add Folder Options**, and adds the image files of the folder that pass those options.
+    tradeoff: A scan of subfolders reads every file's header and can take long on a large tree.
+    enabled: While no run works.
+  - name: Remove
+    kind: button
+    default: ""
+    effect: Takes the selected rows out of the list. The files stay on disk.
+    enabled: With a frame in the list. It does nothing while a run works.
+    scope: Removing a frame changes the set, so a recorded registration is out of date.
+  - name: Remove Failed
+    kind: button
+    default: ""
+    effect: Takes every failed row out of the list, and says how many with "N failed images have been removed from the table (not from the disk)".
+    enabled: When a frame failed and no run works.
+    tradeoff: The list is then another set, so **Register** runs again, and reuses the stars it found.
+  - name: Move frame up
+    kind: button
+    default: ""
+    effect: Moves the selected row up one place.
+    enabled: When the row can move.
+    scope: The list's order, which **Align** follows. The column sorting is cleared, and the reference keeps its file.
+  - name: Move frame down
+    kind: button
+    default: ""
+    effect: Moves the selected row down one place.
+    enabled: When the row can move.
+  - name: Next Failed
+    kind: button
+    default: ""
+    effect: Selects the next failed row after the selected one, from the top again after the last, and shows its frame.
+    enabled: When a frame failed.
+  - name: Blink Compare...
+    kind: button
+    default: ""
+    effect: Opens the **Blink Comparator** over the selected frames.
+    enabled: With two rows or more selected.
+  - name: Current, Registered and Reference
+    kind: readout
+    default: 0, 0/0, 0
+    effect: >-
+      Give the selected row's number, the registered frames out of the listed ones with how many failed and how many
+      are excluded, and the reference's row number.
+  - name: Clear All
+    kind: button
+    default: ""
+    effect: >-
+      Empties the list, the preview and the counts, stops the files still being read, and forgets the exclusions and
+      the registration the window holds.
+    enabled: With a frame in the list. It does nothing while a run works.
+    scope: The window only. No file is deleted, and a registration recorded in the output directory is read back when you list the frames again.
+```
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Method | Selector | Star Matching | Restored process JSON can select a prior method | Star Matching, Phase Correlation, Comet / Asteroid Tracking | Chooses triangle/star fitting, translation-only phase correlation, or moving-object track fitting | Phase Correlation and comet require a fixed reference; transformation is disabled for Phase Correlation | Star matching handles rotation/scale; phase correlation is useful for translation-dominant structured images; comet mode has strict timestamp/observation needs | Whole still batch | Saved with the window's settings; Reset -> Star Matching |
-| Transformation | Selector | Homography | Restored | Similarity, Affine, Homography, Polynomial 2, Polynomial 3, Polynomial 4, Auto | Adds degrees of geometric freedom; polynomial choices add residual distortion terms, and a fixed order needs as many star pairs as it has terms - 6, 10 and 15 for orders 2, 3 and 4 - so a frame matched by fewer keeps the linear transform its stars matched | Star Matching uses it; Phase Correlation disables it; main UI leaves it enabled for comet but comet execution ignores it | Extra freedom needs more well-distributed inliers and can overfit weak matches | Registration transforms | Saved; Reset -> Homography |
-| Reference | Selector | Manual | Restored process JSON can select Auto | Manual, Auto | Manual uses the 1-based row; Auto picks the reference from the star-detection figures before matching, in a single pass | Auto is disabled for Phase Correlation/comet | A weak reference degrades all relative transforms | Registration batch | `referenceMode`; resolved frame is persisted in DB |
-| Reference frame number | Integer row | `1` after rows load | Matching DB state restores its resolved frame | `1` to current row count, step 1 | Selects fixed reference | Disabled in Auto mode; required by Phase Correlation/comet | Reference framing and quality affect every transform/canvas | Registration batch | Session; resolved path stored in DB |
-| Min Star Pairs | Integer | `10` | Restored | `5`–`10000`, step 1 | The fewest matched star pairs a frame needs, against the reference or a frame registered near it, however small a part of its stars they are; a frame matched by fewer is marked failed. A match of fewer than ten candidate pairs also needs four fifths of them to agree, unless either frame holds 1000 stars or more | Star Matching uses it; it stays enabled for Phase Correlation, which ignores it | Too high rejects sparse/narrowband frames; too low accepts weaker matches | Star-matching acceptance | Saved; Reset -> 10 |
-| Max Stars per Frame | Integer | `2000` | Restored | `10`–`20000`, step 1 | Caps the stars detected in each frame, which are the candidates for matching; a changed cap detects the frames again | Detection runs in standalone Star Matching and, currently, before Phase Correlation | Higher values increase detection/matching time and triangle workload; lower values can lose spatial coverage | Star detection/matching | Saved; Reset -> 2000 |
-| Auto-solve unsolved frames | Checkbox | Off | Restored, then forced Off when no solver route is configured | On/off | Runs the configured solver, one frame at a time, for included frames whose cards hold no solution and that were not solved with **Solve...**, before detection | Enabled only when ASTAP, Astrometry.net/API, or internal Gaia solver configuration is available | Adds external/runtime/network cost; individual solve failure logs a warning and registration continues | Included still frames | Saved; Reset -> Off; solver settings global |
-| Enrich with Gaia catalog | Checkbox | On when a ready catalog is configured; otherwise forced Off/disabled | Process JSON restores the preference, then readiness can force it Off | On/off | Matches successful detected stars through each frame's solution to populate G zero point, scatter, limiting magnitude, and catalog-match count, and states the RMS residual in arcseconds | Needs a ready local Gaia catalog and a solution per frame; only frames whose stars were detected in this run are enriched | Adds catalog I/O/query work; no solution means no enrichment for that frame | Successful registered frames | Saved; Reset -> On when the catalog is ready; catalog path/pack global |
-| Chromatic aberration correction | Checkbox | Off | Restored process JSON can enable it | On/off | Enables RGB red/blue-to-green preprocessing using detailed Extended Settings | Mono is skipped; failures warn and registration continues on the original path | Adds detect/fit/warp work, applied in memory to the frame being registered; no cache files are written. Detection reads only the green channel, which the correction does not move, and **Align** reads the original files, so the correction currently changes neither the transforms nor the aligned images | Registration detection inputs only | Saved with its Extended Settings values; Reset -> Off |
-| Skip already-registered frames | Checkbox | On | Restored | On/off | Reuses a matching recorded registration in `registration_metrics.db`, whole or just the frames' stars, while the frames and settings match | Needs same output root and compatible hashes/mtimes; exclusions can permit reuse around ignored failures | Saves detection/fit time; stale/mismatched state is rejected | Registration state/cache | Saved; Reset -> On; DB persists |
-| Clear Registered Data | Button | Disabled | None | Current derived group | Deletes this group's persisted metrics/star-cache/transform rows and clears in-memory registration | Enabled with registration data | Does not delete aligned FITS or comet role files | Current group in `registration_metrics.db` | Destructive to reusable group state |
-| Register | Primary action | Enabled with at least two rows; without an output directory it reports an error | None | One background job | Validates compatibility, optionally solves/corrects/detects/enriches, fits transforms, persists metrics, and updates rows, in the background | One execution at a time; method-specific prerequisites apply | CPU/I/O heavy; cancellation stops remaining work. Comet mode also writes outputs | Whole still batch; all channels/CFA debayer path | Writes/replaces current group state in DB |
-| Cancel (progress dialog) | Background-job action | Available while Register or Align is running | None | One action | Requests cooperative cancellation and closes the progress dialog after the worker reaches a cancellation point | Visible only during execution | A cancelled registration records nothing: the window shows no registration and the DB is not replaced; Align keeps files written before cancellation, and the frame in progress leaves no partial file | Current Register or Align job | Cancellation is not persisted |
-| Standard | Radio button | On | Restored | Mutually exclusive | Uses the transformed reference frame bounds as output plane | Alignment only; current registration and two included successes required. Switching between Standard and Intersection after Register keeps the recorded registration; switching to or from Mosaic makes it stale, so Align is disabled until you register again | Predictable reference-sized field; shifted content can fall outside | Aligned outputs | Saved; Reset -> Standard |
-| Mosaic | Radio button | Off | Restored | Mutually exclusive | Uses the union of transformed bounds | Same alignment gates | Largest canvas and highest memory/disk cost; preserves combined coverage | Aligned outputs | Saved |
-| Intersection | Radio button | Off | Restored | Mutually exclusive | Uses the common intersection of transformed bounds, with floored output dimensions | Same alignment gates; empty intersection is an alignment error in this direct engine path | Smallest clean shared field; can discard substantial edge coverage | Aligned outputs | Saved |
-| Interpolation | Selector | Auto | Restored | Auto, Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor | Chooses resampling kernel; Auto resolves to Lanczos4 | Alignment and CA have separate selectors. Changing it after Register keeps the recorded registration | Nearest is blocky; Bilinear is softer/faster; Bicubic/Lanczos preserve detail but can ring; bit-exact modes favor reproducibility | Every aligned output channel | Saved; Reset -> Auto |
-| Align | Primary action | Disabled | None | One background job | Filters failures/exclusions, derives one canvas, inverse-maps each destination pixel, and writes each included frame as `<source-stem>_reg.fits` (32-bit float); areas a frame does not reach are zero and marked invalid | Needs current matching persisted state, compatible active inputs, output directory, and at least two included successes | Canvas size and interpolation determine time and memory; earlier files remain after cancellation/failure, and the frame in progress leaves no partial file | Included successful stills | Writes files; does not update process JSON |
-| Output Directory / Browse | Read-only path and folder action | Empty | The saved path is restored and shown when the window reopens | Directory chosen with Browse; created if it does not exist | Selects the DB/cache/output root and looks for a recorded registration there | Required by Register and Align | Shared/reused folders risk name collisions and confusing state | Whole process | Saved with the window's settings; Reset keeps it |
-| Quality Thresholds | Collapsible section | Collapsed | Expansion not restored | Expanded/collapsed | Reveals post-registration exclusion controls | Enabled only after all listed frames have current registration result rows | No pixel processing | Current metrics/list | Expansion not persisted |
-| Min Stars | Integer | `0` | Value restored and applied | `0`–`100000`, step 1; `0` disables | Excludes every frame below the value, the reference included | Current registration required | High values can remove valid sparse/narrowband frames | Reference scoring/alignment inclusion | `qualityMinStars` |
-| Max FWHM | Floating pixels | `0.000` | Value restored and applied | `0.000`–`999.000`, step `0.1`; `0` disables | Excludes every frame above the value, the reference included | Current registration required | Lower values favor tighter stars but can reject different filters/seeing | Reference scoring/alignment inclusion | `qualityMaxFwhm` |
-| Max Eccentricity | Normalized float | `0.000` | Value restored and applied | `0.000`–`1.000`, step `0.01`; `0` disables | Excludes every frame above the value, the reference included | Current registration required | Lower values favor rounder stars but can over-prune | Reference scoring/alignment inclusion | `qualityMaxEccentricity` |
-| Apply Thresholds | Button | No active thresholds | None | Current three values | Recomputes threshold exclusions from persisted metrics | Current registration required | May disable alignment when fewer than two successes remain | Reference scoring/alignment inclusion | Session only |
-| Reset (Quality Thresholds) | Button | N/A | None | One action | Sets all three fields to zero and clears threshold exclusions | Quality section | Restores inclusion except manual exclusions | Current list | Updates serialized values on later process save |
-| Reset (bottom button) | Dialog button | Visible | None | One action | Restores the registration and alignment defaults - Star Matching, Homography, Manual reference, Min `10`/Max `2000`, Skip on, auto-solve Off, Gaia enrichment On when ready, chromatic-aberration correction Off, Standard, Auto interpolation, and the Extended Settings defaults - and clears the quality thresholds | Disabled while Register or Align runs | Keeps the list and the output directory | Process settings | The new values are saved with the window's settings |
-| Close | Dialog button | Visible | None | One action/Escape/window close | Stops any import, registration, or alignment in progress and closes at once without waiting for background work | Available while work runs | Does not delete output artifacts; an aligned frame stopped part-way leaves no partial file | Window | Current serialized subset is saved by process framework |
+```controls
+window: Quality Thresholds
+controls:
+  - name: Min Stars
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, max: 100000, step: 1}
+    effect: Excludes every frame with fewer stars, the reference too. 0 sets no minimum.
+    enabled: >-
+      When every listed frame has a current registration. The **Quality Thresholds** section opens and closes with its
+      title, and opens closed.
+    tradeoff: High values drop sparse fields and narrowband frames that registered well.
+    persistence: Kept for the next window, and applied when it opens.
+  - name: Max FWHM
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 999, step: 0.1, decimals: 3}
+    effect: Excludes every frame whose FWHM, in pixels, is larger, the reference too. 0 sets no limit.
+    tradeoff: Lower keeps sharper frames, and can drop the frames of another filter or a night of other seeing.
+    persistence: Kept for the next window, and applied when it opens.
+  - name: Max Eccentricity
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Excludes every frame whose **Ecc.** is larger, the reference too. 0 sets no limit.
+    tradeoff: Lower keeps rounder stars and can exclude more frames than you meant.
+    persistence: Kept for the next window, and applied when it opens.
+  - name: Apply Thresholds
+    kind: button
+    default: ""
+    effect: >-
+      Excludes the frames that fail the three values, marked "Excluded by quality thresholds". While any value is set,
+      a failed frame is counted among them.
+    tradeoff: Fewer than two included, registered frames disables **Align**.
+    scope: What **Align** takes and what **Auto** may choose. No registration is needed again.
+    note: A frame a threshold excludes stays excluded while it fails the thresholds, even after **Include selected frames**.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Sets the three values to 0 and includes the frames the thresholds excluded.
+    scope: Frames you excluded yourself stay excluded.
+```
 
-### Extended Registration Settings and Advanced Registration Settings
+```controls
+window: Reset and Close
+controls:
+  - name: Reset
+    kind: button
+    default: ""
+    effect: >-
+      Returns **Star Matching**, **Homography**, **Manual**, 10 and 2000, **Skip already-registered frames** on,
+      **Auto-solve unsolved frames** and **Chromatic aberration correction** off, **Enrich with Gaia catalog** on,
+      **Standard** and **Auto**. Every value of **Extended Settings...** returns to its default, the comet's marked
+      positions are cleared, and the quality thresholds are cleared.
+    range: It leaves the list, the reference, the output directory and the frames you excluded yourself.
+    enabled: While no run works.
+    persistence: The new values are kept for the next window.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window at once. A run that works is stopped, and the window does not wait for it.
+    enabled: Also while a run works. ++esc++ does the same.
+    tradeoff: A stopped registration records nothing. A stopped alignment keeps the files it finished, and the frame it was writing leaves no file.
+    persistence: The window's values, its list and its output directory are kept for the next window.
+```
 
-The modal **Registration Settings** dialog mirrors several main-window values.
-Accepted values copy back only after **OK**; **Cancel** restores the pre-dialog
-state. **Advanced Settings...** opens a second modal dialog and restores its
-snapshot when cancelled. Accepted values are saved with the window's settings.
+```controls
+window: The preview
+controls:
+  - name: Preview
+    kind: readout
+    default: ""
+    effect: >-
+      Shows the selected row's file as it is stored, a mosaic debayered for display. Nothing of the registration or
+      the alignment is shown in it.
+  - name: Show statistics
+    kind: toolbutton
+    default: "On"
+    effect: >-
+      Shows or hides a card over the preview with the frame's **Min**, **Max**, **Mean**, **Median** and **StdDev**, to
+      four decimals. For a color frame they are the means over its channels, and **Min** and **Max** the extremes.
+    scope: The preview only.
+```
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Minimum Star Pairs / Maximum Stars per Frame | Integer mirrors | `10` / `2000` | Main-window current values seed dialog | `5`–`10000` / `10`–`20000` | Mirrors the main detection-count gate/cap | Visible only for Star Matching in this dialog | Same trade-offs as main controls | Registration | Copied to main on OK; saved |
-| Reference Image / Auto-select / Best | Editable frame selector, checkbox, action | Current row; Auto-select follows main Reference mode; Best visible in standalone | Existing loaded metrics can provide Best | Listed paths; Best runs source metrics or temporary detection | Selects fixed path or requests automatic scoring | Auto disabled for Phase Correlation/comet; Best disabled while Auto is effective and for comet | Best uses the window's registration figures, detects stars on a worker for any frame without them, and picks as Auto does; it writes nothing | Registration reference | Copied to main/DB on OK/run |
-| Registration Method | Selector mirror | Current main method | Main JSON can seed it | Star Matching, Phase Correlation, Comet Tracking; Manual Points is removed by standalone caller | Chooses method and dynamic panels | Method controls star/transform/comet visibility | Same method trade-offs as main control | Registration | Copied to main on OK |
-| Transform Model | Selector mirror | Current main transform | None | Similarity, Affine, Homography, Polynomial 2–4, Auto | Mirrors transform contract | Visible for Star Matching; hidden for Phase Correlation/comet | Same transform trade-offs | Registration | Copied to main on OK |
-| Auto-solve unsolved frames during Registration | Checkbox mirror | Current main value | None | On/off | Mirrors main auto-solve | Disabled and forced Off without configured solver. Mosaic leaves it as it is here: this window solves a frame only when it is on, where Image Integration's Mosaic always may | External solver cost | Registration inputs | Copied to main on OK; saved |
-| Enrich with Gaia catalog | Checkbox mirror | Current main value | None | On/off | Mirrors main Gaia enrichment | Always offered in this dialog; the main window's checkbox still turns it off and disables it while no catalog is ready | Same catalog work as the main control | Successful registered frames | Copied to main on OK; saved |
-| Alignment / Interpolation | Three radio mirrors and selector | Standard / current main interpolation | None | Same main values | Mirrors main alignment choices; the Mosaic tooltip says that each frame is placed by its registration's transform and is plate-solved only when Auto-solve is on | Always shown | Same geometry/kernel trade-offs | Alignment | Copied to main on OK; saved |
-| Correct chromatic aberration before registration | Checkbox | Off | Main current enabled state seeds it | On/off | Enables detailed CA controls below | Detailed controls enabled only when checked | Adds per-channel detection, fit, and warp work in memory | RGB registration preprocessing | Saved |
-| Edge Fraction | Normalized float | `0.55` | None | `0.30`–`0.80`, step `0.05` | Chooses the outer field fraction emphasized for channel-shift measurement | CA enabled | Larger edge focus can better expose lateral color but reduces central support | RGB CA analysis | Saved |
-| CA Fit Type | Selector | Similarity | None | Similarity, Affine | Chooses red/blue-to-green channel model | CA enabled | Affine allows shear/nonuniform scale and needs stronger matches | RGB CA analysis | Saved |
-| Min Matched Stars | Integer | `6` | None | `3`–`50`, step 1 | Requires this many channel matches, and never fewer than five, before applying correction; a match of fewer than ten candidate pairs also needs three fifths of them to agree | CA enabled | Higher is safer but skips sparse channels | RGB CA analysis | Saved |
-| CA Interpolation | Selector | Lanczos4 | None | Bilinear, Bicubic, Lanczos4, Pixel Area Relation, Nearest Neighbor, Bit Exact Bilinear, Bit Exact Nearest Neighbor | Resamples corrected red/blue channels | CA enabled | Same sharpness/ringing/runtime trade-offs | RGB preprocessing | Saved |
-| Advanced Settings... | Button | Closed | None | Opens modal dialog | Exposes detection, PSF, CFA, and debayer values | Star Detection group is disabled outside Star Matching; Miscellaneous remains relevant to loading/alignment | Strong detection filters can leave too few stars | Registration/alignment loading | Accepted snapshot copied to parent dialog |
-| Radius | Integer pixels | `5` | Current session value seeds dialog | `3`–`32`, step 1 | Sets star-profile neighborhood radius; a stored value above 32, the largest the detector takes, runs at 32 and the application log file says so - the window shows nothing | Star Matching | Too small truncates broad stars; too large blends neighbors and costs work | Detection channel | Saved |
-| Threshold | Floating sigma | `1.00` | Current session value seeds dialog | `0.01`–`15.00`, step `0.05` | Raises/lowers detection significance | Star Matching | Low finds noise; high misses faint stars | Detection channel | Saved |
-| Enable Amplitude Range / Minimum / Maximum | Checkbox and normalized bounds | Off / `0.00` / `1.00` | Current session values seed dialog | Min `0.00`–`0.99`; max `0.01`–`1.00`; step `0.05` | When enabled, rejects fitted amplitudes outside the interval | Star Matching; bounds ignored when Off | Narrow bounds reject saturated/weak candidates but can starve matching | Detection channel | Saved |
-| Roundness Threshold | Normalized float | `0.50` | Current session value seeds dialog | `0.01`–`0.95`, step `0.05` | Requires minimum fitted roundness; a stored value of zero or below, which the detector refuses, runs at `0.01` and the application log file says so - the window shows nothing | Star Matching | High favors round stars but can reject trailed/edge stars | Detection channel | Saved |
-| Enable Roundness Range / Maximum | Checkbox and normalized upper bound | Off / `1.00` | Current session values seed dialog | Max `0.01`–`1.00`, step `0.05` | Adds an upper roundness bound when enabled | Star Matching | Narrow range reduces candidates | Detection channel | Saved |
-| Convergence | Integer | `1` | Current session value seeds dialog | `1`–`3`, step 1 | Sets star-profile fitting convergence effort | Star Matching | Higher can cost more fitting work | Detection channel | Saved |
-| Relax PSF Checks | Checkbox | Off | Current session value seeds dialog | On/off | Accepts profiles that fail stricter PSF checks | Star Matching | Can recover difficult fields at higher false-star risk | Detection channel | Saved |
-| Profile Type / Minimum Beta | Selector and float | Gaussian / `1.50` | Current session values seed dialog | Gaussian, Moffat; beta `0.05`–`10.00`, step `0.05` | Chooses fitted profile; beta constrains Moffat wings; a stored beta of zero or below, which the detector refuses under either profile, runs at `0.05` | Beta is meaningful for Moffat | Moffat can represent broader wings but adds fit sensitivity | Detection channel | Saved |
-| CFA Pattern | Selector | Auto | Current session value seeds dialog | Auto, RGGB, BGGR, GBRG, GRBG | Chooses mosaic interpretation for CFA inputs | Used only when loaded image is CFA | Wrong pattern produces wrong color and star measurements | CFA detection/alignment loading | Saved |
-| Method (Miscellaneous) | Debayer selector | Default (current global demosaic choice) | Global demosaic setting labels Default | Default, Bilinear, VNG4, AHD, AMAZE, LMMSE, RCD | Chooses CFA-to-RGB conversion for detection/alignment; Default uses the demosaic setting in preferences | CFA inputs only | Quality/runtime/artifact behavior depends on method | CFA detection/alignment loading | Saved |
-| Reset to Defaults | Dialog action | N/A | None | One action | Resets dialog registration/alignment/detection/CA values | Does not close dialog | Discards current dialog edits | Dialog state | Copied only if later OK |
-| Apply to All Groups | Dialog action | Enabled except comet | None | One action | Emits a shared workflow signal, but standalone Image Registration has no receiver, so it has no effect here | Disabled for comet | Can appear successful while changing nothing | Standalone dialog | Inert in standalone |
-| OK / Cancel | Dialog actions | N/A | None | Accept or reject | OK copies dialog state to main; Cancel discards it. Advanced-dialog Cancel restores its snapshot | Modal dialogs | No processing until Register/Align | Settings only | Session/main subset as described |
+```controls
+window: The frame list's menu
+controls:
+  - name: Set as reference
+    kind: action
+    default: ""
+    effect: Makes the row you right-clicked the reference.
+    enabled: On any row but the reference's.
+    persistence: A recorded registration is then out of date.
+  - name: Exclude selected frames
+    kind: action
+    default: ""
+    effect: >-
+      Marks the selected rows "Excluded manually". **Align** leaves them out, and **Auto** does not choose them. The
+      **Blink Comparator** excludes the same way.
+    scope: The window only. No registration is needed again, and the files stay.
+    persistence: Until the window closes. Exclusions are not kept for the next window.
+  - name: Include selected frames
+    kind: action
+    default: ""
+    effect: Takes back the exclusion of the selected rows, yours and the thresholds'.
+    enabled: When a selected row is excluded.
+  - name: Solve...
+    kind: action
+    default: ""
+    effect: >-
+      Shows the frame in the preview and opens Plate Solving over it, which runs the solver set up in the settings.
+      When that window closes, the solution it applied is kept for this frame.
+    scope: The solution serves the catalog figures only. The file is not changed.
+    persistence: Until this window closes.
+  - name: Blink Compare...
+    kind: action
+    default: ""
+    effect: As the button of that name.
+    enabled: With two rows or more selected.
+  - name: Move Up
+    kind: action
+    default: ""
+    effect: As **Move frame up**.
+  - name: Move Down
+    kind: action
+    default: ""
+    effect: As **Move frame down**.
+  - name: Remove
+    kind: action
+    default: ""
+    effect: As the **Remove** button.
+  - name: Delete From Disk
+    kind: action
+    default: ""
+    effect: >-
+      Asks "This will delete the selected file from the disk permanently. Are you sure you want to proceed?", then
+      takes the row you right-clicked out of the list and deletes its file.
+    tradeoff: The file cannot be brought back. A file that cannot be deleted is reported as "Could not delete '<path>' from the disk."
+    note: The menu does not open while a run works.
+```
 
-### Comet / Asteroid Tracking controls
+```controls
+window: Progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: >-
+      Follows a run from 0 to 100 percent, in a window titled "Registration" or "Image Alignment". It names what is
+      being done, as `Plate-solving <file>`, `Detecting stars on <file>`, `Computing transformations...` and `Aligning
+      image 3/35: <file>`.
+    range: In a registration, detection fills the bar to 75 percent and matching the rest.
+    enabled: >-
+      While **Register** or **Align** works. The cards, **Add**, **Add Folder**, **Extended Settings...** and **Reset**
+      are disabled meanwhile, and the list cannot be changed.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The window closes when the run reaches a point where it can stop.
+    tradeoff: A cancelled registration records nothing and leaves an earlier record in place. A cancelled alignment keeps the files it finished.
+```
 
-Standalone comet tracking currently supports a manually marked pure-comet
-role. It requires a fixed reference, valid `DATE-OBS` on every input, and at
-least two enabled observations. The shared automatic tracking/search handlers
-are not installed by this window. The Track Comet dialog's **Tracking and Fit
-Options** section sets the nucleus search radius (32 px), minimum SNR (3.0),
-track model (Linear), outlier rejection (on) and outlier sigma (3.0) the
-registration runs with, and the summary under **Track Comet...** states them;
-its bootstrap frames (8) serve only Auto Track, which this window does not
-offer.
+### Registration Settings
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Comet Output | Selector | Comet only | None | Comet only; experimental Stars+Comet is hidden | Selects pure moving-object alignment role | Comet method only | Stars trail in pure-comet alignment | Comet outputs | Stored in comet settings/session |
-| Track Comet... | Button | No observations | None | Opens Track Comet dialog | Collects frame observations | Comet method only | Preview I/O for each selected frame | Comet registration | Accepted settings retained in parent dialog/session |
-| Frame / preview | Table and clickable preview | First frame selected | None | Listed frames and source-image coordinates | Select a frame and click the comet core to create a pending point | Readable sources required | Accurate core placement improves fit | One source at a time | Pending point not saved until Mark |
-| Mark / Clear Point | Actions | Mark needs pending point; Clear Point disabled without one | None | One pending coordinate | Adds a manual observation or clears pending point | Selected frame/source coordinate required | Misplaced points bias the track | Observation list | Session until dialog accepted |
-| Use | Observation checkbox column | On for new observations | None | On/off per observation | Includes/excludes the point from fit | At least two enabled points required | Excluding weak marks can improve robustness but may underconstrain fit | Comet fit | Session |
-| Refine | Button | Disabled | None | No working standalone path | No effect; no handler is connected | Remains unavailable | None | Pending point | Inert |
-| Auto Track / Find Moving Object | Buttons | Disabled | None | No working standalone path | Shared dialog can support handlers, but standalone supplies neither | Unavailable in this window | Manual marking is required | Diagnostics/observations | Inert in standalone |
-| Diagnostics / Accept | Table and action | Empty/disabled | None | Candidate rows only | Would accept automatic candidates | No automatic handler produces candidates in standalone | None in current path | Observation list | Inert without diagnostics |
-| Clear | Button | Empty list | None | All observations | Clears saved observations in the dialog | Comet dialog | Requires re-marking points | Comet fit | Session |
-| Tracking and Fit Options: Search radius, Minimum SNR, Bootstrap frames, Track model, Reject outlier observations, Outlier sigma | Folded section: pixels, ratio, frames, selector, checkbox, multiple | 32 px; 3.0; 8; Linear; on; 3.0 | A value stored more finely than its control shows is kept while the control shows what it runs as | Search radius 1–64 px; minimum SNR 0.1–100.0; bootstrap frames 0–4096; Linear, Automatic, Prefer quadratic; outlier sigma 1.0–100.0 | The nucleus is measured within the search radius of where the track places it, a nucleus below the minimum SNR is not taken and its frame is aligned where the track places it, and the track model and rejection choose how the track is fitted, as in Image Integration's Track Comet | Outlier sigma only while outliers are rejected; bootstrap frames only for Auto Track, which this window does not offer | A larger radius tolerates a poorer prediction but can take a star beside the nucleus for it | Comet fit | Accepted with the observations |
-| OK / Cancel | Dialog actions | N/A | None | Accept/reject; OK needs at least two enabled observations | Accepts manual observations or reports that a second is required; Cancel keeps prior parent state | Valid positions and timestamps are checked again during Register | Poor temporal/positional coverage can produce failed or weak predicted transforms | Whole comet batch | Accepted observations remain session settings |
+**Extended Settings...** opens this dialog. It shows the window's values and the ones only it holds. **OK** gives
+them to the window, and **Cancel** discards them.
 
-## How the algorithm works
+```controls
+window: Registration Settings
+controls:
+  - name: Auto-solve unsolved frames during Registration
+    kind: check
+    default: "Off"
+    effect: The window's **Auto-solve unsolved frames**.
+    enabled: When a plate solver is set up.
+    note: >-
+      Here **Mosaic** does not turn it on. This window solves a frame only while it is on, and the **Mosaic** tooltip
+      says so.
+  - name: Enrich with Gaia catalog
+    kind: check
+    default: "On"
+    effect: The window's **Enrich with Gaia catalog**.
+    enabled: Always, so you can turn it off without a catalog. The window's own box shows it off while no catalog is ready.
+  - name: Minimum Star Pairs
+    kind: spinbox
+    default: "10"
+    widget: {min: 5, max: 10000, step: 1}
+    effect: The window's **Min Star Pairs**.
+    enabled: Shown for **Star Matching** only.
+  - name: Maximum Stars per Frame
+    kind: spinbox
+    default: "2000"
+    widget: {min: 10, max: 20000, step: 1}
+    effect: The window's **Max Stars per Frame**.
+    enabled: Shown for **Star Matching** only.
+  - name: Reference Image
+    kind: combo
+    default: The window's reference
+    options: [The window's reference, Every listed frame by its full path]
+    effect: Chooses the reference by its file. You can type part of a path, and the list offers the frames that hold it.
+    enabled: While **Auto-select** is off.
+  - name: Auto-select
+    kind: check
+    default: "Off"
+    effect: The window's **Reference** at **Auto**.
+    enabled: Disabled for **Phase Correlation** and **Comet Tracking**.
+  - name: Best
+    kind: button
+    default: ""
+    effect: >-
+      Chooses the reference as **Auto** would and puts it in **Reference Image**. It reads the figures the window
+      holds, and detects the stars of any frame without them, away from the dialog.
+    enabled: While **Auto-select** is off, and not for **Comet Tracking**.
+    tradeoff: Nothing is recorded. When no frame can be chosen, the box stays as it was and nothing says why.
+  - name: Registration Method
+    kind: combo
+    default: Star Matching
+    options: [Star Matching, Phase Correlation, Comet Tracking]
+    effect: The window's **Method**. Each method shows only the settings it reads.
+    note: Image Integration's **Manual Points** is not offered here.
+  - name: Transform Model
+    kind: combo
+    default: Homography
+    options: [Similarity, Affine, Homography, Polynomial 2, Polynomial 3, Polynomial 4, Auto]
+    effect: The window's **Transformation**. A line under it says what the choice does.
+    enabled: Shown for **Star Matching** only.
+  - name: Comet Output
+    kind: combo
+    default: Comet only
+    options: [Comet only]
+    effect: Aligns the frames on the comet, so that the stars trail.
+    enabled: Shown for **Comet Tracking** only.
+  - name: Track Comet...
+    kind: button
+    default: ""
+    effect: Opens **Track Comet**, where you mark the comet's position in the frames. A line under it counts the positions and states the tracking options.
+    enabled: Shown for **Comet Tracking** only.
+  - name: Correct chromatic aberration before registration
+    kind: check
+    default: "Off"
+    effect: The window's **Chromatic aberration correction**, and enables the four values under it. A line under them says what the correction will do.
+  - name: Edge Fraction
+    kind: spinbox
+    default: "0.55"
+    widget: {min: 0.3, max: 0.8, step: 0.05, decimals: 2}
+    effect: Uses only the stars farther from the center than this share of half the frame's diagonal, where the color fringes show.
+    tradeoff: Higher keeps fewer stars, nearer the corners.
+  - name: CA Fit Type
+    kind: combo
+    default: Similarity
+    options: [Similarity, Affine]
+    effect: Chooses the model that moves red and blue onto green. **Affine** also allows shear and a different scale on each axis.
+    tradeoff: Affine needs more and better matches.
+  - name: Min Matched Stars
+    kind: spinbox
+    default: "6"
+    widget: {min: 3, max: 50, step: 1}
+    effect: >-
+      Sets the matches a channel needs before it is moved, never fewer than five. A match of fewer than ten candidate
+      pairs also needs three fifths of them to fit.
+    tradeoff: Higher is safer and leaves sparse channels uncorrected.
+  - name: CA Interpolation
+    kind: combo
+    default: Lanczos4
+    options: [Bilinear, Bicubic, Lanczos4, Pixel Area Relation, Nearest Neighbor, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
+    effect: Chooses how a moved channel is resampled. Where it does not reach, the pixel or two at the edge it moved off, the channel keeps its own samples.
+  - name: Standard / Mosaic / Intersection
+    kind: radio
+    default: Standard
+    options: [Standard, Mosaic, Intersection]
+    effect: The window's canvas choice. Here it can be changed before a registration, when the window's card is disabled.
+  - name: Interpolation
+    kind: combo
+    default: Auto
+    options: [Auto, Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
+    effect: The window's **Interpolation**.
+  - name: Advanced Settings...
+    kind: button
+    default: ""
+    effect: Opens **Advanced Registration Settings**, the star detection and the color-filter settings.
+  - name: Reset to Defaults
+    kind: button
+    default: ""
+    effect: Returns the dialog's values to their defaults. The dialog stays open, and nothing changes until **OK**.
+    note: >-
+      It sets **Transform Model** to **Auto** and ticks **Auto-select**, where the window's **Reset** returns
+      **Homography** and **Manual**.
+  - name: Apply to All Groups
+    kind: button
+    default: ""
+    effect: Does nothing in this window. It belongs to Image Integration, which has several groups.
+    enabled: Disabled for **Comet Tracking**.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the dialog and keeps the window's values.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Gives the dialog's values to the window and closes it.
+```
 
-### Conceptual pipeline
+### Advanced Registration Settings
 
-1. The process loads metadata for the still list, requires a nonempty output
-   root, and hashes frame identities plus detection/registration settings.
-   Matching `registration_metrics.db` state can be reused; registration/reference
-   changes may reuse star blobs while changed detection settings or input mtimes
-   force new detection.
-2. Optional auto-solve runs only on included frames whose cards hold no solution
-   and that were not solved with **Solve...**. Optional chromatic-aberration
-   preprocessing detects stars independently in red, green, and blue, keeps
-   those beyond **Edge Fraction** of the half-diagonal from the centre, fits
-   red/blue to green - a channel's match held to the rule step 4 states, with
-   three fifths for a small match and **Min Matched Stars** as its pairs - and
-   corrects the frame being registered in memory; no
-   cache files are written, every frame keeps its own name, and the chosen
-   reference is kept. Detection then reads the green channel, which the
-   correction does not move, and **Align** reads the original files, so the
-   correction currently changes neither the transforms nor the aligned images.
-3. Frames are read as 32-bit floating fractions of full scale, a CFA frame
-   demosaiced with the stated pattern and method. Detection uses green (`G`, channel 1) for RGB
-   detection and channel 0 for mono, fits Gaussian or Moffat profiles, and
-   records Stars, FWHM, roundness/eccentricity, SNR, background/scale, and
-   optional Gaia photometry. Phase Correlation currently still performs this
-   detection stage, although its transform does not use the star list.
-4. Star positions form a bounded catalogue of triangles, whose side-ratio
-   invariants vote for one-to-one star pairs; a deterministic RANSAC keeps the
-   pairs consistent within 3 pixels. Nearly every star of the smaller field
-   pairs with one of the other's, so the consistent pairs of a frame that shares
-   part of its stars are that part of the candidates: a match of ten candidate
-   pairs or more is accepted on its consistent pairs alone - at least **Min Star
-   Pairs**, and never fewer than five - and one of fewer, which a few spurious
-   pairs could pass for, also needs four fifths of its candidates consistent
-   unless either frame holds 1000 stars or more.
-   A frame whose own cards state a SIP
-   distortion, the reference included, has its stars matched where the
-   distortion's forward polynomials correct them to. A frame matched by fewer
-   pairs than **Min Star Pairs** is then retried through the frames already
-   registered nearest it in file-path order - the reference aside, at most 24,
-   the nearer first and the earlier of two at one distance first: its stars are
-   matched to that frame's by at least **Min Star Pairs** pairs, that frame's
-   matched stars are carried onto the reference through its transform, and the
-   frame's transform is fitted to those pairs with the chosen model. A frame
-   registered so is one the rest are tried through, and the retries repeat
-   while one registers another, so a frame that overlaps its neighbours but too
-   little of the reference is still registered. A frame no attempt registers is
-   marked failed.
-5. The retained pairs fit Similarity, Affine, or Homography. Fixed polynomial
-   modes refine the homography with order 2–4 residual terms and iterative
-   residual rejection; Auto keeps the linear model unless a supported polynomial
-   fit is materially better.
-6. Phase Correlation instead measures one subpixel translation between the
-   reference's and each frame's green (or only) channel, through a Hann window.
-   This standalone process rejects dimension mismatches before invoking it, and
-   it does not judge the correlation response: any translation measured is
-   accepted.
-7. Optional Gaia enrichment projects detected stars through valid per-frame WCS
-   into the local catalog, at an observation epoch counted in Julian years from
-   J2000.0 (2000-01-01 12:00), and stores photometric zero point/scatter, limiting
-   magnitude, catalog match count, and the residual in arcseconds. It does not replace the star/phase
-   transform with a WCS-derived transform.
-8. Alignment transforms each valid frame's bounds, derives Standard/reference,
-   Mosaic/union, or Intersection/common geometry, and inverse-maps destination
-   pixels through the frame's linear or polynomial transform and then through
-   the inverse of the SIP distortion its record states, sampling with the chosen
-   interpolation, so a frame with SIP terms lands on the reference's
-   undistorted plane. Areas a frame does not
-   reach are zero and marked invalid, and the frame is saved without its WCS
-   cards.
+**Advanced Settings...** opens this dialog over **Registration Settings**. **OK** keeps its values for that dialog,
+and **Cancel** returns them to what they were when it opened.
 
-### Model and equations
+```controls
+window: Advanced Registration Settings
+controls:
+  - name: Radius
+    kind: spinbox
+    default: "5"
+    widget: {min: 3, max: 32, step: 1}
+    effect: Sets the size, in pixels, of the box a star is searched and fitted in. A slider beside it moves it too.
+    tradeoff: Too small cuts broad stars short. Too large merges close stars and costs time.
+    enabled: With **Star Matching**, as every setting of **Star Detection** is.
+    note: >-
+      A stored value above 32 runs at 32, and the log file says so. **Threshold**, **Roundness Threshold** and the
+      limits of the two ranges have sliders too.
+  - name: Threshold
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0.01, max: 15, step: 0.05, decimals: 2}
+    effect: Sets how far above the local background, in units of its noise, a peak must rise to count as a star.
+    tradeoff: Low finds noise and hot pixels as stars. High misses faint stars.
+  - name: Enable Amplitude Range
+    kind: check
+    default: "Off"
+    effect: Keeps only the stars whose fitted peak lies between **Minimum** and **Maximum**, as fractions of full scale.
+    tradeoff: A narrow range drops saturated or faint stars and can leave too few to match.
+  - name: Minimum
+    object: thresholdMinimumSpinBox
+    kind: spinbox
+    default: "0.00"
+    widget: {min: 0, max: 0.99, step: 0.05, decimals: 2}
+    effect: The smallest peak kept, while the range is enabled.
+  - name: Maximum
+    object: thresholdMaximumSpinBox
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0.01, max: 1, step: 0.05, decimals: 2}
+    effect: The largest peak kept. Lower drops saturated stars.
+  - name: Roundness Threshold
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0.01, max: 0.95, step: 0.05, decimals: 2}
+    effect: Sets the least roundness a star must have, from 0 for a line to 1 for a circle.
+    tradeoff: Higher drops trailed stars and the stretched stars of the corners.
+    note: A stored value of 0 or below runs at 0.01, and the log file says so.
+  - name: Enable Roundness Range
+    kind: check
+    default: "Off"
+    effect: Adds the upper limit **Maximum** to the roundness.
+  - name: Maximum
+    object: roundnessThresholdMaximumSpinBox
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0.01, max: 1, step: 0.05, decimals: 2}
+    effect: The roundest a star may be, while the range is enabled.
+  - name: Convergence
+    kind: spinbox
+    default: "1"
+    widget: {min: 1, max: 3, step: 1}
+    effect: Sets how many fitting passes each star gets.
+    tradeoff: More passes steady the fit on noisy data and cost time.
+  - name: Relax PSF Checks
+    kind: check
+    default: "Off"
+    effect: Accepts stars whose profile fails the stricter checks.
+    tradeoff: Helps distorted or faint stars, and lets more false stars through.
+  - name: Profile Type
+    kind: combo
+    default: Gaussian
+    options: [Gaussian, Moffat]
+    effect: Chooses the profile fitted to each star. **Moffat** follows broad wings.
+    tradeoff: Gaussian is fast and steady. Moffat fits real stars better and is more sensitive.
+  - name: Minimum Beta
+    kind: spinbox
+    default: "1.50"
+    widget: {min: 0.05, max: 10, step: 0.05, decimals: 2}
+    effect: Sets the smallest exponent a Moffat fit may take.
+    note: The detector checks it under either profile. A stored value of 0 or below runs at 0.05.
+  - name: CFA Pattern
+    kind: combo
+    default: Auto
+    options: [Auto, RGGB, BGGR, GBRG, GRBG]
+    effect: Chooses how a color-filter mosaic is read. **Auto** reads the pattern the file states, and another choice overrides it.
+    tradeoff: A wrong pattern gives wrong colors and wrong star measurements.
+    scope: The detection, the alignment and the comet's alignment of a mosaic frame. Other frames are read as they are.
+  - name: Method
+    kind: combo
+    default: Default
+    options: [Default, Bilinear, VNG4, AHD, AMaZE, LMMSE, RCD]
+    effect: >-
+      Chooses the debayer method for a mosaic frame. **Default** is the method of the **Raw Images** page of the
+      settings, which the item names in brackets.
+    scope: The detection and the aligned files of a mosaic frame.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Keeps the values for **Registration Settings**.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Returns the values to what they were when this dialog opened.
+```
 
-For a detected star at source position \(p=(x,y)\), a linear registration maps
-it to the reference position \(p'\):
+### Track Comet
 
-\[
-\begin{bmatrix}x'\\y'\\1\end{bmatrix}
-= H\begin{bmatrix}x\\y\\1\end{bmatrix}.
-\]
+**Track Comet...** in **Registration Settings** opens this dialog. In this window you mark the comet by hand: the
+automatic tools stay disabled.
 
-**Similarity** restricts \(H\) to translation, rotation, and one uniform scale
-(4 degrees of freedom). **Affine** permits independent scale and shear (6).
-**Homography** is projective (8) and divides the first two homogeneous results
-by the third. A transform's inverse is the inverse of its whole matrix, and its
-axis scales are the lengths its axes are mapped to; this window shows neither.
+```controls
+window: Track Comet
+controls:
+  - name: Frame
+    kind: readout
+    default: The first frame
+    effect: Lists the frames. Selecting one reads it and shows it in the preview beside the list.
+  - name: Comet preview
+    kind: readout
+    default: ""
+    effect: Shows the selected frame. Zoom, and click the comet's core to place a pending point.
+    tradeoff: The fit follows the points, so a misplaced point pulls the track off.
+  - name: Mark
+    kind: button
+    default: ""
+    effect: Adds the pending point as an observation of the selected frame.
+    enabled: With a pending point on the selected frame.
+  - name: Clear Point
+    kind: button
+    default: ""
+    effect: Removes the pending point.
+    enabled: With a pending point.
+  - name: Refine
+    kind: button
+    default: ""
+    effect: Does nothing in this window. It stays disabled.
+  - name: Auto Track
+    kind: button
+    default: ""
+    effect: Disabled in this window, which offers no automatic tracking.
+  - name: Find Moving Object
+    kind: button
+    default: ""
+    effect: Disabled in this window, which offers no search.
+  - name: Observations
+    kind: readout
+    default: ""
+    effect: >-
+      Lists each observation with **Use**, **Frame**, **X**, **Y** and **Origin**. **Use** is ticked for a new mark,
+      and unticking it leaves the mark out of the fit.
+    tradeoff: Leaving out a poor mark can steady the fit, and too few marks cannot fit a track.
+  - name: Diagnostics
+    kind: readout
+    default: ""
+    effect: Lists candidate positions with **Accept** to take one. In this window nothing fills it.
+  - name: Clear
+    kind: button
+    default: ""
+    effect: Removes every observation.
+  - name: Search radius
+    kind: spinbox
+    default: "32"
+    widget: {min: 1, max: 64, step: 1}
+    effect: Measures the nucleus within this many pixels of where the track places it, in **Tracking and Fit Options**.
+    tradeoff: Larger tolerates a poorer track and can take a star beside the nucleus for it.
+  - name: Minimum SNR
+    kind: spinbox
+    default: "3.0"
+    widget: {min: 0.1, max: 100, step: 0.5, decimals: 1}
+    effect: Refuses a nucleus fainter than this many times the noise around it. Its frame is then aligned where the track places it.
+  - name: Bootstrap frames
+    kind: spinbox
+    default: "8"
+    widget: {min: 0, max: 4096, step: 1}
+    effect: Serves **Auto Track** only, which this window does not offer.
+  - name: Track model
+    kind: combo
+    default: Linear
+    options: [Linear, Automatic, Prefer quadratic]
+    effect: Chooses how the path is fitted. **Linear** is a constant speed. **Automatic** adds an acceleration when it fits clearly better, and **Prefer quadratic** whenever enough marks remain.
+  - name: Reject outlier observations
+    kind: check
+    default: "On"
+    effect: Leaves out of the fit a mark farther from the track than **Outlier sigma** allows.
+  - name: Outlier sigma
+    kind: spinbox
+    default: "3.0"
+    widget: {min: 1, max: 100, step: 0.5, decimals: 1}
+    effect: Sets how many times the fit's residual a mark may lie from the track.
+    enabled: While **Reject outlier observations** is on.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Keeps the observations and the options for the registration.
+    enabled: >-
+      It needs two enabled observations. With fewer it says "Add or accept a second comet observation before
+      submitting." and stays open.
+    note: The positions and the frames' times are checked again when you register.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Closes the dialog and keeps the observations as they were.
+```
 
-Polynomial orders add normalized residuals after the homography. For order
-\(n\), each axis uses \((n+1)(n+2)/2\) terms: 6, 10, or 15 for orders 2, 3, or
-4. Up to four refinement iterations discard residuals beyond
-\(\max(3Q_{75}, 0.25\text{ px})\), where \(Q_{75}\) is the 75th percentile of
-current residual distances; when every pass still discards a pair, the last fit
-is kept. A frame matched by fewer pairs than a fixed order's terms, or whose
-pairs that order's fit refuses, keeps the linear transform its stars matched -
-through a frame registered near it, the linear fit to the pairs carried onto the
-reference - and the application log file says so for the frame; the window shows nothing. Auto considers orders 2–4 only when linear RMS is
-above `0.5` pixels, requires respectively 10/16/25 inliers, and accepts the
-first fit whose RMS is at most 80% of linear RMS.
+### Add Folder Options and Blink Comparator
 
-The table's **Ecc.** is
-\(e=1-\operatorname{clamp}(r,0,1)\), where \(r\) is median fitted-star
-roundness. **RMS** is the pixel root-mean-square residual of the matched pairs
-under the fitted transform (`px`); when the frame has a solution and Gaia
-enrichment ran for it, it is shown in arcseconds (`″`), the pixel residual times
-the solution's mean pixel scale. The Auto reference is picked in a single pass, before
-matching, from the star-detection figures: it rewards more stars and higher
-SNR and penalizes FWHM and eccentricity. Multiple named filters use
-filter-relative normalization; manual and threshold-excluded frames are not
-candidates.
+```controls
+window: Add Folder Options
+controls:
+  - name: Include subfolders (recursive)
+    kind: check
+    default: "On"
+    effect: Adds the images of every folder under the chosen one too.
+    tradeoff: A broad scan can bring in frames of other sessions and other kinds.
+  - name: Frame Type
+    kind: combo
+    default: All
+    options: [All, Light, Dark, Flat, Bias, Dark Flat]
+    effect: >-
+      Keeps only the files whose frame type matches. **Bias** also takes `OFFSET`, **Dark** leaves out dark flats,
+      **Flat** leaves out dark flats, and **Dark Flat** needs both words.
+    range: A file whose header states no frame type counts as a light.
+  - name: Filter Name
+    kind: field
+    default: ""
+    effect: Keeps only the files whose filter is exactly this text, without regard to case. Empty keeps every filter.
+    tradeoff: A file with a misspelled filter, or none, is left out.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Scans the folder and adds what passes. The choices last for this scan only.
+```
 
-Star positions, transforms and comet observations are in engine pixel
-coordinates: the first pixel's centre is at (0.5, 0.5).
+```controls
+window: Blink Comparator
+controls:
+  - name: Blink
+    kind: readout
+    default: ""
+    effect: >-
+      Shows the selected frames one after another. ++space++ plays and pauses, ++left++ and ++right++ step, and ++x++
+      excludes the frame shown.
+    tradeoff: Each frame is read whole, which costs time and memory.
+    persistence: >-
+      When it closes, the frames you excluded are excluded in the window. Ratings you give with ++1++ to ++9++ stay in
+      the comparator. It opens at the size you left it.
+```
 
-SIP (Simple Imaging Polynomial) distortion is separate from the fitted
-Polynomial 2–4 transform. Star matching reads each frame's SIP coefficients from
-its own cards: a detected star at \(p\) is matched at
-\(p + (A(u,v), B(u,v))\), \((u,v)\) its offset from the SIP reference pixel,
-so the transform maps the frame's undistorted positions onto the reference's,
-and alignment inverts that correction - with the inverse polynomials when the
-cards state them, by Newton iteration otherwise - after the transform's inverse.
-The frame's record states the distortion its transform was solved over; cards
-that state the inverse polynomials (AP/BP) alone correct no star, so such a frame
-is matched and aligned as it was detected. Phase
-Correlation measures the frames as they are and applies none, and a solution
-found with **Solve...** or the automatic solve contributes no distortion.
+## How it works
 
-### Boundary and failure behavior
+1. **Register** reads every frame as [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale)
+   in 32-bit floating point, debayering a mosaic with **CFA Pattern** and **Method**. It detects up to **Max Stars per
+   Frame** stars in the green channel of a color frame, or the one channel of a grayscale frame, and measures them.
+2. **Star Matching** pairs each frame's stars with the reference's through triangles of stars, keeps the pairs that
+   agree within 3 pixels by [RANSAC](../../reference/glossary.md#ransac), and fits **Transformation** to them. A frame
+   the reference does not match is tried through the frames registered nearest it. When a frame's own header states a
+   [SIP](../../reference/glossary.md#sip) distortion, its stars are corrected by it first, and **Align** undoes it.
+3. The transforms and figures are written to `registration_metrics.db` in the output directory, read back and shown
+   in the table. A later run reuses them while the frames and settings still match.
+4. Exclusions and thresholds choose the frames **Align** takes, and change no transform.
+5. **Align** plans one canvas, maps each of its pixels back into every frame through its transform, samples the frame
+   there with **Interpolation**, and writes one file per frame.
 
-- Registration rejects an empty list, mismatched dimensions, pixel types, or
-  channel counts. Star Matching rejects an insufficient-star reference and
-  marks individual sources failed when detection/matching/fitting fails.
-- Phase Correlation requires images at least 8×8 pixels of one size;
-  standalone Image Registration rejects mismatched sizes during batch
-  validation. The correlation response is not judged.
-- Polynomial fitting rejects mismatched/insufficient/degenerate point sets and
-  non-finite residuals; a fixed order then gives way to the linear transform the
-  frame's stars matched, and the frame is marked failed only when that too is
-  refused.
-- A non-finite (NaN) sample, which calibration writes wherever a flat is zero,
-  is not data to star detection: the background is measured without it and the
-  search reads the background in its place, so the frame's stars are still
-  found. Phase Correlation refuses a frame holding one and marks it failed.
-- Quality/manual exclusions are applied only after current metrics exist.
-  Quality thresholds exclude every frame that fails them, the reference
-  included, so check the reference against the limits you apply.
-- Areas of the canvas a frame does not reach are zero and marked invalid. Intersection with no positive common area
-  is an error. Output dimensions use ceiling for Standard/Mosaic and floor for
-  Intersection.
-- Registration cancellation discards the run: the window shows no registration
-  and `registration_metrics.db` is not replaced. A registration that cannot be
-  recorded in `registration_metrics.db` (an unwritable output directory, for
-  example) is reported as an error and also leaves no registration, so **Align**
-  stays disabled until a registration is recorded.
-  Alignment writes sequentially; already-written files remain after a later
-  failure, cancellation, or closing the window, and the frame in progress
-  leaves no partial file.
+### Model
 
-## Parameter interactions and starting points
+A star at \((x, y)\) in a frame is placed on the reference by the transform \(H\), a 3 × 3 matrix, at \((x', y')\):
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Detection threshold/radius/profile | Gaussian, radius `5`, threshold `1.0`, ranges Off | Too few consistent stars; sparse coverage | Noise peaks, blended stars, unstable metrics | Verify CFA/debayer, then threshold, radius, PSF profile/checks, and only then amplitude/roundness ranges |
-| Min Star Pairs / Max Stars per Frame | `10` / `2000` | Too few candidates or unreliable sparse pattern | Excess detection/triangle time without better fit | Keep minimum low enough for the sparsest valid frame; raise maximum only when spatial coverage is inadequate |
-| Transform freedom | Homography first; Similarity for simple dither/rotation; Polynomial only for demonstrated residual distortion | Systematic residuals toward edges; failed wide-field matches | Polynomial edge warping or unstable fit from sparse stars | Improve detection/reference, try simpler linear models, then fixed Polynomial 2 before higher order/Auto |
-| Reference choice | Manually choose a sharp, representative frame | All relative fits inherit a weak/atypical anchor | N/A | Inspect metrics/Blink, set manual row, and Register; Auto picks from the star-detection figures before matching |
-| Quality thresholds | All zero initially | Poor focus/trailing remains included | Fewer than two included successes; filter-biased pruning | Compare within filter, then apply Min Stars, Max FWHM, and Max Eccentricity one at a time |
-| Alignment mode/interpolation | Standard + Auto (Lanczos4) | Bilinear/nearest can soften or block detail | Lanczos/Bicubic can ring at bright edges; Mosaic can explode canvas size | Decide on Mosaic before Register (switching to or from it afterwards needs a new registration; the kernel and Standard/Intersection can change without one), prototype a few frames, then compare kernels at 100% |
-| WCS/Gaia | Reuse valid WCS; leave auto-solve/enrichment Off until dependencies are ready | Missing zero point/catalog metrics | Solver/catalog time without transform benefit | Validate WCS, enable auto-solve only for unsolved frames, then Gaia enrichment |
-| Chromatic aberration | Off: the correction currently changes neither the transforms nor the aligned images | Color channels remain radially displaced in the aligned images whatever the setting | Only extra registration time | Leave it off: it adds registration time and changes no output |
+\[ \begin{pmatrix} u \\ v \\ w \end{pmatrix} = H \begin{pmatrix} x \\ y \\ 1 \end{pmatrix}, \qquad x' = \frac{u}{w}, \quad y' = \frac{v}{w} \tag{1} \]
 
-## Inputs, outputs, and metadata
+**Similarity** leaves 4 numbers of \(H\) free, a shift, a turn and one scale, and **Affine** 6. For both, the last
+row of \(H\) is \((0, 0, 1)\), so \(w = 1\). A [homography](../../reference/glossary.md#homography) leaves 8 free. A
+polynomial of order \(n\) then adds to each axis a correction with
 
-- **Registration state:** the selected output root receives
-  `registration_metrics.db`. The current group stores input identities/mtimes,
-  detection and registration hashes, resolved reference, star cache blobs,
-  per-frame success/metrics, and transforms. Compatible
-  resolution/object metadata can produce an Image Integration-compatible group
-  key; mixed grouping falls back to a standalone hash key. The database is
-  shared with Image Integration, the output directory is created if it does
-  not exist, and a recorded registration is reused, whole or just the frames'
-  stars, while the frames and settings match. A database in a format this
-  version does not read is refused with a message and left unchanged.
-- **Aligned images:** ordinary **Align** always uses default output options:
-  32-bit floating FITS, original stem plus `_reg`, overwrite without a prompt, and
-  list order. A source named `light.fit` produces
-  `light_reg.fits`. Inputs from different directories with the same stem map to
-  one destination.
-- **Pixel/color state:** mono remains mono. CFA is debayered before warping and
-  produces RGB. RGB channels are warped together. Areas a frame does not reach
-  are zero and marked invalid.
-- **Metadata/WCS:** ordinary alignment copies source metadata but drops the
-  plate solution (WCS) cards, because the warp invalidates them. Re-solve final
-  products when accurate sky coordinates are required.
-- **SIP:** a SIP distortion a frame's own cards state is corrected before its
-  stars are matched and undone while it is aligned; Phase Correlation applies
-  none.
-- **Chromatic-aberration correction:** applied in memory to the frame being
-  registered; no `registration_ca_cache` folder or files are written. It does
-  not reach the transforms or the aligned images (see **Conceptual pipeline**).
-- **Comet products:** a valid pure-comet Register writes
-  `comet_aligned/<run-id>/<stem>_comet_reg.<ext>`. All-FITS batches preserve
-  their FITS extension; if any input is non-FITS, all comet outputs
-  become `.fits`, and every comet output is a 32-bit floating FITS file. Comet outputs strip inherited WCS because their
-  moving-object plane is not a sidereal sky plane. Comet alignment demosaics
-  with the CFA pattern and method of Extended Settings and resamples with the
-  chosen interpolation (Auto is Lanczos4). Sidecar transform/output/
-  readiness records are stored in the same DB.
+\[ T_n = \frac{(n + 1)(n + 2)}{2} \tag{2} \]
 
-## Performance
+terms, 6, 10 and 15 for orders 2, 3 and 4, in the frame's position measured from its center in half-widths.
 
-- Star detection loads and profiles every non-reused frame. CFA demosaicing,
-  high **Max Stars per Frame**, Moffat fitting, relaxed checks, and Gaia enrichment
-  add work. The triangle catalogue is capped at 30,000 retained triangles per
-  field.
-- Alignment allocates a 32-bit canvas and its validity mask for each frame.
-  Mosaic union can be far larger than any input; Intersection is smaller.
-- Auto-solve is sequential in this standalone workflow and can dominate time,
-  especially with online solvers. Gaia enrichment adds local catalog loading and
-  WCS queries.
-- Chromatic-aberration correction detects stars in all three channels and
-  warps the red and blue channels in memory before ordinary detection.
-- Prototype with a few representative compatible frames, Standard geometry,
-  CA/auto-solve/Gaia Off, and current defaults. No production-scale timing or
-  memory claim is made.
+With \(P\) the value of **Min Star Pairs**, \(n_c\) the candidate pairs the triangles propose, and \(n_i\) the pairs
+that fit one transform within 3 pixels, a match is accepted when
 
-## Worked example
+\[ n_i \ge \max(P, 5) \quad \text{and, when } n_c < 10, \quad \frac{n_i}{n_c} \ge 0.8 \tag{3} \]
 
-- **Evidence mode:** Source-and-test-derived; not executed on approved
-  astrophotography data.
-- **Input condition/provenance and settings:** Three compatible calibrated
-  linear stills with a repeatable synthetic star pattern; dedicated empty
-  output root; Star Matching, Homography, Manual reference row 1, Min `10`, Max
-  `2000`, CA/auto-solve/Gaia Off; Standard + Auto interpolation.
-- **Expected checkpoint:** Register produces current success/metric rows and a
-  matching `registration_metrics.db`. Align then attempts one
-  `<stem>_reg.fits` per included successful frame, all on the reference bounds.
-- **Inspect at 100%/statistics/history:** verify identical dimensions, 32-bit
-  floating linear outputs, common star positions, zero uncovered borders marked
-  invalid, ringing/softness, and that the WCS cards were dropped.
-- **Limitations:** Synthetic engine tests establish transform, RANSAC,
-  phase-correlation, polynomial, Gaia-enrichment, geometry, persistence,
-  and UI contracts. They do not establish visual quality, solver/catalog
-  readiness, real-data success rate, encoded compatibility, or performance for
-  a production dataset.
+The second condition is waived when either frame holds 1,000 stars or more. With \(d_k\) the distance, in pixels,
+between the \(k\)-th of the \(n_i\) stars placed by equation (1) and its partner on the reference, the **RMS** column
+shows the root mean square residual:
 
-## Warnings and limitations
+\[ \mathrm{RMS} = \sqrt{\frac{1}{n_i} \sum_{k=1}^{n_i} d_k^{2}} \tag{4} \]
 
-- The standalone page does not claim approved-data execution. Real mono/OSC/RGB,
-  WCS, Gaia, visual quality, and production performance remain unverified.
-- **Min Star Pairs** is the fewest matched star pairs a frame needs, however
-  small a part of its stars they are; a frame matched by fewer, against the
-  reference and through each frame registered near it, is marked failed, and so
-  is one whose match of fewer than ten candidate pairs keeps under four fifths
-  of them.
-- **Apply to All Groups** in Extended Settings is visible but inert in
-  standalone Image Registration.
-- **Reference > Auto** picks the reference from the star-detection figures
-  before matching, in a single pass. Set the reference manually when you want a
-  particular frame.
-- Switching to or from **Mosaic** makes a recorded registration stale, so
-  **Align** is disabled until you register again; changing the interpolation,
-  or between **Standard** and **Intersection**, keeps it.
-- **Chromatic aberration correction** currently changes neither the transforms
-  nor the aligned images: detection reads only the green channel and **Align**
-  reads the original files.
-- Phase Correlation is translation-only and still pays the current standalone
-  star-detection cost. Its main-window Min/Max fields remain visible even though
-  they do not control the phase transform.
-- Ordinary standalone alignment does not compute output-plane WCS; the aligned
-  files drop the source's WCS cards, so plate solve them when coordinates are
-  needed.
-- Source files are not modified; a solution found with **Solve...** is held in
-  the window for that frame. **Delete From Disk** is the only destructive source
-  action and is permanent after confirmation.
-- Aligned writes have no overwrite/collision prompt. Keep unique source stems
-  or separate output directories. A frame stopped part-way leaves no partial
-  file.
-- No mask or direct sequence is supported. CFA is debayered; preserve original
-  CFA sources if another workflow still needs mosaiced samples.
-- Standalone comet automatic tracking, blind moving-object search, and Refine
-  are unavailable; mark at least two observations manually. Every frame needs a
-  usable `DATE-OBS`, and only pure-comet output is exposed.
+With a catalog match, it is multiplied by \(s\), the mean of the two
+[pixel scales](../../reference/glossary.md#pixel-scale) the frame's plate solution states, and shown in arcseconds.
+With \(r\) the median roundness of the frame's stars, from 0 for a line to 1 for a circle, **Ecc.** is
 
-## Troubleshooting
+\[ e = 1 - \min\bigl(1, \max(0, r)\bigr) \tag{5} \]
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Registration controls stay disabled | Fewer than two rows | Add at least two compatible stills | Process enablement state |
-| `Could not build registration persistence context: Registration output directory is empty.` | Register was selected without an output directory | Select **Browse** and choose a directory | Register path |
-| `The registration could not be recorded in '<output>/registration_metrics.db': ...` | The database in the output directory could not be opened or written: a read-only folder, a locked database, or a non-database file of that name | Choose a writable output directory, or close what holds the database, and register again | Register path |
-| `Some images in the list have different size or color depth` | Width/height, pixel type, or channel-count mismatch | Split into same-geometry batches or convert to a consistent precision/channel state before registration | Image-list validation |
-| `The reference frame holds too few stars to match` | The reference's detected stars cannot form the triangles the matcher needs | Verify CFA/debayer and linear data; lower the detection threshold or choose a stronger reference | Detection/register path |
-| Rows fail despite many visible stars | Fewer matched pairs than Min Star Pairs with the reference and with every frame registered near it, a match of fewer than ten candidate pairs under four fifths of them consistent, or triangle voting/RANSAC or the transform fit rejected inconsistent/degenerate matches | Try a better reference, simpler transform, improved detection, or a lower Min Star Pairs; inspect RMS and Blink | Star-alignment and transform tests |
-| Phase Correlation shifts look unreliable | Low correlation response, rotation/scale difference, or feature-poor/constant data | Use translation-dominant frames; otherwise use Star Matching or external planetary alignment | Phase-correlation source/tests |
-| Auto reference picked an unexpected frame | Auto picks from the star-detection figures before matching | Set the chosen reference manually and Register again | Standalone execution flow |
-| Auto-solve or Gaia checkbox is disabled | No configured solver route or no ready local Gaia catalog | Configure [Plate Solving settings](../../interface/settings-dialog.md#plate-solving-settings) and catalog readiness | Readiness gates |
-| Zero Point remains `-` | Gaia disabled/unready, catalog load failed, WCS invalid, or no catalog matches | Validate WCS and local pack; registration success alone does not guarantee photometric enrichment | Gaia enrichment path |
-| RMS shows `px` instead of arcseconds | The frame has no solution or Gaia enrichment did not run for it, so the transform residual in pixels is shown | Use it as relative registration fit error; enable Gaia enrichment with a ready catalog and valid WCS for an arcsecond residual | Metrics bridge/table formatter |
-| Align is disabled or says registration needs update | Frame order/list, reference, transform, a switch to or from Mosaic, CA, solve/enrichment, or hashed settings no longer match persisted state | Register again with final settings and exclusions | Persistence context comparison |
-| Aligned images have large black borders | Standard bounds plus translation/rotation, or Mosaic union | Use Intersection for shared overlap or crop later; keep Mosaic only for combined coverage | Output-plane geometry |
-| Aligned images have no WCS | Standalone Align drops the WCS cards because the warp invalidates them | Plate solve the aligned/final product | Alignment metadata path |
-| `Comet tracking requires accepted observations, finite timestamps, and an explicit reference frame.` | Fewer than two enabled marks, missing fixed reference, or missing/unparseable `DATE-OBS` | Mark two or more frames, choose a fixed reference, and repair timing metadata | Comet validation/engine path |
-| Existing state is not reused | DB absent, hashes/mtimes/frame list changed, cache missing, or a nonignored metric failed | Confirm output root and inputs; rerun registration; use Clear Registered Data only when deliberately rebuilding | Standalone persistence tests |
+The [Image Registration Reference](image-registration-reference.md) gives the polynomial's trimming, the choice of
+**Auto**, and the score **Auto** uses to choose the reference.
 
-## Related workflow steps
+### Boundaries
 
-- Prepare sources with [Image Calibration](../calibration/image-calibration.md)
-  or the calibration stages in [Image Integration](../stacking-integration/image-integration.md).
-- Use [Plate Solving](plate-solving.md) to create/repair WCS and SIP, or to
-  solve standalone aligned outputs, which carry no WCS.
-- Use [Image Stacking](../stacking-integration/image-stacking.md) after checking
-  registered files and exclusions; it does not perform registration itself.
-- Use [Image Integration](../stacking-integration/image-integration.md) when
-  calibration matching, WCS fallback/shared mosaic planes, registration,
-  normalization, stacking/drizzle, artifacts, and reports should be coordinated.
-- Review Stars/FWHM/SNR/Ecc. in [Image Statistics](../../interface/image-statistics.md)
-  and inspect copied headers with [FITS Header And Metadata Viewer](../../interface/fits-header-viewer.md).
+- **Register** refuses frames that differ in width, height, pixel type or channel count, and a reference whose stars
+  cannot be matched. A frame that cannot be read or matched is marked **Failed**, and the run goes on.
+- A sample that is not a number, which calibration writes where a flat is zero, is left out of star detection, and
+  the frame's stars are still found. **Phase Correlation** refuses such a frame, and frames under 8 × 8 pixels.
+- A polynomial order the pairs cannot carry gives way to the linear fit over them, and the
+  [log file](../../reference/glossary.md#log-file) says so. The frame fails only when that fit is refused too.
+- A stopped registration records nothing and leaves an earlier record as it was. A stopped alignment keeps the files
+  it finished, and the frame it was writing leaves no file.
+- Canvas pixels a frame does not reach are 0. Near its own edge a frame is sampled from its edge pixels rather than
+  from a black border, so **Bicubic** and **Lanczos4** do not ring there.
 
-## References and provenance
+### Worked example
 
-- AfterNight production and focused test sources are the primary behavior
-  source for this standalone page.
-- [Fischler and Bolles, “Random Sample Consensus,” 1981](https://doi.org/10.1145/358669.358692)
-  is the primary RANSAC reference; AfterNight's actual thresholds and acceptance
-  rules are its own source-verified implementation contract.
-- [OpenCV geometric-transform and robust-estimation documentation](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html)
-  is background for affine/homography estimation; AfterNight does not use
-  OpenCV for registration, and its matcher and estimator are its own
-  deterministic implementation.
-- [OpenCV motion-analysis documentation](https://docs.opencv.org/4.x/d7/df3/group__imgproc__motion.html)
-  is background for phase correlation; AfterNight's measurement and its Hann
-  window are its own.
+The data are 35 lights of NGC 253, 180 seconds each, from a QHY183C color camera on a 432 mm refractor, with 2.4 µm
+pixels. The worked example of [Image Calibration](../calibration/image-calibration.md) wrote them into a folder
+`lights_cal` as `<name>_cal.fits`: 5544 × 3684 RGGB mosaics in 32-bit floating point, about 82 MB each. The mount
+crossed the meridian after the 14th frame, so the last 21 are turned half a turn from the first 14.
+
+Add the 35 files in name order, choose an empty folder `lights_reg` as the output directory, and leave every other
+control at its default. Then choose **Register**. Each frame is read, debayered, and up to 2,000 of its stars are detected in its green channel.
+Triangles of stars keep their shape when a frame turns, so star matching treats the 21 frames after the flip like the
+others, and their transforms hold the half turn. Each row then shows its figures. **RMS** is in pixels,
+since the frames hold no plate solution.
+
+Then choose **Align**. On the reference's grid each file holds three channels of 5544 × 3684 samples of 4 bytes,
+\(5544 \times 3684 \times 3 \times 4 = 245{,}089{,}152\) bytes, about 245 MB. The 35 files take about 8.6 GB. Open two
+of them, one from each side of the flip, at 100 %, and check that their stars lie on the same pixels. Read one in
+[FITS Header, EXIF, And Astrometry Metadata](../../interface/fits-header-viewer.md): it keeps `EXPTIME` and the
+frame's observing cards, and has no WCS cards.
+
+At 2.4 µm and 432 mm, one pixel covers \(206.265 \times 2.4 / 432 = 1.146\) arcseconds, so an **RMS** of 0.40 pixels
+would read 0.46″ with a catalog match.
+
+## Starting points
+
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| Dithered lights of one night and one camera | **Star Matching**, **Homography**, a sharp frame from the middle of the session as reference, **Standard** | **Similarity** for a plain dither. A higher **Max Stars per Frame** for a crowded field. |
+| A wide field whose corners do not line up | **Polynomial 2** | A higher order or **Auto** only while the corners stay off. Improve detection and the reference first. |
+| Frames that differ by a shift only, with structure and few stars | **Phase Correlation**, with a fixed reference | **Star Matching** when the frames also turn or change scale. |
+| Panels of a mosaic | **Mosaic** in **Extended Settings...**, before **Register** | **Min Star Pairs** low enough for the panels' overlap, and room for a large canvas. |
+
+## When it goes wrong
+
+!!! danger "Align replaces files without asking"
+    Each output is named after its source with `_reg.fits`, and an existing file of that name is replaced. Two
+    sources of one name in different folders write one file. Give each set its own output directory.
+
+!!! danger "Delete From Disk deletes the source file"
+    **Delete From Disk** in the frame list's menu removes the file for good after one question. **Remove** only takes
+    the row out of the list.
+
+!!! warning "Chromatic aberration correction changes no output"
+    Stars are detected in the green channel, which the correction does not move, and **Align** reads the original
+    files. The option only adds time. Leave it off.
+
+"Could not build registration persistence context: Registration output directory is empty."
+:   **Cause.** **Register** was chosen before an output directory.
+:   **Fix.** Choose **Browse**, pick a folder, and register again.
+
+"Some images in the list have different size or color depth"
+:   **Cause.** A frame differs from the others in width, height, pixel type or channel count.
+:   **Fix.** Register each kind of frame as a set of its own, or bring them to one size and pixel type first.
+
+"The reference frame holds too few stars to match"
+:   **Cause.** The reference's stars cannot form the triangles the matching needs.
+:   **Fix.** Choose another reference, check **CFA Pattern** for a mosaic, or lower **Threshold** in **Advanced
+    Registration Settings**.
+
+Rows read **Failed** though their frames show plenty of stars
+:   **Cause.** Fewer pairs than **Min Star Pairs** matched the reference and every frame registered near it, or a small
+    match failed equation (3).
+:   **Fix.** Choose a sharper reference, lower **Min Star Pairs**, or try a simpler **Transformation**. Step through
+    the failures with **Next Failed** and **Blink Compare...**.
+
+The status line reads "Registration needs update" and **Align** is disabled
+:   **Cause.** The frames, the reference or a setting the registration depends on changed since **Register**.
+:   **Fix.** Choose **Register** again. With **Skip already-registered frames** on, it reuses the stars it found.
+
+**Standard**, **Mosaic**, **Intersection** and **Interpolation** cannot be changed
+:   **Cause.** The **Alignment** card waits for a registration that answers the frames and settings, and a switch to
+    **Mosaic** makes the registration out of date.
+:   **Fix.** Choose the canvas under **Alignment** in **Extended Settings...**, then register.
+
+"The registration could not be recorded in '...registration_metrics.db': ..."
+:   **Cause.** The database in the output directory cannot be written: a read-only folder, a database another program
+    holds open, a file of that name that is no database, or one written in another format.
+:   **Fix.** Choose a writable folder of its own, or close what holds the file, and register again.
+
+**Zero Point** reads "-" and **RMS** is in pixels
+:   **Cause.** No Gaia catalog is ready, the frame has no plate solution, or the catalog matched none of its stars.
+:   **Fix.** Install a catalog, then turn on **Auto-solve unsolved frames** or solve the frame with **Solve...**, and
+    register again.
+
+**Auto-solve unsolved frames** or **Enrich with Gaia catalog** is disabled
+:   **Cause.** No plate solver is set up, or no Gaia catalog is ready.
+:   **Fix.** Set them up in [Settings](../../interface/settings-dialog.md). Your choice comes back when they are ready.
+
+The aligned frames have black edges
+:   **Cause.** **Standard** keeps the reference's frame, and a shifted or turned frame does not fill it. **Mosaic**
+    leaves black wherever no frame reaches.
+:   **Fix.** Choose **Intersection** and align again, or crop the stack.
+
+"Comet tracking requires accepted observations, finite timestamps, and an explicit reference frame."
+:   **Cause.** **Track Comet** holds fewer than two enabled observations, or no reference is set.
+:   **Fix.** Mark the comet in two frames or more, set a reference, and check that every frame has a `DATE-OBS` card.
+
+**Register** detects every frame again
+:   **Cause.** **Skip already-registered frames** is off, the output directory is another, or a detection setting or
+    a file changed.
+:   **Fix.** Keep one output directory per set, and leave the detection settings as they were.
+
+## Related
+
+- [Image Calibration](../calibration/image-calibration.md), which makes the calibrated lights this window takes.
+- [Image Stacking](../stacking-integration/image-stacking.md), which stacks the aligned files and reads the database
+  this window writes.
+- [Image Integration](../stacking-integration/image-integration.md), which calibrates, registers and stacks in one
+  workflow, and shares the registration database.
+- [Plate Solving](plate-solving.md), to solve a frame for **Solve...**, or the stack for sky coordinates.
+- [Image Registration Reference](image-registration-reference.md), for the matching, the database, the files Align
+  writes, the comet run and every message.
+- [Process Windows](../../interface/process-windows.md), for the preview pane and what every process window shares.
+
+## Credits
+
+- The star detection and its point-spread-function fit are adapted from the star finder and the profile fit of
+  [Siril](https://gitlab.com/free-astro/siril), Copyright (C) 2005-2011 Francois Meyer and Copyright (C) 2012-2026
+  team free-astro, under GPL-3.0-or-later. **About > About AfterNight** credits it.
+- Color-filter frames are debayered by methods adapted from [RawTherapee](https://github.com/Beep6581/RawTherapee)'s
+  demosaic code as [librtprocess](https://github.com/CarVac/librtprocess) packages it, under GPL-3.0-or-later.
+  **About > About AfterNight** credits it.
+- [Phase correlation](../../reference/glossary.md#phase-correlation) computes its transforms with
+  [FFTW](https://www.fftw.org), by Matteo Frigo and Steven G. Johnson, under GPL-2.0-or-later.
+- [Fischler and Bolles, "Random Sample Consensus", 1981](https://doi.org/10.1145/358669.358692) is the primary
+  reference for RANSAC. AfterNight's thresholds and acceptance rules are its own.
+- The [OpenCV geometric-transform and robust-estimation documentation](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html)
+  is background for affine and homography estimation. AfterNight's matcher and estimator are its own.
+- The [OpenCV motion-analysis documentation](https://docs.opencv.org/4.x/d7/df3/group__imgproc__motion.html) is
+  background for phase correlation. Its sub-pixel peak is the same weighted centroid. The Hann window and the rest of
+  the measurement are AfterNight's.
 - [The SIP Convention for Representing Distortion in FITS Image Headers](https://fits.gsfc.nasa.gov/registry/sip/SIP_distortion_v1_0.pdf)
-  defines the A/B/AP/BP FITS convention, which ordinary standalone registration
-  does not apply.
-- [Gaia DR3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/)
-  is the catalog provenance reference. The installed pack format, readiness,
-  epoch correction, and enrichment fields are defined by AfterNight source.
+  defines the distortion terms a frame's own header may state.
+- The [Gaia DR3 documentation](https://gea.esac.esa.int/archive/documentation/GDR3/) describes the catalog the
+  enrichment reads.

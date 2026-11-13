@@ -159,6 +159,13 @@ jobs:
           key: ${{ needs.prepare-cache.outputs.openxisf_key }}
           fail-on-cache-miss: true
 
+      - name: Restore OpenFITS cache
+        uses: actions/cache/restore@v5
+        with:
+          path: openfits/build-msvc-install
+          key: ${{ needs.prepare-cache.outputs.openfits_key }}
+          fail-on-cache-miss: true
+
       # ===== The numbered build scripts, in their mandatory order =====
       - name: Generate project files
         shell: cmd
@@ -207,8 +214,10 @@ jobs:
       # ===== Build Windows Installer =====
       - name: Install Inno Setup
         if: ${{ inputs.build_installer }}
+        # The installer's dark wizard and its pictures in every display size need Inno Setup 6.6 or later, and a
+        # release is built by the version the script was tried with rather than by whichever is newest that day.
         run: |
-          choco install innosetup -y
+          choco upgrade innosetup --version=6.7.1 --allow-downgrade -y
 
       - name: Validate release documentation artifact input
         if: ${{ inputs.build_installer && inputs.upload_release_assets && inputs.docs_artifact_name == '' }}

@@ -1,0 +1,10 @@
+{#- Guide > Section > Group > Page, from the nav. -#}
+<nav class="crumbs" aria-label="Breadcrumbs">
+  <ol>
+    <li><a href="{{ (nav.homepage.url if nav.homepage else 'index.html')|url }}">Guide</a></li>
+    {%- for crumb in gp.crumbs %}
+    <li>{% if crumb.url %}<a href="{{ crumb.url|url }}">{{ crumb.title }}</a>{% else %}{{ crumb.title }}{% endif %}</li>
+    {%- endfor %}
+    <li><span aria-current="page">{{ page.title }}</span></li>
+  </ol>
+</nav>

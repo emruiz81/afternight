@@ -1,0 +1,12 @@
+{
+  "id": "color.actionLinear_Match",
+  "window": "Linear Match <{image}>",
+  "controls": [
+    {"label": "Reference Image", "kind": "combo", "object": "referenceImageSelector", "group": "", "visible": true, "default": "<--NO IMAGE-->", "options": ["<--NO IMAGE-->"]},
+    {"label": "Reject low", "kind": "spinbox", "object": "rejectLowValue", "group": "", "visible": true, "default": "0.000", "min": 0, "max": 1, "step": 0.01, "decimals": 3, "slider": true},
+    {"label": "Reject high", "kind": "spinbox", "object": "rejectHighValue", "group": "", "visible": true, "default": "0.920", "min": 0, "max": 1, "step": 0.01, "decimals": 3, "slider": true},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

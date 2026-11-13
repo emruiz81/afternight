@@ -553,3 +553,47 @@ TEST(SkyCatalogTest, PersistentIndexesAreBudgetedAndHoldTheirContextAlive)
     EXPECT_EQ(engine.memoryResource()->counters().liveBytes, 0u);
     EXPECT_TRUE(engine.shutdown().ok());
 }
+
+// A catalog holds what its table and indices need. The entries and the declination index are each
+// one table asked of the context one to one, so a catalog without a name index holds little more
+// than they do; the name index pools its nodes and keys and adds a bounded amount an entry. A pool
+// left to the library's defaults instead rounded a table up to a power of two inside a chunk of
+// several such blocks, and a catalog held several times its tables.
+TEST(SkyCatalogTest, ACatalogHoldsWhatItsTablesAndIndicesNeed)
+{
+    constexpr std::size_t kEntries = 60000u;
+    std::vector<an::CatalogEntry> entries;
+    entries.reserve(kEntries);
+    for (std::size_t i = 0u; i < kEntries; ++i)
+    {
+        const double fraction = static_cast<double>(i) / static_cast<double>(kEntries);
+        entries.push_back(makeEntry("S " + std::to_string(i), 360.0 * fraction,
+                                    -89.0 + 178.0 * std::fmod(fraction * 7919.0, 1.0),
+                                    2.0 + 7.0 * std::fmod(fraction * 104729.0, 1.0)));
+    }
+    // The tables alone: every entry, and its declination with its position.
+    const std::uint64_t tables = kEntries * (sizeof(an::CatalogEntry) + sizeof(double) + sizeof(std::uint64_t));
+    auto engine = makeEngine(8u, 1024ull * 1024ull * 1024ull);
+    for (const bool nameIndex : {false, true})
+    {
+        const std::uint64_t before = engine.memoryResource()->counters().liveBytes;
+        const auto execution = makeExecution(engine);
+        an::SkyCatalogRequest request;
+        request.buildNameIndex = nameIndex;
+        const an::SkyCatalog catalog = buildOrFail(execution, entries, request);
+        ASSERT_EQ(catalog.entryCount(), kEntries);
+        const std::uint64_t held = engine.memoryResource()->counters().liveBytes - before;
+        if (!nameIndex)
+        {
+            EXPECT_GE(held, tables);
+            EXPECT_LE(held, tables + tables / 20u + 256u * 1024u)
+                << "a catalog without a name index holds " << held << " bytes for " << tables << " bytes of tables";
+        }
+        else
+        {
+            EXPECT_LE(held, tables + kEntries * 640u)
+                << "a catalog holds " << held << " bytes, " << held / kEntries << " an entry, with its name index";
+        }
+    }
+    EXPECT_EQ(engine.memoryResource()->counters().liveBytes, 0u);
+}

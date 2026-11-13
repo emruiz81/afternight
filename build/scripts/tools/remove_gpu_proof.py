@@ -62,6 +62,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 # backend.
 PROOF_TOKENS = ('opencl',)
 
+# What carries a token without spelling the proof: an open cluster, the kind of object a catalog
+# names, which the product writes as `openCluster` and `OpenCluster`.
+PROOF_TOKEN_EXCEPTIONS = ('opencluster',)
+
 # Where a build can be made of something. Markdown under these roots is prose and is read by a
 # person, like the documentation below.
 SCANNED_ROOTS = ('build', 'src')
@@ -589,11 +593,14 @@ def tracked_files(repo_root, roots):
 
 def names_the_proof(text):
     """The one-based numbers of the lines in `text` that spell the proof."""
-    lowered = text.lower()
-    if not any(token in lowered for token in PROOF_TOKENS):
+    def spells_it(lowered):
+        for exception in PROOF_TOKEN_EXCEPTIONS:
+            lowered = lowered.replace(exception, '')
+        return any(token in lowered for token in PROOF_TOKENS)
+
+    if not spells_it(text.lower()):
         return []
-    return [number for number, line in enumerate(text.splitlines(), start=1)
-            if any(token in line.lower() for token in PROOF_TOKENS)]
+    return [number for number, line in enumerate(text.splitlines(), start=1) if spells_it(line.lower())]
 
 
 def read(path):

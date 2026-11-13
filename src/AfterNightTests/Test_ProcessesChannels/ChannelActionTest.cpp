@@ -351,9 +351,9 @@ TEST_P(ChannelActionTest, EachImageItMakesIsInTheRepresentationItsRowStates)
 }
 
 // metadata: a stored channel and a conversion keep everything the image states - its cards, its acquisition record,
-// its solution and its meaning; a colour component and the a*b* view keep the acquisition record and the solution and
-// drop the cards, which describe the colour image; every image's lineage names the engine operation, and none carries
-// an output decision.
+// its solution and its meaning; a colour component and the a*b* view keep the acquisition record, the solution and the
+// frame's observing context and drop the other cards, which describe the colour image; every image's lineage names the
+// engine operation, and none carries an output decision.
 TEST_P(ChannelActionTest, ItKeepsWhatTheImageStatesAsItsRowSays)
 {
     ViewHandle target = describedSceneView(context(), sceneFor(action()));
@@ -369,7 +369,7 @@ TEST_P(ChannelActionTest, ItKeepsWhatTheImageStatesAsItsRowSays)
         EXPECT_EQ(made.acquisition(), source.acquisition());
         EXPECT_EQ(made.astrometry(), source.astrometry());
         EXPECT_TRUE(made.astrometry().present());
-        EXPECT_EQ(hasCard(made, "OBJECT"), keepsCards);
+        EXPECT_TRUE(hasCard(made, "OBJECT")) << "the frame's observing context stays";
         EXPECT_EQ(hasCard(made, "ANLIN"), keepsCards);
         EXPECT_FALSE(made.outputIntent().has_value());
         if (keepsCards)

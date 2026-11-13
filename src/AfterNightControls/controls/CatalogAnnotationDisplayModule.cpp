@@ -7,20 +7,24 @@
 #include "app/BundledCatalogs.h"
 #include "controls/AstrometryOverlayUtils.h"
 #include "controls/ImageViewControl.h"
-#include "theme/AnDesignTokens.h"
+#include "controls/annotation/AnnotationLayout.h"
+#include "controls/annotation/AnnotationRenderer.h"
+#include "controls/annotation/AnnotationScene.h"
+#include "controls/annotation/AnnotationSettings.h"
+#include "widgets/ImageViewWidget.h"
 
 #include <AfterNightPlatform/Logging.h>
 
-#include <QFontMetrics>
+#include <QCoreApplication>
+#include <QMetaObject>
 #include <QPainter>
-#include <QPainterPath>
-#include <QScrollArea>
-#include <QScrollBar>
+#include <QPointer>
+#include <QThreadPool>
 
-#include <algorithm>
 #include <cmath>
-#include <limits>
-#include <numbers>
+#include <cstdint>
+#include <exception>
+#include <memory>
 #include <optional>
 #include <utility>
 
@@ -29,140 +33,119 @@ namespace an::ui
 namespace
 {
 
-// Minimum pixel distance between two annotation centers before they are
-// considered duplicates (same object under different catalog designations).
-constexpr double kDeduplicationRadiusPx = 12.0;
+/// How far past the image's field each catalogue is asked: a large object centred outside the image still reaches
+/// into it.
+constexpr double kDeepSkyMarginDegrees = 2.0;
+constexpr double kStarMarginDegrees = 1.0;
 
-struct CatalogAnnotationLabel
+/// What a layout is made of: the layers' scenes, the view's scale, a label's size on the screen, what it says, and the
+/// smallest object the part of the image shown names.
+struct LayoutKey
 {
-    QString text;
-    QPointF anchor;
-};
+    std::shared_ptr<const AnnotationScene> deepSky;
+    std::shared_ptr<const AnnotationScene> stars;
+    double scale = 0.0;
+    double fontPixels = 0.0;
+    AnnotationLabelText labelText = AnnotationLabelText::Designation;
+    double smallestMajorPixels = 0.0;
 
-/// How far past the visible sky an object's centre may lie and still be outlined: a large object centred outside the
-/// view still reaches into it.
-constexpr double kVisibleMarginDegrees = 2.0;
-
-struct CachedAnnotation
-{
-    const an::CatalogEntry* object = nullptr;
-    CatalogAnnotationProjectedShape shape;
-    CatalogAnnotationLabel label;
-};
-
-/// What a projection depends on: the entries the field query answered and the view state.
-struct CacheKey
-{
-    std::shared_ptr<const detail::FieldCatalogEntries> entries;
-    detail::OverlayViewState view;
-
-    [[nodiscard]] bool matches(const CacheKey& other) const
+    /// Whether another layout is of the same scenes at whatever zoom and labels: one the view draws until its own
+    /// lands.
+    [[nodiscard]] bool sameScenes(const LayoutKey& other) const
     {
-        return entries == other.entries && view.matches(other.view);
+        return deepSky == other.deepSky && stars == other.stars;
+    }
+
+    [[nodiscard]] bool matches(const LayoutKey& other) const
+    {
+        return sameScenes(other) && fontPixels == other.fontPixels && qFuzzyCompare(scale, other.scale) &&
+               labelText == other.labelText && smallestMajorPixels == other.smallestMajorPixels;
     }
 };
 
-[[nodiscard]] QPainterPath buildClosedPath(const QVector<QPointF>& points)
+/// The layouts an overlay asked workers for: the last that landed and whether one is on its way. Shared with the
+/// workers; an answer that lands after the overlay is gone, or after what it was made of was set aside, is never
+/// drawn.
+struct LayoutState
 {
-    QPainterPath path;
-    if (points.isEmpty())
-    {
-        return path;
-    }
-
-    path.moveTo(points.front());
-    for (int i = 1; i < points.size(); ++i)
-    {
-        path.lineTo(points[i]);
-    }
-    if (points.size() >= 3)
-    {
-        path.closeSubpath();
-    }
-    return path;
-}
-
-[[nodiscard]] bool annotationTouchesVisibleRect(const CatalogAnnotationProjectedShape& shape,
-                                                const QRectF& visible_rect)
-{
-    if (!visible_rect.isValid() || visible_rect.isEmpty())
-    {
-        return false;
-    }
-
-    if (visible_rect.adjusted(-2.0, -2.0, 2.0, 2.0).contains(shape.center))
-    {
-        return true;
-    }
-
-    for (const QPointF& point : shape.outline)
-    {
-        if (visible_rect.adjusted(-2.0, -2.0, 2.0, 2.0).contains(point))
-        {
-            return true;
-        }
-    }
-
-    if (shape.outline.size() >= 3)
-    {
-        return buildClosedPath(shape.outline).intersects(visible_rect);
-    }
-
-    return false;
-}
-
-[[nodiscard]] CatalogAnnotationLabel buildCatalogAnnotationLabel(const an::CatalogEntry& object,
-                                                                 const CatalogAnnotationProjectedShape& shape)
-{
-    CatalogAnnotationLabel label;
-    label.text = detail::formatCatalogAnnotationLabel(object);
-    if (!shape.outline.isEmpty())
-    {
-        const QRectF bounds = buildClosedPath(shape.outline).boundingRect();
-        label.anchor = QPointF(bounds.center().x(), bounds.top());
-    }
-    else
-    {
-        label.anchor = shape.center;
-    }
-    return label;
-}
-
-[[nodiscard]] QColor typeStrokeColor(const QString& type, const DesignTokens& token_set)
-{
-    const QString normalized = type.trimmed().toLower();
-    if (normalized.contains(QStringLiteral("galaxy")))
-    {
-        return token_set.colors.accentPrimary;
-    }
-    if (normalized.contains(QStringLiteral("cluster")))
-    {
-        return token_set.colors.statusSuccess;
-    }
-    if (normalized.contains(QStringLiteral("planetary")))
-    {
-        return token_set.colors.statusWarning;
-    }
-    if (normalized.contains(QStringLiteral("supernova")))
-    {
-        return token_set.colors.statusError;
-    }
-    return token_set.colors.statusInfo;
-}
+    std::optional<LayoutKey> drawnKey;
+    detail::OverlayAnnotationLayout drawn;
+    bool asking = false;
+    std::uint64_t generation = 0u;
+    std::uint64_t made = 0u;
+};
 
 } // namespace
 
 struct CatalogAnnotationDisplayModule::Impl
 {
-    CacheKey cacheKey;
-    bool cacheValid = false;
-    bool hasAstrometricSolution = false;
-    double magnitudeLimit = 12.0;
-    QVector<CachedAnnotation> annotations;
-    QRectF cachedVisibleWidgetRect;
+    /// The level of detail, what a label says and the palette.
+    AnnotationViewChoices choices;
+    bool deepSky = true;
+    bool stars = true;
 
-    /// The deep-sky objects inside the image's field, queried on a worker.
-    detail::FieldCatalogQueries queries{BundledCatalog::DeepSky, kVisibleMarginDegrees};
+    /// The annotated picture's style in the choices' palette: its marks and its labels' backing.
+    AnnotationStyle style = defaultAnnotationSettings().style;
+
+    /// Each catalogue's objects inside the image's field, queried on a worker, each with its layer's scene.
+    detail::FieldCatalogQueries deepSkyQueries{BundledCatalog::DeepSky, kDeepSkyMarginDegrees};
+    detail::FieldCatalogQueries starQueries{BundledCatalog::BrightStars, kStarMarginDegrees};
+
+    std::shared_ptr<LayoutState> layouts = std::make_shared<LayoutState>();
+
+    /// The scale the layout was drawn at last.
+    double drawnScale = 0.0;
+
+    /// Asks a worker for the layout of a key; its answer repaints the widget when it lands.
+    void askLayout(const LayoutKey& key, QWidget* repaint)
+    {
+        LayoutState& state = *layouts;
+        state.asking = true;
+        const std::uint64_t generation = state.generation;
+        const std::weak_ptr<LayoutState> weak = layouts;
+        QPointer<QWidget> widget(repaint);
+        QThreadPool::globalInstance()->start([key, drawnStyle = style, weak, widget, generation]() {
+            // A layout that cannot be had - memory - lands as none: nothing above a pool's worker catches what it
+            // throws, and the overlay keeps the layout it has.
+            std::shared_ptr<detail::OverlayAnnotationLayout> made;
+            try
+            {
+                made = std::make_shared<detail::OverlayAnnotationLayout>(
+                    detail::layoutOverlayAnnotations(key.deepSky.get(), key.stars.get(), key.scale, key.fontPixels,
+                                                     drawnStyle, key.labelText, key.smallestMajorPixels));
+            }
+            catch (const std::exception& error)
+            {
+                LOG_ERROR("Catalogue overlay: the labels could not be laid out: {}", error.what());
+            }
+            QCoreApplication* application = QCoreApplication::instance();
+            if (application == nullptr)
+            {
+                return;
+            }
+            QMetaObject::invokeMethod(
+                application,
+                [key, made, weak, widget, generation]() {
+                    const std::shared_ptr<LayoutState> landed = weak.lock();
+                    if (!landed)
+                    {
+                        return;
+                    }
+                    landed->asking = false;
+                    if (made != nullptr && landed->generation == generation)
+                    {
+                        landed->drawnKey = key;
+                        landed->drawn = std::move(*made);
+                        ++landed->made;
+                    }
+                    if (widget)
+                    {
+                        widget->update();
+                    }
+                },
+                Qt::QueuedConnection);
+        });
+    }
 };
 
 CatalogAnnotationDisplayModule::CatalogAnnotationDisplayModule(ImageViewControl* control)
@@ -183,238 +166,206 @@ void CatalogAnnotationDisplayModule::onDraw(QPainter& painter)
     {
         return;
     }
-
     const std::optional<an::WcsSolution>& solution = control->imageSolution();
     if (!solution.has_value())
     {
-        m_impl->cacheValid = false;
-        m_impl->annotations.clear();
         return;
     }
-
-    CacheKey key;
-    key.entries = m_impl->queries.answer(*solution, m_impl->magnitudeLimit, view_widget);
-    key.view = detail::overlayViewState(control);
-    if (!key.entries)
-    {
-        // A worker is reading the catalog's objects in this field; its answer repaints the view.
-        return;
-    }
-
-    if (!m_impl->cacheValid || !m_impl->cacheKey.matches(key))
-    {
-        m_impl->cacheKey = key;
-        m_impl->cacheValid = true;
-        m_impl->annotations.clear();
-        m_impl->hasAstrometricSolution = false;
-
-        const double scale = key.view.scale;
-        if (!std::isfinite(scale) || scale <= 0.0)
-        {
-            return;
-        }
-
-        const QRectF visible_widget_rect = detail::visibleOverlayWidgetRect(control);
-        const QRectF visible_image_rect(visible_widget_rect.left() / scale, visible_widget_rect.top() / scale,
-                                        visible_widget_rect.width() / scale, visible_widget_rect.height() / scale);
-        const std::optional<detail::VisibleSky> sky = detail::visibleSky(*solution, visible_image_rect);
-        if (!sky.has_value())
-        {
-            return;
-        }
-
-        if (key.entries->entries.empty())
-        {
-            LOG_DEBUG("Catalog annotation overlay: 0 objects in the field at magnitude <= {:.1f}",
-                      m_impl->magnitudeLimit);
-        }
-        for (const an::CatalogEntry& object : key.entries->entries)
-        {
-            if (an::angularSeparationDegrees(sky->center, object.coordinate) >
-                sky->radiusDegrees + kVisibleMarginDegrees)
-            {
-                continue;
-            }
-
-            CatalogAnnotationProjectedShape shape = detail::projectCatalogObjectAnnotation(*solution, object, scale);
-            if (!annotationTouchesVisibleRect(shape, visible_widget_rect))
-            {
-                continue;
-            }
-
-            // Skip duplicate catalog entries (e.g. M 83 and NGC 5236 at the
-            // same position) - keep the first one encountered: the field query answers the brightest first, and
-            // among equals the larger, then by designation.
-            const bool is_duplicate = std::any_of(
-                m_impl->annotations.cbegin(), m_impl->annotations.cend(), [&shape](const CachedAnnotation& existing) {
-                    const double dx = existing.shape.center.x() - shape.center.x();
-                    const double dy = existing.shape.center.y() - shape.center.y();
-                    return (dx * dx + dy * dy) < (kDeduplicationRadiusPx * kDeduplicationRadiusPx);
-                });
-            if (is_duplicate)
-            {
-                continue;
-            }
-
-            CachedAnnotation annotation;
-            annotation.object = &object;
-            annotation.label = buildCatalogAnnotationLabel(object, shape);
-            annotation.shape = std::move(shape);
-            m_impl->annotations.append(std::move(annotation));
-        }
-
-        m_impl->hasAstrometricSolution = true;
-        m_impl->cachedVisibleWidgetRect = visible_widget_rect;
-    }
-
-    if (!m_impl->hasAstrometricSolution || m_impl->annotations.isEmpty())
+    Impl& impl = *m_impl;
+    const double scale = view_widget->getCurrentScaleFactor();
+    if (!std::isfinite(scale) || scale <= 0.0)
     {
         return;
     }
 
-    const auto& token_set = an::ui::tokens();
-    QColor label_text_color = token_set.colors.textPrimary;
-    label_text_color.setAlpha(235);
-    QColor label_fill_color = token_set.colors.bgSurface;
-    label_fill_color.setAlpha(205);
-    QColor label_border_color = token_set.colors.borderSubtle;
-    label_border_color.setAlpha(215);
-    const QRect visible_rect = m_impl->cachedVisibleWidgetRect.toAlignedRect();
+    const QRectF visible = detail::visibleOverlayWidgetRect(control);
 
+    // Each layer's scene at the level, as its catalogue's query of the field answered: a layer whose catalogue could
+    // not be read draws nothing, and the layout waits for a query still on its way.
+    LayoutKey key;
+    key.scale = scale;
+    key.fontPixels = detail::overlayLabelPixels(*view_widget, impl.choices.textSize);
+    key.labelText = impl.choices.labelText;
+    bool waiting = false;
+    const auto sceneOf = [&](detail::FieldCatalogQueries& queries,
+                             const BundledCatalog catalog) -> std::shared_ptr<const AnnotationScene> {
+        const std::shared_ptr<const detail::FieldCatalogEntries> answer =
+            queries.answer(*solution, detail::overlayAnnotationContent(catalog, impl.choices.detail), view_widget);
+        waiting = waiting || (answer == nullptr && queries.isAsking());
+        return answer != nullptr ? answer->scene : nullptr;
+    };
+    if (impl.deepSky)
+    {
+        key.deepSky = sceneOf(impl.deepSkyQueries, BundledCatalog::DeepSky);
+    }
+    if (impl.stars)
+    {
+        key.stars = sceneOf(impl.starQueries, BundledCatalog::BrightStars);
+    }
+    // The level's smallest size is a share of the part of the image shown, as a picture's is of its frame.
+    if (const AnnotationScene* frame = key.deepSky != nullptr ? key.deepSky.get() : key.stars.get(); frame != nullptr)
+    {
+        const QSize viewport = detail::overlayViewState(control).viewportSize;
+        key.smallestMajorPixels =
+            detail::overlaySmallestObject(impl.choices.detail) *
+            detail::overlayShownReferenceLength(frame->imageSize,
+                                                QSizeF(viewport.isEmpty() ? view_widget->size() : viewport), scale);
+    }
+
+    LayoutState& state = *impl.layouts;
+    const bool laidOut = state.drawnKey.has_value() && state.drawnKey->matches(key);
+    if (!waiting && !laidOut && !state.asking && (key.deepSky != nullptr || key.stars != nullptr))
+    {
+        impl.askLayout(key, view_widget);
+    }
+
+    // The layout of these scenes, at the last zoom until the one at this zoom lands; what it was made of changing
+    // otherwise set it aside.
+    if (!state.drawnKey.has_value() || state.drawn.scene == nullptr || state.drawn.layout == nullptr ||
+        (!waiting && !state.drawnKey->sameScenes(key)))
+    {
+        return;
+    }
+    if (visible.isEmpty())
+    {
+        return;
+    }
+    impl.drawnScale = scale;
     painter.save();
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setFont(token_set.typography.caption);
-    const QFontMetrics metrics(painter.font());
-    const int horizontal_padding = token_set.spacing.xs;
-    const int vertical_padding = (std::max)(1, token_set.spacing.xs / 2);
-    const int margin = token_set.spacing.xs;
-
-    for (const CachedAnnotation& annotation : m_impl->annotations)
-    {
-        if (!annotation.object)
-        {
-            continue;
-        }
-
-        QColor stroke_color = typeStrokeColor(QString::fromStdString(annotation.object->objectType), token_set);
-        QColor fill_color = stroke_color;
-        fill_color.setAlpha(32);
-        stroke_color.setAlpha(220);
-
-        QPen pen(stroke_color);
-        pen.setCosmetic(true);
-        pen.setWidthF(annotation.object->extent.has_value() && annotation.object->extent->majorAxisArcminutes >= 20.0
-                          ? 1.4
-                          : 1.0);
-        painter.setPen(pen);
-        painter.setBrush(fill_color);
-
-        if (annotation.shape.outline.size() >= 3)
-        {
-            painter.drawPath(buildClosedPath(annotation.shape.outline));
-        }
-        else
-        {
-            painter.drawEllipse(annotation.shape.center, 6.0, 6.0);
-        }
-
-        painter.drawLine(annotation.shape.center + QPointF(-4.0, 0.0), annotation.shape.center + QPointF(4.0, 0.0));
-        painter.drawLine(annotation.shape.center + QPointF(0.0, -4.0), annotation.shape.center + QPointF(0.0, 4.0));
-
-        QRect text_rect = metrics.boundingRect(annotation.label.text);
-        text_rect.adjust(-horizontal_padding, -vertical_padding, horizontal_padding, vertical_padding);
-
-        // Center the label horizontally above the anchor, with a small gap
-        QPoint top_left(qRound(annotation.label.anchor.x() - text_rect.width() / 2),
-                        qRound(annotation.label.anchor.y() - text_rect.height() - margin));
-        top_left.setX(
-            std::clamp(top_left.x(), visible_rect.left() + margin,
-                       (std::max)(visible_rect.left() + margin, visible_rect.right() - text_rect.width() - margin)));
-        top_left.setY(
-            std::clamp(top_left.y(), visible_rect.top() + margin,
-                       (std::max)(visible_rect.top() + margin, visible_rect.bottom() - text_rect.height() - margin)));
-
-        const QRect bubble_rect(top_left, text_rect.size());
-        painter.setPen(label_border_color);
-        painter.setBrush(label_fill_color);
-        painter.drawRoundedRect(bubble_rect, token_set.radius.sm, token_set.radius.sm);
-        painter.setPen(label_text_color);
-        painter.drawText(bubble_rect, Qt::AlignCenter, annotation.label.text);
-    }
+    painter.scale(scale, scale);
+    paintAnnotations(
+        painter, *state.drawn.scene, *state.drawn.layout, impl.style,
+        QRectF(visible.left() / scale, visible.top() / scale, visible.width() / scale, visible.height() / scale));
     painter.restore();
 }
 
 void CatalogAnnotationDisplayModule::onImageLoaded(ImageViewControl* /*ctrl*/)
 {
-    invalidateCache();
+    invalidate();
 }
 
 void CatalogAnnotationDisplayModule::onImageUpdated(ImageViewControl* /*ctrl*/)
 {
-    invalidateCache();
+    invalidate();
 }
 
 void CatalogAnnotationDisplayModule::onImageRenamed(ImageViewControl* /*ctrl*/)
 {
-    invalidateCache();
+    invalidate();
 }
 
 void CatalogAnnotationDisplayModule::onImageViewControlDestroyed(ImageViewControl* ctrl)
 {
     ImageViewControlListener::onImageViewControlDestroyed(ctrl);
     detachFromViewWidget();
-    invalidateCache();
+    invalidate();
 }
 
-void CatalogAnnotationDisplayModule::setMagnitudeLimit(const double magnitude_limit)
+void CatalogAnnotationDisplayModule::setChoices(const AnnotationViewChoices& choices)
 {
-    if (!std::isfinite(magnitude_limit))
+    Impl& impl = *m_impl;
+    if (choices == impl.choices)
     {
         return;
     }
+    // A level is asked of the catalogues, a label laid out again on the next paint - the last layout drawn until then -
+    // and a palette is drawn at once.
+    impl.choices = choices;
+    impl.style.colors = annotationPaletteColors(choices.palette);
+    if (m_ViewWidget)
+    {
+        m_ViewWidget->update();
+    }
+}
 
-    if (qFuzzyCompare(m_impl->magnitudeLimit + 1.0, magnitude_limit + 1.0))
+AnnotationViewChoices CatalogAnnotationDisplayModule::choices() const
+{
+    return m_impl->choices;
+}
+
+void CatalogAnnotationDisplayModule::setLayers(const bool deepSky, const bool stars)
+{
+    if (deepSky == m_impl->deepSky && stars == m_impl->stars)
     {
         return;
     }
-
-    m_impl->magnitudeLimit = magnitude_limit;
-    invalidateCache();
+    m_impl->deepSky = deepSky;
+    m_impl->stars = stars;
+    invalidate();
 }
 
-double CatalogAnnotationDisplayModule::magnitudeLimit() const
+bool CatalogAnnotationDisplayModule::showsDeepSky() const
 {
-    return m_impl->magnitudeLimit;
+    return m_impl->deepSky;
+}
+
+bool CatalogAnnotationDisplayModule::showsStars() const
+{
+    return m_impl->stars;
 }
 
 QVector<QString> CatalogAnnotationDisplayModule::projectedLabels() const
 {
     QVector<QString> labels;
-    for (const CachedAnnotation& annotation : m_impl->annotations)
+    const LayoutState& state = *m_impl->layouts;
+    if (!state.drawnKey.has_value() || state.drawn.scene == nullptr || state.drawn.layout == nullptr)
     {
-        labels.push_back(annotation.label.text);
+        return labels;
+    }
+    for (const AnnotationLabel& label : state.drawn.layout->labels)
+    {
+        if (label.role == AnnotationLabelRole::Object && label.source < state.drawn.scene->marks.size())
+        {
+            labels.push_back(
+                annotationLabelLines(state.drawn.scene->marks[label.source], state.drawnKey->labelText).first);
+        }
     }
     return labels;
 }
 
+QVector<QRectF> CatalogAnnotationDisplayModule::projectedLabelBoxes() const
+{
+    QVector<QRectF> boxes;
+    const LayoutState& state = *m_impl->layouts;
+    const double scale = m_impl->drawnScale;
+    if (state.drawn.scene == nullptr || state.drawn.layout == nullptr || !(scale > 0.0))
+    {
+        return boxes;
+    }
+    for (const AnnotationLabel& label : state.drawn.layout->labels)
+    {
+        if (label.role == AnnotationLabelRole::Object && label.source < state.drawn.scene->marks.size())
+        {
+            boxes.push_back(QRectF(label.box.topLeft() * scale, label.box.size() * scale));
+        }
+    }
+    return boxes;
+}
+
 std::uint64_t CatalogAnnotationDisplayModule::catalogQueriesAsked() const
 {
-    return m_impl->queries.queriesAsked();
+    return m_impl->deepSkyQueries.queriesAsked() + m_impl->starQueries.queriesAsked();
+}
+
+std::uint64_t CatalogAnnotationDisplayModule::layoutsMade() const
+{
+    return m_impl->layouts->made;
 }
 
 void CatalogAnnotationDisplayModule::setCatalogSource(BundledCatalogSource source)
 {
-    m_impl->queries.setSource(std::move(source));
-    invalidateCache();
+    m_impl->deepSkyQueries.setSource(source);
+    m_impl->starQueries.setSource(std::move(source));
+    invalidate();
 }
 
-void CatalogAnnotationDisplayModule::invalidateCache()
+void CatalogAnnotationDisplayModule::invalidate()
 {
-    m_impl->cacheValid = false;
-    m_impl->hasAstrometricSolution = false;
-    m_impl->annotations.clear();
-    // The field's entries are kept: they are asked for again only when the solution or the limit changes.
-
+    LayoutState& state = *m_impl->layouts;
+    ++state.generation;
+    state.drawnKey.reset();
+    state.drawn = {};
+    // The fields' entries are kept: they are asked for again only when the solution, the level or the source changes.
     if (m_ViewWidget)
     {
         m_ViewWidget->update();

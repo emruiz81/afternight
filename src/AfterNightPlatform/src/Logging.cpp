@@ -10,6 +10,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 
 #include <array>
+#include <exception>
 #include <filesystem>
 #include <mutex>
 #include <system_error>
@@ -151,7 +152,8 @@ void initializeLogging(const std::string& logFile, const std::size_t maxFiles, c
         return;
     }
 
-    gFileSink = std::make_shared<ReplaceableSink>(makeRotatingFileSink(logFile, maxFiles, maxFileSizeMb));
+    gFileSink = std::make_shared<ReplaceableSink>(
+        logFile.empty() ? nullptr : makeRotatingFileSink(logFile, maxFiles, maxFileSizeMb));
     gRingBuffer = std::make_shared<spdlog::sinks::ringbuffer_sink_mt>(maxRingBufferLines);
     gSessionConsoleSink = std::make_shared<ReplaceableSink>();
 
@@ -211,19 +213,30 @@ void setFileSinkLogLevel(const LogLevel level)
     }
 }
 
-void reconfigureFileSink(const std::string& logFile, const std::size_t maxFiles, const std::size_t maxFileSizeMb,
+bool reconfigureFileSink(const std::string& logFile, const std::size_t maxFiles, const std::size_t maxFileSizeMb,
                          const LogLevel level)
 {
     if (!gInitialized || !detail::gLogger || !gFileSink)
     {
-        return;
+        return true;
     }
 
     detail::gLogger->flush();
-    gFileSink->replaceSink(makeRotatingFileSink(logFile, maxFiles, maxFileSizeMb));
+    spdlog::sink_ptr sink;
+    try
+    {
+        sink = makeRotatingFileSink(logFile, maxFiles, maxFileSizeMb);
+    }
+    catch (const std::exception& refusal)
+    {
+        LOG_WARNING("The log file '{}' cannot be written ({}); the log stays in its file.", logFile, refusal.what());
+        return false;
+    }
+    gFileSink->replaceSink(std::move(sink));
     gFileSink->set_level(spdlogLevel(level));
 
     LOG_INFO("Logging reconfigured: file={}, maxFiles={}, maxSizeMB={}", logFile, maxFiles, maxFileSizeMb);
+    return true;
 }
 
 void setSessionConsoleSink(spdlog::sink_ptr sink)

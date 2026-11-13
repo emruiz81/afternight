@@ -1068,9 +1068,11 @@ Result<RegistrationWarpResult> warpRegisteredImage(const ExecutionContext& execu
             return geometry.status();
         }
         const GeometrySelection geometrySelection{.validity = selection.descriptor, .mask = selection.mask};
+        // Only where the frame reaches: the geometry module's warp would otherwise write the whole
+        // canvas, the border rule standing in for what lies off the frame.
         const Result<GeometryResult> warped =
             transformImageGeometry(execution, sampleType, source, sourceLayout, destination, destinationLayout,
-                                   *geometry, geometrySelection, destinationValidity);
+                                   *geometry, geometrySelection, destinationValidity, WarpCoverage::SourcePixels);
         if (!warped.hasValue())
         {
             return warped.status();
@@ -1110,6 +1112,8 @@ Result<RegistrationWarpResult> warpRegisteredImage(const ExecutionContext& execu
         bandX.resize(static_cast<std::size_t>(bandRows) * width);
         bandY.resize(static_cast<std::size_t>(bandRows) * width);
         destinationValidity.fill(false);
+        const std::uint32_t frameWidth = static_cast<std::uint32_t>(sourceLayout.extent().width());
+        const std::uint32_t frameHeight = static_cast<std::uint32_t>(sourceLayout.extent().height());
 
         for (std::uint32_t bandBegin = 0u; bandBegin < height; bandBegin += bandRows)
         {
@@ -1149,11 +1153,15 @@ Result<RegistrationWarpResult> warpRegisteredImage(const ExecutionContext& execu
                 // The gather puts pixel centres at integers and this domain puts the first centre
                 // at one half, so the half pixel between the two conventions is removed here, once.
                 // An unmapped position is given a harmless in-range coordinate so the gather's
-                // checks accept the band; its output is discarded below.
+                // checks accept the band; its output is discarded below. A position off the frame's
+                // pixels is marked unmapped with it: the warp writes only where the frame reaches,
+                // whatever the border rule would read there.
                 coordinates[index] = KernelCoordinate{.x = static_cast<double>(bandX[index]) - 0.5,
                                                       .y = static_cast<double>(bandY[index]) - 0.5};
-                if (isUnmappedCoordinate(bandX[index]) || isUnmappedCoordinate(bandY[index]))
+                if (isUnmappedCoordinate(bandX[index]) || isUnmappedCoordinate(bandY[index]) ||
+                    !liesOnPlanePixels(coordinates[index].x, coordinates[index].y, frameWidth, frameHeight))
                 {
+                    bandX[index] = unmappedCoordinate();
                     coordinates[index] = KernelCoordinate{.x = 0.0, .y = 0.0};
                 }
             }

@@ -1,233 +1,233 @@
+---
+kind: tutorial
+summary: >-
+  Start AfterNight for the first time, find your way around its Dashboard, open one image and look at it, and come
+  back to the Dashboard with the image among your recent files.
+needs: []
+---
 # First Launch
 
-![Fresh-profile Dashboard with onboarding, start cards, quick actions, and the image drop zone](../assets/images/interface/hero-screenshot.png)
+You start with AfterNight installed and never started, and one image file of your own. You end with that image open
+and visible in AfterNight, then listed among the recent files of the Dashboard, the screen AfterNight starts on.
+Opening a file only reads it: your file stays as it is.
 
-*A fresh profile opens on the Dashboard, where the start cards and drop zone
-provide the first routes into a project.*
+## What you need
 
-## Purpose, audience, prerequisites, and expected result
+- [ ] AfterNight installed, as [Installation](installation.md) describes
+- [ ] One image file AfterNight opens, such as a [FITS](../reference/glossary.md#fits),
+  [XISF](../reference/glossary.md#xisf), TIFF, PNG or JPEG file, or a camera's [RAW](../reference/glossary.md#raw)
+  file
+- [ ] A small file for this first time, on a disk of this computer rather than a network or cloud folder
 
-Use this page immediately after installation to confirm the application version,
-choose safe storage/defaults, open one known small file, and understand the
-transition from the dashboard to the processing workspace. It is for a new user
-or a user starting with a fresh profile.
+[Supported Formats](supported-formats.md) lists every kind of file AfterNight opens.
 
-You need a successfully installed/deployed AfterNight 1.0.1 runtime and a local
-file that the authoritative [File Formats](../reference/file-formats.md) page
-lists as readable. At the end, the image/sequence view should open without
-altering the source file, and closing the last view should return to the
-dashboard with a recent-file entry after a successful load.
+## Steps
 
-## Reachability and availability
+```figure
+image: ../assets/images/getting-started/first-launch.webp
+alt: >-
+  The AfterNight main window on its Dashboard. At the top left, the AfterNight logo, the name AfterNight with its
+  version, and the tagline "Deep-sky imaging, calibrated and refined". At the top right, three small round buttons: a
+  gear, a question mark and an i. Under the name, three blue buttons: Open file, New sequence and Image integration,
+  and a button with three dots at the right. Below, a large dark panel reads "Welcome to AfterNight", then "What you
+  can do" over six small cards, "Get started" over three large cards named Open Image, New Sequence and Image
+  Integration, a dashed box that reads "Drop your images here to get started", and a line of keyboard hints.
+caption: >-
+  The Dashboard as AfterNight shows it on its first start, before any file was opened.
+pins:
+  - {n: 2, x: 14.0, y: 12.1}
+  - {n: 3, x: 89.8, y: 12.9}
+  - {n: 4, x: 3.5, y: 21.0}
+  - {n: 8, x: 94.6, y: 9.0}
+```
 
-| Item | Current behavior |
-| --- | --- |
-| Startup surface | The dashboard is the first widget added to the central stack. On the dashboard, the normal status bar/dock toolbar are hidden or disabled and the Window menu is disabled. |
-| Fresh-profile state | With no recent files, the empty-state onboarding panel shows the welcome text, six capability summaries, three action cards, local-file drop zone, and keyboard hints. There is no modal welcome tour to dismiss. |
-| Returning-profile state | With recent files, the recent grid appears immediately instead of briefly showing onboarding. Search/sort and featured-file behavior are described in [Dashboard](../interface/dashboard.md). |
-| Workspace transition | A successfully created standard image/sequence view switches to the dock workspace. Closing the final view returns to the dashboard unless the Session Console is open. |
-| Always-available dashboard utilities | Identity-bar **Settings (Ctrl+,)**, **User Guide (F1)**, and **About** buttons; primary and overflow quick actions. |
+### Start AfterNight
 
-The first-launch page covers only the learning path. [Dashboard](../interface/dashboard.md)
-holds the exhaustive recent-file, pinning, customization, persistence,
-empty/error-state, and transition reference.
+On Windows, choose **AfterNight** in the Start menu. On Linux, start the AppImage. The first time, the window fills
+the screen and opens on the Dashboard. No welcome dialog opens and nothing asks you a question.
 
-## Before you start
+Starting AfterNight while it is already open brings the open window to the front. It does not open a second one.
 
-- Keep the source file read-only or backed up if it is important. Opening does
-  not write it, but later process and save actions can create other files/views.
-- Choose a small, known local still or sequence. Do not use a cloud-only URL,
-  folder, or unsupported suffix for the first checkpoint.
-- Decide where temporary files may be created. With no stored directory, each
-  session works in its own directory below the application's local data,
-  guarded by a lock file; **Settings > General** shows the system temporary
-  folder's `AfterNight` directory as its default, and saving Settings stores the
-  directory the page shows. **Clear temporary files on exit** (on by default)
-  removes this session's directory at exit, and the next start removes the
-  directories of sessions that have ended, never those of a running one.
-- If offline-only policy matters, decide whether the default background
-  extension-update check should remain enabled before connecting the workstation.
-- External CLI/model/catalog paths start unconfigured or need readiness checks;
-  they are not required to open an ordinary local image.
+!!! see "You should see"
+    The Dashboard, in the dark theme, with a large panel that reads "Welcome to AfterNight".
 
-## Procedure
+??? wrong "If it goes wrong: the Dashboard shows thumbnails instead of the welcome panel"
+    Your user profile already holds recent files, from an earlier installation. AfterNight shows the welcome panel
+    only while the list of recent files is empty. Follow the same steps with the **Open file** button.
 
-1. Start AfterNight. In the identity bar, compare the displayed version with
-   the installed package/build you intended to run. The application shows
-   v1.0.1, the version the installer and the AppImage name.
-2. Identify the state:
-   - No recents: confirm **Welcome to AfterNight**, the **Open Image**, **New
-     Sequence**, and **Image Integration** cards, and the drop zone.
-   - Existing recents: do not expect the onboarding panel. Use the primary
-     **Open file** action for this check.
-3. Open **Settings (Ctrl+,)** and check only the first-session decisions:
-   - **General**: the temporary directory exists and is writable; **Default Save
-     Format** starts at TIFF on a fresh profile; unsaved-close confirmation and
-     temporary cleanup start enabled.
-   - **Raw Images**: a fresh profile reads Daylight white balance and EXIF
-     auto-rotate on (the page's **Reset Page** selects None for the white
-     balance), and the **Demosaic Algorithm** starts at RCD. The list offers the
-     engine's six methods (RCD, AMaZE, LMMSE, AHD, VNG4, Bilinear).
-   - **Interface**: choose a comfortable theme/animation policy if required.
-   - **External Tools** and **Catalogs & Data**: configure only features the
-     next workflow actually uses.
-4. Save/close Settings. If the selected temporary directory cannot be created
-   or is not writable, correct it before continuing.
-5. Choose **Open file**/the empty-state **Open Image** card or press `Ctrl+O`.
-   Select one file from the readable formats summarized in [Supported
-   Formats](supported-formats.md). The chooser also recognizes native and
-   FFmpeg-backed sequence suffixes. It has no all-files filter, and a selection
-   holding any unrecognized suffix is refused whole with **Unsupported File
-   Type**. When a file is a colour-filter-array mosaic, **Open CFA file** asks
-   whether to debayer it: **Yes** demosaics it by the Raw Images **Demosaic
-   Algorithm**; **No** opens the mosaic as recorded.
-6. Checkpoint: a **File Open** progress window appears while loading, then the
-   processing workspace and a new view appear. Opening alone does not overwrite
-   the source.
-7. Close the view. Checkpoint: when it was the last view and the Session
-   Console is closed, the dashboard returns; after a successful load the file is
-   available in recents. Leave exhaustive
-   recent-file actions for the Dashboard reference.
-8. Open **User Guide (F1)** once to confirm bundled-first Help, then continue to
-   [Quick Start](quick-start.md).
+### Read the Dashboard
 
-### Optional drag-and-drop check
+The top line names AfterNight and its version. Check that it is the version you installed. The three small buttons
+at the right, a gear, a question mark and an i, open **Settings**, this **User Guide** and **About**, as their
+tooltips say.
 
-Drag one or more local files onto the dashboard. The dashboard accepts a drag
-when it contains at least one local URL, then the file manager keeps only paths
-with recognized still/sequence suffixes. An all-unsupported drop is ignored.
-With three or more retained paths, progress becomes determinate; one or two use
-an indeterminate progress bar.
+Under the name, **Open file**, [**New sequence**](../reference/glossary.md#sequence) and **Image integration** are
+the Dashboard's quick actions. The
+button with three dots at the right holds the others: **Extension Manager**, **Clear recents**, **System info** and
+**Customize quick actions**, which reorders and hides them. [Dashboard](../interface/dashboard.md) describes them.
 
-## Complete control and action reference
+The welcome panel holds six cards under "What you can do", which only describe AfterNight. The three cards under
+"Get started" do what the three quick actions do. The formats they and the dashed drop box name are a short list,
+not every format AfterNight opens.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Settings (Ctrl+,) | Identity-bar icon button | Visible | Dashboard available | Opens Settings | No active image required | Saving settings can change later load/export/network behavior | Application | Settings persist independently |
-| User Guide (F1) | Identity-bar icon button | Visible | Local HTML or allowed online fallback | Opens bundled-first Help | No active image required | May open network URL if bundled guide is unavailable | Application | None |
-| About | Identity-bar icon button | Visible | Dashboard available | Opens version/project information | No active image required | Modal information dialog | Application | None |
-| Open file | Primary quick action; `Ctrl+O` | First in default order | File chooser; supported still/sequence suffix | Opens File dialog and async load path | Available on dashboard | Successful loads add recents/thumbnails and switch workspace | Selected files | Last open directory and recents persist |
-| New sequence | Primary quick action | Second | Opens New Sequence workflow | Starts sequence creation | Available without active image | May allocate/write sequence storage after confirmation | New sequence | Workflow-specific |
-| Image integration | Primary quick action | Third | Opens full Image Integration | Starts multi-frame workflow UI | Available without active image | Workflow may use substantial disk/memory after configured execution | New integration project/session | Process/project persistence |
-| Extension Manager | Overflow quick action | Visible | Extension subsystem available | Opens extension management | No active image required | Can use network/disk and modify extension environments | Application | Extension state persists |
-| Clear recents | Overflow quick action | Disabled with no recents | Confirmation with nonempty recent list | Clears dashboard recent list | Enabled only when recents exist | Does not delete source image files | Dashboard list | Recent store/thumb state updated |
-| System info | Overflow quick action | Visible | Dashboard available | Opens runtime diagnostics | No active image required | May reveal machine/runtime details if copied into a report | Application | None |
-| More actions (`···`) | Menu button | Visible | Dashboard toolbar | Opens secondary actions and **Customize quick actions** | No active image required | Reordering/hiding changes discoverability | Dashboard | Order/hidden IDs persist |
-| Open Image | Empty-state card | Visible only with no recents | Same open action; subtitle is an abbreviated format list | Opens File dialog | Hidden when recent grid replaces onboarding | Same as **Open file** | Selected files | Same as **Open file** |
-| New Sequence | Empty-state card | Visible only with no recents | Same new-sequence action | Starts New Sequence | Hidden when recent grid replaces onboarding | Same as toolbar action | New sequence | Workflow-specific |
-| Image Integration | Empty-state card | Visible only with no recents | Same integration action | Opens Image Integration | Hidden when recent grid replaces onboarding | Same as toolbar action | Integration session | Process/project persistence |
-| Drop your images here to get started | Dashboard/local-URL drop | Empty until drag | One or more local paths; recognized suffixes retained | Starts batched File Open | Unsupported/nonlocal-only drop ignored | Multiple loads can consume memory and create multiple views | Dropped files | Last directory and successful recents update |
-| `Ctrl+O to open` | Keyboard hint/shortcut | Active | Application shortcut | Invokes Open | Available on dashboard | Same as Open | Application | None |
-| `Ctrl+N for new sequence` | Displayed keyboard hint | Stale | No current application shortcut is assigned | Does nothing through current action wiring | Text is visible in empty onboarding but not backed by a shortcut | Use the card, toolbar, or **File > New Sequence...** | None | None |
-| `F1 for help` | Keyboard hint/shortcut | Active | Application shortcut | Opens User Guide | Available on dashboard | Bundled-first/online-fallback behavior | Application | None |
-| Search by name, type, or path... | Recent search; `Ctrl+F` | Hidden with no recents | Partial text; visible recent list | Filters recents only | Not a general file search; hidden in empty state | Persisted filter can produce **No matches found** later | Dashboard recents | Search text persists |
+While the Dashboard shows, the status bar is hidden and the **Window** menu is disabled. Both return when an image is
+open.
 
-## Behavior and state model
+!!! see "You should see"
+    The version after the name, the same as in the name of the file you installed.
 
-The dashboard is a navigation surface, not an image view. A fresh recent list
-selects the onboarding state. A nonempty recent list selects the thumbnail grid;
-a nonempty search with no result selects a separate **No matches found** state.
-This is why a returning user may never see the first-launch onboarding card.
+??? wrong "If it goes wrong: ++ctrl+n++ does nothing"
+    The hint line under the panel names it, but no command has that shortcut. Choose **New sequence**, or **File >
+    New Sequence...**, to start a sequence.
 
-Open and drop actions pass paths to `FileManager`. The open dialog limits visible
-choices; drag-and-drop performs a suffix prefilter. Loading runs on a worker with
-the **File Open** progress control. Each successful image/sequence produces a
-standard view, switches the central stack to the dock workspace, and updates
-recent bookkeeping. Cancellation/failure does not prove a usable view. Closing
-the last view switches back to the dashboard.
+### Look at the settings that decide how a file opens
 
-Dashboard quick-action order, hidden actions, recent search/sort, pins, and last
-action have persistent keys. Their complete persistence and conflict behavior
-is out of this first-session page and is described in
-[Dashboard](../interface/dashboard.md).
+Choose the gear button, or **Edit > Settings...**, or press ++ctrl+comma++. Two pages of [Settings](../interface/settings-dialog.md)
+decide how your first image opens:
 
-## Inputs, outputs, and metadata
+- **Raw Images** sets how the raw file of a camera is read. A new profile reads it with the **Daylight** white
+  balance, and turns it by the orientation the camera recorded in its [EXIF](../reference/glossary.md#exif) record,
+  as **Auto-rotate based on EXIF orientation** asks. Its **Demosaic
+  Algorithm**, RCD on a new profile, turns any color-filter mosaic you open into color when you ask for it in step 5.
+- **General** shows under **Temporary Files** the folder for the intermediate files of each session: an
+  `AfterNight` folder in the system's temporary folder. Until Settings stores it, with **OK** or **Apply**,
+  AfterNight uses a `temp` folder in its own data folder instead. This page also holds **Check for
+  extension updates on startup**, which is on. On a first start that check is the only thing AfterNight does on the
+  network by itself; once extensions are installed, preparing their environments at startup may reach a package index
+  too. Turn it off if this computer must stay offline.
 
-Input is a local readable still/sequence or a workflow choice. Opening creates
-an in-memory image/sequence view and a persisted recent-file entry/thumbnail; it
-does not rewrite the source or add processing history to it. RAW decoding can
-change the opened representation according to load settings, while source RAW
-bytes remain unchanged.
+The other pages, such as **External Tools** and **Catalogs & Data**, are for tools and data that opening an image does
+not need. Choose **Cancel** to leave without a change, or **OK** to store what the pages show.
 
-New Sequence and Image Integration create their own sessions/artifacts only
-after their dialogs proceed. Settings change global persistence, not image
-metadata. The dashboard itself produces no astronomical output.
+!!! see "You should see"
+    The Settings dialog closes, and the Dashboard is as it was.
 
-## Performance and responsiveness
+??? wrong "If it goes wrong: "The temporary files directory is not writable: …""
+    The folder named under **Temporary Files** cannot be created or written to, and Settings keeps the dialog open.
+    Choose a folder on a disk you can write to, with room for large files, and choose **OK** again.
 
-Dashboard thumbnail work is asynchronous and the empty-state layout reflows for
-narrower widths. Opening cost depends on file size, codec, storage, RAW decode,
-and sequence indexing. Begin with one small file rather than a full acquisition
-folder. A multi-file drop can create multiple views; cancel from **File Open** if
-the chosen batch was accidental.
+### Open one image
 
-## Worked example
+Choose **Open file**, or the **Open Image** card, or press ++ctrl+o++. The **Open File** dialog opens in your
+Pictures folder the first time, and later in the folder you last opened from. Its filter, **All supported formats**,
+shows every file AfterNight opens, sequences and videos among them. Select your image and choose **Open**.
 
-- Evidence mode: Source-and-test-derived; no approved onboarding image was
-  opened.
-- Starting state: AfterNight 1.0.1, a fresh or known profile, and one backed-up
-  small local still listed as readable in File Formats.
-- Actions: verify the identity-bar version; confirm/write-test the temporary
-  directory in Settings; open the file; wait for **File Open** to close; close
-  the resulting view.
-- Checkpoints: the workspace replaces the dashboard only after view creation;
-  the source path remains unchanged; closing the last view returns to the
-  dashboard; a successful open appears in recents.
-- Limitation: this proves the documented state transitions and source safety,
-  not decoder compatibility for every camera, image correctness, rendering,
-  performance, or output quality.
+You can also drag files from your file manager and drop them anywhere on the Dashboard. AfterNight opens the dropped
+files of a kind it opens and ignores the others.
 
-## Warnings and limitations
+!!! see "You should see"
+    The dialog closes and a small window titled **File Open** appears.
 
-- The onboarding `Ctrl+N` hint is stale; use **New sequence** or **File > New
-  Sequence...**.
-- Card/drop-zone format subtitles are abbreviated UI copy, not compatibility
-  authority. Use [File Formats](../reference/file-formats.md).
-- The Raw Images **Demosaic Algorithm** is the one method every open path
-  uses - Open, drag-and-drop, and a recent item - when you answer **Yes** to
-  **Open CFA file**, and a mosaic sequence that states no method takes it when
-  its view shows it. Use the [Debayer](../processes/calibration/debayer.md)
-  process for explicit control.
-- The default extension-update check can contact the configured official
-  repository after startup. Disable it before network-isolated work if policy
-  requires.
-- Dashboard layout/rendering at target resolutions and screenshots remain later
-  GUI/media work. No runtime visual inspection was used for this source audit.
+??? wrong "If it goes wrong: "Unsupported File Type""
+    The box reads "AfterNight can only open supported image, RAW, and video files." One of the files you selected
+    is of a kind AfterNight does not open, and the whole selection is refused. Select only files the filter shows.
 
-## Troubleshooting
+### Answer the question about the color filter array
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| The welcome/onboarding panel is absent | The profile has at least one recent file, so startup selects the recent grid. | Use **Open file**; clear recents only if you intentionally want an empty list. | `MainDashboard.cpp` |
-| `Ctrl+N` does nothing | The empty-state hint is stale and `actionNew_Sequence` has no shortcut. | Use **New sequence** or **File > New Sequence...**. | `DashboardOnboardingPanel.cpp`; `AfterNightAppUiBuilder.h` |
-| `Ctrl+F` does not focus search | Search controls are hidden when there are no recents. | Open a supported file successfully first; use `Ctrl+F` only when the recent row is visible. | `MainDashboard.cpp` |
-| Dropping a folder/URL does nothing | Drag acceptance requires a local URL and FileManager retains only recognized file suffixes. | Drop local files, or use **Open file** and consult Supported Formats. | `MainDashboard.cpp`; `FileManager.cpp`; `FileDialogUtils.h` |
-| File Open closes without a view | Decode/open failed or was cancelled; a suffix match alone does not prove content support. | Preserve the logged error, retry one known small file, and verify the actual stream/codec in File Formats. | `FileWorkflowRunner.cpp` |
-| Settings refuses the temporary location | The directory cannot be created or is not writable. | Choose a writable local directory with adequate headroom, then save Settings again. | `GeneralSettingsPage.cpp` |
-| A RAW file differs from expected | The Raw Images white balance, auto-rotate, and Demosaic Algorithm settings published when the open was asked for decide the opened representation; an X-Trans RAW is demosaiced by the setting's X-Trans counterpart (the fast X-Trans estimate for Bilinear, three-pass Markesteijn for every other method). | Review Raw Images settings and use Debayer explicitly when CFA control matters. | `FilePolicies.cpp`; `DemosaicTextMaps.h`; `FileWorkflowRunner.cpp` |
+This step happens only when the image is a mosaic of a color filter array, or
+[CFA](../reference/glossary.md#cfa): the raw file of a color camera, or a file of another format that states a filter
+pattern. AfterNight then asks whether to [debayer](../reference/glossary.md#debayer) it. A box titled **Open CFA file** asks "The file appears to have a bayer matrix.
+Do you want to automatically debayer it before opening? (If no, you can always debayer it by using the Debayer
+process)".
 
-## Related workflow steps
+- **Yes** turns the mosaic into a color image, with the **Demosaic Algorithm** of the **Raw Images** settings. Choose
+  it to look at the picture.
+- **No** opens the mosaic as it was recorded, as one gray plane. Choose it for a frame you will calibrate, since
+  calibration works on the mosaic. The [Debayer](../processes/calibration/debayer.md) process turns it into color
+  later, with a method you choose.
 
-If startup itself fails, return to [Installation](installation.md). Before
-opening unfamiliar data, use [Supported Formats](supported-formats.md) and its
-authoritative File Formats link. Once the state transitions above pass, follow
-[Quick Start](quick-start.md). The complete dashboard and processing-workspace
-surfaces are covered by [Dashboard](../interface/dashboard.md) and [Interface
-Overview](../interface/overview.md).
+!!! see "You should see"
+    The box closes and the **File Open** window goes on.
 
-## References and provenance
+### Wait for the image to open
 
-- Startup/dashboard wiring: `UiBootstrapCoordinator.cpp`,
-  `WindowLayoutCoordinator.cpp`, and view-control/creation coordinators.
-- Empty-state labels/actions: `DashboardOnboardingPanel.cpp`.
-- Identity/quick actions and persistence: `DashboardIdentityBar.cpp`,
-  `DashboardToolbar.cpp`, `DashboardPreferences.h`, and `MainDashboard.cpp`.
-- File/open/drop behavior: `FileDialogUtils.h`, `FileManager.cpp`, and
-  `FileWorkflowRunner.cpp`.
-- Default first-session settings: `SettingsDefaults.h`, `FilePolicies.h`
-  (`RawOpenSettings`), `DemosaicTextMaps.h`, and the reviewed Settings
-  implementation/page.
-- Version: `kProductVersion` in `ApplicationSession.h`, read through
-  `productVersion()` in `EngineVersionReport.cpp`.
-- Focused state/wiring coverage: the file-workflow, dashboard, settings,
-  version-dialog, and application-menu tests.
+The **File Open** window reads "Opening file '…'..." with the path of your file, and has a **Cancel** button. Several
+files open one after the other, each in a view of its own. For one or two files the bar only moves, and from three
+files on it counts the share done. When the image is read, the Dashboard gives way to the workspace, and the image opens in its view.
+
+!!! see "You should see"
+    A tab named after your file, without its extension, a toolbar above the image, and a status bar at the bottom.
+    The status bar gives the image's size and channels, its sample type, the memory it takes and the zoom.
+
+??? wrong "If it goes wrong: a box titled "File open error""
+    It reads "Could NOT load file '…'." and gives the reason. A file can carry a name AfterNight knows and still hold
+    something it does not read, or be damaged. Read the reason, look the format up in
+    [Supported Formats](supported-formats.md), and try another file.
+
+### Look at the image
+
+The view opens in the **Linear** display mode, which shows the samples as they are. A
+[linear image](../reference/glossary.md#linear-image), such as a stacked [master](../reference/glossary.md#master) or
+a raw frame, then looks nearly black. Choose [**Autostretch**](../reference/glossary.md#autostretch) in the display
+mode box of the view's
+toolbar to see it. This changes the display only, not the image: the word AUTOSTRETCH in the corner of the view
+reminds you of it.
+
+```figure
+image: ../assets/images/getting-started/first-launch-image.webp
+alt: >-
+  The AfterNight main window with one image open in a tab. Above the image, the view's toolbar with zoom buttons, a
+  channel box reading RGB and the display mode box reading Autostretch. The image shows the red and white clouds of
+  the Carina Nebula across a field of stars, with the word AUTOSTRETCH in its top left corner. At the bottom, the
+  status bar gives the image's size, sample type, memory and zoom.
+caption: >-
+  A linear master of the Carina Nebula just opened, shown in the Autostretch display mode.
+pins:
+  - {n: 7, x: 24.0, y: 12.6}
+```
+
+[Image Viewer](../interface/image-viewer.md) shows how to zoom, pan and inspect the image.
+
+!!! see "You should see"
+    Your image in its view, with stars and structure visible.
+
+### Open the user guide
+
+Press ++f1++, or choose **Help > User Guide**. On the Dashboard, the small button with the question mark does the
+same. The guide opens in your web browser, from the copy installed with AfterNight.
+
+!!! see "You should see"
+    This guide in your browser.
+
+### Close the image
+
+Choose **File > Close**, or the cross on the view's tab. When the last view closes, AfterNight returns to the
+Dashboard. The welcome panel has given way to **Recent**, which shows your image as a thumbnail with its name. A click
+on it opens the image again.
+
+!!! see "You should see"
+    The Dashboard, with your image under **Recent**.
+
+??? wrong "If it goes wrong: the Dashboard does not come back"
+    The Session Console is open, and AfterNight stays in the workspace while it is. Close it, or choose **View >
+    Session Console** again, and the Dashboard returns.
+
+## The result
+
+You have opened an image, looked at it and closed it, and AfterNight is ready for the [Quick Start](quick-start.md).
+
+- **Your file is as it was.** Opening reads a file into memory and never writes it. A raw file is turned into an
+  image by the **Raw Images** settings in force when you opened it, and its bytes stay the same.
+- **The Dashboard remembers it.** Your image is under **Recent**, and in **File > Open Recent**, among the files you
+  opened last, as many as **Recent Files Limit** in Settings keeps. Only a file that opened is added. From now on
+  the Dashboard opens with your recent files instead of the welcome panel.
+- **AfterNight has a folder of its own** in your user profile: `%LOCALAPPDATA%\AfterNight` on Windows,
+  `~/.local/share/AfterNight` on Linux. It holds the settings, the list of recent files and their thumbnails, and the
+  logs in `logs`.
+- **Each session has a folder for its intermediate files,** under `temp` in that folder, or in the **Temporary
+  Files** location once Settings has stored one. With **Clear temporary files on exit** on, as it is on a new
+  profile, the folder goes when AfterNight closes. The next start then removes the folders of sessions that have
+  ended, and never the folder of one still running.
+- **The window keeps its size.** When you close AfterNight, it remembers the size and place of its window, and the
+  next start opens it the same way.
+
+**New sequence** and **Image integration** open windows of their own. They write files only once you start what they
+prepare.
+
+## Next
+
+- [Quick Start](quick-start.md) takes the frames of one night to a stacked master.
+- [Dashboard](../interface/dashboard.md) describes the recent files, their search and the quick actions.
+- [Image Viewer](../interface/image-viewer.md) shows how to inspect an image and what Autostretch does.
+- [Supported Formats](supported-formats.md) lists the files AfterNight opens and writes.
+- [Settings](../interface/settings-dialog.md) describes every page of the Settings dialog.

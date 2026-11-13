@@ -1,0 +1,110 @@
+{#- The home page, drawn from its front matter and the nav: the hero (the page's H1 with its accent words, the lede,
+    up to three actions, the notice and the picture), the stages with their first processes, the path cards, the
+    steps of the first tutorial that walks through stages (left out while it has none), the guide's sections with
+    their page counts, and the popular pages. The page's own body is not drawn. The left navigation exists only as
+    the drawer the menu button opens. -#}
+{% extends "base.html" %}
+{% block stepper %}{% endblock %}
+{% block layout %}
+{%- set home = gp.home %}
+<div class="drawer-host">
+  {% include "partials/nav-left.html" %}
+</div>
+<main id="content" class="home" tabindex="-1">
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-row">
+      <div class="hero-text">
+        <p class="kicker">AfterNight {% if guide.version %}{{ guide.version }} {% endif %}user guide</p>
+        <h1{% if gp.h1_id %} id="{{ gp.h1_id }}"{% endif %}>{{ gp.title_html }}</h1>
+        {%- if home and home.lede %}
+        <p class="lede">{{ home.lede|e }}</p>
+        {%- endif %}
+        {%- if home and home.actions %}
+        <p class="cta">
+          {%- for action in home.actions %}
+          <a class="btn{% if loop.first %} btn-primary{% endif %}" href="{{ action.url|url }}">{{ action.label|e }}</a>
+          {%- endfor %}
+        </p>
+        {%- endif %}
+        {%- if home and home.notice %}
+        <p class="notice"><i aria-hidden="true"></i><span>{{ home.notice|e }}</span></p>
+        {%- endif %}
+      </div>
+      {%- if home and home.picture %}
+      <figure class="shot">
+        <img src="{{ home.picture.src|e }}" alt="{{ home.picture.alt|e }}" width="{{ home.picture.width }}" height="{{ home.picture.height }}">
+        <figcaption>{{ home.picture.caption|e }}</figcaption>
+      </figure>
+      {%- endif %}
+    </div>
+  </section>
+
+  {% include "partials/stepper.html" %}
+
+  {%- if home and home.paths %}
+  <section class="block" aria-labelledby="home-paths">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">Choose your path</p>
+        <h2 id="home-paths">Start where you are</h2>
+      </div>
+      <ul class="cards cards-{{ home.paths|length }}">
+        {%- for path in home.paths %}
+        <li><a class="card" href="{{ path.url|url }}"><span class="tag">{{ path.tag|e }}</span><b>{{ path.title|e }}</b><span class="text">{{ path.text|e }}</span></a></li>
+        {%- endfor %}
+      </ul>
+    </div>
+  </section>
+  {%- endif %}
+
+  {%- if home and home.track %}
+  <section class="block block-alt" aria-labelledby="home-track">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker">First stack</p>
+        <h2 id="home-track"><a href="{{ home.track.url|url }}">{{ home.track.title }}</a>: {{ home.track.steps|length }} steps</h2>
+        {%- if home.track.summary %}
+        <p>{{ home.track.summary|e }}</p>
+        {%- endif %}
+      </div>
+      <ol class="track" style="--n:{{ home.track.steps|length }}">
+        {%- for step in home.track.steps %}
+        <li><a href="{{ step.url|url }}"><i aria-hidden="true">{{ loop.index }}</i>{{ step.title }}</a></li>
+        {%- endfor %}
+      </ol>
+    </div>
+  </section>
+  {%- endif %}
+
+  <section class="block" aria-labelledby="home-sections">
+    <div class="wrap two">
+      <div>
+        <div class="sec-head">
+          <p class="kicker">Sections</p>
+          <h2 id="home-sections">Everything in the guide</h2>
+        </div>
+        <ul class="cards cards-2">
+          {%- for section in guide.sections %}
+          <li><a class="card" href="{{ section.url|url }}"><span class="count">{{ section.count }} page{% if section.count != 1 %}s{% endif %}</span><b>{{ section.label }}</b><span class="text">{{ section.sample|join(', ')|e }}{% if section.more %} and more{% endif %}.</span></a></li>
+          {%- endfor %}
+        </ul>
+      </div>
+      <div>
+        {%- if home and home.popular %}
+        <div class="sec-head">
+          <p class="kicker">Most read</p>
+          <h2 id="home-popular">Popular pages</h2>
+        </div>
+        <ul class="links">
+          {%- for ref in home.popular %}
+          <li><a href="{{ ref.url|url }}">{{ ref.title }}</a></li>
+          {%- endfor %}
+        </ul>
+        {%- endif %}
+        <p class="version-note">{% if guide.version %}This guide covers AfterNight {{ guide.version }}.{% else %}This guide was built from the development line.{% endif %} Confirm the version you run in About &gt; About AfterNight when exact behavior matters.</p>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

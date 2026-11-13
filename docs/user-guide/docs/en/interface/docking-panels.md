@@ -1,271 +1,277 @@
+---
+kind: interface
+summary: >-
+  How the workspace holds image views and the Session Console in areas of tabs, side by side or floating, and how to
+  group, split, fit, maximize and lock them.
+menu: Window
+---
 # Docking Panels
 
-![AfterNight workspace with a tabbed image group beside a separately split image view](../assets/images/interface/docking-panels.png)
+The [dock workspace](../reference/glossary.md#dock-workspace) holds every image or
+[sequence](../reference/glossary.md#sequence) view, and the [Session Console](log-viewer.md), in areas. An area shows
+its views as tabs. Areas sit side by side or one above another, and an area can float in a window of its own.
+Arranging them changes only what you see: no image, [history](../reference/glossary.md#history) or unsaved state
+changes.
 
-*Tabbed views share the left dock group while a separate split keeps another
-image visible for comparison.*
+Only image views and the Session Console dock. Process windows, Image History, the header viewers and Settings are
+windows of their own. AfterNight does not keep the arrangement: every start opens on the [Dashboard](dashboard.md).
 
-## Purpose, audience, prerequisites, and expected result
+```figure
+owed: true
+image: ../assets/images/interface/docking-panels.webp
+alt: >-
+  The AfterNight main window with three image views side by side, each in an area of its own with a tab, a toolbar
+  and its picture: the red and white clouds of the Carina Nebula on the left, two gray pictures of the same field in
+  the middle and on the right. The Window menu is open under the menu bar and lists Lock Layout, a greyed Unlock
+  Layout, Group All Images, which is highlighted, Split All Images and Fit Images To Window. Four layout buttons
+  follow the Open, Save as and Close buttons on the toolbar.
+caption: >-
+  Three linear masters opened one after another, each in an area of its own, with the Window menu open on Group All
+  Images.
+pins:
+  - {n: 1, x: 32.5, y: 16.0}
+  - {n: 2, x: 15.0, y: 6.7}
+  - {n: 3, x: 42.0, y: 9.8}
+  - {n: 4, x: 63.2, y: 9.8}
+  - {n: 5, x: 34.5, y: 85.0}
+```
 
-Docking Panels explains how AfterNight arranges standard image and sequence
-views and the dockable **Session Console**. Use it when you need tabbed targets,
-side-by-side comparisons, a detached floating group, or one temporarily
-maximized image.
+## What you see
 
-Start with at least one successfully opened or created view. Rearranging a dock
-changes only window organization and display scale; it does not resample image
-data, change metadata or history, or mark an image for saving. The expected
-result is a workspace arrangement that makes the required targets visible while
-preserving each view's image state.
+1. **The Window menu.** **Lock Layout** and **Unlock Layout**, then the three commands that arrange every view at
+   once: **Group All Images**, **Split All Images** and **Fit Images To Window**.
+2. **The layout buttons.** The same lock, group, split and fit, on the toolbar after **Open**, **Save as...** and
+   **Close**.
+3. **The tabs.** One for each view of the area: its name, an icon for an image or a sequence, and a cross that
+   closes it. The tab of the view you work in carries an accent line along its top. Hover over a tab for the
+   summary of its image.
+4. **The area's buttons.** **Float / Detach** and **Close Tab Group**, at the right end of the tab bar.
+5. **The areas.** Each holds one or more views, at least 100 by 100 pixels. Drag the bar between two areas to give
+   one more room.
 
-## Reachability and availability
+## What you can do
 
-| Item | Current behavior |
-| --- | --- |
-| Path | Open or create an image/sequence to enter the dock workspace. Use the layout toolbar, **Window**, **Image > View**, the standard image-view toolbar, or right-click a standard image view. With at least one image open, right-clicking the main window outside any view offers **Lock Layout** and **Unlock Layout**. |
-| Enabled/visible when | The layout toolbar exists but is disabled on the Dashboard; **Window** is disabled there. Image-dependent actions require an active view. |
-| Supported inputs/state | Standard still-image and sequence views; the Session Console can occupy another dock. Process preview views do not become main-workspace docks. |
-| Outputs/side effects | Reorders, tabs, splits, detaches, fits, or temporarily maximizes views. Closing a tab can close its image/sequence and attached processes after confirmation. |
-| Persistence | The `interface/lockLayoutByDefault` setting persists whether startup should lock movement, and the main window's size and position persist while **Remember window size and position** (`interface/rememberWindowSize`, on by default) is on. Dock positions, tab groups, splits, floating geometry, and the current lock toggle are not serialized or restored by the current application code. |
-| External dependencies | Bundled KDDockWidgets runtime; no network, catalog, or external executable. |
+### Know where a new view goes
 
-The status bar and its active-image selector appear in the dock workspace and
-are hidden or disabled on the Dashboard. Selecting a name activates that view;
-clicking a dock tab or group also makes its image active. Hovering a real image
-tab or title bar shows the summary of a still image, a SER sequence, or an image
-list; a video sequence shows none, and neither does a still while an edit holds
-its image at that moment. Empty tab-bar space does not reuse a stale tooltip.
+- Each **File > Open** puts its views in a new area at the right of the workspace. The files you choose together in
+  one Open are tabs of one area.
+- A view made from an image opens as a tab beside it: a duplicate, an extracted channel or frame, a converted copy,
+  a snapshot of a process window.
+- **View > Session Console** docks the console across the bottom.
+- Opening a view while another is maximized restores that one first.
 
-## Before you start
+Click a tab, or anywhere in an area, to make its image the [active image](../reference/glossary.md#active-image), or
+choose its name in the status bar's box. Clicking the Session Console leaves the active image as it was.
 
-- Save or identify pending changes before closing tabs or whole tab groups.
-- Unlock the layout before dragging, reordering, detaching, redocking, or using
-  double-click layout gestures.
-- Decide whether an operation should affect every main-workspace view or only
-  the views in the clicked main/floating window. The menu and toolbar scope is
-  different from the context-menu scope.
-- Remember that **Fit** changes display magnification. Inspect at 100% again
-  before judging pixel-scale noise, registration, or sharpening.
+### Arrange every view at once
 
-## Procedure
+1. Choose **Window > Group All Images**. Every view becomes a tab of one area, and the active image stays in front.
+2. Choose **Window > Split All Images**. Every view gets an area of its own, in areas of equal size.
+3. Choose **Window > Fit Images To Window**. Every view fits its image to its area.
 
-### Arrange all main-workspace images
+```figure
+owed: true
+image: ../assets/images/interface/docking-panels-grouped.webp
+alt: >-
+  The same main window after Group All Images: one area fills the workspace, with three tabs along its top, and the
+  Carina Nebula master in front.
+caption: >-
+  The three masters after Window > Group All Images: one area with three tabs.
+```
 
-1. Open or create the required views. AfterNight leaves the Dashboard. A view
-   made with no neighbour is added to the right side of the main dock
-   workspace; every later file of one open, and any view made beside another, is
-   tabbed onto that neighbour. Making a view while another docked view is
-   maximized restores that view first.
-2. Choose **Window > Group All Images** or the matching layout-toolbar button.
-   Checkpoint: all registered image/sequence views are tabs in one main-window
-   group, and the previously active image remains active.
-3. Choose **Window > Split All Images**. Checkpoint: the views occupy equalized
-   cells rather than tabs. The split helper uses explicit balanced layouts for
-   one through sixteen views and continues in additional four-item runs above
-   sixteen.
-4. Choose **Window > Fit Images To Window**. Checkpoint: every registered image
-   view recalculates its display scale for its current viewport.
+To arrange only the views of one window, right-click a view and open **Current Window**. Its commands leave the
+views of the other windows where they are.
 
-The global Group and Split commands move image views into the main dock window.
-They do not include the Session Console in the generated image layout.
+### Move a view
 
-### Arrange only one main or floating window
+With the layout unlocked, drag a tab:
 
-1. Right-click inside a standard image view.
-2. Open **Current Window**.
-3. Choose **Group All Images**, **Split All Images**, or **Fit All Images to
-   Window**.
-4. Checkpoint: only image views sharing the clicked view's containing window
-   change. If it is floating, image views in other floating windows and in the
-   main dock workspace remain unchanged.
+- along its tab bar to change the order;
+- onto another area's tab bar to join it;
+- to an edge of an area, where a marker shows, to split that area;
+- out of the main window to float it.
 
-### Maximize and restore one docked view
+Double-click a tab to float its view in a window of its own, and again to dock it back. Double-click the empty part
+of a tab bar to do the same with the whole area. **Float / Detach** floats the area, and docks it back from a
+floating window.
 
-1. Activate a standard docked image or sequence.
-2. Choose **Image > View > Maximize View**, click **Maximize image view** in the
-   image-view toolbar, or press `F11` while that view has focus.
-3. Checkpoint: the selected view becomes the central workspace content; the
-   action changes to **Restore View**. Lock, Group, and Split controls are
-   disabled.
-4. Invoke **Restore View** or press `F11` again. The view returns to its original
-   dock, and the prior layout is shown.
+### Give one view the whole workspace
 
-If the layout was unlocked, maximizing temporarily locks it and restoring
-unlocks it. If it was already locked, restoring leaves it locked. Maximizing is
-disabled in the visible controls while a view is detached in a floating window;
-dock it before maximizing.
+Choose **Maximize image view** on the view's toolbar, **Image > View > Maximize View** or ++f11++. The view fills the
+workspace and the other areas, the Session Console among them, are hidden. Choose it again, now **Restore View**, or
+press ++f11++ to put the view back in its area.
 
-Current limitation: when the layout was already locked before maximizing,
-restore re-enables the toolbar button but leaves both **Window > Lock Layout**
-and **Window > Unlock Layout** disabled. The first toolbar click reasserts the
-locked state and restores the normal menu-action state; click the toolbar a
-second time, or then choose **Window > Unlock Layout**, to unlock.
+### Lock the layout
 
-### Lock and unlock movement
+Choose **Window > Lock Layout** or the lock button. With an image open, a right-click on the main window outside the
+views offers both entries too. Tabs and areas can no longer be dragged or double-clicked into another place. Unlock
+the same way.
 
-1. Choose **Window > Lock Layout** or click the lock button in the layout
-   toolbar. The toolbar icon and tooltip change to the corresponding unlock
-   state.
-2. Checkpoint: dock drag/drop indicators are inhibited, drag start is rejected,
-   and tab/title/group double-click layout changes are consumed.
-3. Choose **Window > Unlock Layout** or click the same toolbar button to allow
-   movement again.
+### Close views
 
-Locking protects interactive movement. It does not disable **Group All Images**,
-**Split All Images**, **Fit Images To Window**, tab selection, or close buttons.
+The cross on a tab closes its view, and **Close Tab Group** closes every view of the area. A view with unsaved
+changes asks first, and the process windows open on its image close with it. Closing the last view brings the
+Dashboard back unless the Session Console is still open.
 
-## Complete control and action reference
+## Controls
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Layout-toolbar lock button: **Lock layout** / **Unlock layout** | Two-state tool button | Unlocked; locked at startup only when the saved default is on | Click | Calls the same lock/unlock behavior as the Window actions | Toolbar disabled on Dashboard; while a view is maximized the lock button and Group/Split are disabled and **Fit Images To Window** stays enabled; after restoring an already-locked layout, the first click only restores normal menu-action state | Blocks interactive movement, not programmatic layout commands | All dock widgets | Current state is session-only; startup default uses `interface/lockLayoutByDefault` |
-| **Window > Lock Layout** | Menu action | Enabled when unlocked | Trigger | Inhibits drop indicators and rejects dock drag start | **Window** disabled on Dashboard; action disabled when already locked or maximized | Prevents accidental drag/detach/reorder; Group/Split still work | All dock widgets | Session-only |
-| **Window > Unlock Layout** | Menu action | Disabled when unlocked | Trigger | Restores dock dragging and drop indicators | **Window** disabled on Dashboard; normally enabled when locked; disabled while maximized and remains disabled after restoring a layout that was already locked until the toolbar is clicked once | Allows accidental layout changes again | All dock widgets | Session-only |
-| **Window > Group All Images** | Menu/toolbar action | Available with active image data | Trigger | Moves every registered image/sequence view into one tab group in the main dock window | Disabled without an active image and while any view is maximized | Floating image views are pulled into the main group; console is excluded | All registered image views | Not persisted |
-| **Window > Split All Images** | Menu/toolbar action | Available with active image data | Trigger | Moves every registered image/sequence view into an equalized deterministic split layout | Disabled without an active image and while any view is maximized | Many views create small cells; the active view is retained | All registered image views | Not persisted |
-| **Window > Fit Images To Window** | Menu/toolbar action | Available with active image data | Trigger | Fits every registered image view to its current viewport | Disabled without an active image; not disabled merely because a view is maximized | Display resampling can hide pixel-scale detail | All registered image views, including floating windows | Display scale lasts for the view lifetime only |
-| **Current Window > Group All Images** | Context submenu action | Available in a standard view context menu | Trigger | Tabs image views that share the clicked view's main or floating window | Group and Split disabled when the clicked view is maximized | Does not pull views from other windows | Containing window only | Not persisted |
-| **Current Window > Split All Images** | Context submenu action | Available in a standard view context menu | Trigger | Splits and equalizes image views in the same containing window | Disabled when the clicked view is maximized; one view is effectively unchanged | Small cells with many local views | Containing window only | Not persisted |
-| **Current Window > Fit All Images to Window** | Context submenu action | Available in a standard view context menu | Trigger | Fits image views in the same containing window | Remains available while the clicked view is maximized | Display-only scale change | Containing window only | View lifetime |
-| **Image > View > Maximize View** / **Restore View** | Dynamic menu action | Restore state off | Toggle | Removes the active control from its dock into the central maximized slot, then returns it | Requires an active standard view; disabled when the active view is floating | Hides other workspace content; temporarily locks an unlocked layout | Active standard view | Session-only |
-| **Maximize image view** / **Restore image view** | Image-view toolbar action | Restore state off | Toggle or `F11` | Same maximize/restore state as the main-menu action | Standard dock-capable views only; toolbar action disabled while floating | See `F11` limitation below | Focused view | Session-only |
-| `F11` | Focused-view shortcut | None | Key press without Ctrl/Shift | Toggles maximize/restore directly in the focused view | Standard image-view key handler; not a global QAction shortcut | The handler does not recheck the disabled floating-view action; dock floating views before using it | Focused view | None |
-| Image tab | Selectable, draggable tab | Current tab selected | Click; drag/reorder when unlocked | Activates the image; drag can reorder or move it to another group | Movement blocked by layout lock; selection remains allowed | Changes the target used by active-image actions | One image/sequence view | Tab position not persisted |
-| Tab close button | Per-tab close action | Available for normal image docks | Click | Requests closure of that image/sequence | Pending changes or attached processes can require confirmation; cancellation keeps it open | Stops sequence playback and closes the view on acceptance | One view | Destructive view closure; image save state remains governed by its own workflow |
-| **Close Tab Group** | Group-corner close action | Available on a dock group | Click | Requests closure of each closable tab in order | Stops at the first tab whose close confirmation is cancelled | Can close several images and attached processes | Current tab group | Destructive view closure |
-| **Float / Detach** | Group-corner layout action | Docked | Click | Moves the dock group to a native floating window or returns it through KDDockWidgets controls | Interactive layout changes require an unlocked layout | Floating groups have separate window scope; visible maximize action is disabled there | Current dock group | Position/state not persisted |
-| Drag tab/title/group | Pointer layout gesture | Docked | Drag while unlocked | Reorders, groups, splits, floats, or redocks according to the drop target | Drag start rejected while locked | Can substantially reorganize the workspace | Dragged dock/group | Not persisted |
-| Double-click tab/title/group area | Pointer layout gesture | No action recorded by AfterNight itself | Double-click while unlocked | Delegates the layout gesture to KDDockWidgets | Explicitly consumed while locked | Exact native gesture result is library/platform controlled | Clicked dock/group | Not persisted |
-| Status-bar active-image selector | Non-editable selector | Disabled on Dashboard; current view in workspace | Choose an open view name | Activates the corresponding image dock without emitting a recursive selection change | Enabled in dock workspace while it lists a view, and when the Session Console was opened from the Dashboard with no image; disabled after the last image closes while the console keeps the workspace open. Session Console focus does not replace the selected image | Convenient with many tabs or floating groups | Registered image/sequence views | Session-only |
+### The Window menu and the layout buttons
 
-There is no main-layout shortcut for Lock, Unlock, Group, Split, or Fit All.
-`Ctrl+Shift+F` belongs to the focused image view's single-view **Fit To Window**
-command, not **Fit Images To Window**.
+```controls
+window: The Window menu and the layout buttons
+controls:
+  - name: Lock layout
+    kind: toolbutton
+    default: "Off"
+    effect: The first layout button. It locks the layout, and its tooltip then reads **Unlock layout** and it unlocks it. **Window > Lock Layout** and **Window > Unlock Layout** do the same, and the one that matches the present state is greyed.
+    enabled: In the workspace. Disabled on the Dashboard, where the whole toolbar group and the **Window** menu are, and while a view is maximized, when both menu entries are greyed too.
+    tradeoff: The lock stops dragging, the drop markers and the double-click gestures. It does not stop **Group All Images**, **Split All Images**, **Fit Images To Window**, **Float / Detach**, choosing a tab or closing a view.
+    persistence: For the session. **Lock dock layout by default**, on the Interface page of Settings and kept as `interface/lockLayoutByDefault`, locks it at every start. Changing that setting does not lock or unlock the running workspace.
+    note: After a view maximized while the layout was already locked is restored, both menu entries stay greyed. The first press of the button locks again and makes **Unlock Layout** available, and a second press unlocks.
+  - name: Group All Images
+    kind: toolbutton
+    default: ""
+    effect: Puts every image and sequence view in one area as tabs, at the left of the main window, and keeps the active image active.
+    enabled: With an image open. Disabled while a view is maximized.
+    tradeoff: Views in floating windows come back into the main window. No command undoes an arrangement.
+    scope: Every view, never the Session Console.
+  - name: Split All Images
+    kind: toolbutton
+    default: ""
+    effect: Gives every image and sequence view an area of its own, makes the areas equal and keeps the active image active.
+    range: "From one to sixteen views it builds a fixed grid: two side by side, three as two above each other beside one, four as two by two, nine as three by three, sixteen as four by four. Beyond sixteen, every four more views make another column at the right."
+    enabled: As **Group All Images**.
+    tradeoff: The grid follows the count of views, not what they show, and many views leave each a small area. Many views in sight also cost memory and drawing time; group them into tabs, or maximize one, when the application slows. Floating views come back into the main window.
+    scope: Every view, never the Session Console.
+  - name: Fit Images To Window
+    kind: toolbutton
+    default: ""
+    effect: Fits each view's image to its area, as each view's own **Fit To Window** would.
+    enabled: With an image open, and also while a view is maximized.
+    tradeoff: A fitted picture is reduced. Look at 100 % before you judge noise, stars or sharpness.
+    scope: Every image view, floating ones included. It changes the zoom only.
+    note: Lock, group, split and fit have no shortcut. ++ctrl+shift+f++ is the active view's own **Fit To Window**.
+```
 
-## Behavior and state model
+### An area
 
-AfterNight creates a KDDockWidgets main window behind the Dashboard and enables
-always-visible tabs, tab reordering, per-tab close controls, tab-bar group
-buttons, native floating title bars, and menu-based tab switching. Every image
-and sequence uses a deletable dock with a minimum logical size of 100 x 100.
-The Session Console is the only other current `DockableControl`; process windows,
-Image History, metadata viewers, and Settings are separate windows or dialogs.
+```controls
+window: An area
+controls:
+  - name: Tab
+    kind: action
+    default: ""
+    effect: A click makes its view the active image. A drag moves the view, and a double-click floats it or docks it back.
+    enabled: Dragging and double-clicking only while the layout is unlocked.
+    note: Right-click the tab bar for a menu of the area's tabs.
+  - name: Tab summary
+    kind: readout
+    default: ""
+    effect: The tooltip of a tab, and of a floating window's title, shows the summary of the image, the SER sequence or the image list.
+    range: A video sequence shows none, nor does the empty part of the tab bar. A still image an edit is writing at that moment shows none either; hover again.
+  - name: Close cross
+    kind: button
+    default: ""
+    effect: Closes the view, after "The image '...' has unsaved changes, are you sure you want to close it?" when it has some, and after a message titled "Close image with process attached" that names the process windows open on it. A sequence stops playing, and those windows close.
+    tradeoff: Nothing is saved for you. Answer No to keep the view open.
+  - name: Float / Detach
+    kind: toolbutton
+    default: ""
+    effect: Moves the whole area into a floating window with a title bar of its own, or docks it back from there.
+    tradeoff: In a floating window, **Maximize image view** and **Image > View > Maximize View** are disabled, and the **Current Window** commands act on that window alone.
+  - name: Close Tab Group
+    kind: toolbutton
+    default: ""
+    effect: Closes each view of the area in turn, each with its own question.
+    range: It stops at the first question you cancel, and the views after it stay open.
+  - name: Bar between areas
+    kind: action
+    default: ""
+    effect: Dragging it moves the border between the two areas.
+  - name: Empty part of the tab bar
+    kind: action
+    default: ""
+    effect: Dragging it moves the whole area. A double-click floats the area, or docks it back.
+    enabled: While the layout is unlocked.
+```
 
-Global Group and Split read the image-view manager's registered view list. Group
-adds the first view to the main dock and adds the remaining views as tabs. Split
-adds the views at explicit left/right/bottom positions, then asks the containing
-drop area to equalize cell sizes. Both operations restore the previously active
-image after rearrangement.
+### Current Window
 
-Context Group, Split, and Fit first compare each dock's floating-window owner.
-Views with the same owner are in scope; a null floating owner means the main
-dock window. This is why a command invoked from one detached group does not
-change another detached group.
+```controls
+window: Current Window
+controls:
+  - name: Group All Images
+    kind: action
+    default: ""
+    effect: Puts the views of the window the clicked view is in as tabs of one area, and keeps the clicked view active.
+    enabled: In the menu of a right-click on a view. Disabled while that view is maximized.
+    scope: The main window or the one floating window that holds the clicked view.
+  - name: Split All Images
+    kind: action
+    default: ""
+    effect: Gives each view of that window an area of its own, in the same grid as **Window > Split All Images**.
+    enabled: As **Group All Images**. A window with one view is left as it is.
+  - name: Fit All Images to Window
+    kind: action
+    default: ""
+    effect: Fits each view of that window to its area.
+    enabled: Also while the clicked view is maximized.
+```
 
-Maximize is not a KDDockWidgets window maximize. AfterNight temporarily replaces
-the image dock's widget with a placeholder and shows the image control in a
-dedicated central stack slot. Restore puts the same control back in the same
-dock. No image copy, conversion, history step, metadata edit, or file write is
-performed.
+### Maximize View
 
-## Inputs, outputs, and metadata
+```controls
+window: Maximize View
+controls:
+  - name: Maximize View
+    kind: action
+    default: "Off"
+    effect: "**Image > View > Maximize View**, **Maximize image view** on the view's toolbar and ++f11++ give the active view the whole workspace. The entry then reads **Restore View**, the button **Restore image view**, and both put the view back in its area."
+    enabled: For a docked view. Disabled for a view in a floating window, but ++f11++ is not refused there; dock the view before you press it.
+    tradeoff: While a view is maximized, **Lock layout**, **Group All Images** and **Split All Images** are disabled, and the other views and the Session Console are hidden. **Fit Images To Window** stays enabled.
+    scope: The view only. Nothing is copied or written, and the image, its history and its header stay as they were.
+    persistence: An unlocked layout is locked while the view is maximized and unlocked when it is restored. A locked layout stays locked.
+    note: Choosing another image in the status bar's box maximizes that one in its place. ++f11++ works while the view has the keyboard focus.
+```
 
-The inputs are existing image/sequence views and, for local context commands,
-the clicked view's containing window. The output is only Qt/KDDockWidgets UI
-state plus display magnification after Fit. Image pixels, channel data, masks,
-WCS/SIP metadata, sequence frames, file names, and processing history remain
-unchanged.
+## When it goes wrong
 
-Closing is the exception: an accepted close removes the view, stops sequence
-playback, and can close attached process windows. It does not silently save
-pending image changes. Cancel either confirmation to keep the view open.
+The **Window** menu or the layout buttons are greyed
+:   **Cause.** The Dashboard is showing, or a view is maximized.
+:   **Fix.** Open an image, or press ++f11++ on the maximized view to restore it.
 
-## Performance and responsiveness
+A tab cannot be dragged, and a double-click does nothing
+:   **Cause.** The layout is locked.
+:   **Fix.** Choose **Window > Unlock Layout** or the lock button.
 
-Grouping and fitting are lightweight UI operations. Splitting many views causes
-layout recalculation for every dock, and fitting every image causes every view
-to recompute display scale. The source pixels are not reprocessed, but many
-simultaneously visible image widgets can increase display memory and repaint
-cost. Group views into tabs or maximize one view when interaction becomes slow.
+**Lock Layout** and **Unlock Layout** are both greyed after a view was restored
+:   **Cause.** The view was maximized while the layout was locked, and the restore leaves both entries greyed.
+:   **Fix.** Press the lock button once to lock again, and a second time to unlock.
 
-The explicit split helper is optimized for practical comparison counts rather
-than semantic pairing. Above sixteen views it continues adding cells in
-four-item runs; use smaller manual groups when relative placement matters.
+**Group All Images** pulled a floating window back into the main window
+:   **Cause.** The **Window** commands arrange every view, floating or not.
+:   **Fix.** Float the area again, and use **Current Window** inside a floating window to arrange it alone.
 
-## Worked example
+**Maximize image view** is greyed
+:   **Cause.** The view is in a floating window.
+:   **Fix.** Choose **Float / Detach** to dock its area, or double-click its tab, then maximize it.
 
-- Evidence mode: Source-and-test-derived.
-- Starting state: three standard docked views named `linear`, `processed`, and
-  `mask`; `processed` is active and the layout is unlocked.
-- Choose **Group All Images**. Check that one tab group contains all three and
-  `processed` remains the active target.
-- Choose **Split All Images**. The three-view branch places one view left, one
-  below it, and one right, then equalizes the layout.
-- Choose **Fit Images To Window**. Each view changes only its display scale;
-  histories and pending-save states remain unchanged.
-- Maximize `processed`, verify **Restore View** and disabled Lock/Group/Split
-  controls, then restore it. Because the example started unlocked, the layout
-  becomes unlocked again.
-- Limitation: the captured tabbed and split workspace was validated, but no
-  live drag/drop interaction was recorded. The checkpoints do not promise
-  identical pixel geometry on every platform or window size.
+The arrangement is gone after a restart
+:   **Cause.** AfterNight keeps only the main window's size and place, with **Remember window size and position**
+    (`interface/rememberWindowSize`), which is on unless you turn it off. The note "Window layout is automatically saved when closing the application" in
+    Settings means that alone.
+:   **Fix.** Arrange the views again, with **Group All Images** or **Split All Images** for a start.
 
-## Warnings and limitations
+## Related
 
-- The current source contains no `LayoutSaver`, serialization, or restore path.
-  The Interface Settings note that the window layout is automatically saved on
-  exit is true only for the main window's size and position, not for dock
-  positions/groups in this revision.
-- **Lock dock layout by default** persists only the startup lock preference. It
-  does not save the current dock arrangement and changing it does not
-  immediately lock or unlock the running workspace.
-- Locking does not protect against Group, Split, Fit, or Close. Use the lock as
-  drag prevention, not as a read-only workspace mode.
-- Global Group/Split can pull detached image views back into the main window.
-  Use the context menu inside a floating group for local changes.
-- The `F11` key handler calls maximize directly and does not consult the
-  disabled floating-view toolbar action. Dock the view before using `F11`.
-- Restoring a view that was maximized while the layout was already locked leaves
-  both Window lock actions disabled. The first toolbar click restores their
-  normal locked-state enablement; a second click unlocks.
-- Fit is a display operation. A fitted overview can conceal pixel-scale
-  defects, interpolation artifacts, or noise.
-- Process preview windows are not main-workspace docks and are not affected by
-  these Group/Split commands.
+- [Interface Overview](overview.md), for the main window around the workspace.
+- [Image Viewer](image-viewer.md), for a view's own zoom, **Fit To Window** and **Maximize image view**.
+- [Toolbar & Menus](toolbar-and-menus.md), for the other menus and the view's right-click menu.
+- [Session Console](log-viewer.md), the other panel that docks.
+- [Process Windows](process-windows.md), for the windows that close with their image.
+- [Settings](settings-dialog.md), for **Lock dock layout by default** and **Remember window size and position**.
 
-## Troubleshooting
+## Credits
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Window** and layout toolbar are unavailable | The Dashboard is current; the toolbar is disabled and the Window menu is disabled until the dock workspace is selected | Open/create a valid image or sequence | `UiBootstrapCoordinator.cpp`, `WindowLayoutCoordinator.cpp` |
-| A dock cannot be dragged, reordered, detached, or changed by double-click | Layout lock inhibits drag/drop and consumes double-click layout gestures | Use **Window > Unlock Layout** or the layout-toolbar toggle | `AfterNightApp.cpp`, `KDDockWidgetsHelper.cpp` |
-| Group or Split still changes a locked layout | Lock affects interactive movement, not those connected programmatic actions | Avoid Group/Split while preserving a locked arrangement; there is no undo-layout command | `MenuActionManager.cpp`, `WindowLayoutCoordinator.cpp` |
-| A context Group/Split command ignores images in another window | Context commands intentionally select only docks with the same floating-window owner | Use the global Window/toolbar command, or invoke a context command inside the other window | `WindowLayoutCoordinator.cpp` |
-| Group All Images unexpectedly redocks floating views | The global command rebuilds the group in the main dock window | Use **Current Window > Group All Images** for floating-local grouping | `WindowLayoutCoordinator.cpp` |
-| **Maximize View** is disabled | The active standard view is floating, or no active image view is available | Dock/select a standard view first | `ActionStateCoordinator.cpp`, `ImageViewControl.cpp` |
-| Lock/Group/Split become disabled after maximizing | Maximize temporarily locks layout and disables arrangement actions | Use **Restore View** or `F11` on the maximized view | `WindowLayoutCoordinator.cpp` |
-| Restore leaves both Window lock actions disabled | The layout was already locked before maximize, so restore preserves the lock but does not re-enable the QAction pair | Click the toolbar lock button once to restore normal locked-state actions, then click it again or choose **Window > Unlock Layout** | `WindowLayoutCoordinator.cpp`, `AfterNightApp.cpp` |
-| Closing a tab group stops before all tabs close | One image's pending-change or attached-process confirmation was cancelled | Resolve/save that view, then close the group again | `KDDockWidgetsHelper.cpp`, `ImageViewControl.cpp` |
-| A restored session does not reproduce the prior dock layout | No application layout serialization/restore implementation exists | Recreate the grouping manually; use the startup lock preference only after arranging | repository-wide `LayoutSaver`/layout serialization audit; `InterfaceSettingsPage.cpp` |
-| Fine detail looks different after Fit | Fit changed display magnification and resampling, not source pixels | Inspect at 100% and compare the image history/pending state | `ImageOperationsCoordinator.cpp`, `ImageViewControl.cpp` |
-
-## Related workflow steps
-
-- Begin with [Dashboard](dashboard.md) to open or create the first workspace
-  view.
-- Use [Image Viewer](image-viewer.md) for per-view channels, zoom, autostretch,
-  overlays, and the single-view Fit/Maximize toolbar controls.
-- Use [Toolbar and Menus](toolbar-and-menus.md) for the complete application
-  menu hierarchy and action availability rules.
-- Use [Session Console](log-viewer.md) for the content and controls inside the
-  dockable console, and [Image History](image-history.md) for data-state undo/
-  redo rather than layout changes.
-- Use [Settings](settings-dialog.md) for the persisted startup lock preference.
-
-## References and provenance
-
-- AfterNight application layout, dock helper, active-view, lifecycle, settings,
-  and focused regression sources.
-- [KDDockWidgets documentation](https://docs.kdab.com/kddockwidgets/): upstream
-  docking framework behavior. AfterNight overrides tab sizing/tooltips,
-  close-group safety, theming, activation, and lock-aware double-click handling.
+- [KDDockWidgets](https://github.com/KDAB/KDDockWidgets), by Klarälvdalens Datakonsult AB (KDAB), under the GNU
+  General Public License version 2.0 or 3.0, draws the areas, the tabs, the floating windows and their gestures.

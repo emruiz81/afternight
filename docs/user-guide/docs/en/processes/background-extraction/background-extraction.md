@@ -1,340 +1,455 @@
+---
+kind: process
+stage: color
+menu: Process > Background Modelization > Background Extraction
+summary: >-
+  Fits a smooth surface through background samples you place, by a grid or by clicking the preview, and subtracts it
+  from the image or divides the image by it, to remove a gradient.
+data_in: linear
+data_out: linear
+destructive: true
+preview: static
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active and no other process window is open on it. Background Extraction needs the
+    image to itself, so no other window opens on it while it is open.
+  inputs: >-
+    One grayscale or RGB image, with or without alpha, of any pixel type, or a sequence, and an optional mask on its
+    view. Preview and Apply need at least one sample.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels and pixel type are kept. Apply to a still image
+    can also open the fitted surface as a new image. No file is written.
+  state: >-
+    A calibrated, stacked and cropped linear master, before color calibration and the stretch.
+derived: true
+---
 # Background Extraction
 
-<!-- MEDIA_SLOT: UG-MEDIA-077 -->
+Background Extraction removes a smooth gradient, such as light pollution, moonlight or a vignette the flats left,
+from samples of the background that you choose. You place square sample boxes with a grid or by clicking the preview.
+The window measures the median of each box and fits a smooth surface through those medians, one for each channel.
+It then subtracts the surface from the image, or divides the image by it.
 
-## Purpose and expected result
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the corrected one, keeps its
+size, channels and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). It can also open the fitted surface as an image of its own.
 
-Background Extraction lets you choose background samples, fit a smooth surface,
-and subtract or divide that surface from an image. It is intended for users who
-want direct control over which regions define the sky background. A successful
-Apply preserves dimensions, channel count, and sample type, modifies the target
-or processed sequence, records a history step, and can open a separate gradient
-model for a still image.
-
-The fit cannot distinguish unwanted illumination from real faint structure.
-Place samples only on representative background and inspect the model before
-continuing to color calibration or stretching.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Background Modelization > Background Extraction** |
-| Enabled when | An image or sequence view is active. Background Extraction needs the view to itself: a launch is refused with a warning while any other process is attached to the image, while this process is already attached, or while an attached process holds exclusive access. The target selector can switch among compatible open views. |
-| Inputs | One grayscale or color image (red, green, and blue, with or without alpha) in any integer or floating representation, or a sequence. At least one 25×25 sample enables Apply; a fit needs at least three well-spread samples. An image with more than four channels is refused. |
-| Outputs | Corrected target image or processed sequence. **Output Background Model** additionally opens one same-size model view, `<target> - GRADIENT`, after a successful still-image Apply; preview and sequence runs open none. No file is written automatically. |
-| Recommended image state | Calibrated, registered, stacked, cropped, and still linear. The process does not enforce linearity and does not mark its result nonlinear. |
-| Preview support | On request. The preview pane shows the unprocessed target until you click **Preview**; it then shows the corrected image or the fitted model (**Preview Display**), computed by the same steps as Apply. The preview always shows the whole image, because the samples are positions over the whole image; no preview area is offered. Changing the samples, **Interpolation Method**, **Smoothing**, **Correction**, or the target marks the preview out of date until **Preview** is clicked again. |
-| Sequence support | Supported by the standard process framework. One sample-position set is used for every frame; each frame's channel medians are measured from that frame and its own surface is fitted. The whole processed sequence is published, or nothing. Model-image output is not published for sequences. |
-| Mask support | An enabled image-view mask does not affect sampling or fitting; the standard process framework blends the preview or Apply result with the source through it. Mask inversion is honored. The opened model view is not blended. |
-| External dependencies | None for the user. The bundled engine computes the fits itself and runs the per-pixel work on oneTBB. |
+```figure
+image: ../../assets/images/processes/background-extraction/background-extraction.webp
+alt: >-
+  The Background Extraction window. On the left, the Sample generation group with the Samples per Line and Grid
+  Tolerance sliders at 20 and 2.00 and the Generate Samples and Clear Samples buttons. Under it, the Background
+  Extraction group with Interpolation Method at Polynomial, Correction at Subtraction, a grayed Smoothing slider,
+  Degree Order at 1, two unticked check boxes, Preview Display at Corrected image and the Preview button. Then the
+  ticked Enable preview box and Target Image. On the right, the preview of a red nebula, with small yellow squares
+  spread over the field. Reset, Close and Apply run along the bottom.
+caption: >-
+  Background Extraction on the linear Carina master after Generate Samples, with a plane fitted through the samples
+  and the corrected image previewed.
+pins:
+  - {n: 1, x: 2.2, y: 88.8}
+  - {n: 2, x: 3.0, y: 30.7}
+  - {n: 3, x: 44.0, y: 55.0}
+  - {n: 4, x: 3.0, y: 42.9}
+  - {n: 5, x: 3.0, y: 69.7}
+  - {n: 6, x: 3.0, y: 64.6}
+  - {n: 7, x: 90.5, y: 91.6}
+```
 
 ## Before you start
 
-1. Finish calibration, registration, stacking, and border cropping. Fixed black
-   borders, stars, nebulae, galaxy halos, and dust can bias samples.
-2. Keep the image linear for the normal deep-sky workflow. Duplicate it or be
-   prepared to use Image History.
-3. Disable an image-view mask while choosing samples. The mask limits only the
-   final blend; it does not protect pixels from the estimator.
-4. For a sequence, choose samples on a representative current frame. The same
-   coordinates must describe background in every frame.
+- Calibrate, register, stack and [crop](../geometry/crop.md) first. A black stacking border, a star, a galaxy halo or
+  a dust cloud under a sample is fitted as background.
+- Keep the image linear: remove the gradient before color calibration and the
+  [stretch](../../reference/glossary.md#stretch). The result is not recorded as nonlinear.
+- **Apply** replaces the image. Its history keeps the step before.
+- The window needs the image to itself. Close the other process windows open on it first.
+- A [mask](../../reference/glossary.md#mask) on the view keeps no pixel out of the fit. It only blends the result with
+  the original afterwards, so turn it off while you place samples and judge the model.
+- On a sequence, one set of sample positions serves every frame, and each frame is measured and fitted on its own.
+  Place them on the frame the view shows, where every frame has background.
 
-## Procedure
+## Steps
 
-1. Open **Process > Background Modelization > Background Extraction** and verify
-   **Target Image**.
-2. Choose **Generate Samples** for a filtered grid, or use the preview: left-click
-   to add a sample and right-click inside a displayed sample box to remove it.
-   The grid is placed in the background; when it finishes it replaces the whole
-   sample list, including samples you clicked meanwhile. Samples are fixed 25×25
-   patches; a click whose patch would leave the image is not kept.
-3. Inspect every sample location. Use **Clear Samples** and regenerate, or edit
-   manually, until real objects and invalid borders are excluded.
-4. Start with **RBF**, **Smoothing** `0.50`, and **Subtraction**. Keep **Add
-   dither** off unless integer quantization is producing visible banding.
-5. Keep **Enable preview** selected and click **Preview**. Until you do, the
-   preview shows the unprocessed target. The preview always covers the whole
-   image; there is no preview area. Switch **Preview Display** between
-   **Corrected image** and **Gradient model**; a computed preview is fitted
-   again for the other display.
-6. If the model follows real structure, remove implicated samples, lower the
-   grid tolerance, increase RBF smoothing, or compare a low-order polynomial.
-   Click **Preview** after every sample or model change.
-7. Optionally select **Output Background Model**, then click **Apply**. Confirm
-   the history entry and, for a still image, the `<target> - GRADIENT` view.
-8. Compare background statistics and color balance with matched display stretch
-   before continuing.
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Background Modelization >
+   Background Extraction**. The preview shows the image as it is, and **Preview** and **Apply** stay disabled until
+   there is a sample.
+2. **Place a grid.** Choose **Generate Samples**. Small yellow squares appear over the preview, except where a box is
+   brighter than **Grid Tolerance** allows. If squares sit on the nebula, lower **Grid Tolerance** and generate again.
+3. **Edit the samples.** Click the preview to add a sample where the background has none. Right-click a square on a
+   star, the nebula or a border to remove it. Edit last: a new grid replaces every sample.
+4. **Choose the surface.** For a smooth tilt, set **Interpolation Method** to **Polynomial**, with a low
+   **Degree Order**. For a gradient that bends, keep **RBF** and its **Smoothing**. Keep **Correction** at
+   **Subtraction** for sky glow.
+5. **Preview.** Choose **Preview**. When the fit is done, the preview shows the corrected image.
+6. **Check the model.** Set **Preview Display** to **Gradient model**. The surface should be smooth, without stars or
+   the outline of the nebula. Return to **Corrected image**.
+7. **Apply.** Tick **Output Background Model** to keep the surface, then choose **Apply**. The view shows the corrected
+   image, its history lists **Background Extraction**, and the samples are cleared.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Samples per Line | Integer grid count | `20` | None | `5`–`100`; step `1`. The grid is refused when Samples per Line × 25 pixels exceeds the image width less 2 pixels. | Raises or lowers the horizontal grid density; rows use the same spacing, as many as fit the image height. | Used only by **Generate Samples**; recorded in the history step. | More samples improve spatial coverage but raise fit cost and the chance of sampling objects. RBF accepts at most 1,024 samples, and one grid at most 4,096 sites. | Sample generation on target/current frame | Window lifetime; Apply and Reset restore `20`. |
-| Grid Tolerance | Decimal MAD multiplier | `2.0` | None | `0.01`–`6.0`; step `0.1` | Higher values retain brighter grid samples; lower values reject them more aggressively. | Used only by **Generate Samples**; manual samples bypass this filter. Recorded in the history step. | Too low can leave too few samples; too high admits stars or extended signal. Rejection has no dark-side threshold beyond rejecting nonpositive medians. | Automatic sample generation | Window lifetime; Apply and Reset restore `2.0`. |
-| Generate Samples | Button | — | None | Image at least 27 pixels in each dimension, and a row of boxes that fits its width | Places a centered grid over a color image's CIE lightness or over a grayscale image in the background and, when it finishes, replaces the sample list with the samples the rejection rule keeps. | Enabled while idle and no placement is on its way. Clear Samples, Reset, or a target change discards a placement still on its way. A refused grid shows a message and leaves the list as it was. | Placing reads a full-size lightness or normalized copy. A new list marks a computed preview out of date; click **Preview** before judging it. | Target/current sequence frame; all later preview/Apply operations | Samples are never saved; changing target, Reset, a successful Apply, or closing clears them. |
-| Clear Samples | Button | Disabled with no samples | None | Click action | Removes all samples and overlays and discards a grid placement still on its way. | Enabled only while idle with at least one sample. | Disables Preview and Apply until samples are added again. | Current process window | No persistence. |
-| Preview sample: left-click | Pointer action at image coordinates | — | None | The 25×25 patch around the click must lie entirely inside the image | Adds one sample position; its channel medians are measured whenever a preview or Apply runs. | Preview pane and sample listener must be active (**Enable preview**). | Manual control avoids objects but can create uneven coverage. | Sample set used by preview and Apply | No persistence. |
-| Preview sample: right-click | Pointer action | — | None | Click inside a displayed sample box | Removes the held sample nearest the clicked box's center, which is that box's sample. | Preview pane and sample overlay must be active. | Sparse/uneven evidence can destabilize high-order or local fits. | Sample set used by preview and Apply | No persistence. |
-| Interpolation Method | Selector | **RBF** | None | **Polynomial**, **RBF** | Chooses a polynomial least-squares surface or a thin-plate spline, both in normalized image coordinates. | **Degree Order** is enabled only for Polynomial; **Smoothing** only for RBF. A change marks a computed preview out of date. | RBF follows irregular smooth gradients but needs at least three samples not all on one line, accepts at most 1,024, and costs one term per sample per pixel. Polynomial is cheaper but can underfit local variation or overfit at high order. | Every channel independently; preview and Apply | Window lifetime; Apply/Reset restore **RBF**. |
-| Correction | Selector | **Subtraction** | None | **Subtraction**, **Division** | Subtraction removes the surface and adds back one shared level, the mean of every sample median over every channel. Division divides by the surface and multiplies by each channel's own mean. | Always enabled while idle. A change marks a computed preview out of date. | Division can amplify noise where the fitted model is small; a model value below `0.000001` is divided as `0.000001`. Both modes hold results to `[0,1]`. | Every channel; mask post-blend; preview and Apply | Window lifetime; Apply/Reset restore **Subtraction**. |
-| Smoothing | Decimal RBF regularization control | `0.50` | None | `0.00`–`1.00`; step `0.01` | Raises or lowers the RBF diagonal regularization exponentially; larger values produce a less exact fit that relaxes toward a plane. | Enabled only for RBF. A change marks a computed preview out of date. | Higher smoothing resists sample noise but can miss real background curvature; lower values follow every sample more closely. | RBF model; every channel | Window lifetime; Apply/Reset restore `0.50`. |
-| Degree Order | Integer polynomial degree | `4` on first open | Reset does not assign this widget, so a user-selected order survives Reset and successful Apply even though other process controls return to defaults. | `1`–`4`; step `1`; the samples must determine all `3`, `6`, `10`, or `15` terms respectively | Higher orders add cross terms and curvature. | Enabled only for Polynomial. A change does not mark a computed preview out of date; click **Preview** to see it. | Higher orders require more well-spread samples and can bend through real structure. A degree the samples do not determine is refused by name and the image is left unchanged. | Polynomial model; every channel | Process-window lifetime, including Reset/Apply; reopening restores `4`. |
-| Output Background Model | Checkbox | Off | None | Off/On | Requests a separate gradient view after successful still-image Apply. | No separate view is published for preview or sequence execution. | Adds one full-size image, plus single-precision model planes during the run. | Still-image Apply only; all channels; unmasked model | Window lifetime; Apply/Reset turn it off. |
-| Add dither | Checkbox | Off | None | Off/On | Adds a deterministic dither `0.0001` wide and centered on zero (each normalized sample moves by less than `0.00005`), derived from the pixel's position, immediately before correction. It does not change sample measurement or the fitted model. | Always enabled while idle. A change does not mark a computed preview out of date. | Can reduce integer quantization banding but slightly perturbs corrected pixels. | Corrected result only; every channel; preview and Apply | Window lifetime; Apply/Reset turn it off. |
-| Preview Display | Selector | **Corrected image** | None | **Corrected image**, **Gradient model** | Selects whether a computed preview shows the corrected image or the fitted model, held to `[0,1]`. Switching it after **Preview** fits the preview again for the other display. | Enabled only with **Enable preview**. Before **Preview** is clicked, the pane shows the unprocessed target whichever is selected. | Model inspection exposes overfitting without opening an extra view. An active mask blends the model preview with the source too. | Preview only | Window lifetime; Apply/Reset restore **Corrected image**. |
-| Preview | Button | Disabled with no samples | None | One request at a time | Measures the samples, fits, and computes the corrected image or the model over the whole image. | Requires idle state, **Enable preview**, and at least one sample. | Runs the same full-resolution fit and correction as Apply. | Preview only | The computed preview lasts until the samples, Interpolation Method, Smoothing, Correction, or target change. |
-| Enable preview | Checkbox | On | None | Off/On | Shows/hides the preview pane, which is also where samples are clicked and drawn. | Apply remains available when preview is off. | Turning it off removes click placement and the sample overlay; Generate Samples still works. | Preview presentation and manual sampling | Window lifetime; unlike most controls, Reset does not restore it. |
-| Target Image | Image/sequence selector | Launching view | None | Compatible open views | Changes the target and clears samples; the preview shows the new target until **Preview** is clicked. | Disabled during execution. | A sequence reuses coordinates across frames; a large image increases memory/runtime. | Preview and Apply | Current window only. |
-| Preview-pane viewer actions | Standard viewer actions | Viewer defaults | Viewer/session dependent | Fit/zoom/pan, channels, autostretch, and snapshot actions | Change presentation, not samples or fit parameters. | Available with preview. No preview area is offered: the preview always shows the whole image, because the samples are positions over the whole image. | Mismatched stretches can make identical data look different. | Preview presentation only | Viewer/session behavior. |
-| Apply | Button | Disabled with no samples | None | Requires at least one sample and a valid target | Measures the samples on the image (on each frame of a sequence), fits, corrects, post-blends an active mask, updates the image or processes the sequence, records history, and may open the still-image model. A refused fit changes nothing and says why. | Disabled during execution. | Uses full resolution and a working copy of the image; showing or keeping the model adds one plane per channel. | Still or sequence; all channels | On success samples and most controls reset; Degree Order and preview checkbox retain their widget state. |
-| Reset | Button | — | None | Click action | Clears samples, discards a grid placement on its way, marks the preview out of date, and restores declared process defaults except Degree Order and the preview checkbox state. | Disabled during execution. | Any computed preview must be asked for again. | Process window | No saved preset. |
-| Close | Button | — | None | Click action | Closes the process window. | Disabled during execution. | Unapplied samples/settings are discarded. | Process window | No persistence. |
+The window has no histogram and no **Channel**: every channel is fitted and corrected. What every process window
+shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Background Extraction
+controls:
+  - name: Samples per Line
+    kind: spinbox
+    default: "20"
+    widget: {min: 5, max: 100, step: 1}
+    effect: Sets how many boxes one row of the grid holds. The rows take the same spacing, as many as fit the height. Higher covers the frame more densely, lower leaves wider gaps.
+    range: The row must fit the image, so this number times 25 pixels may not exceed the width less 2 pixels. One grid holds at most 4,096 boxes.
+    tradeoff: More boxes follow the background more closely, cost more fitting time and land on more stars and nebula. **RBF** accepts at most 1,024 samples, and a dense spline grid on a large frame takes most of the run.
+    scope: "**Generate Samples** only. It moves no sample already placed."
+    persistence: Until the window closes. **Reset** and **Apply** return it to its default. The history records it, also when every sample was placed by hand.
+  - name: Grid Tolerance
+    kind: spinbox
+    default: "2.00"
+    widget: {min: 0.01, max: 6, step: 0.1, decimals: 2}
+    effect: Sets how much brighter than the typical box a box may be and stay in the grid, in deviations of the boxes' medians. Higher keeps brighter boxes, lower drops more of them.
+    range: A box at or below zero is always dropped. No limit drops a box for being dark.
+    tradeoff: Too low leaves too few samples. Too high keeps boxes on stars and extended signal.
+    scope: "**Generate Samples** only. A sample you click is kept whatever its level."
+    persistence: Until the window closes. **Reset** and **Apply** return it to its default. The history records it.
+  - name: Generate Samples
+    kind: button
+    default: ""
+    effect: Places a centered grid of boxes of 25 by 25 pixels and keeps the boxes the tolerance allows. When it is done, they replace every sample the window holds, the ones you clicked meanwhile too.
+    range: >-
+      A grid that does not fit is refused with a message, and the samples stay as they were. A row wider than the
+      image says "this many boxes of this size do not fit across the picture", more than 4,096 boxes "this grid holds
+      more sites than a background fit accepts", and an image under 27 pixels on a side "the picture cannot hold one
+      complete sample box with a margin".
+    enabled: While no grid is on its way and no run works.
+    tradeoff: It reads a full-size copy of the image, or of a color image's lightness, which takes memory and a moment on a large frame.
+    scope: The image the view shows, or the frame it shows of a sequence. **Clear Samples**, **Reset** and another target drop a grid still on its way.
+  - name: Clear Samples
+    kind: button
+    default: ""
+    effect: Removes every sample and its square, and drops a grid still on its way.
+    enabled: While at least one sample is placed and no run works.
+    tradeoff: "**Preview** and **Apply** are disabled until a sample is placed again."
+  - name: Interpolation Method
+    kind: combo
+    default: RBF
+    options: [Polynomial, RBF]
+    effect: >-
+      Chooses the surface. **Polynomial** fits a surface of the degree **Degree Order** gives, by least squares, and
+      passes through no sample. **RBF** fits a thin-plate spline that comes close to every sample, relaxed by
+      **Smoothing**.
+    enabled: "**Polynomial** enables **Degree Order**, and **RBF** enables **Smoothing**."
+    tradeoff: >-
+      **RBF** follows a gradient that bends, needs at least three samples that do not lie on one line and accepts at
+      most 1,024. Its fit costs the cube of the number of samples, and its surface one term for each sample at every
+      pixel of every channel. **Polynomial** has at most 15 terms, so it is cheaper, can miss a local change, and at a
+      high degree can bend through the nebula.
+    scope: Every channel, fitted on its own, in the preview and Apply.
+    persistence: Until the window closes. **Reset** and **Apply** return it to **RBF**. A change does not run the preview again.
+    note: Both surfaces measure the image from -1 to 1 along each side, so on an image that is not square a pixel along the longer side counts for less of a spline's distance than one along the shorter side.
+  - name: Correction
+    kind: combo
+    default: Subtraction
+    options: [Subtraction, Division]
+    effect: >-
+      **Subtraction** takes the surface away and adds back one level shared by every channel, the mean of all the
+      samples' medians. **Division** divides by the surface and multiplies each channel by its own mean.
+    tradeoff: >-
+      **Subtraction** suits an added glow, **Division** a dimming such as a vignette. **Division** raises the noise
+      where the surface is low, and divides by 0.000001 where the surface is lower still.
+    scope: Every channel, in the preview and Apply, before the mask is blended. Both hold the result between 0 and 1.
+    persistence: Until the window closes. **Reset** and **Apply** return it to **Subtraction**. A change does not run the preview again.
+  - name: Smoothing
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 2}
+    effect: Sets how far the spline may leave the samples. Higher gives a smoother surface that relaxes toward a plane, lower follows each sample more closely.
+    range: The relaxation grows tenfold for every third of the range, so 1 relaxes a thousand times more than 0.
+    enabled: With **Interpolation Method** at **RBF**.
+    tradeoff: Higher resists noisy samples and can miss a real bend of the background. Lower follows every sample, one on a star too.
+    scope: The spline, in every channel.
+    persistence: Until the window closes. **Reset** and **Apply** return it to its default. A change does not run the preview again.
+  - name: Degree Order
+    kind: spinbox
+    default: "4"
+    widget: {min: 1, max: 4, step: 1}
+    effect: Sets the polynomial's degree. 1 is a tilted plane, 2 adds a curve, 3 and 4 add more bends.
+    range: The samples must determine all of its 3, 6, 10 or 15 terms. A degree they do not determine is refused by name, and the image is left as it was.
+    enabled: With **Interpolation Method** at **Polynomial**.
+    tradeoff: A higher degree needs more samples spread over the frame, and can bend through real structure.
+    scope: The polynomial, in every channel.
+    persistence: >-
+      **Reset** and **Apply** leave it as it is, and a new window opens at 4. After a change, switching **Preview
+      Display** computes the preview again with the new degree.
+  - name: Output Background Model
+    kind: check
+    default: "Off"
+    effect: On, Apply also opens the fitted surface as a new image beside the target, named `<target> - GRADIENT`.
+    range: For a still image only. A preview and a sequence open no model.
+    tradeoff: The new image has the target's size, channels and pixel type, and the run holds the surface beside it, a 32-bit floating-point plane for each channel.
+    scope: The new image is not blended through the mask, and its values are held between 0 and 1.
+    persistence: Until the window closes. **Reset** and **Apply** turn it off.
+    note: >-
+      Its history starts with the step `BackgroundExtractionProcess: Image gradient created from <target>`. It keeps
+      the target's acquisition record, plate solution and lineage, and none of its header cards. Its own processing
+      state cards record it nonlinear, made by `background-extraction-gradient`.
+  - name: Add dither
+    kind: check
+    default: "Off"
+    effect: Adds a tiny fixed noise to every sample just before the correction, which breaks up the bands an integer image can show afterwards. It changes neither the samples' medians nor the surface.
+    range: The noise spans 0.0001 around zero, so no sample moves by more than 0.00005. It depends only on the pixel's position, so every run gives the same result.
+    tradeoff: Leave it off unless banding shows. It changes every corrected sample a little.
+    scope: The corrected image, in every channel, in the preview and Apply.
+    persistence: Until the window closes. **Reset** and **Apply** turn it off. After a change, switching **Preview Display** computes the preview again with it.
+  - name: Preview Display
+    kind: combo
+    default: Corrected image
+    options: [Corrected image, Gradient model]
+    effect: Chooses what a computed preview shows, the corrected image or the fitted surface. Switching it after **Preview** fits the samples again and shows the other.
+    enabled: >-
+      With **Enable preview** on. Until **Preview** is pressed, the pane shows the image as it is, whichever is chosen.
+      After a change of the samples, **Interpolation Method**, **Smoothing** or **Correction**, switching it changes
+      nothing until **Preview** is pressed again.
+    tradeoff: The model shows a surface that follows stars or nebula without opening an image. Showing it holds a 32-bit floating-point plane for each channel. An enabled mask blends the model with the image too.
+    scope: The preview only, and **Take snapshot**, which keeps what the preview shows. Apply writes the corrected image.
+    persistence: Until the window closes. **Reset** and **Apply** return it to **Corrected image**.
+  - name: Preview
+    kind: button
+    default: ""
+    effect: Measures the samples, fits the surface and shows the corrected image or the model of the whole image, as Apply computes it.
+    enabled: With at least one sample, **Enable preview** on and no run working.
+    tradeoff: Each press is the whole fit and correction of Apply. No waiting indicator turns while it works.
+    scope: The preview only. There is no preview area.
+    persistence: >-
+      A change of a setting or of the samples leaves the last preview on the pane until you press it again. **Reset**,
+      another target, a finished Apply and turning **Enable preview** off return the pane to the image as it is.
+  - name: Enable preview
+    kind: check
+    default: "On"
+    effect: Shows the preview pane, where the samples are drawn and clicked. Off hides it with the squares, and drops a computed preview.
+    tradeoff: Off, you cannot click samples. **Generate Samples** and **Apply** still work.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: Once it has been turned off, **Preview** does nothing, and after you turn it on again **Preview** and **Preview Display** stay disabled. Open the window again to preview.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply corrects. Choosing another clears the samples, and the preview shows the new image as it is.
+    tradeoff: On a sequence, one set of positions serves every frame.
+    persistence: Until the window closes.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Clears the samples, drops a grid on its way and returns the controls to their defaults. The preview shows the image as it is.
+    range: It leaves **Degree Order**, **Enable preview** and the target as they are.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Measures the samples on the image, or on each frame of a sequence, fits, corrects and replaces the image. The samples are then cleared and the controls return to their defaults, except **Degree Order**.
+    enabled: With at least one sample, whether or not the preview was computed.
+    tradeoff: A progress window with **Cancel** follows the run, on a single image too. The run works on a copy of the image, and an integer image on a floating-point copy as well.
+    scope: The whole image or sequence, every channel, with the mask blended afterwards.
+    persistence: >-
+      The history records the grid, the surface and the correction, as `Samples per Line: 20, Grid Tolerance: 2,
+      Correction: Subtraction, Interpolation: RBF, Smoothing: 0.5`, with `Degree Order: 1` in place of the smoothing
+      for a polynomial. No preset and no sample list is saved.
+```
 
-### Conceptual pipeline
+```controls
+window: The samples on the preview
+controls:
+  - name: Sample squares
+    kind: readout
+    default: No square
+    effect: Show each sample as a small yellow square at its place on the preview.
+    enabled: While **Enable preview** is on.
+    note: A sample is measured over a box of 25 by 25 pixels around its center, in every channel, at each preview and Apply. The window keeps its position only.
+    persistence: Until **Clear Samples**, **Reset**, another target, a finished Apply or a new grid. Samples are never saved, and closing the window loses them.
+  - name: Click
+    kind: action
+    default: ""
+    effect: Adds a sample centered on the pixel you click.
+    range: A sample whose box would reach past the image's edge is not kept, and its square disappears.
+    enabled: While **Enable preview** is on.
+    tradeoff: Samples placed by hand avoid objects, and can leave parts of the frame without any.
+  - name: Right-click a square
+    kind: action
+    default: ""
+    effect: Removes the sample of the square you click inside. A right-click elsewhere does nothing.
+    tradeoff: A gap left by removed samples lets the surface bend into it, the more so at a high degree or a low **Smoothing**.
+```
 
-1. **Generate Samples** reads the current image in normalized units: integers
-   as fractions of their full range (a signed image counted from its smallest
-   value), floating values as stored. A color image is reduced to its CIE
-   lightness L\*, scaled to `[0,1]`; a grayscale image is used directly.
-2. The engine places a centered grid of 25×25 boxes: **Samples per Line** boxes
-   spread across the width less a one-pixel margin on each side, then as many
-   rows at the same spacing as fit the height, with the leftover height split
-   between top and bottom. Each box's median is measured.
-3. The grid keeps a site when its median is positive and at most
-   `level + tolerance × MAD`, where `level` is the median of all site medians
-   and MAD is the unscaled median absolute deviation of the site medians from
-   that level. The kept sites become the sample list, which holds positions only.
-4. At Preview or Apply, every sample's median is measured in each channel of
-   the run's image (the target, or each frame of a sequence) in the same
-   normalized units; pixels holding no number take no part. Each channel is
-   fitted independently by Polynomial or RBF, in double precision.
-5. The correction evaluates the surface at every pixel and holds each result to
-   `[0,1]`; integer images are written back to the nearest code, ties to even.
-   Pixels holding
-   no number are left as they were. The image-view mask, if enabled, is blended
-   afterward by the process framework.
+## How it works
 
-### Model and equations
+1. **Generate Samples** reads the image in [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale):
+   a color image's CIE lightness L\*, scaled to 0 to 1, or a grayscale image as it is. It places a centered grid of
+   boxes, takes each box's median and keeps the boxes equation (1) allows.
+2. At **Preview** or **Apply**, each sample's median is measured again in every channel of the image, or of each frame
+   of a sequence. A pixel that holds no number takes no part.
+3. Each channel gets its own surface, fitted in double precision through its medians by equation (2) or (3), so the
+   background's color balance changes too: check it afterwards.
+4. The surface is evaluated at every pixel and removed by equation (5) or (6), and the result is held between 0 and 1.
+   An integer image is written back to the nearest code, ties to even, and a pixel that holds no number is left as it
+   was. The mask then blends the result with the original.
+5. The image replaces the target with one history step. Its [header cards](../../reference/glossary.md#header-card),
+   acquisition record, [plate solution](../../reference/glossary.md#plate-solution) and
+   [processing state](../../reference/glossary.md#processing-state) are kept, so it is not recorded as nonlinear. Its
+   [lineage](../../reference/glossary.md#lineage) gains an entry with the step's text.
 
-Both surfaces use coordinates normalized so that the first pixel center of each
-axis is `-1` and the last is `1`:
+### Model
 
-\[
-u=\frac{2x}{W-1}-1,\qquad v=\frac{2y}{H-1}-1.
-\]
+Let \(\ell_k\) be the median lightness of grid box \(k\), \(L\) the median of all the \(\ell_k\), \(D\) the median of
+\(|\ell_k - L|\), which is their [median absolute deviation](../../reference/glossary.md#median-absolute-deviation)
+without the factor 1.4826, and \(t\) the value of **Grid Tolerance**. A box stays in the grid when
 
-For polynomial order `d`, the model contains every two-dimensional monomial up
-to that order. For example, order 2 is
+\[ 0 < \ell_k \le L + t\,D \tag{1} \]
 
-\[
-G_c(u,v)=a_0+a_1u+a_2v+a_3u^2+a_4uv+a_5v^2,
-\]
+Both surfaces read the pixel at column \(x\) and row \(y\) of an image \(W\) pixels wide and \(H\) high at
+\(u = 2x/(W-1) - 1\) and \(v = 2y/(H-1) - 1\). With \(d\) the value of **Degree Order**, the polynomial of channel
+\(c\) is
 
-where `G_c` is the fitted background for channel `c`. The coefficients are a
-least-squares fit through every sample with equal weight. Orders 1–4 contain 3,
-6, 10, and 15 coefficients; when the samples do not determine every term, the
-run is refused and names the degree, the terms, and how many the samples
-determine.
+\[ G_c(u, v) = \sum_{i + j \le d} a_{ij}\, u^i v^j \tag{2} \]
 
-RBF is a thin-plate spline centered on the samples:
+whose coefficients \(a_{ij}\) are fitted by least squares, every sample with equal weight. The
+[thin-plate spline](../../reference/glossary.md#rbf) of **RBF**, with \(r_k\) the distance from sample \(k\) in the
+same coordinates, is
 
-\[
-G_c(u,v)=a_0+a_1u+a_2v+\sum_i w_i\,\phi(r_i),\qquad \phi(r)=r^2\ln(r),
-\]
+\[ G_c(u, v) = a_0 + a_1 u + a_2 v + \sum_k w_k\, r_k^2 \ln r_k \tag{3} \]
 
-with `φ(0)=0` and `r_i` the distance from sample `i` in normalized coordinates.
-The weights satisfy `Σw_i = Σw_i u_i = Σw_i v_i = 0`, so the constant and both
-linear terms are constrained. The diagonal regularization is
+where the weights \(w_k\) sum to zero, also when each is multiplied by its sample's \(u\) or \(v\). With \(s\) the
+value of **Smoothing** and \(\bar K\) the mean row sum of the matrix of \(r^2 \ln r\) between the samples, the fit adds
 
-\[
-\lambda = \bar K\,10^{-4}\,10^{3(s-0.5)},
-\]
+\[ \lambda = 10^{-4}\,\bar K\,10^{3(s - 0.5)} \tag{4} \]
 
-where `s` is **Smoothing** and `K̄` is the mean row sum of the kernel matrix.
-The system is solved by elimination with partial pivoting, and the surface is
-evaluated at every pixel.
+to the diagonal of its system, which is solved by elimination with partial pivoting.
 
-Let `I_c` be a normalized source channel, `G_c` its model, `μ_B` the mean of all
-sample medians across every channel, and `μ_c` the source-channel mean over the
-pixels that hold a number. With **Add dither**, each sample first becomes
-`I_c + 0.0001·δ(x,y)`, where `δ` is a fixed value in `[-0.5, 0.5)` derived from
-the pixel's position. The implemented corrections are
+Let \(I_c\) be channel \(c\), \(\mu_B\) the mean of every sample's median over every channel, and \(\mu_c\) the mean
+of channel \(c\) over the pixels that hold a number. **Subtraction** and **Division** give
 
-\[
-O_{c,sub}=\operatorname{clip}_{[0,1]}(I_c-G_c+\mu_B)
-\]
+\[ O_c = \min\bigl(1, \max(0,\ I_c - G_c + \mu_B)\bigr) \tag{5} \]
 
-and
+\[ O_c = \min\Bigl(1, \max\Bigl(0,\ \frac{I_c}{\max(G_c, 10^{-6})}\,\mu_c\Bigr)\Bigr) \tag{6} \]
 
-\[
-O_{c,div}=\operatorname{clip}_{[0,1]}\left(\frac{I_c}{\max(G_c,10^{-6})}\mu_c\right).
-\]
+So **Subtraction** puts back one level shared by every channel, and **Division** each channel's own mean. With
+**Add dither**, \(I_c\) first becomes \(I_c + 0.0001\,\delta\), where \(\delta\) lies between -0.5 and 0.5 and depends
+only on the pixel's position.
 
-Subtraction therefore restores one shared level for every channel; Division
-restores a separate mean for each channel.
+### Boundaries
 
-### Boundary and failure behavior
+- A sample whose box holds no number in some channel stops the run with "the sample box held no value the validity
+  rule accepts". An image of more than four channels is refused.
+- Every result is held between 0 and 1. Where the surface is at or below 0.000001, **Division** divides by
+  0.000001, which sends those pixels to white.
+- A stopped Apply writes nothing, adds no history step, opens no model and shows no error. A run the memory budget
+  cannot hold is refused with a message that names the budget.
 
-- A clicked sample whose 25×25 patch would leave the image is not kept.
-  **Generate Samples** is refused with a message, placing nothing and keeping
-  the current list, when Samples per Line × 25 pixels is wider than the image
-  less 2 pixels, when the grid would hold more than 4,096 sites, or when the
-  image is smaller than 27 pixels in either dimension.
-- A polynomial whose samples do not determine all of its terms is refused by
-  name and the image is left unchanged.
-- RBF is refused for fewer than three samples, for samples that all lie on one
-  line, for a singular system, and for more than 1,024 samples.
-- A sample box in which some channel holds no number at all stops the run with
-  an error.
-- Every stage honors cancellation. A stopped Apply publishes nothing, leaves the
-  image and its history unchanged, opens no model view, and shows no error.
-- When the engine cannot obtain working memory, the run publishes nothing and
-  the error names the memory budget.
-- All corrected and model samples are held to `[0,1]` in normalized units.
-  Where the fitted model is at or below `0.000001`, Division divides by
-  `0.000001`, which drives those pixels to the upper clip.
-- Thin-plate distances are measured in coordinates normalized per axis, so on a
-  non-square image a pixel along the longer axis counts for less than one along
-  the shorter.
+### Worked example
 
-## Parameter interactions and starting points
+The master in the picture above is the linear Carina master, 7,246 by 5,429 pixels, whose background turns from
+pink at the left to green at the right. **Generate Samples** at its defaults spreads 20 boxes across the width, 380
+pixels apart, and 15 rows fit the height: 300 boxes. Equation (1) drops those on the bright heart of the nebula.
+**Polynomial** with **Degree Order** at 1 fits one tilted plane to each channel, which leaves the nebula's structure
+alone. With **Subtraction**, equation (5) brings every background pixel on its plane to \(\mu_B\), near 0.027, a
+little under the image's median of 0.0277, and the color shift across the frame is gone.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Samples per Line + Grid Tolerance | `20`, `2.0`, then manually remove object samples | Model misses local background variation | Samples cover stars/target structure and model reproduces it | Generate -> inspect locations -> adjust tolerance/density -> edit manually |
-| RBF + Smoothing | RBF at `0.50` | Broad/local gradient remains | Model ignores legitimate curvature or becomes over-smoothed | Fix samples first -> adjust smoothing -> compare model |
-| Polynomial + Degree Order | Order 1 or 2 with well-distributed samples | Plane/curvature remains | Surface bends through objects or edges | Ensure enough samples -> start order 1 -> increase only if model requires it |
-| Subtraction + Division | Subtraction for additive sky glow | Multiplicative shading remains | Division amplifies noise/clips where model is weak | Identify error type -> inspect model -> compare corrections |
-| Active mask + sample set | Fit with external mask disabled | Masked objects still bias the fit | Final blend has hard/local transitions | Build clean samples -> preview unmasked -> enable mask only for final spatial limitation |
+```figure
+images:
+  - image: ../../assets/images/processes/background-extraction/background-extraction-before.webp
+    alt: >-
+      The whole frame before Apply in the view's Autostretch display: the red and white nebula on a background that
+      turns from pink at the left to green-gray at the right.
+    label: Before
+  - image: ../../assets/images/processes/background-extraction/background-extraction-after.webp
+    alt: The whole frame after Apply in the same display, the same nebula on an even gray background.
+    label: After
+caption: >-
+  The Carina master before and after Apply with a plane fitted through the grid's samples. Both are the whole frame
+  in the view's Autostretch display, which stretches each image by its own statistics.
+```
 
-Starting directions are source-derived; they are not measured presets for a
-particular camera, target, or gradient.
+## Starting points
 
-## Inputs, outputs, and metadata
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A gradient across a frame full of faint nebula | **Polynomial**, **Degree Order** at 1, the grid at its defaults | **Degree Order** at 2 if a curve remains. A spline through many samples follows the faint nebula too. |
+| A light dome or a corner glow over a sparse field | **RBF** with **Smoothing** at 0.50, the grid at its defaults | Remove the samples on objects, then raise **Smoothing** if the model follows single samples. |
+| Darker corners the flats did not correct | **Division** | Compare with **Subtraction** on the same samples, and keep the one whose model matches the pattern. |
+| The grid lands on stars or nebula | A lower **Grid Tolerance**, or fewer **Samples per Line** | Right-click what remains, then preview again. |
 
-- A still-image Apply updates the selected target and adds a **Background
-  Extraction** history step described, for example, as `Samples per Line: 5,
-  Grid Tolerance: 2, Correction: Subtraction, Interpolation: RBF, Smoothing:
-  0.5`; a Polynomial run records `Degree Order: n` in place of Smoothing. The
-  grid values are recorded even when every sample was placed by hand.
-- The corrected result retains source dimensions, channels, sample type, image
-  identity, cards, acquisition record, and astrometric solution (WCS). It is not
-  marked nonlinear, and its lineage gains an entry naming
-  `an::applyImageBackground` with the step description. Numeric clipping can
-  still change range.
-- **Output Background Model** opens `<target> - GRADIENT` beside the target as a
-  separate view with the target's size, channels, and sample type, its values
-  held to `[0,1]`. It keeps the target's acquisition record, astrometric
-  solution, and lineage, but none of its cards except processing-state cards
-  marking it a nonlinear process output (`background-extraction-gradient`). Its
-  first history step reads `BackgroundExtractionProcess: Image gradient created
-  from <target>`. It is not mask-blended.
-- Sequence execution writes a processed sequence through the standard sequence
-  pipeline and then replaces or opens it according to the process framework
-  choice. No separate model sequence is created.
-- Samples, parameters, and diagnostics are not written to disk automatically.
+## When it goes wrong
 
-## Performance
+!!! warning "The surface cannot tell a gradient from faint nebula"
+    Every sample on real signal is fitted as background and taken away with the gradient. Look at **Gradient model**
+    before **Apply**, and remove the samples on the nebula, a galaxy's halo or dust.
 
-Sample measurement reads one 25×25 box per sample and channel. A polynomial fit
-solves a small system of at most 15 coefficients and then evaluates a few terms
-per pixel. An RBF fit solves a dense system of one row per sample plus three,
-whose cost grows with the cube of the sample count, and then evaluates one term
-per sample at every pixel of every channel; a dense RBF grid on a large image
-can therefore dominate runtime. Preview runs the same full-resolution fit and
-correction as Apply, and only when **Preview** is clicked.
+!!! danger "Samples above 1 are cut to 1"
+    The corrected image is held between 0 and 1. A floating-point master whose brightest stars are above 1 loses
+    them, and a sample below 0 becomes 0. When those values matter, bring the image into 0 to 1 first, with
+    [Pixel Math](../pixel-math/pixel-math.md) for example.
 
-The run works on a copy of the image, and an integer image also on a normalized
-working copy. Showing or keeping the model adds one single-precision plane per
-channel, and **Output Background Model** adds the new image.
+**Preview** or **Apply** stays disabled
+:   **Cause.** The window holds no sample. **Preview** also stays disabled once **Enable preview** has been turned
+    off in this window.
+:   **Fix.** Choose **Generate Samples** or click the preview's background. To preview again, close the window and
+    open it again.
 
-Begin with the default grid and RBF smoothing. Use a representative separate
-crop for cheap experimentation.
+"this many boxes of this size do not fit across the picture", or "this grid holds more sites than a background fit accepts"
+:   **Cause.** **Samples per Line** times 25 pixels is wider than the image less 2 pixels, or the grid would hold more
+    than 4,096 boxes. Nothing was placed.
+:   **Fix.** Lower **Samples per Line**, at most to the image's width less 2, divided by 25.
 
-## Worked example
+**Generate Samples** places few samples or none
+:   **Cause.** The boxes above the tolerance or at zero were dropped: the frame is mostly nebula, or its background
+    sits at zero.
+:   **Fix.** Raise **Grid Tolerance** a little, or click samples by hand. Bring a background at zero above it first.
 
-- Evidence mode: Source- and test-derived.
-- Input condition/provenance and settings: A hypothetical calibrated linear
-  master with an additive smooth gradient; RBF, 20 samples per line, tolerance
-  2.0, smoothing 0.50, Subtraction, dither off.
-- Expected checkpoint: Source inspection shows that Preview fits the same sample
-  set as Apply and shows either the corrected image or the model, and that Apply
-  records the chosen interpolation/correction settings. The focused tests show,
-  on a synthetic grayscale gradient with one bright square, that the generated
-  grid keeps no sample on the square and that the opened model follows the
-  gradient (near 0.11 at the top-left corner, rising to the right and down).
-  This does not prove visual flattening on a real image.
-- Inspect at 100%/statistics/history: Check the Gradient model for stars or target
-  structure, compare background regions with matched stretch/statistics, and
-  verify the history step.
-- Limitations: No approved project-owned gradient image was executed; no visual
-  quality, ideal parameter, or production timing claim is made.
+"a polynomial of degree <n> needs samples that determine its <terms> terms"
+:   **Cause.** The samples do not determine every term of **Degree Order**: too few of them, or too close to one
+    line. The image is unchanged.
+:   **Fix.** Add samples across the frame, lower **Degree Order**, or choose **RBF**.
 
-## Warnings and limitations
+"the thin-plate system these sites describe is singular", or "a thin-plate spline solves a system of one row per site and accepts fewer"
+:   **Cause.** **RBF** has fewer than three samples, samples all on one line, two at one place, or more than 1,024.
+:   **Fix.** Spread at least three samples over the frame and remove doubles, lower **Samples per Line**, or choose
+    **Polynomial**.
 
-- Apply changes the target or produces/replaces a processed sequence. Keep a
-  duplicate or use Image History.
-- An image mask limits only the final blend and cannot exclude samples from the
-  model. Remove contaminated samples explicitly.
-- Automatic rejection is one-sided: it removes nonpositive and unusually bright
-  patches, but not unusually dark positive patches.
-- RGB fitting is per channel, while Subtraction restores a shared level across
-  channels. Inspect color balance after correction.
-- All outputs are held to the normalized range `[0,1]`; a floating image with
-  values outside it loses them. Division floors the model at `0.000001`, so it
-  remains unsafe where the fitted model approaches zero.
-- RBF needs at least three samples not all on one line and accepts at most
-  1,024; a polynomial needs samples that determine all of its terms. Otherwise
-  the run is refused and nothing changes.
-- The preview always shows the whole image and offers no preview area,
-  because the samples are positions over the whole image. For cheap
-  experiments, work on a representative separate crop.
-- No reusable preset or sample-map file is saved. Most controls reset after
-  Apply; Degree Order and preview checkbox state are exceptions in the current UI.
+The gradient model shows stars or the nebula
+:   **Cause.** Samples sit on real signal: the tolerance let them in, or you clicked them there.
+:   **Fix.** Lower **Grid Tolerance** or **Samples per Line**, right-click those samples, raise **Smoothing**, or try
+    **Polynomial** at a low degree. Then press **Preview** again.
 
-## Troubleshooting
+The preview does not change after a change of a setting
+:   **Cause.** The preview is computed only when you press **Preview**. Until then it keeps the last result, or shows
+    the image as it is.
+:   **Fix.** Press **Preview** after each change.
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Apply and Preview remain disabled | The window holds no samples; Preview also needs **Enable preview**. | Generate samples or left-click valid background locations away from edges. | `updateActionButtons()`; sample controller |
-| Generate Samples reports `this many boxes of this size do not fit across the picture` | Samples per Line × 25 pixels is wider than the image less 2 pixels. Nothing is placed. | Lower **Samples per Line** to at most (image width − 2) / 25. | `planBackgroundSampleGrid()` |
-| Generate Samples produces none or very few | Every candidate had a nonpositive lightness median or sat above `level + tolerance × MAD`. | Use a positive linear representation, raise tolerance carefully, or place manual samples. | `generateSamples()`; `sampleImageBackground()` |
-| Error `a polynomial of degree … needs samples that determine its … terms` | The samples do not determine every term of the selected order. The run is refused and the image is unchanged. | Add well-distributed samples, lower Degree Order, or use RBF. | `executeTypedProcessImpl()`; `MasksRecordTest` |
-| Error `the thin-plate system these sites describe is singular` | Too few RBF samples, samples all on one line, or two samples at one position. | Add samples spread across the image, or remove duplicates. | `fitBackgroundModel()` |
-| Error naming a thin-plate spline that `accepts fewer` sites | More than 1,024 samples with RBF. | Lower Samples per Line or use Polynomial. | `backgroundModelTermCount()` |
-| Gradient model contains stars or target structure | Grid tolerance was too permissive or manual samples cover real signal. | Lower tolerance, reduce density, or remove/relocate samples; preview again. | Sample rejection and median-fit source |
-| Preview shows an older result or the unprocessed target | The preview is computed only when **Preview** is clicked, and a change of samples, Interpolation Method, Smoothing, Correction, or target marks it out of date. | Click **Preview**. | `invalidatePreview()`; `BackgroundPreviewsShowTheTargetUntilAsked` |
-| Division produces clipped, black, or white pixels | The model is zero/near zero or Division is the wrong physical correction. | Return to Subtraction or rebuild a strictly positive representative model. | Division equation; `applyImageBackground()` |
-| Corrected preview changes when a mask is enabled | The estimator ignores the mask; the framework post-blends the result afterward. | Tune samples/model with the mask disabled, then enable it only to inspect the intended final blend. | `ImageRTPreviewControl.cpp` |
-| Output Background Model does not open for a sequence or a preview | The model is kept only by a still-image Apply. | Apply to a representative still frame for model diagnosis; the process does not create a model sequence. | `executeTypedProcessImpl()`; `executeProcessCompletedImpl()` |
-| Error mentions the memory budget | The engine refused the run's working memory; nothing was published. | Close other images, or use a smaller crop or fewer samples. | `MasksEngineRefusalTest` |
-| Process was cancelled | The run observed the stop; nothing was published and the history is unchanged. | Reduce grid density or image size for prototyping, then rerun. | Engine cancellation checks; `MasksWindowTest` |
+**Division** leaves black, white or noisy areas
+:   **Cause.** The surface is near zero there, or the gradient is an added glow rather than a dimming.
+:   **Fix.** Return to **Subtraction**, or place samples so that the surface stays above zero everywhere.
 
-## Related workflow steps
+## Related
 
-Complete [Image Calibration](../calibration/image-calibration.md),
-[Image Registration](../registration-alignment/image-registration.md), and
-[Image Stacking](../stacking-integration/image-stacking.md) first, then remove
-invalid borders with [Crop](../geometry/crop.md). Compare the automatic,
-all-pixel [Auto Gradient Removal](auto-gradient-removal.md) when constructing a
-clean manual sample set is impractical. Continue to
-[Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md),
-[Photometric Color Calibration](../color-calibration/photometric-cc.md), or
-[Background Neutralization](../color-calibration/background-neutralization.md)
-only after the background model is acceptable.
+- [Auto Gradient Removal](auto-gradient-removal.md), which finds the background without samples when placing clean
+  ones is impractical.
+- [Crop](../geometry/crop.md), to remove stacking borders before you sample.
+- [Background Neutralization](../color-calibration/background-neutralization.md),
+  [Photometric Color Calibration](../color-calibration/photometric-cc.md) and
+  [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which come next, once the
+  background is flat.
+- [Image Statistics](../../interface/image-statistics.md), to compare the background's levels before and after.
+- [Masks](../../interface/masks.md), for the mask the result is blended through.
+- [Process Windows](../../interface/process-windows.md), for the preview pane, Apply and what every process window
+  shares.
 
-## References and provenance
+## Credits
 
-- The sample-grid workflow follows the upstream Siril sample-grid implementation
-  ([Siril `background_extraction.c` at the linked revision](https://gitlab.com/free-astro/siril/-/blob/ef048278814067d24178f01067870d8896d9633d/src/algos/background_extraction.c)):
-  AfterNight's engine keeps its 25×25 sample box, its median-plus-tolerance
-  grid rejection, and its RBF smoothing mapping. That code is derived from
-  Siril's under its GPL-3.0-or-later licence, by Francois Meyer and team
-  free-astro, and **Help > About AfterNight** credits it.
-- The fits are computed by AfterNight's own engine code; no external
-  linear-algebra library is involved.
-- Implementation claims and limitations were verified against AfterNight's source. Starting guidance is explicitly not a measured
-  result for real astrophotography data.
+- The sample box and its acceptance rule, and the thin-plate spline's kernel and smoothing, are derived from the
+  background extraction of [Siril](https://gitlab.com/free-astro/siril/-/blob/07d942814b1fc1052765cf18fa9c524b4e8a269c/src/algos/background_extraction.c),
+  Copyright (C) 2005-2011 Francois Meyer and Copyright (C) 2012-2026 team free-astro, under GPL-3.0-or-later, and are
+  distributed under that licence. The polynomial, the solvers and the correction are AfterNight's.
+  **About > About AfterNight** credits it.

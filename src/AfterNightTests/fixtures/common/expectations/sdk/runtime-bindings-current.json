@@ -1418,7 +1418,7 @@
    },
    {
     "call": "load_image refuses a missing file",
-    "message": "load_image() could not read '<work>/missing.fits': ExternalFailure: something outside the engine failed (because: could not open the named file)",
+    "message": "load_image() could not read '<work>/missing.fits': ExternalFailure: something outside the engine failed (because: the file could not be opened)",
     "raises": "RuntimeError"
    },
    {
@@ -2502,6 +2502,13 @@
  "provenance": {
   "captured": "2026-10-13",
   "commit": "3f1811f76",
+  "missing_file_message": {
+   "captured": "2026-11-09",
+   "commit": "7000ca35e",
+   "note": "the message of 'load_image refuses a missing file', whose cause is the FITS codec's own text since OpenFITS reads its files; every other entry is the record above",
+   "platform": "windows-amd64",
+   "python": "3.14.7"
+  },
   "numpy": "2.5.3",
   "package_signatures": {
    "captured": "2026-10-15",

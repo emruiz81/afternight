@@ -32,6 +32,7 @@ public:
     QAction* actionClose_All;
     QAction* actionDuplicate;
     QAction* actionRename;
+    QAction* actionShow_In_File_Browser;
     QAction* actionExtract_Red_Channel;
     QAction* actionExtract_Green_Channel;
     QAction* actionExtract_Blue_Channel;
@@ -87,6 +88,7 @@ public:
     QAction* actionFITSHeader;
     QAction* actionAstrometryInfo;
     QAction* actionPlateSolve;
+    QAction* actionAnnotateImage;
     QAction* actionAdjustBrightness_Contrast;
     QAction* actionGamma_Correction;
     QAction* actionAdjustHSL;
@@ -265,6 +267,9 @@ public:
         actionSystem_Information->setObjectName("actionSystem_Information");
         actionUser_Guide = new QAction(AfterNightAppClass);
         actionUser_Guide->setObjectName("actionUser_Guide");
+        // A process window is a window of its own, where a shortcut of the main window's context is not heard: Help
+        // answers from whichever window of the application is active, and opens that window's page.
+        actionUser_Guide->setShortcutContext(Qt::ApplicationShortcut);
         actionUndo = new QAction(AfterNightAppClass);
         actionUndo->setObjectName("actionUndo");
         actionUndo->setEnabled(false);
@@ -279,6 +284,9 @@ public:
         actionDuplicate->setObjectName("actionDuplicate");
         actionRename = new QAction(AfterNightAppClass);
         actionRename->setObjectName("actionRename");
+        actionShow_In_File_Browser = new QAction(AfterNightAppClass);
+        actionShow_In_File_Browser->setObjectName("actionShow_In_File_Browser");
+        actionShow_In_File_Browser->setEnabled(false);
         actionExtract_Red_Channel = new QAction(AfterNightAppClass);
         actionExtract_Red_Channel->setObjectName("actionExtract_Red_Channel");
         actionExtract_Green_Channel = new QAction(AfterNightAppClass);
@@ -396,6 +404,9 @@ public:
         actionPlateSolve = new QAction(AfterNightAppClass);
         actionPlateSolve->setObjectName("actionPlateSolve");
         actionPlateSolve->setEnabled(false);
+        actionAnnotateImage = new QAction(AfterNightAppClass);
+        actionAnnotateImage->setObjectName("actionAnnotateImage");
+        actionAnnotateImage->setEnabled(false);
         actionAdjustBrightness_Contrast = new QAction(AfterNightAppClass);
         actionAdjustBrightness_Contrast->setObjectName("actionAdjustBrightness_Contrast");
         actionAdjustBrightness_Contrast->setEnabled(true);
@@ -780,6 +791,8 @@ public:
         menuImage->addAction(menuMask->menuAction());
         menuImage->addAction(menuSequence->menuAction());
         menuImage->addAction(menuView->menuAction());
+        menuImage->addSeparator();
+        menuImage->addAction(actionShow_In_File_Browser);
         menuActions->addAction(actionDuplicate);
         menuActions->addAction(actionRename);
         menuActions->addAction(actionClose_2);
@@ -847,6 +860,7 @@ public:
         menuInformation->addAction(actionFITSHeader);
         menuInformation->addAction(actionAstrometryInfo);
         menuInformation->addAction(actionPlateSolve);
+        menuInformation->addAction(actionAnnotateImage);
         menuInformation->addAction(actionSummary);
         menuMask->addAction(actionSelect_Mask);
         menuMask->addAction(actionRemove_Mask);
@@ -1028,6 +1042,8 @@ public:
         actionClose_All->setText(QCoreApplication::translate("AfterNightAppClass", "Close All", nullptr));
         actionDuplicate->setText(QCoreApplication::translate("AfterNightAppClass", "Duplicate", nullptr));
         actionRename->setText(QCoreApplication::translate("AfterNightAppClass", "Rename", nullptr));
+        actionShow_In_File_Browser->setText(
+            QCoreApplication::translate("AfterNightAppClass", "Show in File Browser", nullptr));
         actionExtract_Red_Channel->setText(
             QCoreApplication::translate("AfterNightAppClass", "Extract Red Channel", nullptr));
         actionExtract_Green_Channel->setText(
@@ -1107,6 +1123,7 @@ public:
         actionFITSHeader->setText(QCoreApplication::translate("AfterNightAppClass", "FITS Header", nullptr));
         actionAstrometryInfo->setText(QCoreApplication::translate("AfterNightAppClass", "Astrometry Info", nullptr));
         actionPlateSolve->setText(QCoreApplication::translate("AfterNightAppClass", "Plate Solve", nullptr));
+        actionAnnotateImage->setText(QCoreApplication::translate("AfterNightAppClass", "Annotate Image...", nullptr));
         actionAdjustBrightness_Contrast->setText(
             QCoreApplication::translate("AfterNightAppClass", "Brightness/Contrast", nullptr));
         actionGamma_Correction->setText(QCoreApplication::translate("AfterNightAppClass", "Gamma Correction", nullptr));

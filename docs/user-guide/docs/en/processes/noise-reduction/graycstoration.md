@@ -1,316 +1,434 @@
+---
+kind: process
+stage: noise
+menu: Process > Noise Reduction > GRAYCstoration Filter
+summary: >-
+  Reduces noise with G'MIC's anisotropic smoothing: averages each pixel along short paths that follow the image's own
+  structure, long where the image is flat and short at stars and edges.
+data_in: linear
+data_out: linear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: The G'MIC library, bundled with AfterNight
+glance:
+  enabled: >-
+    An image or a sequence view is active, no GRAYCstoration window is open on it yet, and no window that needs the
+    image for itself is open on it. Preview and Apply also need a build that carries G'MIC.
+  inputs: >-
+    One grayscale or RGB image or sequence whose samples are all finite numbers, best between 0 and 1, and an
+    optional mask of the image's size on its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, channels, pixel type, header and recorded processing
+    state are kept, and what G'MIC returns is held between 0 and 1. No file is written.
+  state: >-
+    A calibrated and stacked linear master, after gradient removal and color calibration and before the stretch.
+derived: true
+---
 # GRAYCstoration
 
-## Purpose and expected result
+GRAYCstoration smooths noise along the image's own structure. At every pixel it measures how strongly the image
+changes and in which direction it changes least, then averages the pixel along short curved paths that follow that
+direction. Where the image is flat the paths are long and run every way. At a star or a sharp edge they shrink, and
+they cross an edge less than they follow it. The work is done by the `smooth` command of G'MIC, the anisotropic
+smoothing behind GREYCstoration, which AfterNight carries.
 
-GRAYCstoration performs edge-directed smoothing through the bundled G'MIC
-`smooth` command. It estimates a shared diffusion-tensor field from local image
-structure, follows that field along curved paths, and averages samples along
-those paths. Compared with an isotropic blur, it can smooth more strongly along
-coherent edges than across them.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the smoothed one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history).
 
-The expected result is a same-size, same-type still or replacement sequence with
-weaker fine variation and better retention of coherent edges than a similarly
-strong ordinary blur. It does not recover detail. Strong or repeated settings
-can erase small stars, bend or extend thin structures, create flowing/smeared
-texture, and shift color.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Noise Reduction > GRAYCstoration Filter** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or RGB still or sequence; a still CFA mosaic is treated as one grayscale plane unless debayered first; an optional active mask must match target geometry |
-| Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still; dimensions, channel count, and source pixel type are retained; no file is written directly |
-| Recommended image state | Usually finite, normalized linear data after calibration, registration, stacking, gradient correction, and color calibration; judge any small-star loss at 100% scale |
-| Preview | Asynchronous full-image or movable-area preview, original/result switching, snapshot, display-channel selection, and display-only autostretch |
-| Sequence support | Yes; one captured parameter/channel/mask state is applied frame by frame to temporary storage before replacement |
-| Mask support | Yes; the active mask blends the result with the original after Amount blending |
-| External dependency | Bundled G'MIC/CImg runtime, run through AfterNight's optional G'MIC adapter; no separate installation or network access. In a build without G'MIC, Preview and Apply are disabled and their tooltip says why |
-| Non-finite samples | An image holding a NaN or infinite sample is refused before G'MIC sees it, and left unchanged |
+```figure
+image: ../../assets/images/processes/noise-reduction/graycstoration.webp
+alt: >-
+  The GRAYCstoration window. On the left, ten boxes with sliders from Iterations to Amount, the Interpolation box at
+  Nearest Neighbor and the ticked Fast Approximation box, and lower down Target Image, Channel at RGB and the Preview
+  check box. On the right, a toolbar of zoom buttons, a channel box and a display mode box reading Autostretch over
+  the preview of a red nebula, with the word PREVIEW in its corner and a small framed area in its middle. Reset, Close
+  and Apply run along the bottom.
+caption: >-
+  GRAYCstoration on the linear master with Amplitude at 5 and the other values at their defaults. The framed area
+  shows what Apply writes there, in the Autostretch display mode.
+pins:
+  - {n: 1, x: 64.2, y: 54.4}
+  - {n: 2, x: 2.8, y: 85.3}
+  - {n: 3, x: 2.8, y: 21.3}
+  - {n: 4, x: 2.8, y: 25.6}
+  - {n: 5, x: 2.8, y: 34.1}
+  - {n: 6, x: 2.8, y: 42.7}
+  - {n: 7, x: 2.8, y: 55.6}
+  - {n: 9, x: 89.4, y: 96.6}
+```
 
 ## Before you start
 
-- Repair NaN and infinity before processing. An image holding a sample that is
-  not a finite number is refused with "the image holds a sample that is not a
-  finite number, which G'MIC cannot process" and left unchanged.
-- This process needs G'MIC, which AfterNight normally includes. In a build
-  without it, **Preview** and **Apply** are disabled and their tooltip reads
-  "This build of AfterNight carries no G'MIC library, so this process cannot
-  run."
-- Prefer normalized data. The filtered result is clamped to `[0,1]`, including
-  for float and double input. **Amount** `1` replaces the source with that
-  clamped result; partial Amount blends it with the original samples, and
-  Amount `0` restores the original samples after G'MIC has run.
-- Include smooth background, faint stars, thin filaments, a bright edge, and a
-  corner in the Preview area. Compare at **Zoom 100%** under one Display Mode.
-- Duplicate the target or verify Image History. Apply replaces the target only
-  after the whole still operation or temporary sequence succeeds.
-- Start with one iteration. Each additional iteration rebuilds the tensor field
-  from the previous result and runs the full smoothing operation again.
+- Finish calibration, stacking, gradient removal and color calibration first, and smooth before the
+  [stretch](../../reference/glossary.md#stretch). The process does not estimate the noise: it smooths whatever changes
+  little against the image's range, faint signal included.
+- **Apply** replaces the image. Duplicate it first, or use its history, which keeps the step before.
+- Every sample must be a finite number.
+- The process needs G'MIC, which AfterNight includes: nothing is installed or downloaded. A build without it keeps
+  **Preview** and **Apply** disabled, and their tooltip says why.
+- [Debayer](../../reference/glossary.md#debayer) a [CFA](../../reference/glossary.md#cfa) mosaic first. A raw mosaic is
+  smoothed as one grayscale plane. The frames of a sequence are read with the automatic debayer setting of its view.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original after **Amount**. On a
+  sequence, every frame gets the same values, **Channel** and mask.
 
-## Procedure
+## Steps
 
-1. Select a finite, normalized target and open **Process > Noise Reduction >
-   GRAYCstoration Filter**. Confirm **Target Image**, choose **RGB** or a
-   deliberate component, and leave **Preview** selected.
-2. Keep **Iterations 1**, **Amplitude 60**, and **Amount 1.00** initially. Use
-   **Sharpness** and **Anisotropy** to control how strongly coherent edges steer
-   smoothing.
-3. Tune **Noise Scale** for the feature scale used to estimate gradients and
-   **Regularity** for the spatial coherence of the tensor field. Inspect both
-   fine stars and broad structure after each change.
-4. Leave **Spatial Step Size 0.80**, **Angular Step Size 30**, **Precision 2.00**,
-   **Nearest Neighbor**, and **Fast Approximation** selected until the structural
-   behavior is acceptable. These are numerical quality/cost controls, not extra
-   strength controls.
-5. Toggle **Switch image** and inspect at **Zoom 100%**. Reduce Amplitude,
-   Iterations, or Amount if stars shrink or texture begins to flow along edges.
-6. Check the full frame, mask, target, and Channel before selecting **Apply**.
-   For a sequence, monitor frame progress; Cancel reaches the running G'MIC
-   command through its abort flag, preserves the original, and removes
-   temporary output.
+1. **Open the window.** Make the [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Noise Reduction > GRAYCstoration
+   Filter**. The preview shows the smoothed image inside a framed
+   [preview area](../../reference/glossary.md#preview-area): move it over background, faint nebula and small stars.
+2. **Choose what to smooth.** Leave **Channel** at **RGB** to smooth the three channels along shared paths. Choose
+   **CIE L* (Lightness)** to smooth the brightness alone, or a chroma component for color noise.
+3. **Set the reach.** On a [linear image](../../reference/glossary.md#linear-image), start with **Amplitude** near 5.
+   Raise it while blotches of noise remain, and lower it when stars grow spikes or faint filaments smear.
+4. **Keep the edges.** Raise **Sharpness** to shorten the paths at stars and bright structure, and **Anisotropy** to
+   keep them from crossing edges.
+5. **Keep the noise from steering.** Raise **Noise Scale**, then **Regularity**, when the background turns into
+   streaks or worms.
+6. **Leave the sampling.** Keep **Spatial Step Size**, **Angular Step Size**, **Precision**, **Interpolation**,
+   **Fast Approximation** and **Iterations** at their defaults until the rest looks right.
+7. **Set the strength.** Lower **Amount** to bring back part of the original when the result looks painted.
+8. **Check at 100 %.** Zoom into the area and hold ++space++ to compare with the original. Then untick **Preview
+   area** and look at the whole image, its stars and its edges.
+9. **Apply.** Choose **Apply**. A progress window follows the run, the view shows the smoothed image, and its history
+   lists **GRAYCstoration** with the values.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Iterations | Integer value plus slider, complete passes | `1` | None; process settings are not persisted across dialog instances | `1..10`; step `1` | Repeats the complete `smooth` command; every pass estimates a new tensor field from the previous output | Eligible target; no additional enable/visibility dependency | Cost is approximately linear in Iterations; repeated passes can grow flat or flowing regions; Preview/Apply, selected Channel, still/sequence; Reset and successful Apply return `1` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Amplitude | Integer value plus slider, G'MIC smoothing amplitude | `60` | None; process settings are not persisted across dialog instances | `0..100`; step `1` | Controls streamline integration scale through `sqrt(2 × Amplitude)`; `0` makes each G'MIC pass an identity average | Eligible target; no additional enable/visibility dependency | Larger values integrate farther and cost more; Amount/mask are applied later; Reset and successful Apply return `60` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Sharpness | Double value plus slider | `0.70` | None; process settings are not persisted across dialog instances | `0.00..2.50`; spin step `0.01`; slider resolution `0.001` | Raises tensor attenuation with local structure strength; larger values suppress diffusion more strongly around detected variation | Eligible target; no additional enable/visibility dependency | Very high values can preserve noise/fragment smoothing; `0` is internally floored to `1e-5`, nearly removing structure-based attenuation; Reset/Apply return `0.70` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Noise Scale | Double value plus slider, pixels in tensor estimation | `0.60` | None; process settings are not persisted across dialog instances | `0.00..3.00`; spin step `0.05`; slider resolution `0.001` | G'MIC's `alpha`: Gaussian preblur before gradients and global normalization | Eligible target; no additional enable/visibility dependency | Larger values stop very fine variation from steering the tensor but can also ignore small real structure; Reset/Apply return `0.60` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Regularity | Double value plus slider, pixels in tensor estimation | `1.10` | None; process settings are not persisted across dialog instances | `0.00..3.00`; spin step `0.05`; slider resolution `0.001` | G'MIC's `sigma`: Gaussian blur of the structure-tensor field | Eligible target; no additional enable/visibility dependency | Larger values make orientation vary more smoothly over space and can carry direction across nearby features; Reset/Apply return `1.10` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Spatial Step Size | Double value plus slider, pixels along integration paths | `0.80` | None; process settings are not persisted across dialog instances | `0.10..1.00`; spin step `0.01`; slider resolution `0.001` | G'MIC's `dl`: distance advanced per streamline sample after tensor normalization | Eligible target; no additional enable/visibility dependency | Smaller steps sample paths more densely and cost more; large steps are coarser and can miss curvature/detail; this positive range avoids the separate explicit-Laplacian mode; Reset/Apply return `0.80` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Anisotropy | Double value plus slider | `0.30` | None; process settings are not persisted across dialog instances | `0.00..1.00`; spin step `0.05`; slider resolution `0.001` | Separates the tensor eigenvalue attenuation; `0` is locally isotropic, while values toward `1` strongly suppress cross-structure motion relative to along-structure motion | Eligible target; no additional enable/visibility dependency | High values can create directional streaks or extend thin features; Reset/Apply return `0.30` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Amount | Double value plus slider, blend fraction | `1.00` | None; process settings are not persisted across dialog instances | `0.00..1.00`; spin step `0.01`; slider resolution `0.001` | Shared post-filter blend: `original × (1-Amount) + smoothed × Amount` | Eligible target; no additional enable/visibility dependency | Amount `0` restores the original samples, including out-of-range float/double values, but the full G'MIC call and filtered-result clamp still occur before blending; partial Amount mixes the original with the clamped result; active mask blends afterward; Reset/Apply return `1.00` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Precision | Double value plus slider, Gaussian support multiplier | `2.00` | None; process settings are not persisted across dialog instances | `0.10..10.00`; spin step `0.10`; slider resolution `0.001` | G'MIC's `gauss_prec`: integration length is `Precision × local_sigma` | Eligible target; no additional enable/visibility dependency | Larger values extend paths and increase work; exact weighting captures more Gaussian tail, while Fast Approximation adds more uniform samples; Reset/Apply return `2.00` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Angular Step Size | Integer value plus slider, degrees | `30` | None; process settings are not persisted across dialog instances | `1..90`; step `1` | Samples orientations around 360 degrees at this spacing | Eligible target; no additional enable/visibility dependency | Smaller values use more directions and cost roughly in proportion to `360 / step`; larger values are coarser and can show directional bias; Reset/Apply return `30` | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Interpolation | Combo box | **Nearest Neighbor** | None; process settings are not persisted across dialog instances | **Nearest Neighbor**, **Linear**, **Runge-Kutta** | Chooses path/sample evaluation: nearest samples; bilinear field/image samples; or midpoint second-order Runge-Kutta path integration with linear image samples | Eligible target; no additional enable/visibility dependency | Linear and Runge-Kutta reduce blocky path stepping at extra cost; does not change output type; Reset/Apply return Nearest Neighbor | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Fast Approximation | Checkbox | Checked in the live process | Raw UI builder starts unchecked; live process initialization sets checked; no cross-dialog persistence | Checked/unchecked; the bare UI-builder test observes unchecked before process initialization | Checked uses equal weights for accepted path samples; unchecked uses `exp(-distance² / (2 sigma²))` Gaussian weights | Eligible target; no additional enable/visibility dependency | This changes the numerical result as well as speed; unchecked emphasizes nearer samples and evaluates exponentials; Reset/Apply check it | Preview and Apply; selected Channel and mask; still or sequence | Dialog-local; Reset and successful Apply restore the documented runtime default |
-| Target Image | Image selector | Attached/active target | None; process settings are not persisted across dialog instances | Open eligible image or sequence | Changes source, Channel list, Preview, active mask, and Apply destination | At least one eligible image or sequence; launch requires an active image | Wrong target is destructively replaced after success; Reset retains target | Preview and Apply destination; still or sequence | Dialog-local; Reset retains the current selection/state |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None; process settings are not persisted across dialog instances | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB builds one structure tensor from all stored channels and smooths channel values along the shared paths; a component filters one plane and reconstructs/copies the others | Target channel count; mono targets force and disable Grayscale | Component conversions add buffers and can alter color; captured per execution; Reset retains selection | Preview and Apply; selected component; still or sequence | Dialog-local; Reset retains the current selection/state |
-| Preview | Checkbox | Checked | None; process settings are not persisted across dialog instances | Checked/unchecked | Enables asynchronous full-image or selected-area execution | Eligible target; work is scheduled only while checked | Runs the complete G'MIC command; selected area reduces tuning work; Reset retains state | Preview only; still or sequence source | Dialog-local; Reset retains the current selection/state |
-| Preview pane | Image viewer | Current result | None; process settings are not persisted across dialog instances | Pan/scroll; toolbar actions below | Shows mask-aware result without modifying target | Preview execution or original display buffer | Holds source/result/display buffers plus G'MIC/tensor workspaces; Preview only | Preview/display only | Preview-view lifetime only |
-| Fit To Window | Preview-toolbar action | Fitted initially | None; process settings are not persisted across dialog instances | Click or **Ctrl+Shift+F** | Fits whole image uniformly | Preview pane | Display only; resampling can hide fine loss; viewer lifetime | Preview/display only | Preview-view lifetime only |
-| Zoom In | Preview-toolbar action | Current scale | None; process settings are not persisted across dialog instances | Click; `1.25×` relative zoom | Enlarges around viewport center | Preview pane | Display only; viewer lifetime | Preview/display only | Preview-view lifetime only |
-| Zoom Out | Preview-toolbar action | Current scale | None; process settings are not persisted across dialog instances | Click; `0.8×` relative zoom | Reduces around viewport center | Preview pane | Display only; viewer lifetime | Preview/display only | Preview-view lifetime only |
-| Zoom 100% | Preview-toolbar action | Current scale | None; process settings are not persisted across dialog instances | Click; absolute scale `1.0` | Shows one-pixel viewer scale | Preview pane | Preferred for stars, streaking, and texture; display only | Preview/display only | Preview-view lifetime only |
-| View Channel | Preview-toolbar combo box | **RGB** for RGB; disabled **Grayscale** for mono | None; process settings are not persisted across dialog instances | Stored RGB plus CIE Lab/LCh/XYZ, HSL, HSV, HSI, and YCbCr display components | Selects only the displayed component | Preview pane and target channel count | Separate from process Channel; display only; viewer lifetime | Preview/display only | Preview-view lifetime only |
-| Display Mode | Preview-toolbar combo box | Inherits target **Linear** or **Autostretch** | None; process settings are not persisted across dialog instances | **Linear**, **Autostretch** | Changes display only; Autostretch uses cached full-target source statistics | Preview pane | A strong stretch can exaggerate residual noise/streaks; never changes pixels | Preview/display only | Preview-view lifetime only |
-| Autostretch Settings | Preview-toolbar dialog action | Disabled in Linear mode; inherits target-view settings | None; process settings are not persisted across dialog instances | Opens display stretch controls; **Apply Stretch** is hidden | Tunes preview display only | Preview pane; enabled only when Display Mode is Autostretch | Viewer-scoped, not GRAYCstoration parameters | Preview/display only | Preview-view lifetime only |
-| Switch image | Preview-toolbar action | Smoothed result shown | None; process settings are not persisted across dialog instances | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles result/original | Preview pane | Comparison only; no recomputation; preview lifetime | Preview/display only | Preview-view lifetime only |
-| Preview area | Preview-toolbar checkbox | Checked with initial `500×500` area | None; process settings are not persisted across dialog instances | Checked/unchecked; move/resize overlay | Checked processes the selected area and composites it over the original preview; unchecked processes full image | Checked Preview and eligible target | Preview and snapshot scope; full Apply is always full target; Reset retains state | Preview/display only | Preview-view lifetime only |
-| Take snapshot | Preview-toolbar action | No snapshot | None; process settings are not persisted across dialog instances | Click or **Ctrl+Shift+K** | Re-executes settings and opens `<target> - GRAYCstoration - SNAPSHOT` | Checked Preview and eligible target | Adds a complete G'MIC execution and auxiliary still; area/mask honored; target unchanged | Auxiliary still from preview scope; selected Channel and mask | Preview-view lifetime only |
-| Apply | Button/action | Enabled while idle, including Amount/Amplitude `0` | None; process settings are not persisted across dialog instances | One action | Captures all numerical settings and Amount, then processes the full still or every sequence frame | Eligible target and idle process | Controls lock during commit; destructive replacement after success; records history but omits Fast Approximation; successful Apply resets every numerical setting, Interpolation, and Fast Approximation | Full-target Apply; selected Channel and mask; still or sequence | Successful Apply resets all 12 process settings |
-| Reset | Button/action | Enabled while idle | None; process settings are not persisted across dialog instances | One action | Restores the 12 process settings to live defaults | Idle process | Does not reset Target, Channel, Preview, mask, or preview toolbar; checked Preview schedules execution | Open process dialog only | Immediate dialog-local reset; no cross-dialog persistence |
-| Close | Button/action | Enabled while idle | None; process settings are not persisted across dialog instances | One action | Closes without applying current settings | Idle process | Disabled during Apply; requests active preview cancellation; no process settings persist after destruction | Open process dialog only | Unapplied process settings are discarded |
-| Sequence progress / Cancel | Shared per-frame progress and Cancel | Created for sequence Apply | None; process settings are not persisted across dialog instances | Cooperative Cancel | Applies one captured setting/channel/mask state to every frame in temporary storage | Sequence target during Apply | G'MIC receives an abort flag and polls internally; Cancel/error removes temporary output, success replaces sequence and records one history step | Sequence Apply only | Execution snapshot only; no cross-dialog persistence |
+**Target Image**, the preview pane, **Close** and the progress window work as in every process window: see
+[Process Windows](../../interface/process-windows.md). What is particular to this window is below.
 
-## How the algorithm works
-
-AfterNight checks the selected image or component for non-finite samples and
-sends it through its G'MIC adapter, one G'MIC session per run, to the bundled
-`smooth` command as planar float32 fractions of full scale - a tightly packed
-float image in place, anything else as a working copy. With **Iterations**
-above `1` the command is `repeat <Iterations> { smooth ... }` in that one call.
-G'MIC first blurs a copy by **Noise Scale**,
-normalizes that copy to `0..255`, computes a channel-coupled structure tensor,
-and blurs the tensor field by **Regularity**. For local nonnegative tensor
-eigenvalues `lambda1 <= lambda2`, Sharpness `s`, and Anisotropy `a`, the bundled
-CImg code constructs square-root tensor strengths proportional to
-
-\[
-n_1=(1+\lambda_1+\lambda_2)^{-s/2},\qquad
-n_2=(1+\lambda_1+\lambda_2)^{-s/[2(1-a)]}.
-\]
-
-At `a=0`, the two strengths match. As `a` approaches `1`, the second strength
-falls much faster around detected structure, making smoothing strongly
-directional. Sharpness is floored internally at `10^-5`, so displayed `0` is
-nearly structure-independent rather than a singular value.
-
-For each angular direction, CImg follows the tensor field from each pixel. With
-local tensor-vector magnitude `n` and Amplitude `A`, it uses a local smoothing
-scale
-
-\[
-\sigma_p=n\sqrt{2A}
-\]
-
-and follows the path up to `Precision × sigma_p`, advancing by **Spatial Step
-Size**. The exact mode weights a sample at path distance `l` by
-`exp(-l²/(2 sigma_p²))`; **Fast Approximation** assigns equal weight to every
-accepted sample. Results are averaged over angular directions. Paths stop at the
-image boundary, so edge support is truncated rather than padded or reflected.
-
-Each `smooth` pass clips its result to that pass's finite input
-minimum/maximum; AfterNight then clamps the command's result to `[0,1]` and
-converts it back to the original pixel type, rounded to nearest and held to the
-type's range. Thus the filtered leg does not create new
-extrema for valid normalized input. The later Amount blend restores the
-original samples at `0`, fully substitutes the clamped result at `1`, and can
-retain some original out-of-range contribution between those endpoints. The
-active mask is applied after the Amount blend.
-
-### Stability, channels, and repeated passes
-
-The exposed positive Angular Step Size selects CImg's line-integral-convolution
-path, not its separate explicit oriented-Laplacian iteration mode. The result is
-a normalized average bounded by the current input range; there is no exposed
-PDE time step with a classical CFL limit. Numerical stability does not mean
-artifact-free output: coarse spatial/angular sampling can bias paths, and strong
-directionality can smear or extend structure.
-
-RGB input contributes all channels to one structure tensor. All three values
-then travel along the same spatial paths, which couples edge geometry across
-color while still averaging each channel's samples separately. A selected
-derived component uses one-plane tensor estimation and is reconstructed through
-the shared Channel path. A derived component's reconstruction saturates an
-integer image at its type's range and keeps a floating image's values outside
-`[0, 1]`.
-
-Iterations greater than one repeat the complete `smooth` pass inside one G'MIC
-call, including tensor re-estimation and its range clip. They are not one
-equivalent higher Amplitude pass and can progressively change the geometry that
-steers later passes.
-
-## Parameter interactions and starting points
-
-- **Amplitude × Precision / Spatial Step Size × 360 / Angular Step Size** is the
-  dominant sampling-cost relationship. Tensor magnitude changes it locally.
-- **Noise Scale × Regularity** separates the pre-gradient scale from the spatial
-  smoothing of the resulting orientation field. Raising both can make broad
-  structures dominate small stars and texture.
-- **Sharpness × Anisotropy** controls attenuation and directionality. High
-  Sharpness with high Anisotropy can protect major edges while turning weaker
-  structures into streaks.
-- **Interpolation × Spatial Step Size** controls curved-path accuracy. A coarse
-  step with Nearest Neighbor is fastest and most likely to show stepping.
-- **Fast Approximation × Precision** changes more than runtime. Extra Precision
-  adds equally weighted samples in fast mode but progressively smaller Gaussian
-  weights in exact mode.
-- **Iterations × Amount** is recursive filtering followed by one final blend.
-  Amount does not soften each iteration and Amount `0` does not skip G'MIC.
-- **Channel × mask** sets the operation order: filter/reconstruct, Amount blend,
-  then active-mask blend.
-
-## Inputs, outputs, and metadata
-
-- Output dimensions and channel count are retained. All source types work through
-  float32; conversion back preserves the source type but rounds integer data and
-  reduces double precision.
-- Every filtered G'MIC output is clamped to `[0,1]`. Full Amount replaces
-  negative, HDR, or otherwise out-of-range source samples with that result;
-  partial Amount blends the clamped result with the original samples.
-- The result keeps the source image's header cards and metadata. GRAYCstoration
-  does not update linear/nonlinear processing-state provenance.
-- Image History records Interpolation, Iterations, Amplitude, Sharpness,
-  Anisotropy, Noise Scale, Regularity, both step sizes, Precision, Amount, and,
-  for a colour image, ` in channel: <channel>`. It omits **Fast Approximation**.
-- A still CFA mosaic is processed as one plane. Sequence preprocessing may
-  auto-debayer configured CFA frames before replacement.
-- Sequence frames use one captured parameter/channel/mask state. Success replaces
-  the original sequence; Cancel/error removes temporary output.
-- **Take snapshot** creates a still from current preview scope without changing
-  the target or baking display autostretch into pixels.
-
-## Performance
-
-For image width `W`, height `H`, channels `C`, and Iterations `I`, tensor
-construction is proportional to `W × H × C × I`. Line integration adds a
-data-dependent number of directions and path samples. Lower Angular Step Size,
-lower Spatial Step Size, higher Precision, higher Amplitude, and disabling Fast
-Approximation all increase cost. CImg uses OpenMP where enabled and the process
-can occupy multiple CPU cores.
-
-Memory includes the float image, blurred/tensor fields, line-integration
-accumulators, destination and preview/component/mask buffers. Sequences also
-need temporary disk roughly comparable to an output sequence. No approved
-astronomical workload has been timed.
-
-## Worked example
-
-This support estimate follows current source equations. It is not an executed
-image-quality or timing result. In a locally flat region where tensor-vector
-magnitude is approximately `n=1`, defaults give
-
-```text
-local sigma = sqrt(2 × 60) = 10.95 pixels
-path length = Precision 2 × 10.95 = 21.91 pixels
-samples per direction ≈ ceil(21.91 / 0.80) = 28
-directions at 30 degrees = 360 / 30 = 12
-upper local sample count ≈ 28 × 12 = 336 per pixel and pass
+```controls
+window: GRAYCstoration
+controls:
+  - name: Iterations
+    kind: spinbox
+    default: "1"
+    widget: {min: 1, max: 10, step: 1}
+    effect: Sets how many times the whole smoothing runs, each pass on the result of the one before. Every pass measures the structure again, so later passes follow what earlier ones left. Higher smooths more.
+    enabled: Disabled while Apply runs.
+    tradeoff: The time grows in proportion to it. Repeated passes flatten areas and can draw flowing, painted textures. They are not one pass at a higher **Amplitude**.
+    scope: The preview and Apply, on what **Channel** selects, before **Amount** and the mask. Each pass holds its result within the lowest and highest samples it was given.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Amplitude
+    kind: spinbox
+    default: "60"
+    widget: {min: 0, max: 100, step: 1}
+    effect: Sets how far the paths reach. Higher smooths more, over longer paths. At 0 every pass returns the image unchanged, apart from rounding and the hold to 0 to 1, though the command still runs in full.
+    range: The scale of the smoothing, in pixels, is the square root of twice its value times the strength of the structure, 10.95 at the default where the image is flat. Equation (2) gives the length of a path.
+    enabled: Disabled while Apply runs.
+    tradeoff: The time grows with the length of the paths. Long paths carry the smoothing along faint filaments and across weak edges.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Sharpness
+    kind: spinbox
+    default: "0.70"
+    widget: {min: 0, max: 2.5, step: 0.01, decimals: 2}
+    effect: Sets how quickly the smoothing gives way where the image changes. Higher shortens the paths more at stars, edges and bright structure. Lower smooths them almost as much as the background.
+    range: The slider moves it in 1,000 equal steps of its range, and the box keeps two decimals. At 0 it counts as 0.00001, and the strength then barely depends on the structure.
+    enabled: Disabled while Apply runs.
+    tradeoff: Set high, it counts the noise as structure too, and the background keeps its grain.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Anisotropy
+    kind: spinbox
+    default: "0.30"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets how much more the paths follow a structure than cross it. At 0 they run alike in every direction, shorter at structure. Toward 1 they cross edges less and less.
+    range: The slider moves it in 1,000 equal steps. At 1 the paths only follow the direction of least change, even in the noise of the background.
+    enabled: Disabled while Apply runs.
+    tradeoff: High values extend thin features and draw streaks that follow the noise, the more so with a high **Sharpness**.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Noise Scale
+    kind: spinbox
+    default: "0.60"
+    widget: {min: 0, max: 3, step: 0.05, decimals: 2}
+    effect: Sets the blur, in pixels, of the copy whose changes are measured. Higher keeps fine noise from steering the paths. Lower lets small details steer them.
+    range: The slider moves it in 1,000 equal steps of its range. The blurred copy is then rescaled from its lowest to its highest sample before it is measured.
+    enabled: Disabled while Apply runs.
+    tradeoff: Set high, small stars and fine structure no longer steer the paths either, and are smoothed like the noise.
+    scope: The preview and Apply, on what **Channel** selects. It changes only how the paths run, not the samples they average.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The reference of G'MIC calls it `alpha`.
+  - name: Regularity
+    kind: spinbox
+    default: "1.10"
+    widget: {min: 0, max: 3, step: 0.05, decimals: 2}
+    effect: Sets the blur, in pixels, of the measured structure. Higher makes the direction of the paths turn more smoothly from pixel to pixel. Lower lets it follow every turn.
+    range: The slider moves it in 1,000 equal steps of its range.
+    enabled: Disabled while Apply runs.
+    tradeoff: Set high, the direction of one structure spreads over its neighbours and bends paths across them. With a high **Noise Scale** too, broad structure steers the paths around small stars and fine texture.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The reference of G'MIC calls it `sigma`.
+  - name: Spatial Step Size
+    kind: spinbox
+    default: "0.80"
+    widget: {min: 0.1, max: 1, step: 0.01, decimals: 2}
+    effect: Sets the distance, in pixels, between two samples along a path. Smaller samples the paths more finely.
+    range: The slider moves it in 1,000 equal steps of its range. A path holds its length divided by the step, rounded up, as samples, 28 at the defaults where the image is flat.
+    enabled: Disabled while Apply runs.
+    tradeoff: The time grows in inverse proportion to it. Larger steps are coarser and can cut the turns of a curved path.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The reference of G'MIC calls it `dl`.
+  - name: Angular Step Size
+    kind: spinbox
+    default: "30"
+    widget: {min: 1, max: 90, step: 1}
+    effect: Sets the angle, in degrees, between the directions in which paths start from each pixel. Smaller uses more directions.
+    range: The number of directions is 360 divided by it, rounded up, 12 at the default. Even at 1 the command smooths along paths, so the window never reaches the command's other mode, which iterates a diffusion with a time step instead.
+    enabled: Disabled while Apply runs.
+    tradeoff: The time grows with the number of directions. Large steps leave few directions, which can show as a bias toward some of them.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The reference of G'MIC calls it `da`.
+  - name: Precision
+    kind: spinbox
+    default: "2.00"
+    widget: {min: 0.1, max: 10, step: 0.1, decimals: 2}
+    effect: Sets how long a path runs, as a multiple of the scale **Amplitude** sets. Higher lengthens the paths.
+    range: The slider moves it in 1,000 equal steps of its range.
+    enabled: Disabled while Apply runs.
+    tradeoff: Longer paths cost time. With **Fast Approximation** on, every added sample weighs as much as the first. Off, they weigh less and less, and past 3 they add almost nothing.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The reference of G'MIC calls it `gauss_prec`.
+  - name: Amount
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 2}
+    effect: Mixes the smoothed image with the original. At 1 the result is the smoothed image, at 0.5 halfway, and at 0 the original.
+    range: The slider moves it in 1,000 equal steps.
+    enabled: Disabled while Apply runs. **Apply** stays enabled at 0.
+    tradeoff: It brings back noise and detail together. The command runs in full at any value, and below 1 the mix adds one pass over the image. At 0 even samples outside 0 to 1 come back, and between 0 and 1 they are mixed with the held result.
+    scope: The preview and Apply, on the whole image once **Channel** has been converted back, before the mask. It mixes once, after the last iteration.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Interpolation
+    kind: combo
+    default: Nearest Neighbor
+    options: [Nearest Neighbor, Linear, Runge-Kutta]
+    effect: Chooses how a path reads the image and the structure between pixels. **Nearest Neighbor** takes the nearest pixel. **Linear** reads both between pixels. **Runge-Kutta** also aims each step by the structure halfway along it, and reads the image as **Linear** does.
+    enabled: Disabled while Apply runs.
+    tradeoff: "**Linear** and **Runge-Kutta** follow curves without the small stair steps of **Nearest Neighbor**, and cost more time. **Nearest Neighbor** with a coarse **Spatial Step Size** is the fastest and the most likely to show steps."
+    scope: The preview and Apply, on what **Channel** selects. The pixel type of the result does not change.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: Fast Approximation
+    kind: check
+    default: "On"
+    effect: On, every sample of a path counts the same. Off, a sample weighs less the farther along the path it lies, as equation (3) gives.
+    enabled: Disabled while Apply runs.
+    tradeoff: It changes the result, not only the time. Off favours the samples near the pixel, so it smooths less at the same **Amplitude**, and it computes an exponential for every sample.
+    scope: The preview and Apply, on what **Channel** selects.
+    persistence: Until the window closes. **Reset** and a finished Apply tick it. The history does not record it.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence Apply replaces, with the mask on its view. The choices of **Channel** and the preview follow it.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what is smoothed. **RGB** hands the command the three channels as one color image, whose structure is measured from all three, and averages each channel along the same paths. **Red**, **Green** or **Blue** smooths that channel, along paths of its own, and keeps the other two. Every other choice smooths one component of another color model and converts the image back.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale**. Disabled while Apply runs.
+    tradeoff: With **RGB**, a strong edge or color noise in one channel steers the paths of all three, which can smear colors together. A component costs two conversions and a working copy, and the conversion back can change colors. A hue is smoothed as a line, not as a circle.
+    scope: The preview and Apply, before **Amount** and the mask. Process Windows describes each component.
+    persistence: Until the window closes. **Reset** leaves it as it is. A finished Apply and a new target return it to **RGB**.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the smoothed image beside the controls, with **Amount** and the mask applied.
+    range: >-
+      The pane opens with a **Preview area** of 500 by 500 pixels in the middle of the image, labelled "Preview:
+      GRAYCstoration Filter", or the whole image when it is smaller. At the window's default size, **Preview area** and
+      **Take snapshot** are in the menu at the end of the pane's toolbar.
+    enabled: >-
+      In a build without G'MIC it stays off and disabled, and its tooltip reads "This build of AfterNight carries no
+      G'MIC library, so this process cannot run."
+    tradeoff: The area is smoothed as an image of its own, with its own range and its own edges, where the paths stop. Every change runs the whole command again. **Apply**, or closing the window, stops a preview on its way inside the command.
+    scope: The window only. On a sequence it shows the frame the view displays. **Display Mode** and **Autostretch Settings** change only how the preview is shown.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the twelve controls from **Iterations** to **Fast Approximation** to their defaults, and one preview of them follows. It leaves **Channel** as it is.
+    enabled: Disabled while Apply runs.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Smooths the whole image, or every frame of the sequence, with the values and **Channel** as they are when you press it, and then returns the twelve values to their defaults.
+    enabled: From the moment the window opens, at any values. In a build without G'MIC it is disabled, with the tooltip **Preview** shows.
+    tradeoff: A single image shows a progress window too, and its **Cancel** stops the run. With one iteration the bar is busy, because the command reports no share done. With more, it shows the share of the passes done. The time grows with the pixels and channels, the iterations, the directions and the samples on each path. The command runs on one thread and holds several working images of the image's size, beside the second copy every run needs. Samples already in 32-bit floating point and tightly packed are handed over as they are, any others as a working copy. G'MIC runs one command at a time in the application, so another G'MIC window's preview or run waits for this one.
+    persistence: "The history step is **GRAYCstoration** and reads, for example, `Interpolation: Nearest Neighbor, Iterations: 1, Amplitude: 60, Sharpness: 0.70, Anisotropy: 0.30, Noise Scale: 0.60, Regularity: 1.10, Spatial Step Size: 0.80, Angular Step Size: 30, Precision: 2.00, Amount: 0.50 in channel: RGB`. For a grayscale image it ends after the amount. **Fast Approximation**, the mask and the G'MIC version are not recorded. The header cards, the plate solution and the recorded processing state are kept."
 ```
 
-Actual tensor magnitudes shorten paths around structure, boundaries truncate
-them, and implementation overhead is not represented. At Amount `0.25`, a
-normalized original value `0.20` and smoothed value `0.12` become
-`0.20 × 0.75 + 0.12 × 0.25 = 0.18` before mask blending.
+## How it works
 
-## Warnings and limitations
+1. The channels **Channel** selects are checked: an image that holds a sample that is not a finite number is refused.
+   Otherwise they go to G'MIC, in one session for the run, as single-precision
+   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale).
+2. The command blurs a copy by **Noise Scale**, rescales it from its lowest to its highest sample onto 0 to 255, and
+   measures at each pixel how strongly it changes and along which direction it changes least. It blurs that measure
+   by **Regularity** and turns it into two strengths, along the structure and across it, set by **Sharpness** and
+   **Anisotropy**.
+3. From every pixel, in each direction **Angular Step Size** sets, it follows the structure in steps of **Spatial
+   Step Size** for a length set by **Amplitude**, **Precision** and the strengths, and averages the samples it meets.
+   The averages of all directions are averaged again, and **Iterations** repeats the whole on the result.
+4. The result is held to 0 to 1 and written back in the image's own pixel type. **Amount** mixes it with the
+   original, and a mask on the view then blends the two.
+5. The image replaces the target and its history gets one step. Its header, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its recorded
+   [processing state](../../reference/glossary.md#processing-state) are kept.
 
-- GRAYCstoration is a structure-directed smoother, not a noise-model estimator.
-  It does not infer shot/read noise or guarantee optimal denoising.
-- Fine stars and real texture can steer the tensor as if they were edges or be
-  averaged away as noise, depending on Noise Scale and Regularity.
-- High Anisotropy, Amplitude, Precision, or Iterations can create curved streaks,
-  extend thin structures, or produce a painted appearance.
-- Coarse spatial/angular sampling and Nearest Neighbor can show directional or
-  stair-step artifacts; more accurate settings cost substantially more.
-- Boundary paths are truncated. Edge pixels use less/asymmetric support and can
-  differ from the interior.
-- RGB shares geometry across channels but averages channel values separately;
-  color noise and strong single-channel edges can influence all tensor paths.
-- The filtered result is clamped to `[0,1]`, even for float/double data.
-  Amount `0` restores the original samples afterward; full or partial Amount
-  can still alter out-of-range data, so repair or rescale it before processing.
-- An image holding NaN or infinite samples is refused by name and left
-  unchanged; without G'MIC in the build, the process cannot run and Preview and
-  Apply stay disabled.
-- Successful Apply resets all 12 process settings but retains Target, Channel,
-  Preview, mask, and preview-toolbar state.
-- History omits Fast Approximation, so it is not a complete reproducibility
-  record for the current implementation.
+### Model
 
-## Troubleshooting
+With \(\lambda\) the measure of change at a pixel, the sum of the squared differences of the rescaled copy over the
+channels, blurred, \(p\) the value of **Sharpness** and \(q\) that of **Anisotropy**, the strengths along the
+structure and across it are
 
-| Symptom | Likely cause | Check or correction | Evidence |
-| --- | --- | --- | --- |
-| Fine stars disappear | Scale/amplitude treats them as removable variation | Reduce Amplitude/Iterations; lower Noise Scale or Regularity; blend with Amount or a mask | Tensor construction and repeated-pass path |
-| Texture becomes curved or painted | Directional paths dominate local detail | Reduce Anisotropy, Precision, Amplitude, or Iterations | Tensor eigenvalue and LIC paths |
-| Result looks blocky or directionally biased | Path/angular sampling is coarse | Try Linear or Runge-Kutta, lower Spatial/Angular Step Size | CImg integration branches |
-| Border differs from interior | Paths stop when they leave the image | Inspect full frame and protect/crop borders if necessary | LIC boundary test |
-| Amount `0` is unchanged but still slow | G'MIC and the filtered-result clamp run before the shared Amount blend restores the original samples | Close or disable Preview when no processing is wanted | G'MIC run and modulation order |
-| Error: the image holds a sample that is not a finite number | The image has a NaN or infinite sample, which G'MIC cannot process | Repair or crop the non-finite samples, then retry; the image was left unchanged | `GmicProcessSupport.cpp` |
-| Preview and Apply are disabled; tooltip says the build carries no G'MIC library | This build was made without G'MIC | Use a build that includes G'MIC, or another denoiser | `GmicProcessSupport.cpp` |
-| Fast Approximation result changes | It replaces Gaussian distance weights with equal sample weights | Disable it for Gaussian-weighted integration; expect more cost | CImg weighting branch |
-| Colors smear together | Shared RGB tensor paths follow dominant multichannel structure | Try a deliberate luminance component and inspect chroma channels | Vector structure tensor and Channel dispatcher |
-| Reset changes Fast Approximation to checked | Live process initialization overrides the raw UI-builder checkbox state | Treat checked as the runtime default | `initialize()` after UI construction |
-| Cancel appears delayed | G'MIC cancellation is cooperative inside a large multi-core pass | Wait for the current polling point; use a smaller Preview area next time | G'MIC adapter abort flag |
+\[ n_\parallel = (1 + \lambda)^{-p/2}, \qquad n_\perp = (1 + \lambda)^{-p/(2(1 - q))} \tag{1} \]
 
-## References and provenance
+Both are 1 where the image is flat and fall toward 0 where it changes strongly, \(n_\perp\) faster. A path that starts
+in one direction has a strength \(n\) between the two. With \(A\) the value of **Amplitude** and \(P\) that of
+**Precision**, it runs for
 
-- [G'MIC `smooth` command reference](https://gmic.eu/reference/smooth.html)
-  defines the anisotropic-smoothing arguments, interpolation choices, and
-  upstream defaults AfterNight passes explicitly.
-- [David Tschumperlé, “Fast Anisotropic Smoothing of Multi-Valued Images using Curvature-Preserving PDE's”](https://tschumperle.users.greyc.fr/publications/tschumperle_ijcv06.pdf)
-  is the primary publication for the curvature-preserving, line-integral
-  formulation behind this smoothing family.
-- AfterNight's `GRAYCstorationProcess.cpp` and `GmicProcessSupport.cpp`, the
-  G'MIC adapter, bundled `gmic.cpp`, and bundled `CImg.h` are authoritative for
-  the exact script, float/clamp hand-off, tensor equations, integration,
-  boundaries, and cancellation behavior shipped with this build.
+\[ L = P\,n\,\sqrt{2A} \tag{2} \]
 
-## Related workflow steps
+pixels. With **Fast Approximation** off, a sample at a distance \(l\) along the path weighs
 
-- [Wavelet Denoise](wavelet-denoise.md) separates detail by Haar scale rather
-  than following a tensor field.
-- [Total Variation Denoise](total-variation-denoise.md) minimizes a TV objective
-  and can staircase instead of producing directional LIC streaks.
-- [Bilateral Filter](bilateral-filter.md) uses local spatial/range weights with a
-  fixed neighborhood rather than curvature-following paths.
-- [Gaussian Blur](gaussian-blur.md) is an isotropic linear filter useful when
-  edge direction should not steer smoothing.
-- [Process Windows](../../interface/process-windows.md), [Image Viewer](../../interface/image-viewer.md),
-  [Masks](../../interface/masks.md), and [Image History](../../interface/image-history.md)
-  explain the shared controls and verification workflow.
+\[ w(l) = \exp\!\left(-\frac{l^2}{2\,(n\sqrt{2A})^2}\right) \tag{3} \]
+
+and with it on, every sample weighs 1. With \(I\) the original sample, \(D\) the smoothed one held to 0 to 1, and \(a\)
+the value of **Amount**, the result before the mask is
+
+\[ M = (1 - a)\,I + a\,D \tag{4} \]
+
+### Boundaries
+
+- What G'MIC returns is held to 0 to 1, also in a floating-point image. An integer image is handed over as fractions
+  and rounded back once to the nearest code, and a 64-bit floating-point image is narrowed to single precision.
+- The paths stop at the edge of the frame, so the pixels near it are smoothed less, and from one side.
+- An image that holds a sample that is not a finite number is refused with "the image holds a sample that is not a
+  finite number, which G'MIC cannot process", and left unchanged. When G'MIC itself fails, on memory for example, the
+  run reports its message and writes nothing.
+- **Cancel**, or closing the window, asks G'MIC to stop, and it stops at its next check inside the command. A stopped
+  run writes nothing.
+
+### Worked example
+
+The pair is made on a crop of 1,100 by 820 pixels from the middle of the linear master, with **Amplitude** at 5 and
+the other values at their defaults.
+
+The crop's own blurred copy runs from about 0.03 to 1.66, so one of its 255 steps is about 0.006, and the pixel noise
+of the background, at most 0.0011, is a sixth of a step or less. There \(\lambda\) stays far below 1, and by equation
+(1) both strengths stay near 1. By equation (2) a path runs \(2\sqrt{10} = 6.3\) pixels, 8 samples at a step of 0.80,
+in each of 12 directions: the grain is averaged away. Suppose the flank of a star gives \(\lambda = 1000\). Then
+\(n_\parallel = 0.089\), and every path from there runs 0.6 pixels and takes the pixel alone: the star keeps its shape.
+At the default **Amplitude** of 60 the background's paths would run 22 pixels, far enough to reach nearby stars.
+
+The few star cores above 1 come back as 1. With **Amount** at 0.50 instead, a background sample of 0.0300 that the
+paths bring to 0.0280 would be written as 0.0290 by equation (4), and a star core of 1.40 as 1.20. Both crops are then
+stretched by [Histogram Transformation](../stretching/histogram-transformation.md) with **Shadows** and **Midtones** at
+0.02.
+
+```figure
+images:
+  - image: ../../assets/images/processes/noise-reduction/noise-crop-before.webp
+    alt: >-
+      A crop at 100 % of the middle of the master, stretched: pink clouds of nebula beside a dark dust lane, many small
+      stars, and a fine colored grain over the background.
+    label: Before
+  - image: ../../assets/images/processes/noise-reduction/graycstoration-after.webp
+    alt: >-
+      The same crop smoothed before the same stretch: the fine grain and the texture of the nebula softened, the stars
+      round and a little softer, the edge of the dust lane kept.
+    label: After
+caption: >-
+  The middle of the linear Carina Nebula master at 100 %, without and with GRAYCstoration at Amplitude 5 and the
+  other values at their defaults, both then stretched by Histogram Transformation with Shadows and Midtones at 0.02.
+```
+
+## Starting points
+
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A linear master, first try | **Amplitude** near 5, the rest at their defaults | **Amplitude** up while grain remains, down at the first spike or smeared filament. **Amount** below 1 to keep some grain. |
+| Edges and filaments must stay sharp | **Anisotropy** at 0.6 to 0.8 and **Sharpness** at 1.0 to 1.5 | **Noise Scale** up if the background turns into streaks. |
+| Color noise | A chroma component in **Channel**, on a duplicate | Check colored edges and hues at 100 %. |
+| Quick tries on a large image | The preview area | **Preview area** unticked for the last check. |
+
+## When it goes wrong
+
+!!! danger "Samples outside 0 to 1 are cut"
+    What G'MIC returns is held to 0 to 1, also in a floating-point image. On a linear master, star cores above 1 become
+    1 and samples below 0 become 0, at any **Amplitude**. Bring the image between 0 and 1 first, or protect the stars
+    with a mask.
+
+!!! warning "The defaults are strong on a linear image"
+    The noise of a linear image is small against its range, so the paths run nearly their full length over the
+    background and the faint nebula, about 22 pixels at the default **Amplitude**. They smear the nebula and reach
+    into the stars, which grow thin spikes. Start with **Amplitude** near 5.
+
+Small stars or faint filaments vanish or smear
+:   **Cause.** Their changes are small against the image's range, so the paths stay long there.
+:   **Fix.** Lower **Amplitude** or **Iterations**, raise **Sharpness**, or protect the structure with a mask.
+
+The background turns into streaks, worms or a painted texture
+:   **Cause.** The noise steers the paths, through a high **Anisotropy**, a low **Noise Scale** or many **Iterations**.
+:   **Fix.** Lower **Anisotropy**, raise **Noise Scale** and **Regularity**, and use one iteration.
+
+A stretched image is smoothed much less than a linear one
+:   **Cause.** After a stretch the noise changes strongly against the range, so it counts as structure.
+:   **Fix.** Smooth before the stretch, or raise **Noise Scale** and lower **Sharpness**.
+
+Thin spikes radiate from the stars, or small stair steps show
+:   **Cause.** Long paths from the flat background run into a star in each direction and carry its light out, and
+    coarse sampling leaves steps.
+:   **Fix.** Lower **Amplitude** or **Precision**. Against steps, choose **Linear** or **Runge-Kutta** and lower
+    **Spatial Step Size** or **Angular Step Size**.
+
+The border of the frame looks different from its middle
+:   **Cause.** The paths stop at the edge, so the border is smoothed less and from one side.
+:   **Fix.** Crop the border, or protect it with a mask.
+
+The preview area differs from the result of Apply
+:   **Cause.** The area is smoothed alone, with its own range and its own edges.
+:   **Fix.** Untick **Preview area** for the last check before **Apply**.
+
+"Error executing the process", with "the image holds a sample that is not a finite number, which G'MIC cannot process"
+:   **Cause.** The image holds a sample that is not a number or is infinite, and nothing was written.
+:   **Fix.** Replace or crop away those samples, and apply again.
+
+**Preview** and **Apply** are disabled, and their tooltip names G'MIC
+:   **Cause.** This build of AfterNight was made without G'MIC.
+:   **Fix.** Use a build that includes G'MIC, or another denoiser.
+
+## Related
+
+- [Wavelet Denoise](wavelet-denoise.md), [Total Variation Denoise](total-variation-denoise.md) and
+  [NL-Bayes](nl-bayes.md), the other ways to reduce noise.
+- [Bilateral Filter](bilateral-filter.md) and [Gaussian Blur](gaussian-blur.md), which smooth over a fixed
+  neighbourhood without following the structure.
+- [Histogram Transformation](../stretching/histogram-transformation.md), the stretch that follows.
+- [Masks](../../interface/masks.md), to smooth the background and protect the stars.
+- [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
+  undo the step and to compare the noise before and after.
+- [Process Windows](../../interface/process-windows.md), for the preview, the preview area and what every process
+  window shares.
+
+## Credits
+
+- [G'MIC](https://gmic.eu) 3.5.4 and its CImg library, by David Tschumperlé and the G'MIC contributors at GREYC,
+  under the CeCILL 2.1 or the CeCILL-C licence, at your choice. AfterNight runs its `smooth` command unchanged.
+- [G'MIC `smooth`](https://gmic.eu/reference/smooth.html), for the command's arguments, its interpolation choices and
+  its defaults, which AfterNight passes explicitly.
+- David Tschumperlé,
+  [Fast Anisotropic Smoothing of Multi-Valued Images using Curvature-Preserving PDE's](https://tschumperle.users.greyc.fr/publications/tschumperle_ijcv06.pdf),
+  International Journal of Computer Vision 68 (2006), for the smoothing along curved paths behind GREYCstoration and
+  the command.

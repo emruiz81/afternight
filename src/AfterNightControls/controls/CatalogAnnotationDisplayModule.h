@@ -2,11 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The deep-sky annotations a view draws over a solved image: the bundled catalog's objects inside the visible field,
-/// each outlined by its size and position angle and labelled with its designation.
+/// The catalogue annotations a view draws over a solved image: the bundled catalogues' deep-sky objects and bright
+/// stars, each a layer the view draws or not, kept, merged and named as an annotated picture keeps them at the level of
+/// detail the view's choices name, and laid out together as it lays out its labels - no label covers another - with
+/// every label the same size on the screen at any zoom, saying what the choices say, in the palette they name.
 ///
-/// The catalog is read and queried for the whole image's field on a worker (`detail::FieldCatalogQueries`), and a paint
-/// projects the objects near what the view shows through the image's solution.
+/// **Nothing waits on the GUI thread.** Each catalogue is read and queried for the whole image's field on a worker
+/// (`detail::FieldCatalogQueries`), which builds its layer's scene at the level; the layers' scenes are laid out at the
+/// view's zoom on a worker whenever the zoom, the labels or what is drawn changes (`detail::layoutOverlayAnnotations`),
+/// so a scroll draws the layout there is, and a zoom draws the last one until its own lands. The level's smallest size
+/// is a share of the part of the image the view shows, so zooming in names the smaller objects. A paint draws the
+/// layout through the annotated picture's renderer over the part of the image the view shows.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -18,6 +24,7 @@
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
 
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 
@@ -32,6 +39,8 @@ class QPainter;
 
 namespace an::ui
 {
+
+struct AnnotationViewChoices;
 
 struct CatalogAnnotationProjectedShape
 {
@@ -112,18 +121,6 @@ namespace detail
     return shape;
 }
 
-/// An object's label: its designation, or its common name when it has none.
-[[nodiscard]] inline QString formatCatalogAnnotationLabel(const an::CatalogEntry& object)
-{
-    const QString id = QString::fromStdString(object.identifier).trimmed();
-    if (!id.isEmpty())
-    {
-        return id;
-    }
-
-    return QString::fromStdString(object.commonName).trimmed();
-}
-
 } // namespace detail
 
 class AFTERNIGHTCONTROLS_API CatalogAnnotationDisplayModule final : public ImageViewControlListener,
@@ -140,20 +137,48 @@ public:
     void onImageRenamed(ImageViewControl* ctrl) override;
     void onImageViewControlDestroyed(ImageViewControl* ctrl) override;
 
-    void setMagnitudeLimit(double magnitude_limit);
-    [[nodiscard]] double magnitudeLimit() const;
+    /// Sets what the overlay names and how it looks, as the view's menu chose: the level of detail it names the
+    /// catalogues at, what a label says, the palette it draws in and the size its labels are drawn at. Until the new
+    /// labels land, the last ones are drawn.
+    ///
+    /// @param choices the choices.
+    void setChoices(const AnnotationViewChoices& choices);
 
-    /// The labels the last projection drew, in drawing order.
+    /// What the overlay names and how it looks.
+    [[nodiscard]] AnnotationViewChoices choices() const;
+
+    /// Which catalogues the overlay draws: the deep-sky objects, the bright stars, or both - as it does unless told
+    /// otherwise. A catalogue not drawn is not asked.
+    ///
+    /// @param deepSky whether the deep-sky objects are drawn.
+    /// @param stars whether the bright stars are drawn.
+    void setLayers(bool deepSky, bool stars);
+
+    /// Whether the overlay draws the deep-sky objects.
+    [[nodiscard]] bool showsDeepSky() const;
+
+    /// Whether the overlay draws the bright stars.
+    [[nodiscard]] bool showsStars() const;
+
+    /// The first line of each label the layout drawn last placed, in the order it placed them: the most prominent
+    /// object's first.
     [[nodiscard]] QVector<QString> projectedLabels() const;
 
-    /// How many catalog queries the overlay asked a worker for.
+    /// Where those labels were drawn, in the widget's pixels at the scale they were drawn at.
+    [[nodiscard]] QVector<QRectF> projectedLabelBoxes() const;
+
+    /// How many catalog queries the overlay asked a worker for, of either catalogue.
     [[nodiscard]] std::uint64_t catalogQueriesAsked() const;
 
-    /// Reads the catalog's text from another source than the product's resources.
+    /// How many layouts made on workers landed to be drawn.
+    [[nodiscard]] std::uint64_t layoutsMade() const;
+
+    /// Reads the catalogues' text from another source than the product's resources.
     void setCatalogSource(BundledCatalogSource source);
 
 private:
-    void invalidateCache();
+    /// Sets aside the layout drawn: what it was made of changed.
+    void invalidate();
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

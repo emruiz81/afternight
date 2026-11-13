@@ -1,352 +1,411 @@
+---
+kind: process
+stage: color
+menu: Process > Color Spaces > NBRGB Combination
+summary: >-
+  Adds the line signal of up to three narrowband masters to the red, green and blue of a color image of their size,
+  after taking out the continuum their bandwidths imply, as a new image.
+data_in: linear
+data_out: linear
+destructive: false
+preview: real-time
+sequences: false
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An RGB still image is active, no NBRGB Combination window is open on it yet, and no window that needs the image
+    for itself is open on it. Apply waits for a narrowband image.
+  inputs: >-
+    One RGB still image, up to three grayscale still images of exactly its width and height in any pixel type, and an
+    optional mask on the color image's view.
+  outputs: >-
+    One new RGB image beside the color image, in its size and pixel type. The color image and the narrowband images
+    stay as they are, and no file is written.
+  state: >-
+    A linear color master and linear narrowband masters of one target, registered and cropped alike, with gradients
+    removed and their levels brought together.
+derived: false
+---
 # NBRGB Combination
 
-## Purpose and expected result
+NBRGB Combination adds the line signal of up to three narrowband [masters](../../reference/glossary.md#master) to the
+red, green and blue channels of a color image of their size. Each narrowband image first loses the
+[continuum](../../reference/glossary.md#continuum) that its bandwidth, against the width of the color image's filters,
+says it shares with the color channel. What remains is centered on its median, scaled and added to the channel. A
+straight line fitted from it to that sum gives a second answer, and each pixel keeps the brighter of the two.
 
-NBRGB Combination injects up to three registered monochrome narrowband masters
-into the corresponding red, green, and blue planes of a broadband RGB still. It
-uses the supplied effective filter bandwidths to estimate a continuum-corrected
-line plane, boosts that structure around its median, matches it to the boosted
-broadband channel when enough samples exist, and keeps the stronger value at
-each pixel.
+**Apply** opens the result as a new image beside the color image, in its size and
+[pixel type](../../reference/glossary.md#pixel-type). The color image and the narrowband images stay as they are.
 
-The expected result is a new RGB still named `<RGB target> - NBRGB`. The source
-RGB and narrowband views remain unchanged. This is not channel assignment and
-it is not a spectral response model: the process does not inspect central
-wavelengths, transmission curves, exposure normalization, WCS, registration,
-or point-spread-function differences.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > NBRGB Combination** |
-| Enabled when | A three-channel RGB still is active, the same process is not already attached, and no attached process holds exclusive access |
-| Inputs | One RGB still plus at least one open, same-size, grayscale still selected for Red, Green, or Blue; narrowband pixel types may differ from the RGB type |
-| Outputs | A new same-size RGB still named `<target> - NBRGB` in the target's representation; **Take snapshot** creates another still; no file is written directly |
-| Recommended image state | Registered, consistently calibrated linear masters with meaningful effective bandwidths and compatible intensity scales |
-| Preview support | Always-on asynchronous preview with histogram and display autostretch; starts with a centered Preview area of up to `512 x 512` pixels |
-| Sequence support | Not supported: the registered action needs a still image, and a sequence run is refused by name |
-| Mask support | Not applied: the result is a new image, not an edit of the target |
-| External dependencies | None; the bundled engine performs the calculation without a tool, model, catalog, or network service |
+```figure
+image: ../../assets/images/processes/color-composition/nbrgb-combination.webp
+alt: >-
+  The NBRGB Combination window. On the left, a histogram over its toolbar, then the Sources group with RGB naming the
+  color image and RGB bandwidth at 100.00, the Narrowband Channels group with the Ha master in Red at 7.00 and 1.20 and
+  no image in Green and Blue, and the Options group with Reject low, Reject high, Non Linear rescale and Preview at
+  NBRGB. On the right, the preview shows the field in gray with a faint teal glow and many stars, and a small framed
+  area labelled NBRGB preview at its middle. Reset, Close
+  and Apply run along the bottom.
+caption: >-
+  NBRGB Combination on a color image made from the SII and OIII masters, with the Ha master in Red at the default
+  bandwidths and scale: the framed area in the middle of the preview shows the line signal of Ha added to red.
+pins:
+  - {n: 1, x: 9.5, y: 43.9}
+  - {n: 2, x: 2.6, y: 58.8}
+  - {n: 3, x: 2.6, y: 47.3}
+  - {n: 4, x: 37.9, y: 55.9}
+  - {n: 5, x: 2.6, y: 84.3}
+  - {n: 6, x: 58.5, y: 19.1}
+```
 
 ## Before you start
 
-- Register and crop every narrowband master to the RGB target. The selectors
-  check only grayscale format and exact width/height; they do not compare stars,
-  WCS, pixel scale, orientation, crop origin, or PSF.
-- Use linear, background-prepared data with consistent normalization. Continuum
-  subtraction has a physical interpretation only when the RGB and narrowband
-  samples retain a meaningful intensity relationship.
-- Enter effective passband widths in nanometres. **RGB bandwidth** is one shared
-  approximation for all three broadband planes; each selected narrowband width
-  must be smaller than it. The process does not derive widths from FITS headers.
-- Match gradients, exposure scaling, and other acquisition differences upstream.
-  The internal linear fit handles a final per-channel affine relationship; it is
-  not a substitute for registration, background correction, or photometric
-  response calibration.
-- Leave **Non Linear rescale** off for a physically interpretable linear start.
-  Despite its label, it performs repeated full-plane min/max normalization; it
-  does not linearize nonlinear data.
-- Use a duplicate or Image History only if you need an extra safety copy of the
-  inputs. Apply already creates a new image and does not replace the RGB target.
+- Register the narrowband masters to the color image and crop them alike. The image boxes compare width and height
+  only: nothing matches stars, world coordinates, scale, rotation or star profiles.
+- Work on [linear images](../../reference/glossary.md#linear-image) with their gradients removed and their levels
+  brought together. Equation (1) means something only while every sample is proportional to light.
+- Know your filters' effective widths in nanometres. The window reads none from the files, takes one width for the
+  three broadband filters, and needs each narrowband width below it.
+- The color image is an RGB still image, and each narrowband image a grayscale still image of its width and height,
+  in any pixel type. The menu command is greyed while a grayscale image is active, and a
+  [sequence](../../reference/glossary.md#sequence) is refused.
+- A [mask](../../reference/glossary.md#mask) on the color image's view blends the result with the color image, in
+  the preview too.
+- The fit gives each channel one scale and one offset. It does not replace registration, gradient removal or color
+  calibration.
 
-## Procedure
+## Steps
 
-1. Activate the registered linear RGB still and open **Process > Color Spaces >
-   NBRGB Combination**. Confirm the target under **RGB**.
-2. Select at least one same-size mono master under **Red**, **Green**, or
-   **Blue**. Leave unused channel selectors at **No image**; those RGB planes
-   pass through unchanged.
-3. Enter the broadband effective width in **RGB bandwidth** and each selected
-   narrowband filter width in its **Bandwidth** field. Confirm every narrowband
-   value is lower than the RGB value.
-4. Start with each selected **Scale** at `1.20`, **Reject low** at `0.000`,
-   **Reject high** at `0.920`, and **Non Linear rescale** off.
-5. Keep **Preview** on **NBRGB** to judge the combination. Use **RGB**, **NBr**,
-   **NBg**, and **NBb** to inspect the registered inputs. An unselected
-   narrowband Preview mode falls back to the RGB source.
-6. Move or resize the checked **Preview area** over background, bright emission,
-   and star-rich structure. Outside the outlined area the preview remains the
-   original RGB; uncheck the control to calculate a full-image preview.
-7. Adjust one channel's **Scale** at a time. If the fit follows saturated or
-   clipped structure poorly, narrow the Reject interval while retaining enough
-   ordinary pixels for a fit.
-8. Compare processed/original views with **Switch image**, keep one display
-   stretch, then select **Apply**. Wait for `<target> - NBRGB` to appear; the
-   run shows no progress dialog and has no Cancel button, and closing the
-   window stops it.
+1. **Open the window.** Make the color image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Spaces > NBRGB Combination**. **RGB** names it, the three image boxes read `<--NO IMAGE-->`, and
+   **Apply** is dimmed.
+2. **Choose the narrowband masters.** Choose the Ha master in **Red**, and an OIII master in **Green** or **Blue** if
+   you have one. **Apply** enables, and the framed area in the middle of the preview shows the combination.
+3. **Enter the bandwidths.** Type the width of the broadband filters in **RGB bandwidth**, and the width of each
+   narrowband filter in its row's **Bandwidth**.
+4. **Set the scale.** Raise a row's **Scale** for more of its line signal, or lower it for less, one channel at a
+   time.
+5. **Check the inputs.** Choose **NBr**, **NBg** or **NBb** in **Preview** to see a narrowband master in the preview,
+   and hold ++space++ to compare it with the color image. Return to **NBRGB**.
+6. **Check the whole image.** Untick **Preview area** in the preview's toolbar, or move the frame over background,
+   nebula and stars. The median and the fit are measured on what the preview computes.
+7. **Apply.** Choose **Apply**. A new image, `<color image> - NBRGB`, opens as a tab beside the color image, with the
+   line signal in its channels.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Current preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows the mask-aware preview distribution and approximate endpoint-bin clipping | Always present | Recalculation adds work; endpoint counts depend on binning | Display only; preview RGB | Recomputed after preview or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move in graph | Shows normalized coordinate readout | Histogram always present | Diagnostic only | Display only | Ends on button release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans the graph | Useful after zooming | Display cost only | Display only | Until reset/window close |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls | Zooms around the cursor | Interactive graph enabled | Larger graph needs more rendering area | Display only | Window lifetime |
-| Zoom in | Toolbar action | Fitted size | None | Each selection multiplies size by `1.30` | Enlarges plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom out | Toolbar action | Fitted size | None | Each selection multiplies size by `0.70` | Shrinks plot | Available while idle | Plot rendering only | Display only | Window lifetime |
-| Zoom reset | Toolbar action | — | None | One action | Fits graph and resets scrolling | Available while idle | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows or hides graph grid | Available while idle | Display-only aid | Display only | Window lifetime; process Reset does not change it |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows or hides endpoint-bin counts and percentages | Available while idle | Counts are bin-based diagnostics | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible histogram channel to its own peak | Available while idle | Can conceal relative RGB strength; never changes pixels | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Chooses filled-area or line rendering | Available while idle | Filled areas can obscure overlaps | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Shows or hides histogram curves | Available while idle | Display-only | Display only | Window lifetime |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins show finer distribution | Available while idle | Higher counts increase histogram memory/rendering; processing precision is unchanged | Display only | Window lifetime |
-| RGB | Target image selector | Attached active RGB still | None | Open three-channel RGB still | Supplies all three broadband planes, output dimensions/type, metadata base, mask, and output-name stem | Registered action requires an active RGB still; changing target rebuilds narrowband lists | Wrong target invalidates registration; source remains unchanged on Apply | Preview/Apply source; all RGB channels; still only | Attachment lifetime; Reset does not change it |
-| RGB bandwidth | Double spin box, nm | `100.00` | None | `0.10..1000.00`; step `1.00` | Larger values reduce the continuum fraction `NB/RGB`; smaller values subtract more RGB continuum | Must exceed every selected narrowband bandwidth by a nonzero margin | Incorrect effective width biases every selected channel | Preview/Apply; shared by R/G/B | Captured per run; Reset/success returns `100.00` |
-| Red / Image | Image selector | **No image** | None | Open, non-sequence grayscale image with target width/height | Enables narrowband injection into red | Apply needs at least one selected channel; list rebuilds on image/target lifecycle changes | Misregistration creates red halos/double stars; adds full-plane buffers | Preview/Apply; red only | Selection survives Reset/success while valid; not saved after close |
-| Red / Bandwidth | Double spin box, nm | `7.00` | None | `0.10..500.00`; step `0.50`; must be lower than RGB bandwidth | Higher values subtract a larger estimated continuum fraction | Ignored while Red / Image is **No image** | Near-RGB width amplifies noise through the small denominator | Preview/Apply; red only | Reset/success returns `7.00` |
-| Red / Scale | Double spin box, multiplier | `1.20` | None | `0.00..10.00`; step `0.05` | Raises or lowers median-centered corrected red structure; `0` removes that boost but the matched/corrected maximum can still alter red | Ignored while Red / Image is **No image** | High values clip highlights and amplify noise/registration residuals | Preview/Apply; red only | Reset/success returns `1.20` |
-| Green / Image | Image selector | **No image** | None | Open, non-sequence grayscale image with target width/height | Enables narrowband injection into green | Same lifecycle/readiness rules as Red | Misregistration creates green halos/double stars; adds full-plane buffers | Preview/Apply; green only | Selection survives Reset/success while valid; not saved after close |
-| Green / Bandwidth | Double spin box, nm | `8.50` | None | `0.10..500.00`; step `0.50`; must be lower than RGB bandwidth | Higher values subtract a larger estimated continuum fraction | Ignored while Green / Image is **No image** | Near-RGB width amplifies noise through the small denominator | Preview/Apply; green only | Reset/success returns `8.50` |
-| Green / Scale | Double spin box, multiplier | `1.20` | None | `0.00..10.00`; step `0.05` | Raises or lowers median-centered corrected green structure | Ignored while Green / Image is **No image** | High values clip highlights and shift color | Preview/Apply; green only | Reset/success returns `1.20` |
-| Blue / Image | Image selector | **No image** | None | Open, non-sequence grayscale image with target width/height | Enables narrowband injection into blue | Same lifecycle/readiness rules as Red | Misregistration creates blue halos/double stars; adds full-plane buffers | Preview/Apply; blue only | Selection survives Reset/success while valid; not saved after close |
-| Blue / Bandwidth | Double spin box, nm | `8.50` | None | `0.10..500.00`; step `0.50`; must be lower than RGB bandwidth | Higher values subtract a larger estimated continuum fraction | Ignored while Blue / Image is **No image** | Near-RGB width amplifies noise through the small denominator | Preview/Apply; blue only | Reset/success returns `8.50` |
-| Blue / Scale | Double spin box, multiplier | `1.20` | None | `0.00..10.00`; step `0.05` | Raises or lowers median-centered corrected blue structure | Ignored while Blue / Image is **No image** | High values clip highlights and amplify blue noise | Preview/Apply; blue only | Reset/success returns `1.20` |
-| Reject low | Double spin box, normalized value | `0.000` | None | `0.000..1.000`; step `0.010`; must be lower than Reject high | Raising it excludes darker boosted-channel samples from the affine fit | Fit also excludes zero/non-finite pairs and requires at least three usable samples | Too high can force the unannounced fit fallback | Preview/Apply; each selected channel fit | Reset/success returns `0.000` |
-| Reject high | Double spin box, normalized value | `0.920` | None | `0.000..1.000`; step `0.010`; must exceed Reject low | Lowering it excludes brighter boosted-channel samples from the affine fit | Same fit/fallback rules as Reject low | Too low removes representative structure; too high admits clipping | Preview/Apply; each selected channel fit | Reset/success returns `0.920` |
-| Non Linear rescale | Checkbox, stage-wise min/max normalization | Unchecked | None | Checked/unchecked | Checked rescales continuum, boosted, and final selected-channel planes independently to `[0,1]` before their respective clamps | Applies to every selected channel; does not change Preview modes showing raw inputs | Removes absolute level/scale relationships, expands outliers, and can change color balance; three extra scans per selected channel | Preview/Apply before mask; selected channels | Reset/success unchecks it |
-| Preview | Combo box | **NBRGB** | None | **NBRGB**, **RGB**, **NBr**, **NBg**, **NBb** | Chooses calculated result or an input inspection view; mono inputs are displayed as RGB | Unselected NBr/NBg/NBb falls back to RGB; active mask still blends the chosen display against RGB | Input modes diagnose registration but are not outputs and can look mixed under a mask | Preview only | Reset/success returns **NBRGB** |
-| Preview pane | Image viewer | Mask-aware Preview-area composite | Inherits target display-autostretch settings at creation | Standard viewer zoom/pan plus linear/autostretch display | Shows the current ROI result pasted over original RGB; display autostretch never changes output samples | Always present; no Preview checkbox | Holds source/result/statistics buffers; full preview costs more than ROI | Preview only; current still | Window lifetime |
-| Switch image | Preview-toolbar action | Processed preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles processed preview and original RGB | Available in preview pane | Display comparison only | Preview display only | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox and movable ROI | Checked; centered up to `512 x 512` | None | Checked/unchecked; drag/resize within target bounds | Checked processes only the corresponding crop from RGB, selected narrowband images, and mask, then pastes it over original RGB | Apply always processes the full image; source-only Preview modes crop the selected input too | Reduces preview work; outside the rectangle is deliberately not processed | Preview and Take snapshot only | Window lifetime; Reset does not clear it |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes current settings and opens `<target> - NBRGB Combination - SNAPSHOT`; with Preview area checked, only that region is changed in the full-size snapshot | Snapshot uses current Preview mode, ROI, and active mask | Allocates a new still; source-only modes can create an inspection snapshot rather than an NBRGB result | New still; target unchanged | Each action creates a view |
-| Apply | Button/action | Disabled until a valid RGB still, valid Reject interval, and at least one ready narrowband selection exist | None | One action | Captures current images/settings, runs in a background thread, and opens `<target> - NBRGB` | No progress dialog or Cancel; target selector and preview ROI/snapshot actions disable, but narrowband selectors, numeric options, Apply, Reset, and Close remain live; repeat Apply clicks are ignored while executing | Full-image vectors/intermediates can use substantial memory; wait for output before closing or interpreting later edits | Full still; active mask applies; never a sequence | Success resets numeric/options/Preview mode but retains valid selectors |
-| Reset | Button/action | Enabled | None | One action | Restores bandwidths, scales, Reject limits, Non Linear rescale, and Preview mode | Does not clear RGB/narrowband selectors, histogram state, or Preview area; currently remains live during Apply | Schedules a new preview; does not alter the captured in-flight Apply | Configuration only | Immediate |
-| Close | Button/action | Enabled | None | One action | Closes without applying current settings; during a background Apply it stops the run, which then opens nothing, and the window closes once the run has ended | Remains live during background Apply; wait for the output before closing if you want it | No output by itself | Window | Values are not persisted after destruction |
+The window has no **Preview** check box: the preview is always on, and opens with a 512 × 512
+[preview area](../../reference/glossary.md#preview-area) in the middle of the image. Its histogram, the histogram's
+toolbar and the preview's toolbar are those of every process window: see
+[Process Windows](../../interface/process-windows.md).
 
-There is no Apply progress dialog or visible **Cancel** action. The run carries
-a stop all the same: closing the window requests it, the engine's combination
-honours it, and a stopped run opens nothing.
+```controls
+window: NBRGB Combination
+controls:
+  - name: RGB
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open RGB still image]
+    effect: Chooses the color image, which gives the channels the narrowband images are added to, the size, pixel type, name and header of the result, and the mask. It is never changed.
+    range: It lists the open still images of three color channels, never a grayscale image or a sequence.
+    enabled: Disabled while a run works.
+    tradeoff: Nothing checks that the narrowband images are registered to it.
+    persistence: Until the window closes. **Reset** leaves it. Choosing another returns the three image boxes to `<--NO IMAGE-->` and fills their lists again.
+  - name: RGB bandwidth
+    kind: spinbox
+    default: "100.00"
+    widget: {min: 0.1, max: 1000, step: 1, decimals: 2}
+    effect: Sets the width, in nanometres, of the broadband filters the color image was taken through, one value for all three. Higher takes less of each color channel out of its narrowband image, lower takes more, by equation (1).
+    range: It must exceed the **Bandwidth** of every row that names an image, or **Apply** stays dimmed and the preview shows the color image unchanged.
+    tradeoff: A wrong width biases every selected channel. A width close to a narrowband width divides by a small number, which multiplies noise and gradients.
+    scope: The preview and Apply, for every channel with a narrowband image.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 100.
+  - name: Red
+    object: redImageSelector
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the narrowband image added to the red channel, such as an Ha master. At `<--NO IMAGE-->` red is copied from the color image unchanged.
+    range: After `<--NO IMAGE-->` the list holds every open grayscale still image of exactly the color image's width and height, in any pixel type. The tooltip of each item gives its file, size, channels, pixel type and memory.
+    enabled: The list follows the views as they open, close, change or are renamed. A view that closes or no longer qualifies returns the box to `<--NO IMAGE-->`.
+    tradeoff: Nothing checks its registration, filter, exposure or star size. A master off by a pixel gives red halos and doubled stars. Each image chosen adds a working copy of its size.
+    scope: The image its view shows when the preview or **Apply** asks for it, read as a fraction of its own full scale, and cropped to a preview area as the color image is.
+    persistence: Kept by **Reset** and **Apply** while the image stays open and qualifies. Nothing is kept after the window closes.
+  - name: Red
+    object: redBandwidth
+    kind: spinbox
+    default: "7.00"
+    widget: {min: 0.1, max: 500, step: 0.5, decimals: 2}
+    effect: Sets the width, in nanometres, of the red row's narrowband filter. Higher takes more of the red channel out of the narrowband image as continuum, lower takes less, by equation (1).
+    range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
+    tradeoff: Near **RGB bandwidth** the small denominator of equation (1) amplifies noise.
+    scope: The preview and Apply, red only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 7.
+  - name: Red
+    object: redScale
+    kind: spinbox
+    default: "1.20"
+    widget: {min: 0, max: 10, step: 0.05, decimals: 2}
+    effect: Sets how strongly the line signal is added to red, by equation (2). Higher adds more of the narrowband structure around its median, lower adds less. At 0 the boost is gone, but the fitted line of equation (3) can still raise red.
+    range: It is read only while the row names an image.
+    tradeoff: High values clip highlights and amplify noise and registration errors.
+    scope: The preview and Apply, red only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+  - name: Green
+    object: greenImageSelector
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the narrowband image added to the green channel, such as an OIII master. At `<--NO IMAGE-->` green is copied unchanged.
+    range: The same list as the red row. One image may be chosen in several rows.
+    enabled: As the red row.
+    tradeoff: A master off by a pixel gives green halos and doubled stars, and adds a working copy of its size.
+    scope: As the red row, for green.
+    persistence: As the red row.
+  - name: Green
+    object: greenBandwidth
+    kind: spinbox
+    default: "8.50"
+    widget: {min: 0.1, max: 500, step: 0.5, decimals: 2}
+    effect: Sets the width, in nanometres, of the green row's narrowband filter, as the red row's does.
+    range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
+    tradeoff: Near **RGB bandwidth** it amplifies noise.
+    scope: The preview and Apply, green only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 8.50.
+  - name: Green
+    object: greenScale
+    kind: spinbox
+    default: "1.20"
+    widget: {min: 0, max: 10, step: 0.05, decimals: 2}
+    effect: Sets how strongly the line signal is added to green, as the red row's does.
+    range: It is read only while the row names an image.
+    tradeoff: High values clip highlights and shift the color.
+    scope: The preview and Apply, green only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+  - name: Blue
+    object: blueImageSelector
+    kind: combo
+    default: "<--NO IMAGE-->"
+    options: ["<--NO IMAGE-->"]
+    effect: Chooses the narrowband image added to the blue channel. At `<--NO IMAGE-->` blue is copied unchanged.
+    range: The same list as the red row.
+    enabled: As the red row.
+    tradeoff: A master off by a pixel gives blue halos and doubled stars, and adds a working copy of its size.
+    scope: As the red row, for blue.
+    persistence: As the red row.
+  - name: Blue
+    object: blueBandwidth
+    kind: spinbox
+    default: "8.50"
+    widget: {min: 0.1, max: 500, step: 0.5, decimals: 2}
+    effect: Sets the width, in nanometres, of the blue row's narrowband filter, as the red row's does.
+    range: It must stay below **RGB bandwidth**. It is read only while the row names an image.
+    tradeoff: Near **RGB bandwidth** it amplifies noise.
+    scope: The preview and Apply, blue only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 8.50.
+  - name: Blue
+    object: blueScale
+    kind: spinbox
+    default: "1.20"
+    widget: {min: 0, max: 10, step: 0.05, decimals: 2}
+    effect: Sets how strongly the line signal is added to blue, as the red row's does.
+    range: It is read only while the row names an image.
+    tradeoff: High values clip highlights and amplify the noise of blue.
+    scope: The preview and Apply, blue only.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 1.20.
+  - name: Reject low
+    kind: spinbox
+    default: "0.000"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets the lowest boosted value a pixel may have to take part in the fit of equation (3). Higher leaves more of the dark pixels out of the fit.
+    range: It must stay below **Reject high**, or **Apply** stays dimmed. A pixel whose line or boosted value is 0 never takes part.
+    tradeoff: Set too high, it leaves fewer than three pixels, and the fit is dropped without a message.
+    scope: The fit of every selected channel, in the preview and Apply.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.
+  - name: Reject high
+    kind: spinbox
+    default: "0.920"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 3}
+    effect: Sets the highest boosted value a pixel may have to take part in the fit. Lower leaves more of the bright pixels, such as star cores, out of the fit.
+    range: It must stay above **Reject low**, or **Apply** stays dimmed.
+    tradeoff: Too low leaves out structure the fit should follow. Too high lets clipped pixels pull it.
+    scope: The fit of every selected channel, in the preview and Apply.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to 0.92.
+  - name: Non Linear rescale
+    kind: check
+    default: "Off"
+    effect: Spreads the line, the boosted channel and the result each over 0 to 1 by its own minimum and maximum, before each is held between 0 and 1. Off, each is only held.
+    range: It does not make nonlinear data linear, and it is not a display stretch.
+    tradeoff: It loses the levels of the channel and of the line, lets one outlier set the scale, and changes the color balance. It adds three passes over each selected channel.
+    scope: Every selected channel, in the preview and Apply, before the mask. Not the previews of **NBr**, **NBg** and **NBb**.
+    persistence: Until the window closes. **Reset** and a finished Apply turn it off. The history adds `, rescaled` while it is on, and it does not change what the result is recorded as.
+  - name: Preview
+    kind: combo
+    default: NBRGB
+    options: [NBRGB, RGB, NBr, NBg, NBb]
+    effect: Chooses what the preview shows. **NBRGB** shows the combination and **RGB** the color image. **NBr**, **NBg** and **NBb** show the red, green or blue row's narrowband image as a gray color image, to check its registration.
+    range: A row that names no image shows the color image instead.
+    tradeoff: A mask on the view still blends the input shown with the color image, so it can look mixed.
+    scope: The preview and **Take snapshot** only. **Apply** always writes the combination.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to **NBRGB**.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **RGB bandwidth**, the bandwidths and scales of the three rows, **Reject low**, **Reject high**, **Non Linear rescale** and **Preview** to their defaults.
+    range: It leaves **RGB**, the three image boxes, the preview area and the histogram's settings as they are.
+    enabled: Also while a run works. The run keeps the values it started with.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Combines the color image with the chosen narrowband images as the window stands, and opens the result as a new image, a tab beside the color image named `<color image> - NBRGB`. The values then return to their defaults, and the image boxes keep their choices.
+    enabled: While **RGB** names an RGB still image, a row names an image of its size, every such row's bandwidth is below **RGB bandwidth**, and **Reject high** is above **Reject low**. During a run **RGB**, **Preview area** and **Take snapshot** are disabled, the other controls, **Reset** and **Close** are not, and a second press does nothing.
+    tradeoff: There is no progress window and no **Cancel**. The line, its median, the boost and the fit run on one thread, and only the copy and the final write are spread over the processor's threads. The run holds five working planes of the image's size, a copy of each narrowband image and the new image.
+    scope: The whole image, through the mask on the color image's view. A preview area does not limit it.
+    persistence: "The new image's history starts with a step that reads like `Created NBRGB combination from RGB (100.0 nm) and narrowband channels R: 'Ha' 7.0 nm x1.20; fit 0.000 to 0.920`, and shows the color image's steps above it as inherited lineage. The result is recorded as linear when the color image and every chosen narrowband image are declared linear, as nonlinear when one is declared nonlinear, and otherwise its state is not stated, with the operation `nbrgb-combination`. No continuum image, fit coefficients, mask, preset, report or file is written."
+    note: "The header is built from the color image and the chosen narrowband images. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Images that state the same exposure start are one acquisition and count once, with the largest integration and frame count any of them states. An image that states no start counts on its own. Their `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when an image states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when an image states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every image states the same, and so is every other card the color image shares with all of them. The color image's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC`, its WCS cards and its plate solution are kept, without a check that the narrowband images share its grid. No processing-state or file identity card of an image is kept."
+```
 
-## How the algorithm works
+## How it works
 
-### 1. Rectangular-bandwidth continuum estimate
+1. The color image and each chosen narrowband image are read as
+   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale), in 32-bit floating point, or 64-bit
+   when the color image is 64-bit floating point or a 32-bit integer.
+2. For each row that names an image, equation (1) takes out of the narrowband image the continuum its color channel
+   stands for, and equation (2) adds what remains, centered on its median and scaled, to that channel.
+3. A straight line fitted from the line signal to the boosted channel gives a second answer, and each pixel keeps the
+   brighter of the two by equation (3). A channel without a narrowband image is copied unchanged.
+4. A mask on the color image's view then blends the result with the color image.
+5. The result is written once in the color image's pixel type, rounded to the nearest code for an integer type, and
+   opens as a new image.
 
-The process handles Red, Green, and Blue independently. Let `R_c` be a
-normalized broadband sample in selected channel `c`, `N_c` the corresponding
-normalized mono narrowband sample, `B_rgb` the shared RGB bandwidth, and `B_c`
-the selected narrowband bandwidth. It defines
+### Model
 
-\[
-q_c=\frac{B_c}{B_{rgb}},\qquad
-C_c=\frac{N_c-q_cR_c}{1-q_c}.
-\]
+For one channel, take \(R\) its sample in the color image, \(N\) the narrowband sample, \(B\) the value of **RGB
+bandwidth** and \(B_c\) the row's **Bandwidth**. With \(q = B_c / B\), the line signal is
 
-`C_c` is the estimated continuum-corrected narrowband plane. The denominator
-must be greater than `1e-6`, so each narrowband width must be meaningfully lower
-than the RGB width. The model treats both filters as rectangular passbands and
-uses the corresponding RGB channel as the continuum proxy. It does not use
-central wavelength, measured transmission, sensor quantum efficiency, exposure,
-or a spectrum; bandwidth values are therefore user-supplied approximations.
+\[ C = \frac{N - q\,R}{1 - q} \tag{1} \]
 
-Without **Non Linear rescale**, `C_c` is immediately clipped to `[0,1]` in a
-32-bit float intermediate. With the option checked, it is first min/max-scaled
-over the complete current plane and then clipped.
+held between 0 and 1. Equation (1) treats both filters as rectangular passbands, and needs \(1 - q\) above
+\(10^{-6}\). With \(\tilde C\) the median of \(C\) over the image and \(s\) the row's **Scale**, the boosted channel is
 
-### 2. Median-centered channel boost
+\[ G = R + s\,(C - \tilde C) \tag{2} \]
 
-Let `m_c` be the median of the clipped continuum-corrected plane and `s_c` the
-channel's **Scale**. The boosted broadband plane is
+held between 0 and 1. A straight line \(M = a\,C + b\) is fitted to \(G\) by least squares, over the pixels where
+\(C\) and \(G\) are not 0 and \(G\) lies from **Reject low** to **Reject high**, both included. Without three such
+pixels, or when their \(C\) spreads by less than \(10^{-8}\), \(M = C\). The channel becomes
 
-\[
-G_c=R_c+s_c(C_c-m_c).
-\]
+\[ O = \min\bigl(1,\ \max(G,\ M)\bigr) \tag{3} \]
 
-At `s_c=0`, `G_c` is the original RGB plane, but the later maximum can still
-admit the corrected/matched narrowband plane. Increasing Scale strengthens both
-positive and negative deviations around the narrowband median. The intermediate
-is again optionally min/max-scaled and always clipped to `[0,1]`.
+With **Non Linear rescale** on, \(C\), \(G\) and \(O\) are each first spread over 0 to 1 by their own minimum and
+maximum, as \((x - x_{min}) / (x_{max} - x_{min})\).
 
-### 3. Guarded affine match
+### Boundaries
 
-The process attempts an ordinary least-squares fit
+- A pixel where a sample of the color image or of a chosen narrowband image is not a finite number, or that the color
+  image marks as invalid, keeps the color image's samples and takes no part in the median or the fit. When no pixel
+  is left, the run stops.
+- With a preview area, the median, the fit and the rescale are measured on the area alone, so the preview can differ
+  from what **Apply** writes over the whole image.
+- Every stage is held between 0 and 1, so a floating-point sample outside that range in a combined channel is
+  clipped. The channels without a narrowband image keep theirs.
 
-\[
-M_c=a_cC_c+b_c
-\]
+### Worked example
 
-from continuum-corrected samples to the boosted plane. A pair is eligible only
-when both values are finite and nonzero and `G_c` lies inside the inclusive
-**Reject low**/**Reject high** interval. The NBRGB guard requires at least three
-eligible pairs, variation in `C_c` above `1e-8`, and a valid rejection interval.
-If those checks fail, `M_c=C_c`; the UI does not announce that fallback.
+The guide's data holds no broadband image of the Eagle Nebula, so the example's color image stands in for one. It is
+Channel Composition in **RGB** of the SII master in **Red** and the OIII master in **Green** and **Blue**, with
+**Linear Match** on: 3008 × 3004 pixels in 32-bit floating point, linear, with a red median of 0.0364. Choose the Ha
+master, whose median is 0.0378, in **Red**, and keep the defaults. Then \(q = 0.07\), the median of equation (1) is
+0.0379, and the fit over nine million pixels gives \(a = 1.77\) and \(b = -0.0305\). Where the nebula reads 0.0459 in
+Ha and 0.0364 in red, equation (2) gives 0.0469 and the fitted line 0.0519, so red becomes 0.0519. Where the
+background reads 0.0375 in Ha and 0.0367 in red, red becomes 0.0362. Green and blue are unchanged.
 
-### 4. Maximum merge, rescale, and mask
+The new image, `RGB - NBRGB`, states `EXPTIME` and `TOTEXP` 19200, the color image's 11700 seconds and the Ha
+master's 7500, `STACKCNT` 64, and the Ha master's `DATE-OBS`, which is the earliest.
 
-The selected output plane is
+```figure
+images:
+  - image: ../../assets/images/processes/color-composition/nbrgb-combination-before.webp
+    alt: The whole color image made from the SII and OIII masters, a gray background with many stars and a faint teal glow at the middle.
+    label: Before
+  - image: ../../assets/images/processes/color-composition/nbrgb-combination-after.webp
+    alt: The whole combined image, the same field with the clouds and pillars of the Eagle Nebula in red over the gray background.
+    label: After
+caption: >-
+  The color image before and after Apply with the Ha master in Red at the defaults. Both are the whole frame in the
+  view's Autostretch with Linked channels on, so that one stretch shows the three channels alike.
+```
 
-\[
-O_c=\operatorname{clip}_{[0,1]}\left(\max(G_c,M_c)\right).
-\]
+The fit needs three pixels. With red at 0.20, 0.40 and 0.60, a narrowband image at 0.326, 0.562 and 0.798 and a red
+**Bandwidth** of 10, equation (1) gives 0.34, 0.58 and 0.82, and equation (2) gives 0, 0.40 and 0.888. The 0 leaves
+the fit, so \(M = C\), and red becomes 0.34, 0.58 and 0.888.
 
-When **Non Linear rescale** is checked, the maximum plane is min/max-scaled once
-more before the final clip. Unselected RGB channels are copied unchanged. There
-is no neighborhood kernel or boundary extension: the continuum equation, boost,
-and maximum are per-pixel, while the median, fit, and optional min/max operations
-use global statistics over the current full image or preview crop.
+## Starting points
 
-The shared mask is applied last. For mask weight `W` after optional inversion,
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A broadband RGB master and an Ha master | Ha in **Red**, your filters' effective widths, **Scale** at its default | **Scale** of **Red** in small steps. |
+| RGB, Ha and OIII masters | Ha in **Red**, OIII in **Green** and **Blue** | One row's **Scale** at a time. |
+| Bright cores clip or pull the color | **Scale** toward 1 | **Reject high** lower, so clipped pixels stay out of the fit. |
+| A first look at registration | **NBr** in **Preview** | Hold ++space++ over stars, then return to **NBRGB**. |
 
-\[
-RGB_{final}=RGB_{source}(1-W)+RGB_{NBRGB}W.
-\]
+## When it goes wrong
 
-### Precision and invalid samples
-
-Input samples are read through normalized double access. Corrected, boosted,
-matched, and combined helper images are 32-bit float; the final image retains
-the RGB source's pixel type, so integer outputs quantize on write. Narrowband
-sources may have different pixel types because their normalized samples are
-converted independently.
-
-There is no general NaN/Infinity repair. The fit rejects non-finite pairs, but
-continuum calculation, median selection, min/max rescaling, maximum, and final
-write do not define an astronomical bad-pixel policy for them. Repair or reject
-non-finite samples upstream, especially before enabling min/max rescaling.
-
-## Parameter interactions and starting points
-
-| Combination | Conservative starting point | Too weak looks like | Too strong or defective looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| RGB/NB bandwidths | Use documented effective widths; keep NB well below RGB | Continuum correction resembles raw NB | Noise/gradients explode as widths approach equality | Verify units and widths before Scale |
-| Scale + continuum median | `1.20`, one channel at a time | Emission enhancement is subtle | Clipped cores, amplified noise, colored star residuals | Fix registration/background, then Scale |
-| Reject interval + fit | `0.000..0.920` | Fit still follows unwanted bright structure | Too few accepted samples silently return un-fitted `C_c` | Exclude clipping while retaining broad ordinary structure |
-| Non Linear rescale + channel balance | Off for linear masters | — | Each stage expands outliers and destroys cross-channel amplitude relationships | Use only as a deliberate nonlinear display experiment |
-| Preview mode + active mask | Temporarily disable mask when comparing raw RGB/NB inputs | Registration differences are hidden by black mask areas | Input mode appears to be a hybrid of RGB and NB | Inspect source modes unmasked, then restore mask for NBRGB |
-| Preview area + Apply | Tune several representative ROIs, then full preview | Local setting misses other structures | Full-image background/highlights behave unlike one ROI | Sample background, emission, and stars before Apply |
-
-## Inputs, outputs, and metadata
-
-- The target selector accepts only RGB stills. Each narrowband selector accepts
-  non-sequence grayscale views with exact target dimensions and excludes the
-  target. It does not check registration, WCS, pixel type, processing state,
-  filter identity, bandwidth metadata, exposure, or PSF.
-- Apply creates one new RGB still and leaves every source unchanged. The output
-  dimensions and pixel type match the RGB target. No mask, continuum map, fit
-  coefficients, report, preset, or direct disk file is produced.
-- The result's metadata is built from the RGB source and every selected
-  narrowband source. Its exposure is the sum of the exposures they state,
-  recorded once. The object, instrument, telescope, observer, filter, sensor
-  temperature, gain, binning, and exposure start are kept when every selected
-  source states the same value and dropped otherwise, so a filter is kept only
-  when every source shares it.
-- The result keeps the header cards every selected source states identically,
-  but no exposure, processing-state or identity card of a source; a card the
-  sources state differently, or only some state, is dropped. It keeps the RGB
-  target's plate solution with its world coordinate (WCS) cards, so the viewer,
-  the astrometry window and a new plate solve find it on the result. The
-  solution describes the RGB target's grid; it does not prove that the
-  narrowband sources were registered to it.
-- If every input explicitly declares linear state, the output is marked linear
-  RGB with `nbrgb-combination` provenance. If any input declares nonlinear, the
-  output is marked nonlinear. Otherwise the combined state is unknown. The
-  **Non Linear rescale** checkbox does not independently change that decision.
-- The new view receives the execution description “Created NBRGB combination
-  from RGB and selected narrowband channels.” Successful Apply then resets the
-  numeric/options state while retaining valid source selections.
-- **Take snapshot** follows the selected Preview mode. With **Preview area**
-  checked, it creates a full-size still in which only the ROI is replaced; with
-  **RGB** or a narrowband input mode selected, it is an inspection snapshot, not
-  necessarily an NBRGB combination.
-
-## Performance
-
-Work is linear in pixel count for each of one to three selected channels. Each
-channel performs continuum correction, median selection, boosted-plane
-construction, fit eligibility/statistics, an optional least-squares fit,
-maximum merge, and output write. **Non Linear rescale** adds three full-plane
-min/max scans and normalization passes per selected channel.
-
-The pixel loops use oneTBB, but selected channels are processed serially.
-Several full-size `double` vectors plus float intermediates coexist, alongside
-the RGB source/output, preview, mask, and histogram buffers. Memory therefore
-scales with image size and selected-channel count even though the mathematical
-pipeline is per-channel. Use the default Preview area to tune representative
-regions, then perform one full preview before Apply. No approved astronomical
-set was timed.
-
-## Worked example
-
-- **Evidence mode:** Source- and focused-test-derived; not executed on
-  project-owned astronomical data.
-- **Input condition:** Red broadband samples are `(0.20, 0.40, 0.60)` and the
-  registered mono red samples are `(0.326, 0.562, 0.798)`.
-- **Settings:** RGB bandwidth `100`, Red bandwidth `10`, Red Scale `1.20`,
-  Reject interval `0..1`, and Non Linear rescale off.
-- **Continuum checkpoint:** `q=0.1`, so corrected values are
-  `(0.34, 0.58, 0.82)` and their median is `0.58`.
-- **Boost checkpoint:** Before clipping, `G=R+1.2(C-0.58)` gives
-  `(-0.088, 0.40, 0.888)`; clipping gives `(0, 0.40, 0.888)`.
-- **Fit fallback:** The zero boosted sample is ineligible, leaving only two
-  nonzero pairs. NBRGB requires three, so the matched plane falls back to
-  `(0.34, 0.58, 0.82)`.
-- **Output checkpoint:** The per-pixel maximum is
-  `(0.34, 0.58, 0.888)`. Green and blue are unchanged because they were not
-  selected. These exact values reproduce the engine regression; they do not
-  claim a visually suitable scale for real data.
-
-## Warnings and limitations
-
-!!! warning "Bandwidths are an approximation, not filter metadata"
-    One shared RGB width and three user-entered NB widths drive a rectangular-
-    passband equation. AfterNight does not read central wavelengths or measured
-    response curves and cannot verify that a selected master belongs to the
-    labelled output channel.
+!!! warning "The window reads no filter widths"
+    The bandwidths are yours. The window cannot tell which filter a master was taken through, nor whether it sits in
+    the right row.
 
 !!! warning "Non Linear rescale changes the data three times"
-    The option independently min/max-normalizes the corrected, boosted, and
-    final selected-channel planes. It is not a display STF and does not merely
-    prevent final clipping.
+    It spreads the line, the boosted channel and the result each by its own minimum and maximum. It changes the
+    samples themselves, and does more than prevent clipping. Leave it off for linear masters.
 
-!!! warning "Apply has no progress dialog or Cancel button"
-    The run is asynchronous, and this process shows no progress dialog and no
-    Cancel button; closing the window stops the run, which then opens nothing.
-    Most source/parameter/dialog controls remain live after Apply captures its
-    parameters, and a later edit reaches the next run only. Wait for the new
-    image before closing.
+!!! warning "Apply shows no progress and has no Cancel"
+    The run works in the background. Closing the window stops it and nothing opens, so wait for the new image. A
+    change made during the run reaches the next one only.
 
-!!! warning "Equal dimensions are not registration"
-    There is no translation, rotation, scale, distortion, WCS, PSF, or intensity
-    compatibility check. Misregistered narrowband structure becomes colored
-    halos and doubled stars while the result's acquisition facts still describe
-    the sources.
+Apply stays dimmed
+:   **Cause.** No row names an image, a chosen row's **Bandwidth** is not below **RGB bandwidth**, **Reject high** is
+    not above **Reject low**, or a chosen image was closed.
+:   **Fix.** Choose a master again, lower the narrowband width or raise **RGB bandwidth**, and order the two limits.
 
-## Troubleshooting
+A master is not in the Red, Green or Blue list
+:   **Cause.** It is a color image or a sequence, its width or height differs from the color image's, or it is not
+    open.
+:   **Fix.** Take one channel out of a color image, or register and crop the master to the color image's grid.
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Menu action is disabled | Active view is grayscale or a sequence, no image is active, the same process is attached, or an exclusive process is attached | Activate an RGB still and close the conflicting process |
-| Narrowband image is absent from a selector | It is RGB, a sequence, a different size, the target itself, closed, or not updated | Extract/convert to grayscale, register/crop to exact dimensions, and reopen/update it |
-| Apply is disabled | No NB channel is selected, NB bandwidth is not below RGB bandwidth, Reject high is not above Reject low, or a selected view disappeared | Restore at least one valid source and correct the bandwidth/rejection values |
-| Preview shows plain RGB | Parameters are not ready, or NBr/NBg/NBb was selected without that source | Select a ready narrowband channel and choose NBRGB |
-| Narrowband input Preview looks mixed with RGB | The target's active mask is being applied even in source-inspection modes | Temporarily disable the mask while checking raw registration |
-| Strong gradients or odd background offsets | Inputs were not background/intensity prepared, or the rectangular bandwidth approximation is poor | Correct gradients and scaling upstream; verify effective widths; reduce Scale |
-| Fit seems to have no effect | Fewer than three finite, nonzero pairs survived the Reject interval, or the corrected plane is almost constant | Widen the interval and inspect clipping; understand that fallback uses corrected NB directly |
-| Bright structures clip or color shifts strongly | Scale is high, bandwidth denominator is small, or Non Linear rescale expanded an outlier | Restore defaults, turn rescale off, verify widths, then raise one Scale gradually |
-| Doubled stars or colored rims | Equal-size sources are not registered or have different PSFs | Register/crop upstream and consider matching star profiles before combination |
-| Take snapshot is not an NBRGB result | Preview is on RGB/NBr/NBg/NBb, or Preview area is checked | Select NBRGB and uncheck Preview area for a full calculated snapshot |
-| No progress window appears after Apply | NBRGB does not implement a progress dialog | Wait for `<target> - NBRGB`; use Preview area to estimate suitability before the full run |
+The preview shows the color image unchanged
+:   **Cause.** **Apply** is still dimmed, or **Preview** shows **RGB** or a row that names no image.
+:   **Fix.** Correct what keeps **Apply** dimmed, and choose **NBRGB** in **Preview**.
 
-## Related workflow steps
+NBr, NBg or NBb looks mixed with the color image
+:   **Cause.** The mask on the color image's view blends whatever the preview shows.
+:   **Fix.** Disable the mask while you check the inputs, and enable it again before **Apply**.
 
-- [Linear Match](../color-calibration/linear-match.md) — prepare intensity
-  relationships upstream when the NBRGB-specific internal fit is insufficient.
-- [Image Registration](../registration-alignment/image-registration.md) — align
-  RGB and narrowband geometry before composition.
-- [NB Color Mapper](nb-color-mapper.md) — map and mix several narrowband layers
-  directly rather than injecting them into a broadband target.
-- [Narrowband Palette Composer](narrowband-palette-composer.md) — explore palette
-  matrices and presets from narrowband sources.
-- [Process Windows](../../interface/process-windows.md) — shared preview, masks,
-  snapshots, Apply, Reset, and image-history behavior.
-- [Image Viewer](../../interface/image-viewer.md) — display stretch, masks, and
-  image-state inspection.
+The fit seems to have no effect
+:   **Cause.** Fewer than three pixels lie between **Reject low** and **Reject high**, or the line signal is nearly
+    constant, so the line is used as it is.
+:   **Fix.** Widen the two limits, and check the narrowband master in **NBr**, **NBg** or **NBb**.
 
-## References and provenance
+Noise, gradients or clipped stars grow strongly
+:   **Cause.** **Scale** is high, a narrowband width is close to **RGB bandwidth**, **Non Linear rescale** is on, or
+    the inputs still carry gradients.
+:   **Fix.** Press **Reset**, check the widths, remove gradients first, and raise **Scale** in small steps.
 
-- AfterNight source and focused tests.
-- The in-app **About > Licenses** text records this native NBRGB implementation
-  as original AfterNight GPL code. No external process source was copied or
-  translated for the engine API.
+Doubled stars or colored rims
+:   **Cause.** The masters have one size but are not registered to each other, or their stars differ in size.
+:   **Fix.** Register and crop them to one grid, and match their star sizes, before you combine them.
+
+A snapshot, or the result of Apply, differs from the preview
+:   **Cause.** **Preview** shows an input rather than **NBRGB**, or a preview area measured the median and the fit on
+    itself alone.
+:   **Fix.** Choose **NBRGB** and untick **Preview area** for a last look before **Apply** or **Take snapshot**.
+
+## Related
+
+- [Channel Composition](channel-composition.md), to compose a color image from red, green and blue masters.
+- [Image Registration](../registration-alignment/image-registration.md), to put every master on one grid first.
+- [Linear Match](../color-calibration/linear-match.md), to bring the levels of the masters together before.
+- [NB Color Mapper](nb-color-mapper.md), to give narrowband masters hues of your choice and blend them.
+- [Narrowband Palette Composer](narrowband-palette-composer.md), to map narrowband masters to fixed palettes.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.

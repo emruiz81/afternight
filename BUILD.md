@@ -12,7 +12,7 @@ canonical statement of these rules; this page is the walk-through.
 
 Both need Git with submodule support and Python 3 on `PATH` for the repository's checks and build helpers; the
 install step provisions the Python 3.14.7 that the product embeds. Packaging the Windows installer needs Inno Setup
-6.2 or later.
+6.6 or later.
 
 The first build downloads and compiles every dependency from source: expect several gigabytes on disk, and an hour
 or more for the Windows dependency step alone. Do not interrupt it.
@@ -25,10 +25,10 @@ cd afternight
 git submodule update --init --recursive
 ```
 
-The submodules are `vcpkg` and `kddockwidgets`. OpenXISF, the XISF library, is not a submodule: the dependency step
-clones its published release, verifies the commit and builds it as a shared library into `openxisf/`
-(`build/scripts/msvc/_build_openxisf.bat`, `build/scripts/linux/_build_openxisf.sh`), until the vcpkg registry
-carries it.
+The submodules are `vcpkg` and `kddockwidgets`. OpenFITS and OpenXISF, the FITS and XISF libraries, are not
+submodules: the dependency step clones each one's published release, verifies the commit and builds it as a shared
+library into `openfits/` and `openxisf/` (`build/scripts/msvc/_build_openfits.bat`, `_build_openxisf.bat`,
+`build/scripts/linux/_build_openfits.sh`, `_build_openxisf.sh`), until the vcpkg registry carries them.
 
 ## The build order
 
@@ -172,8 +172,8 @@ build/scripts/format_changed.sh origin/main
 
 ## The user guide
 
-The user guide is MkDocs Material, under `docs/user-guide/`. The platform helpers build it in a locked
-environment:
+The user guide is MkDocs with the guide's own theme, under `docs/user-guide/`. The platform helpers build it in a
+locked environment:
 
 ```cmd
 build\scripts\msvc\build_user_guide_docs.bat
@@ -228,13 +228,13 @@ engine uses, with versions, sources and licences.
 | --- | --- |
 | Qt 6.10.3 | The interface, SVG, SQL, networking, and the PySide6 version extensions see |
 | KDDockWidgets | Docking |
-| CFITSIO, OpenXISF, LibRaw with a RawSpeed build of AfterNight's own, libtiff, libpng, libjpeg-turbo, Exiv2 | FITS, XISF, camera RAW, TIFF, PNG and JPEG files and their metadata |
+| OpenFITS, OpenXISF, LibRaw with a RawSpeed build of AfterNight's own, libtiff, libpng, libjpeg-turbo, Exiv2 | FITS, XISF, camera RAW, TIFF, PNG and JPEG files and their metadata |
 | FFmpeg | Video sequences |
 | oneTBB, Highway | Parallelism and vectorized kernels |
 | FFTW (single precision), GSL | Phase correlation, and one distribution function |
 | G'MIC | The G'MIC-backed processes, through an optional adapter |
 | SQLite, through Qt's driver | Project state and the application's databases |
-| nlohmann-json, spdlog, cmark-gfm, libsodium | Documents, logging, report rendering and extension package signatures |
+| nlohmann-json, spdlog, libsodium | Documents, logging and extension package signatures |
 | Crashpad | Local crash dumps |
 | Google Test | The test suites |
 | Python 3.14.7 | The extension hosts and runtime backend |

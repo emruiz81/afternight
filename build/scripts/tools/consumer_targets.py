@@ -118,9 +118,9 @@ PROFILE_REQUIRED = ('title', 'form')
 SOURCE_KINDS = ('unit', 'header', 'stub', 'include', 'define', 'link', 'external', 'qt')
 # The third-party libraries a source list's `external` entry may name: those the isolated factory in
 # build/premake/afternight-test-pm5.lua knows the include directory, macros and link line of; oneTBB adds a link line
-# on Linux only, because MSVC links it through its own header; cmark-gfm renders the integration report's Markdown;
-# libsodium and zstd sign and compress the extension repository assets the extension manager's cases build.
-KNOWN_EXTERNALS = ('cmark', 'kddockwidgets', 'python', 'sodium', 'tbb', 'zstd')
+# on Linux only, because MSVC links it through its own header; libsodium and zstd sign and compress the extension
+# repository assets the extension manager's cases build.
+KNOWN_EXTERNALS = ('kddockwidgets', 'python', 'sodium', 'tbb', 'zstd')
 # Every test the factory generates is compiled with this defined, as every suite of the test workspace is.
 FACTORY_DEFINES = ('AFTERNIGHT_TESTS',)
 PLATFORMS = ('linux', 'windows')

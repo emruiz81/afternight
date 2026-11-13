@@ -41,6 +41,8 @@ class QWidget;
 namespace an::ui
 {
 
+struct AnnotationViewChoices;
+
 /// The undo history of one view. Made by `createViewHistory`, which the history defines.
 class IViewHistory
 {
@@ -234,7 +236,10 @@ enum class ViewTool : std::uint8_t
     AstrometryInfo,
 
     /// The plate solve.
-    PlateSolve
+    PlateSolve,
+
+    /// The annotated picture of a solved image.
+    AnnotateImage
 };
 
 /// Opens a tool window over a view. Defined beside the tools.
@@ -256,11 +261,9 @@ enum class AstrometryOverlay : std::uint8_t
     /// The SIP distortion map.
     DistortionMap,
 
-    /// The deep-sky catalogue's annotations.
-    CatalogAnnotations,
-
-    /// The bright stars' labels.
-    BrightStarLabels
+    /// The bundled catalogues' annotations: the deep-sky objects and the bright stars, each a layer
+    /// (`setAstrometryOverlayLayers`), laid out together.
+    CatalogAnnotations
 };
 
 /// The stars a view detected for its overlay, with the solution that places them on the sky.
@@ -281,12 +284,23 @@ struct ViewOverlayStars
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::unique_ptr<::ImageViewWidgetDisplayModule>
 createAstrometryOverlay(AstrometryOverlay overlay, ::ImageViewControl& view);
 
-/// Sets the faintest magnitude a catalogue overlay labels; an overlay that labels no catalogue ignores it. Defined
-/// beside the overlays.
+/// Sets what an overlay names and how it looks, as the view's menu chose: the catalogue overlay names the catalogues at
+/// the choices' level of detail, labels them as they say and draws in their palette; the grid draws in the palette; any
+/// other overlay ignores them. Defined beside the overlays.
 ///
 /// @param overlay an overlay `createAstrometryOverlay` made.
-/// @param limit the magnitude.
-AFTERNIGHTCONTROLS_API void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule& overlay, double limit);
+/// @param choices the choices (`controls/annotation/AnnotationSettings.h`).
+AFTERNIGHTCONTROLS_API void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay,
+                                                        const AnnotationViewChoices& choices);
+
+/// Sets which catalogues a catalogue overlay draws; an overlay that labels no catalogue ignores it. Defined beside the
+/// overlays.
+///
+/// @param overlay an overlay `createAstrometryOverlay` made.
+/// @param deepSky whether the deep-sky objects are drawn.
+/// @param stars whether the bright stars are drawn.
+AFTERNIGHTCONTROLS_API void setAstrometryOverlayLayers(::ImageViewWidgetDisplayModule& overlay, bool deepSky,
+                                                       bool stars);
 
 /// Hands the stars a view detected to the overlay that draws them; an overlay that draws no stars ignores it. Defined
 /// beside the overlays.

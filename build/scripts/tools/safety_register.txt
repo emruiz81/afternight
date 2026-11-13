@@ -73,15 +73,18 @@ review highway
     advisories  none
     outcome     Header-only vector abstraction compiled into the engine. No advisory names it.
 
-review cfitsio
-    version     4.6.4
-    binaries    cfitsio.dll
-    reviewed    2026-09-23
-    source      NVD, every CVE naming nasa:cfitsio with its ranges evaluated here, and keyword search since
-                2025-09-23
+review openfits
+    version     1.0.0
+    binaries    openfits-1.0.dll, libopenfits.so.1.0
+    reviewed    2026-11-09
+    source      Web search for advisories naming OpenFITS, and the repository's security advisories and
+                security-labelled issues on GitHub, 2026-11-09; the library has no CPE yet, and as the
+                maintainer's own library a defect in it is recorded and repaired upstream before the release
+                the build scripts pin moves
     advisories  none
-    outcome     Five CVEs name CFITSIO; none includes 4.6.4. The two 4.6.4 defects the FITS adapter works
-                around are recorded below as a finding of their own.
+    outcome     No advisory names it. Every allocation it makes reading a file - a tile it decodes, the content
+                of a gzip-compressed file it inflates, the headers of the units it walks - is bounded by limits
+                the FITS adapter derives from the engine's own.
 
 review libtiff
     version     4.7.2
@@ -317,7 +320,7 @@ review opencv4
 #
 # None of these is linked by a build of this engine, which is why dependencies.txt does not name them. Each is
 # loaded when the engine is: the codecs FFmpeg was built with, the compressors behind libtiff and the XISF
-# library, the XML and character-set libraries behind Exiv2, and the threads library behind CFITSIO.
+# library, and the XML and character-set libraries behind Exiv2.
 # =============================================================================================
 
 review aom
@@ -432,14 +435,6 @@ review liblzma
     source      NVD, every CVE naming tukaani:xz, and keyword search since 2025-09-23
     advisories  none
     outcome     Loaded by libtiff. Five CVEs name the product and none includes 5.8.3.
-
-review pthreads
-    version     3.0.0
-    binaries    pthreadVC3.dll
-    reviewed    2026-09-23
-    source      NVD keyword search for "pthreads-win32" and "pthreads4w" since 2025-09-23
-    advisories  none
-    outcome     Loaded by CFITSIO. No advisory names it.
 
 # =============================================================================================
 # Findings: advisories the reviews list, answered
@@ -628,7 +623,7 @@ finding zlib-gzwrite
     status      not-applicable
     advisories  CVE-2026-85091
     evidence    The overflow is reached through gzprintf or gzvprintf after a write stall. No source of the
-                engine calls a gz function, and the CFITSIO, libtiff, libpng and Exiv2 sources this build
+                engine calls a gz function, and the OpenFITS, libtiff, libpng and Exiv2 sources this build
                 compiles call neither.
     record      docs/dev/guides/DEPENDENCIES.md
 
@@ -830,15 +825,15 @@ finding expat-embargoed-issues
     record      src/AfterNightEngine/src/interop/exiv2/ExifCards.cpp
 
 finding cfitsio-adapter-workarounds
-    title       Two CFITSIO 4.6.4 defects are worked around in the FITS adapter, not in the library
+    title       Two CFITSIO 4.6.4 defects were worked around in the FITS adapter, not in the library
     severity    medium
-    component   dependency cfitsio
+    component   engine
     found       the FITS codec's tests
-    status      accepted
+    status      repaired
     advisories  none
-    evidence    The PLIO bound and the uninitialised null sentinel are set in the FITS adapter, the bound by its
-                writer and the sentinel in its private handle by its reader. A CFITSIO upgrade or a call path around
-                the adapter would lose them;
+    evidence    OpenFITS replaced CFITSIO behind the FITS codec, and the adapter reaches into no library handle:
+                the library sizes a PLIO tile for its worst case and substitutes no undefined value it is not
+                asked to, so neither the PLIO bound nor the null sentinel is set any more; release openfits 1.0.0;
                 test FitsCodecTest.PlioTilesHaveSpaceForTheirHeaderAndWorstCaseCodes and
                 test FitsCodecTest.GzipKeepsFloatingNonfiniteSamplesWithoutNullSubstitution hold them.
     record      src/AfterNightEngine/src/io/fits/FitsWrite.cpp

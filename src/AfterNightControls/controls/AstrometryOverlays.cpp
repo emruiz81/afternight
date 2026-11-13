@@ -3,18 +3,18 @@
 
 /// @file
 /// The astrometry overlays as the image view reaches them through its companion seam
-/// (`controls/ImageViewCompanions.h`): the detected stars, the equatorial grid, the distortion map, the deep-sky
-/// annotations and the bright-star labels, made here, beside the overlays themselves.
+/// (`controls/ImageViewCompanions.h`): the detected stars, the equatorial grid, the distortion map and the catalogue
+/// annotations - the deep-sky objects and the bright stars - made here, beside the overlays themselves.
 
 #include "stdafx.hpp"
 
 #include "controls/AstrometryStarDisplayModule.h"
-#include "controls/BrightStarAnnotationDisplayModule.h"
 #include "controls/CatalogAnnotationDisplayModule.h"
 #include "controls/CoordinateGridDisplayModule.h"
 #include "controls/DistortionMapDisplayModule.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <utility>
 
@@ -34,22 +34,28 @@ std::unique_ptr<::ImageViewWidgetDisplayModule> createAstrometryOverlay(const As
         return std::make_unique<DistortionMapDisplayModule>(&view);
     case AstrometryOverlay::CatalogAnnotations:
         return std::make_unique<CatalogAnnotationDisplayModule>(&view);
-    case AstrometryOverlay::BrightStarLabels:
-        return std::make_unique<BrightStarAnnotationDisplayModule>(&view);
     }
     return nullptr;
 }
 
-void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule& overlay, const double limit)
+void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay, const AnnotationViewChoices& choices)
 {
     if (auto* annotations = dynamic_cast<CatalogAnnotationDisplayModule*>(&overlay); annotations != nullptr)
     {
-        annotations->setMagnitudeLimit(limit);
-        return;
+        annotations->setChoices(choices);
     }
-    if (auto* labels = dynamic_cast<BrightStarAnnotationDisplayModule*>(&overlay); labels != nullptr)
+    else if (auto* grid = dynamic_cast<CoordinateGridDisplayModule*>(&overlay); grid != nullptr)
     {
-        labels->setMagnitudeLimit(limit);
+        grid->setPalette(choices.palette);
+        grid->setTextSize(choices.textSize);
+    }
+}
+
+void setAstrometryOverlayLayers(::ImageViewWidgetDisplayModule& overlay, const bool deepSky, const bool stars)
+{
+    if (auto* annotations = dynamic_cast<CatalogAnnotationDisplayModule*>(&overlay); annotations != nullptr)
+    {
+        annotations->setLayers(deepSky, stars);
     }
 }
 

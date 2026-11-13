@@ -10,8 +10,11 @@
 #include "processes/ImageIntegration/core/FilenameUtils.h"
 #include "processes/ImageIntegration/core/RejectionMapUtils.h"
 #include "processes/ImageIntegration/core/SqliteConnection.h"
-#include "processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h"
-#include "processes/ImageIntegration/reporting/WorkflowReportBuilder.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
+#include "processes/ImageIntegration/reporting/ReportModel.h"
+#include "processes/ImageIntegration/reporting/ReportModelBuilder.h"
+#include "processes/ImageIntegration/reporting/ReportSources.h"
+#include "processes/ImageIntegration/reporting/WorkflowReport.h"
 #include "processes/ImageIntegration/workflow/ArtifactSchema.h"
 #include "processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h"
 #include "processes/ImageIntegration/workflow/WorkflowFileOperations.h"
@@ -37,7 +40,6 @@
 #include <QSaveFile>
 #include <QSet>
 #include <QSqlQuery>
-#include <QTemporaryFile>
 #include <QUuid>
 #include <algorithm>
 #include <chrono>
@@ -45,10 +47,6 @@
 
 namespace
 {
-[[nodiscard]] QString workflowReportHtmlTitle(const WorkflowManifest& manifest);
-[[nodiscard]] bool shouldGenerateWorkflowReport(const WorkflowManifest& manifest,
-                                                const WorkflowExecutor::Result& result);
-
 [[nodiscard]] Qt::CaseSensitivity archivePathCaseSensitivity()
 {
 #ifdef Q_OS_WIN
@@ -98,11 +96,31 @@ namespace
     return total;
 }
 
+/// The folder's files together: their sizes and how many there are.
+struct DirectoryUse
+{
+    qint64 bytes = 0;
+    int files = 0;
+};
+
+[[nodiscard]] DirectoryUse directoryUse(const QString& path)
+{
+    DirectoryUse use;
+    QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext())
+    {
+        it.next();
+        use.bytes = saturatingAddBytes(use.bytes, (std::max)(static_cast<qint64>(0), it.fileInfo().size()));
+        ++use.files;
+    }
+    return use;
+}
+
 [[nodiscard]] qint64 pendingMandatoryMetadataBytes(const WorkflowManifest& manifest,
                                                    const WorkflowExecutor::Result& result)
 {
-    // Account for unbounded runtime strings and quality data explicitly. Render a conservative
-    // metadata-only report before payload admission so HTML expansion cannot trigger copy-then-delete.
+    // Account for unbounded runtime strings and quality data explicitly, before payload admission, so that what is
+    // written afterwards cannot trigger copy-then-delete.
     constexpr qint64 kReportAndManifestEnvelope = 32 * 1024;
     constexpr qint64 kPerGroupEnvelope = 8 * 1024;
     constexpr qint64 kPerStageEnvelope = 2 * 1024;
@@ -139,9 +157,28 @@ namespace
         {
             groupMetadata[QStringLiteral("qualityReport")] = stackingQualityReportToJson(group.qualityReport);
         }
+        if (!group.droppedLights.empty())
+        {
+            groupMetadata[QStringLiteral("droppedLights")] = droppedLightsToJson(group.droppedLights);
+        }
         groups.append(groupMetadata);
     }
     variableMetadata[QStringLiteral("groups")] = groups;
+    if (!result.reusedIntegrationGroups.empty())
+    {
+        variableMetadata[QStringLiteral("reusedIntegrationGroups")] =
+            reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
+    }
+    if (!result.failedIntegrationGroups.empty())
+    {
+        variableMetadata[QStringLiteral("failedIntegrationGroups")] =
+            failedIntegrationGroupsToJson(result.failedIntegrationGroups);
+    }
+    if (!result.registrationFailures.empty())
+    {
+        variableMetadata[QStringLiteral("registrationFailures")] =
+            registrationFailuresToJson(result.registrationFailures);
+    }
 
     QJsonArray stages;
     for (const auto& stage : result.stageResults)
@@ -155,43 +192,96 @@ namespace
 
     const QByteArray serializedManifest = QJsonDocument(manifest.toJson()).toJson(QJsonDocument::Indented);
     const QByteArray serializedVariableMetadata = QJsonDocument(variableMetadata).toJson(QJsonDocument::Indented);
-    const QByteArray metadataMarkdown = QByteArrayLiteral("```json\n") + serializedManifest +
-                                        QByteArrayLiteral("\n```") + QByteArrayLiteral("\n```json\n") +
-                                        serializedVariableMetadata + QByteArrayLiteral("\n```\n");
 
-    qint64 total = result.capturedLog.toUtf8().size();
-    total = saturatingAddBytes(total, serializedManifest.size());
-    total = saturatingAddBytes(total, serializedVariableMetadata.size());
-    if (shouldGenerateWorkflowReport(manifest, result))
+    // What the run itself states, in the files that state it: the manifest and the log once each.
+    qint64 stated = result.capturedLog.toUtf8().size();
+    stated = saturatingAddBytes(stated, serializedManifest.size());
+    stated = saturatingAddBytes(stated, serializedVariableMetadata.size());
+    qint64 total = stated;
+    if (ImageIntegration::runHasWorkflowReport(manifest, result))
     {
-        total = saturatingAddBytes(total, metadataMarkdown.size());
-        QTemporaryFile renderedMetadataHtml(
-            QDir(QDir::tempPath()).filePath(QStringLiteral("afternight-retention-metadata-XXXXXX.html")));
-        if (renderedMetadataHtml.open())
+        // The report's model and its document each state the run's words once more - its log, its messages, its
+        // files and its settings - and beyond them grow with the lights and the masters.
+        total = saturatingAddBytes(total, saturatingAddBytes(stated, stated));
+        qint64 lights = static_cast<qint64>(manifest.leftOutLights.size());
+        for (const auto& group : manifest.integrationGroups)
         {
-            const QString htmlPath = renderedMetadataHtml.fileName();
-            renderedMetadataHtml.close();
-            QString htmlError;
-            if (ImageIntegration::Reporting::writeStyledHtmlFromMarkdown(QString::fromUtf8(metadataMarkdown), htmlPath,
-                                                                         workflowReportHtmlTitle(manifest), &htmlError))
-            {
-                total = saturatingAddBytes(total, (std::max)(static_cast<qint64>(0), QFileInfo(htmlPath).size()));
-            }
-            else
-            {
-                total =
-                    saturatingAddBytes(total, saturatingAddBytes(metadataMarkdown.size(), kReportAndManifestEnvelope));
-            }
+            lights += static_cast<qint64>(group.lightFiles.size());
         }
-        else
-        {
-            total = saturatingAddBytes(total, saturatingAddBytes(metadataMarkdown.size(), kReportAndManifestEnvelope));
-        }
+        const qint64 masters = static_cast<qint64>(
+            (std::max)(manifest.integrationGroups.size(),
+                       result.integrationGroupResults.size() + result.reusedIntegrationGroups.size()));
+        total = saturatingAddBytes(total, ImageIntegration::Config::kReportArchiveBaseBytes);
+        total = saturatingAddBytes(total, lights * ImageIntegration::Config::kReportArchiveBytesPerLight);
+        total = saturatingAddBytes(total, masters * ImageIntegration::Config::kReportArchiveBytesPerMaster);
     }
     total = saturatingAddBytes(total, kReportAndManifestEnvelope);
     total = saturatingAddBytes(total, static_cast<qint64>(result.integrationGroupResults.size()) * kPerGroupEnvelope);
     total = saturatingAddBytes(total, static_cast<qint64>(result.stageResults.size()) * kPerStageEnvelope);
     return total;
+}
+
+/// Pictures the earlier master of each master the run made under this run's display stretch, where the archive of
+/// the run that made it still holds a copy of that master, and names the pictures on the master's baseline.
+///
+/// A comparison shows each run's own archived preview, each under its own stretch, so a difference in brightness
+/// may be the stretch's. With the earlier master at hand it is pictured again through the stretch of this run's
+/// master, and the difference left is the masters'. The pictures are files of this run's folder, so they stay
+/// when the history drops the earlier run.
+///
+/// The stretch is the one this run's own picture of the master was presented through, so the earlier master is
+/// pictured the way that picture was made: as the stacking stage pictures the master it holds, for a master whose
+/// pictures the stage prepared, and as the archive pictures a master's file, for one it pictured itself.
+///
+/// @param session the session the masters are read in.
+/// @param model the run's report model, whose baselines say which earlier run made each master.
+/// @param runDirectory the run's folder under `history/`.
+/// @param preparedByTheStage the keys of the groups whose own pictures the stacking stage prepared.
+/// @param ownStretches by group key, the stretch the run's own picture of the master was presented through, where
+///        whoever made that picture kept it. A master with one is not read from disk again to measure it.
+void pictureEarlierMastersUnderThisStretch(
+    const an::consumer::EngineSession& session, ImageIntegration::Reporting::ReportModel& model,
+    const QString& runDirectory, const QSet<QString>& preparedByTheStage,
+    const QHash<QString, std::shared_ptr<const an::DisplayPresentationAnalysis>>& ownStretches)
+{
+    using namespace ImageIntegration::Reporting;
+    const QDir run(runDirectory);
+    const QDir history = QFileInfo(QDir::cleanPath(runDirectory)).dir();
+    for (ReportMaster& master : model.masters)
+    {
+        if (!master.baseline.has_value() || !master.baseline->made || master.baseline->sideBySide ||
+            master.previewFolder.trimmed().isEmpty() || !QFileInfo(master.file).isFile())
+        {
+            continue;
+        }
+        ReportBaseline& baseline = *master.baseline;
+        // The copy the earlier run's archive keeps of the master: the master's own file name, in that run's folder
+        // of the group. A history with no room for payloads keeps none.
+        const QString earlier =
+            QDir(history.filePath(baseline.runId))
+                .filePath(QStringLiteral("groups/%1/%2").arg(master.previewFolder, QFileInfo(master.file).fileName()));
+        if (!QFileInfo(earlier).isFile())
+        {
+            continue;
+        }
+        const QString folder = QStringLiteral("report_previews/%1").arg(master.previewFolder);
+        const ImageIntegration::ReportMasterPreviews written =
+            ImageIntegration::generateReportMasterPreviewsUnderStretchOf(
+                session, master.file, earlier, run.filePath(folder),
+                QString::fromLatin1(kPreviousMasterMatchedPictureName),
+                QString::fromLatin1(kPreviousDetailMatchedPictureName), std::nullopt, 90,
+                preparedByTheStage.contains(master.key) ? ImageIntegration::ReportPicturePresentation::AsStacked
+                                                        : ImageIntegration::ReportPicturePresentation::Bounded,
+                ownStretches.value(master.key).get());
+        if (written.whole.has_value())
+        {
+            baseline.matchedPreview = folder + QLatin1Char('/') + *written.whole;
+        }
+        if (written.detail.has_value())
+        {
+            baseline.matchedDetail = folder + QLatin1Char('/') + *written.detail;
+        }
+    }
 }
 
 [[nodiscard]] std::vector<QFileInfo> sortedHistoryRunDirectories(const QDir& historyDir,
@@ -210,11 +300,10 @@ namespace
         runDirs.push_back(entry);
     }
 
-    std::sort(runDirs.begin(), runDirs.end(), [](const QFileInfo& left, const QFileInfo& right) {
-        const qint64 leftTime = left.lastModified().toMSecsSinceEpoch();
-        const qint64 rightTime = right.lastModified().toMSecsSinceEpoch();
-        return leftTime == rightTime ? left.fileName() < right.fileName() : leftTime < rightTime;
-    });
+    // By name, which is when each run started. A folder's modification time is no order of the runs: writing a
+    // run's report again replaces a file in its folder, and would make the oldest run the newest.
+    std::sort(runDirs.begin(), runDirs.end(),
+              [](const QFileInfo& left, const QFileInfo& right) { return left.fileName() < right.fileName(); });
     return runDirs;
 }
 
@@ -266,6 +355,18 @@ struct ArchiveRetentionPreflight
 }
 
 constexpr QSize kMaximumReportPreviewSize{2048, 2048};
+
+/// The bound of a calibration master's picture: a report shows it small, and a frame of noise at a master's bound is
+/// a megabyte of JPEG in every run's archive.
+constexpr QSize kMaximumCalibrationPreviewSize{1024, 1024};
+
+/// The JPEG quality of a report's pictures: the one `generateReportPreviewJpeg` writes at when none is stated.
+constexpr int kReportPreviewJpegQuality = 90;
+
+/// The most earlier runs of a history that are opened for their pictures of the calibration masters. A master
+/// pictured before is stated by the latest run's report, and a stored report weighs megabytes for a run of
+/// thousands of lights.
+constexpr int kEarlierRunsOpenedForCalibrationPictures = 3;
 
 [[nodiscard]] bool isValidPreparedReportPreview(const QByteArray& jpegBytes, const QSize& declaredSize)
 {
@@ -431,29 +532,43 @@ snapshotSqliteDatabase(const QString& source_path, const QString& destination_pa
     return object;
 }
 
-[[nodiscard]] QString workflowReportHtmlTitle(const WorkflowManifest& manifest)
+/// The most the pictures of earlier runs a report copies beside its masters' own can weigh: for each master the run
+/// made, the largest pair of pictures an earlier run of the folder keeps of it. A report copies the pair of the run
+/// each master is compared with, after the payloads are admitted.
+[[nodiscard]] qint64 earlierPicturesBound(const std::vector<QFileInfo>& earlierRuns,
+                                          const std::vector<QString>& groupFolders)
 {
-    const QString processLabel = manifest.processLabel.trimmed();
-    return processLabel.isEmpty() ? QStringLiteral("AfterNight Workflow Report")
-                                  : QStringLiteral("AfterNight %1 Report").arg(processLabel);
+    qint64 total = 0;
+    for (const QString& folder : groupFolders)
+    {
+        qint64 largest = 0;
+        for (const QFileInfo& run : earlierRuns)
+        {
+            const QDir pictures(
+                QDir(run.absoluteFilePath()).filePath(QStringLiteral("report_previews/%1").arg(folder)));
+            qint64 pair = 0;
+            for (const QString& name : {QStringLiteral("master.jpg"), QStringLiteral("detail.jpg")})
+            {
+                const QFileInfo picture(pictures.filePath(name));
+                if (picture.isFile())
+                {
+                    pair = saturatingAddBytes(pair, picture.size());
+                }
+            }
+            largest = (std::max)(largest, pair);
+        }
+        total = saturatingAddBytes(total, largest);
+    }
+    return total;
 }
 
-[[nodiscard]] bool shouldGenerateWorkflowReport(const WorkflowManifest& manifest,
-                                                const WorkflowExecutor::Result& result)
+/// What an archive states of when, where and by which version it was written, from the host.
+[[nodiscard]] WorkflowArchiver::ArchiveStamp hostArchiveStamp()
 {
-    const QString scope = manifest.executionScope.trimmed().toLower();
-    if (manifest.executionMode == ExecutionMode::RegistrationOnly || scope == QStringLiteral("registration_all") ||
-        scope == QStringLiteral("registration_group"))
-    {
-        return false;
-    }
-
-    if (scope.isEmpty() || scope == QStringLiteral("full") || scope == QStringLiteral("integration_group"))
-    {
-        return true;
-    }
-
-    return !manifest.integrationGroups.empty() || !result.integrationGroupResults.empty();
+    return WorkflowArchiver::ArchiveStamp{.archivedAt = QDateTime::currentDateTime(),
+                                          .timeZoneId = QString::fromUtf8(QTimeZone::systemTimeZoneId()),
+                                          .applicationVersion =
+                                              qApp != nullptr ? qApp->applicationVersion() : QString()};
 }
 
 /// The file a staged copy was staged from: the staged path less its ".tmp_archive_<uuid>" suffix, or an empty string
@@ -572,8 +687,197 @@ std::vector<QualityMapResult> detectQualityMapsForOutput(const QString& outputPa
     return RejectionClusterMapKind::Merged;
 }
 
+/// The integration group results of an earlier run's archive and the folders it keeps their pictures in.
+struct EarlierRunPictures
+{
+    QString runPath;
+    QJsonArray groupResults;
+    std::vector<QString> groupKeys;
+    std::vector<QString> folders;
+};
+
+/// Reads what an earlier run's archive states of its groups; nothing for an archive whose manifest does not read.
+[[nodiscard]] std::optional<EarlierRunPictures> readEarlierRunPictures(const QString& runPath)
+{
+    QFile file(QDir(runPath).filePath(QStringLiteral("workflow_manifest.json")));
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return std::nullopt;
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    if (!document.isObject())
+    {
+        return std::nullopt;
+    }
+    const QJsonObject root = document.object();
+    EarlierRunPictures run;
+    run.runPath = runPath;
+    run.groupResults = root.value(QStringLiteral("integrationGroupResults")).toArray();
+    // The folders are named over the archive's results and then its reused groups, as it named them.
+    for (const auto& value : run.groupResults)
+    {
+        run.groupKeys.push_back(value.toObject().value(QStringLiteral("groupKey")).toString());
+    }
+    std::vector<QString> reusedKeys;
+    for (const ReusedIntegrationGroup& reused :
+         reusedIntegrationGroupsFromJson(root.value(QStringLiteral("reusedIntegrationGroups")).toArray()))
+    {
+        reusedKeys.push_back(reused.groupKey);
+    }
+    run.folders =
+        ImageIntegration::archiveGroupFolderNames(ImageIntegration::archivedGroupKeys(run.groupKeys, reusedKeys));
+    return run;
+}
+
+/// Copies a reused master's pictures from the archive of the run that made it: the latest earlier run of the history
+/// whose result for the group succeeded. The master on disk must still be the size that run recorded, and that run
+/// must keep the whole-frame picture; the detail is copied when it keeps one.
+///
+/// @param earlierRuns the history's earlier runs, latest first; an entry is read the first time it is asked for.
+/// @return whether the whole-frame picture was copied.
+[[nodiscard]] bool
+copyPicturesOfTheRunThatMade(std::vector<std::pair<QString, std::optional<EarlierRunPictures>>>& earlierRuns,
+                             const ReusedIntegrationGroup& reused, const QString& destinationDir)
+{
+    for (auto& [runPath, pictures] : earlierRuns)
+    {
+        if (runPath.isEmpty())
+        {
+            continue;
+        }
+        if (!pictures.has_value())
+        {
+            pictures = readEarlierRunPictures(runPath);
+            if (!pictures.has_value())
+            {
+                // An archive that does not read is not asked again.
+                runPath.clear();
+                continue;
+            }
+        }
+        for (std::size_t index = 0; index < pictures->groupKeys.size(); ++index)
+        {
+            if (pictures->groupKeys[index] != reused.groupKey)
+            {
+                continue;
+            }
+            const QJsonObject made = pictures->groupResults.at(static_cast<qsizetype>(index)).toObject();
+            if (made.value(QStringLiteral("result")).toString() != QStringLiteral("success"))
+            {
+                continue;
+            }
+            // The latest run that made the master is the one to copy from, or none is.
+            const qint64 recordedBytes = made.value(QStringLiteral("outputBytes")).toVariant().toLongLong();
+            const QFileInfo master(reused.outputPath);
+            const QDir source(
+                QDir(pictures->runPath).filePath(QStringLiteral("report_previews/%1").arg(pictures->folders[index])));
+            const QString whole = source.filePath(QStringLiteral("master.jpg"));
+            if (!master.exists() || master.size() != recordedBytes || !QFile::exists(whole))
+            {
+                return false;
+            }
+            if (!QDir().mkpath(destinationDir) ||
+                !QFile::copy(whole, QDir(destinationDir).filePath(QStringLiteral("master.jpg"))))
+            {
+                return false;
+            }
+            const QString detail = source.filePath(QStringLiteral("detail.jpg"));
+            if (QFile::exists(detail))
+            {
+                (void)QFile::copy(detail, QDir(destinationDir).filePath(QStringLiteral("detail.jpg")));
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+/// The calibration masters the stored report of an earlier run states, with that run's folder: what tells which of
+/// the run's pictures is of a master a later run has too.
+struct EarlierCalibrationPictures
+{
+    QString runPath;
+    std::vector<ImageIntegration::Reporting::ReportCalibrationMaster> masters;
+};
+
+/// Reads the calibration masters of the latest earlier run whose stored report reads. No more than the latest
+/// `kEarlierRunsOpenedForCalibrationPictures` runs are opened, and none after the first whose report reads.
+///
+/// @param earlierRuns the history's earlier runs, oldest first.
+/// @return that run's folder and its masters; nothing when no run that was opened keeps a report that reads.
+[[nodiscard]] std::optional<EarlierCalibrationPictures>
+latestEarlierCalibrationPictures(const std::vector<QFileInfo>& earlierRuns)
+{
+    int opened = 0;
+    for (auto run = earlierRuns.rbegin();
+         run != earlierRuns.rend() && opened < kEarlierRunsOpenedForCalibrationPictures; ++run, ++opened)
+    {
+        ImageIntegration::Reporting::ReportArchiveRead read =
+            ImageIntegration::Reporting::ReportArchiveReader::read(run->absoluteFilePath());
+        if (read.model.has_value())
+        {
+            return EarlierCalibrationPictures{.runPath = run->absoluteFilePath(),
+                                              .masters = std::move(read.model->calibrationMasters)};
+        }
+    }
+    return std::nullopt;
+}
+
+/// Copies the picture an earlier run keeps of a calibration master, when the master on disk is the very file that
+/// run pictured: the same path, the same size and the same modification time, to the millisecond a stored report
+/// keeps. That is what a report takes an earlier run's figures of a calibration master by, so the picture and the
+/// figures are taken of the same file. A master the user supplied, or one still valid and reused, is then not read
+/// in full again for a picture the history already holds.
+///
+/// @param earlier the earlier run and the calibration masters its stored report states.
+/// @param masterPath the master's file.
+/// @param destination the picture's file in this run's folder.
+/// @return whether the picture was copied.
+[[nodiscard]] bool copyCalibrationPictureOfEarlierRun(const EarlierCalibrationPictures& earlier,
+                                                      const QString& masterPath, const QString& destination)
+{
+    const QFileInfo master(masterPath);
+    const QDateTime modified = master.lastModified();
+    if (!master.isFile() || !modified.isValid())
+    {
+        return false;
+    }
+    const QString masterFile = QDir::cleanPath(master.absoluteFilePath());
+    const QDir run(earlier.runPath);
+    for (const ImageIntegration::Reporting::ReportCalibrationMaster& pictured : earlier.masters)
+    {
+        if (pictured.preview.trimmed().isEmpty() || pictured.file.trimmed().isEmpty() || !pictured.bytes.has_value() ||
+            *pictured.bytes != master.size() || !pictured.modifiedAt.has_value() ||
+            pictured.modifiedAt->toMSecsSinceEpoch() != modified.toMSecsSinceEpoch())
+        {
+            continue;
+        }
+        // A path the report states relative to its run's folder is resolved there, as the report resolves it.
+        const QString picturedFile = QDir::cleanPath(QFileInfo(run, pictured.file).absoluteFilePath());
+        if (picturedFile.compare(masterFile, archivePathCaseSensitivity()) != 0)
+        {
+            continue;
+        }
+        const QString picture = run.filePath(pictured.preview);
+        if (!isPathContainedBy(earlier.runPath, picture) || !QFileInfo(picture).isFile())
+        {
+            continue;
+        }
+        return QDir().mkpath(QFileInfo(destination).absolutePath()) && QFile::copy(picture, destination);
+    }
+    return false;
+}
+
+/// Outlines a rejection map's clusters on the picture the report shows of the map, each with its size beside it.
+///
+/// @param previewPath the map's picture, which is written again with the outlines on it.
+/// @param qualityReport the stack's quality report, whose clusters are stated in the map's own pixels.
+/// @param mapKind the map the picture is of; the clusters of the other maps are left out.
+/// @param mapSize the map's size in its own pixels. A map larger than a picture's bound is pictured shrunk, so a
+///        cluster is outlined at the picture's scale of the map; an empty size, or the picture's own, outlines the
+///        clusters at the coordinates they state.
 void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRecord& qualityReport,
-                                const RejectionClusterMapKind mapKind)
+                                const RejectionClusterMapKind mapKind, const QSize& mapSize)
 {
     if (!qualityReport.hasSpatialRejectionClusters || qualityReport.spatialClusters.empty())
     {
@@ -584,6 +888,12 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     if (preview.isNull())
     {
         return;
+    }
+    // A map of one channel is pictured in grey, and a colour painted onto a grey picture is a grey: the picture is
+    // made a colour one first, so the outlines keep the colours that tell a low map's from a high one's.
+    if (preview.format() != QImage::Format_RGB888)
+    {
+        preview = preview.convertToFormat(QImage::Format_RGB888);
     }
 
     // Intentionally fixed colours, NOT theme tokens. These are painted into a PNG that is baked into
@@ -608,6 +918,13 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
     pen.setWidth(2);
     painter.setPen(pen);
 
+    // A cluster's coordinates are the map's, and the picture is the map at the picture's size: a coordinate is drawn
+    // at its share of the picture's side. A picture of the map's own size keeps every coordinate as it is stated.
+    const QSize stated = mapSize.isEmpty() ? preview.size() : mapSize;
+    const auto inPicture = [](const int coordinate, const int pictureSide, const int mapSide) {
+        return static_cast<int>(static_cast<qint64>(coordinate) * pictureSide / mapSide);
+    };
+
     int labels_drawn = 0;
     for (const auto& cluster : qualityReport.spatialClusters)
     {
@@ -616,13 +933,16 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
             continue;
         }
 
-        const QRect rect(QPoint(cluster.minX, cluster.minY), QPoint(cluster.maxX, cluster.maxY));
+        const QRect rect(QPoint(inPicture(cluster.minX, preview.width(), stated.width()),
+                                inPicture(cluster.minY, preview.height(), stated.height())),
+                         QPoint(inPicture(cluster.maxX, preview.width(), stated.width()),
+                                inPicture(cluster.maxY, preview.height(), stated.height())));
         painter.drawRect(rect);
 
         if (labels_drawn < 6)
         {
             const QString label = QStringLiteral("%1 px").arg(static_cast<qulonglong>(cluster.pixelCount));
-            const QRect textRect(cluster.minX, (std::max)(0, cluster.minY - 16), 72, 14);
+            const QRect textRect(rect.left(), (std::max)(0, rect.top() - 16), 72, 14);
             painter.fillRect(textRect.adjusted(-1, -1, 1, 1), QColor(0, 0, 0, 160));
             painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, label);
             ++labels_drawn;
@@ -631,7 +951,185 @@ void applySpatialClusterOverlay(const QString& previewPath, const StackQualityRe
 
     preview.save(previewPath);
 }
+
+/// The form of a run's id, which names its folder under `history/`: the date, the time and the milliseconds, so
+/// that the names sort as the stamps do.
+[[nodiscard]] QString executionStampFormat()
+{
+    return QStringLiteral("yyyyMMdd_HHmmss_zzz");
+}
+
+/// The date and the time a run folder's name states, on a calendar with no zone - an hour a zone skips or repeats
+/// is there a time like any other - or nothing for a name that is no such stamp.
+[[nodiscard]] std::optional<QDateTime> executionStampOf(const QString& name)
+{
+    constexpr qsizetype kDateLength = 8;
+    const QDate date = QDate::fromString(name.left(kDateLength), QStringLiteral("yyyyMMdd"));
+    const QTime time = QTime::fromString(name.mid(kDateLength + 1), QStringLiteral("HHmmss_zzz"));
+    if (!date.isValid() || !time.isValid())
+    {
+        return std::nullopt;
+    }
+    const QDateTime stamp(date, time, QTimeZone::UTC);
+    // The name is the stamp and nothing else: a folder that only begins or reads like one is another folder.
+    if (stamp.toString(executionStampFormat()) != name)
+    {
+        return std::nullopt;
+    }
+    return stamp;
+}
 } // namespace
+
+namespace ImageIntegration
+{
+bool runHasWorkflowReport(const WorkflowManifest& manifest, const WorkflowExecutor::Result& result)
+{
+    const QString scope = manifest.executionScope.trimmed().toLower();
+    if (manifest.executionMode == ExecutionMode::RegistrationOnly || scope == QStringLiteral("registration_all") ||
+        scope == QStringLiteral("registration_group"))
+    {
+        return false;
+    }
+
+    if (scope.isEmpty() || scope == QStringLiteral("full") || scope == QStringLiteral("integration_group"))
+    {
+        return true;
+    }
+
+    return !manifest.integrationGroups.empty() || !result.integrationGroupResults.empty();
+}
+
+QString executionIdAfterHistory(const QString& outputDirectory, const QDateTime& now)
+{
+    // The clock's date and time as they read, on a calendar with no zone: a millisecond is added to a stamp there
+    // without meeting an hour a zone skips or repeats.
+    QDateTime stamp(now.date(), now.time(), QTimeZone::UTC);
+    if (!outputDirectory.trimmed().isEmpty())
+    {
+        const QDir history(QDir(outputDirectory).filePath(QStringLiteral("history")));
+        const QStringList names = history.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& name : names)
+        {
+            // Each folder at or after the stamp moves it past that folder, so it ends past the latest of them.
+            const std::optional<QDateTime> archived = executionStampOf(name);
+            if (archived.has_value() && *archived >= stamp)
+            {
+                stamp = archived->addMSecs(1);
+            }
+        }
+    }
+    return stamp.toString(executionStampFormat());
+}
+
+qint64 estimatedArchiveMetadataBytes(const WorkflowManifest& manifest, const WorkflowExecutor::Result& result)
+{
+    return pendingMandatoryMetadataBytes(manifest, result);
+}
+
+std::vector<QString> archivedGroupKeys(const std::vector<QString>& resultKeys, const std::vector<QString>& reusedKeys)
+{
+    std::vector<QString> keys = resultKeys;
+    keys.reserve(resultKeys.size() + reusedKeys.size());
+    for (const QString& reused : reusedKeys)
+    {
+        if (std::find(keys.begin(), keys.end(), reused) == keys.end())
+        {
+            keys.push_back(reused);
+        }
+    }
+    return keys;
+}
+
+std::vector<QString> archiveGroupFolderNames(const std::vector<QString>& groupKeys)
+{
+    QHash<QString, int> baseCounts;
+    for (const QString& key : groupKeys)
+    {
+        ++baseCounts[sanitizeFilename(key)];
+    }
+    std::vector<QString> folders;
+    folders.reserve(groupKeys.size());
+    QSet<QString> used;
+    for (const QString& key : groupKeys)
+    {
+        const QString base = sanitizeFilename(key);
+        QString folder = base;
+        if (baseCounts.value(base, 0) > 1)
+        {
+            const QString hash = stableShortHash(key, 8);
+            folder = QStringLiteral("%1_%2").arg(base, hash);
+            for (int index = 2; used.contains(folder); ++index)
+            {
+                folder = QStringLiteral("%1_%2_%3").arg(base, hash).arg(index);
+            }
+            LOG_WARNING("WorkflowArchiver: group directory collision detected for '{}'; using '{}'", key.toStdString(),
+                        folder.toStdString());
+        }
+        used.insert(folder);
+        folders.push_back(folder);
+    }
+    return folders;
+}
+
+std::vector<ArchivedCalibrationPreview> archivedCalibrationPreviews(const WorkflowManifest& manifest)
+{
+    std::vector<ArchivedCalibrationPreview> previews;
+    const auto collect = [&](const std::optional<WorkflowManifest::CalibrationStage>& stage, const QString& type) {
+        if (!stage.has_value())
+        {
+            return;
+        }
+        for (const auto& group : stage->groups)
+        {
+            ArchivedCalibrationPreview preview;
+            preview.type = type;
+            preview.groupKey = group.groupKey.toString();
+            if (group.existingMaster.has_value())
+            {
+                preview.masterPath = group.existingMaster->canonicalPath();
+            }
+            else if (!group.outputFilename.trimmed().isEmpty() && !manifest.outputDirectory.trimmed().isEmpty())
+            {
+                preview.masterPath =
+                    QFileInfo(QDir(manifest.outputDirectory).filePath(group.outputFilename)).absoluteFilePath();
+            }
+            previews.push_back(std::move(preview));
+        }
+    };
+    collect(manifest.biasStage, QStringLiteral("Bias"));
+    collect(manifest.darkStage, QStringLiteral("Dark"));
+    collect(manifest.flatStage, QStringLiteral("Flat"));
+
+    const auto baseOf = [](const ArchivedCalibrationPreview& preview) {
+        const QString base = sanitizeFilename(QFileInfo(preview.masterPath).completeBaseName());
+        return base.isEmpty() ? sanitizeFilename(preview.type.toLower()) : base;
+    };
+    QHash<QString, int> baseCounts;
+    for (const ArchivedCalibrationPreview& preview : previews)
+    {
+        ++baseCounts[baseOf(preview).toLower()];
+    }
+    QSet<QString> used;
+    for (ArchivedCalibrationPreview& preview : previews)
+    {
+        const QString base = baseOf(preview);
+        QString name = base;
+        if (baseCounts.value(base.toLower(), 0) > 1)
+        {
+            const QString hash =
+                stableShortHash(QStringLiteral("%1|%2").arg(preview.type.toLower(), preview.groupKey), 8);
+            name = QStringLiteral("%1_%2").arg(base, hash);
+            for (int index = 2; used.contains(name.toLower()); ++index)
+            {
+                name = QStringLiteral("%1_%2_%3").arg(base, hash).arg(index);
+            }
+        }
+        used.insert(name.toLower());
+        preview.fileName = name + QStringLiteral(".jpg");
+    }
+    return previews;
+}
+} // namespace ImageIntegration
 
 WorkflowArchiver::WorkflowArchiver(const QString& outputDir, WorkflowExecutionCounterAccumulator* counters)
     : m_outputDir(outputDir), m_maxHistoryEntries(ImageIntegration::Config::kRunHistoryMaxEntries),
@@ -674,6 +1172,11 @@ WorkflowArchiver::WorkflowArchiver(const QString& outputDir, const int maxHistor
 void WorkflowArchiver::setEngineSession(const an::consumer::EngineSession* session)
 {
     m_session = session;
+}
+
+void WorkflowArchiver::setArchiveStamp(ArchiveStamp stamp)
+{
+    m_archiveStamp = std::move(stamp);
 }
 
 int WorkflowArchiver::cleanupOrphanedStagedFiles(const QString& outputDir)
@@ -779,10 +1282,9 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
                                                          const CapturePhaseDuration& capturePhaseDuration)
 {
     ArchiveResult archiveResult;
-    m_reportMarkdownPath.clear();
-    m_reportHtmlPath.clear();
-    m_reportMarkdownTemplate.clear();
-    m_reportHtmlTemplate.clear();
+    m_runDirectory.clear();
+    m_reportModel.reset();
+    m_reportStoreMemo.reset();
     m_manifestPath.clear();
     m_logPath.clear();
 
@@ -849,8 +1351,9 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             LOG_WARNING("WorkflowArchiver: Failed to remove incomplete archive {}", runDirPath.toStdString());
         }
         m_manifestPath.clear();
-        m_reportMarkdownPath.clear();
-        m_reportHtmlPath.clear();
+        m_runDirectory.clear();
+        m_reportModel.reset();
+        m_reportStoreMemo.reset();
         m_logPath.clear();
     };
     const WorkflowManifest persistedManifest = manifest.redactedForPersistence();
@@ -865,6 +1368,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     QHash<QString, QJsonArray> archivedQualityMapsByGroup;
     std::vector<QString> groupDirNames;
     groupDirNames.reserve(result.integrationGroupResults.size());
+    // The groups whose own report pictures are the ones the stacking stage prepared of the master it held.
+    QSet<QString> preparedByTheStage;
+    // By group, the stretch the run's own picture of the master was presented through, where its maker kept it.
+    QHash<QString, std::shared_ptr<const an::DisplayPresentationAnalysis>> ownStretches;
 
     auto moveFile = [this](const QString& src, const QString& dst) -> bool {
         if (QFile::exists(dst))
@@ -885,38 +1392,38 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         return false;
     };
 
-    QHash<QString, int> groupDirBaseCounts;
+    // The groups the archive names a folder for: the ones the run has a result for, then the ones it reused, which
+    // have none. A later run reads the folders back over the same list.
+    std::vector<QString> resultKeys;
+    resultKeys.reserve(result.integrationGroupResults.size());
     for (const auto& groupResult : result.integrationGroupResults)
     {
-        const QString baseName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
-        groupDirBaseCounts[baseName] = groupDirBaseCounts.value(baseName, 0) + 1;
+        resultKeys.push_back(groupResult.groupKey);
     }
+    std::vector<QString> reusedKeys;
+    reusedKeys.reserve(result.reusedIntegrationGroups.size());
+    for (const ReusedIntegrationGroup& reused : result.reusedIntegrationGroups)
+    {
+        reusedKeys.push_back(reused.groupKey);
+    }
+    const std::vector<QString> archivedGroupKeys = ImageIntegration::archivedGroupKeys(resultKeys, reusedKeys);
+    // The reused groups that are named, in the order they are: the first the result lists of each key.
+    std::vector<const ReusedIntegrationGroup*> reusedGroups;
+    for (std::size_t index = resultKeys.size(); index < archivedGroupKeys.size(); ++index)
+    {
+        const auto reused = std::find_if(
+            result.reusedIntegrationGroups.begin(), result.reusedIntegrationGroups.end(),
+            [&](const ReusedIntegrationGroup& candidate) { return candidate.groupKey == archivedGroupKeys[index]; });
+        reusedGroups.push_back(&*reused);
+    }
+    const std::vector<QString> archivedGroupFolders = ImageIntegration::archiveGroupFolderNames(archivedGroupKeys);
 
-    QSet<QString> usedGroupDirNames;
     for (int groupIndex = 0; groupIndex < static_cast<int>(result.integrationGroupResults.size()); ++groupIndex)
     {
         auto& groupResult = result.integrationGroupResults[groupIndex];
         auto& reportGroupResult = reportResult.integrationGroupResults[groupIndex];
 
-        const QString baseGroupDirName = ImageIntegration::sanitizeFilename(groupResult.groupKey);
-        QString groupDirName = baseGroupDirName;
-        if (groupDirBaseCounts.value(baseGroupDirName, 0) > 1)
-        {
-            groupDirName = QStringLiteral("%1_%2").arg(baseGroupDirName,
-                                                       ImageIntegration::stableShortHash(groupResult.groupKey, 8));
-            int dedupeIndex = 2;
-            while (usedGroupDirNames.contains(groupDirName))
-            {
-                groupDirName = QStringLiteral("%1_%2_%3")
-                                   .arg(baseGroupDirName, ImageIntegration::stableShortHash(groupResult.groupKey, 8))
-                                   .arg(dedupeIndex);
-                ++dedupeIndex;
-            }
-
-            LOG_WARNING("WorkflowArchiver: group directory collision detected for '{}'; using '{}'",
-                        groupResult.groupKey.toStdString(), groupDirName.toStdString());
-        }
-        usedGroupDirNames.insert(groupDirName);
+        const QString groupDirName = archivedGroupFolders[static_cast<std::size_t>(groupIndex)];
         groupDirNames.push_back(groupDirName);
         const QString groupDirPath = runDir.filePath("groups/" + groupDirName);
         QDir groupDir(groupDirPath);
@@ -962,6 +1469,32 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
                 LOG_WARNING("WorkflowArchiver: Failed to write prepared report preview for group {}",
                             groupResult.groupKey.toStdString());
             }
+            else
+            {
+                preparedByTheStage.insert(groupResult.groupKey);
+                if (groupResult.reportPreviewStretch != nullptr)
+                {
+                    ownStretches.insert(groupResult.groupKey, groupResult.reportPreviewStretch);
+                }
+            }
+            // The detail the run prepared beside it: the master's centre at full scale, stretched as the whole
+            // frame is. One that is not a picture of at most the detail's size is not written.
+            if (isValidPreparedReportPreview(groupResult.reportDetailJpeg, groupResult.reportDetailSize) &&
+                groupResult.reportDetailSize.width() <= ImageIntegration::kReportDetailRegionSize.width() &&
+                groupResult.reportDetailSize.height() <= ImageIntegration::kReportDetailRegionSize.height())
+            {
+                if (!writeAtomicFile(reportPreviewDir.filePath(QStringLiteral("detail.jpg")),
+                                     groupResult.reportDetailJpeg))
+                {
+                    LOG_WARNING("WorkflowArchiver: Failed to write prepared report detail for group {}",
+                                groupResult.groupKey.toStdString());
+                }
+            }
+            else if (!groupResult.reportDetailJpeg.isEmpty())
+            {
+                LOG_WARNING("WorkflowArchiver: Ignoring invalid prepared report detail for group {}",
+                            groupResult.groupKey.toStdString());
+            }
         }
         else if (!groupResult.reportPreviewJpeg.isEmpty())
         {
@@ -973,13 +1506,25 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (m_session != nullptr && !preparedPreviewIsValid && !groupResult.reportPreviewPreparedForCurrentRun &&
             !groupResult.outputPath.trimmed().isEmpty() && QFile::exists(groupResult.outputPath))
         {
-            ImageIntegration::generateReportPreviewJpeg(*m_session, groupResult.outputPath, reportPreviewDirPath,
-                                                        QStringLiteral("master.jpg"), kMaximumReportPreviewSize);
+            // One read of the master gives both of its pictures, and the stretch they were presented through.
+            const ImageIntegration::ReportMasterPreviews own = ImageIntegration::generateReportMasterPreviews(
+                *m_session, groupResult.outputPath, reportPreviewDirPath, QStringLiteral("master.jpg"),
+                QStringLiteral("detail.jpg"), kMaximumReportPreviewSize);
+            if (own.stretch != nullptr)
+            {
+                ownStretches.insert(groupResult.groupKey, own.stretch);
+            }
         }
         groupResult.reportPreviewJpeg.clear();
         groupResult.reportPreviewSize = {};
+        groupResult.reportPreviewStretch.reset();
+        groupResult.reportDetailJpeg.clear();
+        groupResult.reportDetailSize = {};
         reportGroupResult.reportPreviewJpeg.clear();
         reportGroupResult.reportPreviewSize = {};
+        reportGroupResult.reportPreviewStretch.reset();
+        reportGroupResult.reportDetailJpeg.clear();
+        reportGroupResult.reportDetailSize = {};
 
         archivedFilesByGroup.insert(groupResult.groupKey, archivedFilesJson);
 
@@ -1005,14 +1550,17 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             {
                 rejectionJson["sizeBytes"] = mapInfo.size();
 
-                // Report-grade rejection map preview JPEG, bounded like the master preview.
+                // Report-grade rejection map preview JPEG, bounded like the master preview. The clusters are stated
+                // in the map's pixels, so the map's size is taken with its picture for the outlines' places.
                 const QString previewName = QStringLiteral("rejection_map_%1.jpg").arg(rejectionPreviewIndex);
-                if (m_session != nullptr &&
-                    ImageIntegration::generateReportPreviewJpeg(*m_session, rejectionMap.path, reportPreviewDirPath,
-                                                                previewName, kMaximumReportPreviewSize))
+                ImageIntegration::PreviewGenerationDiagnostics pictured;
+                if (m_session != nullptr && ImageIntegration::generateReportPreviewJpeg(
+                                                *m_session, rejectionMap.path, reportPreviewDirPath, previewName,
+                                                kMaximumReportPreviewSize, kReportPreviewJpegQuality, &pictured))
                 {
                     applySpatialClusterOverlay(QDir(reportPreviewDirPath).filePath(previewName),
-                                               groupResult.qualityReport, rejectionMapKindForTitle(rejectionMap.title));
+                                               groupResult.qualityReport, rejectionMapKindForTitle(rejectionMap.title),
+                                               pictured.sourceSize);
                 }
             }
 
@@ -1063,6 +1611,72 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         archivedQualityMapsByGroup.insert(groupResult.groupKey, qualityMapsJson);
     }
 
+    // The pictures a report shows that no result brings: a reused master's, copied from the archive of the run that
+    // made it or made from one read of the file, and each calibration master's. They are written before the run's
+    // size is measured, so the retention decision counts them; a preview is a picture, never a workflow image.
+    const bool hasReport = ImageIntegration::runHasWorkflowReport(persistedManifest, result);
+    if (hasReport)
+    {
+        std::vector<std::pair<QString, std::optional<EarlierRunPictures>>> earlierRuns;
+        if (!reusedGroups.empty())
+        {
+            const std::vector<QFileInfo> runs = sortedHistoryRunDirectories(historyDir, runDirPath);
+            for (auto run = runs.rbegin(); run != runs.rend(); ++run)
+            {
+                earlierRuns.emplace_back(run->absoluteFilePath(), std::nullopt);
+            }
+        }
+        for (std::size_t index = 0; index < reusedGroups.size(); ++index)
+        {
+            const ReusedIntegrationGroup& reused = *reusedGroups[index];
+            const QString folder = archivedGroupFolders[result.integrationGroupResults.size() + index];
+            const QString picturesDir = runDir.filePath(QStringLiteral("report_previews/%1").arg(folder));
+            if (copyPicturesOfTheRunThatMade(earlierRuns, reused, picturesDir))
+            {
+                continue;
+            }
+            if (m_session != nullptr && !reused.outputPath.trimmed().isEmpty() && QFile::exists(reused.outputPath))
+            {
+                (void)ImageIntegration::generateReportMasterPreviews(
+                    *m_session, reused.outputPath, picturesDir, QStringLiteral("master.jpg"),
+                    QStringLiteral("detail.jpg"), kMaximumReportPreviewSize);
+            }
+        }
+
+        if (m_session != nullptr)
+        {
+            const QString calibrationDir = runDir.filePath(QStringLiteral("report_previews/calibration"));
+            // The latest earlier run's pictures of its calibration masters, looked for once, at the first master
+            // whose file is there: a run with no calibration master to picture opens no earlier run.
+            std::optional<EarlierCalibrationPictures> earlierPictures;
+            bool earlierPicturesLookedFor = false;
+            for (const ImageIntegration::ArchivedCalibrationPreview& preview :
+                 ImageIntegration::archivedCalibrationPreviews(persistedManifest))
+            {
+                if (preview.masterPath.isEmpty() || !QFile::exists(preview.masterPath))
+                {
+                    continue;
+                }
+                if (!earlierPicturesLookedFor)
+                {
+                    earlierPicturesLookedFor = true;
+                    earlierPictures =
+                        latestEarlierCalibrationPictures(sortedHistoryRunDirectories(historyDir, runDirPath));
+                }
+                // A master that run pictured, and that is still the same file, takes that picture: a master is
+                // read in full for its picture, and most masters of a run are ones an earlier run had too.
+                if (earlierPictures.has_value() &&
+                    copyCalibrationPictureOfEarlierRun(*earlierPictures, preview.masterPath,
+                                                       QDir(calibrationDir).filePath(preview.fileName)))
+                {
+                    continue;
+                }
+                (void)ImageIntegration::generateReportPreviewJpeg(*m_session, preview.masterPath, calibrationDir,
+                                                                  preview.fileName, kMaximumCalibrationPreviewSize);
+            }
+        }
+    }
+
     qint64 knownCurrentRunBytes = directorySizeBytes(runDirPath);
     QSet<QString> accountedPayloadPaths;
     const auto accountKnownPayload = [&knownCurrentRunBytes, &accountedPayloadPaths](const QString& path) {
@@ -1105,6 +1719,19 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     accountKnownPayload(metricsSnapshotSource + QStringLiteral("-wal"));
     knownCurrentRunBytes =
         saturatingAddBytes(knownCurrentRunBytes, pendingMandatoryMetadataBytes(persistedManifest, reportResult));
+    if (hasReport)
+    {
+        // The pictures of the earlier runs the masters are compared with are copied when the report is stored.
+        const std::vector<QString> madeFolders(archivedGroupFolders.begin(),
+                                               archivedGroupFolders.begin() +
+                                                   static_cast<std::ptrdiff_t>(result.integrationGroupResults.size()));
+        // Twice: the earlier run's own pair is copied, and the earlier master is pictured again under this run's
+        // stretch, which is a pair of the same size.
+        const qint64 earlierPictures =
+            earlierPicturesBound(sortedHistoryRunDirectories(historyDir, runDirPath), madeFolders);
+        knownCurrentRunBytes = saturatingAddBytes(knownCurrentRunBytes, earlierPictures);
+        knownCurrentRunBytes = saturatingAddBytes(knownCurrentRunBytes, earlierPictures);
+    }
     const ArchiveRetentionPreflight retention =
         preflightArchiveRetention(historyDir, runDirPath, knownCurrentRunBytes, m_maxHistoryEntries, m_maxHistoryBytes);
 
@@ -1147,6 +1774,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         if (groupResult.qualityReport.valid)
         {
             groupSummary[QStringLiteral("qualityReport")] = stackingQualityReportToJson(groupResult.qualityReport);
+        }
+        if (!groupResult.droppedLights.empty())
+        {
+            groupSummary[QStringLiteral("droppedLights")] = droppedLightsToJson(groupResult.droppedLights);
         }
 
         const QString groupSummaryPath =
@@ -1270,20 +1901,22 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         write_group_summary(groupIndex);
     }
 
-    const QDateTime archiveNow = QDateTime::currentDateTime();
+    const ArchiveStamp stamp = m_archiveStamp.has_value() ? *m_archiveStamp : hostArchiveStamp();
+    const QDateTime archiveNow = stamp.archivedAt;
+    // The local time is stated without its offset, which the archive states beside it.
+    const QString archivedAtLocal = archiveNow.toString(QStringLiteral("yyyy-MM-ddTHH:mm:ss.zzz"));
 
     QJsonObject reportContext;
     reportContext[QStringLiteral("schemaVersion")] = 3;
     reportContext[QStringLiteral("executionId")] = manifest.executionId;
     reportContext[QStringLiteral("archivedAtUtc")] = archiveNow.toUTC().toString(Qt::ISODateWithMs);
-    reportContext[QStringLiteral("archivedAtLocal")] = archiveNow.toString(Qt::ISODateWithMs);
-    reportContext[QStringLiteral("timeZoneId")] = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+    reportContext[QStringLiteral("archivedAtLocal")] = archivedAtLocal;
+    reportContext[QStringLiteral("timeZoneId")] = stamp.timeZoneId;
     reportContext[QStringLiteral("utcOffsetSeconds")] = archiveNow.offsetFromUtc();
-    if (qApp)
+    if (!stamp.applicationVersion.isEmpty())
     {
-        reportContext[QStringLiteral("appVersion")] = qApp->applicationVersion();
+        reportContext[QStringLiteral("appVersion")] = stamp.applicationVersion;
     }
-    reportContext[QStringLiteral("deferWorkflowTiming")] = result.executorTiming.captured;
 
     // 3. Write workflow_log.txt
     m_logPath = runDir.filePath(QStringLiteral("workflow_log.txt"));
@@ -1317,49 +1950,57 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     }
 
     const auto write_workflow_report = [&]() {
-        if (!shouldGenerateWorkflowReport(persistedManifest, reportResult))
+        if (!hasReport)
         {
             return;
         }
 
         finish_archive_phase();
 
-        ImageIntegration::Reporting::WorkflowReportBuilder reportBuilder(persistedManifest, reportResult, runDirPath,
-                                                                         reportContext, m_counters, m_session);
-        const QString reportContent = reportBuilder.build();
-        const QString reportPath = runDir.filePath(QStringLiteral("workflow_report.md"));
-        if (writeAtomicFile(reportPath, reportContent.toUtf8(), QIODevice::Text))
+        // The model is built once, here, of the run as the archive holds it - each master's thumbnail and maps, and
+        // whether the history keeps a copy of it - with each master's file where the run wrote it, which is where
+        // the person finds it. The metrics are the output folder's, as the run left them.
+        using namespace ImageIntegration::Reporting;
+        WorkflowExecutor::Result stated = reportResult;
+        for (std::size_t index = 0; index < stated.integrationGroupResults.size(); ++index)
         {
-            m_reportMarkdownPath = reportPath;
-            m_reportMarkdownTemplate = reportContent;
-            archiveResult.reportPath = reportPath;
-
-            const QString reportHtmlPath = runDir.filePath("workflow_report.html");
-            m_reportHtmlPath = reportHtmlPath;
-            QString htmlError;
-            if (!ImageIntegration::Reporting::writeStyledHtmlFromMarkdown(
-                    reportContent, reportHtmlPath, workflowReportHtmlTitle(persistedManifest), &htmlError))
-            {
-                LOG_WARNING("WorkflowArchiver: Failed to write workflow_report.html: {}", htmlError.toStdString());
-            }
-            else
-            {
-                QFile htmlFile(reportHtmlPath);
-                if (htmlFile.open(QIODevice::ReadOnly | QIODevice::Text))
-                {
-                    m_reportHtmlTemplate = QString::fromUtf8(htmlFile.readAll());
-                }
-            }
+            stated.integrationGroupResults[index].outputPath = result.integrationGroupResults[index].outputPath;
         }
-        else
+        ProductionReportSources sources(m_session, committedRunMetricsDatabase(persistedManifest), m_counters);
+        const ReportModelInputs inputs{
+            .manifest = persistedManifest,
+            .result = stated,
+            .runDirectory = runDirPath,
+            .context = reportContext,
+            .counters = m_counters != nullptr ? std::optional<WorkflowExecutionCounters>(m_counters->snapshot())
+                                              : std::nullopt};
+        m_runDirectory = runDirPath;
+        // A report that cannot be written does not fail the commit: the run's outputs and its history are what the
+        // commit is for, and the reason is logged. That holds for a report that fails by throwing too - a record
+        // it cannot make sense of, memory it is refused - which would otherwise end the commit before the run's
+        // manifest is written.
+        try
         {
-            LOG_WARNING("WorkflowArchiver: Failed to write workflow_report.md");
+            m_reportModel = std::make_shared<ReportModel>(buildReportModel(inputs, sources.sources()));
+            m_reportStoreMemo = std::make_shared<WorkflowReportStoreMemo>();
+            if (m_session != nullptr)
+            {
+                pictureEarlierMastersUnderThisStretch(*m_session, *m_reportModel, runDirPath, preparedByTheStage,
+                                                      ownStretches);
+            }
+            archiveResult.reportPath = storeKeptReport();
+        }
+        catch (const std::exception& error)
+        {
+            LOG_WARNING("WorkflowArchiver: The workflow report was not written: {}", error.what());
+            m_reportModel.reset();
+            m_reportStoreMemo.reset();
         }
 
         archiveResult.reportMs += capturePhaseDuration();
     };
 
-    // 3b. Write workflow_report.md for integration executions only.
+    // 3b. Write the report for integration executions only.
     write_workflow_report();
 
     // 4. Write workflow_manifest.json (v3)
@@ -1368,13 +2009,13 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     root["executionId"] = manifest.executionId;
 
     root["archivedAtUtc"] = archiveNow.toUTC().toString(Qt::ISODateWithMs);
-    root["archivedAtLocal"] = archiveNow.toString(Qt::ISODateWithMs);
-    root["timeZoneId"] = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+    root["archivedAtLocal"] = archivedAtLocal;
+    root["timeZoneId"] = stamp.timeZoneId;
     root["utcOffsetSeconds"] = archiveNow.offsetFromUtc();
 
-    if (qApp)
+    if (!stamp.applicationVersion.isEmpty() || qApp != nullptr)
     {
-        root["appVersion"] = qApp->applicationVersion();
+        root["appVersion"] = stamp.applicationVersion;
     }
     root["archiveReason"] = hasStagedFiles ? "overwrite" : "run";
 
@@ -1484,12 +2125,28 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
             {
                 g["qualityReport"] = stackingQualityReportToJson(gr.qualityReport);
             }
+            if (!gr.droppedLights.empty())
+            {
+                g["droppedLights"] = droppedLightsToJson(gr.droppedLights);
+            }
 
             groupResultsJson.append(g);
         }
         return groupResultsJson;
     };
     root["integrationGroupResults"] = build_group_results_json();
+    if (!result.reusedIntegrationGroups.empty())
+    {
+        root[QStringLiteral("reusedIntegrationGroups")] = reusedIntegrationGroupsToJson(result.reusedIntegrationGroups);
+    }
+    if (!result.failedIntegrationGroups.empty())
+    {
+        root[QStringLiteral("failedIntegrationGroups")] = failedIntegrationGroupsToJson(result.failedIntegrationGroups);
+    }
+    if (!result.registrationFailures.empty())
+    {
+        root[QStringLiteral("registrationFailures")] = registrationFailuresToJson(result.registrationFailures);
+    }
 
     QJsonArray calibrationResultsJson;
     for (const auto& calibrationResult : result.calibrationGroupResults)
@@ -1500,6 +2157,10 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
         c["masterPath"] = calibrationResult.masterPath;
         c["inputCount"] = calibrationResult.inputCount;
         c["result"] = calibrationResult.success ? "success" : "failed";
+        if (calibrationResult.reused)
+        {
+            c["reused"] = true;
+        }
         calibrationResultsJson.append(c);
     }
     root["calibrationGroupResults"] = calibrationResultsJson;
@@ -1602,26 +2263,51 @@ WorkflowArchiver::ArchiveResult WorkflowArchiver::commit(const WorkflowManifest&
     return archiveResult;
 }
 
-void WorkflowArchiver::finalizeTimingArtifacts(const WorkflowExecutor::Result& result) const
+QString WorkflowArchiver::storeKeptReport()
 {
-    if (!m_reportMarkdownPath.isEmpty() && !m_reportMarkdownTemplate.isEmpty())
+    if (!m_reportModel || m_runDirectory.isEmpty())
     {
-        const QString markdown = ImageIntegration::Reporting::WorkflowReportBuilder::finalizeTimingPlaceholders(
-            m_reportMarkdownTemplate, result);
-        if (!writeAtomicFile(m_reportMarkdownPath, markdown.toUtf8(), QIODevice::Text))
-        {
-            LOG_WARNING("WorkflowArchiver: Failed to finalize timing in workflow_report.md");
-        }
+        return {};
     }
-
-    if (!m_reportHtmlPath.isEmpty() && !m_reportHtmlTemplate.isEmpty())
+    ImageIntegration::Reporting::WorkflowReportStored stored;
+    try
     {
-        const QString html = ImageIntegration::Reporting::WorkflowReportBuilder::finalizeTimingPlaceholders(
-            m_reportHtmlTemplate, result);
-        if (!writeAtomicFile(m_reportHtmlPath, html.toUtf8(), QIODevice::Text))
-        {
-            LOG_WARNING("WorkflowArchiver: Failed to finalize timing in workflow_report.html");
-        }
+        stored =
+            ImageIntegration::Reporting::storeWorkflowReport(*m_reportModel, m_runDirectory, m_reportStoreMemo.get());
+    }
+    catch (const std::exception& error)
+    {
+        // Storing a report again is no reason to end what calls it: the report that is there stays.
+        LOG_WARNING("WorkflowArchiver: The workflow report was not stored: {}", error.what());
+        return {};
+    }
+    for (const QString& picture : stored.picturesNotCopied)
+    {
+        LOG_WARNING("WorkflowArchiver: An earlier run's picture was not copied into the report: {}",
+                    picture.toStdString());
+    }
+    for (const QString& fault : stored.faults)
+    {
+        LOG_WARNING("WorkflowArchiver: The report's document left something out: {}", fault.toStdString());
+    }
+    if (!stored.isStored())
+    {
+        LOG_WARNING("WorkflowArchiver: Failed to write the workflow report: {}", stored.error.toStdString());
+        return {};
+    }
+    return stored.reportPath;
+}
+
+void WorkflowArchiver::finalizeTimingArtifacts(const WorkflowExecutor::Result& result)
+{
+    if (m_reportModel)
+    {
+        // What the run knows only now: its own phases and total, which include the archive and the report, its
+        // diagnostics at the end, the engine's memory, and what its folder in the history holds.
+        ImageIntegration::Reporting::restateRunCompletion(*m_reportModel, result);
+        const DirectoryUse archive = directoryUse(m_runDirectory);
+        ImageIntegration::Reporting::restateRunArchive(*m_reportModel, archive.bytes, archive.files);
+        (void)storeKeptReport();
     }
 
     if (m_manifestPath.isEmpty())
@@ -1671,7 +2357,7 @@ void WorkflowArchiver::finalizeTimingArtifacts(const WorkflowExecutor::Result& r
     }
 }
 
-void WorkflowArchiver::finalizeLogArtifact(const WorkflowExecutor::Result& result) const
+void WorkflowArchiver::finalizeLogArtifact(const WorkflowExecutor::Result& result)
 {
     if (m_logPath.isEmpty() || result.capturedLog.isEmpty())
     {
@@ -1681,6 +2367,13 @@ void WorkflowArchiver::finalizeLogArtifact(const WorkflowExecutor::Result& resul
     if (!writeAtomicFile(m_logPath, result.capturedLog.toUtf8(), QIODevice::Text))
     {
         LOG_WARNING("WorkflowArchiver: Failed to finalize workflow_log.txt");
+    }
+
+    // The report prints the log it was last given: the whole one, now that there is one.
+    if (m_reportModel)
+    {
+        ImageIntegration::Reporting::restateRunLog(*m_reportModel, result.capturedLog);
+        (void)storeKeptReport();
     }
 }
 

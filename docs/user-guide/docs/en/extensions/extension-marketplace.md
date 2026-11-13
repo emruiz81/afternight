@@ -1,329 +1,442 @@
+---
+kind: interface
+summary: >-
+  The Browse tab of the Extensions window: the extensions of AfterNight's official repository, whether each suits
+  this AfterNight and is signed, and the buttons that install, update and remove them or install a package file.
+menu: Extensions > Manage Extensions...
+---
 # Extension Marketplace
 
-<!-- MEDIA_SLOT: UG-MEDIA-112 -->
+The **Browse** tab of the Extensions window lists the extensions of AfterNight's official repository. It says what
+each one is, whether it suits this AfterNight and whether its package is signed, and it installs, updates and
+removes them. It can also install a package file from your disk. It is no store, sells nothing and lists no other
+repository.
 
-## Purpose, audience, prerequisites, and expected result
+Open it with **Extensions > Manage Extensions...**, with **Extension Manager** under the Dashboard's **···** button,
+or with **Open Extensions** in the message AfterNight shows after it starts when an installed extension has an update.
+Once a package is installed, the **Installed** tab says whether it can run: see [Using Extensions](using-extensions.md).
 
-The Extension Marketplace is AfterNight's package discovery and lifecycle
-surface. In the current product it is the official-repository-backed **Browse**
-tab inside the Extensions dialog, plus an approved local-archive install route
-and optional startup update checks. It is not a commercial store, an open list of
-user-configured repositories, or a package-authoring guide.
+```figure
+owed: true
+image: ../assets/images/extensions/extension-marketplace.webp
+alt: >-
+  The Extensions window on its Browse tab. Under the tabs, a banner counts the packages the repository offers and a
+  line gives the disk space the extension environments take. A row holds a search box, a Filter list at All
+  Extensions, a Sort list at Name (A-Z), a Refresh button and a More Actions button. Package cards follow, each with
+  its name, badges for its state, its version and its signature, and the buttons Install or Installed, Uninstall and
+  Details. The first card is open on its details, in five parts from Overview to Trust. Two check boxes, Automatically
+  remove unused extension environments and Allow unsigned extensions, sit above Reset Tab and Close.
+caption: >-
+  The Browse tab with the official repository's list, the first card open on its details.
+pins:
+  - {n: 1, x: 90.0, y: 10.0}
+  - {n: 2, x: 80.0, y: 14.5}
+  - {n: 3, x: 50.0, y: 19.5}
+  - {n: 4, x: 71.0, y: 19.5}
+  - {n: 5, x: 83.5, y: 19.5}
+  - {n: 6, x: 3.5, y: 27.0}
+  - {n: 7, x: 62.0, y: 27.0}
+  - {n: 8, x: 3.5, y: 45.0}
+  - {n: 9, x: 45.0, y: 87.0}
+  - {n: 10, x: 14.0, y: 95.5}
+```
 
-This page is for users and administrators deciding whether to trust, install,
-update, uninstall, or clean up an extension. Repository actions need an
-extension-enabled deployed build, compatible release metadata, and network
-access not disabled by policy. The expected result is a package installed
-atomically into the managed extension directory and handed to the
-[Installed status workflow](using-extensions.md).
+## What you see
 
-## Reachability and availability
+1. **The summary.** How many packages the list shows, and how many have an update or do not suit this AfterNight.
+2. **The environments' disk space.** What the extensions' environments take, and how much of it is unused.
+3. **Search extensions.** Shows the packages whose card holds the words you type.
+4. **Filter and Sort.** Narrow the list to one kind of package, and order it.
+5. **Refresh and More Actions.** **Refresh** reads the repository again. **More Actions** installs a package file and
+   removes unused environments.
+6. **A package's card.** Its name, and badges for its state, its version and its signature.
+7. **The card's buttons.** Install or update it, uninstall it, and open its details.
+8. **The details.** What the package is, who made it, where it comes from, what its release holds, and whether it
+   can be trusted.
+9. **The two check boxes.** Whether AfterNight removes unused environments by itself, and whether it installs
+   unsigned packages.
+10. **Reset Tab and Close.** **Reset Tab** returns the tab's choices to their defaults, and **Close** closes the
+    window.
 
-| Item | Current behavior |
-| --- | --- |
-| Path | Open **Extensions > Manage Extensions... > Browse**. Startup update checks are controlled by **Settings > General > Check for extension updates on startup**. |
-| Enabled/visible when | Browse is always present. Repository Install/Update and Refresh require repository networking; Uninstall and local controls remain available according to installed source and operation state. |
-| Supported inputs/state | Validated official repository index/releases/assets; current installed manifests; approved local `.tar.zst` or `.tar` archives; cached repository snapshots; online, offline, and policy-disabled states. |
-| Outputs/side effects | Downloaded/activated package, provenance receipt, managed environment and caches, refreshed menus/status, package removal, orphan-environment cleanup, and persisted trust/update-check settings. |
-| Persistence | `extensions/allowUnsignedPackages`, `extensions/lastLocalPackageDirectory`, `general/checkExtensionUpdatesOnStartup`, repository snapshot cache, installed packages/receipts, and environments. Search/filter/sort are not persisted. |
-| External dependencies | The official repository endpoint/release assets for network installs; package-declared approved dependency sources during environment provisioning; no third-party repository URL UI. |
+## What you can do
 
-## Before you start
+### Find an extension
 
-- Read the expanded card before acting: package/version, compatibility, author,
-  publisher, license, provenance/attribution, source/support links, changelog,
-  runtime targets, hash, and signature are distinct decisions.
-- Back up important extension configuration or package-owned data before update or
-  removal. The manager preserves host settings across an atomic update, but an
-  extension can define its own external files and migration rules.
-- Close running extension sessions before update/uninstall. An already running
-  host is a separate process and should not be assumed to reload replaced files.
-- Make enough disk space for the archive, staging/backup package, environment,
-  precompiled bytecode, and caches. A failed transaction is rolled back, but disk
-  exhaustion still produces a failed operation.
-- Leave **Allow unsigned extensions** off unless you have independently verified
-  the author and exact archive. Local archives are always treated as unsigned by
-  this UI.
-- For controlled/offline deployments, set either
-  `AFTERNIGHT_DISABLE_EXTENSION_REPOSITORY_NETWORK=1` or
-  `AFTERNIGHT_EXTENSION_REPOSITORY_OFFLINE=1` before starting AfterNight. Values
-  `1`, `true`, `yes`, and `on` are accepted case-insensitively.
+Type part of a name, an author or a tag in **Search extensions**, or choose a **Filter** and a **Sort**. They act on
+the list already loaded and use no network. The tab shows the list it saved last at once, while it reads the
+repository again in the background.
 
-## Procedure
+### Read a card before you install
 
-### Inspect and install from the official repository
+Choose **Details**, and read each part: what the package does, who wrote and publishes it, its licence, the work it
+derives from, its links and changelog, the platforms it runs on, and its **Trust**. Each is a decision of its own.
+**Signed** means that the package file comes from the publisher whose key this AfterNight trusts. It says nothing of
+whether the code is safe or suits your data. The package's own pages hold its documentation and its support.
 
-1. Open **Extensions > Manage Extensions... > Browse**. A valid saved snapshot
-   can appear immediately while a current official-index refresh runs in the
-   background. With no cache, the page shows Loading until fetch completes.
-2. Use **Search extensions**, **Filter**, and **Sort**. These operate on the
-   loaded snapshot and do not refetch it.
-3. Select **Details** on the candidate. Verify the selected release and asset
-   match the current AfterNight/Python/platform target and intended host mode.
-4. Verify trust state:
+### Install an extension
 
-   - **Signed**: the asset must declare Ed25519 metadata, a signing key trusted by
-     this build, and a signature that verifies the canonical asset metadata/hash.
-   - **Unsigned**: blocked unless the global opt-in is enabled and you confirm
-     this specific install.
-   - **Unknown** or **Signature failed**: installation is blocked.
+1. Choose **Install** on its card. A package that is not signed is refused unless you allow unsigned packages, and
+   then asks you first.
+2. The button reads **Installing...**, and the summary and a bar show each step. **Cancel** stops the install, which
+   then leaves nothing behind.
+3. When it is done, the summary reads "Installed", the name, the version and "Startup caches primed.", and the card's
+   state reads **Repository installed**. Its processes appear in the **Process** menu.
+4. Open the **Installed** tab and check that the package shows **Available**. A download that succeeded is not yet a
+   package that runs.
 
-5. Select **Install**. The action changes to **Installing...** and the page shows
-   phase/progress state. You can select **Cancel**; later queued operations can be
-   retained or cleared after cancellation.
-6. AfterNight downloads to a temporary directory, verifies the required SHA-256,
-   verifies a declared signature, extracts under archive safety limits, validates
-   the package/manifest/runtime, writes provenance, provisions its environment,
-   primes settings/startup caches, precompiles package bytecode, and atomically
-   activates the package. Failure before activation removes staging; replacement
-   failure restores the previous package.
-7. On success, the card is marked installed before the background refresh, the
-   Installed-status cache is invalidated, and extension menus are refreshed.
-8. Switch to **Installed** and confirm **Available**. Download success alone does
-   not prove runtime readiness.
+### Update an extension
 
-### Update, uninstall, or clean
+Choose **Updates Available** in **Filter**, or **Updates Available First** in **Sort**. Read the card's details
+again, then choose **Update to** and the version. The update runs as an install does, and keeps the extension's
+settings. When the new version cannot be put in place, the version you had is put back.
 
-1. Choose **Filter > Updates Available** or **Sort > Updates Available First**.
-   An update is offered when a repository-installed version compares older than
-   the selected compatible repository release.
-2. Expand **Details**, review changelog/compatibility/trust again, and select
-   **Update to _version_**. Update uses the same staged validation/provisioning and
-   atomic replacement path; host-persisted extension settings remain.
-3. To remove a repository/user installation, select **Uninstall** and confirm.
-   Bundled packages and a card explicitly classified as Local package cannot be
-   removed from that repository entry. Use the Installed card or the appropriate
-   package owner/source when the Browse action is unavailable.
-4. After removal, select **More Actions > Clean unused environments** only when
-   you also want to remove unreferenced private/shared environment directories.
-   The cleanup does not remove environments still referenced by installed
-   packages.
+### Remove an extension
 
-### Install an approved local archive
+Close the extension's windows, choose **Uninstall** on its card and then **Yes**. Its environment stays, until
+**More Actions > Clean unused environments** removes the environments no package uses.
 
-1. Enable **Allow unsigned extensions** and confirm **Allow Unsigned
-   Extensions?**. This setting persists and leaves a warning banner visible.
-2. Select **More Actions > Install local package...** and confirm the additional
-   unsigned-local-package warning.
-3. Choose one `.tar.zst` or `.tar` archive. The selected directory is remembered.
-4. The archive follows local validation, environment, cache, bytecode, staging,
-   and atomic activation rules. It is not authenticated by an official repository
-   signature. Switch to **Installed** to verify readiness.
-5. Disable **Allow unsigned extensions** again when the controlled task is done.
+### Install a package file
 
-## Complete control and action reference
+1. Tick **Allow unsigned extensions**, and choose **OK** in "Allow Unsigned Extensions?". A warning banner stays above
+   the check box while it is ticked.
+2. Choose **More Actions > Install local package...**, then **OK** in "Install Unsigned Local Extension?".
+3. Choose a `.tar.zst` or `.tar` file. The summary reads "Installed local package", the name and the version.
+4. Open the **Installed** tab and check that the package shows **Available**.
+5. Untick **Allow unsigned extensions**.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Extensions > Manage Extensions... > Browse** | Menu/tab route | Browse is initial tab | One Extensions dialog | Opens marketplace/package management | Always visible | Can use cache and start a background official-repository refresh | Application/dialog | Loaded snapshot cached separately |
-| **Search extensions** | Text filter | Empty | Name, author, or tag text; case-insensitive match | Filters loaded cards | Remains usable during background refresh/operations | No network request; can create an empty-results state | Current snapshot | Session only |
-| **Filter** | Choice | **All Extensions** | **All Extensions**, **Installed Only**, **Updates Available**, **Incompatible**, **Official Extensions** | Limits card states/publishers | Local operation remains independent | **Official Extensions** means trusted official signing key or `publisher_id=afternight`; it is not by itself signature verification | Current snapshot | Session only |
-| **Sort** | Choice | **Name (A-Z)** | **Name (A-Z)**, **Name (Z-A)**, **Updates Available First** | Reorders visible cards | Local operation remains independent | Does not select another release | Current snapshot | Session only |
-| **Refresh** | Button | Idle | Official index fetch; 10-second fetch timeout | Fetches/validates the official index and rebuilds cards against installed discovery | Disabled by offline policy and while refresh is active; local controls remain | Uses network and replaces successful cache; failure retains/report cache state where available | Repository snapshot | Successful live snapshot is cached |
-| **More Actions** | Instant menu | Closed | Two fixed actions | Opens local install and environment cleanup | Disabled while an operation is active | Actions are not repository search | Installation | None |
-| **Install local package...** | Menu action/file picker | Last valid directory or empty | Existing `.tar.zst`, `.tar`, or All files selection | Starts unsigned local archive transaction | Globally blocked until unsigned packages are allowed; also requires a second confirmation | No publisher authentication; can replace same-ID managed package after validation | User extension root | Last directory; package/receipt/environment on success |
-| **Clean unused environments** | Menu action | Idle | Current discovered package references | Removes orphaned environment inventory entries | Disabled during another operation; cancellable | Reclaims disk; shared environments survive while referenced | Environment root | Directory removal is durable |
-| **Cancel** | Button | Hidden | Active install/update/local install/remove/cleanup | Requests cooperative cancellation and disables itself while cancelling | Visible only during an active operation | Can prompt whether queued operations should also be cancelled | Active operation/queue | None |
-| Queued operation **Cancel** | Per-item button | Hidden | One pending install/update/remove operation | Removes only that pending operation from the queue | One button appears on each queued-operation row | Does not cancel the current operation or other queued work | Selected queued operation | None |
-| Install-state/runtime/version/signature badges | Read-only state | Current snapshot | Not installed, installed/source, update, incompatible; runtime state; selected version; Signed/Unsigned/Unknown/Signature failed | Summarizes the selected release and local state | Always on each card | Compact status is not a substitute for Details | Package entry | Cached with snapshot |
-| **Install** / **Update to _version_** / **Installed** / **Unavailable** | Primary card button | Derived | Install only Not installed; Update only Update available | Starts repository install/update or reports terminal state | Network policy disables Install/Update; Installed/Incompatible are disabled; trust checks can still block after click | Downloads, validates, provisions, and atomically changes package files | Selected repository entry | Package/receipt/environment/cache |
-| **Uninstall** | Destructive card button | Derived | Installed repository/user source | Confirms and removes package asynchronously | Disabled for not installed, bundled, or explicit Local package source; stays usable when networking is disabled | Close running sessions; environment cleanup is separate | Installed package | Durable removal |
-| **Details** / **Hide details** | Toggle | Collapsed | One metadata panel | Expands complete Overview, Provenance, Links, Release, and Trust sections | Always enabled for a card | May expose links, hashes, names, and provenance | Package entry | Session only |
-| Expanded Homepage/Source/Support/Original Source links | External links | Package metadata | Valid displayed URLs | Opens package/author-owned external documentation or support | Metadata is displayed but not linkified for an Unsigned asset | Leaves AfterNight; destination privacy/content policy is external | Package entry | None |
-| **Allow unsigned extensions** | Checkbox | Off | Off/On with confirmation | Permits per-package unsigned confirmations and local archive selection | Always enabled, including during other operations; cancelling confirmation returns Off | Weakens authentication policy and shows persistent warning banner | Extension manager install policy | `extensions/allowUnsignedPackages`; Reset Tab returns Off |
-| **Reset Tab** | Dialog button | Enabled | Confirm **Reset Extensions** | Clears search, restores All/A-Z, disables unsigned installs, and refreshes repository | Applies only to Browse here | Can trigger network refresh and revoke local-install eligibility | Browse tab | Trust opt-in reset immediately |
-| **Close** | Dialog button | Enabled | Close dialog | Closes manager | Does not cancel an already independent/running extension host | Manager operation should finish/cancel first | Dialog | No additional state |
-| **Check for extension updates on startup** | Settings checkbox | On | On/Off | Schedules background official-repository comparison after startup | Skipped when Off; network policy returns diagnostic without notification | Uses network; never installs automatically | Application startup | `general/checkExtensionUpdatesOnStartup` |
-| **Extension Updates Available > Open Extensions** | Notification button | Primary/default | One or more updates found | Opens Extensions on Browse | Notification appears only after a successful check with updates | User still reviews and triggers each update | Startup notification | None |
-| **Extension Updates Available > Ignore** | Notification button | Secondary | Current notification | Dismisses without changing packages | Available only in update notification | Same update can be reported on a later check | Notification | None |
-| **Disable extension update checks on startup** | Notification checkbox | Off | Off/On | Writes startup-check setting Off when dialog closes | Available only in update notification | Suppresses future automatic checks, not manual Refresh | Application | `general/checkExtensionUpdatesOnStartup=0` |
-| Package Details metadata | Read-only matrix | Repository/index values | Complete fields listed in Behavior | Supports compatibility, trust, attribution, license, and support decision | Missing values show **Not declared**; compatibility/signature diagnostic can add a banner | Repository metadata can be inaccurate even when structurally valid | Selected release/asset | Cached snapshot |
+### Keep AfterNight offline
 
-## Behavior and state model
+Set the environment variable `AFTERNIGHT_DISABLE_EXTENSION_REPOSITORY_NETWORK` or
+`AFTERNIGHT_EXTENSION_REPOSITORY_OFFLINE` to `1`, `true`, `yes` or `on`, in any case, before you start AfterNight.
+The tab then shows the list it saved, with **Install**, **Update** and **Refresh** disabled, and **Uninstall** still
+works. The check for updates at start reaches nothing. The saved list holds no package, so nothing can be installed
+from it.
 
-### Repository scope, cache, and update checks
+!!! warning "Only one repository, and no review of the code"
+    The tab reads AfterNight's official repository and no other. Installing a package file is no way to add a
+    repository. A package can do anything your user account can, signed or not: install only from authors you trust.
 
-The Browse page is hard-wired to the official repository client in the current
-UI. User-entered repository URLs, ratings, payments, and a general third-party
-catalog are not implemented. A validated successful live snapshot is written to
-`repository_snapshot.json`. On a later open, that cache can render immediately
-while a live refresh runs. With repository networking disabled, a usable cache
-can still render but Install/Update/Refresh remain disabled; installed extension
-actions and the Installed tab remain available.
+## Controls
 
-A failed live refresh reports **Extension repository unavailable** or retains a
-cached snapshot with the last background-refresh diagnostic. Search/filter/sort
-never perform network access. Manual Refresh requests a new official index. The
-startup checker is enabled by default, runs separately in the background, and
-shows a notification only after a successful comparison finds updates; failures
-are logged, not turned into a package mutation.
+### The Browse tab
 
-### Compatibility and installed-state selection
+```controls
+window: The Browse tab
+controls:
+  - name: Summary
+    kind: readout
+    default: Loading extension repository...
+    effect: >-
+      Counts the cards shown, as "12 package(s) available from the official repository: 1 update(s), 2 incompatible."
+      It turns amber when a package has an update or is incompatible, and gives the progress and result of each
+      operation.
+    range: >-
+      With the saved list it adds where the list comes from and " Refreshing the repository in the background.", or,
+      when that reading failed, " Last background refresh did not complete:" and the reason. A list that cannot be
+      read gives "Extension repository unavailable:" and the reason.
+  - name: Environments' disk space
+    kind: readout
+    default: ""
+    effect: >-
+      "Extension environments: 1.2 GiB total across 3 environment(s) — 900.0 MiB active, 300.0 MiB reclaimable in 1
+      environment(s)."
+    note: Shown once the tab has looked at the environments, even when the repository cannot be read.
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: The step of the running operation, such as "Downloading package asset", with a bar.
+    enabled: Shown while an operation runs.
+  - name: Queued operations
+    kind: readout
+    default: ""
+    effect: >-
+      "1 queued extension operation(s)", then a row for each install, update or uninstall waiting its turn, each with a
+      **Cancel** button that removes that one from the queue.
+    enabled: >-
+      Shown while operations wait. One operation runs at a time: the buttons of the other cards queue theirs. A card
+      with a queued operation reads **pending...**.
+  - name: Search extensions
+    kind: field
+    default: ""
+    effect: >-
+      Shows the cards whose name, identifier, summary, description, author, publisher, licence, attribution, original
+      author, original project, original source, upstream commit or tags hold the text, in any case.
+    enabled: Usable during an operation and while the list is read, as **Filter** and **Sort** are.
+    persistence: Empty each time the window opens, as **Filter** and **Sort** are at their first choice.
+  - name: Filter
+    kind: combo
+    default: All Extensions
+    options: [All Extensions, Installed Only, Updates Available, Incompatible, Official Extensions]
+    effect: >-
+      Shows every card, the installed ones, those with an update, those that do not suit this AfterNight, or those of
+      the official publisher.
+    note: >-
+      **Official Extensions** shows the packages signed with AfterNight's official key or published under the
+      publisher name `afternight`. It is a convenience, not a judgement of their safety: read **Trust**.
+  - name: Sort
+    kind: combo
+    default: Name (A-Z)
+    options: [Name (A-Z), Name (Z-A), Updates Available First]
+    effect: Orders the cards by name, either way without regard to case, or puts those with an update first.
+    note: It chooses no other release of a package.
+  - name: Refresh
+    kind: button
+    default: ""
+    effect: >-
+      Reads the official repository's list again, within 10 seconds, and rebuilds the cards against what is
+      installed. A list read in full is saved for the next time.
+    enabled: Disabled while the list is read, while an operation runs, and when the network is turned off.
+    tradeoff: >-
+      It uses the network. When the reading fails, the tab keeps the saved list and says that the reading did not
+      complete.
+  - name: More Actions
+    kind: toolbutton
+    default: ""
+    effect: Opens a menu of **Install local package...** and **Clean unused environments**.
+    enabled: Disabled while an operation runs. It reads **Installing...** while a package file installs.
+  - name: Install local package...
+    kind: action
+    default: ""
+    effect: >-
+      Asks "Install Unsigned Local Extension?", then for a file, `.tar.zst` or `.tar`, and installs it among the
+      user-installed packages, in place of a package of the same identifier there.
+    enabled: >-
+      Refused while **Allow unsigned extensions** is off, with "Local extension packages are treated as unsigned.
+      Enable unsigned extensions before installing a local package.", titled "Unsigned Extension Blocked".
+    tradeoff: >-
+      Nothing checks who made the file: it has no signature and no hash to compare. It runs every other check of an
+      install.
+    persistence: The file window opens in the folder you chose last, kept as `extensions/lastLocalPackageDirectory`.
+  - name: Clean unused environments
+    kind: action
+    default: ""
+    effect: >-
+      Removes the environments of uninstalled extensions, and those a ready one replaced, at once. It ends with
+      "Removed 2 unused extension environment(s) and reclaimed 1.4 GiB." or "No unused extension environments were
+      found."
+    range: An environment an installed package uses, one awaiting repair and one being prepared stay.
+    tradeoff: >-
+      What it removes comes back only when a package that needs it is repaired or reinstalled. It can be cancelled.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: >-
+      Stops the running operation, and reads "Cancelling extension operation..." until it has. With operations
+      queued, it then asks "Cancel Queued Extension Operations?", with **No** as the default answer.
+    enabled: Shown only while an operation runs.
+  - name: Automatically remove unused extension environments
+    kind: check
+    default: "On"
+    effect: >-
+      At start, removes the environments no installed package uses, once 24 hours have passed since they were last
+      written, and those a ready one replaced. One that awaits repair or is being prepared stays.
+    persistence: Kept at once as `extensions/automaticEnvironmentCleanup`, and usable during other operations.
+  - name: Allow unsigned extensions
+    kind: check
+    default: "Off"
+    effect: >-
+      Lets you install an unsigned package, each time after a question, and a package file. Ticking it asks "Allow
+      Unsigned Extensions?" first, and **Cancel** leaves it off.
+    tradeoff: >-
+      AfterNight can then no longer tell who made what you install. While it is ticked, a banner reads "Unsigned
+      extensions can run code that AfterNight cannot authenticate. Only enable this for packages from authors and
+      files you trust."
+    persistence: Kept at once as `extensions/allowUnsignedPackages`, and usable during other operations.
+```
 
-The repository validator requires a coherent index, release, and asset schema.
-Every release must declare package format, protocol, and SDK version 1, the
-versions both extension hosts and the SDK speak. An index that lists a release
-with any other version fails validation as a whole, and Browse handles it as a
-failed refresh (above) instead of passing the release over. For the current
-runtime it selects a release/asset by minimum AfterNight version,
-backend/launch availability, Python compatibility, runtime target, and asset
-metadata. A newer repository version is marked Update available only for a
-repository-installed older version. A locally/user-installed version is not
-silently overwritten merely because a repository entry exists.
+### A package's card
 
-### Trust and transaction boundaries
+```controls
+window: A package's card
+controls:
+  - name: State
+    kind: readout
+    default: ""
+    effect: >-
+      **Not installed**, **Update available**, **Incompatible**, or, once installed, where from: **Repository
+      installed**, **User-installed**, **Local package** or **Bundled**. Its tooltip says more.
+  - name: Status
+    kind: readout
+    default: ""
+    effect: >-
+      For an installed package whose environment is not ready, **Install needed**, **Repair needed**, **Failed** or
+      **Bootstrapping**, as the **Installed** tab says. Shown only when it differs from the state.
+  - name: Version
+    kind: readout
+    default: ""
+    effect: >-
+      "Latest" and the repository's version, "Installed" and yours when they differ, or "New version" and the version
+      of an update. Its tooltip gives both versions.
+  - name: Signature
+    kind: readout
+    default: ""
+    effect: >-
+      **Signed** in green, **Unsigned** in amber, **Signature failed** in red, **Unknown** otherwise. Its tooltip names
+      the key of a signed package.
+  - name: Install
+    kind: button
+    default: ""
+    effect: >-
+      Installs the release the card offers. It reads **Update to** and the version for an update, **Installed** for a
+      package you have, and **Unavailable** for one that does not suit this AfterNight, both disabled.
+    enabled: >-
+      Disabled while the list is read, and with the network turned off, with "Repository install and update actions
+      are disabled by policy." as its tooltip.
+    tradeoff: >-
+      It downloads the package and prepares its environment, which can take minutes, disk space and the network.
+      Keep the window open until the summary says it is done. Close the extension's windows before an update: a host
+      that runs is not started again on the new files.
+  - name: Uninstall
+    kind: button
+    default: ""
+    effect: >-
+      Asks "Uninstall" and the name, with "This removes the installed extension package from disk. Running extension
+      sessions for this package should be closed first.", **Cancel** being the default answer. **Yes** removes the
+      package's folder, and the summary reads "Removed" and the name.
+    enabled: >-
+      For a package installed from the repository or among the user-installed ones. Disabled for a bundled package,
+      with "... is bundled with AfterNight and cannot be uninstalled here." Works with the network turned off.
+    tradeoff: Its settings and environment stay. A host that is running keeps running.
+  - name: Details
+    kind: toolbutton
+    default: "Off"
+    effect: Shows the card's details, and then reads **Hide details**.
+  - name: Summary line
+    kind: readout
+    default: ""
+    effect: >-
+      The package's summary, or "No summary provided.". Under it, for an update, "Installed 1.1.0; 1.2.0 is
+      available."
+```
 
-Every repository asset needs an authoritative SHA-256. At install, AfterNight
-hashes the downloaded bytes and rejects a mismatch before extraction. Trust then
-follows this state machine:
+### The card's details
 
-| Signature state | Install result | User decision |
-| --- | --- | --- |
-| **Signed** | Allowed only when Ed25519 metadata is complete, key ID is trusted by this build, and signature verification succeeds | Still review publisher, license, provenance, links, and code purpose |
-| **Unsigned** | Blocked by default; allowed only after global opt-in plus per-install confirmation | Independently verify the exact author/archive; AfterNight cannot authenticate it |
-| **Unknown** | Blocked | Wait for corrected repository metadata/package |
-| **Signature failed** | Blocked even when unsigned packages are allowed | Do not install; report to repository/package maintainer |
+```controls
+window: The card's details
+controls:
+  - name: Overview
+    kind: readout
+    default: ""
+    effect: >-
+      **Description**, **State**, **Status**, **Version**, **Status Detail**, **Author**, **Publisher** and **License**.
+    note: A value the repository does not give reads "Not declared".
+  - name: Provenance
+    kind: readout
+    default: ""
+    effect: >-
+      **Attribution**, **Original Author**, **Original Project**, **Original Source**, **Upstream Commit** and **Tags**:
+      the work the package derives from.
+  - name: Links
+    kind: readout
+    default: ""
+    effect: >-
+      **Homepage**, **Source** and **Support**, which open in your browser.
+    tradeoff: >-
+      A link leaves AfterNight for a site with rules of its own. The addresses of an unsigned package are shown as
+      text, never as links, and the same goes for its other texts.
+  - name: Release
+    kind: readout
+    default: ""
+    effect: >-
+      **SDK**, the package, protocol and SDK versions it declares, **Launch**, as **Single image** or **Workflow**,
+      **Runtime Targets**, **Published**, **Changelog** and **Asset**, the file a click on **Install** downloads.
+  - name: Trust
+    kind: readout
+    default: ""
+    effect: >-
+      **Signature**, **Signature Key**, **Package Hash**, the file's SHA-256, and **Compatibility**, as "Compatible with
+      this AfterNight runtime".
+    note: A banner under it gives the reason a package is incompatible or its signature failed.
+```
 
-Archive extraction rejects unsafe paths, links/device entries, absolute paths,
-excessive depth/count/size, and a non-empty extraction destination. Validation
-checks manifest identity/version against the index, current compatibility,
-declared artifacts, dependency metadata, license/backend boundaries, and runtime
-targets. The package is staged and activated atomically with rollback. A success
-requires environment readiness, settings/startup cache readiness, and bytecode
-precompile readiness when requested; the UI does not report a partial download as
-installed. The precompilation skips a directory it cannot read, naming it in the
-application log, and compiles every other module; an environment's dependency
-bytecode that cannot be compiled never fails the install, because the extension
-compiles what it imports when it first starts.
+### The window's buttons
 
-### Complete Package Details metadata
+```controls
+window: The window's buttons
+controls:
+  - name: Reset Tab
+    kind: button
+    default: ""
+    effect: >-
+      Asks "Are you sure you want to reset the "Browse" tab to defaults?", titled "Reset Extensions". **Yes** empties
+      the search, returns **Filter** and **Sort** to their first choice, ticks **Automatically remove unused extension
+      environments**, unticks **Allow unsigned extensions** and reads the repository again.
+    tradeoff: It uses the network, and a package file can no longer be installed until you allow unsigned packages again.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the Extensions window. AfterNight then reads the installed packages again and updates its menus.
+    tradeoff: An extension that is running keeps running. Let an operation finish, or cancel it, before you close.
+    note: Both check boxes are kept as you change them, so nothing is left to save.
+```
 
-| Section | Fields shown |
-| --- | --- |
-| Overview | Description, State, Status, Version, Status Detail, Author, Publisher, License |
-| Provenance | Attribution, Original Author, Original Project, Original Source, Upstream Commit, Tags |
-| Links | Homepage, Source, Support |
-| Release | SDK, Launch, Runtime Targets, Published, Changelog, Asset |
-| Trust | Signature, Signature Key, Package Hash, Compatibility; a compatibility/signature detail banner when present |
+### Extension Updates Available
 
-The **Official Extensions** filter is a browsing convenience, not a replacement
-for the Trust section. Likewise, a correct hash proves byte identity against the
-index, not safety. A valid signature authenticates the canonical signed asset
-metadata with a trusted key; it does not audit extension behavior.
+```controls
+window: Extension Updates Available
+controls:
+  - name: The updates
+    kind: readout
+    default: ""
+    effect: >-
+      "An installed extension has an update available:", or how many have one, then a line per package, as
+      "Example: 1.1.0 -> 1.2.0", up to four, and "And 2 more..." for the rest.
+    note: >-
+      It appears a few seconds after AfterNight starts, while **Check for extension updates on startup** in Settings
+      is ticked, only when the repository was read and an update was found. AfterNight installs nothing by itself.
+  - name: Open Extensions
+    kind: button
+    default: ""
+    effect: Opens the Extensions window on this tab. You still choose each update.
+  - name: Ignore
+    kind: button
+    default: ""
+    effect: Closes the message and changes nothing. The same update is shown again at a later start.
+  - name: Disable extension update checks on startup
+    kind: check
+    default: "Off"
+    effect: Turns the check at start off when the message closes, as unticking it in Settings does.
+    note: It leaves **Refresh** as it is.
+```
 
-### Documentation ownership
+## When it goes wrong
 
-This guide owns AfterNight's manager controls, states, trust policy, host/runtime
-boundaries, and recovery handoff. The package author/publisher owns the extension's
-algorithm, accepted inputs, settings semantics, examples, output interpretation,
-external tools/models, license notices, privacy/network behavior, migrations, and
-support. The official index should expose Homepage, Source, Support, changelog,
-license, attribution, and provenance so users can reach that material. Authoring,
-manifest, packaging, SDK, and repository submission rules remain in
-`docs/extension-examples/` and developer documentation, not duplicated as
-end-user marketplace instructions.
+"Extension repository unavailable:" and a reason
+:   **Cause.** The list could not be read: no network, a refusal by the server, a list that AfterNight does not
+    accept, or the network turned off with no list saved. A release of a package format, protocol or SDK version other
+    than 1 makes the whole list unreadable.
+:   **Fix.** Check the network, keep using what is installed, and choose **Refresh** later.
 
-## Inputs, outputs, and metadata
+"Extension repository network features are disabled:" and the policy
+:   **Cause.** One of the two environment variables that keep AfterNight offline is set.
+:   **Fix.** Start AfterNight without it, if you may. Installed packages and **Uninstall** still work.
 
-The network path reads an official JSON index and selected release archive. The
-local path reads one archive. A successful operation writes the activated package
-directory, `extension_package_receipt.json` provenance, managed environment,
-ready/settings caches, and menu/status cache invalidation. The receipt records
-source tier, repository/local source, install time, archive hash, selected asset,
-signature metadata, and host-bootstrap fingerprint.
+"Unsigned Extension Blocked"
+:   **Cause.** The package, or every package file, is unsigned, and **Allow unsigned extensions** is off.
+:   **Fix.** Prefer a signed package. Otherwise make sure of its author and file, tick **Allow unsigned extensions**,
+    and confirm the install.
 
-Update stages a replacement and backup, preserves host-managed settings, and
-restores the prior package on failure. Uninstall removes package files after
-confirmation; it does not delete settings or every environment automatically.
-Opening Browse, filtering, sorting, expanding Details, or checking for updates
-does not modify images, image metadata, or history. Package execution outputs are
-owned by [Using Extensions](using-extensions.md) and the individual package docs.
+"Extension Cannot Be Installed"
+:   **Cause.** The package's signature failed or its state is unknown. Allowing unsigned packages does not lift this.
+:   **Fix.** Do not install it. Tell the repository's or the package's maintainer.
 
-## Performance and responsiveness
+The install downloads, then fails
+:   **Cause.** A check after the download refused the package: its hash, its signature, its contents, its manifest,
+    its environment or the disk space it needs.
+:   **Fix.** Read the summary, deal with what it names and install again. An update that fails puts back the version
+    you had.
 
-Index fetch, archive download, install/update/remove, environment cleanup, and
-startup checks run off the UI thread. Progress phases and a cancellation token
-keep the manager responsive. One operation runs at a time; additional card
-install/update/remove actions can queue. Search/filter/sort and cached-card
-rendering remain local.
+**Update to** never appears for a package you have
+:   **Cause.** Only a package installed from the repository is offered its updates.
+:   **Fix.** Uninstall the copy you installed otherwise, then install the package from the repository.
 
-Network and environment-work duration depends on the index, archive, dependency
-sources, and local system. Duration, CPU use, and disk use were not measured.
-Keep the window open until success/cancellation and avoid manually editing
-staging, backup, package, or environment directories. Offline policy avoids
-repository requests but cannot install an uncached package asset; the snapshot
-cache contains metadata, not necessarily the archive/dependencies.
+## Related
 
-## Worked example
-
-- Evidence mode: Source-and-test-derived.
-- Starting state, actions, settings, checkpoints, result, and limitations: Open
-  Browse with a deterministic official-index fixture containing a compatible
-  Signed release and an older repository-installed version. **Updates Available**
-  selects the card; Details supplies the new version, target, Ed25519 key, SHA-256,
-  changelog, license, and support links. **Update to _version_** hashes/verifies,
-  stages, validates, provisions, primes, precompiles, and atomically replaces the
-  package. The card is marked installed, caches/menus are invalidated, and
-  Installed must report **Available** before launch. A hash/signature/readiness
-  failure instead preserves/restores the prior package and shows a diagnostic.
-  This records the tested transaction contract only; no live official repository,
-  third-party package, GUI, dependency download, timing, or package execution was
-  used.
-
-## Warnings and limitations
-
-- The current marketplace supports one official repository. Do not infer support
-  for arbitrary third-party feeds from the local archive route.
-- Unsigned is not equivalent to invalid, but it is unauthenticated and blocked by
-  default. Unknown/failed signatures are always blocked.
-- **Official Extensions** filtering is not a security verdict. Inspect Trust and
-  package-owned documentation before each install/update.
-- Offline cached cards do not guarantee that the archive or dependency artifacts
-  are locally available.
-- Update/removal should not occur while the same package has running sessions.
-- Clean unused environments is destructive and recoverable only by reinstalling
-  or repairing the package that needs the removed dependency set.
-- AfterNight does not automatically install updates. Startup checks notify only.
-- Package links can leave AfterNight and may collect network metadata according to
-  the destination's policy. Unsigned card URLs are deliberately not clickable.
-
-## Troubleshooting
-
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Extension repository unavailable** | Official index fetch/validation failed and no usable current result replaced it; one release that declares a package format, protocol, or SDK version other than 1 fails the whole index | Check network/policy, keep cached/installed packages, then Refresh later | manager page/client tests |
-| **Extension repository network features are disabled by policy.** | Either repository-offline environment policy is truthy | Restart without the policy only when approved; Installed/local uninstall remain available | manager page/offline tests |
-| Cached cards show a failed-background-refresh diagnostic | Saved snapshot loaded, later live refresh failed | Do not assume metadata is current; retry Refresh when online | cached-snapshot tests |
-| **Package asset is missing the required SHA-256 hash.** | Repository asset lacks authoritative hash metadata | Do not install; report the index/release defect | trust policy/index-validator tests |
-| **Package signature state is unknown, so installation is blocked.** | Asset did not resolve to a supported signature state | Obtain corrected repository metadata/package | trust policy tests |
-| **Package signature verification failed, so installation is blocked.** | Signature was Failed or cryptographic verification did not match | Do not bypass by allowing unsigned; report package/repository compromise or metadata defect | signature tests |
-| **Unsigned Extension Blocked** | Unsigned repository/local package while opt-in is Off | Prefer Signed; otherwise independently verify, enable opt-in, and confirm each install | manager-page unsigned-policy tests |
-| Install/Update button says **Unavailable** | Selected release is incompatible with current app/backend/target | Read Compatibility and install a compatible build/release | manager compatibility tests |
-| Install finishes download but reports failure | Hash/signature, extraction, package validation, environment, cache, or bytecode readiness failed; a manifest of another version reports **Only package/protocol/sdk version 1 manifests are supported** | Read exact banner/progress phase; fix source/package/disk/dependencies and retry; prior package is preserved on update failure | install transaction/rollback tests |
-| Update is not offered for a local/user package | UpdateAvailable is derived for an older Repository-installed source | Use a reviewed local replacement or reinstall from repository after understanding source precedence | browse-entry/source tests |
-| Uninstall is disabled | Not installed, Bundled, or explicit Local package source on that card | Use Installed/source-specific management; bundled content is app-owned | manager-page action tests |
-| Cleanup removes zero environments | Every environment is still referenced or inventory is already clean | No action needed; uninstall obsolete packages first | environment inventory/cleanup tests |
-| No startup notification appears | Setting Off, policy/network/fetch failure, no updates, or no matching installed package | Check General setting/logs; open Browse and Refresh manually | startup-update coordinator/settings tests |
-
-## Related workflow steps
-
-- [Using Extensions](using-extensions.md) — confirm environment readiness,
-  configure schema fields, understand host modes/permissions/buffers, launch, and
-  diagnose the installed package.
-- [Settings Dialog](../interface/settings-dialog.md) — General startup update
-  setting and global settings persistence.
-- [System Requirements](../reference/system-requirements.md) — supported
-  platforms, deployed runtimes, network/disk requirements, and policy context.
-- [Session Console](../interface/log-viewer.md) — repository refresh, startup
-  update, install, environment, and host diagnostics.
-
-## References and provenance
-
-- AfterNight's current implementation and its focused tests are the primary sources.
-- `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` describes the full and lite
-  extension hosts that `sdk_backend` selects and the licensing boundary between
-  them.
-- `docs/extension-examples/PACKAGE_AUTHOR_GUIDE.md` is the package-author
-  publication/metadata/dependency contract.
-- `docs/extension-examples/README.md` is the development-example index. Reference
-  packages marked `development_only` are excluded from normal user discovery.
+- [Using Extensions](using-extensions.md), to check that an installed package runs, change its settings and use it.
+- [Extension Marketplace Reference](extension-marketplace-reference.md), for how an install runs, what the trust
+  states mean, what an install writes, and every message.
+- [Settings](../interface/settings-dialog.md), for **Check for extension updates on startup**.
+- [Dashboard](../interface/dashboard.md), for its **Extension Manager**.
+- [Session Console](../interface/log-viewer.md), for the lines the repository, the installs and the check at start
+  write.
+- [System Requirements](../reference/system-requirements.md), for what the network and the disk must provide.

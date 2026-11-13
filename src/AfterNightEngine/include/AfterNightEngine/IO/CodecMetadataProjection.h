@@ -191,8 +191,10 @@ acquisitionCards(const AcquisitionProjection& projection, CodecNamespace target)
 /// Reads a number as a card spells it.
 ///
 /// A decimal or exponent form as `double`, or a fraction `a/b` of two such numbers, with
-/// surrounding whitespace and one pair of single quotes ignored. A non-finite result, a zero
-/// denominator and any trailing text are refused.
+/// surrounding whitespace and one pair of single quotes ignored. A leading plus sign is taken, and
+/// so is the `D` a FITS real may spell its exponent with. A non-finite result, a zero denominator
+/// and any trailing text are refused. Every reader of a card's number in the engine and the product
+/// reads it through this, so no two of them differ in the spellings they take.
 ///
 /// Thread-safe and allocation-free.
 ///

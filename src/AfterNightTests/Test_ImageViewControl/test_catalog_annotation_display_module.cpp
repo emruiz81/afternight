@@ -11,7 +11,11 @@
 #include <AfterNightEngine/Algorithms/Catalog/CatalogRecord.h>
 #include <AfterNightEngine/Algorithms/Catalog/SkyCatalog.h>
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <memory>
+#include <numbers>
 #include <string_view>
 
 namespace
@@ -48,6 +52,45 @@ an::CatalogRegionQuery deepQuery(const double ra, const double dec, const double
     return an::ui::bundledCatalogRegionQuery(an::ui::BundledCatalog::DeepSky,
                                              an::SkyCoordinate{.rightAscensionDegrees = ra, .declinationDegrees = dec},
                                              radius, limit);
+}
+
+/// How round an outline is: its nearest point to the centre over its farthest, 1 for a circle.
+double outlineRoundness(const an::ui::CatalogAnnotationProjectedShape& shape)
+{
+    double nearest = std::numeric_limits<double>::infinity();
+    double farthest = 0.0;
+    for (const QPointF& point : shape.outline)
+    {
+        const double radius = std::hypot(point.x() - shape.center.x(), point.y() - shape.center.y());
+        nearest = (std::min)(nearest, radius);
+        farthest = (std::max)(farthest, radius);
+    }
+    return farthest > 0.0 ? nearest / farthest : 0.0;
+}
+
+/// The direction on the sky, in degrees east of north and folded into [0, 180), of an outline's point farthest from its
+/// centre: the long axis the drawing gives the object.
+double outlineLongAxisDegrees(const an::WcsSolution& solution, const an::ui::CatalogAnnotationProjectedShape& shape)
+{
+    const auto farthest = std::max_element(
+        shape.outline.cbegin(), shape.outline.cend(), [&shape](const QPointF& left, const QPointF& right) {
+            return std::hypot(left.x() - shape.center.x(), left.y() - shape.center.y()) <
+                   std::hypot(right.x() - shape.center.x(), right.y() - shape.center.y());
+        });
+    const an::Result<an::SkyCoordinate> centre =
+        solution.pixelToWorld(an::PixelCoordinate{.x = shape.center.x(), .y = shape.center.y()});
+    const an::Result<an::SkyCoordinate> tip =
+        solution.pixelToWorld(an::PixelCoordinate{.x = farthest->x(), .y = farthest->y()});
+    EXPECT_TRUE(centre.hasValue() && tip.hasValue());
+    if (!centre.hasValue() || !tip.hasValue())
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const double cosDec = std::cos(centre->declinationDegrees * std::numbers::pi / 180.0);
+    const double east = (tip->rightAscensionDegrees - centre->rightAscensionDegrees) * cosDec;
+    const double north = tip->declinationDegrees - centre->declinationDegrees;
+    const double degrees = std::atan2(east, north) * 180.0 / std::numbers::pi;
+    return std::fmod(degrees + 360.0, 180.0);
 }
 
 } // namespace
@@ -92,22 +135,91 @@ TEST(CatalogAnnotationDisplayModule, AnnotationProjectsObjectToTheCentreOfItsPix
     EXPECT_GE(shape.outline.size(), 16);
 }
 
-TEST(CatalogAnnotationDisplayModule, FormatCatalogLabelShowsOnlyId)
+TEST(CatalogAnnotationDisplayModule, AnOutlinesLongAxisLiesAtItsPositionAngleEastOfNorth)
 {
-    an::CatalogEntry object;
-    object.identifier = "NGC 7000";
-    object.commonName = "North America Nebula";
+    // A north-up field and one turned by 30 degrees: the long axis is read back on the sky, whatever way the image
+    // holds it.
+    const double scale = 0.0005;
+    const double turn = 30.0 * std::numbers::pi / 180.0;
+    const an::tests::astrometry::TangentPlane northUp = northUpPlane(500.0, 400.0, 204.25, -29.8667, scale);
+    an::tests::astrometry::TangentPlane turned = northUp;
+    turned.cd11 = -scale * std::cos(turn);
+    turned.cd12 = scale * std::sin(turn);
+    turned.cd21 = scale * std::sin(turn);
+    turned.cd22 = scale * std::cos(turn);
+    for (const an::tests::astrometry::TangentPlane& plane : {northUp, turned})
+    {
+        const std::optional<an::WcsSolution> wcs = solutionOf(tangentPlaneCards(plane), 1000u, 800u);
+        ASSERT_TRUE(wcs.has_value());
+        for (const double positionAngle : {0.0, 45.0, 120.0})
+        {
+            an::CatalogEntry object;
+            object.identifier = "NGC 1";
+            object.coordinate = {.rightAscensionDegrees = 204.25, .declinationDegrees = -29.8667};
+            object.extent = an::CatalogExtent{
+                .majorAxisArcminutes = 10.0, .minorAxisArcminutes = 5.0, .positionAngleDegrees = positionAngle};
 
-    // Annotations stay compact: only the catalog ID is shown
-    EXPECT_EQ(an::ui::detail::formatCatalogAnnotationLabel(object), QStringLiteral("NGC 7000"));
+            const an::ui::CatalogAnnotationProjectedShape shape =
+                an::ui::detail::projectCatalogObjectAnnotation(*wcs, object, 1.0);
+            ASSERT_GE(shape.outline.size(), 16);
+            EXPECT_NEAR(outlineRoundness(shape), 0.5, 0.02);
+            const double drawn = outlineLongAxisDegrees(*wcs, shape);
+            const double apart = std::fabs(drawn - positionAngle);
+            EXPECT_LT((std::min)(apart, 180.0 - apart), 1.0)
+                << "position angle " << positionAngle << ", drawn at " << drawn;
+        }
+    }
 }
 
-TEST(CatalogAnnotationDisplayModule, FormatCatalogLabelIdOnlyWhenNoCommonName)
+TEST(CatalogAnnotationDisplayModule, ABundledObjectWhoseCatalogStatesOnlyADiameterIsDrawnRound)
 {
-    an::CatalogEntry object;
-    object.identifier = "NGC 1234";
+    // NGC 2000.0 gives M 83 one size, so the catalog knows no axis ratio or orientation for it, and its outline is a
+    // circle of that size; a galaxy whose axes the catalog states keeps them.
+    std::unique_ptr<DirectExecution> direct = openExecution();
+    ASSERT_NE(direct, nullptr);
+    const an::Result<QByteArray> text = an::tests::astrometry::sourceTreeCatalogs()(an::ui::BundledCatalog::DeepSky);
+    ASSERT_TRUE(text.hasValue()) << text.status().message();
+    const an::Result<an::SkyCatalog> catalog =
+        an::ui::buildBundledCatalog(direct->execution(), an::ui::BundledCatalog::DeepSky,
+                                    std::string_view(text->constData(), static_cast<std::size_t>(text->size())), false);
+    ASSERT_TRUE(catalog.hasValue()) << catalog.status().message();
+    const auto named = [&catalog](const std::string_view identifier) -> const an::CatalogEntry* {
+        for (std::uint32_t index = 0; index < catalog->entryCount(); ++index)
+        {
+            const an::CatalogEntry* entry = catalog->entry(index);
+            if (entry != nullptr && entry->identifier == identifier)
+            {
+                return entry;
+            }
+        }
+        return nullptr;
+    };
 
-    EXPECT_EQ(an::ui::detail::formatCatalogAnnotationLabel(object), QStringLiteral("NGC 1234"));
+    for (const std::string_view identifier : {std::string_view("M 83"), std::string_view("NGC 5236")})
+    {
+        const an::CatalogEntry* m83 = named(identifier);
+        ASSERT_NE(m83, nullptr) << identifier;
+        const std::optional<an::WcsSolution> wcs =
+            solutionOf(tangentPlaneCards(northUpPlane(500.0, 400.0, m83->coordinate.rightAscensionDegrees,
+                                                      m83->coordinate.declinationDegrees, 0.0005)),
+                       1000u, 800u);
+        ASSERT_TRUE(wcs.has_value());
+        const an::ui::CatalogAnnotationProjectedShape shape =
+            an::ui::detail::projectCatalogObjectAnnotation(*wcs, *m83, 1.0);
+        ASSERT_GE(shape.outline.size(), 16) << identifier;
+        EXPECT_GT(outlineRoundness(shape), 0.98) << identifier;
+    }
+
+    const an::CatalogEntry* m51 = named("M 51");
+    ASSERT_NE(m51, nullptr);
+    const std::optional<an::WcsSolution> wcs =
+        solutionOf(tangentPlaneCards(northUpPlane(500.0, 400.0, m51->coordinate.rightAscensionDegrees,
+                                                  m51->coordinate.declinationDegrees, 0.0005)),
+                   1000u, 800u);
+    ASSERT_TRUE(wcs.has_value());
+    const an::ui::CatalogAnnotationProjectedShape shape =
+        an::ui::detail::projectCatalogObjectAnnotation(*wcs, *m51, 1.0);
+    EXPECT_NEAR(outlineRoundness(shape), 6.9 / 11.2, 0.02);
 }
 
 TEST(CatalogAnnotationDisplayModule, ConeSearchExcludesDistantObjects)

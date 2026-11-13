@@ -283,14 +283,12 @@ def parse_ngc2000_csv(csv_text):
         major = safe_float(row.get("size", ""))
         vmag = safe_float(row.get("mag", ""), default=99.0)
 
-        # For NGC 2000.0, only major axis (diameter) is provided.
-        # Estimate minor axis based on object type:
-        #   - Galaxies: minor = major * 0.5 (rough average axial ratio)
-        #   - Everything else: minor = major (roughly circular)
-        if obj_type == "Galaxy" and major > 0.0:
-            minor = major * 0.5
-        else:
-            minor = major
+        # NGC 2000.0 gives one size, the diameter, and no axis ratio or
+        # orientation: the object is a circle of that size unless its
+        # extent is curated (CURATED_EXTENTS). A ratio estimated for it
+        # would also state an orientation, and the outline would be drawn
+        # across the object at a position angle nobody measured.
+        minor = major
 
         common_name = COMMON_NAMES.get(obj_id, "")
 
@@ -364,73 +362,79 @@ def add_messier_entries(objects):
         })
 
 
+# Curated data for well-known objects where NGC 2000.0 data is incomplete
+# or inaccurate: large nebulae, and the galaxies whose axis ratio and
+# position angle the catalog states. Every other object keeps its NGC 2000.0
+# diameter as a circle.
+CURATED_EXTENTS = {
+    "NGC 224":  {"major_axis_arcmin": 190.0, "minor_axis_arcmin": 60.0,
+                 "position_angle_deg": 35.0, "magnitude": 3.4},
+    "NGC 598":  {"major_axis_arcmin": 70.8, "minor_axis_arcmin": 41.7,
+                 "position_angle_deg": 23.0, "magnitude": 5.7},
+    "NGC 221":  {"major_axis_arcmin": 8.7, "minor_axis_arcmin": 6.5,
+                 "position_angle_deg": 165.0, "magnitude": 8.1},
+    "NGC 205":  {"major_axis_arcmin": 21.9, "minor_axis_arcmin": 11.0,
+                 "position_angle_deg": 35.0, "magnitude": 8.0},
+    "NGC 1952": {"major_axis_arcmin": 7.0, "minor_axis_arcmin": 5.0,
+                 "position_angle_deg": 0.0},
+    "NGC 6853": {"major_axis_arcmin": 8.0, "minor_axis_arcmin": 5.7,
+                 "position_angle_deg": 130.0},
+    "NGC 5194": {"major_axis_arcmin": 11.2, "minor_axis_arcmin": 6.9,
+                 "position_angle_deg": 163.0},
+    "NGC 4594": {"major_axis_arcmin": 8.9, "minor_axis_arcmin": 4.1,
+                 "position_angle_deg": 84.0},
+    "NGC 3031": {"major_axis_arcmin": 26.9, "minor_axis_arcmin": 14.1,
+                 "position_angle_deg": 157.0},
+    "NGC 3034": {"major_axis_arcmin": 11.2, "minor_axis_arcmin": 4.3,
+                 "position_angle_deg": 65.0},
+    "NGC 5457": {"major_axis_arcmin": 28.8, "minor_axis_arcmin": 26.9,
+                 "position_angle_deg": 39.0},
+    "NGC 4826": {"major_axis_arcmin": 10.7, "minor_axis_arcmin": 5.1,
+                 "position_angle_deg": 116.0},
+    "NGC 5055": {"major_axis_arcmin": 12.6, "minor_axis_arcmin": 7.2,
+                 "position_angle_deg": 105.0},
+    "NGC 7000": {"major_axis_arcmin": 120.0, "minor_axis_arcmin": 100.0},
+    "NGC 6523": {"major_axis_arcmin": 90.0, "minor_axis_arcmin": 40.0},
+    "NGC 6611": {"major_axis_arcmin": 35.0, "minor_axis_arcmin": 28.0},
+    "NGC 6618": {"major_axis_arcmin": 46.0, "minor_axis_arcmin": 37.0},
+    "NGC 6514": {"major_axis_arcmin": 28.0, "minor_axis_arcmin": 28.0},
+    "NGC 1976": {"major_axis_arcmin": 85.0, "minor_axis_arcmin": 60.0},
+    "NGC 7293": {"major_axis_arcmin": 25.0, "minor_axis_arcmin": 21.0},
+    "NGC 1499": {"major_axis_arcmin": 145.0, "minor_axis_arcmin": 40.0,
+                 "position_angle_deg": 100.0},
+    "NGC 2237": {"major_axis_arcmin": 80.0, "minor_axis_arcmin": 60.0},
+    "NGC 6960": {"major_axis_arcmin": 70.0, "minor_axis_arcmin": 8.0,
+                 "position_angle_deg": 52.0},
+    "NGC 6992": {"major_axis_arcmin": 70.0, "minor_axis_arcmin": 8.0,
+                 "position_angle_deg": 65.0},
+    "NGC 6888": {"major_axis_arcmin": 18.0, "minor_axis_arcmin": 12.0,
+                 "position_angle_deg": 45.0},
+    "NGC 4565": {"major_axis_arcmin": 15.8, "minor_axis_arcmin": 2.1,
+                 "position_angle_deg": 136.0},
+    "NGC 4631": {"major_axis_arcmin": 15.5, "minor_axis_arcmin": 2.7,
+                 "position_angle_deg": 86.0},
+    "NGC 253": {"major_axis_arcmin": 27.5, "minor_axis_arcmin": 6.8,
+                "position_angle_deg": 52.0},
+    "NGC 5128": {"major_axis_arcmin": 25.7, "minor_axis_arcmin": 20.0,
+                 "position_angle_deg": 35.0},
+    "NGC 4258": {"major_axis_arcmin": 18.6, "minor_axis_arcmin": 7.2,
+                 "position_angle_deg": 162.0},
+    "NGC 3556": {"major_axis_arcmin": 8.7, "minor_axis_arcmin": 2.2,
+                 "position_angle_deg": 79.0},
+    "NGC 3992": {"major_axis_arcmin": 7.6, "minor_axis_arcmin": 4.7,
+                 "position_angle_deg": 150.0},
+    "IC 1396":  {"major_axis_arcmin": 170.0, "minor_axis_arcmin": 140.0},
+    "IC 1805":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 60.0},
+    "IC 1848":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 40.0},
+    "IC 5070":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 50.0},
+    "IC 434":   {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 10.0},
+}
+
+
 def apply_overrides(objects):
-    """Apply curated data for well-known objects where NGC 2000.0 data
-    is incomplete or inaccurate (e.g., large nebulae, galaxies with
-    known axis ratios and position angles)."""
-    overrides = {
-        "NGC 224":  {"major_axis_arcmin": 190.0, "minor_axis_arcmin": 60.0,
-                     "position_angle_deg": 35.0, "magnitude": 3.4},
-        "NGC 598":  {"major_axis_arcmin": 70.8, "minor_axis_arcmin": 41.7,
-                     "position_angle_deg": 23.0, "magnitude": 5.7},
-        "NGC 221":  {"major_axis_arcmin": 8.7, "minor_axis_arcmin": 6.5,
-                     "position_angle_deg": 165.0, "magnitude": 8.1},
-        "NGC 205":  {"major_axis_arcmin": 21.9, "minor_axis_arcmin": 11.0,
-                     "position_angle_deg": 35.0, "magnitude": 8.0},
-        "NGC 1952": {"major_axis_arcmin": 7.0, "minor_axis_arcmin": 5.0,
-                     "position_angle_deg": 0.0},
-        "NGC 6853": {"major_axis_arcmin": 8.0, "minor_axis_arcmin": 5.7,
-                     "position_angle_deg": 130.0},
-        "NGC 5194": {"major_axis_arcmin": 11.2, "minor_axis_arcmin": 6.9,
-                     "position_angle_deg": 163.0},
-        "NGC 4594": {"major_axis_arcmin": 8.9, "minor_axis_arcmin": 4.1,
-                     "position_angle_deg": 84.0},
-        "NGC 3031": {"major_axis_arcmin": 26.9, "minor_axis_arcmin": 14.1,
-                     "position_angle_deg": 157.0},
-        "NGC 3034": {"major_axis_arcmin": 11.2, "minor_axis_arcmin": 4.3,
-                     "position_angle_deg": 65.0},
-        "NGC 5457": {"major_axis_arcmin": 28.8, "minor_axis_arcmin": 26.9,
-                     "position_angle_deg": 39.0},
-        "NGC 4826": {"major_axis_arcmin": 10.7, "minor_axis_arcmin": 5.1,
-                     "position_angle_deg": 116.0},
-        "NGC 5055": {"major_axis_arcmin": 12.6, "minor_axis_arcmin": 7.2,
-                     "position_angle_deg": 105.0},
-        "NGC 7000": {"major_axis_arcmin": 120.0, "minor_axis_arcmin": 100.0},
-        "NGC 6523": {"major_axis_arcmin": 90.0, "minor_axis_arcmin": 40.0},
-        "NGC 6611": {"major_axis_arcmin": 35.0, "minor_axis_arcmin": 28.0},
-        "NGC 6618": {"major_axis_arcmin": 46.0, "minor_axis_arcmin": 37.0},
-        "NGC 6514": {"major_axis_arcmin": 28.0, "minor_axis_arcmin": 28.0},
-        "NGC 1976": {"major_axis_arcmin": 85.0, "minor_axis_arcmin": 60.0},
-        "NGC 7293": {"major_axis_arcmin": 25.0, "minor_axis_arcmin": 21.0},
-        "NGC 1499": {"major_axis_arcmin": 145.0, "minor_axis_arcmin": 40.0,
-                     "position_angle_deg": 100.0},
-        "NGC 2237": {"major_axis_arcmin": 80.0, "minor_axis_arcmin": 60.0},
-        "NGC 6960": {"major_axis_arcmin": 70.0, "minor_axis_arcmin": 8.0,
-                     "position_angle_deg": 52.0},
-        "NGC 6992": {"major_axis_arcmin": 70.0, "minor_axis_arcmin": 8.0,
-                     "position_angle_deg": 65.0},
-        "NGC 6888": {"major_axis_arcmin": 18.0, "minor_axis_arcmin": 12.0,
-                     "position_angle_deg": 45.0},
-        "NGC 4565": {"major_axis_arcmin": 15.8, "minor_axis_arcmin": 2.1,
-                     "position_angle_deg": 136.0},
-        "NGC 4631": {"major_axis_arcmin": 15.5, "minor_axis_arcmin": 2.7,
-                     "position_angle_deg": 86.0},
-        "NGC 253": {"major_axis_arcmin": 27.5, "minor_axis_arcmin": 6.8,
-                    "position_angle_deg": 52.0},
-        "NGC 5128": {"major_axis_arcmin": 25.7, "minor_axis_arcmin": 20.0,
-                     "position_angle_deg": 35.0},
-        "NGC 4258": {"major_axis_arcmin": 18.6, "minor_axis_arcmin": 7.2,
-                     "position_angle_deg": 162.0},
-        "NGC 3556": {"major_axis_arcmin": 8.7, "minor_axis_arcmin": 2.2,
-                     "position_angle_deg": 79.0},
-        "NGC 3992": {"major_axis_arcmin": 7.6, "minor_axis_arcmin": 4.7,
-                     "position_angle_deg": 150.0},
-        "IC 1396":  {"major_axis_arcmin": 170.0, "minor_axis_arcmin": 140.0},
-        "IC 1805":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 60.0},
-        "IC 1848":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 40.0},
-        "IC 5070":  {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 50.0},
-        "IC 434":   {"major_axis_arcmin": 60.0, "minor_axis_arcmin": 10.0},
-    }
+    """Apply CURATED_EXTENTS to the NGC/IC objects and their Messier
+    entries."""
+    overrides = CURATED_EXTENTS
 
     by_id = {o["id"]: o for o in objects}
     for obj_id, overrides_dict in overrides.items():

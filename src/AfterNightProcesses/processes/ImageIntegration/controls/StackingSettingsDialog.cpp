@@ -314,8 +314,6 @@ void StackingSettingsDialog::initialize()
                      &StackingSettingsDialog::updateWeightingControlsState);
     QObject::connect(m_ui.chkEnableDrizzle, &QCheckBox::toggled, this,
                      &StackingSettingsDialog::updateRejectionControlsState);
-    QObject::connect(m_ui.chkEnableDrizzle, &QCheckBox::toggled, this,
-                     &StackingSettingsDialog::updateLocalNormalizationControlsState);
     QObject::connect(m_ui.drizzleScaleSelector, &QComboBox::currentTextChanged, this,
                      &StackingSettingsDialog::updateDrizzleInfoLabel);
 
@@ -664,17 +662,6 @@ void StackingSettingsDialog::applyTooltips()
          tr("Range: 0.0 \u2013 1.0. Default: 0.01")});
     setSharedToolTip(floorTip, m_ui.minWeightFloorLabel, m_ui.minWeightFloorValue);
 
-    // --- Per-Channel FWHM Weighting ---
-    const QString perChTip = formatTooltip(
-        tr("Per-channel FWHM weighting"),
-        {tr("Unavailable: the registration measures one star width per frame, not one per colour channel, so each "
-            "channel can only be weighed by its frame's width."),
-         tr("Good to know: a choice an earlier session stored is let go of when these settings are accepted; until "
-            "then the run weighs each channel by its frame's width and says so.")});
-    m_ui.perChannelFwhmWeighting->setToolTip(perChTip);
-    m_ui.perChannelFwhmWeighting->setChecked(false);
-    m_ui.perChannelFwhmWeighting->setEnabled(false);
-
     // --- Local (Per-Pixel) Weighting ---
     const QString localWtTip = formatTooltip(
         tr("Per-pixel weighting"),
@@ -924,11 +911,6 @@ void StackingSettingsDialog::updateWeightingControlsState()
             m_ui.weightingSelector->setCurrentText(QStringLiteral("None"));
             weighting = m_ui.weightingSelector->currentText();
         }
-        if (m_ui.perChannelFwhmWeighting->isChecked())
-        {
-            const QSignalBlocker blocker(m_ui.perChannelFwhmWeighting);
-            m_ui.perChannelFwhmWeighting->setChecked(false);
-        }
         if (m_ui.localWeightingEnabled->isChecked())
         {
             const QSignalBlocker blocker(m_ui.localWeightingEnabled);
@@ -997,8 +979,6 @@ void StackingSettingsDialog::updateWeightingControlsState()
     m_ui.minWeightFloorLabel->setEnabled(floorApplies);
     m_ui.minWeightFloorValue->setEnabled(floorApplies);
 
-    // The registration measures one star width per frame, so no channel can be weighed by a width of its own.
-    m_ui.perChannelFwhmWeighting->setEnabled(false);
     m_ui.localWeightingEnabled->setEnabled(weightingEnabled);
     m_ui.localWeightingWindowSizeLabel->setEnabled(localWeightingEnabled);
     m_ui.localWeightingWindowSizeValue->setEnabled(localWeightingEnabled);
@@ -1087,11 +1067,8 @@ void StackingSettingsDialog::updateLocalNormalizationControlsState()
         static_cast<int>(LocalNormalizationSettingsDialog::presetForSettings(currentLocalNormalizationSettings()));
     if (m_localNormSettings.preset >= 0 && m_localNormSettings.preset < presetNames.size())
     {
-        // A drizzled group's surfaces are fitted by its stack, not measured by the normalization stage.
-        const QString& preset = presetNames[m_localNormSettings.preset];
-        m_ui.localNormalizationPresetLabel->setText(m_ui.chkEnableDrizzle->isChecked()
-                                                        ? tr("(%1 preset, fitted by the drizzled stack)").arg(preset)
-                                                        : QStringLiteral("(%1 preset)").arg(preset));
+        m_ui.localNormalizationPresetLabel->setText(
+            QStringLiteral("(%1 preset)").arg(presetNames[m_localNormSettings.preset]));
     }
 
     updateNormalizationReferenceControlsState();
@@ -1242,13 +1219,6 @@ void StackingSettingsDialog::openLocalNormalizationDialog()
     auto* dialog = new LocalNormalizationSettingsDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowModality(Qt::WindowModal);
-    // A drizzled group has no normalization stage: its stack fits the surfaces on the drizzled lights itself and reads
-    // none of the stage's analysis.
-    dialog->setReferenceAnalysisOffered(
-        !getDrizzleEnabled(),
-        tr("With drizzle on, the drizzled stack fits each light's local surfaces and scale against the group's "
-           "reference as it reads the light: the reference strategy, the evaluation, the PSF flux scale and the "
-           "hot-pixel and noise filters do not apply, so they are not offered."));
 
     // Populate dialog with current settings
     dialog->setSettings(currentLocalNormalizationSettings());
@@ -1312,7 +1282,6 @@ void StackingSettingsDialog::ensureWeightingOptionsDialog()
             m_ui.starCountScalingSelector->setCurrentText(snapshot.starCountScaling);
             m_ui.exponentialAlphaValue->setValue(snapshot.exponentialAlpha);
             m_ui.minWeightFloorValue->setValue(snapshot.minWeightFloor);
-            m_ui.perChannelFwhmWeighting->setChecked(snapshot.perChannelFwhmWeighting);
             m_ui.localWeightingEnabled->setChecked(snapshot.localWeightingEnabled);
             m_ui.localWeightingWindowSizeValue->setValue(snapshot.localWeightingWindowSize);
             m_ui.localWeightingGridSpacingValue->setValue(snapshot.localWeightingGridSpacing);
@@ -1354,7 +1323,6 @@ void StackingSettingsDialog::openWeightingOptionsDialog()
         .starCountScaling = m_ui.starCountScalingSelector->currentText(),
         .exponentialAlpha = m_ui.exponentialAlphaValue->value(),
         .minWeightFloor = m_ui.minWeightFloorValue->value(),
-        .perChannelFwhmWeighting = m_ui.perChannelFwhmWeighting->isChecked(),
         .localWeightingEnabled = m_ui.localWeightingEnabled->isChecked(),
         .localWeightingWindowSize = m_ui.localWeightingWindowSizeValue->value(),
         .localWeightingGridSpacing = m_ui.localWeightingGridSpacingValue->value(),
@@ -1503,13 +1471,6 @@ double StackingSettingsDialog::getExponentialAlpha() const
 double StackingSettingsDialog::getMinWeightFloor() const
 {
     return storedValueWhileShown(*m_ui.minWeightFloorValue);
-}
-
-bool StackingSettingsDialog::getPerChannelFwhmWeighting() const
-{
-    return isWeightingOptionsAvailable() &&
-           (m_ui.weightingSelector->currentText() == QStringLiteral("Weighted FWHM")) &&
-           m_ui.perChannelFwhmWeighting->isChecked();
 }
 
 bool StackingSettingsDialog::getLocalWeightingEnabled() const
@@ -1844,12 +1805,6 @@ void StackingSettingsDialog::setMinWeightFloor(double value)
     setStoredValue(*m_ui.minWeightFloorValue, value);
 }
 
-void StackingSettingsDialog::setPerChannelFwhmWeighting(bool)
-{
-    // The registration measures one star width per frame, so the control stays off and a stored choice is let go of.
-    m_ui.perChannelFwhmWeighting->setChecked(false);
-}
-
 void StackingSettingsDialog::setLocalWeightingEnabled(bool value)
 {
     m_ui.localWeightingEnabled->setChecked(value);
@@ -2129,7 +2084,6 @@ void StackingSettingsDialog::resetToDefaults()
     m_ui.starCountScalingSelector->setCurrentText("Quadratic");
     m_ui.exponentialAlphaValue->setValue(2.0);
     m_ui.minWeightFloorValue->setValue(0.01);
-    m_ui.perChannelFwhmWeighting->setChecked(false);
     m_ui.localWeightingEnabled->setChecked(false);
     m_ui.localWeightingWindowSizeValue->setValue(5);
     m_ui.localWeightingGridSpacingValue->setValue(64);
@@ -2294,7 +2248,6 @@ StackingSettings StackingSettingsDialog::getCurrentSettings() const
     settings.starCountScaling = getStarCountScaling();
     settings.exponentialAlpha = getExponentialAlpha();
     settings.minWeightFloor = getMinWeightFloor();
-    settings.perChannelFwhmWeighting = getPerChannelFwhmWeighting();
     settings.localWeighting.enabled = getLocalWeightingEnabled();
     settings.localWeighting.windowSize = getLocalWeightingWindowSize();
     settings.localWeighting.gridSpacing = getLocalWeightingGridSpacing();

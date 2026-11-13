@@ -58,7 +58,7 @@ enum class ContextKey : std::uint8_t
     /// A filesystem path the failure is about, as text. Carried only where it is safe to report.
     Path,
 
-    /// The external library that reported the failure, as text - `"cfitsio"`, `"libtiff"`.
+    /// The external library that reported the failure, as text - `"OpenFITS"`, `"libtiff"`.
     Library,
 
     /// The status code that library reported, in its own numbering. Signed, because most such

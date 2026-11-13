@@ -358,7 +358,6 @@ TEST_F(DialogResetDefaultsTest, Light_WeightingOptions)
     EXPECT_EQ(d.getStarCountScaling(), QStringLiteral("Quadratic"));
     EXPECT_DOUBLE_EQ(d.getExponentialAlpha(), 2.0);
     EXPECT_DOUBLE_EQ(d.getMinWeightFloor(), 0.01);
-    EXPECT_FALSE(d.getPerChannelFwhmWeighting());
 }
 
 TEST_F(DialogResetDefaultsTest, Light_PhotometricWeightingOptionCanBeDisabledWhenDataIsUnavailable)
@@ -475,36 +474,36 @@ TEST_F(DialogResetDefaultsTest, Light_DisabledWeightingDoesNotExposeWeightingOpt
 
     const auto settings = d.getCurrentSettings();
     EXPECT_FALSE(d.getLocalWeightingEnabled());
-    EXPECT_FALSE(settings.perChannelFwhmWeighting);
     EXPECT_FALSE(settings.localWeighting.enabled);
 }
 
-// The registration measures one star width per frame, so the stack cannot weigh a channel by a width of its own: the
-// per-channel control is off and disabled under every weighting, its tooltip says why, and a stored choice is let go
-// of when the dialog is accepted. It was offered under Weighted FWHM and changed no weight.
-TEST_F(DialogResetDefaultsTest, Light_PerChannelFwhmWeightingIsUnavailableAndAStoredChoiceIsLetGo)
+// Every channel of a colour stack is weighed by its light's one star width: weighed by red, green and blue widths of
+// their own, two real sessions' weights moved by a few percent and their stacks' star widths by a third of a percent at
+// most, so the weighting options offer no per-channel width weighting under any weighting. They offered a control that
+// was always disabled and changed no weight.
+TEST_F(DialogResetDefaultsTest, Light_TheWeightingOptionsOfferNoPerChannelWidthWeighting)
 {
     StackingSettingsDialog d(StackingSettingsDialog::FrameType::LIGHT, QStringLiteral("Light"));
     d.resetToDefaults();
     StackingSettings stored;
     stored.weighting = QStringLiteral("Weighted FWHM");
-    stored.perChannelFwhmWeighting = true;
     applyStackingSettingsToDialog(stored, d);
 
-    auto* control = d.findChild<QCheckBox*>(QStringLiteral("perChannelFwhmWeighting"));
-    ASSERT_NE(control, nullptr);
-    EXPECT_FALSE(control->isEnabled());
-    EXPECT_FALSE(control->isChecked());
-    EXPECT_TRUE(control->toolTip().contains(QStringLiteral("one star width per frame")))
-        << control->toolTip().toStdString();
-    EXPECT_FALSE(d.getPerChannelFwhmWeighting());
-    EXPECT_FALSE(stackingSettingsFromDialog(d, stored).perChannelFwhmWeighting);
-
-    for (const QString& weighting : {QStringLiteral("Number of stars"), QStringLiteral("Noise")})
+    for (const QString& weighting :
+         {QStringLiteral("Weighted FWHM"), QStringLiteral("Number of stars"), QStringLiteral("Noise")})
     {
         d.setWeighting(weighting);
-        EXPECT_FALSE(control->isEnabled()) << weighting.toStdString();
+        EXPECT_EQ(d.findChild<QCheckBox*>(QStringLiteral("perChannelFwhmWeighting")), nullptr)
+            << weighting.toStdString();
+        for (const QCheckBox* option : d.findChildren<QCheckBox*>())
+        {
+            EXPECT_FALSE(option->text().contains(QStringLiteral("Per-Channel"), Qt::CaseInsensitive))
+                << option->objectName().toStdString();
+        }
     }
+    // The options it sat among are still offered.
+    EXPECT_NE(d.findChild<QDoubleSpinBox*>(QStringLiteral("minWeightFloorValue")), nullptr);
+    EXPECT_NE(d.findChild<QCheckBox*>(QStringLiteral("localWeightingEnabled")), nullptr);
 }
 
 // The stack raises a star-count, width or photometric weight to the floor and no other - a noise or image-count
@@ -583,7 +582,6 @@ TEST_F(DialogResetDefaultsTest, Light_CometStackingDisablesWeightingControlsAndS
     d.resetToDefaults();
 
     d.setWeighting(QStringLiteral("Weighted FWHM"));
-    d.setPerChannelFwhmWeighting(true);
     d.setLocalWeightingEnabled(true);
     d.setCometStackingMode(QStringLiteral("Comet"));
     QApplication::processEvents();
@@ -600,7 +598,6 @@ TEST_F(DialogResetDefaultsTest, Light_CometStackingDisablesWeightingControlsAndS
 
     const auto settings = d.getCurrentSettings();
     EXPECT_EQ(settings.weighting, QStringLiteral("None"));
-    EXPECT_FALSE(settings.perChannelFwhmWeighting);
     EXPECT_FALSE(settings.localWeighting.enabled);
     EXPECT_EQ(settings.cometStackingMode, QStringLiteral("Comet"));
 }
@@ -736,7 +733,6 @@ TEST_F(DialogResetDefaultsTest, Light_RegistrationDerivedCometModeDisablesApplie
     StackingSettings input;
     input.stackMethod = QStringLiteral("Average");
     input.weighting = QStringLiteral("Weighted FWHM");
-    input.perChannelFwhmWeighting = true;
     input.localWeighting.enabled = true;
     input.cometStackingMode = QStringLiteral("Stars");
 
@@ -749,7 +745,6 @@ TEST_F(DialogResetDefaultsTest, Light_RegistrationDerivedCometModeDisablesApplie
 
     const auto result = stackingSettingsFromDialog(d, input);
     EXPECT_EQ(result.weighting, QStringLiteral("None"));
-    EXPECT_FALSE(result.perChannelFwhmWeighting);
     EXPECT_FALSE(result.localWeighting.enabled);
     EXPECT_EQ(result.cometStackingMode, QStringLiteral("Comet"));
 }
@@ -859,10 +854,11 @@ TEST_F(DialogResetDefaultsTest, Light_LocalNormalizationExplicitReferenceEnables
     EXPECT_TRUE(bestButton->isEnabled());
 }
 
-// With drizzle on, the drizzled stack fits a Local group's surfaces itself, against the group's reference, and reads
-// no reference strategy, evaluation, PSF flux scale or analysis filter: the local normalization dialog leaves those
-// out and says why, and offers them again once drizzle is off. It offered every one, and none had an effect.
-TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatTheDrizzledStackFits)
+// With drizzle on, a Local group's local normalization is measured by the normalization stage as any group's is, so
+// the local normalization dialog offers every analysis setting and the preset label names the preset alone. With
+// drizzle on it left the reference strategy, the evaluation, the PSF flux scale and the analysis filters out, and the
+// label said the drizzled stack fitted the surfaces.
+TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersEveryAnalysisSetting)
 {
     StackingSettingsDialog d(StackingSettingsDialog::FrameType::LIGHT, QStringLiteral("Light"));
     d.setLocalNormalizationEnabled(true);
@@ -871,13 +867,13 @@ TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatT
     auto* preset = d.findChild<QLabel*>(QStringLiteral("localNormalizationPresetLabel"));
     ASSERT_NE(configure, nullptr);
     ASSERT_NE(preset, nullptr);
-    EXPECT_TRUE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
+    EXPECT_TRUE(preset->text().contains(QStringLiteral("preset"))) << preset->text().toStdString();
+    EXPECT_FALSE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
 
-    const auto opened = [&d, configure]() -> LocalNormalizationSettingsDialog* {
-        configure->click();
-        const QList<LocalNormalizationSettingsDialog*> dialogs = d.findChildren<LocalNormalizationSettingsDialog*>();
-        return dialogs.size() == 1 ? dialogs.front() : nullptr;
-    };
+    configure->click();
+    const QList<LocalNormalizationSettingsDialog*> dialogs = d.findChildren<LocalNormalizationSettingsDialog*>();
+    ASSERT_EQ(dialogs.size(), 1);
+    LocalNormalizationSettingsDialog* drizzled = dialogs.front();
     const std::array<const char*, 9> analysis = {"referenceGroupBox",
                                                  "evaluationCriteria",
                                                  "scaleEvaluation",
@@ -887,37 +883,17 @@ TEST_F(DialogResetDefaultsTest, Light_ADrizzledLocalNormalizationOffersOnlyWhatT
                                                  "allowClusteredSources",
                                                  "hotPixelMedianRadius",
                                                  "noiseReductionRadius"};
-
-    LocalNormalizationSettingsDialog* drizzled = opened();
-    ASSERT_NE(drizzled, nullptr);
     for (const char* name : analysis)
     {
         auto* widget = drizzled->findChild<QWidget*>(QString::fromLatin1(name));
         ASSERT_NE(widget, nullptr) << name;
-        EXPECT_TRUE(widget->isHidden()) << name;
+        EXPECT_FALSE(widget->isHidden()) << name;
     }
     auto* note = drizzled->findChild<QLabel*>(QStringLiteral("referenceAnalysisNote"));
     ASSERT_NE(note, nullptr);
-    EXPECT_FALSE(note->isHidden());
-    EXPECT_TRUE(note->text().contains(QStringLiteral("drizzled stack"))) << note->text().toStdString();
+    EXPECT_TRUE(note->isHidden());
     drizzled->reject();
     delete drizzled;
-
-    d.setDrizzleEnabled(false);
-    EXPECT_FALSE(preset->text().contains(QStringLiteral("drizzled stack"))) << preset->text().toStdString();
-    LocalNormalizationSettingsDialog* standard = opened();
-    ASSERT_NE(standard, nullptr);
-    for (const char* name : analysis)
-    {
-        auto* widget = standard->findChild<QWidget*>(QString::fromLatin1(name));
-        ASSERT_NE(widget, nullptr) << name;
-        EXPECT_FALSE(widget->isHidden()) << name;
-    }
-    note = standard->findChild<QLabel*>(QStringLiteral("referenceAnalysisNote"));
-    ASSERT_NE(note, nullptr);
-    EXPECT_TRUE(note->isHidden());
-    standard->reject();
-    delete standard;
 }
 
 // Local normalization matches each light globally in Additive With Scaling, whatever method the group stores, so the
@@ -1095,8 +1071,9 @@ TEST_F(DialogResetDefaultsTest, Light_AStoredValueFinerThanItsControlIsGivenBack
 }
 
 // The settings a group's row shows on hover say what runs: the global match local normalization runs rather than the
-// method stored for Global, the star floor as the flux scale's, overlap normalization with its floors, and for a
-// drizzled Local group what its stack does not read. It showed the stored method and no overlap normalization.
+// method stored for Global, the star floor as the flux scale's, and overlap normalization with its floors; a drizzled
+// Local group's surfaces are measured as any Local group's are. It showed the stored method and no overlap
+// normalization.
 TEST(StackingSettingsReport, TheGroupsSettingsSayWhatTheNormalizationRuns)
 {
     StackingSettings local;
@@ -1108,9 +1085,10 @@ TEST(StackingSettingsReport, TheGroupsSettingsSayWhatTheNormalizationRuns)
         << shown.toStdString();
     EXPECT_FALSE(shown.contains(QStringLiteral("Global Method: Multiplicative"))) << shown.toStdString();
     EXPECT_TRUE(shown.contains(QStringLiteral("Min SNR (flux scale): 40.00"))) << shown.toStdString();
-    EXPECT_FALSE(shown.contains(QStringLiteral("Fitted by the drizzled stack"))) << shown.toStdString();
     local.drizzle.enabled = true;
-    EXPECT_TRUE(stackingSettingsReport(local).contains(QStringLiteral("Fitted by the drizzled stack")));
+    const QString drizzled = stackingSettingsReport(local);
+    EXPECT_TRUE(drizzled.contains(QStringLiteral("Reference Strategy"))) << drizzled.toStdString();
+    EXPECT_FALSE(drizzled.contains(QStringLiteral("drizzled stack"))) << drizzled.toStdString();
 
     StackingSettings global;
     global.normalizationMode = NormalizationMode::Global;
@@ -1121,6 +1099,19 @@ TEST(StackingSettingsReport, TheGroupsSettingsSayWhatTheNormalizationRuns)
     EXPECT_TRUE(overlap.contains(QStringLiteral("Overlap Normalization: Yes (at least 2500 px and 0.05 of the "
                                                 "smaller light)")))
         << overlap.toStdString();
+}
+
+// A group weighed by its stars' width says its floor and nothing of per-channel widths: every channel is weighed by its
+// light's one width. The report listed a per-channel choice no stack could honour.
+TEST(StackingSettingsReport, AWidthWeightingSaysNothingOfPerChannelWidths)
+{
+    StackingSettings width;
+    width.weighting = QStringLiteral("Weighted FWHM");
+    width.minWeightFloor = 0.05;
+    const QString shown = stackingSettingsReport(width);
+    EXPECT_TRUE(shown.contains(QStringLiteral("Weighting: Weighted FWHM"))) << shown.toStdString();
+    EXPECT_TRUE(shown.contains(QStringLiteral("Min Weight Floor: 0.050"))) << shown.toStdString();
+    EXPECT_FALSE(shown.contains(QStringLiteral("Per-channel"), Qt::CaseInsensitive)) << shown.toStdString();
 }
 
 TEST_F(DialogResetDefaultsTest, Light_HdrDisabledByDefault)
@@ -1260,7 +1251,6 @@ TEST(StackingParamsUtilsTest, QualityMapProductPolicyUsesExplicitGateAcrossPairw
         bool cfaAware = false;
         QString outputConfiguration;
         QString weighting;
-        bool perChannelWeighting = false;
         bool localWeighting = false;
         bool createQualityMaps = false;
         bool createRejectionMaps = false;
@@ -1269,21 +1259,21 @@ TEST(StackingParamsUtilsTest, QualityMapProductPolicyUsesExplicitGateAcrossPairw
 
     const std::array<TestCase, 8> cases = {
         TestCase{"standard mono unweighted quality off rejection off", false, false, QStringLiteral("Mono"),
-                 QStringLiteral("None"), false, false, false, false, false},
+                 QStringLiteral("None"), false, false, false, false},
         TestCase{"drizzle CFA global weighted quality off rejection on", true, true, QStringLiteral("CFA"),
-                 QStringLiteral("Noise"), false, false, false, true, false},
-        TestCase{"standard RGB per-channel weighted quality off rejection off", false, false, QStringLiteral("RGB"),
-                 QStringLiteral("Weighted FWHM"), true, false, false, false, false},
+                 QStringLiteral("Noise"), false, false, true, false},
+        TestCase{"standard RGB width weighted quality off rejection off", false, false, QStringLiteral("RGB"),
+                 QStringLiteral("Weighted FWHM"), false, false, false, false},
         TestCase{"drizzle mono local weighted quality off rejection off", true, false, QStringLiteral("Mono"),
-                 QStringLiteral("Noise"), false, true, false, false, false},
+                 QStringLiteral("Noise"), true, false, false, false},
         TestCase{"standard mono global weighted quality on rejection off", false, false, QStringLiteral("Mono"),
-                 QStringLiteral("Noise"), false, false, true, false, true},
-        TestCase{"standard RGB per-channel weighted quality on rejection off", false, false, QStringLiteral("RGB"),
-                 QStringLiteral("Weighted FWHM"), true, false, true, false, true},
+                 QStringLiteral("Noise"), false, true, false, true},
+        TestCase{"standard RGB width weighted quality on rejection off", false, false, QStringLiteral("RGB"),
+                 QStringLiteral("Weighted FWHM"), false, true, false, true},
         TestCase{"drizzle mono local weighted quality on rejection on", true, false, QStringLiteral("Mono"),
-                 QStringLiteral("Noise"), false, true, true, true, true},
+                 QStringLiteral("Noise"), true, true, true, true},
         TestCase{"drizzle RGB unweighted quality on rejection off", true, false, QStringLiteral("RGB"),
-                 QStringLiteral("None"), false, false, true, false, false},
+                 QStringLiteral("None"), false, true, false, false},
     };
 
     for (const auto& testCase : cases)
@@ -1295,7 +1285,6 @@ TEST(StackingParamsUtilsTest, QualityMapProductPolicyUsesExplicitGateAcrossPairw
         settings.stackMethod = QStringLiteral("Average");
         settings.rejectionMethod = QStringLiteral("Sigma Clipping");
         settings.weighting = testCase.weighting;
-        settings.perChannelFwhmWeighting = testCase.perChannelWeighting;
         settings.localWeighting.enabled = testCase.localWeighting;
         settings.createQualityMaps = testCase.createQualityMaps;
         settings.createRejectionMaps = testCase.createRejectionMaps;
@@ -1383,7 +1372,6 @@ TEST(StackingParamsUtilsTest, CometStackingDisablesExecutionWeighting)
     StackingSettings settings;
     settings.stackMethod = QStringLiteral("Average");
     settings.weighting = QStringLiteral("Weighted FWHM");
-    settings.perChannelFwhmWeighting = true;
     settings.localWeighting.enabled = true;
     settings.localWeighting.windowSize = 9;
     settings.localWeighting.gridSpacing = 16;
@@ -1395,7 +1383,6 @@ TEST(StackingParamsUtilsTest, CometStackingDisablesExecutionWeighting)
     // A comet stack weighs its frames equally: the sanitized settings carry no weighting, and the stack says it lets
     // the stored one go.
     EXPECT_EQ(sanitized.weighting, QStringLiteral("None"));
-    EXPECT_FALSE(sanitized.perChannelFwhmWeighting);
     EXPECT_FALSE(sanitized.localWeighting.enabled);
     EXPECT_TRUE(ImageIntegration::stackingSettingsNotes(settings)
                     .join(QLatin1Char('\n'))
@@ -1443,13 +1430,11 @@ TEST(StackingParamsUtilsTest, DisabledWeightingClearsDependentWeightingOptions)
     StackingSettings settings;
     settings.stackMethod = QStringLiteral("Average");
     settings.weighting = QStringLiteral("None");
-    settings.perChannelFwhmWeighting = true;
     settings.localWeighting.enabled = true;
 
     const auto sanitized = ImageIntegration::sanitizeStackingSettings(settings);
     const auto choice = ImageIntegration::integrationStackChoice(sanitized);
 
-    EXPECT_FALSE(sanitized.perChannelFwhmWeighting);
     EXPECT_FALSE(sanitized.localWeighting.enabled);
     ASSERT_TRUE(choice.hasValue()) << choice.status().message();
     EXPECT_EQ(choice->weighting, an::StackWeighting::Uniform);
@@ -1686,7 +1671,6 @@ TEST_F(V2StackingSettingsStructDefaultsTest, WeightingOptions)
     EXPECT_EQ(s.starCountScaling, QStringLiteral("Quadratic"));
     EXPECT_DOUBLE_EQ(s.exponentialAlpha, 2.0);
     EXPECT_DOUBLE_EQ(s.minWeightFloor, 0.01);
-    EXPECT_FALSE(s.perChannelFwhmWeighting);
 }
 
 TEST_F(V2StackingSettingsStructDefaultsTest, MemorySettings)

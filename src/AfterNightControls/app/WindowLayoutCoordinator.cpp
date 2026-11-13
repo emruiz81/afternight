@@ -368,6 +368,10 @@ void WindowLayoutCoordinator::createContextMenuForViewControl(ImageViewControl* 
         splitAction->setEnabled(false);
     }
 
+    // The Image menu's own entry, so it is offered - and enabled - as the menu bar offers it.
+    menu.addSeparator();
+    menu.addAction(m_dependencies.ui->actionShow_In_File_Browser);
+
     menu.exec(event->globalPos());
 }
 

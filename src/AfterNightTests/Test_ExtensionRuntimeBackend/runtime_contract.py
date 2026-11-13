@@ -196,10 +196,7 @@ for suffix in (".fits", ".tif", ".png"):
 calls.append(call("save_image with options", lambda: (native.save_image(
     saved, os.path.join(work, "options.tif"), {"tiff_compression": "zip", "unknown_option": 1}),
     os.path.exists(os.path.join(work, "options.tif")))[-1]))
-# cfitsio wraps the path it could not open across its message, so the message is recorded up to the path.
-missing = call("load_image refuses a missing file", native.load_image, os.path.join(work, "missing.fits"))
-missing["message"] = missing.get("message", "").split(" Error message stack:")[0]
-calls.append(missing)
+calls.append(call("load_image refuses a missing file", native.load_image, os.path.join(work, "missing.fits")))
 calls.append(call("save_image refuses an unknown format", native.save_image, saved, os.path.join(work, "saved.unknown")))
 
 stars = native.image_from_numpy(star_field())

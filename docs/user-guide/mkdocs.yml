@@ -1,81 +1,60 @@
+# The user guide: MkDocs with the guide's own theme (theme/), its hooks (hooks/) and its data (data/). Built from the
+# repository root:
+#
+#   build\scripts\msvc\build_user_guide_docs.bat
+#   build/scripts/linux/build_user_guide_docs.sh
+#
+# docs/dev/USER_GUIDE_AUTHORING.md describes the parts and gives their reasons.
 site_name: AfterNight Documentation
 site_description: >-
   Comprehensive user guide for AfterNight, a cross-platform astrophotography
   processing application.
 site_url: https://docs.afternightastro.org/
+repo_url: https://github.com/emruiz81/afternight
+edit_uri: edit/main/docs/user-guide/docs/en/
 
 docs_dir: docs/en
 site_dir: site
+# The copy the installers bundle is opened from disk, where a folder has no index; the page-relative image paths of
+# the figure blocks depend on it too.
 use_directory_urls: false
 
 copyright: Copyright &copy; 2024-2026 Ezequiel Ruiz
 
+# No named theme: the templates and their assets are the guide's own. With `name: null` MkDocs reads no
+# mkdocs_theme.yml, so the theme's keys are stated here.
 theme:
-  name: material
-  language: en
+  name: null
+  custom_dir: theme
+  static_templates: [404.html]
+  locale: en
   logo: assets/images/interface/logo.png
   favicon: assets/images/interface/favicon.png
-  icon:
-    repo: fontawesome/brands/github
-  features:
-    - navigation.tracking
-    - navigation.tabs
-    - navigation.tabs.sticky
-    - navigation.sections
-    - navigation.expand
-    - navigation.top
-    - navigation.indexes
-    - navigation.footer
-    - search.suggest
-    - search.highlight
-    - search.share
-    - content.tabs.link
-    - content.code.copy
-    - content.code.annotate
-    - content.tooltips
-    - toc.follow
-    - announce.dismiss
-  palette:
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: deep purple
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: deep purple
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-  font: false
 
-extra_css:
-  - stylesheets/extra.css
+# The one hook file registers the guide's `controls` and `figure` blocks itself and writes the search index.
+hooks:
+  - hooks/guide_hooks.py
 
+# No MkDocs search plugin: its worker cannot run from file://, and the hooks write the index as a script.
+plugins:
+  - glightbox
+
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+    unrecognized_links: warn
+
+# The theme links its own stylesheets and scripts; these are the runtimes the pages bring.
+extra_css: []
 extra_javascript:
   # Keep documentation fully offline-capable for installer bundles.
   - assets/javascripts/mermaid/mermaid.min.js
   - assets/javascripts/mermaid/mermaid-init.js
+  # The configuration loads first: it points MathJax at its vendored fonts.
+  - assets/javascripts/mathjax/mathjax-config.js
   - assets/javascripts/mathjax/tex-mml-chtml.js
-
-extra:
-  polyfills:
-    - assets/javascripts/polyfills/resize-observer.js
-    - assets/javascripts/iframe-worker/shim.js
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/emruiz81/afternight
-  generator: false
-
-plugins:
-  - search:
-      lang: en
-  - tags
-  - glightbox
-  - offline
 
 markdown_extensions:
   - abbr
@@ -94,9 +73,6 @@ markdown_extensions:
   - pymdownx.caret
   - pymdownx.critic
   - pymdownx.details
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -108,8 +84,7 @@ markdown_extensions:
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
-          # Render with the local runtime so file:// installer copies never
-          # fall back to Material's network-loaded Mermaid worker.
+          # Drawn by the vendored runtime (mermaid-init.js), so a copy opened from file:// needs no network.
           class: an-mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
@@ -130,11 +105,13 @@ nav:
       - Dashboard: interface/dashboard.md
       - Image Viewer: interface/image-viewer.md
       - Astrometry Overlays: interface/astrometry-overlays.md
+      - Annotate Image: interface/annotate-image.md
       - Sequences: interface/sequences.md
       - Saving & Exporting: interface/saving-and-exporting.md
       - Docking Panels: interface/docking-panels.md
       - Toolbar & Menus: interface/toolbar-and-menus.md
       - Process Windows: interface/process-windows.md
+      - Process Windows Reference: interface/process-windows-reference.md
       - Session Console: interface/log-viewer.md
       - Image History: interface/image-history.md
       - Image Statistics: interface/image-statistics.md
@@ -142,11 +119,13 @@ nav:
       - Image Summary: interface/image-summary.md
       - FITS Header, EXIF, And Astrometry Metadata: interface/fits-header-viewer.md
       - Settings: interface/settings-dialog.md
+      - Settings Reference: interface/settings-dialog-reference.md
       - Masks: interface/masks.md
   - Processes:
       - Overview: processes/index.md
       - Calibration:
           - Image Calibration: processes/calibration/image-calibration.md
+          - Image Calibration Reference: processes/calibration/image-calibration-reference.md
           - Cosmetic Correction: processes/calibration/cosmetic-correction.md
           - Debayer: processes/calibration/debayer.md
           - Split CFA: processes/calibration/split-cfa.md
@@ -154,12 +133,16 @@ nav:
           - CFA Integer Resample: processes/calibration/cfa-integer-resample.md
       - Registration & Alignment:
           - Image Registration: processes/registration-alignment/image-registration.md
+          - Image Registration Reference: processes/registration-alignment/image-registration-reference.md
           - Plate Solving: processes/registration-alignment/plate-solving.md
           - Star Profiler: processes/registration-alignment/star-profiler.md
       - Stacking & Integration:
           - Image Integration: processes/stacking-integration/image-integration.md
+          - Image Integration Reference: processes/stacking-integration/image-integration-reference.md
+          - Image Integration Report: processes/stacking-integration/integration-report.md
           - Image Integration Lite: processes/stacking-integration/image-integration-lite.md
           - Image Stacking: processes/stacking-integration/image-stacking.md
+          - Image Stacking Reference: processes/stacking-integration/image-stacking-reference.md
           - Image List Analyzer: processes/stacking-integration/image-list-analyzer.md
       - Color Calibration:
           - Color Calibration: processes/color-calibration/color-calibration.md
@@ -172,6 +155,7 @@ nav:
           - Histogram Transformation: processes/stretching/histogram-transformation.md
           - Curves Transformation: processes/stretching/curves-transformation.md
           - Generalized Hyperbolic Transformation: processes/stretching/gh-transformation.md
+          - Generalized Hyperbolic Transformation Reference: processes/stretching/gh-transformation-reference.md
           - ArcSinh Stretch: processes/stretching/arcsinh-stretch.md
           - Statistical Stretch: processes/stretching/statistical-stretch.md
           - Gamma Correction: processes/stretching/gamma-correction.md
@@ -200,7 +184,7 @@ nav:
       - Star Operations:
           - Star Mask: processes/star-operations/star-mask.md
           - Starnet++: processes/star-operations/starnet.md
-          - StarNet++ Star Mask: processes/star-operations/starnet-star-mask.md
+          - Starnet++ Star Mask: processes/star-operations/starnet-star-mask.md
           - Star Reduction: processes/star-operations/star-reduction.md
           - Starmask Recombination: processes/star-operations/starmask-recombination.md
           - Profiled Starmask Recombination: processes/star-operations/profiled-starmask-recomb.md
@@ -219,9 +203,11 @@ nav:
           - Integer Resample: processes/geometry/integer-resample.md
       - Pixel Math:
           - Pixel Math: processes/pixel-math/pixel-math.md
+          - Pixel Math Reference: processes/pixel-math/pixel-math-reference.md
       - Analysis:
           - Image Compare: processes/analysis/image-compare.md
           - Image Blend: processes/analysis/image-blend.md
+          - Image Blend Reference: processes/analysis/image-blend-reference.md
           - Range Selection: processes/analysis/range-selection.md
       - Masking:
           - Mask Drawing: processes/masking/mask-drawing.md
@@ -246,7 +232,9 @@ nav:
       - Mosaic Workflow: workflows/mosaic-workflow.md
   - Extensions:
       - Using Extensions: extensions/using-extensions.md
+      - Using Extensions Reference: extensions/using-extensions-reference.md
       - Extension Marketplace: extensions/extension-marketplace.md
+      - Extension Marketplace Reference: extensions/extension-marketplace-reference.md
   - Reference:
       - Keyboard Shortcuts: reference/keyboard-shortcuts.md
       - Glossary: reference/glossary.md

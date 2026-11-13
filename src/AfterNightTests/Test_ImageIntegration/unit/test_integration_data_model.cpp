@@ -492,6 +492,33 @@ TEST(IntegrationDataModel, JsonRoundTripsFramesAndSettings)
     EXPECT_FALSE(it->second.solveFinalMasterIfNeeded);
 }
 
+TEST(IntegrationDataModel, AFramesSampleLayoutSurvivesTheProjectFileAndAnUnrecordedOneStaysUnknown)
+{
+    // What the run's files weigh is read from it, and a project saved before the layout was recorded states none.
+    const auto lightWith = [](const QString& filename, const std::optional<FrameSampleLayout> layout) {
+        const FrameMetadata metadata(FrameType::Light, QSize(100, 100), 60.0, std::nullopt, std::nullopt, std::nullopt,
+                                     QString(), QStringLiteral("M31"), QDateTime::currentDateTimeUtc(), QString(),
+                                     layout);
+        return FrameInfo(FrameId(filename), filename, metadata);
+    };
+    IntegrationDataModel model;
+    const FrameInfo mosaic = lightWith(QStringLiteral("mosaic.cr2"), FrameSampleLayout{.channels = 1, .mosaic = true});
+    const FrameInfo colour = lightWith(QStringLiteral("colour.tif"), FrameSampleLayout{.channels = 3, .mosaic = false});
+    const FrameInfo unrecorded = lightWith(QStringLiteral("old.fit"), std::nullopt);
+    model.addFrames(FrameType::Light, {mosaic, colour, unrecorded});
+
+    IntegrationDataModel restored;
+    restored.fromJson(model.toJson());
+
+    const auto layoutOf = [&](const FrameInfo& frame) -> std::optional<FrameSampleLayout> {
+        const auto found = restored.frames(FrameType::Light).findById(frame.id);
+        return found.has_value() ? found->metadata.sampleLayout() : std::nullopt;
+    };
+    EXPECT_EQ(layoutOf(mosaic), (FrameSampleLayout{.channels = 1, .mosaic = true}));
+    EXPECT_EQ(layoutOf(colour), (FrameSampleLayout{.channels = 3, .mosaic = false}));
+    EXPECT_FALSE(layoutOf(unrecorded).has_value());
+}
+
 TEST(IntegrationDataModel, JsonRoundTripsRegistrationAutoReferenceDuringRegistrationSetting)
 {
     IntegrationDataModel model;

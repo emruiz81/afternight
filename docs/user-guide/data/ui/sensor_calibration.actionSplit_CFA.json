@@ -1,0 +1,11 @@
+{
+  "id": "sensor_calibration.actionSplit_CFA",
+  "window": "Split CFA <{image}>",
+  "controls": [
+    {"label": "Method", "kind": "combo", "object": "methodSelector", "group": "", "visible": true, "default": "Split CFA Channels", "options": ["Split CFA Channels", "Extract Ha", "Extract Ha/OIII", "Extract Green"]},
+    {"label": "Ha/OIII Resampling", "kind": "combo", "object": "haOIIIResamplingSelector", "group": "", "visible": true, "default": "No Resampling", "options": ["No Resampling", "Upsample Ha", "Downsample OIII"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "default": "", "options": []},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

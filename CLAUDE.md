@@ -260,7 +260,8 @@ descriptors into `ProcessRegistry`, and `app/ProcessLauncher` opens them. Each p
 matching, `IntegrationError`), `workflow/` (manifest build/diff/hash, `ExecutionPlanner`, `WorkflowExecutor`,
 progress, artifacts, cancellation) with `workflow/stages/` (Bias, Dark, Flat, LightsCalibration, LightsRegistration,
 LightsAlignment, LightsNormalization, LightsStacking, LightsDrizzle), `persistence/` (SQLite project state, autosave,
-presets), `reporting/` (`WorkflowReportBuilder`), and `tabs/`, `widgets/`, `controls/`, `dialogs/` for UI. `lite/` and
+presets), `reporting/` (the report model, `buildReportModel`, and the document written from it; read
+`docs/dev/IMAGE_INTEGRATION_REPORT.md` first), and `tabs/`, `widgets/`, `controls/`, `dialogs/` for UI. `lite/` and
 `ImageIntegrationLiteProcess.*` are the simplified front end only — shared behavior belongs in the full
 model/workflow helpers and should be reused by Lite. Every generated image goes through `publishWorkflowImage`
 (`workflow/WorkflowArtifactStamp.h`), and reuse is decided from the identity stamped in its header, never by re-reading
@@ -304,12 +305,12 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   assumed one: ask for zeroed storage when a buffer is accumulated into or only partly covered. Uninitialised pixels
   once produced a comet stack wrong in ~50% of runs with a bit-identical wrong value, reproducible only with the heap
   deliberately poisoned.
-- **FITS header space is reserved before the pixels are written.** The engine's FITS writer
-  (`src/AfterNightEngine/src/io/fits/FitsWrite.cpp`) writes every card before the payload and reserves the scaling
-  cards with `fits_set_hdrsize()`, because a keyword added after the data makes cfitsio insert a header block and
-  relocate the entire payload — 258 ms per 178 MB frame, measured. A card written late must be covered by the
-  reservation, and a test that truncates a FITS file to its header must locate the `END` card instead of assuming one
-  2880-byte block.
+- **A FITS header is complete before its payload.** The engine's FITS writer
+  (`src/AfterNightEngine/src/io/fits/FitsWrite.cpp`) hands OpenFITS the whole header - the scaling cards among the
+  structural ones the library writes from the image's description - before the first sample, so the payload is
+  written once, in order, and never moved; a card added after the data would move the entire payload (258 ms per
+  178 MB frame, measured when CFITSIO wrote the files). No card is ever written late, and a test that truncates a
+  FITS file to its header must locate the `END` card instead of assuming one 2880-byte block.
 - **Work runs on the thread pool and lands on the GUI thread.** The GUI thread never waits for a worker, an admission
   or the history; a result is shown only when its `CommitTicket` still commits; a run's other images are leased before
   it is admitted. See AGENTS.md, "Threads, requests and publication".
@@ -388,5 +389,5 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
 symbolication, extension host modes, ImageIntegration artifact validation, SPCC and catalog maintenance, provenance
 notes, user-guide authoring). The engine's guides and the product guide are in
 `docs/dev/guides/`, which also hold each area's design reasons. End-user docs live in
-`docs/user-guide/` (MkDocs Material) and build with `build\scripts\msvc\build_user_guide_docs.bat` or the platform
-equivalent.
+`docs/user-guide/` (MkDocs with the guide's own theme) and build with
+`build\scripts\msvc\build_user_guide_docs.bat` or the platform equivalent.

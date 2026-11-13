@@ -180,8 +180,6 @@ public:
     QString getStarCountScaling() const;
     double getExponentialAlpha() const;
     double getMinWeightFloor() const;
-    /// Always false: the registration measures one star width per frame, so no channel can be weighed by its own.
-    bool getPerChannelFwhmWeighting() const;
     bool getLocalWeightingEnabled() const;
     int getLocalWeightingWindowSize() const;
     int getLocalWeightingGridSpacing() const;
@@ -250,9 +248,6 @@ public:
     void setStarCountScaling(const QString& scaling);
     void setExponentialAlpha(double value);
     void setMinWeightFloor(double value);
-    /// Leaves the control off whatever is stored, as `getPerChannelFwhmWeighting` says, so accepting the dialog lets
-    /// a stored choice go.
-    void setPerChannelFwhmWeighting(bool value);
     void setLocalWeightingEnabled(bool value);
     void setLocalWeightingWindowSize(int value);
     void setLocalWeightingGridSpacing(int value);
@@ -361,7 +356,6 @@ void applyToAllRequested() W_SIGNAL(applyToAllRequested) void bestNormalizationR
         QString starCountScaling = QStringLiteral("Quadratic");
         double exponentialAlpha = 2.0;
         double minWeightFloor = 0.01;
-        bool perChannelFwhmWeighting = false;
         bool localWeightingEnabled = false;
         int localWeightingWindowSize = 5;
         int localWeightingGridSpacing = 64;

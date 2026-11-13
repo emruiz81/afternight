@@ -1,223 +1,205 @@
-# Image And Sequence Summary
+---
+kind: interface
+summary: >-
+  Image and Sequence Summary reports what an image or a sequence and its file state - size, channels, pixel type,
+  mosaic, camera, exposure and dates - and copies the report as text.
+menu: Image > Information > Summary
+---
+# Image and Sequence Summary
 
-## Purpose, audience, prerequisites, and expected result
+The summary gathers the facts of the image a view shows, and of the file behind it, into one report you can read and
+copy: its size and format, then what its header says of the camera and the exposure. A [SER](../reference/glossary.md#ser)
+video or an image list gets a report of the whole [sequence](../reference/glossary.md#sequence) instead. The report is built from
+what AfterNight holds in memory and from what the file system says of the file. It never reads the pixels, and it
+changes nothing.
 
-Image and Sequence Summary turns the active view's in-memory metadata into a
-readable report. Use it to verify identity, dimensions, channel/pixel format,
-file context, acquisition fields, or sequence frame/FPS information and to copy
-that report into support or processing notes.
+```figure
+owed: true
+image: ../assets/images/interface/image-summary.webp
+alt: >-
+  The Image Summary Viewer window. Under the title bar, the heading Image and Sequence Summary and a line about
+  acquisition metadata. A card titled Summary Report holds a scrolled list of facts under section titles: the end of
+  Image General Info, with the resolution 5544x3684, one channel, 16 bits unsigned integer, Grayscale, the CFA pattern
+  RGGB and 38.96 MB, then Image Detailed Info, with the camera QHY183C, Gain 11, Offset 30, the date 2023-10-10
+  00:19:34, 180 sec, 21 C and N.I.N.A. as the software. Copy to Clipboard and Close stand at the bottom right.
+caption: >-
+  The summary of a duplicate of a raw NGC 253 light frame, scrolled to its acquisition facts.
+pins:
+  - {n: 1, x: 65.0, y: 3.0}
+  - {n: 2, x: 23.0, y: 23.5}
+  - {n: 3, x: 32.0, y: 50.0}
+  - {n: 4, x: 62.0, y: 94.0}
+```
 
-You need an active view. Saved still images, native SER sequences, and image-list
-sequences provide the most complete reports. The expected result is a scrollable
-set of sections with selectable values and a plain-text clipboard action. The
-tool does not inspect pixel statistics or modify the target.
+## What you see
 
-## Reachability and availability
+1. **The title.** It names the view the report describes, as `Image Summary Viewer <M42>`.
+2. **The report.** Sections of facts, one under the other. Scroll for the sections below.
+3. **A section.** Its title, then one line for each fact, the label at the left and the value at the right. Select a
+   value with the mouse to copy it alone.
+4. **Copy to Clipboard and Close.** Copy the whole report as text, and close the window.
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **Image > Information > Summary**, or **Summary** on the active image-view toolbar. The toolbar advertises `Ctrl+Shift+M` while that view has focus. |
-| Enabled/visible when | A view with an image is active. Opening the dialog disables the main-menu **Summary** for that parent view until the menus are next refreshed, as when another view is activated; the view's toolbar **Summary** and `Ctrl+Shift+M` stay enabled, and each opens another Summary window. |
-| Supported inputs/state | Still images, native SER sequences, and image-list sequences. Other sequence backends fall through to the current frame's image-metadata report rather than a sequence report. Masks, selections, display mode, and autostretch do not affect fields. |
-| Outputs/side effects | A transient structured report and, on request, its plain text in the system clipboard. No image, file, metadata, or history change. |
-| Persistence | None. No report settings are stored. Clipboard text remains under normal operating-system clipboard rules. |
-| External dependencies | None beyond the platform clipboard. No network, catalog, or external tool is used. |
+## What you can do
 
-## Before you start
+### Read an image's facts
 
-- Save the image or sequence first if you need meaningful file path, size, codec,
-  and filesystem timestamps. Temporary workspace paths are intentionally hidden.
-- For sequence-level frame count and FPS, use a native SER or image-list view.
-  FFmpeg-backed and raw-AVI views currently receive a current-frame still report.
-- Treat acquisition fields as metadata claims from the loaded file. A dash means
-  unavailable; it does not infer a default camera value.
+1. Make the view active. For a sequence other than a SER or an image list, pause the player on the frame you want.
+2. Choose **Image > Information > Summary**, choose **Summary** on the view's toolbar, or press ++ctrl+shift+m++ over
+   the view.
+3. Check **Image General Info** first: the size, the channels, the [pixel type](../reference/glossary.md#pixel-type),
+   the mosaic and the memory. Then read **Image Detailed Info**, which says what the file states of the camera and the
+   exposure.
 
-## Procedure
+A value shown as `-` means that nothing states it: AfterNight guesses no camera default. The acquisition facts are what
+the file claims, not measurements. On the raw NGC 253 [light frame](../reference/glossary.md#light-frame), **Camera
+Model** reads QHY183C, **Gain** 11, **Offset** 30 and **Exposure Time** 180 sec.
 
-1. Activate the target and open **Image > Information > Summary**.
-2. Confirm the window title names the intended view. For a still, look for
-   **File Info**, **Image General Info**, and **Image Detailed Info**. For SER or
-   image list, look for **File Info** and **Sequence General Info**.
-3. Verify dimensions, channels, pixel type/format, CFA, and in-memory size before
-   checking acquisition or filesystem metadata.
-4. For a native sequence, verify **Number of Frames**, **Frames per Second**
-   and frame size. **Sequence creation date** is when a SER says its recording
-   began, or when an image list was made, and `-` when the file states neither.
-5. Select individual field text if you need only one value, or choose **Copy to
-   Clipboard** to copy the entire plain-text report. The action shows no success
-   notification.
-6. Close the dialog when finished. A rename updates both the window title and
-   the report's name line.
+### Read the dates right
 
-## Complete control and action reference
+**Image Creation Date** is the date the file states, read as UTC and shown to the second. A
+[FITS](../reference/glossary.md#fits) file that states its local time in `DATE-LOC` and no `DATE` has that local time
+shown as written, with no offset. The NGC 253 frame reads 2023-10-10 00:19:34, while its `DATE-OBS` card says 03:19:34
+UTC. Open the FITS header to read every date card.
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Summary Report** | Scrollable read-only section view | Generated on open | Parsed report sections, key/value rows, and free-text notes | Presents the report in structured sections. Keys and values are mouse-selectable. | A normal still/SER/image-list generator always returns content. If a supplied report is empty - as when the window opens while an edit holds the image - the view shows **No summary information available.** | Image values reflect the in-memory metadata; the file's size and times are what the file system states when the report is built. The image itself is not re-read from disk. | Active view | Dialog lifetime |
-| Scroll | Scroll-area interaction | Top of report | Normal platform scrolling | Navigates long reports. | Available when content exceeds the viewport. | Presentation only. | Report view | Dialog lifetime |
-| **Copy to Clipboard** | Push button | Available | Click | Copies the entire report, as last shown, as plain text with HTML formatting removed. | Does nothing if the platform clipboard object is unavailable; no confirmation is shown. | Replaces existing clipboard text and may expose file/acquisition metadata when pasted elsewhere. | Entire current report | Platform clipboard lifetime |
-| **Close** | Push button/default dialog action | Available | Click, Enter when default, or close window | Closes the dialog and re-enables Summary for its parent view. | Always available. | None. | This dialog | None |
-| Image/sequence load or update | Automatic action | N/A | Listener notification | Rebuilds and rerenders the report. | Sequence frame updates can trigger regeneration; native sequence-level fields normally remain unchanged. | No disk verification occurs. | Parent view | None |
-| View rename | Automatic title and report update | N/A | Rename notification | Updates the dialog window title and rebuilds the report, so **Image Name**/**Sequence Name** follows the new view name. | None. | None. | Parent view | None |
+### Read a sequence's facts
 
-## Behavior and state model
+Open the summary of a SER or image-list view. **Sequence General Info** gives the frame size, **Number of Frames**,
+**Frames per Second** and **Sequence creation date**. A video of another kind, such as an AVI or MP4 file, gets the
+report of the frame shown, not of the sequence.
 
-The dialog selects one of three report paths:
+### Copy the report
 
-1. A native SER view uses the SER sequence report.
-2. An image-list view uses the image-list sequence report.
-3. Every other view uses the current image's metadata report. This includes
-   normal stills and currently includes sequence backends not recognized by the
-   first two checks.
+Choose **Copy to Clipboard**. The whole report, as the window last showed it, goes to the clipboard as plain text, in
+place of what was there. No message confirms it. The report names your folders and your camera: read it before you
+paste it anywhere public.
 
-The generator emits small HTML sections. The dialog converts headings and
-colon-separated lines into section titles and key/value rows, preserves lines
-without a colon as notes, and falls back to a plain-text **Summary** section if
-the expected heading structure is absent. It also stores an HTML-stripped copy
-for **Copy to Clipboard**.
+### Keep the file facts meaningful
 
-Temporary-file service paths are cleared before display. When the resulting
-path is empty, file name, size, filesystem timestamps, and codec are rendered as
-`-`. For a saved path, the file size and the creation and modification times are
-what the file system states for that path when the report is built, and `-` for
-a path that names no file; the codec is the format the file's extension names.
-The report is not a save verification: it does not reopen the file or compare
-disk pixels.
+Save the image to a place of your own first. An image never saved, or kept in AfterNight's temporary storage, shows
+`-` for every fact of **File Info**. The size and the times of a file are asked of the file system each time the
+report is built. The image itself is not read again, so the report is no check that the file opens.
 
-Load, update and rename notifications regenerate the body on the GUI thread,
-from the view's document read under a lease that never waits: asked while an
-edit holds the image, the window keeps the report it shows and rebuilds it at
-the next notification. No manual refresh button exists.
+## Controls
 
-The report reads typed values rather than a card's text. A number is written in
-its fewest digits, to six significant ones (`300 sec` for a FITS card spelled
-`300.000`), and an exposure under a second that is a whole fraction of one as a
-camera writes it (`1/250 sec`). A fact nothing states reads `-`, a sequence's
-size and frame rate included.
+### The window
 
-## Inputs, outputs, and metadata
+```controls
+window: Image and Sequence Summary
+controls:
+  - name: Title
+    kind: readout
+    default: ""
+    effect: Names the view the report describes, as `Image Summary Viewer <M42>`. A rename changes the title and the name the report starts with.
+    enabled: The window opens from **Image > Information > Summary**, from **Summary** on the view's toolbar, or with ++ctrl+shift+m++ while the view has the focus. While it is open, the menu entry is disabled until the menus are refreshed, as when another view becomes active. The button and the shortcut stay enabled, and each opens another window.
+    tradeoff: The shortcut does nothing while the button sits in the toolbar's **More** menu. Use the menu then.
+    persistence: Nothing of the window is kept.
+    note: It needs no network, no catalog and no other program. It writes no image, file, header card or history step.
+  - name: Summary Report
+    kind: readout
+    default: ""
+    effect: Shows the report in sections, each a title and a line for each fact. A line without a colon shows as a note under its section, and a report without sections as one section named **Summary**.
+    range: Built again when the view's image loads or changes, a new frame of a sequence among them, and when the view is renamed. There is no refresh button.
+    enabled: '"No summary information available." stands in its place when the report is empty, as when the window opens while an edit holds the image.'
+    tradeoff: The window never waits for an edit. While one holds the image, it keeps the report it shows and builds it again at the next change. A playing sequence builds it again at every frame, and a SER's or an image list's facts stay the same, so close the window or pause the player when you do not need it.
+    note: Hovering over the view's tab or title bar shows the same report as a tooltip.
+  - name: Copy to Clipboard
+    kind: button
+    default: ""
+    effect: Puts the whole report, as last shown, on the clipboard as plain text, without its formatting.
+    tradeoff: It replaces the clipboard's text and shows no confirmation. It does nothing when the system's clipboard cannot be reached.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window and enables the menu's **Summary** again.
+    range: ++enter++ and the window's own close button do the same.
+```
 
-### Still-image report fields
+### An image's report
 
-| Section | Fields and source |
-| --- | --- |
-| Overview | **Image Name** from the view's unique name passed to the report. |
-| File Info | **File Name**; **File Size** in MB; filesystem **File Creation Time** and **File Modification Time** in local time with milliseconds; **File Codec**, the format the file's extension names. Unavailable or temporary-backed values become `-`. |
-| Image General Info | **Image Resolution (Width x Height)**; **Image Channels**; **Image Format**, the sample type, such as `16 bits (unsigned integer)` or `32 bits (float)`; **Image Pixel Format**, what the channels are: `Grayscale`, `RGB`, `RGBA` or the colour space they state; **CFA pattern**, the four filters at the image's top-left corner such as `RGGB`, `X-Trans`, or `-` for an image that is not a mosaic; calculated **Image Size (in memory)** in MB. |
-| Image Detailed Info | **Camera Model**; **ISO Speed**, or **Gain** when the file states a gain setting and no ISO speed; **Offset**; **Image Creation Date**, the date the file states - for a camera file its `Exif.Photo.DateTimeDigitized` - or else the exposure start, in UTC to the second; **Exposure Time** in seconds, a whole fraction of a second written as `1/N sec`; **Sensor Temperature** in C; **Software Used**. The acquisition facts are read from the image's acquisition record and the engine's reading of its header cards; a missing value renders as `-`. |
+```controls
+window: An image's report
+controls:
+  - name: Image Name
+    kind: readout
+    default: ""
+    effect: The view's name, under its own section, **Overview**.
+  - name: File Info
+    kind: readout
+    default: ""
+    effect: "**File Name**, the file's full path. **File Size** in MB of 1,048,576 bytes. **File Creation Time** and **File Modification Time**, the file system's, in local time to the millisecond. **File Codec**, the format the file's extension names: FITS, XISF, RAW, PNG, JPEG or TIFF."
+    range: Every fact reads `-` for an image never saved, for one kept in AfterNight's temporary storage, and for a path that names no file. **File Codec** also reads `-` for an extension AfterNight does not know.
+    tradeoff: The path shows your folders when you share a copy of the report.
+  - name: Image General Info
+    kind: readout
+    default: ""
+    effect: "**Image Resolution (Width x Height)**, such as `5544x3684`. **Image Channels**. **Image Format**, the pixel type, such as `16 bits (unsigned integer)` or `32 bits (float)`. **Image Pixel Format**, what the channels are: `Grayscale`, `RGB`, `RGBA` or the color model they state. **CFA pattern**, the four filters at the image's top left corner, such as `RGGB`, or `X-Trans`, or `-` for an image that is no mosaic. **Image Size (in memory)** in MB."
+  - name: Image Detailed Info
+    kind: readout
+    default: ""
+    effect: "**Camera Model**. **ISO Speed**, or **Gain** for a file that states a gain and no ISO speed. **Offset**. **Image Creation Date**. **Exposure Time** in seconds. **Sensor Temperature** in degrees Celsius. **Software Used**."
+    range: A number is written in its fewest digits, to six significant ones, so a FITS card's `300.000` reads `300 sec`. An exposure under a second that is a whole fraction of one reads as a camera writes it, such as `1/250 sec`.
+    scope: The facts come from the image's acquisition record and from its header cards - the camera's `Exif.Image.Model` or `INSTRUME`, the exposure's `Exif.Photo.ExposureTime`, `EXPOSURE` or `EXPTIME`, `CCD-TEMP` for the temperature, and `Exif.Image.Software`, `SOFTWARE` or `SWCREATE`.
+    note: "**Image Creation Date** is `Exif.Photo.DateTimeDigitized`, else `DATE`, else `DATE-LOC`, else the start of the exposure, `Exif.Photo.DateTimeOriginal` or `DATE-OBS`. Each is read as UTC and shown to the second."
+```
 
-The summary does not list statistics, histogram bins, processing history, WCS,
-SIP coefficients, or all FITS/EXIF keys. Use the dedicated tools for those.
+### A sequence's report
 
-### Native SER sequence fields
+```controls
+window: A sequence's report
+controls:
+  - name: Sequence Name
+    kind: readout
+    default: ""
+    effect: The view's name, under **Overview**.
+    enabled: For a SER video and an image list. Any other sequence gets the image report of the frame shown.
+  - name: File Info
+    kind: readout
+    default: ""
+    effect: "**File Name**, **File Size** in MB, or in GB from 1,024 MB, the two file times and **Sequence Type**: `SER sequence` or `Image list sequence`."
+    range: An image list shows **Total files size**, the sizes of every file it names added up when the list was opened, and `-` when one of them could not be measured. Its two times are those of the `.anseq` file itself.
+  - name: Sequence General Info
+    kind: readout
+    default: ""
+    effect: "**Resolution (Width x Height)**, **Channels**, **CFA pattern**, **Number of Frames**, **Frames per Second** with two decimals, **Pixel Format**, the pixel type, **Frame size (in memory)** in MB or GB, and **Sequence creation date**."
+    range: A 640 x 480 16-bit frame reads `0.59 MB`. A SER's rate is the one its frame timestamps give, and an image list's the rate it states. A fact nothing states reads `-`, the size and the rate included.
+    scope: For an image list opened from its file, the frame facts describe its first frame, read when the list was opened. A list AfterNight has just written states the frames it wrote. The report lists neither the files nor the facts of each frame.
+    note: "**Sequence creation date** is when a SER's header says its recording began, or its first frame's timestamp when the header states none, in UTC. For an image list, it is the creation time its file states. Either reads `-` when nothing states it."
+```
 
-| Section | Fields and source |
-| --- | --- |
-| Overview | **Sequence Name** from the view's unique name. |
-| File Info | **File Name**; **File Size** in MB or GB; filesystem creation/modification timestamps; **Sequence Type: SER sequence**. |
-| Sequence General Info | **Resolution (Width x Height)**; **Channels**; **CFA pattern**; **Number of Frames**; **Frames per Second** to two decimals; **Pixel Format**, the sample type as in the still report; **Frame size (in memory)** in MB/GB; **Sequence creation date**, the SER header's UTC start time, or its first frame's timestamp when the header states none, in UTC; `-` when neither is stated. |
+## When it goes wrong
 
-### Image-list sequence fields
+**Summary** is greyed in the **Information** menu
+:   **Cause.** A Summary window of this view is open, or the active view has no image.
+:   **Fix.** Use the open window, or choose **Summary** on the view's toolbar, which opens another one.
 
-The image-list report has the same general fields as SER, but File Info labels
-the size **Total files size** and the type **Image list sequence**. The size
-shown is the sum of the sizes of every file the list names, measured when the
-list was opened, and `-` when one of them cannot be measured; the creation and
-modification times are the list (`.anseq`) file's own. **Number of Frames** is
-the number of frames the list names and **Frames per Second** the rate it
-states. For a list opened from its file, **Resolution**, **Channels**, **CFA
-pattern**, **Pixel Format** and **Frame size (in memory)** describe its first
-frame, read when the list was opened; a list AfterNight has just written states
-the description of the frames it wrote. **Sequence creation date** is the
-creation time the list's manifest states, and `-` when it states none. The
-report does not enumerate member file names or per-frame metadata. The view's
-dock tooltip shows the same report.
+Every fact of **File Info** reads `-`
+:   **Cause.** The image was never saved, is kept in temporary storage, or its file is gone.
+:   **Fix.** Save it to a place of your own, then open the summary again.
 
-The only durable output is optional plain text placed on the clipboard. No
-metadata/history field is modified and no report file is created.
+A video shows image fields instead of the sequence's
+:   **Cause.** Only a SER video and an image list get a sequence report.
+:   **Fix.** Read the frame count and the rate in the status bar, or convert the video to a SER or an image list.
 
-## Performance and responsiveness
+**Image Creation Date** is hours away from the night you shot
+:   **Cause.** The file states a local time in `DATE-LOC`, which is read as UTC with no offset.
+:   **Fix.** Read `DATE-OBS`, the start of the exposure in UTC, in the FITS header.
 
-Report generation is metadata-only and normally small: it formats a fixed set
-of fields and rebuilds a modest widget tree. A still with recorded file size
-zero may issue a filesystem size query. No pixel scan, sequence-frame iteration,
-catalog lookup, or network request occurs.
+The report did not change while an edit ran
+:   **Cause.** The window never waits for an edit, and keeps the report it shows until the edit is done.
+:   **Fix.** Wait for the edit to finish. The report is built again when the image changes.
 
-Repeated sequence-frame updates can rebuild the same native sequence report, so
-pause playback if the dialog is not needed continuously. Clipboard cost is
-proportional to the short report text.
+A card or a field you expected is missing
+:   **Cause.** The report shows a fixed set of facts. It has no statistics, no histogram, no
+    [history](../reference/glossary.md#history), no [plate solution](../reference/glossary.md#plate-solution) and no
+    full list of the header's cards.
+:   **Fix.** Open [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md) for every card and the solution.
 
-## Worked example
+## Related
 
-- Evidence mode: Source-and-test-derived.
-- Starting state, actions, settings, checkpoints, result, and limitations: For a
-  saved SER sequence, the selected source path produces **SER sequence** plus
-  common resolution, channels, CFA, frame count, FPS, pixel type and per-frame
-  memory size. `ImageReportTest` holds a 640 x 480 16-bit SER of 1000 frames at
-  30 frames per second to **640x480**, **RGGB**, **Number of Frames: 1000**,
-  **Frames per Second: 30.00**, **16 bits (unsigned integer)** and **0.59 MB**
-  per frame. For an image-list sequence the report substitutes **Image list
-  sequence** and **Total files size**. `InspectorWindowsTest` copies a report
-  to the clipboard and renames the view, but no project-data field value is
-  claimed.
-
-## Warnings and limitations
-
-- Summary reports metadata; it does not validate pixels, statistical quality,
-  file integrity, or whether the file can be reopened.
-- Temporary workspace paths are deliberately hidden and their file fields show
-  dashes.
-- FFmpeg-backed and raw-AVI sequences do not enter the two sequence-report
-  branches; they show current-frame image metadata.
-- Image-list summary does not enumerate files or aggregate per-frame acquisition
-  fields; its frame fields describe the first frame, and its **Total files
-  size** is measured when the list is opened, not when the report is built.
-- **Sequence creation date** shows `-` for a SER whose header and trailer state
-  no time, and for a list whose manifest states none.
-- The toolbar **Summary** action and `Ctrl+Shift+M` are not disabled by an open
-  Summary window, so repeated use opens more than one.
-- Copy replaces clipboard text, provides no confirmation, and may reveal local
-  file names or acquisition metadata when pasted.
-- WCS/SIP, full FITS/EXIF tables, history, and numerical image statistics belong
-  to separate tools.
-
-## Troubleshooting
-
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Summary is disabled | No active image exists, or this parent view already has an open Summary dialog. | Activate a loaded view, or close the existing Summary dialog. | `ActionStateCoordinator.cpp`; `ImageSummaryViewerControl.cpp` |
-| File fields show `-` | The image is unsaved/temporary-backed, or metadata/filesystem information is unavailable. | Save to a durable path, reopen if disk verification matters, and open Summary again. | `common.h` |
-| A video/raw-AVI sequence shows image fields | Only SER and image-list sequence checks select sequence reports; other backends use current-frame image metadata. | Use the sequence workspace/status for backend/frame context; do not infer sequence totals from this summary. | `ImageInspectorContent.cpp` |
-| The report did not change while an edit ran | The window never waits for an edit; it keeps the report it showed until the edit lands. | Wait for the edit to finish; the report rebuilds on the image's update. | `ImageSummaryViewerControl.cpp`; `ImageInspectorContent.cpp` |
-| Copy produces no visible feedback | The action writes plain text without a success notification. | Paste into a trusted text field to verify, while considering metadata privacy. | `ImageSummaryViewerControl.cpp` |
-| Expected FITS/EXIF/WCS fields are missing | Summary intentionally formats only its fixed common-field set. | Open [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md). | `common.h`; `ImageSummaryViewerControl.cpp` |
-
-## Related workflow steps
-
-- Use [Image Statistics](image-statistics.md) for per-channel level, spread,
-  robust estimators, and background-noise measurements.
-- Use [Histogram Analysis](image-histogram.md) for distributions and endpoint
-  clipping.
-- Use [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md) for
-  detailed metadata and WCS/SIP inspection.
-- Use [Sequences](sequences.md) for player state, extraction, conversion, and
-  backend behavior.
-- Use [Saving And Exporting](saving-and-exporting.md) to create a durable file,
-  then reopen it when the summary is part of output verification.
-
-## References and provenance
-
-- `common.h` is authoritative for every still/SER/image-list field, unit,
-  placeholder, timestamp format, and temporary-path rule.
-- `ImageSummaryViewerControl.cpp` defines report parsing, refresh,
-  rename, empty/fallback behavior, and clipboard conversion.
-- `ImageInspectorContent.cpp` reads the view's document under a lease that never
-  waits and chooses the report; the engine's `SequenceDescriptor.h` and
-  `CodecMetadataProjection.h` define the sequence description and the
-  acquisition facts the report reads.
-- `ImageReportTest.cpp` in `Test_ControlsServices` holds every report's fields,
-  labels and placeholders; `InspectorContentTest.cpp` and
-  `InspectorWindowsTest.cpp` in `Test_ControlsDialogs` hold the dispatch, the
-  window, its clipboard copy and its rename; `test_image_metadata_viewers_ui.cpp`
-  verifies the structured summary view, scroll/content widgets, and primary close
-  action. Live layout was not inspected.
+- [FITS Header, EXIF, And Astrometry Metadata](fits-header-viewer.md), for every card, every camera field and the plate
+  solution.
+- [Image Statistics](image-statistics.md), for the level, the spread and the noise of each channel.
+- [Histogram Analysis](image-histogram.md), for how the samples spread and how many are clipped.
+- [Sequences](sequences.md), for the player, the kinds of sequence and their conversions.
+- [Saving And Exporting](saving-and-exporting.md), to save the image to a file whose facts the report can show.
+- [Image Viewer](image-viewer.md), for the toolbar that opens the window and the status bar's short summary.

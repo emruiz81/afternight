@@ -50,9 +50,17 @@ std::unique_ptr<::ImageViewWidgetDisplayModule> createAstrometryOverlay(Astromet
     return std::make_unique<an::tests::viewer::StandInOverlay>(overlay);
 }
 
-void setAstrometryOverlayMagnitudeLimit(::ImageViewWidgetDisplayModule&, double limit)
+void setAstrometryOverlayChoices(::ImageViewWidgetDisplayModule& overlay, const AnnotationViewChoices& choices)
 {
-    an::tests::viewer::companionRecord().magnitudeLimits.push_back(limit);
+    if (const auto* standIn = dynamic_cast<const an::tests::viewer::StandInOverlay*>(&overlay); standIn != nullptr)
+    {
+        an::tests::viewer::companionRecord().overlayChoices.emplace_back(standIn->kind(), choices);
+    }
+}
+
+void setAstrometryOverlayLayers(::ImageViewWidgetDisplayModule&, const bool deepSky, const bool stars)
+{
+    an::tests::viewer::companionRecord().overlayLayers.emplace_back(deepSky, stars);
 }
 
 void setAstrometryOverlayStars(::ImageViewWidgetDisplayModule& overlay, std::shared_ptr<const ViewOverlayStars> stars)

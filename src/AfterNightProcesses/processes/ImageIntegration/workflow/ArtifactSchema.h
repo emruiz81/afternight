@@ -104,17 +104,23 @@ enum class ArtifactFamily
 /// already registered near it, which one leaves unregistered or registers from its solution, the standalone
 /// registration matches a frame's stars where its own plate distortion corrects them to, and a light that shares a
 /// small part of its stars with the reference is registered by the pairs it shares, which one refused below half of
-/// its candidate pairs. The chromatic correction's is two: a channel is matched to the green one by the same rule. The
-/// calibration masters' is two: a master dark is stacked from its frames as they are, holding their bias in CCD mode as
-/// in standard mode, and a flat is calibrated by its dark alone when one matches, which one stacked a CCD-mode dark
-/// without its bias and calibrated a standard-mode flat by the bias and the dark together, taking the bias out twice.
-/// The stack's is three: a master states in `STACKCNT` how many frames it combines, a group weighted by the number of
-/// images weighs each light by the count its header states, an exposure merge weighs no frame, reads a bucket of one
-/// light as a stack of it would and blends only the samples each bucket holds, a per-pixel weighting runs at the
-/// nearest values the engine takes, and a filter-array drizzle reads its lights under the pattern its settings state.
-/// Two applied a local normalization document over the light it names as the stack's reference, or with its matches
-/// restated against the stack's reference when it names none the stack reads, and a drizzled group's coefficients at
-/// any scale, where one refused all three and the stack measured its own normalization instead.
+/// its candidate pairs. The chromatic correction's is three: a moved channel keeps its own samples where it does not
+/// reach and is read from its own edge sample past the frame's edge, where two held what a zero border leaves there;
+/// two matched a channel to the green one by the registration's rule. The registered lights' and the normalization
+/// coefficients' are two: a light is warped only where it reaches, zero elsewhere, and read from its own edge sample
+/// past its edge, where one held a zero border's partial sums and ringing there, which the zero-is-no-data rule took
+/// for data; the normalization also warps lights in memory, which no file stamp states. The calibration masters' is
+/// two: a master dark is stacked from its frames as they are, holding their bias in CCD mode as in standard mode, and a
+/// flat is calibrated by its dark alone when one matches, which one stacked a CCD-mode dark without its bias and
+/// calibrated a standard-mode flat by the bias and the dark together, taking the bias out twice. The stack's is four: a
+/// light it warps as it reads it is warped by the registered lights' rule. Three states in `STACKCNT` how many frames a
+/// master combines, a group weighted by the number of images weighs each light by the count its header states, an
+/// exposure merge weighs no frame, reads a bucket of one light as a stack of it would and blends only the samples each
+/// bucket holds, a per-pixel weighting runs at the nearest values the engine takes, and a filter-array drizzle reads
+/// its lights under the pattern its settings state. Two applied a local normalization document over the light it names
+/// as the stack's reference, or with its matches restated against the stack's reference when it names none the stack
+/// reads, and a drizzled group's coefficients at any scale, where one refused all three and the stack measured its own
+/// normalization instead.
 ///
 /// @param family the family.
 /// @return the revision, counting from one; zero for a value outside the enumeration.
@@ -123,15 +129,16 @@ enum class ArtifactFamily
     switch (family)
     {
     case ArtifactFamily::Stack:
+        return 4;
+    case ArtifactFamily::ChromaticCorrection:
         return 3;
     case ArtifactFamily::Registration:
-    case ArtifactFamily::ChromaticCorrection:
     case ArtifactFamily::CalibrationMaster:
+    case ArtifactFamily::RegisteredLight:
+    case ArtifactFamily::NormalizationCoefficients:
         return 2;
     case ArtifactFamily::CalibratedLight:
     case ArtifactFamily::StarDetections:
-    case ArtifactFamily::RegisteredLight:
-    case ArtifactFamily::NormalizationCoefficients:
     case ArtifactFamily::LocalNormalizationGrid:
     case ArtifactFamily::DrizzleDescriptor:
     case ArtifactFamily::DrizzleDensePayload:
@@ -197,6 +204,13 @@ inline constexpr int kDrizzledMasterLevelRevision = 2;
 /// registration's plane solution moved onto its drizzled canvas, which no drizzled master carried before. Only a
 /// drizzled group's fingerprint carries it, so moving it stacks the drizzled masters again and nothing else.
 inline constexpr int kDrizzledMasterSolutionRevision = 1;
+
+/// How a drizzled Local group's master is normalized, as its fingerprint states it: one since its stack applies the
+/// normalization stage's document where each drizzled light lies on the plane the document was measured on; before,
+/// the drizzled stack fitted the surfaces on the drizzled lights itself, with none of the stage's reference strategy,
+/// evaluation, PSF flux scale or analysis filters. Only a drizzled Local group's fingerprint carries it, so it stacks
+/// the drizzled Local masters again and nothing else.
+inline constexpr int kDrizzledLocalNormalizationRevision = 1;
 
 /// The dense drizzle map file (`ANPIXMAP` version 3), which the planner never reuses: its maps are regenerated from the
 /// sources and settings and written as the workflow's own drizzle documents.

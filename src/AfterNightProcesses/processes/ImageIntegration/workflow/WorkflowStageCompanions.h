@@ -103,15 +103,6 @@ struct RegisteredLightRecord
                                                              const WorkflowManifest::IntegrationGroup& group,
                                                              const ExecutionPreparationSnapshot& snapshot);
 
-/// Whether a group's local normalization is fitted by its drizzled stack as it reads the drizzled lights. The engine
-/// applies a document measured on the drizzle canvas's analysis plane only to frames on that plane, so the
-/// normalization stage measures nothing for such a group, the stack reads no document for it, and the planner plans no
-/// normalization. Defined beside the stacking stage.
-///
-/// @param group the integration group.
-/// @return true for a drizzled group whose local normalization is on.
-[[nodiscard]] bool localNormalizationFittedByDrizzledStack(const WorkflowManifest::IntegrationGroup& group);
-
 /// Whether a group's registered lights are current, read from the files as they are now. Defined beside the alignment
 /// stage.
 ///

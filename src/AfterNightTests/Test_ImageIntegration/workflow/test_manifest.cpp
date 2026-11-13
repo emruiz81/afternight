@@ -27,6 +27,7 @@
 #include "processes/ImageIntegration/model/CalibrationMatcher.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/GroupingEngine.h"
+#include "processes/ImageIntegration/model/IntegrationGroupEngine.h"
 #include "processes/ImageIntegration/model/RegistrationGroupEngine.h"
 #include "processes/ImageIntegration/core/CalibrationMasterDefaults.h"
 #include "processes/ImageIntegration/core/CometStackingMode.h"
@@ -35,6 +36,7 @@
 #include "processes/ImageIntegration/workflow/ManifestDiff.h"
 #include "processes/ImageIntegration/workflow/FrameHeaderReader.h"
 #include "processes/ImageIntegration/workflow/ManifestHashing.h"
+#include "processes/ImageIntegration/workflow/ArtifactSchema.h"
 #include "processes/ImageIntegration/workflow/WorkflowRawLoadPolicy.h"
 #include "processes/ImageIntegration/tabs/CalibrationPanelUtils.h"
 #include "controls/IAppContext.h"
@@ -2282,6 +2284,56 @@ TEST(ManifestHashing, IntegrationGroupHashChangesWhenCombineRgbImagesChanges)
               QStringList{QStringLiteral("Combine RGB images changed")});
 }
 
+// A master is reused while its group's settings hash to the identity it was stacked under, and the stacking settings
+// hash into the identity of every master - each calibration master and each light master - so a setting retired from
+// them leaves the identity they hash to as it was: no master is stacked again for it. The values are the identities
+// these settings have hashed to since the hash took the per-channel width weighting they no longer hold.
+TEST(ManifestHashing, TheStackingSettingsKeepTheIdentityTheirMastersWereStackedUnder)
+{
+    const std::string defaults = computeStackingSettingsHash(StackingSettings{}).toStdString();
+    EXPECT_EQ(defaults, "45dc42eee7692ba1642fda9b201af0df9f5d3006dce47bdb1f0c318a0d709d15");
+
+    StackingSettings width;
+    width.weighting = QStringLiteral("Weighted FWHM");
+    width.minWeightFloor = 0.05;
+    const std::string weighed = computeStackingSettingsHash(width).toStdString();
+    EXPECT_EQ(weighed, "ae98326b8e1a59b5fea5b24fcf0298ff6aeb0c7809eef101bc293087fa3a4e82");
+}
+
+// A manifest states no per-channel width weighting: a group's stacking settings are written without one, and a
+// manifest an earlier version wrote with the choice on reads as these settings and is written again without it. The
+// choice was written, read back and kept, though no stack could honour it.
+TEST(WorkflowManifest, AStoredPerChannelWidthWeightingIsLetGo)
+{
+    const QString retired = QStringLiteral("perChannelFwhmWeighting");
+    const auto groupStackingOf = [](const QJsonObject& json) {
+        const QJsonArray groups = json.value(QStringLiteral("integrationGroups")).toArray();
+        return groups.isEmpty() ? QJsonObject{} : groups.at(0).toObject().value(QStringLiteral("stacking")).toObject();
+    };
+
+    WorkflowManifest manifest =
+        makeManifestWithFrames({FrameId(QDir::tempPath() + QDir::separator() + QStringLiteral("retired_choice.fit"))});
+    ASSERT_FALSE(manifest.integrationGroups.empty());
+    manifest.integrationGroups.front().stacking.weighting = QStringLiteral("Weighted FWHM");
+
+    QJsonObject json = manifest.toJson();
+    QJsonObject stacking = groupStackingOf(json);
+    ASSERT_FALSE(stacking.isEmpty());
+    EXPECT_FALSE(stacking.contains(retired));
+
+    stacking.insert(retired, true);
+    QJsonArray groups = json.value(QStringLiteral("integrationGroups")).toArray();
+    QJsonObject group = groups.at(0).toObject();
+    group.insert(QStringLiteral("stacking"), stacking);
+    groups[0] = group;
+    json.insert(QStringLiteral("integrationGroups"), groups);
+
+    const WorkflowManifest read = WorkflowManifest::fromJson(json);
+    ASSERT_FALSE(read.integrationGroups.empty());
+    EXPECT_EQ(read.integrationGroups.front().stacking.weighting, QStringLiteral("Weighted FWHM"));
+    EXPECT_FALSE(groupStackingOf(read.toJson()).contains(retired));
+}
+
 TEST(ManifestDiff, DetectsAddedFrames)
 {
     FrameId frame_a(QDir::tempPath() + QDir::separator() + QStringLiteral("a.fit"));
@@ -2971,6 +3023,44 @@ TEST(ManifestHashing, TheDrizzleKernelIsFingerprintedByItsMeaningNotItsSpelling)
               (LightStages{LightStage::Drizzle, LightStage::Stacking}));
 }
 
+// A drizzled Local master is normalized by the normalization stage's document, read where each drizzled light lies on
+// the plane it was measured on, where its stack fitted the surfaces itself before: only such a master's fingerprint
+// states how, so it alone is stacked again, and every other group's fingerprint states what it stated.
+TEST(ManifestHashing, OnlyADrizzledLocalGroupsFingerprintStatesHowItsSurfacesAreApplied)
+{
+    WorkflowManifest manifest = makeManifestWithFrames(
+        {FrameId(QStringLiteral("/tmp/drizzled_local_a.fit")), FrameId(QStringLiteral("/tmp/drizzled_local_b.fit"))});
+    WorkflowManifest::IntegrationGroup& group = manifest.integrationGroups.front();
+    const auto drizzleOf = [&manifest](const WorkflowManifest::IntegrationGroup& stated) {
+        return integrationGroupFingerprintInput(manifest, stated).value(QStringLiteral("drizzle")).toObject();
+    };
+
+    group.stacking.normalizationMode = NormalizationMode::Local;
+    group.stacking.localNormalization.enabled = true;
+    EXPECT_TRUE(drizzleOf(group).isEmpty()) << "a group that does not drizzle";
+
+    group.drizzle = WorkflowManifest::IntegrationGroup::DrizzleSettings{};
+    group.drizzle->enabled = true;
+    const QJsonObject drizzledLocal = drizzleOf(group);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("localNormalizationRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledLocalNormalizationRevision);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("levelRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledMasterLevelRevision);
+    EXPECT_EQ(drizzledLocal.value(QStringLiteral("solutionRevision")).toInt(),
+              ImageIntegration::schema::kDrizzledMasterSolutionRevision);
+
+    group.stacking.localNormalization.enabled = false;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision")))
+        << "a drizzled group whose local normalization is off";
+    group.stacking.localNormalization.enabled = true;
+    group.stacking.normalizationMode = NormalizationMode::Global;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision"))) << "a drizzled Global group";
+    group.stacking.normalizationMode = NormalizationMode::Local;
+    group.drizzle->enabled = false;
+    EXPECT_FALSE(drizzleOf(group).contains(QStringLiteral("localNormalizationRevision")))
+        << "a Local group whose drizzle is off";
+}
+
 TEST(ManifestHashing, WorkflowRawLoadPolicyFingerprintDocumentsNeutralRawCalibration)
 {
     const QJsonObject policy = ImageIntegration::workflowRawLoadPolicyHashObject();
@@ -3154,8 +3244,6 @@ TEST(ManifestDiff, EveryStackingSettingConcernsTheStagesThatReadIt)
         {"starCountScaling", [](StackingSettings& s) { s.starCountScaling = QStringLiteral("Linear"); }, stack},
         {"exponentialAlpha", [](StackingSettings& s) { s.exponentialAlpha += 0.5; }, stack},
         {"minWeightFloor", [](StackingSettings& s) { s.minWeightFloor += 0.5; }, stack},
-        {"perChannelFwhmWeighting", [](StackingSettings& s) { s.perChannelFwhmWeighting = !s.perChannelFwhmWeighting; },
-         stack},
         {"localWeighting.enabled", [](StackingSettings& s) { s.localWeighting.enabled = !s.localWeighting.enabled; },
          stack},
         {"localWeighting.windowSize", [](StackingSettings& s) { s.localWeighting.windowSize += 2; }, stack},
@@ -3295,4 +3383,277 @@ TEST(ManifestDiff, AChangedStackingMethodConcernsTheStackAlone)
               (LightStages{LightStage::Normalization, LightStage::Stacking}));
     EXPECT_EQ(reference.integrationChanges.front().settingsChanged.normalization,
               QStringList{QStringLiteral("Normalization reference frames changed")});
+}
+
+// ---- The lights the user left out: named by the manifest, read by nothing a run decides.
+
+namespace
+{
+/// The entry of a manifest's left-out lights that names a light; null when none does.
+const WorkflowManifest::LeftOutLight* leftOutEntry(const WorkflowManifest& manifest, const FrameId& light)
+{
+    const auto found =
+        std::find_if(manifest.leftOutLights.begin(), manifest.leftOutLights.end(),
+                     [&light](const WorkflowManifest::LeftOutLight& entry) { return entry.light == light; });
+    return found == manifest.leftOutLights.end() ? nullptr : &*found;
+}
+
+bool holdsLight(const std::vector<FrameId>& lights, const FrameId& light)
+{
+    return std::find(lights.begin(), lights.end(), light) != lights.end();
+}
+
+FrameInfo leftOutTestLight(const QString& name, const QString& filter)
+{
+    return makeFrame(FrameType::Light, name, QSize(100, 100), 60.0, filter, QStringLiteral("M42"),
+                     QStringLiteral("2025-01-01"));
+}
+} // namespace
+
+TEST(WorkflowManifest, TheLightsLeftOutRoundTrip)
+{
+    const FrameId kept(QDir::tempPath() + QDir::separator() + QStringLiteral("left_out_kept.fit"));
+    const FrameId excluded(QDir::tempPath() + QDir::separator() + QStringLiteral("left_out_excluded.fit"));
+    const FrameId fromStack(QDir::tempPath() + QDir::separator() + QStringLiteral("left_out_from_stack.fit"));
+    WorkflowManifest manifest = makeManifestWithFrames({kept});
+    EXPECT_FALSE(manifest.toJson().contains(QStringLiteral("leftOutLights")))
+        << "a manifest that leaves no light out states no list";
+
+    manifest.leftOutLights = {
+        WorkflowManifest::LeftOutLight{.light = excluded,
+                                       .kind = WorkflowManifest::LeftOutLight::Kind::Excluded,
+                                       .groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("int|M42|Ha")}}},
+        WorkflowManifest::LeftOutLight{.light = fromStack,
+                                       .kind = WorkflowManifest::LeftOutLight::Kind::StackExcluded,
+                                       .groupKey = manifest.integrationGroups.front().groupKey}};
+
+    const QJsonObject json = manifest.toJson();
+    ASSERT_EQ(json.value(QStringLiteral("leftOutLights")).toArray().size(), 2);
+    const WorkflowManifest parsed = WorkflowManifest::fromJson(json);
+
+    ASSERT_EQ(parsed.leftOutLights.size(), 2u);
+    EXPECT_EQ(parsed.leftOutLights[0].light, excluded);
+    EXPECT_EQ(parsed.leftOutLights[0].kind, WorkflowManifest::LeftOutLight::Kind::Excluded);
+    EXPECT_EQ(parsed.leftOutLights[0].groupKey.toString(), QStringLiteral("int|M42|Ha"));
+    EXPECT_EQ(parsed.leftOutLights[1].light, fromStack);
+    EXPECT_EQ(parsed.leftOutLights[1].kind, WorkflowManifest::LeftOutLight::Kind::StackExcluded);
+    EXPECT_TRUE(parsed.leftOutLights[1].groupKey == manifest.integrationGroups.front().groupKey);
+    EXPECT_EQ(QJsonDocument(parsed.toJson()).toJson(QJsonDocument::Compact),
+              QJsonDocument(json).toJson(QJsonDocument::Compact));
+    EXPECT_EQ(manifest.redactedForPersistence().leftOutLights.size(), 2u);
+}
+
+TEST(ManifestHashing, TheLightsLeftOutTakeNoPartInAnyHash)
+{
+    const FrameId light_a(QDir::tempPath() + QDir::separator() + QStringLiteral("hash_left_out_a.fit"));
+    const FrameId light_b(QDir::tempPath() + QDir::separator() + QStringLiteral("hash_left_out_b.fit"));
+    const FrameId bias(QDir::tempPath() + QDir::separator() + QStringLiteral("hash_left_out_bias.fit"));
+    WorkflowManifest without = makeManifestWithFrames({light_a, light_b});
+    WorkflowManifest::CalibrationStage bias_stage;
+    bias_stage.frameType = QStringLiteral("Bias");
+    WorkflowManifest::CalibrationStage::Group bias_group;
+    bias_group.groupKey = GroupKey{QStringLiteral("bias|100x100")};
+    bias_group.outputFilename = QStringLiteral("master_bias.fit");
+    bias_group.inputFiles = {bias};
+    bias_stage.groups.push_back(bias_group);
+    without.biasStage = bias_stage;
+    for (const FrameId& light : {light_a, light_b})
+    {
+        WorkflowManifest::LightsCalibrationParams params;
+        params.lightPath = light;
+        params.biasPath = FrameId(QStringLiteral("D:/Output/master_bias.fit"));
+        without.lightsCalibration.push_back(params);
+    }
+
+    WorkflowManifest with = without;
+    with.leftOutLights = {WorkflowManifest::LeftOutLight{.light = FrameId(QDir::tempPath() + QDir::separator() +
+                                                                          QStringLiteral("hash_left_out_excluded.fit")),
+                                                         .kind = WorkflowManifest::LeftOutLight::Kind::Excluded,
+                                                         .groupKey = with.integrationGroups.front().groupKey},
+                          WorkflowManifest::LeftOutLight{.light = FrameId(QDir::tempPath() + QDir::separator() +
+                                                                          QStringLiteral("hash_left_out_stack.fit")),
+                                                         .kind = WorkflowManifest::LeftOutLight::Kind::StackExcluded,
+                                                         .groupKey = with.integrationGroups.front().groupKey}};
+
+    EXPECT_EQ(computeIntegrationGroupHash(with, with.integrationGroups.front()),
+              computeIntegrationGroupHash(without, without.integrationGroups.front()));
+    EXPECT_EQ(integrationGroupFingerprintInput(with, with.integrationGroups.front()),
+              integrationGroupFingerprintInput(without, without.integrationGroups.front()));
+    EXPECT_EQ(computeCalibrationGroupHash(with, with.biasStage->groups.front()),
+              computeCalibrationGroupHash(without, without.biasStage->groups.front()));
+    EXPECT_EQ(
+        computeLightsCalibrationHashForSubset(with.lightsCalibration, with.integrationGroups.front().lightFiles),
+        computeLightsCalibrationHashForSubset(without.lightsCalibration, without.integrationGroups.front().lightFiles));
+    EXPECT_EQ(registrationGroupMaterializationContractFingerprint(with, with.registrationGroups.front()),
+              registrationGroupMaterializationContractFingerprint(without, without.registrationGroups.front()));
+}
+
+TEST(ManifestDiff, TheLightsLeftOutAloneAreNoChange)
+{
+    const FrameId light_a(QDir::tempPath() + QDir::separator() + QStringLiteral("diff_left_out_a.fit"));
+    const FrameId light_b(QDir::tempPath() + QDir::separator() + QStringLiteral("diff_left_out_b.fit"));
+    const WorkflowManifest previous = makeManifestWithFrames({light_a, light_b});
+    WorkflowManifest current = previous;
+    current.leftOutLights = {WorkflowManifest::LeftOutLight{
+        .light = FrameId(QDir::tempPath() + QDir::separator() + QStringLiteral("diff_left_out_excluded.fit")),
+        .kind = WorkflowManifest::LeftOutLight::Kind::Excluded,
+        .groupKey = current.integrationGroups.front().groupKey}};
+
+    for (const ManifestDiff& diff : {compareManifests(previous, current), compareManifests(current, previous)})
+    {
+        // Each group is listed as unchanged: the diff states no addition, removal or modification.
+        EXPECT_FALSE(diff.hasChanges()) << diff.toSummaryText().toStdString();
+        EXPECT_EQ(diff.totalModifications(), 0);
+        EXPECT_TRUE(diff.lightsCalibrationChanges.empty());
+    }
+}
+
+TEST(ManifestBuilder, ALightLeftOutIsNamedOnceUnderTheGroupItWouldHaveJoined)
+{
+    IntegrationDataModel model;
+    model.setOutputDirectory(QDir::tempPath());
+    const FrameInfo keep_a = leftOutTestLight(QStringLiteral("left_out_keep_a.fit"), QStringLiteral("L"));
+    const FrameInfo keep_b = leftOutTestLight(QStringLiteral("left_out_keep_b.fit"), QStringLiteral("L"));
+    const FrameInfo excluded = leftOutTestLight(QStringLiteral("left_out_excluded.fit"), QStringLiteral("L"));
+    const FrameInfo from_stack = leftOutTestLight(QStringLiteral("left_out_from_stack.fit"), QStringLiteral("L"));
+    model.addFrames(FrameType::Light, {keep_a, keep_b, excluded, from_stack});
+    model.setFramesExcluded(FrameType::Light, {excluded.id.canonicalPath()}, true);
+    ASSERT_EQ(model.integrationGroups().size(), 1u);
+    model.setFramesStackExcluded(model.integrationGroups().front(), {from_stack.id.canonicalPath()}, true);
+
+    const WorkflowManifest manifest = ManifestBuilder(model).build();
+
+    ASSERT_EQ(manifest.integrationGroups.size(), 1u);
+    const WorkflowManifest::IntegrationGroup& group = manifest.integrationGroups.front();
+    ASSERT_EQ(manifest.leftOutLights.size(), 2u) << "each light left out appears once";
+
+    const WorkflowManifest::LeftOutLight* excluded_entry = leftOutEntry(manifest, excluded.id);
+    ASSERT_NE(excluded_entry, nullptr);
+    EXPECT_EQ(excluded_entry->kind, WorkflowManifest::LeftOutLight::Kind::Excluded);
+    EXPECT_TRUE(excluded_entry->groupKey == group.groupKey) << "the group the grouping would have put it in";
+
+    const WorkflowManifest::LeftOutLight* stack_entry = leftOutEntry(manifest, from_stack.id);
+    ASSERT_NE(stack_entry, nullptr);
+    EXPECT_EQ(stack_entry->kind, WorkflowManifest::LeftOutLight::Kind::StackExcluded);
+    EXPECT_TRUE(stack_entry->groupKey == group.groupKey);
+
+    // Neither is a light of the integration group; the light left out of the stack alone is still registered.
+    EXPECT_EQ(group.lightFiles.size(), 2u);
+    EXPECT_FALSE(holdsLight(group.lightFiles, excluded.id));
+    EXPECT_FALSE(holdsLight(group.lightFiles, from_stack.id));
+    ASSERT_EQ(manifest.registrationGroups.size(), 1u);
+    EXPECT_TRUE(holdsLight(manifest.registrationGroups.front().lightFiles, from_stack.id));
+    EXPECT_FALSE(holdsLight(manifest.registrationGroups.front().lightFiles, excluded.id));
+
+    // The list is the same however often the manifest is built.
+    const WorkflowManifest again = ManifestBuilder(model).build();
+    EXPECT_EQ(QJsonDocument(again.toJson()).toJson(QJsonDocument::Compact),
+              QJsonDocument(manifest.toJson()).toJson(QJsonDocument::Compact));
+}
+
+TEST(ManifestBuilder, AGroupWhoseEveryLightIsLeftOutYieldsNoGroupAndListsItsLights)
+{
+    IntegrationDataModel model;
+    model.setOutputDirectory(QDir::tempPath());
+    const FrameInfo lum_a = leftOutTestLight(QStringLiteral("whole_group_lum_a.fit"), QStringLiteral("L"));
+    const FrameInfo lum_b = leftOutTestLight(QStringLiteral("whole_group_lum_b.fit"), QStringLiteral("L"));
+    const FrameInfo ha_a = leftOutTestLight(QStringLiteral("whole_group_ha_a.fit"), QStringLiteral("Ha"));
+    const FrameInfo ha_b = leftOutTestLight(QStringLiteral("whole_group_ha_b.fit"), QStringLiteral("Ha"));
+    const FrameInfo oiii_a = leftOutTestLight(QStringLiteral("whole_group_oiii_a.fit"), QStringLiteral("OIII"));
+    const FrameInfo oiii_b = leftOutTestLight(QStringLiteral("whole_group_oiii_b.fit"), QStringLiteral("OIII"));
+    model.addFrames(FrameType::Light, {lum_a, lum_b, ha_a, ha_b, oiii_a, oiii_b});
+
+    // Every hydrogen-alpha light is excluded in the lights' list; every oxygen light from its group's stack.
+    const IntegrationGroupKey ha_key =
+        IntegrationGroupEngine::groupKeyFor(ha_a, model.lightIntegrationGroupingOptions());
+    const IntegrationGroupKey oiii_key =
+        IntegrationGroupEngine::groupKeyFor(oiii_a, model.lightIntegrationGroupingOptions());
+    model.setFramesExcluded(FrameType::Light, {ha_a.id.canonicalPath(), ha_b.id.canonicalPath()}, true);
+    model.setFramesStackExcluded(oiii_key.key, {oiii_a.id.canonicalPath(), oiii_b.id.canonicalPath()}, true);
+
+    const WorkflowManifest manifest = ManifestBuilder(model).build();
+
+    ASSERT_EQ(manifest.integrationGroups.size(), 1u) << "a group with no light to stack is not made";
+    EXPECT_FALSE(manifest.integrationGroups.front().groupKey == ha_key);
+    EXPECT_FALSE(manifest.integrationGroups.front().groupKey == oiii_key);
+    ASSERT_EQ(manifest.leftOutLights.size(), 4u);
+    for (const FrameInfo* light : {&ha_a, &ha_b})
+    {
+        const WorkflowManifest::LeftOutLight* entry = leftOutEntry(manifest, light->id);
+        ASSERT_NE(entry, nullptr);
+        EXPECT_EQ(entry->kind, WorkflowManifest::LeftOutLight::Kind::Excluded);
+        EXPECT_TRUE(entry->groupKey == ha_key) << entry->groupKey.toString().toStdString();
+    }
+    for (const FrameInfo* light : {&oiii_a, &oiii_b})
+    {
+        const WorkflowManifest::LeftOutLight* entry = leftOutEntry(manifest, light->id);
+        ASSERT_NE(entry, nullptr);
+        EXPECT_EQ(entry->kind, WorkflowManifest::LeftOutLight::Kind::StackExcluded);
+        EXPECT_TRUE(entry->groupKey == oiii_key) << entry->groupKey.toString().toStdString();
+    }
+}
+
+TEST(ManifestBuilder, TheLightsLeftOutChangeNothingElseAManifestStates)
+{
+    IntegrationDataModel model;
+    model.setOutputDirectory(QDir::tempPath());
+    const FrameInfo keep_a = leftOutTestLight(QStringLiteral("nothing_else_keep_a.fit"), QStringLiteral("L"));
+    const FrameInfo keep_b = leftOutTestLight(QStringLiteral("nothing_else_keep_b.fit"), QStringLiteral("L"));
+    const FrameInfo excluded = leftOutTestLight(QStringLiteral("nothing_else_excluded.fit"), QStringLiteral("L"));
+    const FrameInfo from_stack = leftOutTestLight(QStringLiteral("nothing_else_from_stack.fit"), QStringLiteral("L"));
+    model.addFrames(FrameType::Bias,
+                    {makeFrame(FrameType::Bias, QStringLiteral("nothing_else_bias.fit"), QSize(100, 100), 0.0,
+                               QString(), QString(), QStringLiteral("2025-01-01"))});
+    model.addFrames(FrameType::Light, {keep_a, keep_b, excluded, from_stack});
+    model.setFramesExcluded(FrameType::Light, {excluded.id.canonicalPath()}, true);
+    ASSERT_EQ(model.integrationGroups().size(), 1u);
+    model.setFramesStackExcluded(model.integrationGroups().front(), {from_stack.id.canonicalPath()}, true);
+
+    const WorkflowManifest listed = ManifestBuilder(model).build();
+    ASSERT_EQ(listed.leftOutLights.size(), 2u);
+    WorkflowManifest emptied = listed;
+    emptied.leftOutLights.clear();
+
+    // The document differs by the one key.
+    QJsonObject listed_json = listed.toJson();
+    ASSERT_TRUE(listed_json.contains(QStringLiteral("leftOutLights")));
+    listed_json.remove(QStringLiteral("leftOutLights"));
+    EXPECT_EQ(QJsonDocument(listed_json).toJson(QJsonDocument::Compact),
+              QJsonDocument(emptied.toJson()).toJson(QJsonDocument::Compact));
+
+    // And nothing a run decides by differs.
+    ASSERT_EQ(listed.integrationGroups.size(), 1u);
+    EXPECT_EQ(computeIntegrationGroupHash(listed, listed.integrationGroups.front()),
+              computeIntegrationGroupHash(emptied, emptied.integrationGroups.front()));
+    ASSERT_TRUE(listed.biasStage.has_value());
+    EXPECT_EQ(computeCalibrationGroupHash(listed, listed.biasStage->groups.front()),
+              computeCalibrationGroupHash(emptied, emptied.biasStage->groups.front()));
+    const ManifestDiff diff = compareManifests(emptied, listed);
+    EXPECT_FALSE(diff.hasChanges()) << diff.toSummaryText().toStdString();
+    EXPECT_EQ(diff.totalModifications(), 0);
+}
+
+TEST(ManifestBuilder, ARunOfOneGroupListsOnlyTheLightsLeftOutOfThatGroup)
+{
+    IntegrationDataModel model;
+    model.setOutputDirectory(QDir::tempPath());
+    const FrameInfo lum_a = leftOutTestLight(QStringLiteral("one_group_lum_a.fit"), QStringLiteral("L"));
+    const FrameInfo lum_b = leftOutTestLight(QStringLiteral("one_group_lum_b.fit"), QStringLiteral("L"));
+    const FrameInfo lum_out = leftOutTestLight(QStringLiteral("one_group_lum_out.fit"), QStringLiteral("L"));
+    const FrameInfo ha_a = leftOutTestLight(QStringLiteral("one_group_ha_a.fit"), QStringLiteral("Ha"));
+    const FrameInfo ha_b = leftOutTestLight(QStringLiteral("one_group_ha_b.fit"), QStringLiteral("Ha"));
+    const FrameInfo ha_out = leftOutTestLight(QStringLiteral("one_group_ha_out.fit"), QStringLiteral("Ha"));
+    model.addFrames(FrameType::Light, {lum_a, lum_b, lum_out, ha_a, ha_b, ha_out});
+    model.setFramesExcluded(FrameType::Light, {lum_out.id.canonicalPath(), ha_out.id.canonicalPath()}, true);
+    const IntegrationGroupKey lum_key =
+        IntegrationGroupEngine::groupKeyFor(lum_a, model.lightIntegrationGroupingOptions());
+
+    const WorkflowManifest whole = ManifestBuilder(model).build();
+    EXPECT_EQ(whole.leftOutLights.size(), 2u);
+
+    const WorkflowManifest one = ManifestBuilder(model).buildForIntegrationGroup(lum_key);
+    ASSERT_EQ(one.integrationGroups.size(), 1u);
+    ASSERT_EQ(one.leftOutLights.size(), 1u);
+    EXPECT_EQ(one.leftOutLights.front().light, lum_out.id);
+    EXPECT_TRUE(one.leftOutLights.front().groupKey == lum_key);
 }

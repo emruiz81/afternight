@@ -136,6 +136,9 @@ struct WindowPoll
     bool repeatedly = false;
     int generation = 0;
     int attemptsLeft = 1000;
+    /// Set by whoever started the poll once what it waited for can no longer come. The poll then answers nothing:
+    /// left running, it would answer the next window of its kind, which is another step's to answer.
+    bool ended = false;
 };
 
 inline void runWindowPoll(const std::shared_ptr<WindowPoll>& poll);
@@ -147,7 +150,7 @@ inline void scheduleWindowPoll(const std::shared_ptr<WindowPoll>& poll, int dela
 
 inline void runWindowPoll(const std::shared_ptr<WindowPoll>& poll)
 {
-    if (poll->generation != g_caseGeneration)
+    if (poll->ended || poll->generation != g_caseGeneration)
     {
         return;
     }
@@ -168,13 +171,16 @@ inline void runWindowPoll(const std::shared_ptr<WindowPoll>& poll)
     }
 }
 
-inline void answerWhenShown(std::function<bool(QWidget*)> act, bool repeatedly = false)
+//
+// Returns the poll, so a step that knows its window can no longer come ends it (`WindowPoll::ended`).
+inline std::shared_ptr<WindowPoll> answerWhenShown(std::function<bool(QWidget*)> act, bool repeatedly = false)
 {
     auto poll = std::make_shared<WindowPoll>();
     poll->act = std::move(act);
     poll->repeatedly = repeatedly;
     poll->generation = g_caseGeneration;
     scheduleWindowPoll(poll, 0);
+    return poll;
 }
 
 // Presses Yes on a message box when it offers Yes, otherwise Ok; records what it showed.
@@ -269,9 +275,14 @@ inline void chooseInTheNextFileDialog(const QStringList& files, Answered* answer
         // A dialog that refuses the choice says so in a message box from inside its accept; the box is answered and
         // the dialog, still open, closed, so the case fails rather than waits.
         auto said = std::make_shared<Answered>();
-        answerWhenShown([said](QWidget* box) { return pressYesOrOk(box, said.get()); });
+        const std::shared_ptr<WindowPoll> refusal =
+            answerWhenShown([said](QWidget* box) { return pressYesOrOk(box, said.get()); });
         // A file dialog accepts through its dialog base: its own accept is not public.
         static_cast<QDialog*>(dialog)->accept();
+        // The refusal is shown from inside the accept, so it has been answered by now or there is none. The poll ends
+        // here: left armed for its ten seconds, it would answer the next message box of the case, which a case that
+        // opens a file and then waits for a box of its own lost to it about every other run.
+        refusal->ended = true;
         if (said->seen)
         {
             answered->refused = true;

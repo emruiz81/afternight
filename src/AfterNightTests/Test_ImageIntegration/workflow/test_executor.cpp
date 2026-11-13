@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QtTest/QSignalSpy>
 
@@ -40,6 +41,8 @@
 #include "processes/ImageIntegration/workflow/DocumentPublication.h"
 #include "processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionCounters.h"
+#include "processes/ImageIntegration/reporting/ReportArchiveReader.h"
+#include "processes/ImageIntegration/reporting/ReportModel.h"
 #include "processes/ImageIntegration/workflow/WorkflowArchiver.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/WorkflowLogger.h"
@@ -252,12 +255,11 @@ public:
         {
             const QDir run_directory(
                 QDir(m_outputDirectory).filePath(QStringLiteral("history/%1").arg(manifest.executionId)));
-            const QString markdown = run_directory.filePath(QStringLiteral("workflow_report.md"));
-            if (QDir().mkpath(run_directory.absolutePath()) && writeTextFile(markdown, QByteArrayLiteral("# Report")) &&
-                writeTextFile(run_directory.filePath(QStringLiteral("workflow_report.html")),
-                              QByteArrayLiteral("<html></html>")))
+            const QString document = run_directory.filePath(QStringLiteral("workflow_report.html"));
+            if (QDir().mkpath(run_directory.absolutePath()) &&
+                writeTextFile(document, QByteArrayLiteral("<html></html>")))
             {
-                outcome.reportPath = markdown;
+                outcome.reportPath = document;
             }
             // A commit that fails is refused before its report is accounted for, as the product's archive refuses one.
             if (m_behaviour.commitSucceeds)
@@ -956,6 +958,40 @@ TEST(WorkflowExecutor, SuccessCapturesExclusiveCompletionPhasesBeforeTotal)
     EXPECT_EQ(run_metadata->reportMs, result.executorTiming.reportMs);
 }
 
+// A run the caller gave no id takes one from the executor: a stamp of the clock, and never at or before the latest
+// run already in the folder's history. The history is ordered by these names, so a clock that went back - the
+// autumn hour, another time zone - would otherwise put the run before the one it follows.
+TEST(WorkflowExecutor, ARunGivenNoIdIsNamedAfterTheLatestRunOfItsFolder)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    // A run of the folder's history that the clock has not reached yet.
+    const QString latest = QStringLiteral("20990101_000000_000");
+    ASSERT_TRUE(QDir(temp_dir.path()).mkpath(QStringLiteral("history/") + latest));
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId.clear();
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stage"), WorkflowStage::LightsStacking, StageResult::success()));
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    ASSERT_TRUE(result.success) << result.errors.join(QLatin1Char('\n')).toStdString();
+    ASSERT_EQ(archive->commits, 1);
+    // The recording archive writes its report into the folder the run's id names.
+    const QStringList runs = QDir(QDir(temp_dir.path()).filePath(QStringLiteral("history")))
+                                 .entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    ASSERT_EQ(runs.size(), 2) << runs.join(QLatin1Char(' ')).toStdString();
+    EXPECT_EQ(runs.front(), latest);
+    const QString named = runs.back();
+    EXPECT_GT(named, latest) << "the run is named at or before the latest run of its folder";
+    static const QRegularExpression stamp(QStringLiteral("^\\d{8}_\\d{6}_\\d{3}$"));
+    EXPECT_TRUE(stamp.match(named).hasMatch()) << named.toStdString();
+}
+
 TEST(WorkflowExecutor, PartialSuccessPreservesCompletionTimingAndArchiveReportBehavior)
 {
     QTemporaryDir temp_dir;
@@ -1506,6 +1542,139 @@ TEST(WorkflowExecutor, UsesExistingCalibrationMasterPathsInResults)
     EXPECT_TRUE(result.calibrationGroupResults.front().success);
     ASSERT_EQ(result.generatedBiasMasters.size(), 1);
     EXPECT_EQ(result.generatedBiasMasters.front(), QFileInfo(existingMasterPath).absoluteFilePath());
+}
+
+// A calibration group has a result whenever its stage ran. The stage names the groups whose master it found still
+// valid, and each group's result says which the stage did: stacked the master, or left it as it was.
+TEST(WorkflowExecutor, ACalibrationGroupsResultSaysWhetherItsStageLeftTheMasterAsItWas)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = dir.path();
+    manifest.stageSequence = {QStringLiteral("Bias")};
+
+    WorkflowManifest::CalibrationStage biasStage;
+    biasStage.frameType = QStringLiteral("BIAS");
+    const auto groupOf = [&dir](const QString& name) {
+        WorkflowManifest::CalibrationStage::Group group;
+        group.groupKey = GroupKey{QStringLiteral("bias|%1").arg(name)};
+        group.outputFilename = QStringLiteral("master_bias_%1.fit").arg(name);
+        group.inputFiles = {FrameId(writeFrame(dir.path(), group.outputFilename, 4, 4, "Bias"))};
+        return group;
+    };
+    const WorkflowManifest::CalibrationStage::Group kept = groupOf(QStringLiteral("kept"));
+    const WorkflowManifest::CalibrationStage::Group stacked = groupOf(QStringLiteral("stacked"));
+    biasStage.groups = {kept, stacked};
+    manifest.biasStage = biasStage;
+
+    StageResult stageResult = StageResult::success();
+    stageResult.reusedCalibrationGroups = {kept.groupKey.toString()};
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Bias"), WorkflowStage::Bias, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.calibrationGroupResults.size(), 2u);
+    for (const WorkflowExecutor::Result::CalibrationGroupResult& group : result.calibrationGroupResults)
+    {
+        EXPECT_TRUE(group.success) << group.groupKey.toStdString();
+        EXPECT_EQ(group.reused, group.groupKey == kept.groupKey.toString()) << group.groupKey.toStdString();
+    }
+}
+
+// An incremental run's calibration stage visits only the groups its plan names: the plan found every other group's
+// master still valid. Such a group is in the manifest's stage all the same and gets a result with the others, and
+// its result says the run left the master as it was. It read as a master the run stacked, since only the stage
+// could say otherwise and the stage never saw the group.
+TEST(WorkflowExecutor, ACalibrationGroupAnIncrementalPlanLeftOutIsLeftAsItWas)
+{
+    QTemporaryDir dir;
+    ASSERT_TRUE(dir.isValid());
+
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = dir.path();
+    manifest.stageSequence = {QStringLiteral("Bias")};
+
+    WorkflowManifest::CalibrationStage biasStage;
+    biasStage.frameType = QStringLiteral("BIAS");
+    const auto groupOf = [&dir](const QString& name) {
+        WorkflowManifest::CalibrationStage::Group group;
+        group.groupKey = GroupKey{QStringLiteral("bias|%1").arg(name)};
+        group.outputFilename = QStringLiteral("master_bias_%1.fit").arg(name);
+        group.inputFiles = {FrameId(writeFrame(dir.path(), group.outputFilename, 4, 4, "Bias"))};
+        return group;
+    };
+    const WorkflowManifest::CalibrationStage::Group kept = groupOf(QStringLiteral("kept"));
+    const WorkflowManifest::CalibrationStage::Group stacked = groupOf(QStringLiteral("stacked"));
+    biasStage.groups = {kept, stacked};
+    manifest.biasStage = biasStage;
+    manifest.executionMode = ExecutionMode::Incremental;
+    manifest.incrementalBiasGroups = {stacked.groupKey};
+
+    // The stage ran for the one group the plan named and found nothing to leave as it was.
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Bias"), WorkflowStage::Bias, StageResult::success()));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.calibrationGroupResults.size(), 2u);
+    for (const WorkflowExecutor::Result::CalibrationGroupResult& group : result.calibrationGroupResults)
+    {
+        EXPECT_TRUE(group.success) << group.groupKey.toStdString();
+        EXPECT_EQ(group.reused, group.groupKey == kept.groupKey.toString()) << group.groupKey.toStdString();
+    }
+}
+
+// A group whose stack fails before a master of it is written has no group result: the stacking stage names it with
+// why, and the run keeps what the stage says, so that a planned master with no result is one that failed and not one
+// the run has no record of.
+TEST(WorkflowExecutor, TheRunKeepsTheGroupsWhoseStackFailedBeforeAMaster)
+{
+    IntegrationErrorReport report;
+    report.addError(IntegrationError::stackingFailed(QStringLiteral("Not enough registered frames to integrate")));
+    StageResult stageResult = StageResult::partialSuccess(report);
+    stageResult.failedGroups = {FailedIntegrationGroup{
+        .groupKey = QStringLiteral("group-a"), .error = QStringLiteral("Not enough registered frames to integrate")}};
+    WorkflowExecutor executor;
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("LightsStacking"), WorkflowStage::LightsStacking, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(makeValidManifest());
+
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    EXPECT_TRUE(result.partialSuccess);
+    ASSERT_EQ(result.failedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.failedIntegrationGroups.front().groupKey, QStringLiteral("group-a"));
+    EXPECT_EQ(result.failedIntegrationGroups.front().error,
+              QStringLiteral("Not enough registered frames to integrate"));
+    EXPECT_TRUE(result.integrationGroupResults.empty());
+}
+
+// The registration stage says why of each light it finds no transform for, and the run keeps what it says: the
+// metrics database records only that a registration failed.
+TEST(WorkflowExecutor, TheRunKeepsWhyEachLightFailedRegistration)
+{
+    StageResult stageResult = StageResult::success();
+    stageResult.registrationFailures = {
+        RegistrationFailure{.groupKey = QStringLiteral("group-a"),
+                            .light = QStringLiteral("C:/lights/a.fit"),
+                            .reason = QStringLiteral("Only 3 star(s) were detected; this run requires at least 10.")},
+        RegistrationFailure{.groupKey = QStringLiteral("group-a"),
+                            .light = QStringLiteral("C:/lights/b.fit"),
+                            .reason = QStringLiteral("No stars were detected.")}};
+    WorkflowExecutor executor;
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("LightsRegistration"),
+                                                  WorkflowStage::LightsRegistration, stageResult));
+
+    const WorkflowExecutor::Result result = executor.execute(makeValidManifest());
+
+    ASSERT_TRUE(result.success) << result.errorMessage.toStdString();
+    ASSERT_EQ(result.registrationFailures.size(), 2u);
+    EXPECT_EQ(result.registrationFailures[0].light, QStringLiteral("C:/lights/a.fit"));
+    EXPECT_EQ(result.registrationFailures[0].groupKey, QStringLiteral("group-a"));
+    EXPECT_EQ(result.registrationFailures[1].reason, QStringLiteral("No stars were detected."));
 }
 
 TEST(WorkflowExecutor, ContinuesAfterPartialSuccessAndCollectsErrors)
@@ -2415,18 +2584,36 @@ TEST(WorkflowExecutorArchiver, SuccessCapturesExclusiveCompletionPhasesBeforeTot
     EXPECT_TRUE(result.capturedLog.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
     EXPECT_TRUE(result.capturedLog.contains(expected_total));
 
-    QFile report_file(QFileInfo(result.htmlReportPath).dir().filePath(QStringLiteral("workflow_report.md")));
-    ASSERT_TRUE(report_file.open(QIODevice::ReadOnly | QIODevice::Text));
-    const QString report_markdown = QString::fromUtf8(report_file.readAll());
-    EXPECT_TRUE(
-        report_markdown.contains(QStringLiteral("| State Commit | %1ms |").arg(result.executorTiming.stateCommitMs)));
-    EXPECT_TRUE(report_markdown.contains(QStringLiteral("| Archive | %1ms |").arg(result.executorTiming.archiveMs)));
-    EXPECT_TRUE(report_markdown.contains(QStringLiteral("| Report | %1ms |").arg(result.executorTiming.reportMs)));
-    EXPECT_FALSE(report_markdown.contains(QStringLiteral("AFTERNIGHT_")));
+    // The report the archive keeps states the run's final figures, which are known only after the commit: its
+    // phases and its total, the engine's memory, and the log to its last line. No figure is a token to be replaced.
+    const QDir run_directory = QFileInfo(result.htmlReportPath).dir();
+    EXPECT_FALSE(run_directory.exists(QStringLiteral("workflow_report.md")));
+    ImageIntegration::Reporting::ReportArchiveRead stored =
+        ImageIntegration::Reporting::ReportArchiveReader::read(run_directory.absolutePath());
+    ASSERT_TRUE(stored.model.has_value()) << stored.why.toStdString();
+    const ImageIntegration::Reporting::ReportRun& stated = stored.model->run;
+    ASSERT_TRUE(stated.executor.has_value());
+    EXPECT_EQ(stated.executor->stageExecutionMs, result.executorTiming.stageExecutionMs);
+    EXPECT_EQ(stated.executor->stateCommitMs, result.executorTiming.stateCommitMs);
+    EXPECT_EQ(stated.executor->archiveMs, result.executorTiming.archiveMs);
+    EXPECT_EQ(stated.executor->reportMs, result.executorTiming.reportMs);
+    EXPECT_EQ(stated.processingMs, result.totalDurationMs);
+    ASSERT_TRUE(stated.preparation.has_value());
+    EXPECT_EQ(stated.preparation->manifestBuildMs, 113);
+    EXPECT_EQ(stated.preparation->planAndValidationMs, 227);
+    ASSERT_TRUE(result.engineMemory.has_value());
+    ASSERT_TRUE(stated.engineMemory.has_value());
+    EXPECT_EQ(stated.engineMemory->peakBytes, result.engineMemory->peakBytes);
+    EXPECT_EQ(stated.engineMemory->allocations, result.engineMemory->allocations);
+    EXPECT_TRUE(stated.log.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
+    EXPECT_TRUE(stated.log.contains(expected_total));
 
     QFile report_html(result.htmlReportPath);
     ASSERT_TRUE(report_html.open(QIODevice::ReadOnly | QIODevice::Text));
-    EXPECT_FALSE(QString::fromUtf8(report_html.readAll()).contains(QStringLiteral("AFTERNIGHT_")));
+    const QString report_document = QString::fromUtf8(report_html.readAll());
+    EXPECT_FALSE(report_document.contains(QStringLiteral("AFTERNIGHT_")));
+    EXPECT_TRUE(report_document.contains(QStringLiteral("WORKFLOW COMPLETED SUCCESSFULLY")));
+    EXPECT_TRUE(report_document.contains(expected_total));
 
     QFile archive_manifest(QFileInfo(result.htmlReportPath).dir().filePath(QStringLiteral("workflow_manifest.json")));
     ASSERT_TRUE(archive_manifest.open(QIODevice::ReadOnly));
@@ -2462,10 +2649,10 @@ TEST(WorkflowExecutorArchiver, ExistingRunDirectoryFailureFailsExecutionAndSkips
     an::Result<an::consumer::EngineSession> opened = an::tests::integration::openImportSession(2u);
     ASSERT_TRUE(opened.hasValue()) << opened.status().message();
 
-    // A directory where the archive writes its report makes the commit fail.
+    // A run's folder that is already there makes the commit fail.
     const QString execution_id = QStringLiteral("TIMING_REPORT_FAILURE");
     const QString run_dir = QDir(temp_dir.path()).filePath(QStringLiteral("history/%1").arg(execution_id));
-    ASSERT_TRUE(QDir().mkpath(QDir(run_dir).filePath(QStringLiteral("workflow_report.md"))));
+    ASSERT_TRUE(QDir().mkpath(run_dir));
 
     WorkflowManifest manifest = makeValidManifest();
     manifest.outputDirectory = temp_dir.path();
@@ -2787,4 +2974,112 @@ TEST(LightsNormalizationStage, ReportsInitialPreparingProgressBeforeGroupWork)
     EXPECT_EQ(first.totalGroups, 1);
     EXPECT_FLOAT_EQ(first.stageProgress, 0.0f);
     EXPECT_EQ(first.currentOperation, QStringLiteral("Preparing normalization"));
+}
+
+// ---- The groups a run reuses: recorded, and counted by nothing that counts a run's successful groups.
+
+namespace
+{
+/// A stacking stage's result for a run whose one group was found up to date: no group result, the group named.
+StageResult reusedIntegrationGroupResult(const WorkflowManifest& manifest)
+{
+    StageResult result = StageResult::success();
+    result.reusedGroups.push_back(ReusedIntegrationGroup{
+        .groupKey = manifest.integrationGroups.front().groupKey.toString(),
+        .outputPath = QDir(manifest.outputDirectory).filePath(manifest.integrationGroups.front().outputFilename)});
+    return result;
+}
+} // namespace
+
+TEST(WorkflowExecutor, AGroupTheStackingStageFoundUpToDateIsNamedAmongTheGroupsTheRunReused)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_BY_STAGE");
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking,
+                                                  reusedIntegrationGroupResult(manifest)));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    EXPECT_TRUE(result.success);
+    ASSERT_EQ(result.reusedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.reusedIntegrationGroups.front().groupKey, manifest.integrationGroups.front().groupKey.toString());
+    EXPECT_FALSE(result.reusedIntegrationGroups.front().outputPath.isEmpty());
+    // A reused group is no result and no master the run generated.
+    EXPECT_TRUE(result.integrationGroupResults.empty());
+    EXPECT_TRUE(result.generatedLightMasters.isEmpty());
+    ASSERT_FALSE(result.stageResults.empty());
+    EXPECT_EQ(result.stageResults.front().groupsProcessed, 0);
+    EXPECT_EQ(archive->commits, 1) << "a run that completed is archived whatever it reused";
+}
+
+TEST(WorkflowExecutor, ARunThatReusesEveryGroupAndThenStopsHasNoSuccessfulGroupToCommit)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_THEN_FAILED");
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking,
+                                                  reusedIntegrationGroupResult(manifest)));
+    executor.addStage(std::make_unique<TestStage>(QStringLiteral("Failure"), WorkflowStage::LightsNormalization,
+                                                  StageResult::failure(QStringLiteral("Stopped after the reuse"))));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.reusedIntegrationGroups.size(), 1u) << "the record holds however the run ends";
+    // The executor commits a stopped run only for a group it made: a reused one is not such a group.
+    EXPECT_EQ(archive->commits, 0);
+    EXPECT_EQ(result.executorTiming.archiveMs, 0);
+}
+
+TEST(WorkflowExecutor, TheGroupsAnIncrementalPlanLeavesOutAreNamedAsReusedWhateverTheStagesReturn)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    WorkflowManifest manifest = makeValidManifest();
+    manifest.outputDirectory = temp_dir.path();
+    manifest.executionId = QStringLiteral("REUSED_BY_PLAN");
+    ASSERT_EQ(manifest.integrationGroups.size(), 1u);
+    WorkflowManifest::IntegrationGroup changed = manifest.integrationGroups.front();
+    changed.groupKey = IntegrationGroupKey{GroupKey{changed.groupKey.toString() + QStringLiteral("|changed")}};
+    changed.outputFilename = QStringLiteral("changed_") + changed.outputFilename;
+    manifest.integrationGroups.push_back(changed);
+    manifest.executionMode = ExecutionMode::Incremental;
+    manifest.incrementalIntegrationGroups = {changed.groupKey};
+    const QString unchangedKey = manifest.integrationGroups.front().groupKey.toString();
+
+    WorkflowExecutor executor(makeAdvancingClock());
+    const auto archive = installRecordingArchive(executor);
+    // The stage also names the unchanged group: a group is listed once.
+    StageResult stage_result = StageResult::success();
+    stage_result.reusedGroups.push_back(ReusedIntegrationGroup{.groupKey = unchangedKey, .outputPath = {}});
+    executor.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking, stage_result));
+
+    const WorkflowExecutor::Result result = executor.execute(manifest);
+
+    ASSERT_EQ(result.reusedIntegrationGroups.size(), 1u);
+    EXPECT_EQ(result.reusedIntegrationGroups.front().groupKey, unchangedKey);
+    EXPECT_EQ(
+        QDir::cleanPath(result.reusedIntegrationGroups.front().outputPath),
+        QDir::cleanPath(QDir(manifest.outputDirectory).filePath(manifest.integrationGroups.front().outputFilename)));
+
+    // A full run plans every group: nothing is reused by the plan.
+    manifest.executionMode = ExecutionMode::Full;
+    manifest.executionId = QStringLiteral("NOT_REUSED_BY_PLAN");
+    WorkflowExecutor full(makeAdvancingClock());
+    const auto full_archive = installRecordingArchive(full);
+    full.addStage(
+        std::make_unique<TestStage>(QStringLiteral("Stacking"), WorkflowStage::LightsStacking, StageResult::success()));
+    EXPECT_TRUE(full.execute(manifest).reusedIntegrationGroups.empty());
 }

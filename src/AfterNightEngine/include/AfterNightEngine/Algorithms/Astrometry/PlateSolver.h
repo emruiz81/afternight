@@ -87,7 +87,7 @@ struct PlateSolveRequest
     /// Most refinement iterations before the final recentered fit, in `[1, 32]`.
     std::uint32_t maximumRefinementIterations = 5u;
 
-    /// Most image stars retained after deterministic spatial selection, in `[3, 4096]`.
+    /// Most image stars retained for matching, in `[3, 4096]`; `PlateSolveInput::stars` states which.
     std::uint32_t maximumImageStars = 80u;
 
     /// Most projected catalog stars retained for matching, in `[3, 4096]`.
@@ -239,13 +239,22 @@ private:
     friend AFTERNIGHTENGINE_API Result<PlateSolvePlan> planPlateSolve(const PlateSolveRequest&);
 };
 
-/// The spatially balanced image-star input used by every trial centre.
+/// The image-star input used by every trial centre.
+///
+/// The matcher forms its triangles from each side's brightest points, so the image and the catalog
+/// must rank the same stars first. A frame with at least sixty stars inside the matching disc - the
+/// largest circle about the image centre that lies inside the frame, half the shorter side in
+/// radius, the one region the field's unknown rotation cannot change - therefore keeps the disc's
+/// stars alone, and the catalog search keeps the region the image's stars were kept over: the same
+/// circle about the trial centre, at the plan's effective scale, whenever no prepared star lies
+/// outside the disc, and the frame otherwise. The two sides never differ in it.
 struct PlateSolveInput
 {
-    /// Selected stars. Up to `maximumImageStars` they are every supplied star in supplied order;
-    /// above it they are chosen in rounds over a ten-by-eight grid of the frame - the brightest star
-    /// of every occupied cell, then the second brightest of each, and so on - each round in
-    /// brightness order.
+    /// Selected stars. When at least sixty supplied stars lie inside the matching disc, they are the
+    /// first `maximumImageStars` of those, in supplied order, and no star outside it. Otherwise, up
+    /// to `maximumImageStars` they are every supplied star in supplied order; above it they are
+    /// chosen in rounds over a ten-by-eight grid of the frame - the brightest star of every occupied
+    /// cell, then the second brightest of each, and so on - each round in brightness order.
     std::vector<PlateSolveStar> stars{};
 
     /// Stars supplied before selection.
@@ -305,7 +314,8 @@ struct PlateSolveCatalogSearchResult
 /// One accepted image-to-catalog correspondence.
 struct PlateSolveMatch
 {
-    /// Position in `PlateSolveInput::stars`.
+    /// Position in `PlateSolveInput::stars`. In the matches of a complete solve (`solvePlate`), which
+    /// prepares its own input, the star's position among the stars supplied to it.
     std::uint32_t imageStarIndex = 0u;
 
     /// Position in `SkyCatalog::entries()`.
@@ -508,11 +518,12 @@ estimatePlateSolveCatalogQueryRadius(std::uint32_t imageWidth, std::uint32_t ima
 ///         32-bit count.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<PlateSolvePlan> planPlateSolve(const PlateSolveRequest& request);
 
-/// Validates and spatially balances image-star input once for all trial centres.
+/// Validates and selects image-star input once for all trial centres.
 ///
 /// Runs on the calling thread, checks cancellation every 256 stars while validating them, and
-/// produces ordinary caller-owned result storage. The selection is the round selection
-/// `PlateSolveInput::stars` describes. A failure returns no partial input.
+/// produces ordinary caller-owned result storage. The selection is the one `PlateSolveInput::stars`
+/// describes: the matching disc's stars for a crowded frame, the round selection for a sparser
+/// one. A failure returns no partial input.
 ///
 /// @param execution operation policy and engine-context lease.
 /// @param stars detections in brightness order, brightest first. Each position must be finite and
@@ -534,27 +545,33 @@ estimatePlateSolveCatalogQueryRadius(std::uint32_t imageWidth, std::uint32_t ima
 /// The query is a cone of `plan.catalogQueryRadiusDegrees()` about the trial centre under the
 /// request's magnitude limit, answered brightest first. Extended entries are dropped, and every
 /// other entry is projected onto the trial centre's tangent plane and scaled by the plan's
-/// effective scale into pseudo pixels, east along +x and north along +y. When at least sixteen of
-/// them fall inside a rectangle 1.1 times the image's width and height about the centre - aligned
-/// with east and north, since the field's rotation is not yet known - the rest are dropped;
-/// otherwise the ones inside are moved ahead of the rest. When more than `maximumCatalogStars`
-/// remain, the round selection `PlateSolveInput::stars` describes picks them over a square 1.1
-/// times the image diagonal wide. A query that reached its result bound is reported as a warning
-/// diagnostic as well as in `queryTruncated`.
+/// effective scale into pseudo pixels, east along +x and north along +y. When no star of `input`
+/// lies outside the matching disc `PlateSolveInput` describes - a frame matched over its disc, or
+/// one whose every star happens to lie there - the entries outside that disc about the trial centre
+/// are dropped, however few remain, and the first `maximumCatalogStars` kept, brightest first: a
+/// catalog star outside the disc has no image star to be matched with. Otherwise, when at
+/// least sixteen fall inside a rectangle 1.1 times the image's width and height about the centre -
+/// aligned with east and north, since the field's rotation is not yet known - the rest are dropped,
+/// and with fewer the ones inside are moved ahead of the rest; when more than `maximumCatalogStars`
+/// then remain, the round selection `PlateSolveInput::stars` describes picks them over a square
+/// 1.1 times the image diagonal wide. A query that reached its result bound is reported as a
+/// warning diagnostic as well as in `queryTruncated`.
 ///
 /// The catalog must already carry positions for the observation epoch; provider-specific epoch
 /// correction belongs to catalog construction and is not silently repeated here.
 ///
 /// @param execution operation policy and engine-context lease.
 /// @param catalog immutable catalog to query.
-/// @param input prepared image stars. Only checked to hold at least three: the preferred rectangle
-///        comes from the plan's image dimensions.
+/// @param input prepared image stars, at least three. Whether any of them lies outside the matching
+///        disc decides the region the catalog keeps; the disc and the preferred rectangle come from
+///        the plan's image dimensions.
 /// @param plan checked plate-solve plan.
 /// @param trialCenter finite sky direction used as the tangent point.
 /// @return projected point sources and query facts; `ErrorCode::NotInitialized` for an empty
 ///         execution or catalog or an invalid plan; `ErrorCode::InvalidArgument` for a trial
 ///         centre that is not a sky direction; `ErrorCode::EmptySelection` when `input` holds
-///         fewer than three stars or fewer than three point sources project; any failure of
+///         fewer than three stars, fewer than three point sources project, or fewer than three of
+///         them lie in the matching disc a frame matched over it keeps; any failure of
 ///         `queryCatalogRegion`; cancellation; or `ErrorCode::AllocationFailed`.
 [[nodiscard]] AFTERNIGHTENGINE_API Result<PlateSolveCatalogSearchResult>
 searchPlateSolveCatalog(const ExecutionContext& execution, const SkyCatalog& catalog, const PlateSolveInput& input,
@@ -655,6 +672,15 @@ refinePlateSolveAtCenter(const ExecutionContext& execution, const SkyCatalog& ca
 /// centre that fails with `ErrorCode::EmptySelection`, `ErrorCode::InvalidData` or
 /// `ErrorCode::OutOfRange` is skipped; any other failure - cancellation, budget exhaustion, a
 /// malformed input or a catalog failure - is returned immediately.
+///
+/// The solution of a frame matched over its disc is then fitted over the whole frame. The catalog's
+/// point sources are placed by the accepted solution, each is set beside the supplied star nearest
+/// to where it falls, within a few pixels, and the model is fitted again to all of those pairs,
+/// under the request's own match and residual limits; a few passes carry the fit outward, and it is
+/// kept while it holds more stars than the one before. The stars between the disc and the corners
+/// then constrain the solution there, where a distortion fitted to the disc alone is carried well
+/// beyond the stars it was fitted to. A frame whose stars were kept over its whole extent was
+/// fitted over it already. Every match of the result names its star among the stars supplied.
 ///
 /// Progress is reported as trial centres completed out of the planned count. The route that
 /// supplied the answer is reported in the diagnostics and as an information diagnostic; a truncated

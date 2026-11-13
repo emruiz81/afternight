@@ -362,13 +362,8 @@ namespace dependency_detail
 void reportOpenXisf(DependencyVersion& entry) noexcept
 {
     entry.name = "openxisf";
-    // Windows links the packaged DLL. Linux links the packaged position-independent archive, as it
-    // links CFITSIO's, so the copy inside this binary is fixed at build time there and replaceable here.
-#if defined(_WIN32)
+    // The shared library its own release builds, beside the engine on both platforms.
     entry.linkage = DependencyLinkage::SharedLibrary;
-#else
-    entry.linkage = DependencyLinkage::StaticArchive;
-#endif
     setVersionTextFromParts(entry.compiled, OPENXISF_VERSION_MAJOR, OPENXISF_VERSION_MINOR, OPENXISF_VERSION_PATCH);
     // The loaded copy is asked for its numbers rather than its text: the text is a view the library
     // does not promise to terminate, and the numbers are what it says to compare.

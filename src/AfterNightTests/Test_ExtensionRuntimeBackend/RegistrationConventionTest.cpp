@@ -60,6 +60,34 @@ with tempfile.TemporaryDirectory() as root:
 )PY");
 }
 
+// A frame aligned a fractional shift from the reference - 4.3 pixels across and 2.6 up - holds nothing where it does
+// not reach, the four columns before its first column and the three rows past its last, and a flat sky stays flat to
+// the frame's edge where it reaches: the warp reads the frame's own edge sample past it, not a step to zero.
+TEST(RegistrationConventionTest, AnAlignedFrameHoldsNothingWhereItDoesNotReachAndItsSkyToItsEdge)
+{
+    expectPython(R"PY(
+import os, tempfile
+import numpy as np
+import _afternight_runtime as rt
+with tempfile.TemporaryDirectory() as root:
+    paths = [os.path.join(root, "reference.fits"), os.path.join(root, "frame.fits")]
+    rt.save_image(rt.image_from_numpy(np.full((30, 40), 0.05, np.float32), {}), paths[0])
+    rt.save_image(rt.image_from_numpy(np.full((30, 40), 0.07, np.float32), {}), paths[1])
+    shifted = {"matrix": [[1.0, 0.0, 4.3], [0.0, 1.0, -2.6], [0.0, 0.0, 1.0]], "transform_type": "similarity"}
+    result = rt.apply_registration_paths(paths, [None, shifted], os.path.join(root, "aligned"),
+                                         interpolation="lanczos4")
+    assert result["succeeded_count"] == 2, result
+    aligned = rt.load_image(result["frames"][1]["output_path"]).to_numpy()
+    assert aligned.shape == (30, 40), aligned.shape
+    # The reference's pixel (x, y) is the frame's (x - 4.3, y + 2.6).
+    reached = np.zeros((30, 40), bool)
+    reached[:27, 4:] = True
+    assert np.all(aligned[~reached] == 0.0), aligned[~reached]
+    worst = float(np.max(np.abs(aligned[reached].astype(np.float64) - 0.07)))
+    assert worst < 1e-6, worst
+)PY");
+}
+
 TEST(RegistrationConventionTest, AFoundMatrixMapsAFramesStarsOntoTheReferencesAtIntegerCentres)
 {
     expectPython(R"PY(

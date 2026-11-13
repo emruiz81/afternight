@@ -84,6 +84,10 @@ public:
     [[nodiscard]] bool openExtensionSettings(std::string_view extension_id);
     [[nodiscard]] bool openExtensionSettingsDialog(std::string_view extension_id);
 
+signals:
+    /// A package this page uninstalled is gone from disk; `extensionId` is the id its manifest declared.
+    void extensionUninstalled(const QString& extensionId) W_SIGNAL(extensionUninstalled, extensionId);
+
 private:
     void setupUi();
     void reloadStatus(bool forceRefresh = false);

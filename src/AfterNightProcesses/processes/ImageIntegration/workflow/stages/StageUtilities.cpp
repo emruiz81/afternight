@@ -305,7 +305,7 @@ void sayStageWarnings(ProgressReporter& reporter, const QStringList& said, QStri
     }
 }
 
-QString describeNormalizationSettings(const StackingSettings& settings, const bool drizzled)
+QString describeNormalizationSettings(const StackingSettings& settings)
 {
     switch (settings.normalizationMode)
     {
@@ -335,11 +335,6 @@ QString describeNormalizationSettings(const StackingSettings& settings, const bo
         // Local normalization matches each light globally in Additive With Scaling, whatever method the group stores.
         const QString match = QStringLiteral("Additive With Scaling, set by local normalization, %1")
                                   .arg(scaleEstimatorToString(settings.scaleEstimator));
-        if (drizzled)
-        {
-            // A drizzled group's stack fits the surfaces itself, against the group's reference.
-            return QStringLiteral("Local + Global (%1; fitted by the drizzled stack)").arg(match);
-        }
         const QString strategy =
             trimOrDefault(settings.localNormalization.referenceStrategy, QStringLiteral("Automatic"));
         return QStringLiteral("Local + Global (%1; ref: %2)").arg(match, strategy);
@@ -399,7 +394,7 @@ QString describeReferenceSelection(const StackingSettings& settings, const std::
         .arg(referenceSource(), primary, QString::number(static_cast<int>(referenceFrames.size())), allRefs);
 }
 
-QString describeStackingSettings(const StackingSettings& settings, const bool drizzled)
+QString describeStackingSettings(const StackingSettings& settings)
 {
     const QString stack_method = trimOrDefault(settings.stackMethod, QStringLiteral("Average"));
     const QString rejection_method = resolvedRejectionMethodToString(settings);
@@ -419,10 +414,10 @@ QString describeStackingSettings(const StackingSettings& settings, const bool dr
         stack_summary = QStringLiteral("Average + %1").arg(rejection_method);
     }
 
-    QStringList summary_parts = {
-        QStringLiteral("Stack: %1").arg(stack_summary), QStringLiteral("Weighting: %1").arg(weighting),
-        QStringLiteral("Spatial: %1").arg(local_weighting),
-        QStringLiteral("Normalization: %1").arg(describeNormalizationSettings(settings, drizzled))};
+    QStringList summary_parts = {QStringLiteral("Stack: %1").arg(stack_summary),
+                                 QStringLiteral("Weighting: %1").arg(weighting),
+                                 QStringLiteral("Spatial: %1").arg(local_weighting),
+                                 QStringLiteral("Normalization: %1").arg(describeNormalizationSettings(settings))};
 
     const QString comet_mode = ImageIntegration::normalizeCometStackingMode(settings.cometStackingMode);
     if (ImageIntegration::usesCometStackingMode(comet_mode))

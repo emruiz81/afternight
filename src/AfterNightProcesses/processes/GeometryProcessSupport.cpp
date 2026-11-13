@@ -14,6 +14,7 @@
 #include "app/PlateSolveTypes.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewFiles.h"
 #include "controls/ProcessCompanions.h"
 #include "controls/ProgressDialogControl.h"
 #include "controls/SequenceContainers.h"
@@ -25,6 +26,7 @@
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/OperationEffect.h>
 #include <AfterNightEngine/Image/OperationTransition.h>
@@ -43,8 +45,11 @@
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <optional>
 #include <stop_token>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -84,7 +89,8 @@ constexpr an::OperationEffect kGeometryKeepsValidity{.description = an::Descript
 /// One step's result: the image and the mask it carries, when its rule needs one.
 using Transformed = std::pair<an::consumer::AnyImage, std::optional<an::ValidityMask>>;
 
-/// The solution a step's result carries, and the source's solver card written beside it.
+/// The cards a step's result carries: the source's observing context, the solution that followed the steps and the
+/// source's solver card written beside it.
 struct CarriedSolution
 {
     /// The moved solution; nothing when the result carries none.
@@ -92,16 +98,27 @@ struct CarriedSolution
 
     /// The source's card naming the solver that found the solution, when it had one.
     std::optional<an::CodecCard> solver;
+
+    /// Where the telescope stood and pointed, which camera, optics and settings took the exposure, and when, as the
+    /// engine carries a derived product's context (`an::withObservationCards`): a crop, a turn or a resize of a frame
+    /// is still that frame, so a plate solve and the header still know its optics, its site and its target. A step that
+    /// rescales the frame states its pixel size anew (`withPixelScale`).
+    an::CodecMetadata observing;
 };
 
-/// The source's metadata with its cards replaced by a carried solution's and the solver's.
+/// The source's metadata with its cards replaced by the carried observing context, a carried solution's and the
+/// solver's.
 [[nodiscard]] an::Result<an::ImageMetadata> carriedMetadata(const an::ImageMetadata& source,
                                                             const CarriedSolution& carried)
 {
-    an::Result<an::CodecMetadata> codec = an::withWcsCards(an::CodecMetadata{}, *carried.solution);
-    if (codec.hasValue() && carried.solver.has_value())
+    an::Result<an::CodecMetadata> codec = carried.observing;
+    if (carried.solution.has_value())
     {
-        codec = codec->appended(*carried.solver);
+        codec = an::withWcsCards(carried.observing, *carried.solution);
+        if (codec.hasValue() && carried.solver.has_value())
+        {
+            codec = codec->appended(*carried.solver);
+        }
     }
     if (!codec.hasValue())
     {
@@ -109,6 +126,75 @@ struct CarriedSolution
     }
     return an::ImageMetadata::create(source.acquisition(), source.semantics(), source.astrometry(), source.provenance(),
                                      std::move(*codec), source.outputIntent());
+}
+
+/// The size a card's value states, read as every reader of a card's number reads it - the spellings one of them
+/// takes are the spellings all take - and nothing for a card that states no number or none above zero.
+[[nodiscard]] std::optional<double> cardNumber(const std::string& value)
+{
+    const an::Result<double> number = an::parseNumericCard(value);
+    return number.hasValue() && *number > 0.0 ? std::optional<double>(*number) : std::nullopt;
+}
+
+/// The observing context of a frame rescaled by a step: each pixel-size card divided by the step's scale along its
+/// axis, so the plate scale the optics imply is still the frame's own. A card that states no size is kept as it is.
+[[nodiscard]] an::Result<an::CodecMetadata> withPixelScale(const an::CodecMetadata& observing, const double scaleX,
+                                                           const double scaleY)
+{
+    std::vector<an::CodecCard> restated;
+    restated.reserve(observing.cards().size());
+    for (const an::CodecCard& card : observing.cards())
+    {
+        const bool horizontal = card.keyword() == "XPIXSZ";
+        const bool vertical = card.keyword() == "YPIXSZ";
+        const std::optional<double> size = card.origin() == an::CodecNamespace::Fits && (horizontal || vertical)
+                                               ? cardNumber(card.value())
+                                               : std::nullopt;
+        if (!size.has_value())
+        {
+            restated.push_back(card);
+            continue;
+        }
+        an::Result<an::CodecCard> scaled =
+            an::CodecCard::create(an::CodecNamespace::Fits, card.keyword(),
+                                  fmt::format("{:.6g}", *size / (horizontal ? scaleX : scaleY)), card.comment());
+        if (!scaled.hasValue())
+        {
+            return scaled.status();
+        }
+        restated.push_back(std::move(*scaled));
+    }
+    return an::CodecMetadata::create(observing.sourceEncoding(), std::move(restated));
+}
+
+/// Whether a step changes the frame's scale rather than cutting or turning it.
+[[nodiscard]] bool rescales(const GeometryStep& step) noexcept
+{
+    return std::holds_alternative<an::ResizeRequest>(step) ||
+           std::holds_alternative<an::IntegerResampleRequest>(step) ||
+           std::holds_alternative<an::ui::processes::CfaIntegerResampleStep>(step);
+}
+
+/// The scale a rescaling step changes the frame by along each axis: an integer resample's exact factor, enlarging or
+/// reducing, whatever remainder its blocks leave at an edge, and a resize's sides over the source's.
+[[nodiscard]] std::pair<double, double> stepScale(const GeometryStep& step, const an::ImageDescriptor& source,
+                                                  const an::ImageDescriptor& result) noexcept
+{
+    const auto integer = [](const an::IntegerResampleRequest& request) {
+        const double factor = static_cast<double>(request.factor);
+        const double scale = request.direction == an::IntegerResampleDirection::Enlarge ? factor : 1.0 / factor;
+        return std::pair{scale, scale};
+    };
+    if (const auto* resample = std::get_if<an::IntegerResampleRequest>(&step); resample != nullptr)
+    {
+        return integer(*resample);
+    }
+    if (const auto* mosaic = std::get_if<an::ui::processes::CfaIntegerResampleStep>(&step); mosaic != nullptr)
+    {
+        return integer(mosaic->request);
+    }
+    return {static_cast<double>(result.extent().width()) / static_cast<double>(source.extent().width()),
+            static_cast<double>(result.extent().height()) / static_cast<double>(source.extent().height())};
 }
 
 /// The solution an image's cards state, and its solver's card; nothing for an image whose cards state none.
@@ -170,16 +256,14 @@ transformTyped(const an::ui::ExecutionScope& scope, const an::Image<SampleT>& im
     {
         return refusal(an::ErrorCode::NotInitialized, "the image holds nothing");
     }
-    // A result that carries a solution holds the solution's cards and the solver's, and no other card of the source.
-    an::Result<an::ImageMetadata> startingMetadata = image.metadata();
-    if (solution.solution.has_value())
+    // A result holds the source's observing context, and the solution's cards and the solver's when it carries a
+    // solution; no other card of the source describes it.
+    an::Result<an::ImageMetadata> startingMetadata = carriedMetadata(image.metadata(), solution);
+    if (!startingMetadata.hasValue())
     {
-        startingMetadata = carriedMetadata(image.metadata(), solution);
-        if (!startingMetadata.hasValue())
-        {
-            return startingMetadata.status();
-        }
+        return startingMetadata.status();
     }
+    const bool carriesCards = !startingMetadata->codec().cards().empty();
     an::Result<an::Image<SampleT>> result =
         an::Image<SampleT>::create(scope.engine(), described, an::StorageArrangement::Planar,
                                    an::StorageInitialization::Zeroed, *startingMetadata);
@@ -268,6 +352,9 @@ transformTyped(const an::ui::ExecutionScope& scope, const an::Image<SampleT>& im
             return summary.status();
         }
         change->astrometry = std::move(*summary);
+    }
+    if (carriesCards)
+    {
         change->clearCodecMetadata = false;
     }
     if (an::Status stated = result->transition(*change); stated.failed())
@@ -699,6 +786,16 @@ an::Result<an::consumer::ImageAsset> transformImage(const an::ui::ExecutionScope
     {
         carried = solutionOf(source.metadata(), *described);
     }
+    if (an::Result<an::CodecMetadata> observing = an::ui::derivedFrameCards(source.metadata().codec());
+        observing.hasValue())
+    {
+        carried.observing = std::move(*observing);
+    }
+    else
+    {
+        LOG_WARNING("The observing context of the image could not follow its {}, so it was dropped: {}",
+                    std::string(lineage), std::string(observing.status().message()));
+    }
     for (const GeometryStep& step : steps)
     {
         const an::consumer::AnyImage& image = current.has_value() ? current->first : source.image();
@@ -737,8 +834,19 @@ an::Result<an::consumer::ImageAsset> transformImage(const an::ui::ExecutionScope
                     }
                     carried.solution = moved.hasValue() ? std::move(*moved) : std::nullopt;
                 }
-                return transformTyped(scope, typed, validity, *plan, stepResultDescriptor(*described, *plan, step),
-                                      samples(step), lineage, carried);
+                const an::ImageDescriptor resulting = stepResultDescriptor(*described, *plan, step);
+                if (rescales(step))
+                {
+                    const std::pair<double, double> scale = stepScale(step, *described, resulting);
+                    an::Result<an::CodecMetadata> rescaled =
+                        withPixelScale(carried.observing, scale.first, scale.second);
+                    if (!rescaled.hasValue())
+                    {
+                        return rescaled.status();
+                    }
+                    carried.observing = std::move(*rescaled);
+                }
+                return transformTyped(scope, typed, validity, *plan, resulting, samples(step), lineage, carried);
             },
             image);
         if (!next.hasValue())

@@ -1,321 +1,344 @@
+---
+kind: process
+stage: finish
+menu: Process > Adjustments > Gamma Correction
+summary: >-
+  Raises the image, or one channel or color component of it, to a power that brightens or darkens the midtones and
+  leaves black and white where they are.
+data_in: nonlinear
+data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active, no Gamma Correction window is open on it yet, and no window that needs
+    the image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence with samples between 0 and 1, and an optional mask of the image's size on
+    its view.
+  outputs: >-
+    The same view, replaced, with one history step. Its size, its channels and its pixel type are kept. No file,
+    preset or report is written.
+  state: >-
+    A stretched image, mono or RGB, whose midtones need a last adjustment. A linear image is accepted too, and its
+    result is recorded as nonlinear all the same.
+derived: false
+---
 # Gamma Correction
 
-## Purpose and expected result
+This window applies a gamma correction: it raises every sample to a power. **Gamma** above 1 brightens the
+[midtones](../../reference/glossary.md#midtones) and below 1 darkens them, while black and white stay where they are.
+**Channel** applies the power to the whole image, to one channel, or to one component of a
+[color model](../../reference/glossary.md#color-model).
 
-Gamma Correction applies a pure normalized power law to stored samples or one
-selected RGB-derived component. AfterNight interprets the **Gamma** value `g` as
-an inverse exponent: output is `x^(1/g)`. Values above `1` brighten midtones;
-values below `1` darken them. Black and normalized white remain fixed for
-finite input in `[0,1]`.
+**Apply** replaces the image or [sequence](../../reference/glossary.md#sequence) with the adjusted one, keeps its size
+and [pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear, whatever the image was before.
 
-The expected visual result is a nonlinear, same-size still image in the source
-pixel type. This is a display-oriented tone operation, not an exposure change,
-camera linearization, sRGB encoding/decoding function, or color-management
-transform. RGB applies the power independently to every stored channel; a
-selected channel/component changes only that channel in its working color space
-before RGB reconstruction.
-
-Every Apply records that expected state. The result keeps the source's FITS
-cards, astrometric solution, and acquisition record in every Channel mode, and
-its processing-state cards mark it nonlinear with `gamma-correction` as the
-operation; see **Inputs, outputs, and metadata**.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Adjustments > Gamma Correction** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One intended normalized grayscale or RGB still or sequence; finite samples in `[0,1]` give predictable power evaluation; an optional active mask must match target geometry |
-| Outputs | Destructively replaces a still or, after successful temporary processing, a sequence; **Take snapshot** creates an auxiliary still without replacing the target; component modes reconstruct RGB; automatic sequence CFA debayer can change frame format/channels; no file is written directly |
-| Recommended image state | Usually nonlinear display data for a final tonal adjustment; applying to linear data itself creates a nonlinear result, and the result is recorded as nonlinear |
-| Preview support | Asynchronous RT preview of the full image or a selected preview area, plus a histogram of the mask-aware result; every plane previews through the operation Apply uses - an exact table over the codes of an unsigned 8- or 16-bit stored channel, the power law at the samples' own precision otherwise. While you drag **Gamma**, the preview works on what the preview view shows - the image reduced to the view's size, or the part shown at 1:1 and closer - and the histogram stays the whole image's; the preview you rest on is computed on the whole image. In autostretch the preview is stretched as the target is, so the stretch does not move while you adjust ([Process windows](../../interface/process-windows.md)) |
-| Sequence support | Supported: each decoded frame is processed exactly as a still image of it would be, into a temporary sequence that replaces the target only after every frame succeeds, with per-frame progress and Cancel; the configured CFA auto-debayer request can produce RGB frames |
-| Mask support | Supported for preview, still Apply, and sequence Apply by post-transform blending; white applies, black protects, gray blends, and **Invert Mask** reverses weights |
-| External dependencies | None; bundled engine only; no tool, profile, catalog, or network service |
+```figure
+image: ../../assets/images/processes/stretching/gamma-correction.webp
+alt: >-
+  The Gamma Correction window. On the left, a histogram with one peak close to its left edge and the lines Clipping
+  Low and Clipping High in its corner. Under it a toolbar, the Gamma box at 0.50 with its slider, Target Image,
+  Channel at RGB and Preview. On the right, the preview shows a red nebula on a nearly black background. Reset,
+  Close and Apply run along the bottom.
+caption: >-
+  Gamma Correction on a stretched master with Gamma at 0.50. The histogram is counted from the darkened preview, and
+  the preview shows what Apply writes.
+pins:
+  - {n: 2, x: 8.5, y: 84.3}
+  - {n: 3, x: 2.0, y: 54.0}
+  - {n: 4, x: 2.0, y: 19.0}
+  - {n: 5, x: 73.0, y: 26.0}
+  - {n: 6, x: 90.9, y: 96.0}
+```
 
 ## Before you start
 
-- Finish calibration, background correction, and color calibration before
-  display-oriented gamma work. Gamma cannot recover clipped values or calibrate
-  channels, and its result is recorded as nonlinear.
-- Use finite normalized input. Apply has no clamp: floating samples above `1`
-  are raised as they are, and a negative floating sample becomes not-a-number
-  when the exponent `1/g` is not a whole number (on Float32 images even a
-  whole-number exponent can give not-a-number). The preview does the same.
-- Decide whether you want all stored RGB samples or one component. **RGB** is
-  not color-preserving luminance scaling: a nonlinear power changes channel
-  ratios. Hue/chroma/component modes can be even more disruptive.
-- Prefer a lightness/luminance/value component only when RGB reconstruction is
-  acceptable: on a floating image the reconstructed color is not clamped to
-  `[0,1]`, and on an integer image it saturates at the type's range.
-- The preview is what Apply writes on every plane: an exact table over the
-  codes of an unsigned 8- or 16-bit stored channel, the power law at the
-  samples' own precision otherwise.
-- For a sequence, verify the selected Channel, active mask, and CFA auto-debayer
-  setting before Apply. The same captured Gamma/Channel selection is used for
-  every decoded frame; cancellation discards the temporary output.
-- Duplicate a still or be prepared to use Image History. Apply replaces the
-  target after success and then resets Gamma and Channel.
+- [Stretch](../../reference/glossary.md#stretch) the image first, and finish background correction and color
+  calibration before that. The power recovers no clipped value and calibrates no channel.
+- **Apply** replaces the image or sequence. Duplicate it first, or use its history, which keeps the step before.
+- Use samples between 0 and 1. The power clamps nothing that lies outside that range.
+- The power is applied to the values as they are stored. It decodes and encodes no sRGB or monitor curve, reads no
+  color profile, and is no change of exposure.
+- A [mask](../../reference/glossary.md#mask) on the view blends the result with the original afterwards: white takes the
+  result, black keeps the original, gray mixes them, and **Invert Mask** swaps the two. The mask must have the
+  image's size.
+- On a sequence, every frame gets the same **Gamma**, the same **Channel** and the mask. For a mosaic sequence,
+  decide first whether its automatic [debayer](../../reference/glossary.md#debayer) turns the frames into RGB.
 
-## Procedure
+## Steps
 
-1. Select a still or sequence and open **Process > Adjustments > Gamma Correction**. Confirm
-   **Target Image**, leave **Channel: RGB**, and keep **Preview** selected.
-2. Move **Gamma** above `1` to brighten midtones or below `1` to darken them.
-   The identity value `1` disables Apply.
-3. Inspect the histogram endpoints and 100% view. A normalized RGB power curve
-   preserves exact black/white endpoints but can change saturation between them.
-   On a large image, check **Preview area** on the preview view to tune on one
-   region.
-4. If processing one channel/component, choose it explicitly and inspect color
-   and gamut. Avoid ordinary gamma on hue/chroma unless a deliberate color remap
-   is intended.
-5. If a mask is active, judge the mask-aware preview. Histogram clipping refers
-   to displayed result bins, not mathematical clipping introduced by gamma.
-6. Select **Apply**. For a sequence, monitor the progress dialog and use Cancel
-   to preserve the original sequence. The applied result is recorded as
-   nonlinear, and Image History holds one step that Undo reverses.
+1. **Open the window.** Make the stretched image the active one and choose **Process > Adjustments > Gamma
+   Correction**. **Target Image** names it, the preview shows it unchanged, and **Apply** stays disabled until
+   **Gamma** leaves 1.
+2. **Choose what to adjust.** Leave **Channel** at **RGB** to give the three channels the same curve. Choose
+   [**HSL Lightness**](../../reference/glossary.md#hsl), **CIE Y (Luminance)** or
+   [**HSV Value**](../../reference/glossary.md#hsv) to change the tone through one component instead.
+3. **Set the gamma.** Lower **Gamma** below 1 to darken the midtones, or raise it above 1 to brighten them. The
+   preview follows, and the peak of the histogram moves left or right.
+4. **Read the histogram.** Check where the peak of the background has landed. With **RGB**, **Clipping Low** and
+   **Clipping High** read about what they read before: the curve keeps black and white where they are.
+5. **Check the preview at 100 %.** Zoom the preview into the background, the smooth gradients and the bright colored
+   stars, and press ++space++ over it to compare with the original. Look for bands between tones, for colors that
+   changed and, with a mask, for its edges.
+6. **Apply.** Choose **Apply**. The image in its view is the adjusted one, its history lists **Gamma Correction**
+   with the value and the channel, and **Gamma** and **Channel** return to their defaults.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Source or current preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows source or mask-aware preview distribution and approximate endpoint-bin clipping; never changes samples | **Show histogram** controls visibility | Recalculation adds work; endpoint counts are resolution-dependent | Display only; shown source/preview channels | Recomputed after source, preview, or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move | Shows normalized coordinate readout | Histogram must be shown | Diagnostic only | Display only | Ends on release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans within graph scroll area | Useful only beyond viewport | No output effect | Display only | Until reset/window close |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; plain wheel scrolls | Zooms around cursor | Interactive graph enabled | Rendering area only | Display only | Window lifetime; process Reset does not change it |
-| Zoom in | Toolbar action | Fitted size | None | Each action `1.30x` | Enlarges plot | Disabled with hidden histogram | Rendering only | Display only | Window lifetime |
-| Zoom out | Toolbar action | Fitted size | None | Each action `0.70x` | Shrinks plot | Disabled with hidden histogram | Rendering only | Display only | Window lifetime |
-| Zoom reset | Toolbar action | — | None | One action | Fits plot/resets scrolling | Disabled with hidden histogram | Rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows/hides grid | Disabled with hidden histogram | Display-only aid | Display only | Window lifetime; hiding histogram resets grid internally |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows/hides histogram endpoint-bin counts | Disabled with hidden histogram | Binning-dependent estimate; not exact floating clipping | Display only | Window lifetime |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible histogram channel to its own peak | Disabled with hidden histogram | Can conceal relative channel strength; no image normalization | Display only | Window lifetime |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Filled-area versus line drawing | Disabled with hidden histogram | Area overlap can obscure channels | Display only | Window lifetime |
-| Show histogram | Toggle | Checked | None | Checked/unchecked | Hides/clears graph and disables toolbar, or reloads source/preview | Always available while idle | Hiding saves graph work, not preview processing | Display only | Window lifetime; process Reset does not change it |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins refine the graph/endpoint estimates | Disabled with hidden histogram | Higher bins cost graph memory/rendering; output precision unchanged | Display only | Window lifetime |
-| Gamma | Double value plus slider, unitless | `1.00` identity | None | `0.01..9.90`; two decimals; spin step `0.03`; slider linear over 1,000 positions | Above `1` uses exponent below `1` and brightens midtones; below `1` darkens; endpoints stay fixed for normalized finite samples | Enabled while idle; Apply disabled exactly at `1.0` | Extreme values compress most tones toward white/black and amplify quantization/banding | Preview/Apply; selected channel/component; mask post-blend; still/sequence | Captured per execution; Reset/success returns `1.0` |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source, Channel list, histogram, Preview, Apply | Active image required; duplicate/exclusive gates apply | Wrong target is destructively replaced; sequence writes a temporary result and replaces only after success | Preview/Apply source and active mask | Target lifecycle; Reset does not change it |
-| Channel | Combo box | **RGB** for RGB; disabled **Grayscale** for mono | None | **RGB**, **Red**, **Green**, **Blue**, **CIE L* (Lightness)**, **CIE a***, **CIE b***, **CIE c***, **CIE h***, **CIE X**, **CIE Y (Luminance)**, **CIE Z**, **HSL Hue**, **HSL Saturation**, **HSL Lightness**, **HSV Hue**, **HSV Saturation**, **HSV Value**, **YCbCr Luma**, **YCbCr Blue Chroma**, **YCbCr Red Chroma** | RGB/Grayscale powers stored samples; Red/Green/Blue powers one stored channel; other modes convert, power one encoded component, and reconstruct RGB | Component choices require RGB; mono selector disabled | RGB can shift saturation; component modes add conversion work and gamut risk (a floating reconstructed color is not clamped to `[0,1]`, an integer one saturates at the type's range); source metadata is kept in every mode | Preview/Apply; selected component; mask post-blend; still/sequence | Captured by current selection; Reset/success returns RGB when target is RGB |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Enables/disables the asynchronous preview and switches histogram result/source | Process idle | Result/histogram buffers cost time/memory; the preview is what Apply writes | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Full-image viewer | Current preview result | None | Standard viewer zoom/pan/display controls | Shows mask-aware result | Exists only with Preview | Holds result image; component conversions add buffers | Preview only; target unchanged | Window lifetime |
-| Switch image | Preview-toolbar action | Gamma preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles the preview viewer between the preview result and original target | Exists only with Preview | Display comparison only; no recomputation or pixel change | Preview display only; still/current displayed sequence frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked | None | Checked/unchecked; move/resize the selection overlay | Limits preview and snapshot processing to a selected area and composites that result over the original full image; inside the area the preview is the preview of an image of that area, so it is what Apply writes there | Exists only with Preview | Reduces table/component work while tuning; does not limit final Apply | Preview and Take snapshot only; mask is cropped consistently | Preview-window lifetime; Reset does not change it |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | Re-executes the current preview path at source depth and opens a new still named `<target> - Gamma Correction - SNAPSHOT` | Exists only with Preview | Allocates and processes an auxiliary image; active mask and selected preview area are honored | New still image; target is unchanged; a snapshot is a preview result and is not recorded as nonlinear | Each action creates a separate image view |
-| Apply | Button/action | Disabled at Gamma `1.0` | None | One action at non-identity value | Captures Gamma and runs the engine's gamma program over the selected channel for a still or each decoded sequence frame | Target must lock; controls disabled during the run | One parallel engine pass; integer types other than unsigned 8- and 16-bit add a floating working copy; component conversion and masks add passes; recording the nonlinear state usually copies the result once more | Destructive still/sequence replacement; active mask applies | Success records one history step, resets Gamma and Channel |
-| Reset | Button/action | Enabled while idle | None | One action | Restores Gamma `1.0` and RGB for RGB target | Does not change Target, Preview, or histogram toolbar/zoom | No image change | Configuration only | Immediate |
-| Close | Button/action | Enabled while idle | None | One action | Closes without applying current settings | Disabled with other controls during Apply | No output | Window/execution | No settings persist after destruction |
-| Sequence progress / Cancel | Shared modal progress dialog and Cancel action | Created automatically when sequence Apply starts | None | One progress update per frame; cooperative Cancel | Processes decoded frames into a temporary sequence and replaces the target only after success | Sequence target only | Sequence processing adds decode/encode and temporary-disk cost; automatic CFA debayer can produce RGB frames | Sequence Apply; chosen channel and active mask apply to every frame | Cancel or a failed frame discards the temporary sequence; success replaces the sequence, records one history step, and resets settings |
+The toolbar under the histogram - zoom, grid, clipping lines, scales, areas, the histogram itself and **Plot
+resolution** - changes only how the histogram is drawn, and is the same in every window that has one: see
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: The histogram
+controls:
+  - name: Histogram
+    kind: readout
+    default: ""
+    effect: Shows how the samples are spread between 0 and 1. With **Preview** on it is counted from the preview, which is the adjusted image with the mask blended in. With **Preview** off, or with **Gamma** at 1, it is counted from the image as it is.
+    range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**. The lines are the red, green and blue of the result, also when **Channel** names a color component.
+    enabled: Shown while the toolbar's **Show histogram** button is on. Its lines follow the channel the preview displays, and it shows the original while the preview does.
+    tradeoff: It is counted again with every preview, which adds to the work of each change. While you drag **Gamma** it still stands for the whole image, not for the part the preview pane shows.
+    scope: The window only. It never changes a sample.
+    persistence: Counted again when the target, the preview or **Plot resolution** changes.
+    note: Holding the left button shows the coordinates under the pointer. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms about the pointer. **Reset** leaves the zoom as it is.
+  - name: Clipping Low
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or below 0.
+    range: A percentage with three decimals, over all the channels together. It is counted from the samples, not from the bins, so it does not change with **Plot resolution**.
+    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the window opens.
+    tradeoff: The power keeps 0 at 0, so with **RGB** or a single channel the reading hardly moves. A strong darkening rounds the lowest values of an integer image to 0, and floating-point samples below 0 leave the count when they become not-a-number. With a color component it also counts what the conversion back to RGB put at or below 0.
+    scope: The window only.
+  - name: Clipping High
+    kind: readout
+    default: ""
+    effect: Gives the share of the samples the histogram counts that are at or above 1.
+    range: Counted as **Clipping Low** is.
+    enabled: Shown while the toolbar's **Show clipping info** button is on.
+    tradeoff: The power keeps 1 at 1 and leaves a sample above 1 above 1, so with **RGB** or a single channel the reading hardly moves. A strong brightening rounds the highest values of an integer image to white. With a color component it also counts what the conversion back to RGB put at or above 1.
+    scope: The window only.
+```
 
-### Direct power law
+```controls
+window: Gamma Correction
+controls:
+  - name: Gamma
+    kind: spinbox
+    default: "1.00"
+    widget: {min: 0.01, max: 9.9, step: 0.03, decimals: 2}
+    effect: Sets the power of the curve. Above 1 brightens the midtones, below 1 darkens them, and at 1 nothing changes. Samples of 0 and 1 stay where they are.
+    range: It has no unit. The slider beside the box moves the same value in 1,000 equal steps over the whole range.
+    enabled: Disabled while Apply runs. At exactly 1, **Apply** is disabled.
+    tradeoff: A value far from 1 presses most tones against white or against black, and the steps between the tones that remain show as bands.
+    scope: The preview and Apply, on what **Channel** selects, for images and sequences. A mask is blended afterwards.
+    persistence: Until the window closes. Each preview and each Apply takes the value as it is when it starts. **Reset** and a finished Apply return it to its default.
+    note: While you drag the slider, the preview is computed on what the preview pane shows, which is the image reduced to the pane's size or the part in view at 100 % and closer. When you stop, it is computed on the whole image.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply replaces, with the mask on its view. The histogram, the choices of **Channel** and the preview follow it.
+    tradeoff: Apply replaces the image chosen here, so check it before you Apply. A sequence is written again in a temporary place and replaced only when every frame is done.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: Choosing another target keeps **Gamma** and returns **Channel** to its first choice.
+  - name: Channel
+    kind: combo
+    default: RGB
+    options: [RGB, Red, Green, Blue, CIE L* (Lightness), CIE a*, CIE b*, CIE c*, CIE h*, CIE X, CIE Y (Luminance), CIE Z, HSL Hue, HSL Saturation, HSL Lightness, HSV Hue, HSV Saturation, HSV Value, YCbCr Luma, YCbCr Blue Chroma, YCbCr Red Chroma]
+    effect: Chooses what the power is applied to. **RGB** applies it to each of the three channels on its own. **Red**, **Green** or **Blue** applies it to that channel and copies the other two. Every other choice converts the image to that color model, applies the power to the one component and converts back to RGB.
+    range: The components are the CIE lightness, a, b, chroma and hue, the CIE X, Y and Z, and those of HSL, HSV and YCbCr. Each is scaled to the range 0 to 1 first. Lightness runs from 0 to 100, chroma from 0 to 200 and the CIE hue from -180 to 180 degrees. X, Y and Z are divided by those of the white, so white is 1 in all three. The HSL and HSV hues are a share of a full turn. The a and b components and the two YCbCr chromas are signed, with neutral near one half.
+    enabled: For an RGB image. A grayscale image shows a disabled **Grayscale** instead, and the power is applied to its one channel. Disabled while Apply runs.
+    tradeoff: The same power on each channel changes the ratios between them, so **RGB** changes saturation, and a single color shifts the color balance. **RGB** and **Grayscale** cost the least, and a single color needs a temporary channel. A component costs two conversions of the whole image and a working copy of it, in 32-bit floating point, or 64-bit for a 64-bit image. A color the conversion back puts outside the range is not brought back. A floating-point image keeps it outside 0 to 1, and an integer image cuts it at the ends of its type.
+    scope: The preview and Apply, for images and sequences. A mask is blended afterwards. It does not choose the lines of the histogram.
+    persistence: Until the window closes. **Reset**, a finished Apply and a new target return it to **RGB**.
+    note: Hue is treated as a line from 0 to 1 and not as a circle. A power on a signed component moves neutral colors too, because the middle of its range means no color. The image's red, green and blue are converted as linear when the image is described as linear RGB, and as sRGB-encoded otherwise. The component of an integer image is not rounded before the power, the image is rounded once on the way back, and the conversion back is the exact inverse of the conversion there.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the adjusted image beside the controls, with the mask blended in. Off removes the preview, and the histogram returns to the image as it is.
+    enabled: It stays enabled while Apply runs.
+    tradeoff: Each change computes the image again and counts the histogram again, which takes time and memory. On a large image, turn it off or use a **Preview area** while you adjust, and check the whole image before Apply.
+    scope: The window only. On a sequence it shows the frame the view displays. A **Preview area** shows the result inside the area over the original, and does not limit Apply.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: The preview runs the operation Apply runs, so it shows what Apply writes. With the preview pane in Autostretch, the stretch is the target's and does not move while you adjust. A snapshot of the preview is a new image in the target's pixel type, named after the target, as in `M42 - Gamma Correction - SNAPSHOT`. It takes the mask and the preview area as they are, leaves the target alone, and is not recorded as nonlinear.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns **Gamma** to 1 and, for an RGB image, **Channel** to **RGB**.
+    range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
+    enabled: Disabled while Apply runs.
+    scope: The window only. The image is not touched, and Apply is disabled afterwards.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Applies the power to the image, or to every frame of the sequence, with **Gamma** and **Channel** as they are when you press it, and then returns both to their defaults.
+    enabled: When **Gamma** is not 1, so it is disabled when the window opens. While a run works it is disabled too, as **Gamma**, **Target Image**, **Channel**, **Reset** and **Close** are.
+    tradeoff: One pass over the samples on the threads the run is given, and a second copy of the image in memory. Signed and 32-bit integer images add a floating-point working copy, a color component adds its conversions, and a mask adds one more pass.
+    scope: The whole image or sequence, with the mask and its inversion as they are when you press it, blended afterwards. While another process works on the target, Apply shows "Another process is executing for this image, please cancel that job first before running this process" and does nothing.
+    persistence: "The image and its history keep the result. The history step is **Gamma Correction** and reads, for example, `Adjust gamma to 0.5 in channel: RGB`. For a grayscale image it ends after the value. It does not record the mask or the toolbar's choices, and undoing the step restores the image before."
+    note: Closing the window instead discards the values. The window has no presets, and nothing of it is saved between sessions.
+```
 
-For a normalized stored or encoded-component sample `x` and UI value `g`, Apply
-computes
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the preparation and then the frame being processed, as in `Executing process in sequence. Frame 3/120`, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    tradeoff: Every frame is decoded, processed and written again in a temporary place, which takes time and the disk space of a second copy until the run ends.
+    scope: Every frame, processed as an image of it would be, with the gamma, the channel and the mask taken when you pressed Apply. The frames are read with the automatic debayer setting of the view, which can turn mosaic frames into RGB.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    range: The request is noticed before each frame and inside the work on one.
+    note: The sequence is replaced, and its one history step recorded, only when every frame has succeeded. A frame that fails ends the run as Cancel does. After either, Apply again and let it finish.
+```
 
-\[
-y=x^{1/g},\qquad 0.01\le g\le 9.9.
-\]
+## How it works
 
-For `x` in `[0,1]` and positive `g`, `0` and `1` remain fixed. If `g>1`, then
-`1/g<1` and midtones rise; if `g<1`, the exponent exceeds `1` and midtones
-fall. `g=1` is identity and Apply is disabled.
+1. Every sample is read as a [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale): an
+   unsigned integer divided by its largest value, a signed one counted from its smallest value, a floating-point
+   sample as it is.
+2. **Channel** decides what the power is given: every channel, one channel, or one component of the image
+   converted to a color model.
+3. Each of those values is raised to the power and written back in the image's own pixel type. A component is
+   converted back to RGB first.
+4. A mask on the view then blends the result with the original, pixel by pixel.
+5. The image replaces the target and its history gets one step. Its header, its
+   [plate solution](../../reference/glossary.md#plate-solution) and its acquisition data are kept with every choice
+   of **Channel**. A saved file records the new state in its header: `ANLIN` is `nonlinear`, `ANASRC` is `process`,
+   `ANOP` is `gamma-correction`, and `ANBASIS` is `monochrome` or `display-rgb`. A linear encoding the image stated is
+   no longer stated, and its [lineage](../../reference/glossary.md#lineage) gains an entry with the gamma.
 
-A sample is read in normalized units: an unsigned integer as a fraction of its
-largest value, a signed integer counted from its smallest value to its largest,
-and a floating sample as it is. How the power is evaluated depends on the
-plane's representation:
+### Model
 
-- An unsigned 8- or 16-bit plane uses an exact table over every code, each entry
-  the single-precision power of that code's normalized value, rounded to the
-  nearest code.
-- Float32 samples use a vectorized single-precision power where possible, held
-  within a small stated error of the C library `pow`; Float64 samples use `pow`
-  in double precision.
-- Signed integers and unsigned 32-bit integers are converted to a floating
-  working copy (Float64 for the two 32-bit types, Float32 otherwise), powered
-  there, and rounded back to the nearest code.
+A sample \(x\), as a fraction of full scale, becomes \(y\), with \(g\) the value of **Gamma**:
 
-The engine runs the program in one pass on the operation's threads. Integer
-results are rounded to the nearest code, ties to even.
+\[ y = x^{1/g} \tag{1} \]
 
-No clamp follows gamma. Integer input is intrinsically within its normalized
-range. Floating input is assumed normalized and finite: values above `1` are
-raised as they are and stay above `1`, while a negative sample becomes
-not-a-number when the exponent is not a whole number. On a Float32 image the
-vectorized power returns not-a-number for every negative sample it evaluates;
-the last few samples of a row, and every sample under a validity rule other
-than all-valid, go through `pow` instead, which gives a finite value when
-`1/g` is a whole number. Samples that the image's own validity rule or mask
-marks as invalid are left as they were.
+The exponent is the inverse of the value you set. For \(x\) between 0 and 1, equation (1) keeps 0 at 0 and 1 at 1.
+With \(g\) above 1 every value between them rises, and with \(g\) below 1 every value between them falls. The
+sample that lands at one half is \(0.5^{g}\).
 
-### Preview
+With **RGB**, equation (1) is applied to red, green and blue separately. A pixel whose three channels are equal
+stays neutral. In every other pixel the ratio between two channels \(r\) and \(b\) becomes
 
-The preview runs the program Apply runs, on every plane: an unsigned 8- or
-16-bit stored channel through its exact table, every other plane through the
-power law at the samples' own precision, out-of-range input included. While
-you drag **Gamma**, the preview works on what the preview view shows - the
-image reduced to the view's size, or the part shown at 1:1 and closer - and
-the preview you rest on is computed on the whole image. **Take snapshot**
-runs the same preview path.
+\[ \frac{r_{\mathrm{out}}}{b_{\mathrm{out}}} = \Bigl(\frac{r}{b}\Bigr)^{1/g} \tag{2} \]
 
-### Channel and color-component paths
+so a value below 1 widens the differences between the channels and strengthens the colors, and a value above 1
+weakens them.
 
-- **RGB/Grayscale** applies the power independently to every stored sample.
-- **Red**, **Green**, or **Blue** copies the other two channels unchanged and
-  powers only the selected stored channel.
-- CIE Lab/LCh/XYZ, HSL, HSV, and YCbCr choices convert the source's red, green,
-  and blue to that working representation, power one component handed over in
-  the unit interval, and reconstruct RGB. A source whose description says it is
-  linear is read as linear RGB; any other is read as sRGB-encoded. A power curve
-  on hue is linear across `0..1`, not circular across the hue wrap. Powers on
-  signed-concept chroma components operate on their normalized encodings, not
-  signed physical values.
-- The component is computed in double precision and held in a floating working
-  plane (Float64 for a Float64 image, Float32 otherwise), so an integer image's
-  component is not rounded to integer codes before the power. Reconstruction
-  converts back once: a floating result is not clamped to `[0,1]`, and an
-  integer result is rounded to the nearest code and saturated at the type's
-  range. CIE components are reconstructed through the exact inverse of the XYZ
-  matrix, and YCbCr through unrounded luma-chroma coefficients.
+### Boundaries
 
-After channel execution, Apply records the result as nonlinear, and an active
-mask then blends source and result pixel by pixel.
+- Nothing is clamped. A floating-point sample above 1 is raised as it is and stays above 1, and the preview
+  treats a sample outside the range as Apply does.
+- A pixel the image marks as invalid is left as it was.
+- An unsigned 8-bit or 16-bit channel goes through a table with one entry for each of its values, computed in
+  single precision. Signed and 32-bit integers are raised in a floating-point copy, in double precision for the
+  32-bit ones. Floating-point samples are raised in their own precision, the 32-bit ones by a fast routine that
+  stays within a small error of the exact power.
+- An integer result is rounded to the nearest value, a tie to the even one.
+- A run that is stopped writes nothing, and the image and its history stay as they were. A run stops when its
+  target closes, or with **Cancel** for a sequence. A single image has no progress window and cannot be cancelled
+  once Apply starts.
 
-## Parameter interactions and starting points
+### Worked example
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Gamma + nonlinear display image | `1.05..1.20` to brighten or `0.95..0.85` to darken | Midtones barely move | Background/noise lifts strongly or midtones collapse/band | Adjust near `1`, inspect histogram and 100% view |
-| RGB + color balance | Use small changes after color calibration | Tonal correction insufficient | Channel ratios/saturation shift, bright colors crowd endpoints | Set tone gently, then inspect RGB channels/star colors |
-| Lightness/luminance/value + gamut | Use a mild gamma | Global tone remains unchanged | Out-of-gamut colors after reconstruction: unclamped on a floating image, saturated on an integer image | Select component, apply small change, inspect colors |
-| Hue/chroma + gamma | Avoid unless deliberately remapping color | Little color change | Hue wrap distortion, neutral shift, oversaturation | Prefer a dedicated color tool; if required, use tiny changes |
-| Mask + Gamma | Tune globally near identity, then inspect blend | Targeted region changes too little | Mask boundary becomes visible or protected region still changes via display state | Inspect mask, reduce gamma change, correct mask upstream |
+The image in the picture above is the linear [master](../../reference/glossary.md#master) after Histogram
+Transformation with **Shadows** and
+**Midtones** at 0.02, which leaves the background near 0.28. With **Channel** at **RGB** and **Gamma** at 0.50,
+the exponent of equation (1) is 2. The background drops to \(0.28^2 = 0.078\), a sample of 0.50 becomes 0.25 and
+one of 0.90 becomes 0.81. The sky turns nearly black, the nebula keeps its bright parts, and the stars that were
+white stay white. By equation (2), a pixel that was twice as red as blue is now four times as red.
 
-## Inputs, outputs, and metadata
+```figure
+images:
+  - image: ../../assets/images/processes/stretching/gamma-correction-before.webp
+    alt: The whole frame before the adjustment, the red and white clouds of the nebula across a field of stars on a dark gray background.
+    label: Before
+  - image: ../../assets/images/processes/stretching/gamma-correction-after.webp
+    alt: The whole frame after the adjustment, the same nebula darker and redder on a nearly black background, with its core and the stars still bright.
+    label: After
+caption: >-
+  The stretched Carina Nebula master before and after Apply with Gamma at 0.50. Both are the whole frame as the view
+  shows it in the Linear display mode, without a display stretch.
+```
 
-- One still produces one modified still. Dimensions, channel count, and pixel
-  type remain unchanged; component modes reconstruct RGB.
-- The result keeps the source's FITS cards, astrometric solution, and
-  acquisition record in every Channel mode, and is recorded as nonlinear on the
-  processing-state cards a saved file carries: `ANLIN` becomes `nonlinear`,
-  `ANASRC` `process`, `ANOP` `gamma-correction`, and `ANBASIS` the basis a
-  stretched image of its kind is in (for example `display-rgb` for an RGB
-  image). A linear transfer function the source claimed is no longer claimed,
-  and the image's lineage gains an entry naming the engine operation
-  (`an::buildGammaProgram`) and the gamma.
-- Samples the image's validity rule or mask marks as invalid are left unchanged.
-- Image History records one step named **Gamma Correction**, described as
-  `Adjust gamma to <g>`, followed by ` in channel: <Channel>` for an RGB target
-  (for example `Adjust gamma to 2.2 in channel: RGB`). It does not record mask
-  state or Preview behavior. Undo restores the previous image.
-- An active mask blends after gamma; the nonlinear record is kept on a masked
-  result too.
-- A **Take snapshot** image is a preview result and is not recorded as
-  nonlinear.
-- A run whose stop is requested (Cancel in a sequence's progress dialog, or the
-  target closing while a run works) is stopped inside the engine operation and
-  publishes nothing; the image and its history stay as they were.
-- Sequence Apply processes each decoded frame as an Apply processes a still
-  image of it, active mask included, writes the frames to a temporary sequence,
-  supports Cancel from its progress dialog, and replaces the target only after
-  every frame succeeds; a cancelled or failed run leaves no temporary output.
-  The current CFA auto-debayer request is passed to the sequence reader. One
-  history step is recorded.
+The other way, **Gamma** at 2 takes the square root. Samples of 0, 0.25, 0.5, 0.75 and 1 become 0, 0.5, 0.7071,
+0.8660 and 1, and the background of this image would rise to 0.53. With **Gamma** at 0.50 the same five samples
+become 0, 0.0625, 0.25, 0.5625 and 1. The preview shows the numbers Apply writes.
 
-## Performance
+## Starting points
 
-Apply is one engine pass over the selected samples on the run's threads.
-Unsigned 8- and 16-bit planes use a table of every code; other integer types are
-converted to a floating working copy and rounded back. The run works on a copy
-of the target, and recording the nonlinear state usually copies the result once
-more, so an Apply briefly holds the target and two full-size copies of it; if
-the session's memory budget refuses one, Apply publishes nothing and reports the
-refusal.
-A preview while you drag applies the power over what the preview view shows;
-the preview you rest on applies it over the whole image or the preview area,
-and updates the chosen-resolution histogram.
-RGB/Grayscale are the cheapest paths. One stored RGB channel needs a temporary
-channel; component modes compute a floating working plane and convert back.
-Masks add another full-image blend.
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A stretched image a little too dark or too bright | **RGB**, and **Gamma** from 1.05 to 1.20 to brighten or from 0.95 to 0.85 to darken | Stay near 1, and check the histogram, the preview at 100 % and the colors of the stars. Too strong a value lifts the background with its noise, or presses the tones together. |
+| The tone must change through one component | **HSL Lightness**, **CIE Y (Luminance)** or **HSV Value**, with a mild value | Check the bright colored regions for colors that left the range on the way back to RGB. |
+| A hue or a chroma component | No change, unless you mean to remap colors | Use very small changes and watch the neutral areas and the hues near the wrap. A tool made for color does it better. |
+| An adjustment through a mask | The value first, near 1 | Check the edges of the mask in the preview. If they show, weaken the change or correct the mask itself. |
 
-Disable Preview while making several changes on a very large target, use
-**Preview area**, or test on a duplicate crop. Histogram resolution affects only
-graph cost. No production timing was measured.
+## When it goes wrong
 
-## Worked example
+!!! warning "Apply records the image as nonlinear"
+    Every Apply marks the result nonlinear, with any choice of **Channel** and with or without a mask, and a later
+    step treats it so. Finish the steps that need linear data first, or undo the step in the image's history.
 
-- **Evidence mode:** Source-and-calculator-derived; not executed on
-  project-owned astronomical data.
-- **Input:** normalized samples `[0, 0.25, 0.5, 0.75, 1]` in RGB or Grayscale.
-- **Gamma `2`:** direct Apply uses square root and gives approximately
-  `[0, 0.5, 0.707107, 0.866025, 1]`; midtones brighten.
-- **Gamma `0.5`:** direct Apply squares values and gives
-  `[0, 0.0625, 0.25, 0.5625, 1]`; midtones darken.
-- **Preview checkpoint:** the preview evaluates the same power law, so at input
-  `0.5`, Gamma `2`, it shows approximately `0.707107`, as Apply does.
-- **Inspect in real use:** endpoints, smooth gradients/banding, RGB ratios,
-  mask transitions, and metadata/state after Apply.
-- **Limitations:** No real-image visual, color, metadata round-trip, or timing
-  result was measured. The numeric example proves only current transfer math.
+!!! danger "Negative samples become not-a-number"
+    In a floating-point image, a sample below 0 has no power and is written as not-a-number, at every value of
+    **Gamma**. A linear master often holds some after background correction. Use this window after the stretch,
+    and check the lowest value of the image first when in doubt.
 
-## Warnings and limitations
+Apply is disabled
+:   **Cause.** **Gamma** is exactly 1, which changes nothing.
+:   **Fix.** Set another value.
 
-!!! warning "Every Apply is recorded as nonlinear"
-    Apply marks its result nonlinear on the processing-state cards with
-    `gamma-correction` as the operation, in every Channel mode and with or
-    without a mask. Finish steps that need linear data before Gamma Correction.
+Gamma above 1 brightens when you expected it to darken
+:   **Cause.** The image is raised to the inverse of the value, as in equation (1).
+:   **Fix.** Use a value below 1 to darken.
 
-- Gamma uses `x^(1/gamma)`, not `x^gamma`. Above `1` brightens; below `1`
-  darkens.
-- The operation is not sRGB, ICC, monitor gamma, or file-format gamma handling.
-  It powers current normalized stored values without decoding an external tone
-  response.
-- RGB mode changes channel ratios except at common endpoints/neutral equality.
-- Hue is circular but Gamma treats its normalized encoding as an ordinary line.
-  Chroma and opponent components are also encoded, not signed-domain powers.
-- Apply does not clamp floating output, and negative floating samples can
-  become not-a-number; the preview shows the same.
-- Integer results are rounded to the nearest code, ties to even.
-- In color-component modes a floating reconstructed color is not clamped to
-  `[0,1]`.
-- Apply is disabled only at exact Gamma `1.0`; Reset and successful Apply return
-  Gamma to identity and Channel to RGB for RGB targets.
+The colors are stronger or weaker after the adjustment
+:   **Cause.** With **RGB** the power is applied to each channel alone, which changes the ratios between them.
+:   **Fix.** Use a value nearer 1, or try a lightness, luminance or value component on a duplicate and compare.
 
-## Troubleshooting
+Bands show in smooth gradients
+:   **Cause.** A value far from 1 presses many tones into few, and the steps between them become visible.
+:   **Fix.** Use a value nearer 1.
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Gamma above `1` brightens instead of darkens | The gamma program encodes with exponent `1/gamma` | This is current behavior; use below `1` to darken | `buildGammaProgram` with `GammaDirection::Encode`; `GammaCorrectionProcess::executeTypedProcessIteration` |
-| Apply is disabled | Gamma is exactly `1.0`, the identity | Choose a non-identity value | `GammaCorrectionProcess::settingsUpdatedImpl` |
-| RGB saturation/color changes | Same nonlinear power is applied independently to stored R/G/B | Use a smaller change or evaluate a lightness/value mode on a duplicate | `executeTypedProcessUsingChannels`; `applyProcessChannelScope` |
-| Hue changes abruptly near wrap | Hue is handed over as a fraction of a turn and powered linearly even though physical hue wraps | Avoid Hue Gamma; use a dedicated hue tool | `ChannelScope.h` component units; `applyProcessChannelScope` |
-| A floating image has values outside `[0,1]` after a component mode | The powered component is converted back to RGB without clamping a floating result | Use a smaller change or a stored-channel mode | `applyProcessChannelScope`; `ChannelScope.h` recomposition |
-| A later step treats the result as nonlinear | Apply records `ANLIN` `nonlinear` and `ANOP` `gamma-correction` on the result | Expected; run steps that need linear data first, or undo the step in Image History | `process_utils::recordNonlinearResult` |
-| Apply fails with an error naming the memory budget | The session's memory budget cannot hold the run's copy of the target | Close other images, work on a smaller image, or raise the memory limit on the Processing settings page (it takes effect at the next start); the target is unchanged | `ImageRTPreviewControl::finishRun` |
-| A cancelled sequence does not replace the target | The sequence run writes a temporary sequence and publishes it only when every frame succeeded; Cancel stops the run and leaves no output | This is expected; restart Apply when ready | `ImageRTPreviewControl::runOverSequence` |
-| Next operation is identity/RGB after Apply | Successful commit invokes Reset | Expected; re-enter Gamma and Channel | `resetSettingsAsync`; `GammaCorrectionProcess::resetSettings` |
+Colors jump after a power on a hue
+:   **Cause.** The hue is treated as a line from 0 to 1, although its two ends are the same color.
+:   **Fix.** Leave the hue components alone, and use a tool made for hue.
 
-## Related workflow steps
+A floating-point image has samples outside 0 to 1 after a color component
+:   **Cause.** The conversion back to RGB is not clamped.
+:   **Fix.** Use a value nearer 1, or choose **RGB** or a single channel.
 
-Finish [Background Neutralization](../color-calibration/background-neutralization.md)
-and [Photometric Color Calibration](../color-calibration/photometric-cc.md) or
-[Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
-before display tone work. Use [Histogram Transformation](histogram-transformation.md),
-[Generalized Hyperbolic Transformation](gh-transformation.md),
-[ArcSinh Stretch](arcsinh-stretch.md), or
-[Statistical Stretch](statistical-stretch.md) for a main stretch. Compare
-[Exposure Correction](exposure-correction.md) when you want the current
-multiply-and-clamp scalar adjustment rather than a fixed-endpoint power law;
-its displayed value is not calibrated in standard stops. Continue with
-[Curves Transformation](curves-transformation.md) for deliberate finishing and
-verify [Image History](../../interface/image-history.md),
-[Image Statistics](../../interface/image-statistics.md), and critical metadata.
+Apply reports "An error occurred when running the process:" and names the memory budget
+:   **Cause.** The memory limit cannot hold the copy of the image the run needs, so nothing was written.
+:   **Fix.** Close other images or work on a smaller one, or raise the memory limit on the Processing page of the
+    settings, which takes effect at the next start.
 
-## References and provenance
+## Related
 
-- AfterNight project source — authoritative for the
-  inverse-exponent power law, preview/Apply paths, channel conversions,
-  masks, history, metadata/state behavior, and temporary replacement-sequence
-  workflow.
+- [Background Neutralization](../color-calibration/background-neutralization.md),
+  [Photometric Color Calibration](../color-calibration/photometric-cc.md) and
+  [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which need the image
+  linear and come before.
+- [Histogram Transformation](histogram-transformation.md),
+  [Generalized Hyperbolic Transformation](gh-transformation.md), [ArcSinh Stretch](arcsinh-stretch.md) and
+  [Statistical Stretch](statistical-stretch.md), for the main stretch.
+- [Exposure Correction](exposure-correction.md), which multiplies and clamps instead of keeping the two ends, by a
+  value that is not a number of photographic stops.
+- [Curves Transformation](curves-transformation.md), to shape tone and color point by point.
+- [Image History](../../interface/image-history.md) and [Image Statistics](../../interface/image-statistics.md), to
+  undo the step and to check the range of the samples.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.

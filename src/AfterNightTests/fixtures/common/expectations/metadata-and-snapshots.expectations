@@ -204,7 +204,7 @@ expectation  combine.metadata/combine-luminance-1
 operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
 input        combine-luminance-1 description=df671ec33bcf4369093a2cf7c3f7ff0ab252681eaa082249f178f27b3a1532ee samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
 class        accepted
-accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+accepted     a card is kept only when every source states it the same way, the filter stays when every source shares it, and the combination states the integration it holds - its sources' summed - as EXPTIME; the record keeps its first source's airmass and EXPTIME, which then contradict the EXPOSURE it states, and always removes the filter
 producer     AfterNightEngine reference abi=-
 configuration Release
 compiler     msvc 19.51.36252
@@ -219,7 +219,7 @@ expectation  combine.lrgb/combine-luminance-1
 operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
 input        combine-luminance-1 description=df671ec33bcf4369093a2cf7c3f7ff0ab252681eaa082249f178f27b3a1532ee samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
 class        accepted
-accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+accepted     a card is kept only when every source states it the same way, the filter stays when every source shares it, and the combination states the integration it holds - its sources' summed - as EXPTIME; the record keeps its first source's airmass and EXPTIME, which then contradict the EXPOSURE it states, and always removes the filter
 producer     AfterNightEngine reference abi=-
 configuration Release
 compiler     msvc 19.51.36252
@@ -234,7 +234,7 @@ expectation  combine.metadata/combine-ha-1
 operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
 input        combine-ha-1 description=3d9bc5ea3dedd6b80067ec26c597d0d48eb1f076986e8607353ce41e26abc66f samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
 class        accepted
-accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+accepted     a card is kept only when every source states it the same way, the filter stays when every source shares it, and the combination states the integration it holds - its sources' summed - as EXPTIME; the record keeps its first source's airmass and EXPTIME, which then contradict the EXPOSURE it states, and always removes the filter
 producer     AfterNightEngine reference abi=-
 configuration Release
 compiler     msvc 19.51.36252
@@ -248,8 +248,7 @@ end
 expectation  combine.metadata/combine-ha-2
 operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
 input        combine-ha-2 description=70fb3f431951c65c6bb79312d09b87eff4c9ff4d6e3be875429847e2e954f679 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
-class        accepted
-accepted     a card is kept only when every source states it the same way, the exposure cards go because the combination's exposure is none of its sources', and the filter stays when every source shares it; the record keeps its first source's observation time, airmass and EXPTIME - which then contradict the EXPOSURE it states - and always removes the filter
+class        exact
 producer     AfterNightEngine reference abi=-
 configuration Release
 compiler     msvc 19.51.36252
@@ -277,7 +276,8 @@ end
 expectation  combine.metadata/combine-exposure-card
 operation    a combination keeps its first source's header, sums the exposures, keeps a value every source shares, removes the filter and clears the processing state
 input        combine-exposure-card description=0e20e3e2e9dcf9d3b43cb7346aa4b87c2e3f4924436cb788ccb606e772d6fd96 samples=75e253f50979177eba47b2d0805ad36038789108924514d2a761a70de057d16f
-class        exact
+class        accepted
+accepted     the combination states the integration it holds - both copies' summed, since neither states when it began - as EXPTIME; the record states no EXPTIME
 producer     AfterNightEngine reference abi=-
 configuration Release
 compiler     msvc 19.51.36252

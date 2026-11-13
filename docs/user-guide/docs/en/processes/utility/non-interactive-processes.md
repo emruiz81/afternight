@@ -1,466 +1,839 @@
+---
+kind: process
+stage: any
+menu:
+  - Image > Actions
+  - Image > Extract Channel
+  - Image > Convert Format
+  - Image > Fast Geometry
+  - Image > Mask
+  - Image > Sequence
+  - Process > Adjustments
+summary: >-
+  The Image menu's commands and three of Process > Adjustments that act at once, without a window: they duplicate,
+  extract channels, convert the pixel type, mirror and turn, manage masks and sequences, and invert or change color.
+data_in: either
+data_out: either
+destructive: true
+preview: none
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active. A command that does not fit it is greyed: Extract Channel and Convert to
+    Grayscale need an RGB image, Convert to RGB a grayscale one, and the Sequence submenu a sequence.
+  inputs: >-
+    The active image or sequence, of any pixel type. Negative Transformation also reads the mask on its view, and
+    Select Mask another open image of the same size.
+  outputs: >-
+    A new view beside the source for Duplicate, Extract Channel, Convert Format and Extract Frame, the source
+    unchanged. The same view, replaced, with one history step, for Fast Geometry, Negative Transformation, Convert to
+    RGB, Convert to Grayscale and a sequence's Convert. A new sequence is a temporary one, and nothing is saved.
+  state: >-
+    Any image or sequence, linear or not. Channels, components and pixel types are data management and no substitute
+    for calibration. A mirror or a turn belongs before the plate solve.
+derived: false
+---
 # Non-Interactive Processes
 
-## Purpose and expected result
+These commands run as soon as you choose them: they open no process window and have no setting or preview. They
+work on the [active image](../../reference/glossary.md#active-image) or
+[sequence](../../reference/glossary.md#sequence), from six submenus of **Image** - **Actions**,
+**Convert Format**, **Extract Channel**, **Fast Geometry**, **Mask** and **Sequence** - and the end of
+**Process > Adjustments**.
 
-This page is the reference for actions that run immediately from **Image** or
-**Process** without a parameter window, plus the Sequence actions that hand off
-to a dedicated dialog. Use it to answer three questions before clicking: whether
-the active view is eligible, whether the source is changed, and what happens to
-precision and metadata.
+Some open their result in a new view and leave the source as it was: a duplicate, a channel or a color component, a
+copy in another [pixel type](../../reference/glossary.md#pixel-type), a frame of a sequence. Others replace the image
+in its view and add one step to its [history](../../reference/glossary.md#history): a mirror or a turn, a negative, a
+change to gray or to RGB, and a sequence written in another container.
 
-Most entries start a background job. A still-image extraction or precision
-conversion opens a new view and leaves the source unchanged. Fast geometry,
-grayscale/RGB conversion, and Negative Transformation replace the active view's
-current data. Sequence extraction and precision conversion create new temporary
-sequences; fast geometry, grayscale/RGB, and negative replace the active
-sequence with a processed temporary sequence. Save any result that must outlive
-the session.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Image > Actions**, **Image > Extract Channel**, **Image > Convert Format**, **Image > Fast Geometry**, **Image > Mask**, **Image > Sequence**, and **Process > Adjustments** |
-| Enabled when | An active view contains an image. Color-component extraction and Convert to Grayscale require RGB; Convert to RGB requires monochrome. Sequence-only actions require a sequence. Registry launch guards can also reject a busy or incompatible view. |
-| Inputs | Active still image or sequence; an optional assigned mask for Negative Transformation; a second compatible image view when selecting a mask |
-| Outputs | New still/sequence views for duplication, frame/channel extraction, and precision conversion; replacement view data for geometry, grayscale/RGB, negative, and sequence-container conversion; mask association/display-state changes; dialog/file output for Extract Sequence and Export |
-| Recommended image state | Channel extraction and precision conversion are data-management operations. Negative is a nonlinear inversion. Grayscale and perceptual color-space components should be chosen according to the intended workflow, not as a substitute for calibration. Geometry is valid in either state but invalidates WCS/SIP. |
-| Preview support | None. Selecting a reachable immediate action starts it; use Duplicate when a reversible comparison is needed. |
-| Sequence support | Yes, where identified below. Sequence jobs process every frame and show progress; the current Extract Frame action produces one still. |
-| Mask support | Negative Transformation honors the active mask. Mask-menu actions manage the association and display state. Channel extraction, precision conversion, geometry, grayscale/RGB, duplication, frame extraction, and container conversion do not blend through the active mask. |
-| External dependencies | None beyond AfterNight's built-in engine and codecs. Export and Extract Sequence use their separately documented dialogs. |
+```figure
+image: ../../assets/images/processes/utility/non-interactive-processes.webp
+alt: >-
+  The top left of the main window over the Carina Nebula master. The Image menu is open under the menu bar and lists
+  Actions, Convert Format, Extract Channel, Fast Geometry, Information, Mask, a greyed Sequence and View, then Show in
+  File Browser below a line. Convert Format is highlighted, and its submenu beside it lists seven commands from
+  Convert to 8 bit to Convert to 64 bit float, with Convert to unsigned 16 bit third and Convert to 32 bit float
+  greyed.
+caption: >-
+  Image > Convert Format over the linear Carina master: the master's own type, 32-bit floating point, is greyed, and
+  Convert to unsigned 16 bit is the command of the worked example.
+pins:
+  - {n: 2, x: 12.6, y: 14.9}
+  - {n: 3, x: 63.8, y: 23.1}
+```
 
 ## Before you start
 
-1. Select the intended view immediately before choosing an action; every action
-   resolves the current active view.
-2. Save important work before an in-place/replacement operation. Image History
-   records successful processing steps, but temporary sequence backing files are
-   session artifacts rather than durable exports.
-3. Check the view type. The whole **Image > Sequence** menu is disabled for a
-   still. Color extraction and Convert to Grayscale are disabled for monochrome;
-   Convert to RGB is disabled for RGB.
-4. Expect all Fast Geometry actions to remove the WCS/SIP solution and the
-   header cards because the pixel coordinate system changes.
+- Click the view you mean just before you choose. Every command acts on the active view at that moment.
+- A command that replaces the image keeps the state before in its history, and **Edit > Undo** returns to it. Choose
+  **Duplicate** first when you want the two side by side.
+- A greyed command does not fit the active image: its color, its pixel type, a still image for a sequence command, a
+  view without a [mask](../../reference/glossary.md#mask). It is never a preview state.
+- **Fast Geometry** drops the [plate solution](../../reference/glossary.md#plate-solution). Plan to plate-solve again
+  after a mirror or a turn.
+- On a sequence, the result is a [temporary sequence](../../reference/glossary.md#temporary-sequence) on disk, which
+  needs the space of a full copy and is lost with the session unless you save or export it.
+- [Debayer](../../reference/glossary.md#debayer) a raw [CFA](../../reference/glossary.md#cfa) still image before
+  **Convert to RGB** or a channel extraction. A mosaic is one gray channel until then.
 
-## Procedure
+## Steps
 
-1. Activate the source view and open the submenu named in the matrix.
-2. Confirm that the exact action is enabled. A disabled item indicates an
-   incompatible color, pixel, sequence, or mask state; it is not a preview state.
-3. For an output-producing immediate action, select it once. Sequence jobs show a
-   progress dialog; still-image jobs may complete without one.
-4. Wait for the new view or the active-view update. Do not start another exclusive
-   sequence operation while the view is locked.
-5. Verify the new view name, dimensions, channel count, pixel type, and Image
-   History entry. For geometry, also confirm that WCS/SIP is no longer present.
-6. Save or export the result if it must persist beyond the current session.
+1. **Make the image active.** Click its view. The status bar under the views names its size, its channels and its
+   pixel type, which decide what is enabled.
+2. **Open the submenu.** Choose **Image** and the submenu, or **Process > Adjustments**. A right click on the view
+   offers the same submenus. Greyed entries do not fit the image.
+3. **Choose the command.** It starts at once. A still image shows no progress window. A sequence shows one, and its
+   **Cancel** stops the run.
+4. **Find the result.** A new view opens beside the source, named after it with a suffix such as ` - RED` or
+   ` - CONV_16_UINT`. Or the same view shows the changed image, and its history ends with the command's step.
+5. **Check it.** Read the new size, channels and pixel type in the status bar, and the last step in
+   **Edit > Image History**. After a mirror or a turn, plate-solve the image again.
+6. **Keep what you need.** Save a new view, or export a new sequence. Until then a new view is unsaved, and a new
+   sequence is a file in the session's temporary folder, which **Image > Show in File Browser** shows.
 
-## Complete parameter and action reference
+## Controls
 
-There are no numeric parameters or persisted presets. “Registered” means the
-menu action is dispatched through `ProcessRegistryBuiltins`; “direct” means
-`MenuActionManager` connects it directly to a coordinator. The following tables
-cover all 67 reachable actions in this family and the one declared-but-unreachable
-Automatic MTF action.
+Each block below is one submenu, in the order of the menu. A command has no value to set: its row says what it makes,
+when it is enabled and what the result keeps. A new view takes the name its row gives, with `_1`, `_2` and so on
+added when another view has that name. The messages of a refused run are under When it goes wrong.
 
-This canonical inventory supplies the frozen-template fields; the grouped
-matrices immediately below supply each action's exact route, output, precision,
-metadata, and state consequences.
+### Image > Actions
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Duplicate | Immediate action | N/A | None | Active view | See grouped matrix | Active image | See grouped matrix | Full still/sequence | New view/history |
-| Extract Red Channel | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | One output | R; still/sequence | New view/sequence |
-| Extract Green Channel | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | One output | G; still/sequence | New view/sequence |
-| Extract Blue Channel | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | One output | B; still/sequence | New view/sequence |
-| Extract RGB Channels | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | RGB; still/sequence | Three views/sequences |
-| Extract CIE L* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | L*; still/sequence | New view/sequence |
-| Extract CIE a* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | a*; still/sequence | New view/sequence |
-| Extract CIE b* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | b*; still/sequence | New view/sequence |
-| Extract CIE c* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | c*; still/sequence | New view/sequence |
-| Extract CIE h* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | h*; still/sequence | New view/sequence |
-| Extract CIE a*=R / b*=G | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | One encoded output | a*/b*; still/sequence | New view/sequence |
-| Extract CIE L*a*b* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | Lab; still/sequence | Three views/sequences |
-| Extract CIE L*c*h* | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | LCh; still/sequence | Three views/sequences |
-| Extract CIE X | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | X; still/sequence | New view/sequence |
-| Extract CIE Y | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | Y; still/sequence | New view/sequence |
-| Extract CIE Z | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | Z; still/sequence | New view/sequence |
-| Extract CIE XYZ | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | XYZ; still/sequence | Three views/sequences |
-| Extract HSL Hue | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | H; still/sequence | New view/sequence |
-| Extract HSL Saturation | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | S; still/sequence | New view/sequence |
-| Extract HSL Lightness | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | L; still/sequence | New view/sequence |
-| Extract HSL | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | HSL; still/sequence | Three views/sequences |
-| Extract HSV Hue | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | H; still/sequence | New view/sequence |
-| Extract HSV Saturation | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | S; still/sequence | New view/sequence |
-| Extract HSV Value | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | V; still/sequence | New view/sequence |
-| Extract HSV | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | HSV; still/sequence | Three views/sequences |
-| Extract HSI Hue | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | H; still/sequence | New view/sequence |
-| Extract HSI Saturation | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | S; still/sequence | New view/sequence |
-| Extract HSI Intensity | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | I; still/sequence | New view/sequence |
-| Extract HSI | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | HSI; still/sequence | Three views/sequences |
-| Extract YCbCr Luma | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | Y; still/sequence | New view/sequence |
-| Extract YCbCr Blue Chroma | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | Cb; still/sequence | New view/sequence |
-| Extract YCbCr Red Chroma | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Conversion + output | Cr; still/sequence | New view/sequence |
-| Extract YCbCr | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Three outputs | YCbCr; still/sequence | Three views/sequences |
-| Convert to RGB | Immediate action | N/A | None | Monochrome | See grouped matrix | Mono only | Triples samples | Full still/sequence | Replaces view/history |
-| Convert to Grayscale | Immediate action | N/A | None | RGB | See grouped matrix | RGB only | Reduces samples | Full still/sequence | Replaces view/history |
-| Negative Transformation | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Full transform | Still/sequence; mask-aware | Replaces view/history |
-| Automatic MTF Transform | Unavailable action | N/A | None | No route | No effect | Not connected | None | Unavailable | None |
-| Convert to 8 bit | Immediate action | N/A | None | Different type | See grouped matrix | Active image | Quantization | Full still/sequence | New view/sequence |
-| Convert to signed 16 bit | Immediate action | N/A | None | Different type | See grouped matrix | Not SER/video | Range conversion | Full still/sequence | New view/sequence |
-| Convert to unsigned 16 bit | Immediate action | N/A | None | Different type | See grouped matrix | Active image | Range conversion | Full still/sequence | New view/sequence |
-| Convert to signed 32 bit | Immediate action | N/A | None | Different type | See grouped matrix | Not SER/video | Range conversion | Full still/sequence | New view/sequence |
-| Convert to unsigned 32 bit | Immediate action | N/A | None | Different type | See grouped matrix | Not SER/video | Range conversion | Full still/sequence | New view/sequence |
-| Convert to 32 bit float | Immediate action | N/A | None | Different type | See grouped matrix | Not SER/video | More storage | Full still/sequence | New view/sequence |
-| Convert to 64 bit float | Immediate action | N/A | None | Different type | See grouped matrix | Not SER/video | Highest storage | Full still/sequence | New view/sequence |
-| Horizontal Mirror | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Strips WCS/SIP and cards | Full still/sequence | Replaces view/history |
-| Vertical Mirror | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Strips WCS/SIP and cards | Full still/sequence | Replaces view/history |
-| Rotate 180º | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Strips WCS/SIP and cards | Full still/sequence | Replaces view/history |
-| Rotate 90º Left | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Swaps dimensions; WCS/SIP and cards lost | Full still/sequence | Replaces view/history |
-| Rotate 90º Right | Immediate action | N/A | None | Active image | See grouped matrix | Active image | Swaps dimensions; WCS/SIP and cards lost | Full still/sequence | Replaces view/history |
-| Convert to SER | Sequence action | N/A | None | Non-SER sequence | See grouped matrix | Sequence only | Codec limits/full disk output | Full sequence | Temporary replacement |
-| Convert to Image List | Sequence action | N/A | None | Non-list sequence | See grouped matrix | Sequence only | Full disk output | Full sequence | Temporary replacement |
-| Convert to FITS | Unavailable action | N/A | None | Disabled | No effect | Sequence state disables | None | Unavailable | None |
-| Extract Frame | Sequence action | N/A | None | Sequence | See grouped matrix | Sequence only | One still allocation | Current frame | New still/history |
-| Extract Sequence | Dialog action | UI state | Dialog lifecycle | Sequence | Opens dialog | Sequence only | Selected disk output | Full sequence dialog | User-selected output |
-| Export... | Dialog action | UI state | Export lifecycle | Sequence | Opens dialog | Sequence only | Codec-dependent | Full sequence dialog | User-selected files |
-| Select Mask | Dialog action | View state | View only | Compatible mask | Opens selector | Active image | No pixel rewrite | Mask association | Session state |
-| Remove Mask | Immediate action | View state | View only | Attached mask | Detaches mask | Masked image | No pixel rewrite | Mask association | Session state |
-| Invert Mask | Checked action | View state | View only | Boolean | Toggles interpretation | Masked image | No pixel rewrite | Mask state | Session state |
-| Enable Mask | Checked action | View state | View only | Boolean | Toggles use | Masked image | No pixel rewrite | Mask state | Session state |
-| Show Mask | Checked action | View state | View only | Boolean | Toggles visibility | Masked image | Display only | Mask display | Session state |
-| Overlay Red | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Overlay Green | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Overlay Blue | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Overlay Yellow | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Overlay Magenta | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Overlay Cyan | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Replace | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
-| Multiply | Exclusive action | View mode | View only | Eight modes | Selects mode | Masked image | Display only | Mask display | Session state |
+[Toolbar & Menus](../../interface/toolbar-and-menus.md) describes the rest of the menus, and
+[Saving and Exporting](../../interface/saving-and-exporting.md) what a save writes.
 
-### View, channel, and color-space actions
+```controls
+window: Image > Actions
+controls:
+  - name: Duplicate
+    kind: action
+    default: ""
+    effect: >-
+      Opens a copy of the active image or sequence in a new view beside it, under the same name with `_1` added. The
+      new history starts with `Cloned from image <name>`, or `Cloned from sequence <name>`.
+    enabled: With an image or a sequence active.
+    tradeoff: >-
+      A still image is copied whole in memory: every sample, the header cards and the plate solution. A sequence is not
+      copied: the new view opens the same file again, with the source's automatic debayer setting.
+    scope: The source is not changed.
+    persistence: >-
+      The copy of a still image is not tied to the source's file, so saving it cannot write over the original. It
+      counts as unsaved when the source does. The second view of a sequence shares its file and is no copy on disk.
+    note: The way to keep a version to compare with before a command that replaces the image.
+  - name: Rename
+    kind: action
+    default: ""
+    effect: >-
+      Opens a small window titled `Rename <name>` with one field. Type the new name and choose **OK**: the view takes
+      it, and its history gains a **Rename** step.
+    range: >-
+      An empty name is refused with "Image name is invalid", and the name of another open view with "Image with name
+      '<name>' already exists". The window stays open after either.
+  - name: Close
+    kind: action
+    default: ""
+    effect: Closes the active view, as **File > Close** does.
+    note: It asks first when the view has unsaved changes, or a process window open on it.
+  - name: Save File...
+    kind: action
+    default: ""
+    effect: Saves the active image, as **File > Save as...** does.
+```
 
-| UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
-| --- | --- | --- | --- | --- |
-| Duplicate | **Image > Actions**; direct | Active image | Still: new deep-copy view. Sequence: new view reopened from the same backing sequence file. Source unchanged. | Still keeps image metadata and astrometry/star profile but clears disk-file identity and filename. Sequence preserves the auto-debayer and pending-change flags; reopening the backing file is not an independent disk copy. |
-| Extract Red Channel | **Image > Extract Channel**; registered | RGB | One new monochrome R view/sequence; source unchanged. | Keeps source pixel type and dimensions; copied sample values are independent. Metadata is copied by channel extraction. |
-| Extract Green Channel | Same; registered | RGB | One new monochrome G view/sequence; source unchanged. | Same as Red. |
-| Extract Blue Channel | Same; registered | RGB | One new monochrome B view/sequence; source unchanged. | Same as Red. |
-| Extract RGB Channels | Same; registered | RGB | Three new monochrome R, G, and B views/sequences; source unchanged. | Same source pixel type and dimensions for all three; metadata copied. |
-| Extract CIE L* | Same; registered | RGB | One L* component view/sequence. | RGB is read as fractions of full scale - linear when the image says so, sRGB-encoded otherwise - and converted to CIE L*a*b*; L* is a 32-bit floating image (64-bit for a 64-bit source) in the unit interval, whatever the source's pixel type. The component keeps the acquisition record and the WCS/SIP solution and drops the header cards, for a still and a sequence frame alike. |
-| Extract CIE a* | Same; registered | RGB | One a* component view/sequence. | Same Lab conversion, floating encoding, and metadata behavior as CIE L*. |
-| Extract CIE b* | Same; registered | RGB | One b* component view/sequence. | Same Lab conversion, floating encoding, and metadata behavior as CIE L*. |
-| Extract CIE c* | Same; registered | RGB | One LCh chroma component view/sequence. | RGB→Lab→LCh with the same floating encoding and metadata behavior as CIE L*. |
-| Extract CIE h* | Same; registered | RGB | One LCh hue component view/sequence. | Hue is a fraction of a turn in the unit interval, not an angle in degrees; same floating encoding and metadata behavior as CIE L*. |
-| Extract CIE a*=R / b*=G | Same; registered | RGB | One three-channel view/sequence with a* in R, b* in G, and B cleared. | A floating colour image of a* and b* as CIE L* encodes them, blue cleared; this is a visualization/transport encoding, not an RGB color image. Metadata as CIE L*. |
-| Extract CIE L*a*b* | Same; registered | RGB | Three monochrome L*, a*, and b* outputs. | Three floating components, each as CIE L* encodes and describes it. |
-| Extract CIE L*c*h* | Same; registered | RGB | Three monochrome L*, c*, and h* outputs. | Three floating components, each as CIE L* encodes and describes it. |
-| Extract CIE X | Same; registered | RGB | One CIE X component output. | Engine RGB→XYZ conversion, each tristimulus value divided by the white's so the white is one; floating encoding and metadata as CIE L*. |
-| Extract CIE Y | Same; registered | RGB | One CIE Y component output. | Same conversion, precision, and metadata behavior as CIE X. |
-| Extract CIE Z | Same; registered | RGB | One CIE Z component output. | Same conversion, precision, and metadata behavior as CIE X. |
-| Extract CIE XYZ | Same; registered | RGB | Three monochrome X, Y, and Z outputs. | Same floating encoding and component metadata behavior for all outputs. |
-| Extract HSL Hue | Same; registered | RGB | One HSL hue output. | Component is a 32-bit floating plane in the unit interval, 64-bit for a 64-bit source; metadata as CIE L*. |
-| Extract HSL Saturation | Same; registered | RGB | One HSL saturation output. | Same floating encoding and metadata behavior as HSL Hue. |
-| Extract HSL Lightness | Same; registered | RGB | One HSL lightness output. | Same floating encoding and metadata behavior as HSL Hue. |
-| Extract HSL | Same; registered | RGB | Three monochrome H, S, and L outputs. | Same floating encoding and component metadata behavior for all outputs. |
-| Extract HSV Hue | Same; registered | RGB | One HSV hue output. | Component is a 32-bit floating plane in the unit interval, 64-bit for a 64-bit source; metadata as CIE L*. |
-| Extract HSV Saturation | Same; registered | RGB | One HSV saturation output. | Same floating encoding and metadata behavior as HSV Hue. |
-| Extract HSV Value | Same; registered | RGB | One HSV value output. | Same floating encoding and metadata behavior as HSV Hue. |
-| Extract HSV | Same; registered | RGB | Three monochrome H, S, and V outputs. | Same floating encoding and component metadata behavior for all outputs. |
-| Extract HSI Hue | Same; registered | RGB | One HSI hue output. | Component is a 32-bit floating plane in the unit interval, 64-bit for a 64-bit source; metadata as CIE L*. |
-| Extract HSI Saturation | Same; registered | RGB | One HSI saturation output. | Same floating encoding and metadata behavior as HSI Hue. |
-| Extract HSI Intensity | Same; registered | RGB | One HSI intensity output. | Same floating encoding and metadata behavior as HSI Hue. |
-| Extract HSI | Same; registered | RGB | Three monochrome H, S, and I outputs. | Same floating encoding and component metadata behavior for all outputs. |
-| Extract YCbCr Luma | Same; registered | RGB | One Y (luma) output. | Component is a 32-bit floating plane in the unit interval, 64-bit for a 64-bit source; metadata as CIE L*. |
-| Extract YCbCr Blue Chroma | Same; registered | RGB | One Cb output. | Same floating encoding and metadata behavior as YCbCr Luma. |
-| Extract YCbCr Red Chroma | Same; registered | RGB | One Cr output. | Same floating encoding and metadata behavior as YCbCr Luma. |
-| Extract YCbCr | Same; registered | RGB | Three monochrome Y, Cb, and Cr outputs. | Same floating encoding and component metadata behavior for all outputs. |
-| Convert to RGB | **Process > Adjustments**; direct | Monochrome | Replaces the active still/sequence with three identical channels. | Pixel type is unchanged. The result keeps the image's acquisition record, WCS/SIP solution, header cards and processing state; an explicit validity mask is shared by the three channels. CFA sequences may be auto-debayered first when that view option is enabled. |
-| Convert to Grayscale | Same; direct | RGB | Replaces the active still/sequence with one channel, using `0.2989R + 0.5870G + 0.1140B`. | Pixel type is unchanged; the weighted sum is rounded to the nearest code. The result keeps the image's acquisition record, WCS/SIP solution, header cards and processing state. |
-| Negative Transformation | Same; direct | Active image | Replaces each selected sample with its complement: one minus a floating sample, the pixel-type maximum minus an unsigned one, and the sum of the minimum and maximum minus a signed one. Still/sequence data changes. | Pixel type, dimensions, and metadata are retained; a CFA sequence may become RGB first when auto-debayer is enabled. Active-mask blending is supported. The history state is marked nonlinear. |
-| Automatic MTF Transform | Declared action only; no menu insertion, registry descriptor, or connection | Never reachable in the current UI | No runnable action. | No current precision or metadata consequence. Do not confuse the display auto-stretch with a committed Automatic MTF process. |
+### Image > Convert Format
 
-For sequence channel extraction, the sequence processor requests CFA debayering
-before RGB/component extraction. Still-image extraction uses the already displayed
-RGB data. Color-space component images are normalized encodings for processing and
-inspection; they do not carry a unit such as degrees in their stored sample values.
-A component is a 32-bit floating image whatever the source's pixel type, so a
-16-bit image's lightness is not rounded to 16-bit codes. A sequence conversion,
-unlike an extraction, keeps a mosaic frame as a mosaic.
+Each command opens a copy of the image in another pixel type, in a new view beside the source, named after it with
+the suffix its row gives. The entry of the image's own type is greyed. Equations (1) and (2) give each new sample: a
+type with fewer levels rounds the samples, and a wider one only gives later edits room. The copy keeps the size, the
+channels, the [header cards](../../reference/glossary.md#header-card), the plate solution and the
+[processing state](../../reference/glossary.md#processing-state). Its history starts with
+`Converted to <type> from image '<name>'`.
 
-### Pixel-type conversion actions
+```controls
+window: Image > Convert Format
+controls:
+  - name: Convert to 8 bit
+    kind: action
+    default: ""
+    effect: Opens a copy in unsigned 8-bit integers, named `<name> - CONV_8_UINT`.
+    enabled: When the image is not 8-bit already, signed or unsigned.
+    tradeoff: >-
+      256 levels: faint gradients band, and later edits show the steps. Converting back to a wider type does not
+      restore what was rounded away.
+  - name: Convert to signed 16 bit
+    kind: action
+    default: ""
+    effect: Opens a copy in signed 16-bit integers, named `<name> - CONV_16_INT`.
+    enabled: When the image is not signed 16-bit already. Greyed for a SER or video sequence.
+  - name: Convert to unsigned 16 bit
+    kind: action
+    default: ""
+    effect: Opens a copy in unsigned 16-bit integers, named `<name> - CONV_16_UINT`.
+    enabled: When the image is not unsigned 16-bit already.
+    tradeoff: Half the memory of 32-bit floating point, with 65,536 levels.
+    note: >-
+      The widest type a SER sequence holds. A video sequence holds 8 bits only, and refuses it when the run starts.
+  - name: Convert to signed 32 bit
+    kind: action
+    default: ""
+    effect: Opens a copy in signed 32-bit integers, named `<name> - CONV_32_INT`.
+    enabled: When the image is not signed 32-bit already. Greyed for a SER or video sequence.
+  - name: Convert to unsigned 32 bit
+    kind: action
+    default: ""
+    effect: Opens a copy in unsigned 32-bit integers, named `<name> - CONV_32_UINT`.
+    enabled: When the image is not unsigned 32-bit already. Greyed for a SER or video sequence.
+  - name: Convert to 32 bit float
+    kind: action
+    default: ""
+    effect: >-
+      Opens a copy in 32-bit floating point, named `<name> - CONV_32_FLOAT`. An integer image's samples become
+      fractions from 0 to 1, and a floating-point image's samples are kept as they are.
+    enabled: When the image is not 32-bit floating point already. Greyed for a SER or video sequence.
+    tradeoff: Later edits are not rounded to codes, but no detail lost before is restored.
+  - name: Convert to 64 bit float
+    kind: action
+    default: ""
+    effect: Opens a copy in 64-bit floating point, named `<name> - CONV_64_FLOAT`.
+    enabled: When the image is not 64-bit floating point already. Greyed for a SER or video sequence.
+    tradeoff: >-
+      Twice the memory and disk of 32-bit floating point and four times that of 16-bit integers, with no more detail
+      than the source had.
+```
 
-| UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
-| --- | --- | --- | --- | --- |
-| Convert to 8 bit | **Image > Convert Format**; registered | Active type is not 8-bit | New view/sequence; source unchanged. | Normalizes the source type to unsigned 8-bit. Metadata is copied. Quantization is irreversible. |
-| Convert to signed 16 bit | Same; registered | Active type differs; disabled for SER/video sequences | New signed-16 view/sequence; source unchanged. | Normalized range conversion; metadata copied. |
-| Convert to unsigned 16 bit | Same; registered | Active type differs | New unsigned-16 view/sequence; source unchanged. | Normalized range conversion; metadata copied. SER-compatible high-precision integer choice. |
-| Convert to signed 32 bit | Same; registered | Active type differs; disabled for SER/video sequences | New signed-32 view/sequence; source unchanged. | Normalized range conversion; metadata copied. |
-| Convert to unsigned 32 bit | Same; registered | Active type differs; disabled for SER/video sequences | New unsigned-32 view/sequence; source unchanged. | Normalized range conversion; metadata copied. |
-| Convert to 32 bit float | Same; registered | Active type differs; disabled for SER/video sequences | New float32 view/sequence; source unchanged. | Normalized sample values are represented in `[0,1]`; metadata copied. Avoids integer quantization but cannot restore detail already lost. |
-| Convert to 64 bit float | Same; registered | Active type differs; disabled for SER/video sequences | New float64 view/sequence; source unchanged. | Normalized sample values are represented in `[0,1]`; metadata copied. Doubles storage relative to float32 without creating new source precision. |
+On a sequence, the copy is a new sequence in the source's container, and its history starts with
+`Converted to <type> from sequence '<name>'`.
 
-The generic conversion path maps a source sample through its normalized range and
-then into the destination range. For signed integer types, the full signed range
-maps to `[0,1]`; floating-point storage already uses normalized samples. The
-mapping is computed in double precision and rounded to the nearest code.
-Converting to fewer integer levels
-quantizes values, while converting to a wider type only provides headroom for later
-processing. Converting to the image's own type makes an exact copy. A sequence
-conversion to a type its container cannot store - a SER beyond 16-bit unsigned, a
-video beyond 8-bit - is refused by name; use Convert to Image List first.
+### Image > Extract Channel
 
-### Fast Geometry actions
+Every command needs an RGB image and opens each result in a new view beside the source, named after it with the
+suffix in its row. The first four copy the stored channels. The others compute a component of another
+[color model](../../reference/glossary.md#color-model) - [CIE L*a*b*](../../reference/glossary.md#cie-lab), XYZ,
+[HSL](../../reference/glossary.md#hsl), [HSV](../../reference/glossary.md#hsv), [HSI](../../reference/glossary.md#hsi)
+or [YCbCr](../../reference/glossary.md#ycbcr) - and store it by its
+[component encoding](../../reference/glossary.md#component-encoding). Each new history starts with
+`<component> extracted from image '<name>'`.
 
-| UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
-| --- | --- | --- | --- | --- |
-| Horizontal Mirror | **Image > Fast Geometry**; direct | Active image | Reverses each row. A still image is the view's own edit; a sequence is replaced by a new temporary sequence with every frame mirrored. History: **Image Horizontal Mirror** for a still, **Sequence Horizontal Mirror** for a sequence. | Every sample is copied exactly, in every pixel type; channels kept. The acquisition record and the image's meaning are kept; the WCS/SIP solution is invalidated, the header cards are dropped and any output decision is withdrawn. |
-| Vertical Mirror | Same; direct | Active image | Reverses row order. History: **Image Vertical Mirror** / **Sequence Vertical Mirror**. | Same as Horizontal Mirror. |
-| Rotate 180º | Same; direct | Active image | Reverses both axes; width/height unchanged. History: **Image Rotation** / **Sequence Rotation**, described "180 degrees". | Same as Horizontal Mirror. |
-| Rotate 90º Left | Same; direct | Active image | Turns a quarter turn counter-clockwise; width and height swap. History: **Image Rotation** / **Sequence Rotation**, described "90 degrees left". | Same as Horizontal Mirror; a non-square pixel aspect is inverted with the axes. |
-| Rotate 90º Right | Same; direct | Active image | Turns a quarter turn clockwise; width and height swap. History: **Image Rotation** / **Sequence Rotation**, described "90 degrees right". | Same as Rotate 90º Left. |
+```controls
+window: Image > Extract Channel
+controls:
+  - name: Extract Red Channel
+    kind: action
+    default: ""
+    effect: Opens the red channel as a grayscale image named `<name> - RED`.
+    enabled: For an RGB image or sequence. Greyed for a grayscale image and an undebayered mosaic.
+    scope: >-
+      The samples are copied as they are stored, in the image's own pixel type and size. The copy keeps the header
+      cards, the plate solution and the image's meaning, and the part of an explicit validity mask that covers red.
+  - name: Extract Green Channel
+    kind: action
+    default: ""
+    effect: Opens the green channel as `<name> - GREEN`, as **Extract Red Channel** opens the red one.
+  - name: Extract Blue Channel
+    kind: action
+    default: ""
+    effect: Opens the blue channel as `<name> - BLUE`, as **Extract Red Channel** opens the red one.
+  - name: Extract RGB Channels
+    kind: action
+    default: ""
+    effect: Opens the three channels as three grayscale images, `<name> - RED`, `<name> - GREEN` and `<name> - BLUE`.
+    tradeoff: Three full planes in memory, or three new sequences on disk.
+  - name: Extract CIE L*
+    kind: action
+    default: ""
+    effect: Opens the lightness of CIE L*a*b* as `<name> - CIE L*`, stored as L* divided by 100.
+    range: >-
+      A 32-bit floating-point image, or 64-bit for a 64-bit image, whatever the source's type: a 16-bit image's
+      lightness is not rounded to 16-bit codes. Every component of a color inside the gamut lies between 0 and 1.
+    scope: >-
+      Red, green and blue are read as fractions of full scale, as linear when the image is described as linear RGB and
+      as sRGB-encoded otherwise. The component keeps the acquisition record and the plate solution. Of the header
+      cards it keeps only the frame's observing context and the light it holds, as every component does.
+    tradeoff: A measurement of the image to process or inspect, not a picture. It stores no unit such as degrees.
+    note: A pixel the image marks invalid has no color, and its component is not a number.
+  - name: Extract CIE a*
+    kind: action
+    default: ""
+    effect: Opens the green to red axis of CIE L*a*b* as `<name> - CIE a*`, stored as a* plus 128, divided by 255.
+    note: A neutral gray sits near one half. Precision and kept data as **Extract CIE L***.
+  - name: Extract CIE b*
+    kind: action
+    default: ""
+    effect: Opens the blue to yellow axis as `<name> - CIE b*`, stored as b* plus 128, divided by 255.
+  - name: Extract CIE c*
+    kind: action
+    default: ""
+    effect: Opens the chroma of CIE L*c*h* as `<name> - CIE c*`, stored as the chroma divided by 200.
+  - name: Extract CIE h*
+    kind: action
+    default: ""
+    effect: >-
+      Opens the hue angle of CIE L*c*h* as `<name> - CIE h*`. The angle, measured from -180 to 180 degrees, is stored
+      as a fraction of a turn: the angle plus 180, divided by 360.
+    tradeoff: The hue is a line from 0 to 1 here, not a circle, so 0 and 1 are the same color.
+  - name: Extract CIE a*=R / b*=G
+    kind: action
+    default: ""
+    effect: >-
+      Opens one color image named `<name> - CIE a*=R / b*=G`, with a* in red, b* in green and a cleared blue, each
+      stored as **Extract CIE a*** stores it.
+    tradeoff: A way to see the two color axes together. It is not an RGB picture of the image.
+  - name: Extract CIE L*a*b*
+    kind: action
+    default: ""
+    effect: Opens L*, a* and b* as three grayscale images, `<name> - CIE L*`, `<name> - CIE a*` and `<name> - CIE b*`.
+  - name: Extract CIE L*c*h*
+    kind: action
+    default: ""
+    effect: Opens L*, c* and h* as three grayscale images, `<name> - CIE L*`, `<name> - CIE c*` and `<name> - CIE h*`.
+  - name: Extract CIE X
+    kind: action
+    default: ""
+    effect: Opens the X tristimulus value as `<name> - CIE X`, divided by the X of the white so that the white is 1.
+  - name: Extract CIE Y
+    kind: action
+    default: ""
+    effect: Opens the Y tristimulus value, the luminance, as `<name> - CIE Y`, divided by the Y of the white.
+  - name: Extract CIE Z
+    kind: action
+    default: ""
+    effect: Opens the Z tristimulus value as `<name> - CIE Z`, divided by the Z of the white.
+  - name: Extract CIE XYZ
+    kind: action
+    default: ""
+    effect: Opens X, Y and Z as three grayscale images, `<name> - CIE X`, `<name> - CIE Y` and `<name> - CIE Z`.
+  - name: Extract HSL Hue
+    kind: action
+    default: ""
+    effect: Opens the hue of HSL as `<name> - HSL Hue`, stored as a fraction of a turn.
+  - name: Extract HSL Saturation
+    kind: action
+    default: ""
+    effect: Opens the saturation of HSL as `<name> - HSL Saturation`.
+  - name: Extract HSL Lightness
+    kind: action
+    default: ""
+    effect: Opens the lightness of HSL as `<name> - HSL Lightness`. It is not CIE L*.
+  - name: Extract HSL
+    kind: action
+    default: ""
+    effect: Opens hue, saturation and lightness as three grayscale images, with the suffixes of the three rows above.
+  - name: Extract HSV Hue
+    kind: action
+    default: ""
+    effect: Opens the hue of HSV as `<name> - HSV Hue`, stored as a fraction of a turn.
+  - name: Extract HSV Saturation
+    kind: action
+    default: ""
+    effect: Opens the saturation of HSV as `<name> - HSV Saturation`.
+  - name: Extract HSV Value
+    kind: action
+    default: ""
+    effect: Opens the value of HSV, the largest of the three channels, as `<name> - HSV Value`.
+  - name: Extract HSV
+    kind: action
+    default: ""
+    effect: Opens hue, saturation and value as three grayscale images, with the suffixes of the three rows above.
+  - name: Extract HSI Hue
+    kind: action
+    default: ""
+    effect: Opens the hue of HSI as `<name> - HSI Hue`, stored as a fraction of a turn.
+  - name: Extract HSI Saturation
+    kind: action
+    default: ""
+    effect: Opens the saturation of HSI as `<name> - HSI Saturation`.
+  - name: Extract HSI Intensity
+    kind: action
+    default: ""
+    effect: Opens the intensity of HSI as `<name> - HSI Intensity`.
+  - name: Extract HSI
+    kind: action
+    default: ""
+    effect: Opens hue, saturation and intensity as three grayscale images, with the suffixes of the three rows above.
+  - name: Extract YCbCr Luma
+    kind: action
+    default: ""
+    effect: >-
+      Opens the luma of YCbCr as `<name> - YCbCr Luma`, with the BT.601 weights at full range. It is not calibrated
+      luminance.
+  - name: Extract YCbCr Blue Chroma
+    kind: action
+    default: ""
+    effect: Opens the difference toward blue as `<name> - YCbCr Blue Chroma`, with a neutral pixel at 0.5.
+  - name: Extract YCbCr Red Chroma
+    kind: action
+    default: ""
+    effect: Opens the difference toward red as `<name> - YCbCr Red Chroma`, with a neutral pixel at 0.5.
+  - name: Extract YCbCr
+    kind: action
+    default: ""
+    effect: Opens luma and both chromas as three grayscale images, with the suffixes of the three rows above.
+```
 
-A still image's mirror or turn is an edit of its view: it is computed on a
-worker, recorded as one Image History step before the view shows it, and
-undone by that step. Edits of one view run one at a time in the order they
-were asked for, so pressing a turn twice turns twice. When the image had a
-solution, the Session Console notes that it was removed and that a plate solve
-restores it.
+On a sequence, each command writes one new sequence for each image it makes, in the source's container, and a mosaic
+frame is demosaiced first, whatever the view's automatic debayer setting. A component keeps the same data in a frame
+as in a still image. The container stores the types it can: a [SER](../../reference/glossary.md#ser) turns a
+floating-point component into unsigned 16-bit codes, and a video into 8-bit ones. Each new history starts with
+`<component> extracted from sequence '<name>'`.
 
-Over a sequence, the action takes the view, turns or mirrors every frame of the
-sequence as recorded, writes the frames into a new sequence of the same
-container in the session's temporary directory, and shows it in the view as one
-history step once the whole sequence is written. A progress window titled
-**Flip sequence** (mirrors) or **Sequence Rotation** (turns) shows the frames
-done, and its Cancel stops the run, leaving the view as it was and nothing in
-the temporary directory. A mosaic frame is turned without being demosaiced: its
-filter pattern is restated so each sample stays under the filter it was
-measured through, and the view still demosaics the frames for display when it
-did before. If another run already holds the sequence, a warning titled
-**Rotate Sequence** says "Another process is executing for this sequence,
-please cancel that job first before running this process" and nothing changes.
-A sequence run that cannot finish says why in a message titled as its progress
-window, "Could not turn the sequence '*name*': ...", and in the Session
-Console.
+### Image > Fast Geometry
 
-Each mirror and turn moves an explicit validity mask with its samples; any
-other validity rule is kept as stated. Nothing is interpolated: every sample is
-copied exactly. A turn drops the header cards with the solution, as every
-geometry change does.
+Each command moves every sample to its new place and copies it exactly, in every pixel type, without interpolation
+and without a filled edge. On a still image it is an edit of the view: it is computed in the background, recorded
+as one history step before the view shows it, and undone by that step. Edits of one view run one at a time, in the
+order you ask for them, so a turn chosen twice turns twice.
 
-### Sequence actions
+```controls
+window: Image > Fast Geometry
+controls:
+  - name: Horizontal Mirror
+    kind: action
+    default: ""
+    effect: Reverses each row, so the left edge becomes the right.
+    enabled: With an image or a sequence active.
+    scope: >-
+      Every channel. The history step is **Image Horizontal Mirror**, or **Sequence Horizontal Mirror** on a sequence.
+      A mask on the view is not used.
+    persistence: >-
+      The image keeps its acquisition record, its meaning, and the header cards of the frame's observing context and
+      of the light it holds. The plate solution and every other header card are dropped, and a decision on how to
+      write the image is withdrawn.
+  - name: Vertical Mirror
+    kind: action
+    default: ""
+    effect: Reverses the order of the rows, so the top edge becomes the bottom.
+    scope: >-
+      The history step is **Image Vertical Mirror**, or **Sequence Vertical Mirror**. Kept data as **Horizontal
+      Mirror**.
+  - name: Rotate 180º
+    kind: action
+    default: ""
+    effect: Turns the image half a turn. Width and height stay.
+    scope: >-
+      The history step is **Image Rotation**, or **Sequence Rotation**, described as `180 degrees`. Kept data as
+      **Horizontal Mirror**.
+  - name: Rotate 90º Left
+    kind: action
+    default: ""
+    effect: Turns the image a quarter turn counter-clockwise. Width and height swap.
+    scope: >-
+      The history step is **Image Rotation**, or **Sequence Rotation**, described as `90 degrees left`. Kept data as
+      **Horizontal Mirror**.
+    note: A pixel shape other than square is turned with the axes.
+  - name: Rotate 90º Right
+    kind: action
+    default: ""
+    effect: Turns the image a quarter turn clockwise. Width and height swap.
+    scope: >-
+      The history step is **Image Rotation**, or **Sequence Rotation**, described as `90 degrees right`. Kept data as
+      **Horizontal Mirror**.
+    note: A pixel shape other than square is turned with the axes.
+```
 
-| UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
-| --- | --- | --- | --- | --- |
-| Convert to SER | **Image > Sequence > Convert**; registered | Sequence that is not already SER | Replaces the active view with a new temporary SER sequence; original backing input is not overwritten. | Frames are constrained to SER-supported mono/RGB 8- or 16-bit storage; higher/signed/float inputs are converted to unsigned 16-bit. Per-frame metadata is not a general SER payload. FPS is copied before destination finalization. |
-| Convert to Image List | Same; registered | Sequence that is not already an image list | Replaces the active view with a temporary image-list sequence; original input is not overwritten. | Writes a list of frame files through the image-list/FITS path, preserving the processed image type and frame metadata supported by the codec. FPS is copied before finalization. |
-| Convert to FITS | Same; registered | Disabled by current action-state code for every sequence | No reachable output. If reached, the coordinator converts nothing and reports “Converting to a FITS sequence is not available. Convert to Image List writes every frame of the sequence as a FITS file.” for every sequence. | No current precision or metadata consequence; use **Convert to Image List** when FITS frame files are required. |
-| Extract Frame | **Image > Sequence**; registered non-interactive | Sequence | Copies the currently displayed frame into one new still named with `FRAME_<current frame>`; sequence unchanged. | Pixel type, pixels, and copied image metadata are retained in the new view. |
-| Extract Sequence | **Image > Sequence**; registered single-image dialog | Sequence | Opens the contiguous-range extraction dialog and writes a new sequence in the source's own container: SER, an Image List (`.anseq`), AVI, MP4, or Matroska (`.mkv`) for any other video. | See [Extract Sequence](extract-sequence.md) for inclusive range semantics, metadata, FPS, cancellation, and cleanup. |
-| Export... | **Image > Sequence**; registered image operation | Sequence | Opens the Export Sequence dialog; it is not immediate after the dialog opens. | Output codec determines precision and metadata. See [Saving and Exporting](../../interface/saving-and-exporting.md). |
+The cards that stay are the ones every geometry change keeps, which [Crop](../geometry/crop.md) lists. An explicit
+validity mask moves with its samples, and any other [validity rule](../../reference/glossary.md#validity-rule) is kept
+as the image states it. A mosaic is turned without being demosaiced: its
+[Bayer pattern](../../reference/glossary.md#bayer-pattern) is restated so that each sample stays under the filter it
+was measured through. When the image had a solution, the Session Console says that it was removed and that a plate
+solve restores it.
 
-Convert to SER/Image List processes every frame without applying the view's CFA
-auto-debayer option. Both jobs reject converting to the sequence's existing type,
-lock the source view, clean incomplete temporary output on failure/cancellation,
-and publish the replacement only after successful finalization.
+On a sequence, the command turns every frame as it was recorded and writes the frames into a new sequence of the same
+container. The view shows it, with one history step, once the whole sequence is written, and demosaics its frames
+for display as it did before. A run that cannot finish says "Could not turn the sequence '<name>': " and the reason.
 
-### Mask actions
+### Image > Mask
 
-| UI label/action | Menu path and wiring | Enabled when | Output and source effect | Precision and metadata consequence |
-| --- | --- | --- | --- | --- |
-| Select Mask | **Image > Mask**; registered single-image | Active image | Opens the mask selector and associates a compatible image chosen there. | Does not alter target samples or metadata. Compatibility and mask behavior are covered in [Masks](../../interface/masks.md). |
-| Remove Mask | Same; registered single-image | Active image with a mask | Removes the association. | Target and mask samples/metadata are unchanged. |
-| Invert Mask | Same; direct checked action | Active image with a mask | Toggles interpretation of mask weights. | Display/process state only; no sample or metadata rewrite. |
-| Enable Mask | Same; direct checked action | Active image with a mask | Enables/disables the mask for mask-aware processing. | State only; disabling does not detach the mask. |
-| Show Mask | Same; direct checked action | Active image with a mask | Shows/hides mask rendering over the target. | Display state only. |
-| Overlay Red | **Image > Mask > Rendering Mode**; direct checked action | Active image with a mask | Selects red overlay. | Display state only; mutually exclusive with the other seven rendering modes. |
-| Overlay Green | Same; direct checked action | Active image with a mask | Selects green overlay. | Display state only; mutually exclusive. |
-| Overlay Blue | Same; direct checked action | Active image with a mask | Selects blue overlay. | Display state only; mutually exclusive. |
-| Overlay Yellow | Same; direct checked action | Active image with a mask | Selects yellow overlay. | Display state only; mutually exclusive. |
-| Overlay Magenta | Same; direct checked action | Active image with a mask | Selects magenta overlay. | Display state only; mutually exclusive. |
-| Overlay Cyan | Same; direct checked action | Active image with a mask | Selects cyan overlay. | Display state only; mutually exclusive. |
-| Replace | Same; direct checked action | Active image with a mask | Displays the mask in replace mode. | Display state only; mutually exclusive. |
-| Multiply | Same; direct checked action | Active image with a mask | Displays target multiplied by the mask. | Display state only; mutually exclusive. |
+These commands change which image is the view's mask and how it is shown. None changes a sample or a header card
+of either image, and none adds a history step. [Masks](../../interface/masks.md) explains how a process uses the
+mask.
 
-## How the algorithm works
+```controls
+window: Image > Mask
+controls:
+  - name: Select Mask
+    kind: action
+    default: ""
+    effect: Opens the mask selector of the active image, where you choose another open image of its size as its mask.
+    enabled: With an image or a sequence active.
+  - name: Remove Mask
+    kind: action
+    default: ""
+    effect: Unlinks the mask from the image. Both images stay open and unchanged.
+    enabled: While the image has a mask. Chosen without one, it does nothing.
+  - name: Invert Mask
+    kind: action
+    default: "Off"
+    effect: Swaps the parts the mask protects and the parts it lets a process change, on the display and in processing.
+    enabled: While the image has a mask.
+    persistence: A state of the view, off when a mask is selected and lost when the view closes.
+  - name: Enable Mask
+    kind: action
+    default: "On"
+    effect: >-
+      On, the processes that use a mask blend their result through it. Off, they ignore it, and the mask stays linked.
+    enabled: While the image has a mask.
+    persistence: A state of the view, on when a mask is selected.
+  - name: Show Mask
+    kind: action
+    default: "On"
+    effect: Shows or hides the mask drawn over the image. It changes the display only, and does not enable the mask.
+    enabled: While the image has a mask.
+    persistence: A state of the view, on when a mask is selected.
+  - name: Overlay Red
+    kind: action
+    default: "On"
+    effect: Draws the mask over the image as a red overlay.
+    range: >-
+      The eight entries of **Rendering Mode** form one choice: choosing one clears the others, and choosing the one in
+      force leaves it checked.
+    enabled: While the image has a mask.
+    scope: The display only.
+  - name: Overlay Green
+    kind: action
+    default: "Off"
+    effect: Draws the mask as a green overlay.
+  - name: Overlay Blue
+    kind: action
+    default: "Off"
+    effect: Draws the mask as a blue overlay.
+  - name: Overlay Yellow
+    kind: action
+    default: "Off"
+    effect: Draws the mask as a yellow overlay.
+  - name: Overlay Magenta
+    kind: action
+    default: "Off"
+    effect: Draws the mask as a magenta overlay.
+  - name: Overlay Cyan
+    kind: action
+    default: "Off"
+    effect: Draws the mask as a cyan overlay.
+  - name: Replace
+    kind: action
+    default: "Off"
+    effect: Shows the mask itself in place of the image.
+  - name: Multiply
+    kind: action
+    default: "Off"
+    effect: Shows the image, as the view displays it, multiplied by the mask.
+```
 
-### Conceptual pipeline
+### Image > Sequence
 
-1. Menu/action-state code checks the active view, image/color/sequence type, mask
-   association, and registry launch guard.
-2. The action either changes lightweight mask state immediately or starts a
-   detached worker. Sequence workers acquire an exclusive view lock and create a
-   temporary destination when output frames are required.
-3. Engine code copies/extracts channels, converts color or sample ranges,
-   reindexes geometry, or applies the negative transform. Most jobs run their
-   per-pixel/per-frame loops in parallel inside the engine.
-4. A successful job creates a new view or publishes replacement data, adds Image
-   History, refreshes the display, releases the lock, and closes progress.
+The whole submenu is greyed for a still image. **Extract Sequence** and **Export...** open windows of their own:
+[Extract Sequence](extract-sequence.md) and [Saving and Exporting](../../interface/saving-and-exporting.md) describe
+them. [File Formats](../../reference/file-formats.md) says what each container stores.
 
-### Model and equations
+```controls
+window: Image > Sequence
+controls:
+  - name: Convert to SER
+    kind: action
+    default: ""
+    effect: >-
+      Writes every frame into a new SER sequence in the session's temporary folder and shows it in the view in place
+      of the source. The history step is **Convert Sequence Type**, described as
+      `Sequence converted from <container> to SER format`.
+    enabled: >-
+      For a sequence that is not a SER already. It sits in the **Convert** submenu. Chosen another way on a SER, it
+      says "The selected sequence is already in SER format".
+    tradeoff: >-
+      SER holds 8 or 16 unsigned bits of gray, mosaic or RGB. Frames of 8 bits are written as unsigned 8-bit, every
+      other type as unsigned 16-bit. A frame's exposure start is kept, and its other header cards are not.
+    scope: Every frame as the file holds it. A mosaic stays a mosaic, whatever the view's automatic debayer setting.
+    persistence: The source file is not changed, and its frame rate is passed to the new sequence.
+  - name: Convert to Image List
+    kind: action
+    default: ""
+    effect: >-
+      Writes every frame as a FITS file of its own, with an `.anseq` list that names them, in the temporary folder,
+      and shows the new sequence in the view. The history step is **Convert Sequence Type**.
+    enabled: >-
+      For a sequence that is not an image list already. Chosen another way on one, it says "The selected sequence is
+      already in image list format".
+    tradeoff: >-
+      Each frame keeps its pixel type and its header cards, so this is the container for data you will process
+      further. A frame of another type than the first is converted to the first frame's type.
+    scope: Every frame as the file holds it. A mosaic stays a mosaic.
+    persistence: The source file is not changed, and its frame rate is passed to the list.
+  - name: Convert to FITS
+    kind: action
+    default: ""
+    effect: >-
+      Converts nothing. Chosen another way, it says "Converting to a FITS sequence is not available. Convert to Image
+      List writes every frame of the sequence as a FITS file."
+    enabled: Greyed for every sequence. Choose **Convert to Image List** for frames as FITS files.
+  - name: Extract Frame
+    kind: action
+    default: ""
+    effect: >-
+      Opens the frame the view shows as a new still image, named `<name> - FRAME_<n>` with the number the player
+      shows. Its history starts with `Frame <n> extracted from sequence '<name>'`.
+    scope: >-
+      The frame is copied as the view shows it - debayered when the view debayers its frames - with its pixel type and
+      metadata. The sequence is not changed.
+    note: A failure is reported in a message box titled **Extract Frame** and in the log.
+  - name: Extract Sequence
+    kind: action
+    default: ""
+    effect: >-
+      Opens the Extract Sequence window, which copies a range of consecutive frames into a new sequence of the source's
+      container: SER, an image list, AVI, MP4, or Matroska for any other video.
+  - name: Export...
+    kind: action
+    default: ""
+    effect: Opens the Export Sequence window, which writes the frames to a file you choose.
+    tradeoff: The file's format decides what the frames keep of their precision and their header cards.
+```
 
-Type conversion uses normalized intensity `n`. Unsigned integer samples use
-`n = x / max(T)`; signed integer samples map the complete signed range to
-`[0,1]`; float and double samples already represent `n`. The destination is the
-corresponding denormalization into its range, computed in double precision. Integer
-destinations round to the nearest of a finite set of codes.
+A container conversion locks the view while it runs, removes what it wrote when it fails or is stopped, and shows the
+new sequence only once it is complete.
 
-Grayscale conversion is:
+### Process > Adjustments
 
-`Y = 0.2989 R + 0.5870 G + 0.1140 B`
+The other entries of this submenu open process windows, each described on its own page. These three run at once, on
+the image or on every frame of the sequence. On a sequence, the frames are read with the view's automatic debayer
+setting, so a mosaic is demosaiced first when that setting is on.
 
-with the result rounded to the nearest code of the unchanged pixel type. Convert to
-RGB sets `R = G = B = Y`. Negative Transformation is the complement in normalized
-units: `y = 1 - x` for a floating sample, `y = max(T) - x` for an unsigned type and
-`y = min(T) + max(T) - x` for a signed one (`-1 - x` for 16 bits), for every
-processed sample of pixel type `T`, with the normal active-mask blend applied afterward.
-Mirrors and right-angle rotations only move samples, each destination sample one
-source sample copied bit for bit; they do not interpolate.
+```controls
+window: Process > Adjustments
+controls:
+  - name: Negative Transformation
+    kind: action
+    default: ""
+    effect: >-
+      Replaces every sample with its complement, equation (4): dark becomes bright and bright dark. The history step
+      is **Negative Transform**.
+    enabled: With an image or a sequence active.
+    tradeoff: >-
+      The result is recorded as nonlinear: a saved file states `ANLIN` as `nonlinear` and `ANOP` as
+      `negative-transform`, and a linear encoding the image stated is no longer stated.
+    scope: >-
+      Every channel, through the mask on the view while **Enable Mask** is on, with **Invert Mask** as it is when you
+      choose the command. A pixel the image marks invalid is left as it was.
+    persistence: The pixel type, the size, the other header cards and the plate solution are kept.
+  - name: Convert to RGB
+    kind: action
+    default: ""
+    effect: >-
+      Replaces a grayscale image with an RGB one whose three channels are copies of the gray. The history step is
+      **Convert To RGB**.
+    enabled: For a grayscale image or sequence. Greyed for an RGB one.
+    tradeoff: Three times the memory, and no color.
+    scope: An explicit validity mask is shared by the three channels.
+    persistence: >-
+      The pixel type, the size, the acquisition record, the header cards, the plate solution and the processing state
+      are kept.
+    note: >-
+      On a mosaic it asks first, in a box titled **Convert CFA to RGB**, whether to run anyway. **No** stops it.
+  - name: Convert to Grayscale
+    kind: action
+    default: ""
+    effect: >-
+      Replaces an RGB image with one channel, the weighted sum of equation (3), rounded to the nearest code of its own
+      pixel type. The history step is **Convert To Grayscale**.
+    enabled: For an RGB image or sequence. Greyed for a grayscale one.
+    tradeoff: A third of the memory. The color cannot be brought back from the result.
+    scope: >-
+      A pixel is valid where all three channels were. An explicit mask's planes are merged into one, and a rule that
+      depends on the values becomes such a mask.
+    persistence: >-
+      The pixel type, the size, the acquisition record, the header cards, the plate solution and the processing state
+      are kept.
+```
 
-### Boundary and failure behavior
+### Sequence progress
 
-- Registry guards reject a missing active image, incompatible launch state, or a
-  view already occupied by an exclusive process. Sequence jobs separately warn
-  when their view lock cannot be acquired.
-- Sequence progress can cancel engine processing. Every job that cannot finish -
-  an engine refusal, an image of the wrong kind, a view that cannot be opened, a
-  sequence that cannot be read or written - says why in a message titled as the
-  action and in the Session Console, and leaves no temporary output; only a
-  cancellation is quiet.
-- Type-conversion functions assume normal engine sample ranges. Reducing bit
-  depth quantizes; it does not dither. Right-angle geometry has no boundary fill
-  because every source sample maps to exactly one destination sample.
-- Select Mask shows “No selected image to process” if invoked without a target;
-  Remove Mask is a no-op if no mask is attached.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: >-
+      Says what the run does, as `Rotating sequence <name> 90 degrees right` or
+      `Extracting red channel from sequence <name>`, and moves on after each frame.
+    range: >-
+      Its title names the command: **Extract sequence channel**, **Convert sequence format**, **Convert sequence
+      type**, **Flip sequence**, **Sequence Rotation**, **Convert to grayscale**, **Convert to RGB** or **Negative
+      Transformation**. A failure is reported under the same title.
+    enabled: >-
+      For every command that writes a sequence. A still image has no progress window. The bar of **Convert to SER**
+      and **Convert to Image List** does not move until the run ends.
+    tradeoff: >-
+      The new sequence is written to the session's temporary folder, under a name that starts with `SEQ_SWAP`, and
+      needs the disk space of the whole result before the view shows it.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The view stays as it was, and nothing is left in the temporary folder.
+    range: A run that works frame by frame notices it before its next frame.
+```
 
-## Parameter interactions and starting points
+## How it works
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Channel extraction + later recombination | Keep the source type; use RGB channels for literal component separation. | Wrong component selected or expected output count missing. | Early 8-bit conversion shows banding/quantization in later edits. | Extract first, inspect names/counts, then convert precision only for a required destination. |
-| Color-space component + integer storage | A component is already float32; convert it to an integer type only for a destination that needs one. | Converting a component to 8 bits collapses subtle edits to the same code. | Float64 increases memory/disk use without recovering source detail. | Choose component, process in float, then convert only at final output. |
-| Geometry + astrometry | Duplicate or save first; plan to plate-solve again. | Coordinates are gone after the turn, and header cards such as exposure or filter are no longer written when the result is saved. | Not applicable; transforms are exact. | Geometry, verify orientation, then obtain a new WCS/SIP solution. |
-| Negative + mask | Verify Enable Mask, Show Mask, and rendering mode before running. | Intended protected/affected region is reversed or unchanged. | Full-strength inversion in the wrong region. | Select mask, inspect/invert state, enable, then run Negative once. |
-| Sequence container conversion | Use Image List for broadly preserved frame type/metadata; use SER for compatible compact video-style data. | Destination is the same type and the action is disabled/rejected. | SER forces unsupported high/signed/float precision to 16-bit unsigned. | Inspect type/channels/FPS, choose destination, wait for finalization, verify first/last frame. |
+1. The command reads the active view when you choose it. Without one, or with a view it cannot work on, it says so
+   in a message and does nothing. The commands of **Convert Format**, **Extract Channel** and **Sequence**, and
+   **Select Mask** and **Remove Mask**, also join **Process > Recent Processes**, which offers them whatever the
+   active view is.
+2. A still image is computed in the background. A new image opens in a new view beside the source, or the edit is
+   recorded in the view's history before the view shows it.
+3. A sequence's view is locked against other runs. Every frame is read, worked and written into a new temporary
+   sequence, published whole as a new view or in the same view. The source's file is never written. The time grows
+   with the frames times their pixels.
+4. Each result keeps what its row under Controls says, and the [lineage](../../reference/glossary.md#lineage) of a
+   computed result gains an entry with the operation.
+5. A run that cannot finish says why, in a message titled after the command and in the Session Console, and leaves
+   the image, its history and the temporary folder as they were. Only a **Cancel** is quiet.
 
-## Inputs, outputs, and metadata
+### Model
 
-New still outputs receive generated names such as channel/component suffixes,
-`CONV_*`, or `FRAME_*`; the UI disambiguates duplicate view names. A new view is
-unsaved until explicitly saved. Still Duplicate clears the source file identity
-so saving cannot silently overwrite the original.
+A sample \(x\) of an integer type is first read as a
+[fraction of full scale](../../reference/glossary.md#fraction-of-full-scale) \(n\). With \(m_T\) and \(M_T\) the
+smallest and largest codes of the source's type \(T\):
 
-Raw R/G/B channel extraction and all type-conversion outputs preserve dimensions
-and copy image metadata, header cards included. A color-space component is a
-measurement of the image: it keeps the acquisition record and the WCS/SIP solution
-and drops the header cards, for a still and a sequence frame alike. Grayscale/RGB
-conversion keeps the image's metadata. Geometry keeps the acquisition record and
-the image's meaning, invalidates the WCS/SIP solution and drops the header cards.
-Negative retains metadata because it replaces/redefines pixels in the active image. Mask state
-actions never rewrite samples or metadata.
+\[ n = \frac{x - m_T}{M_T - m_T} \tag{1} \]
 
-Sequence processing uses temporary disk storage. Channel and type conversions
-open new sequence views and leave the source view unchanged. Geometry,
-grayscale/RGB, negative, and container conversion update the active view to a new
-processed sequence while leaving the original backing input file untouched.
+For an unsigned type \(m_T = 0\), so \(n = x / M_T\). A floating-point sample is \(n\) as it is. With \(m_U\) and
+\(M_U\) the codes of the target type \(U\), a conversion to an integer type writes
 
-## Performance
+\[ y = \operatorname{round}\bigl(m_U + n\,(M_U - m_U)\bigr) \tag{2} \]
 
-Cost is linear in pixel count for a still and approximately linear in
-`frame count × pixels per frame` for a sequence. Multi-output component actions
-write three full outputs. RGB conversion triples monochrome pixel storage;
-grayscale reduces three channels to one. Float64 uses twice the sample memory and
-disk of float32, and four times unsigned 16-bit. Temporary sequence operations
-need enough free space for the complete destination before the view is published.
+rounded in double precision to the nearest code, a tie to the even one, and cut at \(m_U\) and \(M_U\). A
+floating-point target holds \(n\) itself.
 
-Prototype a long sequence with [Extract Sequence](extract-sequence.md) if runtime
-or storage is uncertain. Do not close the application or remove source media while
-a detached sequence job is active.
+With \(R\), \(G\) and \(B\) the three channels of a pixel, **Convert to Grayscale** writes
 
-## Worked example
+\[ Y = 0.2989\,R + 0.5870\,G + 0.1140\,B \tag{3} \]
 
-- Evidence mode: Source-and-test-derived.
-- Input condition/provenance and settings: An RGB sequence with known first and
-  last frames; choose **Image > Extract Channel > Extract RGB Channels**. No
-  project-owned dataset was executed.
-- Expected checkpoint: Three new sequence views are created for R, G, and B; each
-  is monochrome, retains the source dimensions/pixel type, and the source sequence
-  remains unchanged. The sequence processor requests CFA debayering before
-  extraction when applicable.
-- Inspect at 100%/statistics/history: Compare corresponding first/last frames,
-  verify the output pixel type and Image History lineage, and confirm the original
-  RGB sequence is still open.
-- Limitations: The checkpoint is derived from current source plus focused engine
-  and process-framework tests, not an executed visual dataset; no visual-quality
-  claim is made.
+and **Convert to RGB** writes \(R = G = B = Y\). **Negative Transformation** writes the complement of \(n\), which in
+the image's own codes is
 
-## Warnings and limitations
+\[ y = 1 - x \ \text{(floating point)}, \qquad y = M_T - x \ \text{(unsigned)}, \qquad y = m_T + M_T - x \ \text{(signed)} \tag{4} \]
 
-- **Convert to FITS** is currently disabled and has no working conversion path.
-- **Automatic MTF Transform** is not reachable; display auto-stretch is separate
-  and does not commit pixel data.
-- Fast Geometry discards WCS/SIP and the header cards; grayscale/RGB conversion
-  keeps the image's metadata. Re-solve geometry-dependent data after a mirror or
-  rotation.
-- When Image History cannot keep the image a still mirror or turn replaces,
-  the history says so once, in a message titled **Image History**, and the image
-  and its history are left as they were. A failure of the view's own - the
-  mirror or turn itself could not be computed, or the view could not show a
-  result the history had recorded - leaves the image as it was and is only
-  written to the Session Console; no message is shown. This is a known open
-  defect.
-- Negative Transformation is nonlinear and destructive to the active view data.
-  Its result depends on mask inversion/enabled state at execution time.
-- Color-space components are 32-bit floating encodings in the unit interval. Hue and
-  chroma samples are not stored as human-readable degrees or physical units.
-- Sequence Duplicate reopens the same backing file; it is another view, not a
-  second on-disk copy. Save/export when independent durable data is required.
-- A failed job says why. If no new output appears and no message was shown, the job
-  was cancelled; inspect the Session Console for the stop.
+so a signed 16-bit sample becomes \(-1 - x\). The mask then blends \(y\) with \(x\), as
+[Process Windows](../../interface/process-windows.md) describes. A mirror or a turn computes nothing: each new sample
+is one old sample, copied bit for bit.
 
-## Troubleshooting
+### Boundaries
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Extract Channel is disabled | Active image is not RGB. | Select an RGB view, or use Convert to RGB for a monochrome image before extracting. | `ActionStateCoordinator::setEnableImageColorActions` |
-| A precision-conversion item is disabled | The image already has that type, or the selected SER/video sequence cannot store the requested type. | Inspect the active type; choose a compatible destination or Convert to Image List. | `ActionStateCoordinator::updateActiveImageActions` |
-| Convert to FITS is disabled | Current action-state code always disables it for sequences. | Use Convert to Image List, which writes the supported image-list/FITS frame path. | `ActionStateCoordinator::updateActiveImageActions`; `ImageOperationsCoordinator::convertToFITSSeq` |
-| Coordinates no longer solve after mirror/rotate | The operation intentionally invalidates WCS/SIP and drops the header cards. | Plate-solve the transformed result again. | `ImageViewControl::orientImage`; `orientViewImage`; `ImageTurnsTest` |
-| A still mirror or turn did nothing, with an **Image History** message | Image History could not keep the image the edit replaces; it says so once and nothing changes. | Free memory or close other views, and retry. | `ImageHistoryTracker.cpp`; `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| A still mirror or turn did nothing and no message appeared | A failure of the view's own: the turn could not be computed, or the view could not show a result the history had recorded; the reason is only in the Session Console. | Read the Session Console, free memory or close other views, and retry. | `ImageViewControl::startNextEdit` |
-| "Another process is executing for this sequence, please cancel that job first before running this process" after a mirror or turn | Another run holds the sequence view. | Wait for or cancel that run, then retry. | `NonInteractiveProcesses.cpp` (`replaceSequence`); `ImageTurnsTest` |
-| “Could NOT extract frame ... because it is not a sequence” | Extract Frame was invoked for a still. | Activate a sequence and navigate to the wanted frame first. | `NonInteractiveProcesses::extractFrame` |
-| “No selected image to process” | A mask action resolved no active view. | Activate the intended target and retry. | `ProcessLauncher::executeSelectMask`; `MaskOverlayCoordinator::activeControlOrNotify` |
-| Rendering mode will not uncheck | The selected mask rendering action is forced checked so exactly one mode remains active. | Select another rendering mode rather than trying to clear the current one. | `MaskOverlayCoordinator::applyOverlayMode` |
-| Sequence job ends with no output | The view lock failed (a warning says so), the job was cancelled, or a failure ended it - which a message titled as the action names. | Wait for other processing, read the message, verify source access and free space, retry on a short extracted sequence, and inspect Session Console. | `NonInteractiveProcesses.cpp`; `ChannelSequenceTest`; `ImageOperationTest` |
+- A conversion cuts what lies outside its target: a floating-point sample above 1 becomes the largest code and one
+  below 0 the smallest. A sample that is not a number becomes 0 in an integer type. Nothing is dithered.
+- A conversion keeps the image's validity rule, except one it would move, such as exact zero as no data next to a
+  signed type: that rule becomes an explicit mask. A conversion to the image's own type, which the menu greys, is an
+  exact copy.
+- A sequence keeps its container. A **Convert Format** command to a type the container cannot hold is refused, and
+  an image list holds every type.
+- A still image shows no progress window and cannot be stopped once the command starts.
+- **Image** has no command that applies an automatic [stretch](../../reference/glossary.md#stretch). The view's
+  [Autostretch](../../reference/glossary.md#autostretch) changes the display only, unless you confirm
+  **Apply Stretch** in its settings.
 
-## Related workflow steps
+### Worked example
 
-- [Extract Sequence](extract-sequence.md) documents contiguous-range extraction into a
-  new sequence.
-- [Masks](../../interface/masks.md) covers mask compatibility, weights, inversion,
-  and how processing consumes the selected mask.
-- [Saving and Exporting](../../interface/saving-and-exporting.md) covers durable
-  files, codec limits, and the Export Sequence dialog.
-- [Image History](../../interface/image-history.md) covers lineage, undo, and the
-  difference between a new view and a modified active view.
-- [File Formats](../../reference/file-formats.md) is the codec capability matrix
-  for choosing SER, FITS/image-list, or another saved format.
+The linear Carina [master](../../reference/glossary.md#master) is a 32-bit floating-point RGB image of 7246 x 5429
+pixels, with a median of 0.02766 in each channel and a plate solution. Choose
+**Image > Convert Format > Convert to unsigned 16 bit**, as in the picture. A new view opens beside the master,
+named after it with ` - CONV_16_UINT`, and its history starts with
+`Converted to unsigned 16 bits from image '<name>'`. By equation (2), the median becomes
+\(\operatorname{round}(0.02766 \times 65535) = 1813\). The cores of the stars above 1 become 65535, and the few
+samples below 0 become 0. The status bar reads `[7246x5429 (RGB)] - [16 bit unsigned integer] - [225.10 MB]`, half
+the master's 450.19 MB, and the master is unchanged.
 
-## References and provenance
+Now make the master active and choose **Image > Fast Geometry > Rotate 90º Right**. The status bar reads
+`[5429x7246 (RGB)]`, and the view shows the image turned so that its top left corner is at the top right. Its
+history ends with **Image Rotation**, described as `90 degrees right`. The Session Console says "Astrometric solution
+removed after 90-degree-right rotation of '<name>'. Plate solve again to restore coordinates."
 
-- AfterNight action inventory and exact labels: `AfterNightAppUiBuilder.h`,
-  `MenuActionManager.cpp`, `ProcessRegistryBuiltins.cpp`.
-- Active-view, type, sequence, and mask availability: `ActionStateCoordinator.cpp`.
-- Immediate-operation behavior and temporary-output cleanup:
-  `NonInteractiveProcesses.cpp`, `ProcessCommonUtils.h`, `ChannelExtractor.cpp`,
-  `ImageOperationsCoordinator.cpp`, and `MaskOverlayCoordinator.cpp`.
-- Pixel conversion, grayscale/RGB equations, negative transform, and metadata
-  defaults: `ChannelActions.cpp` over the engine's `ImageConversion.h`,
-  `SampleConversion.h`, `ChannelScope.h`, `ColorTransform.h`, `Geometry.h` and
-  `PointwiseProgramBuilder.h`.
-- Sequence-container coercion, FPS finalization, and image-list publication:
-  `SequenceContainers.cpp` over the engine's `SerSequence.h`,
-  `ImageListManifest.h` and `SequenceOutput.h`.
-- Verification provenance: the focused GoogleTest sources.
+## Starting points
+
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| The color channels must be worked apart | **Extract RGB Channels**, in the image's own type | Convert the pixel type only for the destination that needs it. |
+| Lightness or hue alone | A CIE or HSL component, which is floating point already | Work it in floating point, and convert to an integer type at the end. |
+| The frame is upside down or on its side | **Fast Geometry**, before any plate solve | Check the orientation, then plate-solve. |
+| A sequence for another tool | **Convert to Image List**, which keeps each frame's type and cards | **Convert to SER** only for 8-bit or 16-bit data. Check the first and the last frame. |
+
+## When it goes wrong
+
+!!! warning "A mirror or a turn drops the plate solution"
+    Coordinates, overlays and the color calibrations need it. Plate-solve the image again after **Fast Geometry**.
+    A save writes only the header cards the turn kept.
+
+!!! warning "A new sequence lives in temporary storage"
+    Save or export a sequence you want to keep. Do not close AfterNight or remove the source's disk while a sequence
+    command runs.
+
+**Extract Channel** is greyed
+:   **Cause.** The active image is not RGB: it is grayscale, or an undebayered mosaic.
+:   **Fix.** Make an RGB image active, or debayer the mosaic first. A grayscale image is already its one channel:
+    **Convert to RGB** would only copy it into three.
+
+A **Convert Format** entry is greyed
+:   **Cause.** The image already has that type, or a SER or video sequence cannot hold it.
+:   **Fix.** Check the type in the status bar. For a sequence, choose **Convert to Image List** first.
+
+"... sequence cannot hold unsigned 16 bits; convert it to an image list first", or the same of another type
+:   **Cause.** A conversion of a sequence writes the source's container, which cannot store that type.
+:   **Fix.** Choose **Image > Sequence > Convert > Convert to Image List**, then convert the new sequence.
+
+**Convert to FITS** is greyed
+:   **Cause.** AfterNight writes no [FITS](../../reference/glossary.md#fits) sequence container.
+:   **Fix.** Choose **Convert to Image List**, which writes each frame as a FITS file.
+
+A command on a still image did nothing, and a message titled **Image History** says "Could NOT apply ..."
+:   **Cause.** The history could not keep the image the command would replace, often for lack of memory.
+:   **Fix.** Close views you no longer need to free memory, and choose the command again.
+
+A mirror or a turn did nothing, and a message titled **Image Rotation**, **Image Horizontal Mirror** or **Image Vertical Mirror** gives a reason
+:   **Cause.** The turn could not be computed, or its result could not be shown. The history is as it was.
+:   **Fix.** Read the reason in the message or the Session Console, free memory, and choose the command again.
+
+"Another process is executing for this sequence, please cancel that job first before running this process"
+:   **Cause.** Another run holds the sequence's view. The message is titled after the command, **Rotate Sequence**
+    for a mirror or a turn.
+:   **Fix.** Wait for that run to end, or cancel it in its progress window, then choose the command again.
+
+"Could NOT extract frame from image <name> because it is not a sequence"
+:   **Cause.** **Extract Frame** was chosen from **Process > Recent Processes** on a still image.
+:   **Fix.** Make the sequence active, move the player to the frame, and choose **Image > Sequence > Extract Frame**.
+
+"No selected image to process", "No selected sequence to process" or another "No selected ..." message
+:   **Cause.** No view was active, or a sequence command from **Recent Processes** found a still image.
+:   **Fix.** Click the view you mean, then choose the command again.
+
+A **Rendering Mode** entry will not uncheck
+:   **Cause.** One of the eight is always in force.
+:   **Fix.** Choose another mode, or turn **Show Mask** off to hide the mask.
+
+The negative changed the wrong part of the image, or none of it
+:   **Cause.** The mask on the view was enabled, or inverted, other than you meant.
+:   **Fix.** Undo the step, set **Enable Mask** and **Invert Mask**, check the overlay, and choose the command once
+    again.
+
+A sequence command ended with no new sequence and no message
+:   **Cause.** The run was cancelled. A failure always gives a message, titled as its progress window.
+:   **Fix.** Read the Session Console for the stop, check the free disk space, and try on a short part made with
+    **Extract Sequence**.
+
+## Related
+
+- [Extract Sequence](extract-sequence.md), to copy a range of frames into a new sequence.
+- [Masks](../../interface/masks.md), to make and attach the mask that **Negative Transformation** blends through.
+- [Saving and Exporting](../../interface/saving-and-exporting.md), to keep a new view or sequence, and for
+  **Export...**.
+- [Image History](../../interface/image-history.md), to undo a command that replaced the image.
+- [Sequences](../../interface/sequences.md), for the player, the automatic debayer and the temporary folder.
+- [Process Windows](../../interface/process-windows.md), for the color components of **Channel** and how a mask
+  blends a result.
+
+## Credits
+
+- The [ICC sRGB characterization](https://www.color.org/sRGB.pdf) defines the sRGB transfer, primaries and D65 white
+  the color components are computed with.
+- [CIE Standard Illuminant D65](https://www.cie.co.at/datatable/cie-standard-illuminant-d65) is the white the
+  tristimulus values are divided by.
+- [Recommendation ITU-R BT.601](https://www.itu.int/rec/R-REC-BT.601) gives the luma weights of YCbCr, which equation
+  (3) rounds.

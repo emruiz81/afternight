@@ -1,0 +1,19 @@
+{
+  "id": "sensor_calibration.actionRange_Selection",
+  "window": "Range Selection <{image}>",
+  "controls": [
+    {"label": "Lower limit", "kind": "spinbox", "object": "lowerLimitValue", "group": "", "visible": true, "default": "0.000000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Upper limit", "kind": "spinbox", "object": "upperLimitValue", "group": "", "visible": true, "default": "1.000000", "min": 0, "max": 1, "step": 0.05, "decimals": 6, "slider": true},
+    {"label": "Link Range Limits", "kind": "check", "object": "linkRangeLimits", "group": "", "visible": true, "default": "Off"},
+    {"label": "Fuzziness", "kind": "spinbox", "object": "fuzzinessValue", "group": "", "visible": true, "default": "0.00", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Smoothness", "kind": "spinbox", "object": "smoothnessValue", "group": "", "visible": true, "default": "0.00", "min": 0, "max": 32, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Screening", "kind": "check", "object": "screening", "group": "", "visible": true, "default": "Off"},
+    {"label": "Lightness", "kind": "check", "object": "lightness", "group": "", "visible": true, "default": "On"},
+    {"label": "Invert", "kind": "check", "object": "invert", "group": "", "visible": true, "default": "Off"},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Cancel", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

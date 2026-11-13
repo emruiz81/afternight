@@ -1,0 +1,15 @@
+{
+  "id": "geometry.actionCrop",
+  "window": "Crop <{image}>",
+  "controls": [
+    {"label": "Pos X", "kind": "spinbox", "object": "targetPosX", "group": "", "visible": true, "default": "0", "min": 0, "step": 1, "varies": ["max"]},
+    {"label": "Pos Y", "kind": "spinbox", "object": "targetPosY", "group": "", "visible": true, "default": "0", "min": 0, "step": 1, "varies": ["max"]},
+    {"label": "Width", "kind": "spinbox", "object": "targetWidth", "group": "", "visible": true, "min": 0, "step": 1, "varies": ["default", "max"]},
+    {"label": "Height", "kind": "spinbox", "object": "targetHeight", "group": "", "visible": true, "min": 0, "step": 1, "varies": ["default", "max"]},
+    {"label": "New Selection", "kind": "button", "object": "newSelectionButton", "group": "", "visible": true, "default": "Off"},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

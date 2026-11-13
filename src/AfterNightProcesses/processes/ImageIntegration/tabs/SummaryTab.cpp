@@ -846,7 +846,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
         QStringList star_scale;
         QStringList alpha;
         QStringList min_floor;
-        QStringList per_channel_fwhm;
         QStringList norm_mode;
         QStringList global_norm_method;
         QStringList scale_estimator;
@@ -873,8 +872,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
             star_scale << stacking.value(QStringLiteral("starCountScaling")).toString();
             alpha << formatFloatCompact(stacking.value(QStringLiteral("exponentialAlpha")).toDouble(), 2);
             min_floor << formatFloatCompact(stacking.value(QStringLiteral("minWeightFloor")).toDouble(), 2);
-            per_channel_fwhm << boolLabel(stacking.value(QStringLiteral("perChannelFwhmWeighting")).toBool(),
-                                          QStringLiteral("On"), QStringLiteral("Off"));
 
             norm_mode << normalizationModeLabel(stacking.value(QStringLiteral("normalizationMode")).toInt());
             global_norm_method << globalNormalizationMethodLabel(
@@ -934,7 +931,6 @@ QString buildRunSummaryTooltip(const QJsonObject& manifest)
             }
             detailParts << QStringLiteral("Alpha: %1").arg(summaryValueOrVaries(alpha));
             detailParts << QStringLiteral("Floor: %1").arg(summaryValueOrVaries(min_floor));
-            detailParts << QStringLiteral("PerChanFWHM: %1").arg(summaryValueOrVaries(per_channel_fwhm));
         }
 
         const QString norm = summaryValueOrVaries(norm_mode);
@@ -1093,6 +1089,37 @@ QString formatOutputBytes(qint64 bytes)
         return QString::number(mb, 'f', 1) + " MB";
     double gb = mb / 1024.0;
     return QString::number(gb, 'f', 2) + " GB";
+}
+
+/// What the files a run makes from one light weigh. Every image the run writes holds 32-bit floats: calibrated, the
+/// light keeps its own channels; registered or stacked, it holds the demosaiced ones.
+struct LightOutputBytes
+{
+    qint64 calibrated = 0;
+    qint64 developed = 0;
+    /// Whether the import recorded no layout, so the light counted as a colour mosaic.
+    bool layoutAssumed = false;
+};
+
+LightOutputBytes lightOutputBytes(const FrameInfo& frame)
+{
+    constexpr qint64 kSampleBytes = 4;
+    const QSize dimensions = frame.metadata.dimensions();
+    if (dimensions.width() <= 0 || dimensions.height() <= 0)
+    {
+        // The probe read no size: the file's own size is the only figure left.
+        const QFileInfo info(frame.displayPath);
+        const qint64 fileBytes = info.exists() ? info.size() : 0;
+        return LightOutputBytes{.calibrated = fileBytes, .developed = fileBytes};
+    }
+    const qint64 plane = static_cast<qint64>(dimensions.width()) * dimensions.height() * kSampleBytes;
+    const std::optional<FrameSampleLayout> layout = frame.metadata.sampleLayout();
+    if (!layout.has_value())
+    {
+        // A project saved before the import recorded the layout: the heavier reading, a colour mosaic.
+        return LightOutputBytes{.calibrated = plane, .developed = plane * 3, .layoutAssumed = true};
+    }
+    return LightOutputBytes{.calibrated = plane * layout->channels, .developed = plane * layout->developedChannels()};
 }
 
 QString summarizeDirectories(const QStringList& dirs, int maxCount = 3)
@@ -1763,7 +1790,8 @@ public:
             SummaryTab::tr("Run History\n\n"
                            "Last Execution: The most recent integration run for this output directory.\n"
                            "Archived: A previous run preserved in the project history.\n\n"
-                           "Tip: Hover an entry for details; use the action buttons to open, view report, or re-run.");
+                           "Tip: Hover an entry for details; use the action buttons to open, view the report, "
+                           "save it as one file, or re-run.");
         if (ui.lblRunHistoryTitle)
         {
             ui.lblRunHistoryTitle->setToolTip(runHistoryHelp);
@@ -1820,6 +1848,15 @@ public:
                 an::ui::openLocalFile(path);
             }
         });
+
+        QObject::connect(historyDelegate, &WorkflowHistoryDelegate::saveReportRequested,
+                         [this](const QModelIndex& index) {
+                             const QString runDir = index.data(WorkflowHistoryModel::RunDirPathRole).toString();
+                             if (!runDir.isEmpty())
+                             {
+                                 emit q->saveReportAsOneFileRequested(runDir);
+                             }
+                         });
 
         QObject::connect(historyDelegate, &WorkflowHistoryDelegate::logRequested, [this](const QModelIndex& index) {
             QString path = index.data(WorkflowHistoryModel::LogPathRole).toString();
@@ -2537,11 +2574,15 @@ public:
         const QStorageInfo storage(outputDir);
         const qint64 freeBytes = storage.isValid() ? static_cast<qint64>(storage.bytesAvailable()) : 0;
 
-        qint64 avgLightFileBytes = 0;
+        // What the run writes is read from each light's size and layout, not from its file: a raw file holds one
+        // mosaic plane of 12 or 16 bits, its calibrated copy that plane in 32-bit floats, and its registered copy
+        // three.
         int includedLights = 0;
+        qint64 registeredLightBytes = 0;
+        // A stacked image or map is as large as the largest light, demosaiced.
+        qint64 largestLightBytes = 0;
+        bool anyLayoutAssumed = false;
         const auto frames = model->lightFrames().frames();
-        qint64 totalSize = 0;
-        int counted = 0;
         for (const auto& frame : frames)
         {
             if (frame.excluded)
@@ -2549,35 +2590,25 @@ public:
                 continue;
             }
             ++includedLights;
-            const QFileInfo info(frame.displayPath);
-            if (info.exists())
-            {
-                totalSize += info.size();
-                ++counted;
-            }
-        }
-
-        if (counted > 0 && totalSize > 0)
-        {
-            avgLightFileBytes = totalSize / counted;
+            const LightOutputBytes bytes = lightOutputBytes(frame);
+            registeredLightBytes += bytes.developed;
+            largestLightBytes = (std::max)(largestLightBytes, bytes.developed);
+            anyLayoutAssumed = anyLayoutAssumed || bytes.layoutAssumed;
         }
 
         const auto& groupKeys = model->integrationGroups();
         const int groupCount = (std::max<int>)(1, static_cast<int>(groupKeys.size()));
 
         const auto& stackingSettings = model->stackingSettings(FrameType::Light);
+        // A group with no settings of its own runs with the defaults, as the manifest builds it.
+        const StackingSettings defaultSettings{};
         bool anyDrizzle = false;
         bool anyNonDrizzle = false;
         int rejectionMapFiles = 0;
         for (const auto& key : groupKeys)
         {
-            auto it = stackingSettings.find(key);
-            if (it == stackingSettings.end())
-            {
-                continue;
-            }
-
-            const auto& settings = it->second;
+            const auto it = stackingSettings.find(key);
+            const StackingSettings& settings = it != stackingSettings.end() ? it->second : defaultSettings;
             anyDrizzle = anyDrizzle || settings.drizzle.enabled;
             anyNonDrizzle = anyNonDrizzle || !settings.drizzle.enabled;
 
@@ -2587,12 +2618,13 @@ public:
             }
         }
 
-        const qint64 stackedBytes = (avgLightFileBytes > 0) ? (avgLightFileBytes * groupCount) : 0;
-        const qint64 rejectionBytes = (avgLightFileBytes > 0) ? (avgLightFileBytes * rejectionMapFiles) : 0;
+        const qint64 stackedBytes = largestLightBytes * groupCount;
+        const qint64 rejectionBytes = largestLightBytes * rejectionMapFiles;
 
         // Calculate calibrated frame count excluding pre-calibrated groups
         const bool calibrationToDisk = (model->lightCalibrationCacheMode() == LightCalibrationCacheMode::Disk);
         int calibratedLightCount = 0;
+        qint64 calibratedBytes = 0;
         if (calibrationToDisk)
         {
             const auto& lightCalibSettings = model->lightCalibrationSettings();
@@ -2609,18 +2641,14 @@ public:
                         if (!frame.excluded)
                         {
                             ++calibratedLightCount;
+                            calibratedBytes += lightOutputBytes(frame).calibrated;
                         }
                     }
                 }
             }
         }
-        const qint64 calibratedBytes = (calibrationToDisk && avgLightFileBytes > 0 && calibratedLightCount > 0)
-                                           ? (avgLightFileBytes * static_cast<qint64>(calibratedLightCount))
-                                           : 0;
 
-        const qint64 registeredBytes = (anyNonDrizzle && avgLightFileBytes > 0 && includedLights > 0)
-                                           ? (avgLightFileBytes * static_cast<qint64>(includedLights))
-                                           : 0;
+        const qint64 registeredBytes = anyNonDrizzle ? registeredLightBytes : 0;
 
         qint64 drizzlePixmapBytes = 0;
         if (anyDrizzle)
@@ -2676,7 +2704,7 @@ public:
             if (calibratedBytes > 0)
             {
                 tooltip += SummaryTab::tr("- Calibrated lights (%1): ~%2\n  %3\n")
-                               .arg(includedLights)
+                               .arg(calibratedLightCount)
                                .arg(formatOutputBytes(calibratedBytes))
                                .arg(QDir(outputDir).filePath(QStringLiteral("calibrated_lights")));
             }
@@ -2698,7 +2726,13 @@ public:
 
             tooltip += QStringLiteral("\n");
             tooltip += SummaryTab::tr("Notes:\n");
-            tooltip += SummaryTab::tr("- Sizes are estimates based on selected light frames.\n");
+            tooltip += SummaryTab::tr("- Sizes are estimated from the included lights' dimensions: every image is "
+                                      "written in 32-bit floats, a color mosaic as three channels once registered.\n");
+            if (anyLayoutAssumed)
+            {
+                tooltip += SummaryTab::tr("- Lights whose color layout was not recorded count as color mosaics; add "
+                                          "them again for an exact figure.\n");
+            }
             if (drizzlePixmapBytes > 0)
             {
                 tooltip +=

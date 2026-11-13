@@ -1,118 +1,166 @@
-# <Process name>
+---
+# A process page: one process of the Process menu, read with its window open.
+# Copy this file to docs/en/processes/<group>/<page>.md, list it under `nav:` in mkdocs.yml, replace every <...>, and
+# delete every comment. docs/dev/USER_GUIDE_STYLE.md says how to write it; `check_user_guide.py --page <page>` holds
+# it. The keys are explained in docs/dev/USER_GUIDE_AUTHORING.md, "Page metadata".
+kind: process
+stage: <stage id>                 # calibrate, register, stack, color, noise, stretch, finish or any
+menu: <Process > Submenu > Action>
+# One sentence, at most 40 words (summary_words): what the process does and what it is for.
+summary: >-
+  <What the process does and what it is for.>
+data_in: <state>                  # linear, nonlinear, either or cfa: what the process expects
+data_out: <state>                 # what its result is recorded as
+destructive: <true or false>      # true when Apply replaces the target
+preview: <mode>                   # real-time, static or none
+sequences: <true or false>
+masks: <mode>                     # post-blend, modulates or none
+external: <none, or a short phrase naming the tool, model, catalog or service it needs>
+glance:
+  enabled: <When the menu action is enabled.>
+  inputs: <What it takes.>
+  outputs: <What it leaves.>
+  state: <The image it is meant for.>
+derived: <true or false>          # true when another project's code, library, tool or data computes its result
+# controls_ignore:                # controls of the window that the page leaves out on purpose
+#   - {label: <label>, reason: <why>}     # with `object: <object name>` when the window has the label twice
+---
+# <Title, as the window shows it>
 
-<!-- Frozen template: UG-00, 2026-07-10. Keep every heading and field. -->
+<!-- The opening: at most 120 words (opening_words), no heading. What the process does and what Apply produces. -->
 
-<!--
-A page renders no authoring evidence. Record its owner, source-review date, reviewed revision, dirty reviewed
-sources, source files and tests, UI reachability, parameter, algorithm and example coverage, content state,
-technical and user review, media state and last strict build in its row of
-docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md.
--->
+<What the process does. What Apply produces.>
 
-## Purpose and expected result
+<!-- The window, at its default size with the real-time preview on, in the state of the worked example below. A
+     pin's number is a step's number, and it sits just left of the control it points at. -->
 
-State the purpose, audience, prerequisites, and observable result. Distinguish
-implementation facts from guidance.
+```figure
+image: ../../assets/images/processes/<group>/<page>.webp
+alt: <The window, described for a reader who cannot see it.>
+caption: <One sentence that says what the picture shows.>
+pins:
+  - {n: 1, x: 50, y: 50}
+```
 
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | <exact path> |
-| Enabled when | <target and application-state conditions> |
-| Inputs | <supported image, sequence, metadata, and auxiliary inputs> |
-| Outputs | <image/file/map/report outputs and whether the source changes> |
-| Recommended image state | <linear/nonlinear and exceptions> |
-| Preview support | <RT preview/full-image preview/apply behavior> |
-| Sequence support | <supported/unsupported and scope> |
-| Mask support | <supported/unsupported, geometry/channel and blend rules> |
-| External dependencies | <tools, models, catalogs, network, or None> |
+<!-- The theme draws "Where it belongs" and "At a glance" here, from the front matter. The whole page: at most 1,800
+     words (words), not counting the blocks, the math and the credits. -->
 
 ## Before you start
 
-Document data preparation, metadata, target selection, external readiness,
-destructive effects, and backup expectations.
+<!-- At most 6 bullets (before_you_start): what the image must be, what to do first, what is lost on Apply. -->
 
-## Procedure
+- <What the image must be.>
+- <What to do first.>
 
-Use task-oriented steps with an observable checkpoint after each meaningful
-action, including preview/apply success and output location.
+## Steps
 
-## Complete parameter and action reference
+<!-- An ordered list, at most 9 steps (steps). Each step is a bold lead and a sentence or two, and the last one ends
+     in something the reader can see. -->
 
-One row is required for every visible control and meaningful action, using the
-exact current UI label.
+1. **<Open the window.>** <Where it is and what it needs.>
+2. **<Do the main thing.>** <What to move, and what to watch.>
+3. **<Apply.>** <What the reader sees when it is done.>
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| <label> | <type/unit> | <default> | <none or exception> | <range/enums/files> | <effect> | <dependencies> | <trade-off> | <scope> | <key/lifetime/reset> |
+## Controls
 
-## How the algorithm works
+<!-- One optional sentence, then one `controls` block per window or tab, every control in the window's order. The
+     defaults and ranges live here and are not repeated in the prose. A page with several windows may give each
+     block a `### <window or tab>` heading. Start from the window's inventory (data/ui/): its names, kinds,
+     defaults, numbers and choices are the block's, and the check holds the block to them. What the window
+     only shows - a count, a status line - is an entry of `kind: readout` where the window shows it. A part the
+     window draws itself, and a dialog one of its buttons opens, get a block of their own, named for them. -->
 
-### Conceptual pipeline
+```controls
+window: <Window title>
+controls:
+  - name: <Label, as the window shows it>
+    kind: spinbox
+    default: "0.50"
+    widget: {min: 0, max: 1, step: 0.01, decimals: 2}
+    effect: <What a higher and a lower value do.>
+    range: <A constraint the numbers do not show.>
+    enabled: <When it is enabled.>
+    tradeoff: <What it costs.>
+    scope: <Preview or Apply, channels, mask.>
+    persistence: <How long the value is kept.>
+  - name: <Label>
+    kind: combo
+    default: <Choice>
+    options: [<Choice>, <Another choice>]
+    effect: <What it chooses.>
+    note: <Anything else the reader needs.>
+```
 
-1. <validated input and preprocessing>
-2. <core estimator, transform, kernel, solver, or external engine>
-3. <channel/color and mask handling>
-4. <boundary, invalid-pixel, clipping, and output conversion behavior>
+## How it works
 
-### Model and equations
+<!-- At most 5 numbered statements (how_it_works), then, as the page needs them and in this order: `### Model`,
+     `### Boundaries` and `### Worked example`. -->
 
-Define every symbol and pair useful equations with plain language. State
-estimators, kernels, transforms, resampling, numerical precision,
-convergence/stopping behavior, and external implementation/provenance.
+1. <What the process does first.>
+2. <What it does next.>
 
-### Boundary and failure behavior
+### Model
 
-State validation, negative/NaN/invalid-pixel handling, edge policy,
-cancellation, partial-output cleanup, and errors.
+<!-- The equations, numbered with \tag{}, every symbol defined in the sentence before. -->
 
-## Parameter interactions and starting points
+<The symbols, then the equation.>
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| <controls> | <source/test-backed guidance> | <symptom> | <symptom> | <sequence> |
+### Boundaries
 
-Do not invent quantitative or visual results.
+<!-- At most 5 bullets (boundaries): what the process does at its edges, with invalid samples, when cancelled. -->
 
-## Inputs, outputs, and metadata
+- <A boundary.>
 
-Document input/output counts, compatibility, naming, pixel type/precision,
-source modification, metadata/history, auxiliary files, overwrite, and
-temporary files.
+### Worked example
 
-## Performance
+<!-- The setup, then the result: settings a reader can type, and what the page's equations make of a value the
+     reader can find. Where the result is the point - the groups under `before_after_groups` in data/limits.yml - a
+     before-and-after pair with those settings: the whole frame for a tone process, a crop at 100 % for one whose
+     effect is in the detail, both under the display mode the caption names. -->
 
-Identify cost drivers, scaling, memory/disk/network, external processes, and
-safe prototypes.
+<The image and the settings.>
 
-## Worked example
+```figure
+images:
+  - image: ../../assets/images/processes/<group>/<page>-before.webp
+    alt: <The region before.>
+    label: Before
+  - image: ../../assets/images/processes/<group>/<page>-after.webp
+    alt: <The region after.>
+    label: After
+caption: <What changed, and the display stretch both crops are shown under.>
+```
 
-- Evidence mode: <Executed with project-owned data / Source-and-test-derived>.
-- Input condition/provenance and settings: <record>.
-- Expected checkpoint: <verified observation only>.
-- Inspect at 100%/statistics/history: <record>.
-- Limitations: <especially when not executed>.
+## Starting points
 
-## Warnings and limitations
+<!-- Optional. One table of at most 4 rows (starting_points_rows) and at most 3 columns (starting_points_columns),
+     headed as below. -->
 
-Cover destructive actions, linear/nonlinear order, masks, clipping, color,
-precision, resources, dependencies, unsupported states, and known limits.
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| <A kind of image> | <A setting> | <What to move next> |
 
-## Troubleshooting
+## When it goes wrong
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| <symptom> | <cause> | <action> | <source/test> |
+<!-- At most 4 warning and danger callouts on the page (warnings), then a definition list of at most 8 entries
+     (troubleshooting). The term is the symptom in the reader's words, or the exact message. -->
 
-## Related workflow steps
+!!! warning "<A mistake that costs work>"
+    <What to do instead.>
 
-Explain and link preceding/following steps and their handoff state.
+<The symptom, or "the exact message">
+:   **Cause.** <One sentence.>
+:   **Fix.** <An instruction.>
 
-## References and provenance
+## Related
 
-List primary papers, standards, upstream documentation, licenses, and project
-provenance actually used.
+<!-- At most 6 links (related), one line each, by the pages' titles. -->
 
-<!-- Media authoring: use only the canonical manifest. For missing retained media,
-place a compact MEDIA_SLOT with its stable Media ID and no capture instructions. -->
+- [<Page title>](<page>.md), <why the reader would go there>.
+
+## Credits
+
+<!-- Required when `derived: true`, left out when there is nothing to credit. At most 8 entries (credits): the
+     upstream work, its authors, its licence and a link; the papers the explanation rests on. -->
+
+- [<Upstream work>](<https://address>), by <its authors>, under <its licence>.

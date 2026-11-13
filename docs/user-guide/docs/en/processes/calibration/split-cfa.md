@@ -1,82 +1,184 @@
+---
+kind: process
+stage: calibrate
+menu: Process > Color Spaces > Split CFA
+summary: >-
+  Takes a Bayer mosaic apart into its four positional planes as new grayscale images or sequences, or extracts its red
+  sites as Ha, its mean green, or a derived Ha and OIII pair for a dual-band filter.
+data_in: cfa
+data_out: linear
+destructive: false
+preview: none
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active. Target Image lists only the open one-channel mosaics, and OK refuses a
+    target that states no two-by-two Bayer pattern.
+  inputs: >-
+    One undebayered mosaic of an RGGB, BGGR, GRBG or GBRG pattern at any phase, as a still image or a sequence, in any
+    pixel type.
+  outputs: >-
+    One, two or four new grayscale views, or new temporary sequences, in the mosaic's pixel type and not yet saved. The
+    mosaic and its history are not changed. No file, preset or report is written.
+  state: >-
+    A raw or calibrated mosaic of a one-shot color camera, before the debayer. A light taken through a dual-band filter
+    for Extract Ha/OIII.
+derived: false
+---
 # Split CFA
 
-## Purpose and expected result
+This process takes a raw [CFA](../../reference/glossary.md#cfa) mosaic apart without estimating a color. **Split CFA
+Channels** opens the four positions of each two-by-two cell of its
+[Bayer pattern](../../reference/glossary.md#bayer-pattern) as four grayscale images, each a quarter of the mosaic. The other methods extract the red sites as Ha, the mean of the
+two green sites, or an Ha and OIII pair derived for a dual-band filter.
 
-Split CFA opens new grayscale images or sequences derived directly from a Bayer
-mosaic. It can expose all four photosite positions, extract the red photosite as
-an Ha-oriented plane, average the two green photosites, or derive Ha and OIII
-planes for a dual-band OSC workflow. The source is never modified.
+**OK** opens each result in a new view beside the mosaic, or as a new [sequence](../../reference/glossary.md#sequence)
+for a sequence, and closes the window. Each result keeps the mosaic's
+[pixel type](../../reference/glossary.md#pixel-type). The mosaic and its
+[history](../../reference/glossary.md#history) are not changed.
 
-The Ha/OIII methods are sensor/filter assumptions, not a spectroscopic
-decomposition. They are meaningful only when red photosites primarily record Ha
-and green/blue photosites primarily record OIII.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Color Spaces > Split CFA**; the window's title is **Split CFA** followed by the target's name |
-| Enabled when | An image or sequence view is active. The target selector lists only views shown as a one-channel mosaic; a target that does not state a two-by-two mosaic is refused when **OK** is pressed. |
-| Inputs | One undebayered RGGB, BGGR, GRBG, or GBRG mono image/sequence, with the arrangement and phase its description states. An X-Trans mosaic and an image that states no filter array are refused by name. |
-| Outputs | One, two, or four new grayscale views/sequences in the mosaic's sample type. Dimensions depend on Method/Resampling. Source remains open and unchanged. |
-| Recommended image state | Calibrated linear CFA data before Debayer. Ha/OIII requires appropriate dual-band acquisition. |
-| Preview support | None. **OK** executes immediately. |
-| Sequence support | Supported; every frame is split and written into new sequences of the source's container, with progress and **Cancel**. |
-| Mask support | Unsupported and ignored. |
-| External dependencies | None. |
+```figure
+owed: true
+image: ../../assets/images/processes/calibration/split-cfa.webp
+alt: >-
+  The Split CFA window. Under the title, the process name and the line Extract CFA channels or derived Ha/OIII/green
+  components from RAW mosaic frames. Below, Method at Split CFA Channels, Ha/OIII Resampling greyed at No Resampling,
+  and Target Image naming the light. OK and Close run along the bottom.
+caption: >-
+  Split CFA on a raw NGC 253 light with Method at Split CFA Channels, which opens the light's four positional planes.
+pins:
+  - {n: 2, x: 2.8, y: 67.5}
+  - {n: 3, x: 2.8, y: 40.0}
+  - {n: 4, x: 2.8, y: 53.5}
+  - {n: 5, x: 54.0, y: 90.0}
+```
 
 ## Before you start
 
-1. Confirm the file is still mono CFA data and its stated Bayer pattern is
-   correct. The stated arrangement and phase decide plane names and the Ha/OIII
-   positions.
-2. Calibrate before splitting when possible. Splitting first changes geometry
-   and removes CFA metadata from the outputs.
-3. For Ha/OIII, confirm the filter's red leak/cross-talk and sensor response are
-   acceptable. This process performs no continuum subtraction or spectral fit.
-4. Plan to plate-solve an output again if astrometry matters: no output states
-   the source's solution, because its pixel grid is no longer the mosaic's. A
-   positional plane keeps the mosaic's other header cards, but drops its
-   world-coordinate cards and the solver's `PLTSOLVR` card with the solution.
+- The image is a mosaic that states its pattern. Do not [debayer](../../reference/glossary.md#debayer) it: when a raw
+  [FITS](../../reference/glossary.md#fits) file opens with the question "Do you want to automatically debayer it before
+  opening?", answer **No**.
+- Check that the stated pattern, a FITS file's `BAYERPAT` card, is the camera's. The pattern and its phase name the
+  planes and place the Ha and OIII sites, and a wrong one gives wrong names and products without a warning.
+- Calibrate the mosaic first: the results state no filter array, and are smaller than the mosaic.
+- **Extract Ha** and **Extract Ha/OIII** assume that the red sites record mainly hydrogen-alpha and the green and blue
+  sites mainly OIII, as behind a dual-band filter. Check the filter's red leak and cross-talk: nothing removes the
+  [continuum](../../reference/glossary.md#continuum) or fits a spectrum.
+- No result states a [plate solution](../../reference/glossary.md#plate-solution). Plate-solve a result again when
+  you need one.
+- A [mask](../../reference/glossary.md#mask) on the view is not used. On a sequence, every frame is split, whatever
+  frames its player has selected, and each result is a sequence of its own: check the free disk first.
 
-## Procedure
+## Steps
 
-1. Select a CFA mono view and open **Process > Color Spaces > Split CFA**.
-2. Verify **Target Image** and choose a **Method**.
-3. For **Extract Ha/OIII**, choose whether to keep native unequal dimensions,
-   upsample Ha, or downsample OIII.
-4. Click **OK**. The window closes after success; sequence work shows progress.
-5. Verify output names, dimensions, and sample values.
-6. Use [Merge CFA](merge-cfa.md) only with four unmodified, matching positional
-   planes in CFA0–CFA3 order. Ha/Green/OIII products are not lossless merge inputs.
+1. **Open the window.** Make the mosaic the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Color Spaces > Split CFA**. The title names the mosaic.
+2. **Check the target.** Check that **Target Image**, which lists the open mosaics, names the one you mean.
+3. **Choose the method.** Choose **Method**. **Split CFA Channels** keeps every sample.
+4. **Size the pair.** For **Extract Ha/OIII** only, choose **Ha/OIII Resampling**: keep each product at its own size,
+   or bring one to the other's.
+5. **Split.** Choose **OK**. The window closes and new views open beside the mosaic, named after it and the plane,
+   as `<mosaic> - CFA0 - Red`.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Method | Selector | **Split CFA Channels** | None | **Split CFA Channels**, **Extract Ha**, **Extract Ha/OIII**, **Extract Green** | Chooses four positional planes, the red photosite plane, derived Ha+OIII, or the mean of both green photosites. | Enables Ha/OIII Resampling only for **Extract Ha/OIII**. | Four-plane and Ha/OIII sequence modes write more sequences; derived modes are not reversible. | Execute only; still/sequence; no mask | Window lifetime; reopening restores default. |
-| Ha/OIII Resampling | Selector | **No Resampling** | None | **No Resampling**, **Upsample Ha**, **Downsample OIII** | Keeps Ha at half width/height and OIII full size; or resamples one by a factor of two with the engine's Lanczos filter to match the other. | Enabled only for **Extract Ha/OIII**. | Upsampling invents samples and costs memory; downsampling discards OIII resolution; Lanczos can ring near sharp transitions. | Ha/OIII outputs only; still/sequence | Window lifetime. |
-| Target Image | CFA mono image/sequence selector | Launching view | None | Open views shown as a one-channel mosaic | Chooses the source without modifying it. | Only compatible views listed; a target that no longer states a two-by-two mosaic is refused when **OK** is pressed. | Sequence length controls runtime/disk. | Execute only | Current window only. |
-| OK | Button | — | None | Valid target | Checks the target's mosaic, reads the dialog, runs the extraction on a worker, opens the output view(s), and closes after success. | Disabled while running. | Output count is 1/2/4; sequences write that many new sequences. | Still/sequence; no preview/mask | No persistence. |
-| Close | Button | — | None | Click action | Closes without output. | Disabled during execution. A window closed during a run stays hidden until it lands. | No source change. | Process window | No persistence. |
+The window has no preview, no **Channel** and no **Reset**. What every process window shares is on
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Split CFA
+controls:
+  - name: Method
+    kind: combo
+    default: Split CFA Channels
+    options: [Split CFA Channels, Extract Ha, Extract Ha/OIII, Extract Green]
+    effect: Chooses what the window makes. **Split CFA Channels** makes four images, one for each position of the cell. **Extract Ha** makes one of the red sites. **Extract Green** makes one of the mean of the two green sites of each cell. **Extract Ha/OIII** makes an Ha and an OIII image for a dual-band filter.
+    enabled: "**Ha/OIII Resampling** is enabled only with **Extract Ha/OIII**."
+    tradeoff: Only the four positional planes can be merged back into the mosaic. The three extractions drop, average or estimate sites, and cannot.
+    scope: OK, on the image or on every frame of the sequence. No mask is used.
+    persistence: Until the window closes. The next window opens at **Split CFA Channels**.
+    note: "**Split CFA Channels** makes four results, named `<mosaic> - CFA0 - Red` to `<mosaic> - CFA3 - Blue` by position and color. **Extract Ha** makes `<mosaic> - Ha`, **Extract Green** `<mosaic> - Green`, and **Extract Ha/OIII** both `<mosaic> - Ha` and `<mosaic> - Oiii`. On a sequence each result is a new sequence."
+  - name: Ha/OIII Resampling
+    kind: combo
+    default: No Resampling
+    options: [No Resampling, Upsample Ha, Downsample OIII]
+    effect: "**No Resampling** keeps Ha at half the mosaic's width and height and OIII at its full size. **Upsample Ha** enlarges Ha by two to the size of OIII. **Downsample OIII** reduces OIII by two to the size of Ha."
+    enabled: With **Method** at **Extract Ha/OIII**. It is disabled when the window opens.
+    tradeoff: "**Upsample Ha** makes samples that were never measured and takes four times the memory of Ha. It adds no resolution. **Downsample OIII** discards the resolution of OIII. Both resample with a Lanczos filter, which can ring beside a sharp edge such as a star."
+    scope: The Ha and OIII results only.
+    persistence: Until the window closes.
+  - name: Target Image
+    kind: combo
+    default: The active mosaic
+    options: [The active mosaic, Every other open one-channel mosaic]
+    effect: Chooses the mosaic or mosaic sequence OK splits. It is read and never changed.
+    range: It lists the views that show a one-channel mosaic, a still image that states a filter array, or a sequence whose view does not debayer its frames. An X-Trans mosaic is listed, and OK refuses it.
+    enabled: Disabled while a run works. **Method** and **Ha/OIII Resampling** stay enabled, and a change to them does not reach the run.
+    tradeoff: A longer sequence takes more time and more temporary disk.
+    persistence: Until the window closes.
+    note: Opened on an image that is no mosaic, the window works on that image, which its title names, and OK refuses it even while this box shows a mosaic.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Checks that the target is a two-by-two mosaic, reads **Method** and **Ha/OIII Resampling**, and makes the results away from the window. New views open beside the mosaic, and the window closes.
+    enabled: Enabled when the window opens, also on an image that is no mosaic, which it refuses when you press it. Disabled while a run works, with **Close** and **Target Image**.
+    tradeoff: "**Extract Ha/OIII** works on a floating copy of the whole mosaic, and a resampling holds a 64-bit working plane on top of it. A still image shows no progress window, and its run cannot be stopped once it starts."
+    scope: The whole image or every frame of the sequence, without the mask.
+    persistence: "Each new view is unsaved, and its history starts with `Split CFA: CFA0 extracted from RAW image '<mosaic>'`, where `CFA0` is `CFA0` to `CFA3`, `Ha`, `Green` or `OIII`, and `RAW sequence` replaces `RAW image` for a sequence. Its lineage records the split and the plane, or the extraction. The mosaic's history gets no step."
+    note: A run that fails leaves the window open with its controls enabled.
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without splitting.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+```
 
-### Conceptual pipeline
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Split CFA** and the text `Executing split CFA to sequence <name>`."
+    enabled: Shown only while OK works on a sequence. A still image has no progress window.
+    tradeoff: Each result is written to a temporary file in the sequence's container until the run ends. The four positional planes together hold as many samples as the mosaic. An OIII sequence at full size holds as many alone. Try the method on one frame as a still image before a long sequence.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest. Nothing opens, the temporary files are removed, and the Split CFA window stays open.
+    note: Closing the Split CFA window does not stop the run.
+```
 
-1. Each 2×2 Bayer cell is indexed by position, independent of pattern label:
-   CFA0 `(even x, even y)`, CFA1 `(odd x, even y)`, CFA2 `(even x, odd y)`,
-   CFA3 `(odd x, odd y)`.
-2. The mosaic's stated arrangement and phase map those four positions to Red,
-   Green1, Green2, and Blue; the greens are numbered in plane order.
-3. The chosen method copies positional samples or derives Ha/Green/OIII through
-   the engine.
-4. Each output is a new image in the mosaic's sample type. Sequence frames run
-   the same operation and are written into new sequences.
+## How it works
 
-### Model and equations
+1. **OK** checks that the target is a one-channel mosaic of a two-by-two pattern. Each cell is then read by position,
+   whatever its colors, and an odd last column or row, which completes no cell, is left out.
+2. The pattern and phase the mosaic states give each position its color, and the two greens are numbered in plane
+   order.
+3. **Split CFA Channels** and **Extract Ha** copy sites, and **Extract Green** averages two. All three work in the
+   mosaic's own pixel type. **Extract Ha/OIII** works on a floating copy of the mosaic, as a
+   [fraction of full scale](../../reference/glossary.md#fraction-of-full-scale).
+4. A positional plane keeps the mosaic's acquisition record, its
+   [processing state](../../reference/glossary.md#processing-state) and its
+   [header cards](../../reference/glossary.md#header-card), except the [WCS](../../reference/glossary.md#wcs) cards and
+   the `PLTSOLVR` card of a plate solution, which described the mosaic's grid. An Ha, Green or OIII product keeps the
+   acquisition record, drops every header card and any decision on how to write it, and is recorded as demosaiced.
+5. A sequence's frames are read as recorded, and each result is written into a new
+   [temporary sequence](../../reference/glossary.md#temporary-sequence) in the sequence's
+   container, published only when every frame is written.
 
-The colour at each position under the four arrangements at zero phase is:
+### Model
+
+Plane \(k\), from 0 to 3, holds the position \((k \bmod 2,\ \lfloor k/2 \rfloor)\) of every cell. With \(M\) the
+mosaic, \(W\) and \(H\) its width and height, and \(0 \le x < \lfloor W/2 \rfloor\), \(0 \le y < \lfloor H/2 \rfloor\):
+
+\[ P_k(x, y) = M\bigl(2x + (k \bmod 2),\ 2y + \lfloor k/2 \rfloor\bigr) \tag{1} \]
+
+So CFA0 is the top-left site of every cell, CFA1 the top-right, CFA2 the bottom-left and CFA3 the bottom-right. The
+pattern decides their colors:
 
 | Pattern | CFA0 | CFA1 | CFA2 | CFA3 |
 | --- | --- | --- | --- | --- |
@@ -85,181 +187,112 @@ The colour at each position under the four arrangements at zero phase is:
 | GRBG | Green1 | Red | Blue | Green2 |
 | GBRG | Green1 | Blue | Red | Green2 |
 
-A mosaic cropped at an odd offset states a shifted phase, and the names follow
-it: an RGGB mosaic cropped one column in is read as GRBG and its planes are
-named Green1, Red, Blue, Green2.
+A mosaic cut at an odd column states the shifted pattern, and the names follow it: an RGGB mosaic cropped one column
+in is GRBG, and its planes are Green1, Red, Blue and Green2. Equation (1) is a copy, so the four planes give back the
+mosaic's even part exactly. **Extract Ha** is the red plane. **Extract Green** gives, with \(G_1\) and \(G_2\) the two
+green planes in fractions of full scale,
 
-**Split CFA Channels** copies each position into a half-width, half-height plane.
-For odd source dimensions, the last column and/or row is discarded. Because the
-operation is pure copying, those four planes can reconstruct the retained even
-rectangle exactly when their order/type/dimensions are preserved.
+\[ G = \tfrac{1}{2}\,(G_1 + G_2) \tag{2} \]
 
-**Extract Ha** copies the red position, as the stated phase places it, from each
-2×2 cell, also at half width and height, in the mosaic's sample type. **Extract
-Green** computes
+rounded to the nearest code, ties to even, for an integer mosaic.
 
-\[
-G=\frac{G_1+G_2}{2}
-\]
+**Extract Ha/OIII** works in 32-bit floating point, or 64-bit for a 64-bit or a 32-bit integer mosaic, on the even
+part of the mosaic. Ha is the red plane. For OIII, let \(\mu_1\), \(\mu_2\) and \(\mu_B\) be the means of the finite
+samples at the two green positions and the blue one. Each of those sites is multiplied by \(\bar\mu / \mu_i\) of its
+position, where
 
-for each cell in normalized sample space; an integer result is rounded to the
-nearest code, ties to even.
+\[ \bar\mu = \tfrac{1}{3}\,(\mu_1 + \mu_2 + \mu_B) \tag{3} \]
 
-**Extract Ha/OIII** works in these units: an unsigned integer as a fraction of
-its largest value, a signed one counted from its
-smallest value, a floating sample as it is, in 32-bit float, or 64-bit float for
-a 64-bit float mosaic and for 32-bit integers. Odd dimensions are cropped to an even top-left rectangle. Ha
-copies the red position into a half-resolution plane. For OIII, the global means
-of the finite Green1, Green2 and Blue samples are `μ₁`, `μ₂`, `μ_B`; their shared
-target mean is
+A position whose mean is zero, to double precision, is left as it is. Each red site of OIII is then the mean of its
+eight equalized neighbours, the four beside it weighted by \(\sqrt{2}\) and the four on its corners by 1. Both
+products return to the mosaic's pixel type, an integer to the nearest code. **Upsample Ha** and **Downsample OIII**
+resample by two with the separable kernel \(L(d) = \operatorname{sinc}(d)\,\operatorname{sinc}(d/4)\) for \(|d| < 4\),
+where \(\operatorname{sinc}(t) = \sin(\pi t)/(\pi t)\): eight taps normalized by their sum, with pixel centres at
+half-pixel positions, reading the nearest edge sample beyond the picture.
 
-\[
-\bar\mu=(\mu_1+\mu_2+\mu_B)/3.
-\]
+### Boundaries
 
-Each non-red photosite is multiplied by `μ̄/μᵢ`; a position whose mean is
-within double-precision epsilon of zero is left unscaled. Each red position is
-filled from the equalized OIII samples among its eight neighbours, the four
-axial ones weighted by √2 and the four diagonal ones by 1. A non-finite sample
-counts toward neither a mean nor a fill and is written as zero. Optional
-matching resamples one product by a factor of two with a separable,
-eight-tap Lanczos filter (`sinc(d) sinc(d/4)`, `|d| < 4`) on half-pixel centres,
-reading the nearest edge sample beyond the picture. Both products are then
-written back in the mosaic's sample type in the same units they were read in -
-an unsigned integer as a fraction of its largest value, a signed one counted
-from its smallest value - an integer to the nearest code.
+- **OK** refuses an image that states no filter array, one of more than one channel and an X-Trans mosaic, each by
+  name, and asks no question to run anyway. Nothing opens.
+- **Split CFA Channels** refuses a mosaic whose valid samples are stated in a mask. The three extractions refuse,
+  before any work, a mosaic that states any sample invalid, and **Extract Ha/OIII** one where a green or blue position
+  holds no finite sample.
+- In a floating mosaic, a sample that is not a number is copied as it is by **Extract Ha**, and makes its cell's
+  **Extract Green** value one too. **Extract Ha/OIII** leaves it out of its means and fills and writes 0 in its place,
+  and a red site without a finite neighbour becomes 0.
+- The Lanczos result is not clamped. Beside a sharp edge a floating product can fall outside 0 to 1, and an integer
+  one stops at the ends of its type.
+- A refusal or a failure is reported in a message box titled "Error running Split CFA", which starts "An error
+  occurred when executing the Split CFA process:", and in the log, not in the window's message strip. No view opens.
 
-### Boundary and failure behavior
+### Worked example
 
-- Every method reads only complete 2×2 blocks; an odd last row/column is not
-  used.
-- The target is checked when **OK** is pressed. An image that states no filter
-  array is refused with `the image states no colour filter array`, an image of
-  more than one channel with `a mosaic has one channel`, and an X-Trans mosaic
-  with `the XTrans filter array is not a two-by-two arrangement, which is all this
-  process takes apart`, each under **Error running Split CFA**. There is no
-  run-anyway question.
-- **Split CFA Channels** refuses a mosaic whose valid samples are stated in a
-  mask with `an image whose valid samples are stated in a mask cannot be split`.
-  **Extract Ha**, **Extract Green** and **Extract Ha/OIII** refuse, before any
-  work, a mosaic that states any sample invalid - a validity rule or a mask -
-  with `an image that states some of its samples invalid cannot have a
-  narrowband channel extracted`. Ha/OIII refuses a mosaic in which a green or
-  blue position holds no finite sample.
-- The Lanczos result is not clamped: beside a sharp edge a floating product can
-  fall slightly outside 0–1, and an integer product saturates at its range.
-- A failure is reported in a message titled **Error running Split CFA** that
-  begins `An error occurred when executing the Split CFA process:` followed by the
-  reason, and in the log. No output view is opened.
-- A sequence another run holds, or a still image whose edit is still being
-  written, shows the busy warning. **Cancel** on a
-  sequence's progress window stops the run quietly; nothing is opened and the
-  files it was writing are removed.
+The data is a raw light of NGC 253 from a QHY183C: a FITS file of 5544 by 3684 16-bit
+[sensor codes](../../reference/glossary.md#sensor-code), whose header states `BAYERPAT = 'RGGB'` with no offset.
+Opened with **No** to the debayer question, its view takes the file's name, `<light>` below. With **Method** at
+**Split CFA Channels**, **OK** opens four 16-bit planes of 2772 by 1842 pixels: `<light> - CFA0 - Red`,
+`<light> - CFA1 - Green1`, `<light> - CFA2 - Green2` and `<light> - CFA3 - Blue`. Their medians are 3248, 4064, 4096
+and 3280 codes: in this uncalibrated sky the green sites read a quarter more than the red and blue ones.
 
-## Parameter interactions and starting points
+At the cell of the galaxy's core, at (2772, 1842) of the light, red, green, green and blue read 4736, 6048, 6096 and
+4080. By equation
+(1) they are pixel (1386, 921) of each plane, and by equation (2) **Extract Green** gives 6072 there. A plane's pixels
+lie two of the sensor's apart, 2.29″ on the sky in place of 1.15″, and the plane keeps the light's `XPIXSZ` of 2.4 µm.
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Pattern metadata + Split | Verify pattern from acquisition metadata; use four planes first | Labels/colors do not match sensor positions | Wrong pattern silently relabels derived channels | Verify metadata -> inspect CFA0–3 -> derive channels |
-| Ha/OIII + Resampling | No Resampling for diagnosis | Dimensions prevent later comparison/composition | Upsampling looks sharper without adding real resolution; downsampling loses detail | Inspect native -> choose one target geometry -> resample once |
-| Ha/OIII + filter assumptions | Use only with reviewed dual-band response | Cross-talk/continuum remains | Derived planes are mistaken for spectrally pure masters | Verify filter/sensor -> inspect native planes -> compare externally if needed |
+## Starting points
 
-## Inputs, outputs, and metadata
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A first look at a mosaic | **Split CFA Channels** | Compare the planes' names and medians with the camera's pattern before you derive anything. |
+| A dual-band light | **Extract Ha/OIII** with **No Resampling** | Choose one size for both products, then resample once: **Upsample Ha** or **Downsample OIII**. |
+| Planes to change and merge back | **Split CFA Channels** | Change the four planes alike, keep their size, and join them with Merge CFA in CFA0 to CFA3 order. |
 
-| Method | Outputs | Native dimensions for source `W×H` | Names |
-| --- | --- | --- | --- |
-| Split CFA Channels | 4 grayscale images/sequences | `floor(W/2) × floor(H/2)` each | `<target> - CFA0 - <color>` through CFA3 |
-| Extract Ha | 1 grayscale image/sequence | `floor(W/2) × floor(H/2)` | `<target> - Ha` |
-| Extract Green | 1 grayscale image/sequence | `floor(W/2) × floor(H/2)` | `<target> - Green` |
-| Extract Ha/OIII, No Resampling | 2 grayscale images/sequences | Ha `floor(W/2)×floor(H/2)`; OIII even-cropped `W×H` | `<target> - Ha`; `<target> - Oiii` |
-| Extract Ha/OIII, Upsample Ha | 2 matching full/even size | Ha resampled to OIII | Same |
-| Extract Ha/OIII, Downsample OIII | 2 matching half size | OIII resampled to Ha | Same |
+## When it goes wrong
 
-Each output's history begins `Split CFA: <what> extracted from RAW image
-'<target>'`, where `<what>` is `CFA0` to `CFA3`, `Ha`, `Green` or `OIII`; a
-sequence's says `RAW sequence`. Each new view opens beside the source.
+!!! warning "Ha and OIII are estimates, not narrowband masters"
+    The pair holds what the red, green and blue sites of a dual-band light recorded, cross-talk and continuum
+    included. Compare it with what the filter passes before you combine it with true narrowband data.
 
-Every output keeps the mosaic's sample type, any of the eight AfterNight stores.
-A positional plane keeps the mosaic's acquisition record, meaning and header
-cards, states no filter array, and states no plate solution; its lineage names
-the engine's block split and the plane. The solution goes with the cards that
-state it: the mosaic's world-coordinate cards and the solver's `PLTSOLVR` card
-describe the mosaic's grid and not the half-size plane's, so a plane carries
-none of them; plate-solve the plane again if you need a solution. An Ha, Green
-or OIII product keeps the
-acquisition record, drops the plate solution and the header cards, withdraws any
-decision about how it is written, and is marked as a resolved measurement
-(demosaiced). The source remains unchanged.
+**Target Image** does not list the mosaic
+:   **Cause.** The view shows no one-channel mosaic: the file was debayered as it opened, or a sequence's view
+    debayers its frames.
+:   **Fix.** Open the raw file or the sequence again, and answer **No** when AfterNight asks whether to debayer it.
 
-A sequence's frames are read as recorded, every frame of the sequence, and each
-output sequence is written in the source's container in AfterNight's temporary
-directory, published only when every frame is written. Save or export it when a
-durable file is wanted.
+"the image states no colour filter array"
+:   **Cause.** The target states no Bayer pattern, or the window opened on an image that is no mosaic.
+:   **Fix.** Open the mosaic from a file that states its pattern, make its view active, and open the window again. Do
+    not guess a pattern you do not know.
 
-## Performance
+"the XTrans filter array is not a two-by-two arrangement, which is all this process takes apart"
+:   **Cause.** The mosaic is X-Trans, whose pattern repeats over six pixels.
+:   **Fix.** Demosaic it with Debayer and **From metadata**, or open the raw file with the automatic debayer.
 
-Simple split/Ha/Green work is linear in pixels and output count. Ha/OIII adds a
-floating working copy of the mosaic, two global passes, the red-site fill and,
-when asked, a 64-bit float working plane for the Lanczos resampling; a sequence
-computes the pair once per frame. Test one still before a long sequence and
-budget disk for up to four new sequences.
+"an image whose valid samples are stated in a mask cannot be split", or "... cannot have a narrowband channel extracted"
+:   **Cause.** The mosaic states some samples invalid, which no result can carry.
+:   **Fix.** Use the mosaic as it was opened, which states every sample valid.
 
-## Worked example
+**Ha/OIII Resampling** is greyed
+:   **Cause.** **Method** is not **Extract Ha/OIII**.
+:   **Fix.** Choose **Extract Ha/OIII** when the light was taken through a dual-band filter.
 
-- Evidence mode: Source-and-focused-test-derived.
-- Input condition/provenance and settings: a small 16-bit RGGB mosaic in a view
-  named `target`, split with each method; the same mosaic cropped one column in;
-  a 32-bit float grey image with no filter array.
-- Expected checkpoint: four planes named `target - CFA0 - Red`,
-  `target - CFA1 - Green1`, `target - CFA2 - Green2`, `target - CFA3 - Blue`; after
-  the crop, `Green1`, `Red`, `Blue`, `Green2`. The grey image is refused under
-  **Error running Split CFA** naming the missing filter array, and nothing opens.
-- Inspect at 100%/statistics/history: verify positional values, dimensions and
-  history; a plane keeps the mosaic's `OBJECT` card, states no solution and
-  carries no world-coordinate or `PLTSOLVR` card, an
-  Ha product is marked demosaiced.
-- Limitations: tests do not validate dual-band spectral quality.
+A plane is one pixel short of half the mosaic
+:   **Cause.** The mosaic's width or height is odd, and its last column or row completes no cell.
+:   **Fix.** Nothing else is lost. Crop the mosaic to an even size first when its planes must match another's.
 
-## Warnings and limitations
+A plane's plate solve fails, or finds twice the scale its hints give
+:   **Cause.** No result states a solution, and a plane keeps the sensor's `XPIXSZ` and `YPIXSZ` though its pixels lie
+    two apart.
+:   **Fix.** Plate-solve the plane with twice the sensor's pixel size in the hints.
 
-- There is no preview, mask, channel selector, or Reset.
-- Wrong Bayer metadata produces wrong labels and derived channels.
-- Ha/OIII is a dual-band heuristic, not continuum subtraction or spectroscopy.
-- No output states a plate solution or carries the cards of one; solve the
-  derived image again if needed.
-- Odd dimensions lose the final row/column. Resampling uses Lanczos and can ring.
-- Split/derived outputs are new views; only the four untouched positional planes
-  are losslessly mergeable back to the retained even rectangle.
-- X-Trans mosaics cannot be split. Demosaic one with Debayer under **From
-  metadata**, or open the RAW file with automatic debayer, which demosaics it by
-  the X-Trans counterpart of the RAW setting's method, instead.
+"Another process is executing for this image, please cancel that job first before running this process", or the same for a sequence
+:   **Cause.** The mosaic is being changed, or another run holds the sequence, and nothing started.
+:   **Fix.** Wait for that run to end, or cancel it, then choose **OK** again.
 
-## Troubleshooting
+## Related
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Split CFA target absent | View is not shown as a one-channel mosaic. | Open undebayered data and correct CFA metadata. | `isViewControlSupported()` |
-| `the image states no colour filter array` | The image states no Bayer pattern. | Reopen with correct RAW/CFA metadata; do not guess if the pattern is unknown. | `checkBayerMosaic` |
-| `the XTrans filter array is not a two-by-two arrangement...` | The mosaic is X-Trans. | Split CFA takes apart only a two-by-two mosaic. Use Debayer with **From metadata**, which demosaics an X-Trans mosaic by the chosen method's X-Trans counterpart. | `checkBayerMosaic`; `GeometryUnits.OnlyATwoByTwoMosaicIsTakenApart`; `GeometryUnits.DebayerReadsAnXTransArrayFromTheImageAndRefusesANamedBayerPatternOverIt` |
-| `an image whose valid samples are stated in a mask cannot be split` | The mosaic carries a validity mask. | Use a mosaic without one. | `splitMosaicPlanes`; `GeometryProcessCase.AMosaicWhoseValidityIsAMaskIsRefusedByName` |
-| `... cannot have a narrowband channel extracted` | **Extract Ha**, **Extract Green** or **Extract Ha/OIII** on a mosaic that states some sample invalid, by a validity rule or a mask. | Use a mosaic that states every sample valid. | `refuseUnlessAllValid`; `GeometryProcessCase.AMosaicWhoseValidityIsAMaskIsRefusedByName` |
-| Ha/OIII Resampling is disabled | Method is not **Extract Ha/OIII**. | Select that method if the acquisition supports it. | Method dependency handler |
-| Output loses last row/column | Source dimension is odd. | Crop intentionally to even dimensions before splitting and account for the offset. | engine block split |
-| Output has no astrometric solution | No output states a solution or keeps the mosaic's world-coordinate cards, which describe the mosaic's grid. | Plate-solve the derived output. | operation effects; `GeometryProcessCase.SplitAndMergeCfaCarryNoWorldCoordinateCards` |
-| The busy warning | Another run holds the sequence. | Wait for it to land and run again. | `runToNewViews` |
-
-## Related workflow steps
-
-Run [Image Calibration](image-calibration.md) before splitting. Use
-[CFA Integer Resample](cfa-integer-resample.md) when you need a CFA-preserving
-integer geometry change, [Debayer](debayer.md) for full-color reconstruction,
-and [Merge CFA](merge-cfa.md) only for the four positional planes. Derived Ha/OIII
-masters can feed narrowband composition only after their assumptions and geometry
-are validated.
-
-## References and provenance
-
-- Bayer pattern names and extraction behavior are defined by AfterNight's image
-  engine and the support unit.
-- The Lanczos definition used when matching Ha/OIII dimensions is stated in the
-  engine's narrowband extraction header.
+- [Image Calibration](image-calibration.md), to calibrate the mosaic before you split it.
+- [Merge CFA](merge-cfa.md), to join the four positional planes back into a mosaic.
+- [Debayer](debayer.md), for a color image made from every site.
+- [CFA Integer Resample](cfa-integer-resample.md), to bin or enlarge the mosaic and keep its filters.
+- [Plate Solving](../registration-alignment/plate-solving.md), to solve a plane or a product again.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.

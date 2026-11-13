@@ -31,6 +31,7 @@
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/Algorithms/Astrometry/WcsSolution.h>
 #include <AfterNightEngine/Algorithms/Demosaic/Demosaic.h>
+#include <AfterNightEngine/IO/CodecMetadataProjection.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
 #include <AfterNightEngine/Image/ValidityDescriptor.h>
 #include <AfterNightEngine/Image/ValidityMask.h>
@@ -347,10 +348,10 @@ TEST_F(GeometryProcessCase, NewViewsAreNamedAndBeginTheirHistoryBesideTheTarget)
     }
 }
 
-// metadata: a geometry change keeps the acquisition record and the meaning, drops the codec's cards and withdraws an
-// output decision, and its lineage names the engine's geometry operation and the process - one policy for the crop, the
-// resize, the rotation and both resamples, as for the view's own turns. A summary of a solution no card states goes
-// with them; a solution the cards state is the next case's.
+// metadata: a geometry change keeps the acquisition record, the meaning and the frame's observing context, drops the
+// codec's other cards and withdraws an output decision, and its lineage names the engine's geometry operation and the
+// process - one policy for the crop, the resize, the rotation and both resamples, as for the view's own turns. A
+// summary of a solution no card states goes with them; a solution the cards state is the next case's.
 TEST_F(GeometryProcessCase, AGeometryChangeKeepsTheRecordAndDropsTheSolutionAndCards)
 {
     for (std::size_t index : processesLanding(Landing::InPlace))
@@ -366,7 +367,9 @@ TEST_F(GeometryProcessCase, AGeometryChangeKeepsTheRecordAndDropsTheSolutionAndC
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(result->acquisition(), describedMetadata().acquisition());
         EXPECT_FALSE(result->astrometry().present()) << "the solution no longer describes the pixels";
-        EXPECT_TRUE(result->codec().cards().empty()) << "the codec's cards are dropped";
+        EXPECT_TRUE(hasCard(*result, "OBJECT")) << "the frame's observing context stays";
+        EXPECT_FALSE(hasCard(*result, "ANLIN")) << "a card that described the source's samples goes";
+        EXPECT_EQ(result->codec().cards().size(), 1u) << "no other card stays";
         EXPECT_FALSE(result->outputIntent().has_value());
         EXPECT_EQ(result->semantics().transferFunction(), an::TransferFunction::Linear);
         ASSERT_FALSE(result->provenance().entries().empty());
@@ -1744,7 +1747,7 @@ TEST_F(GeometryProcessCase, DebayerAsksNothingOfAMosaicSequenceItsViewDemosaics)
 
 // A crop, a resize and an integer resample carry a still image's solution moved with its pixels and the solver's card
 // - its reference pixel moved and its matrix scaled: every pixel of the result points where the source's pixel it came
-// from pointed. A rotation drops the solution. No other card stays.
+// from pointed. A rotation drops the solution. The frame's observing context stays with them.
 TEST_F(GeometryProcessCase, AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation)
 {
     const std::optional<an::consumer::ImageAsset> plain = sceneAsset(session(), "scene-rgb-float32");
@@ -1820,7 +1823,7 @@ TEST_F(GeometryProcessCase, AStillImagesSolutionFollowsACropAResizeAndAResampleA
         const std::optional<an::ImageMetadata> made = documentMetadata(target->document());
         const std::optional<an::ImageDescriptor> result = target->imageDescriptor();
         ASSERT_TRUE(made.has_value() && result.has_value());
-        EXPECT_FALSE(hasCard(*made, "OBJECT")) << "no other card stays";
+        EXPECT_TRUE(hasCard(*made, "OBJECT")) << "the frame's observing context stays";
         const an::Result<an::WcsSolution> carried =
             an::ui::readImageWcsSolution(made->codec().cards(), result->extent().width(), result->extent().height());
         if (!step.keepsSolution)
@@ -1851,6 +1854,152 @@ TEST_F(GeometryProcessCase, AStillImagesSolutionFollowsACropAResizeAndAResampleA
         window.reset();
         dropView(context(), target);
     }
+}
+
+// A crop, a turn and a resize of a frame are still that frame: its optics, its site, where the mount pointed and when
+// stay, so a plate solve of the result knows its scale and where to look. A resize states the pixel size of its own
+// pixels, the frame's over the scale along each axis, so the plate scale the optics imply is still the result's. The
+// light the frame holds - a master's integration and frame count - stays too; a card that described the source's
+// samples goes.
+TEST_F(GeometryProcessCase, AGeometryChangeKeepsTheFramesObservingContextAndRescalesItsPixelSize)
+{
+    const std::optional<an::consumer::ImageAsset> plain = sceneAsset(session(), "scene-rgb-float32");
+    ASSERT_TRUE(plain.has_value());
+    std::vector<an::CodecCard> stated;
+    for (const auto& [keyword, value] :
+         std::vector<std::pair<std::string, std::string>>{{"TELESCOP", "'Duoptic APO 90'"},
+                                                          {"FOCALLEN", "432.0"},
+                                                          {"XPIXSZ", "2.315"},
+                                                          {"YPIXSZ", "2.315"},
+                                                          {"SITELAT", "-34.8567"},
+                                                          {"RA", "161.073958281148"},
+                                                          {"DEC", "-59.8894394779668"},
+                                                          {"OBJCTRA", "'10 44 19'"},
+                                                          {"DATE-OBS", "'2026-03-24T00:07:03.043'"},
+                                                          {"EXPTIME", "25920"},
+                                                          {"TOTEXP", "25920"},
+                                                          {"STACKCNT", "216"},
+                                                          {"ANLIN", "'linear'"}})
+    {
+        an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, "");
+        ASSERT_TRUE(card.hasValue()) << card.status().message();
+        stated.push_back(std::move(*card));
+    }
+    an::Result<an::CodecMetadata> cards = an::CodecMetadata::create(an::SourceEncoding{}, std::move(stated));
+    ASSERT_TRUE(cards.hasValue());
+    const an::ImageMetadata metadata =
+        an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                  an::Provenance{}, *cards, std::nullopt);
+    const auto valueOf = [](const an::ImageMetadata& made, std::string_view keyword) -> std::optional<std::string> {
+        const an::CodecCard* found = made.codec().find(an::CodecNamespace::Fits, std::string(keyword));
+        return found == nullptr ? std::nullopt : std::optional<std::string>(found->value());
+    };
+    struct Step
+    {
+        const char* name;
+        const char* mode;
+        const char* pixelSize;
+    };
+    for (const Step& step :
+         {Step{"Crop", "x-2-y-1-width-8-height-5", "2.315"}, Step{"Rotate", "angle-30-auto", "2.315"},
+          Step{"Resize", "percent-50-auto", "4.63"}, Step{"IntegerResample", "-", "4.63"}})
+    {
+        SCOPED_TRACE(step.name);
+        const GeometryProcess* under = nullptr;
+        for (const GeometryProcess& process : geometryProcesses())
+        {
+            if (std::string_view(process.name) == step.name)
+            {
+                under = &process;
+            }
+        }
+        ASSERT_NE(under, nullptr);
+        std::optional<an::consumer::ImageAsset> described = withMetadata(session(), *plain, metadata);
+        ASSERT_TRUE(described.has_value());
+        ViewHandle target = assetView(std::move(*described), "target");
+        activate(context(), *target);
+        WindowHandle window = under->open(target.get());
+        under->configure(*window, step.mode);
+        ASSERT_TRUE(applyAndSettle(context(), *window));
+        const std::optional<an::ImageMetadata> made = documentMetadata(target->document());
+        ASSERT_TRUE(made.has_value());
+        EXPECT_EQ(valueOf(*made, "TELESCOP"), std::optional<std::string>("'Duoptic APO 90'"));
+        EXPECT_EQ(valueOf(*made, "FOCALLEN"), std::optional<std::string>("432.0"));
+        EXPECT_EQ(valueOf(*made, "SITELAT"), std::optional<std::string>("-34.8567"));
+        EXPECT_EQ(valueOf(*made, "RA"), std::optional<std::string>("161.073958281148"));
+        EXPECT_EQ(valueOf(*made, "OBJCTRA"), std::optional<std::string>("'10 44 19'"));
+        EXPECT_EQ(valueOf(*made, "DATE-OBS"), std::optional<std::string>("'2026-03-24T00:07:03.043'"));
+        EXPECT_EQ(valueOf(*made, "XPIXSZ"), std::optional<std::string>(step.pixelSize));
+        EXPECT_EQ(valueOf(*made, "YPIXSZ"), std::optional<std::string>(step.pixelSize));
+        // The light the frame holds is still its own.
+        EXPECT_EQ(valueOf(*made, "EXPTIME"), std::optional<std::string>("25920"));
+        EXPECT_EQ(valueOf(*made, "TOTEXP"), std::optional<std::string>("25920"));
+        EXPECT_EQ(valueOf(*made, "STACKCNT"), std::optional<std::string>("216"));
+        EXPECT_EQ(valueOf(*made, "ANLIN"), std::nullopt);
+        window.reset();
+        dropView(context(), target);
+    }
+}
+
+// A pixel size is read as every reader of a card's number reads it: a FITS real may spell its exponent with a D,
+// and a writer may quote a number. A resize rescales the size whichever way the card spells it; read by a rule of
+// its own, a size spelled with a D stayed the source's and the plate scale it implies was the source's too.
+TEST_F(GeometryProcessCase, AResizeRescalesAPixelSizeInEverySpellingACardsNumberTakes)
+{
+    const std::optional<an::consumer::ImageAsset> plain = sceneAsset(session(), "scene-rgb-float32");
+    ASSERT_TRUE(plain.has_value());
+    std::vector<an::CodecCard> stated;
+    for (const auto& [keyword, value] : std::vector<std::pair<std::string, std::string>>{
+             {"XPIXSZ", "2.315D0"}, {"YPIXSZ", "'+23.15E-1'"}, {"FOCALLEN", "432.0"}})
+    {
+        an::Result<an::CodecCard> card = an::CodecCard::create(an::CodecNamespace::Fits, keyword, value, "");
+        ASSERT_TRUE(card.hasValue()) << card.status().message();
+        stated.push_back(std::move(*card));
+    }
+    an::Result<an::CodecMetadata> cards = an::CodecMetadata::create(an::SourceEncoding{}, std::move(stated));
+    ASSERT_TRUE(cards.hasValue());
+    const an::ImageMetadata metadata =
+        an::ImageMetadata::create(an::AcquisitionMetadata{}, an::ImageSemantics{}, an::AstrometricSolution{},
+                                  an::Provenance{}, *cards, std::nullopt);
+    const GeometryProcess* resize = nullptr;
+    for (const GeometryProcess& process : geometryProcesses())
+    {
+        if (std::string_view(process.name) == "Resize")
+        {
+            resize = &process;
+        }
+    }
+    ASSERT_NE(resize, nullptr);
+    std::optional<an::consumer::ImageAsset> described = withMetadata(session(), *plain, metadata);
+    ASSERT_TRUE(described.has_value());
+    ViewHandle target = assetView(std::move(*described), "target");
+    activate(context(), *target);
+    WindowHandle window = resize->open(target.get());
+    resize->configure(*window, "percent-50-auto");
+    ASSERT_TRUE(applyAndSettle(context(), *window));
+    const std::optional<an::ImageMetadata> made = documentMetadata(target->document());
+    ASSERT_TRUE(made.has_value());
+    const auto sizeOf = [&made](const char* keyword) -> std::optional<double> {
+        const an::CodecCard* found = made->codec().find(an::CodecNamespace::Fits, keyword);
+        if (found == nullptr)
+        {
+            return std::nullopt;
+        }
+        const an::Result<double> size = an::parseNumericCard(found->value());
+        return size.hasValue() ? std::optional<double>(*size) : std::nullopt;
+    };
+    for (const char* keyword : {"XPIXSZ", "YPIXSZ"})
+    {
+        const std::optional<double> size = sizeOf(keyword);
+        ASSERT_TRUE(size.has_value()) << keyword;
+        EXPECT_NEAR(*size, 4.63, 1e-9) << keyword << ": the result's pixels are twice the source's";
+    }
+    // What states no pixel size is kept as it is.
+    const an::CodecCard* focal = made->codec().find(an::CodecNamespace::Fits, "FOCALLEN");
+    ASSERT_NE(focal, nullptr);
+    EXPECT_EQ(focal->value(), "432.0");
+    window.reset();
+    dropView(context(), target);
 }
 
 // A resize that keeps the aspect ratio lands each side of its result on a whole pixel, so a frame its percentage does

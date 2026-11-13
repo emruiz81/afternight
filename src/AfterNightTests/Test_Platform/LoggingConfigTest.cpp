@@ -257,6 +257,67 @@ TEST_F(LoggingConfigTest, ApplyingAConfigurationMovesTheRunningLogger)
     EXPECT_NE(text.find("maxFiles=3, maxSizeMB=2"), std::string::npos) << text;
 }
 
+// A folder logging.conf names that cannot hold the log - a disk no longer attached, a path typed by hand - stopped
+// AfterNight at start: opening the file threw before the window existed. The log goes to the default folder instead,
+// with a warning that names the folder it could not use; with no usable folder at all, the logger runs without a file.
+TEST_F(LoggingConfigTest, AnUnusableLogFolderFallsBackToTheDefaultOne)
+{
+    const auto blocker = m_directory / "blocker";
+    std::ofstream(blocker, std::ios::binary) << "a file, not a folder";
+    const auto root = m_directory / "root";
+    TestHelpers::ScopedEnvVar redirected("AFTERNIGHT_TEST_STORAGE_ROOT", root.string().c_str());
+
+    platform::LoggingConfig config;
+    config.logDirectory = (blocker / "logs").string();
+    config.logLevel = "info";
+    const std::filesystem::path used = platform::initializeLoggingFromConfig(config);
+
+    ASSERT_TRUE(platform::isLoggingInitialized());
+    EXPECT_EQ(used, root / "logs" / "AfterNight.log");
+    LOG_INFO("kept");
+    platform::flushLogs();
+    const std::string text = an::platform::test::readFile(root / "logs" / "AfterNight.log");
+    EXPECT_NE(text.find("kept"), std::string::npos) << text;
+    EXPECT_NE(text.find((blocker / "logs").string()), std::string::npos) << "the warning names the folder: " << text;
+}
+
+TEST_F(LoggingConfigTest, WithNoUsableLogFolderTheLoggerRunsWithoutAFile)
+{
+    const auto blocker = m_directory / "blocker";
+    std::ofstream(blocker, std::ios::binary) << "a file, not a folder";
+    TestHelpers::ScopedEnvVar redirected("AFTERNIGHT_TEST_STORAGE_ROOT", (blocker / "root").string().c_str());
+
+    platform::LoggingConfig config;
+    config.logDirectory = (blocker / "logs").string();
+    const std::filesystem::path used = platform::initializeLoggingFromConfig(config);
+
+    EXPECT_TRUE(platform::isLoggingInitialized());
+    EXPECT_TRUE(used.empty()) << used;
+    LOG_WARNING("written to no file");
+    platform::flushLogs();
+}
+
+// A folder applied to the running logger that cannot hold the log - a settings file imported from another computer -
+// threw out of the Settings window; the log stays in the file it was in.
+TEST_F(LoggingConfigTest, ApplyingAnUnusableFolderKeepsTheRunningFile)
+{
+    platform::LoggingConfig first;
+    first.logDirectory = (m_directory / "first").string();
+    first.logLevel = "info";
+    platform::initializeLoggingFromConfig(first);
+    const auto blocker = m_directory / "blocker";
+    std::ofstream(blocker, std::ios::binary) << "a file, not a folder";
+
+    platform::LoggingConfig second = first;
+    second.logDirectory = (blocker / "logs").string();
+    EXPECT_FALSE(platform::applyLoggingConfig(second));
+    LOG_INFO("still here");
+    platform::flushLogs();
+
+    const std::string text = an::platform::test::readFile(m_directory / "first" / "AfterNight.log");
+    EXPECT_NE(text.find("still here"), std::string::npos) << text;
+}
+
 TEST_F(LoggingConfigTest, ApplyingWithoutALoggerOnlyCreatesTheDirectory)
 {
     platform::LoggingConfig config;

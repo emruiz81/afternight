@@ -1,0 +1,43 @@
+name: Documentation issue
+description: Something in the user guide that is wrong, missing, unclear or broken - a page, a picture, a link or the search.
+labels: [documentation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. If the application itself misbehaves, use the bug report instead; if the guide and the
+        application disagree, say which one you believe is right.
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The page's title or address. The guide's "Report a documentation issue" link fills the title in.
+      placeholder: Histogram Transformation, or https://docs.afternightastro.org/processes/stretching/histogram-transformation.html
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - The page says something the application does not do
+        - Something is missing or unclear
+        - A picture, a link or an equation is broken
+        - The page looks wrong (layout, colours, a phone or a printout)
+        - The search does not find something
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What the page says or shows, and what it should. Quote the sentence when it helps.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where you read it
+      description: The published guide or the copy the installer bundles, the AfterNight version, and the browser.
+      placeholder: Bundled copy, AfterNight 1.1.0, Firefox 151

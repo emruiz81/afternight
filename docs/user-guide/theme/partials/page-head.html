@@ -1,0 +1,29 @@
+{#- The page's H1, lifted from its content, its summary, and the chips that place it: the menu path, the stage or the
+    stages it spans, what a process page states of itself (that it replaces its target, its preview, sequences,
+    masks and tools) and what a tutorial needs. -#}
+<header class="page-head">
+  <h1{% if gp.h1_id %} id="{{ gp.h1_id }}"{% endif %}>{{ gp.title_html }}</h1>
+  {%- if gp.summary %}
+  <p class="summary">{{ gp.summary|e }}</p>
+  {%- endif %}
+  {%- set has_chips = gp.menu or gp.stage or gp.stages or gp.needs is not none %}
+  {%- if has_chips %}
+  <ul class="chips">
+    {%- for path in gp.menu %}
+    <li class="chip mono"><span class="visually-hidden">Menu: </span>{{ path|e }}</li>
+    {%- endfor %}
+    {%- if gp.stage %}
+    <li class="chip stage" style="--s:var(--s{{ gp.stage.index }})"><i aria-hidden="true"></i>{% if gp.stage.number %}Stage {{ gp.stage.number }} &middot; {% endif %}{{ gp.stage.name }}</li>
+    {%- endif %}
+    {%- for fact in gp.facts %}
+    <li class="chip{% if fact.warn %} warn{% endif %}">{% if fact.warn %}<i aria-hidden="true"></i>{% endif %}{% if fact.label %}<b>{{ fact.label }}</b> {% endif %}{{ fact.text|e }}</li>
+    {%- endfor %}
+    {%- for span in gp.stages %}
+    <li class="chip stage" style="--s:var(--s{{ span.index }})"><i aria-hidden="true"></i>{{ span.name }}</li>
+    {%- endfor %}
+    {%- if gp.needs is not none %}
+    <li class="chip"><b>Needs</b> {% if gp.needs %}{{ gp.needs|join(', ')|e }}{% else %}nothing outside AfterNight{% endif %}</li>
+    {%- endif %}
+  </ul>
+  {%- endif %}
+</header>

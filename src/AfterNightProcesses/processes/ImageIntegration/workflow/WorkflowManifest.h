@@ -161,6 +161,26 @@ struct AFTERNIGHTPROCESSES_API WorkflowManifest
     };
     std::vector<PreCalibratedLightGroup> preCalibratedLightGroups;
 
+    /// A light the user left out of the run. The grouping drops a light excluded in the lights' list before a group
+    /// is made of it, and a light excluded from one stack is dropped from that integration group alone, so no group
+    /// names either: the manifest lists them here, each under the integration group it would have joined - which need
+    /// not exist, since a group whose every light is left out is not made. The list is a record for the run's report.
+    /// Nothing a run decides reads it: no hash, no comparison of two manifests and no stage.
+    struct LeftOutLight
+    {
+        /// Which of the two exclusions left the light out.
+        enum class Kind : unsigned char
+        {
+            Excluded, ///< Excluded in the lights' list: the light takes no part in the run.
+            StackExcluded ///< Excluded from its group's stack: the light is still calibrated and registered.
+        };
+
+        FrameId light;
+        Kind kind = Kind::Excluded;
+        IntegrationGroupKey groupKey;
+    };
+    std::vector<LeftOutLight> leftOutLights;
+
     struct RegistrationGroup
     {
         GroupKey groupKey;

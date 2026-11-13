@@ -4101,6 +4101,264 @@ TEST_F(ExtensionManagerPageTest, ExtensionsDialogCachesInstalledTabUntilPackageM
     EXPECT_TRUE(shown);
 }
 
+TEST_F(ExtensionManagerPageTest, ExtensionsDialogTellsBrowseTabOfAnUninstallFromInstalledTab)
+{
+    std::atomic_bool installed = true;
+    std::atomic_bool provider_started = false;
+    std::atomic_bool finish_provider = false;
+    const FinishProviderOnExit finish_on_exit{finish_provider};
+
+    const bool shown = inspectExtensionsDialog([&](QDialog& dialog) {
+        auto* tabs = dialog.findChild<QTabWidget*>(QStringLiteral("anExtensionsTabs"));
+        auto* manager_page = dialog.findChild<an::ui::ExtensionManagerPage*>();
+        auto* status_page = dialog.findChild<ExtensionStatusPage*>();
+        ASSERT_NE(tabs, nullptr);
+        ASSERT_NE(manager_page, nullptr);
+        ASSERT_NE(status_page, nullptr);
+
+        // The repository read the dialog started as it opened lands before the case states its own repository, so it
+        // cannot replace what the case shows.
+        drainThreadPool();
+        manager_page->setRepositoryProvider([&installed]() {
+            ExtensionManagerPageRepositorySnapshot snapshot;
+            snapshot.success = true;
+            snapshot.entries = {installed.load()
+                                    ? makeEntry("sample_tools", "Sample Tools", "Sharpening and denoise tools", "2.0.0",
+                                                ExtensionRepositoryInstallState::Installed, "2.0.0")
+                                    : makeEntry("sample_tools", "Sample Tools", "Sharpening and denoise tools", "2.0.0",
+                                                ExtensionRepositoryInstallState::NotInstalled)};
+            return snapshot;
+        });
+        status_page->setDiscoveryProvider([&installed]() {
+            std::vector<an::ui::extensions::ExtensionLoadResult> results;
+            if (installed.load())
+            {
+                const std::filesystem::path package_root("/tmp/extensions/sample_tools");
+                an::ui::extensions::ExtensionManifest manifest;
+                manifest.id = "sample_tools";
+                manifest.name = "Sample Tools";
+                manifest.version = "2.0.0";
+                manifest.entry_point = "demo";
+                manifest.category = "filters";
+                manifest.manifest_path = (package_root / "extension.json").string();
+                manifest.package_root = package_root.string();
+
+                an::ui::extensions::ExtensionLoadResult result;
+                result.source = ExtensionPackageSource::Repository;
+                result.status = an::ui::extensions::ExtensionLoadStatus::Ready;
+                result.package_root = package_root;
+                result.manifest_path = package_root / "extension.json";
+                result.manifest = manifest;
+                results.push_back(result);
+            }
+            return results;
+        });
+        status_page->setUninstallConfirmationProvider(
+            [](const an::ui::extensions::ExtensionLoadResult&) { return true; });
+        status_page->setUninstallProvider([&](const an::ui::extensions::ExtensionLoadResult&) {
+            provider_started = true;
+            while (!finish_provider.load())
+            {
+                QThread::msleep(1);
+            }
+            installed = false;
+            return an::ui::ExtensionStatusPageUninstallResult{true, {}};
+        });
+
+        const auto browse_shows_installed = [manager_page]() {
+            auto* remove_button = manager_page->findChild<QPushButton*>(buttonObjectName("sample_tools", "remove"));
+            return remove_button && remove_button->property("anExtensionManagerActionAvailable").toBool();
+        };
+        const auto browse_offers_install = [manager_page]() {
+            auto* install_button =
+                manager_page->findChild<QPushButton*>(buttonObjectName("sample_tools", "primaryAction"));
+            return install_button && install_button->text() == QStringLiteral("Install") &&
+                   install_button->property("anExtensionManagerActionAvailable").toBool();
+        };
+        const auto uninstall_from_installed_tab = [&]() {
+            auto* uninstall_button =
+                status_page->findChild<QPushButton*>(QStringLiteral("anExtensionStatusButton_uninstall_sample_tools"));
+            ASSERT_NE(uninstall_button, nullptr);
+            provider_started = false;
+            finish_provider = false;
+            uninstall_button->click();
+            ASSERT_TRUE(waitFor([&]() { return provider_started.load(); }));
+        };
+
+        manager_page->loadSettings();
+        ASSERT_TRUE(browse_shows_installed());
+
+        // The uninstall finishes while the Browse tab is the one shown.
+        tabs->setCurrentWidget(status_page);
+        uninstall_from_installed_tab();
+        tabs->setCurrentWidget(manager_page);
+        EXPECT_TRUE(browse_shows_installed());
+        finish_provider = true;
+        EXPECT_TRUE(waitFor(browse_offers_install))
+            << "the Browse tab still shows a package the Installed tab uninstalled as installed";
+        EXPECT_FALSE(browse_shows_installed());
+
+        // The uninstall finishes while the Installed tab is the one shown: Browse is right before it is shown again.
+        installed = true;
+        manager_page->loadSettings();
+        ASSERT_TRUE(browse_shows_installed());
+        tabs->setCurrentWidget(status_page);
+        status_page->refreshStatus(true);
+        uninstall_from_installed_tab();
+        finish_provider = true;
+        EXPECT_TRUE(waitFor(browse_offers_install))
+            << "the Browse tab was not told of an uninstall that finished behind it";
+        EXPECT_EQ(tabs->currentWidget(), status_page);
+    });
+    EXPECT_TRUE(shown);
+}
+
+TEST_F(ExtensionManagerPageTest, UninstallElsewhereDropsWhatAnInstallRecorded)
+{
+    // The repository listing never reports the package as installed, as a listing read before the install would not:
+    // the page shows it installed from what the install itself recorded.
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setRepositoryProvider([] {
+        ExtensionManagerPageRepositorySnapshot snapshot;
+        snapshot.success = true;
+        snapshot.indexUrl = QUrl(QStringLiteral("https://extensions.example.invalid/index.json"));
+        snapshot.entries = {makeEntry("sample_ai", "Sample AI", "AI-assisted background extraction", "1.1.0",
+                                      ExtensionRepositoryInstallState::NotInstalled)};
+        return snapshot;
+    });
+    allowUnsignedExtensionInstalls(page);
+
+    int changed_count = 0;
+    QObject::connect(&page, &an::ui::ExtensionManagerPage::installedExtensionsChanged, &page,
+                     [&changed_count]() { ++changed_count; });
+    page.setInstallProvider([](const ExtensionManagerPageInstallRequest&) {
+        ExtensionManagerPageInstallResult result;
+        result.success = true;
+        result.diagnostic = QStringLiteral("Installed Sample AI 1.1.0.");
+        markStartupCachesPrimed(result);
+        return result;
+    });
+
+    const auto shows_installed = [&page]() {
+        auto* remove_button = page.findChild<QPushButton*>(buttonObjectName("sample_ai", "remove"));
+        return remove_button && remove_button->property("anExtensionManagerActionAvailable").toBool();
+    };
+
+    page.loadSettings();
+    auto* install_button = page.findChild<QPushButton*>(buttonObjectName("sample_ai", "primaryAction"));
+    ASSERT_NE(install_button, nullptr);
+    ASSERT_TRUE(install_button->isEnabled());
+    install_button->click();
+    ASSERT_TRUE(waitFor([&]() { return changed_count == 1; }));
+    ASSERT_TRUE(shows_installed());
+
+    page.noteExtensionUninstalled("sample_ai");
+
+    EXPECT_FALSE(shows_installed()) << "what the install recorded outlived the package";
+    install_button = page.findChild<QPushButton*>(buttonObjectName("sample_ai", "primaryAction"));
+    ASSERT_NE(install_button, nullptr);
+    EXPECT_EQ(install_button->text(), QStringLiteral("Install"));
+}
+
+TEST_F(ExtensionManagerPageTest, UninstallElsewhereShowsCachedPackageNotInstalledAtOnce)
+{
+    drainThreadPool();
+    QTemporaryDir cache_dir;
+    ASSERT_TRUE(cache_dir.isValid());
+    ScopedEnvironmentVariable cache_override("AFTERNIGHT_EXTENSION_MANAGER_CACHE_DIR",
+                                             cache_dir.path().toUtf8().constData());
+    writeRepositorySnapshotCache(
+        cache_dir.path(), QJsonArray{cachedRepositoryEntry(
+                              QStringLiteral("cached_tools"), QStringLiteral("Cached Tools"), QStringLiteral("1.2.3"),
+                              QStringLiteral("1.2.3"), ExtensionRepositoryInstallState::Installed)});
+
+    ThreadPoolGate gate;
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setDiscoveryOptionsProvider([]() { return buildUiOnlyDiscoveryOptions(); });
+
+    // The run keeps the repository offline, so the cached snapshot is all the page has to show.
+    page.loadSettings();
+    auto* remove_button = page.findChild<QPushButton*>(buttonObjectName("cached_tools", "remove"));
+    ASSERT_NE(remove_button, nullptr);
+    ASSERT_TRUE(remove_button->property("anExtensionManagerActionAvailable").toBool());
+
+    // The gate keeps back the refresh the note starts, so the case sees what the note alone shows.
+    gate.close();
+    page.noteExtensionUninstalled("cached_tools");
+
+    remove_button = page.findChild<QPushButton*>(buttonObjectName("cached_tools", "remove"));
+    auto* install_button = page.findChild<QPushButton*>(buttonObjectName("cached_tools", "primaryAction"));
+    ASSERT_NE(remove_button, nullptr);
+    ASSERT_NE(install_button, nullptr);
+    EXPECT_FALSE(remove_button->property("anExtensionManagerActionAvailable").toBool());
+    EXPECT_EQ(install_button->text(), QStringLiteral("Install"));
+
+    // The cache is what the page shows when it next loads, so it no longer names an installed version either.
+    QFile cache_file(QDir(cache_dir.path()).filePath(QStringLiteral("repository_snapshot.json")));
+    ASSERT_TRUE(cache_file.open(QIODevice::ReadOnly));
+    const QJsonArray cached_entries =
+        QJsonDocument::fromJson(cache_file.readAll()).object().value(QStringLiteral("entries")).toArray();
+    ASSERT_EQ(cached_entries.size(), 1);
+    const QJsonObject cached_entry = cached_entries.first().toObject();
+    EXPECT_TRUE(cached_entry.value(QStringLiteral("installed_version")).toString().isEmpty());
+    EXPECT_EQ(cached_entry.value(QStringLiteral("install_state")).toInt(),
+              static_cast<int>(ExtensionRepositoryInstallState::NotInstalled));
+
+    gate.open();
+    drainThreadPool();
+}
+
+// A refresh asked for while another is on its way is run when that one lands, as its own caller asked for it. A
+// reset of the page asks for a refresh that clears the cards; an uninstall elsewhere, noted meanwhile, shows its
+// package's card again and asks for a refresh that keeps the cards. That refresh took the wish of the one it waited
+// behind, and cleared them.
+TEST_F(ExtensionManagerPageTest, ARefreshThatWaitedBehindAnotherKeepsTheCardsItsOwnCallerAskedToKeep)
+{
+    drainThreadPool();
+    QTemporaryDir cache_dir;
+    ASSERT_TRUE(cache_dir.isValid());
+    ScopedEnvironmentVariable cache_override("AFTERNIGHT_EXTENSION_MANAGER_CACHE_DIR",
+                                             cache_dir.path().toUtf8().constData());
+    writeRepositorySnapshotCache(
+        cache_dir.path(), QJsonArray{cachedRepositoryEntry(
+                              QStringLiteral("cached_tools"), QStringLiteral("Cached Tools"), QStringLiteral("1.2.3"),
+                              QStringLiteral("1.2.3"), ExtensionRepositoryInstallState::Installed)});
+
+    ThreadPoolGate gate;
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setDiscoveryOptionsProvider([]() { return buildUiOnlyDiscoveryOptions(); });
+
+    // The run keeps the repository offline, so the page shows the cached snapshot and refreshes nothing at load.
+    page.loadSettings();
+    const QString card_name = QStringLiteral("anExtensionManagerCard_cached_tools");
+    ASSERT_NE(page.findChild<QWidget*>(card_name), nullptr);
+
+    // The reset's refresh clears the cards, and is held back on the pool.
+    gate.close();
+    page.resetToDefaults();
+    ASSERT_EQ(page.findChild<QWidget*>(card_name), nullptr);
+    ASSERT_TRUE(hasLabelContaining(page, QStringLiteral("Checking repository packages")));
+    // The uninstall noted meanwhile shows the package's card as not installed and asks for a refresh that keeps it.
+    page.noteExtensionUninstalled("cached_tools");
+    ASSERT_NE(page.findChild<QWidget*>(card_name), nullptr);
+
+    // The reset's refresh runs, and the pool is held again before its answer lands: the refresh that waited is asked
+    // for as that answer lands, and stays on the pool.
+    gate.open();
+    QThreadPool::globalInstance()->waitForDone(30000);
+    gate.close();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+
+    EXPECT_NE(page.findChild<QWidget*>(card_name), nullptr) << "the refresh that waited was asked to keep the cards";
+    EXPECT_FALSE(hasLabelContaining(page, QStringLiteral("Checking repository packages")))
+        << "the refresh that waited cleared the page as the one before it was asked to";
+
+    gate.open();
+    // The refresh that waited lands: offline, the repository lists nothing, and only now does the card go.
+    EXPECT_TRUE(waitFor([&]() { return page.findChild<QWidget*>(card_name) == nullptr; }, 10000));
+    drainThreadPool();
+}
+
 TEST_F(ExtensionManagerPageTest, PostMutationRepositoryRefreshPreservesBrowseCards)
 {
     drainThreadPool();

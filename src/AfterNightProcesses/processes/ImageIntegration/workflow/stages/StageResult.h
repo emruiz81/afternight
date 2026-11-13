@@ -25,8 +25,14 @@
 #include <QStringList>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
+
+namespace an
+{
+struct DisplayPresentationAnalysis;
+} // namespace an
 
 /**
  * @brief Represents a file that was replaced during execution and staged for archiving.
@@ -420,6 +426,201 @@ struct AlignmentGroupResult
     int caPassthroughCount = 0; ///< Frames where CA correction was skipped (mono or insufficient stars)
 };
 
+/// A light a registration found no transform for, and why, in the registration's own words. A run records it
+/// where the registration fails, since the metrics database keeps only that it failed; a later run that finds the
+/// registration still valid registers nothing again and records none.
+struct RegistrationFailure
+{
+    /// The registration group's key.
+    QString groupKey;
+
+    /// The light, by its path.
+    QString light;
+
+    /// Why no transform was found: too few stars, too few pairs matched, a fit that failed.
+    QString reason;
+};
+
+[[nodiscard]] inline QJsonArray registrationFailuresToJson(const std::vector<RegistrationFailure>& failures)
+{
+    QJsonArray array;
+    for (const RegistrationFailure& failure : failures)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("groupKey")] = failure.groupKey;
+        obj[QStringLiteral("light")] = failure.light;
+        obj[QStringLiteral("reason")] = failure.reason;
+        array.append(obj);
+    }
+    return array;
+}
+
+/// Why a stack left a light of its group out on its own.
+enum class DroppedLightReason
+{
+    NoRegisteredOutput, ///< The alignment wrote no registered image of the light, or the image is gone.
+    NoRegistrationTransform, ///< The registration recorded no transform of the light.
+    NoStarBaseProduct, ///< A stars-plus-comet stack has no star base product of the light.
+    NoCometAlignedImage, ///< A comet stack has no comet-aligned image of the light.
+};
+
+/// A light a stack left out on its own, and why.
+struct DroppedLight
+{
+    /// The light, by its path.
+    QString light;
+
+    DroppedLightReason reason = DroppedLightReason::NoRegisteredOutput;
+};
+
+/// The reason in the words the stacking stage's warning gives it.
+[[nodiscard]] inline QString droppedLightReasonText(const DroppedLightReason reason)
+{
+    switch (reason)
+    {
+    case DroppedLightReason::NoRegistrationTransform:
+        return QStringLiteral("no registration transform");
+    case DroppedLightReason::NoStarBaseProduct:
+        return QStringLiteral("no star base product");
+    case DroppedLightReason::NoCometAlignedImage:
+        return QStringLiteral("no comet-aligned image");
+    case DroppedLightReason::NoRegisteredOutput:
+    default:
+        return QStringLiteral("no registered output");
+    }
+}
+
+/// The word an archive stores for the reason.
+[[nodiscard]] inline QString droppedLightReasonToString(const DroppedLightReason reason)
+{
+    switch (reason)
+    {
+    case DroppedLightReason::NoRegistrationTransform:
+        return QStringLiteral("no_registration_transform");
+    case DroppedLightReason::NoStarBaseProduct:
+        return QStringLiteral("no_star_base_product");
+    case DroppedLightReason::NoCometAlignedImage:
+        return QStringLiteral("no_comet_aligned_image");
+    case DroppedLightReason::NoRegisteredOutput:
+    default:
+        return QStringLiteral("no_registered_output");
+    }
+}
+
+/// The reason a stored word names; nothing for a word that names none.
+[[nodiscard]] inline std::optional<DroppedLightReason> droppedLightReasonFromString(const QString& value)
+{
+    for (const DroppedLightReason reason :
+         {DroppedLightReason::NoRegisteredOutput, DroppedLightReason::NoRegistrationTransform,
+          DroppedLightReason::NoStarBaseProduct, DroppedLightReason::NoCometAlignedImage})
+    {
+        if (value == droppedLightReasonToString(reason))
+        {
+            return reason;
+        }
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] inline QJsonArray droppedLightsToJson(const std::vector<DroppedLight>& dropped)
+{
+    QJsonArray array;
+    for (const DroppedLight& light : dropped)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("light")] = light.light;
+        obj[QStringLiteral("reason")] = droppedLightReasonToString(light.reason);
+        array.append(obj);
+    }
+    return array;
+}
+
+/// The dropped lights an archive stores; an entry that names no light or no reason is not one.
+[[nodiscard]] inline std::vector<DroppedLight> droppedLightsFromJson(const QJsonArray& array)
+{
+    std::vector<DroppedLight> dropped;
+    dropped.reserve(static_cast<std::size_t>(array.size()));
+    for (const auto& value : array)
+    {
+        const QJsonObject obj = value.toObject();
+        const QString light = obj.value(QStringLiteral("light")).toString();
+        const std::optional<DroppedLightReason> reason =
+            droppedLightReasonFromString(obj.value(QStringLiteral("reason")).toString());
+        if (!light.isEmpty() && reason.has_value())
+        {
+            dropped.push_back(DroppedLight{.light = light, .reason = *reason});
+        }
+    }
+    return dropped;
+}
+
+/// An integration group a run did not stack because the master on disk is still the one it would make: the plan of
+/// an incremental run left the group out, or the stacking stage found the output valid. Such a group has no
+/// `IntegrationGroupResult`, and nothing that counts a run's successful groups counts it.
+struct ReusedIntegrationGroup
+{
+    QString groupKey;
+
+    /// The master the run left as it is.
+    QString outputPath;
+};
+
+[[nodiscard]] inline QJsonArray reusedIntegrationGroupsToJson(const std::vector<ReusedIntegrationGroup>& groups)
+{
+    QJsonArray array;
+    for (const ReusedIntegrationGroup& group : groups)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("groupKey")] = group.groupKey;
+        obj[QStringLiteral("outputPath")] = group.outputPath;
+        array.append(obj);
+    }
+    return array;
+}
+
+/// The reused groups an archive stores; an entry that names no group is not one.
+[[nodiscard]] inline std::vector<ReusedIntegrationGroup> reusedIntegrationGroupsFromJson(const QJsonArray& array)
+{
+    std::vector<ReusedIntegrationGroup> groups;
+    groups.reserve(static_cast<std::size_t>(array.size()));
+    for (const auto& value : array)
+    {
+        const QJsonObject obj = value.toObject();
+        const QString key = obj.value(QStringLiteral("groupKey")).toString();
+        if (!key.isEmpty())
+        {
+            groups.push_back(ReusedIntegrationGroup{.groupKey = key,
+                                                    .outputPath = obj.value(QStringLiteral("outputPath")).toString()});
+        }
+    }
+    return groups;
+}
+
+/// An integration group whose stack failed before a master of it was written, and why, in the words the stage gives
+/// the person. A group result is made only of a group that reached its master's finalization, so a group that had
+/// too few registered lights, or whose stack the engine refused, has none: the run names it here, and its report
+/// says the master failed and why instead of finding no record of it.
+struct FailedIntegrationGroup
+{
+    QString groupKey;
+
+    /// Why the group's stack failed.
+    QString error;
+};
+
+[[nodiscard]] inline QJsonArray failedIntegrationGroupsToJson(const std::vector<FailedIntegrationGroup>& groups)
+{
+    QJsonArray array;
+    for (const FailedIntegrationGroup& group : groups)
+    {
+        QJsonObject obj;
+        obj[QStringLiteral("groupKey")] = group.groupKey;
+        obj[QStringLiteral("error")] = group.error;
+        array.append(obj);
+    }
+    return array;
+}
+
 /**
  * @brief Result metadata for a single integration group.
  */
@@ -434,6 +635,11 @@ struct IntegrationGroupResult
     QByteArray reportPreviewJpeg; ///< Bounded JPEG prepared from the resident master for P1-03 archiving.
     QSize reportPreviewSize; ///< Pixel dimensions of reportPreviewJpeg; empty when no report asset was prepared.
     bool reportPreviewPreparedForCurrentRun = false; ///< Suppresses a master reload after a current-run attempt.
+    QByteArray reportDetailJpeg; ///< JPEG of the master's centre at full scale, stretched as reportPreviewJpeg is.
+    QSize reportDetailSize; ///< Pixel dimensions of reportDetailJpeg; empty when no detail was prepared.
+    /// The display stretch reportPreviewJpeg was presented through, so an earlier master set beside it is presented
+    /// through the same one without this master's file being read again; null when none was kept.
+    std::shared_ptr<const an::DisplayPresentationAnalysis> reportPreviewStretch;
     OutputRetentionStatus outputRetentionStatus = OutputRetentionStatus::Unknown;
     QString outputRetentionReason;
     int lightFrameCount = 0;
@@ -446,6 +652,10 @@ struct IntegrationGroupResult
     StackGroupFinalizationTiming finalizationTiming;
 
     StackQualityRecord qualityReport;
+
+    /// The lights of the group the stack left out on its own, each with its reason; the stack's warning names them
+    /// too.
+    std::vector<DroppedLight> droppedLights;
 
     // Rejection maps generated alongside this stacked output.
     std::vector<RejectionMapResult> rejectionMaps;
@@ -706,6 +916,13 @@ struct StageResult
     std::vector<AlignmentGroupResult> alignmentGroupResults; ///< Per-group alignment results
     std::vector<StagePhaseTiming> phaseTimings; ///< Timed sub-phases reported separately from the parent stage
     std::optional<StackExecutionCounters> engineExecutionCounters; ///< Optional stage-local diagnostics
+    std::vector<ReusedIntegrationGroup> reusedGroups; ///< Groups whose output was still valid, which have no result
+    /// The groups whose stack failed before a master was written, which have no result either, each with why.
+    std::vector<FailedIntegrationGroup> failedGroups;
+    /// The keys of the calibration groups whose master a calibration stage found still valid and left as it was.
+    std::vector<QString> reusedCalibrationGroups;
+    /// The lights the registration stage found no transform for in this run, each with its reason.
+    std::vector<RegistrationFailure> registrationFailures;
 
     /** @brief Create a success result. */
     [[nodiscard]] static StageResult success()

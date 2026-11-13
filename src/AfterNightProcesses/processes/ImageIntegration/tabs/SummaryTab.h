@@ -60,6 +60,8 @@ public slots:
                           const QVariantList& historyRows, const QString& groupKey)
         W_SIGNAL(compareRequested, paths, labels, contexts, historyRows, groupKey);
     void exportReportRequested(const QString& runDir) W_SIGNAL(exportReportRequested, runDir);
+    /// Emitted when the person asks for a run's report as one file that opens on its own.
+    void saveReportAsOneFileRequested(const QString& runDir) W_SIGNAL(saveReportAsOneFileRequested, runDir);
     void rerunRequested(const QString& runDir) W_SIGNAL(rerunRequested, runDir);
     void notesChanged(const QString& notes) W_SIGNAL(notesChanged, notes);
     void refreshed() W_SIGNAL(refreshed);

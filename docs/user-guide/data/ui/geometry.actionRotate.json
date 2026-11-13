@@ -1,0 +1,18 @@
+{
+  "id": "geometry.actionRotate",
+  "window": "Rotate <{image}>",
+  "controls": [
+    {"label": "Rotation Angle", "kind": "spinbox", "object": "rotationAngle", "group": "Rotation", "visible": true, "default": "0.00", "min": -180, "max": 180, "step": 1, "decimals": 2, "slider": true},
+    {"label": "Resize image", "kind": "check", "object": "resizeImage", "group": "Rotation", "visible": true, "default": "Off"},
+    {"label": "Interpolation", "kind": "combo", "object": "interpolation", "group": "Rotation", "visible": true, "default": "Auto (Lanczos4)", "options": ["Auto (Lanczos4)", "Nearest Neighbor", "Bilinear", "Bicubic", "Pixel Area Relation", "Lanczos4", "Bit Exact Bilinear", "Bit Exact Nearest Neighbor"]},
+    {"label": "Crop", "kind": "check", "object": "groupBox", "group": "", "visible": true, "default": "Off"},
+    {"label": "Pos X", "kind": "spinbox", "object": "targetPosX", "group": "Crop", "visible": true, "default": "0", "min": 0, "step": 1, "varies": ["max"]},
+    {"label": "Width", "kind": "spinbox", "object": "targetWidth", "group": "Crop", "visible": true, "min": 0, "step": 1, "varies": ["default", "max"]},
+    {"label": "Pos Y", "kind": "spinbox", "object": "targetPosY", "group": "Crop", "visible": true, "default": "0", "min": 0, "step": 1, "varies": ["max"]},
+    {"label": "Height", "kind": "spinbox", "object": "targetHeight", "group": "Crop", "visible": true, "min": 0, "step": 1, "varies": ["default", "max"]},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "OK", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

@@ -69,7 +69,7 @@ AutostretchSettingsControl::AutostretchSettingsControl(ImageViewControl* control
     auto title = fmt::format("Autostretch Settings <{}>", uniqueName);
     setWindowTitle(QString::fromUtf8(title));
 
-    m_image_view_control->setAutostretchSettingsActionEnabled(false);
+    m_image_view_control->setAutostretchSettingsOpen(true);
 
     auto settings = m_image_view_control->getViewWidget()->getAutostretchSettings();
 
@@ -254,7 +254,7 @@ void AutostretchSettingsControl::on_contrastChanged(int value)
 
 void AutostretchSettingsControl::done(int s)
 {
-    m_image_view_control->setAutostretchSettingsActionEnabled(true);
+    m_image_view_control->setAutostretchSettingsOpen(false);
 
     QDialog::done(s);
 }

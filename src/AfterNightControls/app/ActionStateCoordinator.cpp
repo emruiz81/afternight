@@ -181,7 +181,9 @@ void ActionStateCoordinator::setEnableImageActions(const bool enable) const
         m_dependencies.ui->actionAstrometryInfo->setEnabled(enable);
         m_dependencies.ui->actionImage_EXIFViewer->setEnabled(enable);
         m_dependencies.ui->actionPlateSolve->setEnabled(enable);
+        m_dependencies.ui->actionAnnotateImage->setEnabled(enable);
         m_dependencies.ui->actionSummary->setEnabled(enable);
+        m_dependencies.ui->actionShow_In_File_Browser->setEnabled(enable);
     }
 
     setEnableImageColorActions(enable);
@@ -329,7 +331,10 @@ void ActionStateCoordinator::updateActiveImageActions() const
     m_dependencies.ui->actionAstrometryInfo->setEnabled(true);
     m_dependencies.ui->actionImage_EXIFViewer->setEnabled(control->isExifActionEnabled());
     m_dependencies.ui->actionPlateSolve->setEnabled(control->canPlateSolveCurrentImage());
+    m_dependencies.ui->actionAnnotateImage->setEnabled(control->canAnnotateCurrentImage());
     m_dependencies.ui->actionSummary->setEnabled(true);
+    // Offered while the image is a file: read from one, saved to one, or a sequence's.
+    m_dependencies.ui->actionShow_In_File_Browser->setEnabled(!control->getFileName().empty());
 
     QTimer::singleShot(0, m_dependencies.timerContext, [this, control]() {
         const bool terminating = m_dependencies.isTerminating ? *m_dependencies.isTerminating : false;

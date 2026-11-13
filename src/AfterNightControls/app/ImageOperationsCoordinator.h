@@ -64,6 +64,9 @@ public:
 
         /// Opens the export dialog over a sequence view; the dialog belongs to the sequence controls.
         std::function<void(ImageViewControl*)> exportSequence;
+
+        /// Shows a file in the system file manager with it selected; when empty, the system's file manager is asked.
+        std::function<bool(const QString&)> revealInFileBrowser;
     };
 
     explicit ImageOperationsCoordinator(const Dependencies& dependencies);
@@ -77,6 +80,11 @@ public:
     void undo() const;
     void redo() const;
     void imageHistory() const;
+
+    /// Shows the file the active view's image was read from or last saved to - a sequence's file for a sequence - in
+    /// the system file manager, with it selected; says so when the file is no longer on disk, and does nothing for an
+    /// image that has never been a file.
+    void showInFileBrowser() const;
 
     void convertToSERSeq() const;
     void convertToImageListSeq() const;
@@ -105,6 +113,9 @@ public:
     void exifViewer() const;
     void imageSummary() const;
     void plateSolve() const;
+
+    /// Opens the Annotate Image window over the active view's solved image.
+    void annotateImage() const;
 
     void fitImageAllWindows() const;
 

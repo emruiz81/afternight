@@ -1,251 +1,225 @@
+---
+kind: tutorial
+stages: [calibrate, register, stack]
+menu: Process > Preprocess > Image Integration Lite
+summary: >-
+  Calibrate, register and stack your first set of frames with Image Integration Lite.
+needs: []
+---
 # Quick Start
 
-Source and focused tests establish the
-labels, routes, state transitions, and branch behavior claimed below. The
-retained screenshots illustrate the documented ready and result states; they do
-not establish output quality or production performance.
+You start with the frames of one night on one target: your [light frames](../reference/glossary.md#light-frame) and,
+when you have them, darks, flats and [bias frames](../reference/glossary.md#bias-frame). You end with one stacked,
+linear [master](../reference/glossary.md#master) open in AfterNight, and a report of what was done to get it. **Image Integration Lite** does the calibration, the registration and the stacking in one
+run, with settings chosen for a first result.
 
-![Image Integration Lite ready to run with a single M16 Ha dataset, calibrated-frame assignments, and the Run Integration action](../assets/images/interface/quick-start-step1.png)
+## What you need
 
-*Image Integration Lite after import and validation. The green **Ready.** banner,
-dataset summary, planned calibration assignments, and **Run Integration** action
-show the state to reach before starting the workflow.*
+- [ ] The light frames of one target, taken with one camera setup, as the camera wrote them
+- [ ] The matching dark, flat and bias frames, when you have them
+- [ ] A new, empty folder for the results, on a disk with room for several times the size of your lights
+- [ ] Folders that hold nothing but these frames, if you plan to add a whole folder
 
-## Purpose, audience, prerequisites, and expected result
+Lights alone are enough to run. The result is then stacked but not calibrated, and the window says so.
 
-Use this walkthrough to turn a small, consistent set of deep-sky acquisition
-frames into a first linear stacked master with **Image Integration Lite**. It is
-for a new user who wants a bounded first run before learning the full project
-workflow.
+## Your camera
 
-You need one target's still light frames, optional matching calibration frames,
-and a dedicated writable output directory. Use either the OSC/CFA branch or the
-mono branch below. At the end, AfterNight should report at least one generated
-master and write a workflow report under the output directory. Keep **Open
-results when complete** selected if you also want each successful light master
-opened in the workspace. This source-derived walkthrough does not promise a
-particular visual result.
+- **A color camera.** Use the raw or [FITS](../reference/glossary.md#fits) files as the camera wrote them, and do not
+  [debayer](../reference/glossary.md#debayer) them first. The
+  calibration works on the raw mosaic, and the registration turns it into color with the filter pattern the files
+  state. You get one linear color master.
+- **A mono camera.** Use the lights of one filter, with the flats taken through that filter. Each filter makes a
+  group and a master of its own, so add one filter for this first run. You get one linear monochrome master.
 
-## Reachability and availability
+## Steps
 
-| Item | Current behavior |
-| --- | --- |
-| Path | **Process > Preprocess > Image Integration Lite**. The Dashboard **Image Integration** card opens the full process, not Lite. |
-| Enabled/visible when | The top-level Lite window is available without an active image. **Run Integration** is disabled while import is active or readiness has a blocking error. |
-| Supported inputs/state | Engine-supported still images classified as Light, Flat, Dark, Dark Flat, or Bias. Use one target for this walkthrough. Sequences, videos, active-view masks, and multiple effective object names are outside Lite's first-run path. |
-| Outputs/side effects | Calibration masters and intermediates as needed, one stacked FITS light master per integration group, workflow state, history, logs, and Markdown/HTML reports. Successful masters open only when **Open results when complete** was selected at run start. Source files are unchanged. |
-| Persistence | The last valid output directory and Lite window size are restored. Imported frames and processing choices are window/run state rather than a saved Lite project. |
-| External dependencies | Deployed codecs for the selected still formats. **Plate solve final masters** starts off in Lite and this walkthrough leaves it off, so no solver or catalog is required. |
-
-## Before you start
-
-Keep all input files at stable paths and use a new or dedicated output directory
-with enough free space for intermediate and final files. Do not place unrelated
-supported images beneath a folder you plan to import recursively.
-
-Choose one branch:
-
-| Branch | Prepare | Check after import | Expected successful master |
-| --- | --- | --- | --- |
-| OSC/CFA | Original linear camera RAW or CFA FITS lights from one target and camera setup; matching dark/bias/flat frames when available. Do not debayer copies before this workflow. | Every acquisition row has the intended type and the effective Object is one value. The table has no size or filter-array column: lights of different sizes form separate integration groups, and a calibration frame whose size, channels, sample type, or filter array differs from its group's first readable frame is skipped and named during the run. Lite calibrates raw CFA samples before registration demosaics them. | A linear color light master for each effective integration group. Registration demosaics a light only when its file states a filter array, and its **Auto** pattern is the file's own, never guessed. If the colors look wrong, use **Open Full Process** and check Registration's CFA Pattern/Method: a stated pattern corrects a wrong arrangement, but it cannot turn a light whose file states no filter array into color; such lights are processed as monochrome. |
-| Mono | Linear monochrome lights from one target and one filter for the first run; matching flats for that filter and matching dark/bias frames when available. | **Filters** shows the intended single label and rows have the correct type. Separate filters form separate integration groups, so add only one for this first pass. | One linear monochrome light master for the selected filter group. |
-
-Calibration frames improve the scientific usefulness of the result, but a
-lights-only run is allowed with a warning. Do not interpret a structurally
-successful uncalibrated run as a calibrated result.
-
-## Procedure
-
-1. Start AfterNight and open **Process > Preprocess > Image Integration Lite**.
-   **Checkpoint:** the window starts blocked with **No light frames
-   available.** The last output directory used is restored when it still
-   exists; otherwise **Output directory is required.** also blocks.
-2. Set **Output** with **Browse** to the dedicated directory. Existing matching
-   artifacts can be reused, so prefer a new directory for a first run.
-   Registration records written by a newer version stop the run with a
-   **Registration Records** warning and are left unchanged.
-3. Leave **Add as** on **Auto-detect** when the files' headers, or the folders
-   they sit in, name their frame type, then select **Add Files**. Use **Add Folder** only when that folder tree contains
-   nothing unrelated. **Checkpoint:** the banner says frames are importing;
-   controls are temporarily disabled; then the Frames, Filters, and Object
-   summaries and table populate.
-4. Apply the branch checks above. Select any misclassified rows and use
-   **Change Type**, or the row context menu's **Set as** action. Inspect each
-   row's **Calibration** cell; its tooltip identifies the planned master files
-   and uses.
-5. For this first pass, retain **Automatic** calibration matching,
-   **Homography**, **Auto-select reference**, **Global Additive Scaling**,
-   **Average**, **Auto** rejection, **None** weighting, and drizzle off. Leave
-   **Normalize master flat** on and **Optimize dark frames** and **Auto crop to
-   common area** off. Keep **Open results when complete** on. Leave **Plate solve
-   final masters** off, as Lite opens it, so the run has no solver dependency.
-6. Read the readiness banner. Resolve every red error. A green **Ready.** banner,
-   an amber **Ready with _n_ warning(s).** banner, or the amber **No calibration
-   frames provided. Lights will be integrated without bias, dark, or flat
-   calibration.** banner enables **Run Integration**; open the warning tooltip
-   and decide whether each warning is acceptable.
-7. Select **Run Integration**. **Checkpoint:** the banner changes to
-   **Preparing integration...**, the run button disables, and the shared
-   progress dialog appears. Keep the input paths and output directory available.
-   **Cancel** requests cooperative cancellation; already completed group work
-   can be retained and reported.
-8. On success, check for **Integration complete. Generated _n_ master image(s).**
-   With **Open results when complete** selected at run start, the successful
-   masters open in the workspace. A cancelled run ends with **Integration
-   cancelled.**; a failed one shows its error, or **Integration failed.** On
-   failure or cancellation, preserve the output directory and read the reported
-   error/log before retrying.
-9. In the output directory, locate `stacked_<integration-group>.fit` and the
-   latest `history/<execution-id>/workflow_report.html` or
-   `workflow_report.md`. Confirm that the report's input groups, calibration
-   assignments, warnings, stage results, and output path match the intended
-   branch.
-10. Inspect the opened master at 100% zoom before continuing. If you cleared
-    **Open results when complete**, open the generated `stacked_*.fit` first. A
-    linear master often looks dark until display stretching is applied; display
-    appearance is not proof of calibration or integration quality.
-
-## Complete control and action reference
-
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Output** / **Browse** | Directory field/action | Last valid remembered directory, otherwise empty | Existing or creatable writable directory | Sets every workflow output and history path | Disabled during import | Existing matching artifacts may be reused unless reprocessing is enabled | Whole run | Remembered for later Lite windows |
-| **Add as** | Import classification selector | **Auto-detect** | Auto-detect, Light, Flat, Dark, Dark Flat, Bias | Classifies the next import; Auto-detect reads the frame-type header cards, then a folder on the path named for a frame type (flat(s), dark(s), bias(es)/offset(s), light(s)), and otherwise adds the frame as Light. File names are not read, as the item's tooltip says | Disabled during import | A forced wrong role produces bad grouping/matching | Next import | Window only |
-| **Add Files** / **Add Folder** | File/directory actions | — | Supported still files; folder scan is recursive | Imports metadata asynchronously and ignores duplicate absolute paths in one batch | Disabled during import | Folder import can collect unrelated supported files | Model | Chooser location remembered |
-| **Change Type** / **Set as** | Selected-row action | Imported role | One supported frame role | Reclassifies model records without modifying files | Requires selected rows; disabled during import | Rebuilds grouping/calibration plans | Selected rows | Window only |
-| Processing settings used here | Selectors/check boxes | Automatic; Homography; auto reference on; Global Additive Scaling; Average; Auto rejection; no weighting; final plate solve off; drizzle off | See [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md) for the exhaustive ranges and interactions | Defines calibration, registration, normalization, stacking, and resources | Disabled during import; some rejection/drizzle fields depend on parent choices | Changes quality, runtime, memory, disk use, or external requirements | Whole run/groups | Window/run only |
-| **Plate solve final masters** | Check box | Off | On/off | Attempts final WCS solving when needed | Solver used only when on and valid WCS cannot be propagated | This walkthrough leaves it off to avoid an external solver dependency | Final masters | Window/run only |
-| **Open results when complete** | Check box | On | On/off | Opens each successfully generated light master after a successful run | Disabled during import; snapshotted when execution starts | Does not change generated files or reports; when off, open `stacked_*.fit` manually | Completion behavior | Window/run only |
-| **Run Integration** | Primary action | Disabled | Requires import idle and no validation errors | Snapshots the model, reapplies Lite policy, builds the manifest, and runs asynchronously | Enabled for Ready or Ready-with-warning states | Writes files and can use substantial CPU, memory, and disk | Whole run | Artifacts/history persist |
-| **Cancel** | Progress action | — | Cooperative request | Stops future work when the executing stage observes cancellation | Visible during execution | Completed group outputs/report history can remain | Active run | Not persisted |
-| **Open Full Process** | Handoff action | — | Current Lite model | Copies the current setup into full Image Integration | Available outside blocked import operations | Use for manual assignments, CFA overrides, multiple targets, or advanced diagnostics | Current model | Full process can then save a project |
-
-## Behavior and state model
-
-```mermaid
-flowchart TB
-    accTitle: Image Integration Lite state model
-    accDescr: The Lite workflow moves from import and review through readiness, execution, and a successful or interrupted result.
-    Empty[Empty or blocked] -->|Set output<br/>and import| Imported[Frames imported]
-    Imported --> Review[Review roles/groups<br/>and calibration]
-    Review --> Ready{Ready?}
-    Ready -->|No| Review
-    Ready -->|Ready/warning| Running
-    Running -->|Success| Masters[History/report<br/>Optional masters]
-    Running -->|Fail/cancel| Evidence[Errors/logs<br/>Completed artifacts]
+```figure
+image: ../assets/images/getting-started/quick-start.png
+alt: >-
+  The Image Integration Lite window. A green banner at the top reads Ready. Under it, the Dataset card counts 18
+  light, 40 flat, 20 dark and 30 bias frames of the object NGC253. The Setup card holds the Output folder with its
+  Browse button and the options of the run. The Processing Settings card lists four collapsed lines: Calibration,
+  Registration, Normalization and Stacking. The Frames card has the Add as box, the Add Files, Add Folder, Change
+  Type and Clear All buttons, and a table of the files with their type, object, exposure and calibration. Run
+  Integration, Open Full Process and Close are at the bottom.
+caption: >-
+  Image Integration Lite with a night on NGC 253 loaded and ready to run: a color camera's lights with their darks,
+  flats and bias frames.
+pins:
+  - {n: 2, x: 10.2, y: 30.9}
+  - {n: 3, x: 43.6, y: 71.6}
+  - {n: 4, x: 97.0, y: 83.0}
+  - {n: 5, x: 16.4, y: 48.4}
+  - {n: 6, x: 8.2, y: 10.9}
+  - {n: 7, x: 69.0, y: 97.3}
 ```
 
-Lite derives grouping and calibration matching from metadata, then applies a
-fixed beginner-oriented policy before building the same manifest used by full
-Image Integration. OSC/CFA calibration occurs before demosaic; registration
-loads and demosaics CFA data for star matching/alignment. Mono data remains
-single-channel, and different effective filter labels produce different light
-integration groups.
+### Open Image Integration Lite
 
-Readiness is structural. A Ready banner means the model has no blocking
-validation error; it does not prove good calibration matches, registration,
-focus, sampling, or output quality. Execution is asynchronous, and its immutable
-manifest separates the running workflow from later UI edits.
+Choose **Process > Preprocess > Image Integration Lite**. The window needs no open image. The Dashboard's **Image
+Integration** card opens the full process, which is another window.
 
-## Inputs, outputs, and metadata
+!!! see "You should see"
+    A red banner: "No light frames available." On a first run it also says "Output directory is required." Later,
+    the window restores the last folder you used, even one that is gone, and its own size.
 
-Lite's import reads each supported still file's type, dimensions, exposure,
-temperature, ISO/gain, offset, filter, object, capture time, and readout mode
-without rewriting the source; the filter array and WCS are read from the files
-when registration runs. Automatic classification falls back to Light; always
-verify the table.
+### Choose the output folder
 
-Generated products include `master_bias_<group>.fit`,
-`master_dark_<group>.fit`, and `master_flat_<group>.fit` when those masters must
-be built; registered/normalization intermediates; and
-`stacked_<integration-group>.fit` for each successful light group. A stable
-short hash is added if an output name would collide. Workflow state lives under
-`.afternight/image_integration/`, while each archived run can contain its
-manifest, log, Markdown/HTML report, group summaries, and retained outputs below
-`history/<execution-id>/`.
+Choose **Browse** beside **Output** and select the new, empty folder. Everything the run writes goes there. Your
+frames are only read.
 
-## Performance and responsiveness
+Use a new folder for each data set. A folder that already holds results of the same frames lets the run reuse them
+instead of computing them again, unless **Reprocess existing outputs** is on. A run that reuses everything is over
+in seconds and opens no master.
 
-Import and execution run asynchronously, but integration can still consume
-substantial CPU, memory, and storage. A smaller representative set, one target,
-one filter/group, drizzle off, and a dedicated output directory make the first
-run easier to inspect. **Limit memory usage** selects tiled stacking; it does not
-cap every codec, registration, or reporting allocation. Do not infer production
-timing or peak memory from this source-derived walkthrough.
+??? wrong "If it goes wrong: the banner says the output directory cannot be used"
+    "Output directory cannot be created (parent directory is not writable).", "Output directory path is not a
+    directory." or "Output directory is not writable.": choose a folder on a disk you can write to.
 
-## Worked example
+### Add your frames
 
-- Evidence mode: **Source-and-test-derived**.
-- Starting state, actions, settings, checkpoints, result, and limitations:
+Leave **Add as** at **Auto-detect** and choose **Add Files**, or **Add Folder** for a folder and everything under
+it. **Auto-detect** reads each file's type from its header. Where the header does not say, it takes the type from a
+folder on the file's path named for one: lights, darks, flats, bias. A file that says nothing either way is added as
+a light. File names are not read.
 
-| Stage | OSC/CFA branch | Mono branch | Shared checkpoint |
-| --- | --- | --- | --- |
-| Input | One target's original linear CFA lights plus matching calibration frames when available | One target's linear lights from one filter plus matching calibration frames when available | Imported row count and roles match the selected files; Object is a single effective value |
-| Branch check | CFA metadata is consistent; uncertain CFA interpretation is handed to the full process | Filters shows the intended single filter | Calibration cells identify the intended automatic assignments |
-| Settings | Beginner settings from step 5; final plate solving off | Same | Ready or Ready-with-warning banner; **Run Integration** enabled |
-| Execution | Raw-sample calibration precedes CFA demosaic and registration | Mono frames register and stack within the filter group | Preparing banner and progress dialog appear; source paths remain stable |
-| Result | At least one successful linear light master for the effective OSC group | One successful linear light master for the selected mono filter group | Completion banner reports generated master count; output opens when **Open results when complete** was selected; history report names inputs, warnings, stages, and output |
+When your files state no type and sit in one folder, add each kind on its own: choose its type in **Add as** first.
+A file that is already listed is not added twice.
 
-The walkthrough and branch behavior are source-and-test-derived. The retained
-result capture demonstrates that Lite can open a generated master, but does not
-validate either branch's output quality or performance.
+!!! see "You should see"
+    The banner reads "Importing frames..." and the controls are disabled for a moment. Then **Frames**, **Filters**
+    and **Object** in the **Dataset** card fill in, and the table lists every file with its type.
 
-![Opened grayscale stacked M16 Ha master displayed with Autostretch in the AfterNight image viewer](../assets/images/interface/quick-start-result.png)
+??? wrong "If it goes wrong: the import adds no rows"
+    None of the files is a still image AfterNight can read, and the banner returns to "No light frames available."
+    Use a format listed in [Supported Formats](supported-formats.md). Frames inside a video or a
+    [sequence](../reference/glossary.md#sequence) file are
+    extracted first.
 
-*A successful Lite run can open its generated linear master in the workspace.
-This capture uses **Autostretch** for display only; it does not alter the linear
-image data or demonstrate a quality threshold.*
+### Check the table
 
-## Warnings and limitations
+Read the **Type** column. Where a type is wrong, select the rows and choose **Change Type**, or right-click a row
+and choose **Set as**. This changes how the run uses the file, never the file.
 
-- Lite accepts one effective object. Multiple nonblank object names are a
-  blocking error; use full Image Integration for multi-target work.
-- **Auto-detect** and a Ready banner are not substitutes for checking frame
-  roles, filter/object metadata, CFA interpretation, and calibration matches.
-- A lights-only run is allowed but warned as uncalibrated. Flats without Bias or
-  Dark Flat calibration also warn.
-- Source files are preserved, but output/history files consume storage and new
-  runs can reuse or replace current matching artifacts while archiving prior
-  state.
-- Sequence/video input, masks, comet tracking, manual calibration assignment,
-  per-group advanced settings, and persistent Lite projects are unsupported.
-- Do not judge a linear integration solely from its unstretched display.
+Then read the **Calibration** column of the lights. It names what each light will be calibrated with, and its
+tooltip names the files. **Object** in the **Dataset** card must show one name, and for a mono camera **Filters**
+must show the one filter you meant to add.
 
-## Troubleshooting
+!!! see "You should see"
+    Every light row shows the calibration you expect, such as "Dark + Flat". The table has no column for the size of
+    a frame: lights of another size are stacked as a group of their own.
 
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| **Run Integration** remains disabled | Import is active, or readiness reports a missing, non-directory, unwritable, or uncreatable output directory, **No light frames available.**, or multiple objects; the banner shows up to three errors | Wait for import; read the red banner; correct roles, paths, or object metadata | `ImageIntegrationLiteProcess.cpp`; `test_image_integration_lite_process.cpp`; `test_lite_integration_profile.cpp` |
-| An import adds no rows | No selected/scanned file passed the still-image extension/import checks. The import's own message is replaced at once by the readiness banner, so into an empty list it shows **No light frames available.** | Use a readable still format from [File Formats](../reference/file-formats.md), or extract sequence frames first | `ImageIntegrationLiteProcess.cpp`; `FileImport.cpp` |
-| The run fails with **Invalid workflow manifest.** | Size or format problems among the frames are found only when the run prepares | Read the warning it shows, remove or correct the named frames, and run again | `WorkflowExecutionController.cpp`; `IntegrationDataModel.cpp` |
-| **No calibration frames** warning | Lights exist but no calibration frames are loaded | Add matching frames, accept an explicitly uncalibrated structural run, or stop | `ImageIntegrationLiteProcess.cpp`; focused UI readiness tests |
-| Missing flat calibration match warning | Flat metadata/filter does not match the Light group under the active policy, or bias/dark frames are loaded with no flats at all | Correct frame roles/metadata choice, use matching flats, or hand off to the full process | `CalibrationMatcher.cpp`; `test_image_integration_lite_process.cpp` |
-| CFA color/pattern looks wrong | The filter array the files state is wrong for the camera, or the files state none and are processed as monochrome | Stop judging the result; use **Open Full Process** and set Registration's CFA Pattern/Method explicitly. A stated pattern corrects a wrong arrangement; it cannot make a light whose file states no filter array into color | `RegistrationFrames.cpp`; `DemosaicTextMaps.h`; full Image Integration registration controls |
-| Integration failed or was cancelled | A workflow stage returned an error or observed cancellation | Preserve the output directory and read the banner/log. If at least one integration group completed, also inspect its retained outputs and archived report; an earlier failure or cancellation may not create an archive. Correct the cause and rerun. | `WorkflowExecutor.cpp`; `WorkflowArchiver.cpp` |
-| Existing result was reused unexpectedly | Matching artifacts exist and **Reprocess existing outputs** is off | Enable reprocessing or choose a fresh output directory | `ImageIntegrationLiteProcess.cpp`; `WorkflowExecutor.cpp` |
-| **Registration Records** warning and the run does not start | The directory's `registration_metrics.db` was written by a newer AfterNight version | Use that newer version, or choose a fresh output directory; the records are left unchanged | `ImageIntegrationProcessShared.cpp` |
+??? wrong "If it goes wrong: a warning about a missing flat calibration match"
+    The flats do not match the lights' filter or setup, or darks and bias frames were added without any flat.
+    Correct the types, add the matching flats, or choose **Open Full Process** to assign the calibration by hand.
 
-## Related workflow steps
+### Leave the processing settings
 
-Start with [First Launch](first-launch.md) if the application and file-opening
-path are not yet verified. Use [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md)
-for the exhaustive control/policy reference, or hand the model to full
-[Image Integration](../processes/stacking-integration/image-integration.md) for
-manual grouping, assignments, diagnostics, projects, and advanced outputs.
+Leave the four lines of **Processing Settings** closed for this first run. They read **Calibration: Automatic, flat
+auto-level**, **Registration: [Homography](../reference/glossary.md#homography), auto reference**, **Normalization:
+Global Additive Scaling** and **Stacking: Average, Auto, final solve off, [drizzle](../reference/glossary.md#drizzle)
+off**. With the final plate solve off, the run needs no solver
+and no star catalog.
 
-After a successful stack, use the [Image Viewer](../interface/image-viewer.md) to
-inspect it and distinguish its temporary Autostretch from a pixel-changing
-process such as [Statistical Stretch](../processes/stretching/statistical-stretch.md).
-Choose a save/export path through [Supported Formats](supported-formats.md),
-whose detailed capability authority is [File Formats](../reference/file-formats.md).
+Keep **Open results when complete** on. **Limit memory usage** makes the stacking work in tiles. It does not bound
+everything else the run allocates.
 
-## References and provenance
+### Read the banner
 
-- The implementation and focused tests are the primary
-  sources for this source-derived walkthrough.
-- [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md)
-  retains the exhaustive Lite policy, parameter, output, and limitation record.
-- [Image Integration](../processes/stacking-integration/image-integration.md)
-  retains the shared workflow, engine, report, and advanced-process record.
-- No external algorithm or format contract is introduced here; detailed format
-  provenance is centralized in [File Formats](../reference/file-formats.md).
+The banner at the top says whether the run can start. Red is an error and must be resolved. Amber is a warning:
+hover over the banner to read each one, and decide whether you accept it. Without
+[calibration frames](../reference/glossary.md#calibration-frame) the amber
+banner reads "No calibration frames provided. Lights will be integrated without bias, dark, or flat calibration."
+
+The banner checks that the run can be built. It does not judge whether the calibration matches are good ones, or
+whether the frames are sharp.
+
+!!! see "You should see"
+    A green "Ready." or an amber "Ready with 1 warning(s).", and **Run Integration** enabled.
+
+??? wrong "If it goes wrong: Run Integration stays disabled"
+    The import is still running, or the banner is red. It lists up to three errors: a problem with the output
+    folder, no light frames, or "Image Integration Lite expects one target object." The last one means the lights
+    carry more than one object name in their headers, as when the capture program named part of the night "Target".
+    Choose **Clear All** and add only the lights of one object, or choose **Open Full Process**, which takes the
+    frames with it.
+
+### Run the integration
+
+Choose **Run Integration**. Keep the frames and the output folder where they are while it runs. Changes you make in
+the window after this point do not change the run.
+
+**Cancel** in the progress window stops the run at the next point where it can stop. What was finished by then is
+kept and reported.
+
+!!! see "You should see"
+    The banner changes to "Preparing integration...", the button is disabled and the **Image Integration -
+    Processing** window names each stage in turn. At the end a box titled **Complete** reads "Workflow completed
+    successfully." Choose **OK** and close the progress window.
+
+??? wrong "If it goes wrong: the run stops with an error"
+    Keep the output folder and read the message. A warning that lists frames before the run starts names the ones
+    whose size or format does not fit: remove or correct them and run again. A "Registration Records" warning
+    means the folder holds records written by a newer AfterNight: use a new folder. A run that fails later ends
+    with a box titled **Failed** that reads "Workflow failed:" and the reason, and a cancelled one with "Workflow
+    was cancelled."
+
+### Look at the result
+
+With **Open results when complete** on, the master opens in the workspace. It is
+[linear](../reference/glossary.md#linear-image), so it looks nearly black: choose
+[**Autostretch**](../reference/glossary.md#autostretch) in the display mode box of its toolbar to see it. That changes the
+display only, not the image.
+
+Zoom to 100 % and look at the stars and the background. Then open the report of the run, `workflow_report.html`
+under `history` in the output folder. Its header says how many lights the master combines, and **Needs attention**
+lists what the run could not do as asked: check that the frames, the calibration and the warnings are what you
+intended. [Image Integration Report](../processes/stacking-integration/integration-report.md) says how to read the
+rest.
+
+!!! see "You should see"
+    The master open in its own view, named after its file, and the window's banner back at "Ready."
+
+??? wrong "If it goes wrong: the master is gray, or its colors are wrong"
+    The registration makes a color image only from files that state their filter pattern. Files that state none are
+    stacked as monochrome, and a wrong pattern gives wrong colors. Choose **Open Full Process** and set the
+    pattern in the registration settings. That corrects a wrong pattern. It cannot make color of files that state
+    none.
+
+## The result
+
+You have one stacked master for each group of lights: `stacked_<group>.fit` in the output folder, linear, with your
+frames untouched. Beside it are the masters the run built - `master_bias_<group>.fit`, `master_dark_<group>.fit`
+and `master_flat_<group>.fit` - and the calibrated and registered frames it went through. A short code is added to
+a name that would otherwise be used twice.
+
+Each run leaves its record under `history`, in a folder of its own: the report with its pictures, the log and
+the settings it ran with. The folder `.afternight` holds what a later run needs to reuse this one. All of it takes
+disk space, and a later run in the same folder reuses or replaces what matches.
+
+```figure
+image: ../assets/images/getting-started/quick-start-result.webp
+alt: >-
+  The AfterNight main window with one image open, in a tab named stacked_5544x3684_NGC253: a pale galaxy seen
+  almost edge-on, in the middle of a field of stars on a gray background. The display mode box in the view's toolbar
+  reads Autostretch.
+caption: >-
+  The stacked master of NGC 253 as the run opened it, shown with Autostretch. Its colors are those of the camera:
+  color calibration comes later.
+```
+
+Lite keeps its list of frames only while the window is open, and does one target at a time. It does not take video
+or sequence files, [masks](../reference/glossary.md#mask) or comets. For those, and to assign calibration by hand or save the work as a project,
+choose **Open Full Process**: it opens Image Integration with the frames and the settings you have here.
+
+## Next
+
+- [Image Viewer](../interface/image-viewer.md) shows how to inspect the master and what Autostretch does.
+- [Histogram Transformation](../processes/stretching/histogram-transformation.md)
+  [stretches](../reference/glossary.md#stretch) the master into a picture.
+- [Image Integration Lite](../processes/stacking-integration/image-integration-lite.md) describes every control of
+  the window you just used.
+- [Image Integration](../processes/stacking-integration/image-integration.md) is the full process, for several
+  targets, projects and calibration by hand.
+- [Broadband Imaging](../workflows/broadband-imaging.md) goes from the frames to the finished picture.
+- [Supported Formats](supported-formats.md) says how to save and export the result.

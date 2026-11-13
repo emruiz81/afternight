@@ -1,280 +1,379 @@
+---
+kind: process
+stage: any
+menu: Process > Geometry > Rotate
+summary: >-
+  Turns an image, or every frame of a sequence, about its center by any angle up to half a turn, on its own canvas or
+  a larger one, and can then crop the turned result.
+data_in: either
+data_out: either
+destructive: true
+preview: static
+sequences: true
+masks: none
+external: none
+glance:
+  enabled: >-
+    An image or a sequence view is active and no other process window is open on it. Rotate needs the image to
+    itself, so no other window opens on it while Rotate is open.
+  inputs: >-
+    One image or sequence of any pixel type and any number of channels, with square pixels. A raw color-filter mosaic
+    only after you answer Yes to the Rotate CFA question.
+  outputs: >-
+    The same view, replaced, with one history step: the turned image, on its own or a larger canvas, cropped if you
+    ask. No file, preset or report is written.
+  state: >-
+    Any image, preferably debayered, whose framing needs a turn other than a quarter or a half turn.
+derived: false
+---
 # Rotate
 
-## Purpose and expected result
+Rotate turns an image about its center by an angle you type, clockwise for a positive angle. It can grow the canvas
+so that no corner is cut, and crop the turned image to remove the black corners the turn leaves. While you set the
+angle, the image's view shows its picture turned.
 
-Rotate turns an image, or every frame of a sequence, clockwise or
-counter-clockwise about its centre by up to 180 degrees, optionally grows the
-canvas to hold every turned pixel, and can crop the turned result. It is intended
-for framing and orientation changes that cannot use the exact non-interpolating
-90/180-degree Image-menu actions.
+**OK** replaces the image, or every frame of a [sequence](../../reference/glossary.md#sequence), with the turned one,
+adds one step to its [history](../../reference/glossary.md#history) and closes the window. The
+[pixel type](../../reference/glossary.md#pixel-type) and the channels are kept. Every sample is interpolated, and the
+[plate solution](../../reference/glossary.md#plate-solution) is dropped.
 
-The result keeps the source sample representation, channel layout, acquisition
-record and meaning, but arbitrary rotation resamples pixels, adds black border
-areas, drops the plate solution and drops the header cards read from the file.
-It does not preserve scientific flux or increase resolution.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Geometry > Rotate** |
-| Enabled when | An image or sequence is active, Rotate is not already attached, and no other process is attached because Rotate requires exclusive access |
-| Inputs | One still or sequence of any of the eight sample representations whose pixels are square; a colour-filter-array mosaic only after **Rotate CFA** is answered **Yes** |
-| Outputs | Replaces the target with the turned image on its own or a grown canvas, optionally cropped, as one Image History step; a sequence is written whole into a new sequence of the same container (another video container is written as Matroska) |
-| Recommended image state | Any state; prefer demosaiced data and perform scientific rotation only when geometry requires it |
-| Preview support | Yes, but display-only: the viewer rotates its current display, stretch and mask overlay; the engine's interpolation and border are not computed until OK |
-| Sequence support | Yes: every frame, whatever frames the player has selected, with one angle, canvas, interpolation and crop; progress and Cancel are shown |
-| Mask support | No for output; an active mask may appear in the display-only rotated preview but is not applied |
-| External dependencies | None; the rotation is the image engine's own |
+```figure
+image: ../../assets/images/processes/geometry/rotate.webp
+alt: >-
+  The Rotate window. In the Rotation group, the Rotation Angle box at 10.00 with Resize image ticked beside it, a
+  slider under them, and Interpolation at Auto (Lanczos4). In the Crop group, ticked, Pos X at 1040, Width at 6000,
+  Pos Y at 1102 and Height at 4400. Under them Current Size reads 450.19 MB and New Size 302.12 MB, Target Image
+  names the master, and Reset, OK and Close run along the bottom.
+caption: >-
+  Rotate on the linear Carina master, turned 10 degrees on a larger canvas and cropped to a rectangle of 6000 by 4400
+  pixels that the turned image fills.
+pins:
+  - {n: 2, x: 8.0, y: 29.0}
+  - {n: 3, x: 61.0, y: 29.0}
+  - {n: 4, x: 8.0, y: 42.0}
+  - {n: 5, x: 28.5, y: 51.0}
+  - {n: 6, x: 43.0, y: 94.5}
+```
 
 ## Before you start
 
-- Duplicate important data. Apply replaces the target and resampling is not
-  exactly reversible; the step can be undone in Image History.
-- Use **Image > Fast Geometry > Rotate 90° Left/Right** or **Rotate 180°** when an
-  exact orthogonal turn is sufficient. Those actions move every sample without
-  interpolating and keep a mosaic's filters under their samples; this process
-  still interpolates at those angles.
-- Debayer a colour-filter-array mosaic before an arbitrary rotation. If you
-  answer **Yes** to **Rotate CFA**, the mosaic is turned as one grey plane and the
-  result states no filter array.
-- Decide whether corners may be clipped. **Resize image** grows the output canvas
-  to hold every turned pixel; it does not scale the image.
-- Expect black triangles wherever the turned source does not cover the output.
-  There is no fill-colour or edge-extension option.
-- Rotate drops a plate solution, even at zero degrees with only the Crop group
-  in use. Plan to plate-solve afterward; [Crop](crop.md), [Resize](resize.md)
-  and [Integer Resample](integer-resample.md) carry the solution, so do them
-  around the rotation as framing needs, and solve once at the end.
-- Rotate needs square pixels and refuses an image that states another pixel
-  aspect. A [Resize](resize.md) states the source's pixel aspect exactly, whatever
-  its two axis scales, so a resized image with square pixels can be rotated.
+- For a quarter or a half turn, choose **Rotate 90º Left**, **Rotate 90º Right** or **Rotate 180º** under
+  **Image > Fast Geometry**. They move every sample without interpolating it and keep a mosaic's filters under their
+  samples, while Rotate interpolates at every angle.
+- **OK** replaces the image, and turning back does not restore it. Its history keeps the step before.
+- Rotate drops the plate solution, even at 0 degrees with only a crop. Do a crop, a resize or an integer resample
+  before or after it as the framing needs, since those keep the solution, and plate-solve once at the end.
+- [Debayer](../../reference/glossary.md#debayer) a raw [CFA](../../reference/glossary.md#cfa) mosaic first. Rotate
+  turns it as one gray plane, and the result states no filters.
+- Rotate needs square pixels and refuses an image that states another shape.
+- Every channel is turned, and a [mask](../../reference/glossary.md#mask) on the view is not used. On a sequence, every
+  frame gets the same turn and crop, whatever frames its player has selected.
 
-## Procedure
+## Steps
 
-1. Select the target and open **Process > Geometry > Rotate**. Confirm **Target
-   Image**.
-2. Set **Rotation Angle**. Positive is clockwise; negative is counter-clockwise.
-   The main image viewer rotates its current display as a framing preview.
-3. Check **Resize image** to keep the complete turned image. Leave it unchecked
-   only when clipping against the original dimensions is intended.
-4. Choose an interpolation. The first entry reads **Auto (Lanczos4)** and always
-   chooses Lanczos4.
-5. If needed, check **Crop**, then edit or drag the Pos/size overlay in
-   coordinates of the turned canvas. Verify nonzero Width and Height.
-6. Select **OK**. The dialog is read at that moment; changing a field afterwards
-   does not reach the run. A still is turned on a worker without a progress
-   window; a sequence shows progress and **Cancel**. Success closes Rotate and
-   records `Rotated <angle> degrees - Interpolation: <name>` - with
-   `Cropped area : X: <x> Y: <y> W:<w> H:<h>` before the interpolation when the
-   Crop group is checked - in Image History, naming the interpolation that ran,
-   never Auto.
-7. Confirm geometry, borders, orientation, and clipped content at 100%.
-   Plate-solve again before using coordinates.
+1. **Open the window.** Make the image the [active image](../../reference/glossary.md#active-image) and choose
+   **Process > Geometry > Rotate**. **OK** stays disabled while the angle is 0 and no crop is set.
+2. **Set the angle.** Type **Rotation Angle**, positive to turn clockwise, or drag the slider for a first look. The
+   view turns its picture as the value changes.
+3. **Keep the corners.** Tick **Resize image**, so that the canvas grows to hold the whole turned image. Leave it off
+   only when the corners may be cut.
+4. **Choose the interpolation.** Leave **Interpolation** at **Auto (Lanczos4)**, or choose **Bilinear** where rings
+   around stars matter more than sharpness.
+5. **Remove the black corners.** Tick **Crop** and type **Pos X**, **Pos Y**, **Width** and **Height** in the pixels
+   of the turned canvas, or drag the frame on the view. **New Size** gives the memory the result will hold.
+6. **Rotate.** Choose **OK**. The window closes, the view shows the turned image, and its history lists **Rotate**
+   with the angle and the interpolation.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Rotation Angle: | Double spin box plus slider, degrees | `0.00` | None | `-180.00..180.00`; spin step `1.00`; two decimals; slider is remapped to 1,000 positions (nominal `0.36°`, despite its `0.1°` tooltip) | Positive rotates clockwise; negative counter-clockwise | Updates display preview, canvas estimate/bounds, and OK | Non-orthogonal values interpolate and create border/clipping; repeated rotations compound loss | Display preview/OK; all channels; still/sequence | Window lifetime; Reset `0.00` |
-| Resize image | Checkbox | Unchecked | None | Checked/unchecked | Checked grows the canvas to the smallest whole-pixel size holding every turned pixel; unchecked keeps original width/height | Affects preview widget size, crop maxima, and output canvas | Checked preserves source corners but adds memory/black borders; unchecked clips corners | Display preview/OK; still/sequence | Window lifetime; Reset unchecked |
-| Interpolation | Combo box | **Auto (Lanczos4)** | None | Auto, **Nearest Neighbor**, **Bilinear**, **Bicubic**, **Pixel Area Relation**, **Lanczos4**, **Bit Exact Bilinear**, **Bit Exact Nearest Neighbor** | Auto always chooses Lanczos4; Pixel Area Relation and Bit Exact Bilinear sample bilinearly, Bit Exact Nearest Neighbor as nearest | Always visible; read when OK is pressed | Nearest is blocky; Bilinear smooths; Bicubic/Lanczos4 can ring; all non-nearest modes correlate samples | OK; each stored channel; still/sequence | Window lifetime; Reset Auto |
-| Crop | Checkable group | Unchecked | None | Checked/unchecked | Checked enables a rectangle on the turned canvas and crops the turned image to the part of it the canvas holds | Children disabled while unchecked; overlay listener follows state | Can remove black borders or science content | Display overlay/OK; still/sequence | Window lifetime; Reset unchecked |
-| Pos X | Integer, turned-canvas pixels | `0` | None | `0..canvas width`; step `1`; Width maximum becomes `canvas width-X` | Moves the crop's left edge right | Used only when Crop checked | Discards left output pixels | Crop after rotate; all channels | Window lifetime; Reset `0` |
-| Pos Y | Integer, turned-canvas pixels | `0` | None | `0..canvas height`; step `1`; Height maximum becomes `canvas height-Y` | Moves the crop's top edge down | Used only when Crop checked | Discards top output pixels | Crop after rotate; all channels | Window lifetime; Reset `0` |
-| Width | Integer, turned-canvas pixels | Source width | None | `0..canvas width-X`; step `1` | Sets cropped output width | Used only when Crop checked; zero is not blocked by the dialog | Output memory/runtime scale with area; zero is refused by the engine | Crop after rotate; all channels | Window lifetime; Reset source width |
-| Height | Integer, turned-canvas pixels | Source height | None | `0..canvas height-Y`; step `1` | Sets cropped output height | Used only when Crop checked; zero is not blocked by the dialog | Same as Width | Crop after rotate; all channels | Window lifetime; Reset source height |
-| Current Size: | Read-only estimate, MB/GB | Current sample bytes × sequence frame count | None | Two decimals; GB above 1024 MB | Reports approximate current sample volume | Recomputed on target updates | Excludes metadata/compression | Information only | Recomputed |
-| New Size: | Read-only estimate, MB/GB | Current size at zero angle/no crop | None | Based on crop area, the preview's grown canvas, or source dimensions | Estimates output sample volume | Recomputed from angle/canvas/crop | The grown canvas is measured from the on-screen preview, so it can differ by a row or column from the result; excludes working planes, temporary sequence storage, metadata, and compression | Information only | Recomputed |
-| Target Image | Image/sequence selector | Attached active target | None | Any open target allowed by exclusive launch/attachment gates | Reattaches and resets controls/preview for new target | Rotate disables preview on old target and enables it on new target | Wrong target is changed | Preview/OK; still/sequence | Target lifecycle |
-| OK | Dialog action | Disabled at zero angle with Crop off/full | None | Enabled for nonzero angle or any checked Crop geometry change | Asks the **Rotate CFA** question for a mosaic, then reads the dialog and starts the rotation, then the optional crop, on a worker | OK/Close/Reset disable while it runs; the fields stay editable but no longer reach the run | Keeps the source for Image History; a sequence adds a temporary output sequence | Apply; all channels; mask not applied; still/sequence | Success closes and records history |
-| Reset | Dialog action | Enabled | None | One action | Restores angle 0, source crop fields, Auto, Resize image off, and Crop off | Disabled during execution | No pixel change | Setup/display preview | Immediate |
-| Close | Dialog action | Enabled | None | Button or title-bar close | Removes rotation preview and closes without a new operation | Button disables during execution; a title-bar close while a run is in flight hides the window, which closes once the run has landed; it does not stop the run | Nothing waits on the GUI thread | Dialog only | No settings saved |
-| Cancel | Sequence-progress action | Not requested | None | Available only during sequence execution | Stops the run between frames | The progress window belongs to the run | A stopped run leaves the sequence and its history as they were and no temporary sequence behind; nothing is reported | Apply; sequence only | Per run |
+What every process window shares is on [Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: Rotate
+controls:
+  - name: Rotation Angle
+    kind: spinbox
+    default: "0.00"
+    widget: {min: -180, max: 180, step: 1, decimals: 2}
+    effect: Sets the turn in degrees. A positive angle turns the image clockwise and a negative one counterclockwise. The view shows its picture turned as the value changes.
+    range: The slider beside it moves in steps of 0.36 degrees. Type an exact angle in the box.
+    tradeoff: Any angle interpolates every sample and leaves corners the image does not cover. Each turn adds its loss to the last one.
+    scope: OK, on every channel and every frame of a sequence.
+    persistence: Until the window closes. **Reset** returns it to 0.00.
+  - name: Resize image
+    kind: check
+    default: "Off"
+    effect: On, grows the canvas to the smallest whole-pixel size that holds every turned pixel, equally on each side. Off, keeps the image's width and height and cuts the corners that turn out of them.
+    tradeoff: On keeps the whole image, and adds memory, time and black corners, most near a diagonal angle. It grows the canvas but never scales the image.
+    scope: OK, and the size of the turned picture on the view, the limits of the crop and **New Size**.
+    persistence: Until the window closes. **Reset** turns it off.
+  - name: Interpolation
+    kind: combo
+    default: Auto (Lanczos4)
+    options: [Auto (Lanczos4), Nearest Neighbor, Bilinear, Bicubic, Pixel Area Relation, Lanczos4, Bit Exact Bilinear, Bit Exact Nearest Neighbor]
+    effect: Chooses how each sample of the turned image is computed from the samples around its place. Auto is always **Lanczos4**.
+    range: "**Nearest Neighbor** and **Bit Exact Nearest Neighbor** take the nearest sample. **Bilinear**, **Pixel Area Relation** and **Bit Exact Bilinear** weigh the four around, **Bicubic** sixteen and **Lanczos4** sixty-four."
+    tradeoff: "**Nearest Neighbor** is blocky. **Bilinear** smooths. **Bicubic** and **Lanczos4** keep edges sharper, read more samples and take longer, and can ring around stars. Every choice but the nearest ones correlates the noise of neighboring pixels."
+    scope: OK, on each channel.
+    persistence: Until the window closes. **Reset** returns it to Auto.
+    note: The history names the interpolation that ran, never Auto.
+  - name: Crop
+    kind: check
+    default: "Off"
+    effect: On, crops the turned image to the rectangle of the four boxes below, drawn as a frame on the view. Off, keeps the whole turned canvas and disables the boxes.
+    range: The run keeps the part of the rectangle the turned canvas holds.
+    tradeoff: The rectangle can remove the black corners, or the science at the edges.
+    scope: OK, after the turn, every sample copied exactly.
+    persistence: Until the window closes. **Reset** leaves it as it is. Another target turns it off.
+  - name: Pos X
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, step: 1}
+    effect: Places the rectangle's left edge, in pixels of the turned canvas.
+    range: Up to the canvas's width. **Width** cannot reach past the canvas from it.
+    enabled: With **Crop** on.
+    persistence: Until the window closes. **Reset** returns it to 0.
+  - name: Width
+    kind: spinbox
+    default: The image's width
+    widget: {min: 0, step: 1}
+    effect: Sets the result's width, from the left edge **Pos X** places.
+    range: Up to the canvas's width less **Pos X**. The window lets it reach 0, which the run refuses.
+    enabled: With **Crop** on. Ticking **Crop** keeps the image's own width here, even on a larger canvas.
+    persistence: Until the window closes. **Reset** returns it to the image's width.
+  - name: Pos Y
+    kind: spinbox
+    default: "0"
+    widget: {min: 0, step: 1}
+    effect: Places the rectangle's top edge, in pixels of the turned canvas.
+    range: Up to the canvas's height. **Height** cannot reach past the canvas from it.
+    enabled: With **Crop** on.
+    persistence: Until the window closes. **Reset** returns it to 0.
+  - name: Height
+    kind: spinbox
+    default: The image's height
+    widget: {min: 0, step: 1}
+    effect: Sets the result's height, from the top edge **Pos Y** places.
+    range: Up to the canvas's height less **Pos Y**. The window lets it reach 0, which the run refuses.
+    enabled: With **Crop** on. Ticking **Crop** keeps the image's own height here, even on a larger canvas.
+    persistence: Until the window closes. **Reset** returns it to the image's height.
+  - name: Current Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the image's samples hold now, for all the frames of a sequence together.
+    range: In MB with two decimals, and in GB above 1024 MB.
+    tradeoff: It counts the samples only, not the working memory of a run or the compression of a file.
+  - name: New Size
+    kind: readout
+    default: The image's size in memory
+    effect: Gives the memory the result's samples will hold - the crop's rectangle with **Crop** on, the larger canvas with **Resize image** on, the image's own size otherwise - for every frame of a sequence.
+    range: The canvas it counts is the one the run makes.
+    tradeoff: It leaves out the working planes, the image the history keeps, the temporary sequence a sequence needs, the header and the compression of a file.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image or sequence OK turns. Choosing another one returns every control to its default, turns **Crop** off, and moves the turned picture to that image's view.
+    tradeoff: The image chosen here is the one replaced.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: OK
+    kind: button
+    default: ""
+    effect: Reads the window, turns the image or every frame of the sequence, then crops it when **Crop** is on. The window closes once the view shows the result.
+    enabled: When the angle is not 0, or when **Crop** is on and its rectangle is not the whole image. Its tooltip then reads "Apply the rotation to the target image.", and otherwise "Set a non-zero rotation angle or adjust the crop region to enable."
+    tradeoff: The history keeps the image as it was beside the result, so the run needs the memory of both, and of the crop's copy. A sequence needs the disk space of the turned copy.
+    scope: The whole image, on every channel, without the mask. A change made in the window after you press it does not reach the run.
+    persistence: "The image and its history keep the result, as the step **Rotate** with the text `Rotated <angle> degrees - Interpolation: <name>`, or `Rotated <angle> degrees - Cropped area : X: <x> Y: <y> W:<w> H:<h> - Interpolation: <name>` with **Crop** on."
+    note: "For a mosaic the view does not debayer, it first asks \"Rotate CFA\" whether to run anyway, and **No** starts nothing. OK, **Close** and **Reset** are disabled while the run works, and the other controls stay editable. A single image shows no progress window, and its run cannot be stopped once it starts. A run that fails leaves the window open."
+  - name: Close
+    kind: button
+    default: ""
+    effect: Closes the window without turning, and the view shows its picture unturned again.
+    enabled: Disabled while a run works.
+    note: Closing the window another way while a run works hides it, and it closes when the run has ended. The run is not stopped, on a sequence either.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the angle to 0.00, the four boxes to the whole image, **Interpolation** to Auto and **Resize image** to off.
+    range: It leaves **Crop** and **Target Image** as they are.
+    enabled: Disabled while a run works.
+```
 
-### Conceptual pipeline
+```controls
+window: The view while Rotate is open
+controls:
+  - name: Turned picture
+    kind: readout
+    default: Unturned
+    effect: Shows the picture the view displays, turned by the angle about its center, on the larger canvas with **Resize image** on and cut to the image's own size with it off.
+    tradeoff: It turns what the view shows, with its display stretch and its mask overlay, and does not compute the interpolation. The corners it leaves empty show the view's background, where the result's are black.
+    scope: The view only, until **OK**.
+  - name: Crop frame
+    kind: readout
+    default: Hidden
+    effect: Shows the rectangle of the four boxes over the turned canvas while **Crop** is on, and follows them.
+  - name: Drag inside the frame
+    kind: action
+    default: ""
+    effect: Moves the frame without changing its size. **Pos X** and **Pos Y** follow.
+    enabled: While **Crop** is on.
+  - name: Drag an edge or a corner
+    kind: action
+    default: ""
+    effect: Moves that edge, or the two edges of that corner. The pointer changes shape within three screen pixels of an edge.
+    enabled: While **Crop** is on.
+```
 
-1. On **OK**, ask the **Rotate CFA** question when the target is a mosaic the
-   view does not demosaic, then read the angle, the canvas choice, the
-   interpolation (Auto is Lanczos4) and the optional crop rectangle on the GUI
-   thread.
-2. Plan the rotation against the image's description: clockwise by the angle
-   about the image's centre `((w - 1) / 2, (h - 1) / 2)`, the midpoint of the
-   pixel centres, on the source's canvas or a grown one. The engine refuses a
-   mosaic unless it is read as grey after **Yes**, and an image whose pixels are
-   not square.
-3. Sample every channel at each destination pixel through the chosen
-   interpolation in Float32 working planes accumulated in Float64. A tap outside
-   the source reads black (`0`).
-4. Write the result back in the source representation through the default
-   conversion (nearest code, saturating at the representation's range). A
-   floating image in a normalized domain is held to `[0,1]`; one in a sensor-code
-   or physical domain is left as computed.
-5. If Crop is checked, keep the part of the rectangle the turned canvas holds,
-   copying its samples exactly.
-6. Restate the metadata under the geometry policy and record
-   `an::transformImageGeometry`, detail `Rotate`, in the lineage.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: "Shows the share of the frames done, from 0 to 100 percent, under the title **Rotate** and the text `Executing rotate to sequence <name>`."
+    enabled: Shown only while OK works on a sequence. A single image has no progress window.
+    tradeoff: The turned sequence is written to a temporary file, which needs its disk space until the run ends.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the run, before the next frame at the latest. The sequence stays as it was, with no history step, and the temporary file is removed.
+    note: Closing the Rotate window does not stop the run.
+```
 
-### Model and equations
+## How it works
 
-With centre `(cx, cy) = ((w - 1)/2, (h - 1)/2)`, clockwise angle `θ` and a
-destination centre `(cx', cy')` at the middle of the output canvas, each
-destination pixel reads the source at
+1. **OK** reads the angle, the canvas, the interpolation, with Auto as **Lanczos4**, and the crop.
+2. The image is turned clockwise by the angle about its center, the middle of its pixel centers, on its own canvas or
+   the larger one. A mosaic is read as one gray plane only after you answer **Yes** to the question.
+3. Each sample of the turned image is computed from the samples around its place in the image, in floating point. A
+   place outside the image reads black, which is 0.
+4. The result is written back in the image's pixel type, rounded to the nearest value and held to the type's range.
+   A floating-point image of
+   [fractions of full scale](../../reference/glossary.md#fraction-of-full-scale) is held to 0 to 1. One of
+   [sensor codes](../../reference/glossary.md#sensor-code) or of a
+   [physical quantity](../../reference/glossary.md#physical-quantity) keeps what was computed. With **Crop** on, the
+   part of the rectangle the canvas holds is then copied exactly.
+5. The header follows the rule of every geometry change, which [Crop](crop.md#how-it-works) describes with the
+   [header cards](../../reference/glossary.md#header-card) it keeps, and the plate solution and the card that names
+   its solver are dropped. The [processing state](../../reference/glossary.md#processing-state) cards go with the
+   other cards. The image replaces the target with one history step, or a sequence is written whole into a new
+   [temporary sequence](../../reference/glossary.md#temporary-sequence).
 
-`u = cx + (x - cx') cos θ + (y - cy') sin θ`,
-`v = cy - (x - cx') sin θ + (y - cy') cos θ`,
+### Model
 
-in the image's x-right, y-down coordinates, through the interpolation's kernel,
-with `0` for a tap outside the source. Nearest Neighbor and Bit Exact Nearest
-Neighbor read the nearest pixel centre; Bilinear, Pixel Area Relation and Bit
-Exact Bilinear the four surrounding centres; Bicubic a four-by-four neighbourhood
-(`a = -0.75`); Lanczos4 an eight-by-eight radius-four window.
+Let \(W\) and \(H\) be the image's width and height, \(\theta\) the angle, and \(W'\) and \(H'\) the canvas. With
+**Resize image** off the canvas is \(W\) by \(H\). With it on, it is
 
-For a source `W×H` and angle `θ`, **Resize image** gives the smallest whole-pixel
-canvas holding every turned pixel cell:
+\[ W' = \lceil\, |W \cos\theta| + |H \sin\theta| \,\rceil, \qquad H' = \lceil\, |W \sin\theta| + |H \cos\theta| \,\rceil \tag{1} \]
 
-`ceil(|W cos θ| + |H sin θ|)` by `ceil(|W sin θ| + |H cos θ|)`,
+The image's center is \(c_x = (W - 1)/2\), \(c_y = (H - 1)/2\), and the canvas's center \(c'_x\), \(c'_y\) likewise,
+in the image's coordinates, with \(x\) to the right and \(y\) down. The pixel \((x, y)\) of the canvas reads the
+image at
 
-grown equally on both sides of the centre. With Resize image off, output remains
-`W×H`.
+\[ u = c_x + (x - c'_x)\cos\theta + (y - c'_y)\sin\theta, \qquad v = c_y - (x - c'_x)\sin\theta + (y - c'_y)\cos\theta \tag{2} \]
 
-Rotation interpolation and the black border are not flux conserving. A grown
-canvas avoids clipping the source, but resampling and the range hold can change
-stored sums and a later crop can discard signal. Noise becomes spatially
-correlated; rotation adds no independent samples, resolution, flux, or SNR.
+through the interpolation, and reads 0 where that place lies outside the image. **Bicubic** uses the cubic kernel with
+\(a = -0.75\), and **Lanczos4** a Lanczos window of radius 4.
 
-### Boundary and failure behavior
+A turn keeps no sum. The interpolation, the black corners and the range a result is held to change the total of the
+samples, and a crop can remove signal. The noise of neighboring pixels becomes correlated, and no resolution,
+[flux](../../reference/glossary.md#flux) or [SNR](../../reference/glossary.md#snr) is gained.
 
-The border is always black; Rotate exposes no alternate border mode or fill
-value. Integer results saturate at their representation's range; a normalized
-floating result is held to `[0,1]`; a sensor-code or physical-domain result
-keeps its excursions. A sample the image's validity rule calls invalid prevents every
-output whose kernel reaches it from being written, and those outputs are marked
-invalid in the result's validity mask; under a rule that counts every sample
-valid, a `NaN` takes part in the interpolation and can spread.
+### Boundaries
 
-The optional crop keeps the part of the rectangle the turned canvas holds. The
-dialog allows a zero Crop Width or Height, and a rectangle wholly outside the
-canvas; the engine refuses both. Answering **No** to **Rotate CFA** starts
-nothing. An engine refusal or an allocation it cannot make becomes **Error
-running rotate**, with the text `An error occurred when executing the rotate
-process:` followed by the reason, in a message and in the log; the image and its
-history are left as they were and the window stays open. A still rotation cannot
-be stopped once it starts. If another run holds a sequence view, Rotate shows the
-view's busy warning titled **Rotate** and starts nothing. If Image History cannot
-keep the image the rotation replaces, the history says so once, in a message
-titled **Image History**, Rotate says nothing more, and the image and its history
-are left as they were.
+- The corners are always black: there is no other fill and no extension of the edges.
+- A sample the image's [validity rule](../../reference/glossary.md#validity-rule) calls invalid leaves unwritten every
+  turned sample whose kernel reaches it, and the result marks those invalid in a mask. The black corners count as
+  written, so where every sample was written the image's rule is kept, and a mask of valid samples is turned with the
+  samples. Under a rule that calls every sample valid, a sample that is not a number takes part, and spreads.
+- An image that states pixels of another shape, a crop of 0 pixels, a crop wholly outside the canvas, or a result
+  there is no memory for is reported as "Error running rotate" and in the log. The image, its history and the window
+  stay as they were. When the history cannot keep the image, it says so once in a message titled "Image History".
+- When another run holds a sequence, Rotate shows "Another process is executing for this sequence, please cancel that
+  job first before running this process" under its own title, and starts nothing.
+- A sequence keeps its container, with the frames stored as [Crop](crop.md#boundaries) describes.
 
-## Parameter interactions and starting points
+### Worked example
 
-| Combination | Conservative starting point | Too weak looks like | Too strong looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Small framing correction | Check Resize image; start with Bilinear or Auto/Lanczos4; Crop only after viewing borders | Residual tilt remains | Excessive interpolation and large black triangles | Set angle, choose canvas, compare kernels, then crop |
-| Exact quarter/half turn | Prefer the Image-menu 90/180 action, not this process | Orientation remains wrong | Unnecessary interpolation | Use the exact action; use Rotate only if an arbitrary angle or crop is required |
-| Remove empty corners | Resize image on, set angle, then check Crop and choose an inscribed region | Black borders remain | Source corners/field are removed | Finalize angle/canvas first, then X/Y/Width/Height |
+The linear Carina [master](../../reference/glossary.md#master) is 7246 by 5429 pixels, shown in the view's
+[Autostretch](../../reference/glossary.md#autostretch) display. Set **Rotation Angle** to 10 and tick
+**Resize image**. By equation (1) the canvas is 8079 by 6605 pixels, with black corners. Tick **Crop** and type
+**Pos X** 1040, **Pos Y** 1102, **Width** 6000 and **Height** 4400. That rectangle is centered on the canvas and lies
+inside the turned image, more than 25 pixels from its edges, so the result has no black corner. **New Size** reads
+302.12 MB. After **OK** the history reads
+`Rotated 10 degrees - Cropped area : X: 1040 Y: 1102 W:6000 H:4400 - Interpolation: Lanczos4`.
 
-## Inputs, outputs, and metadata
+```figure
+images:
+  - image: ../../assets/images/processes/geometry/rotate-before.webp
+    alt: >-
+      The master as the view shows it while the window is open, turned 10 degrees clockwise on a larger canvas with
+      black corners, and the crop rectangle drawn over it in amber dashes, divided in thirds.
+    label: Before
+  - image: ../../assets/images/processes/geometry/rotate-after.webp
+    alt: The turned and cropped image, the nebula tilted 10 degrees clockwise and filling the frame without black corners.
+    label: After
+caption: >-
+  The Carina master while Rotate is open, the view showing the turn and the crop to come, and after OK: turned 10
+  degrees on a larger canvas and cropped to 6000 by 4400 pixels. Both are the whole frame in the view's Autostretch
+  display.
+```
 
-Rotate modifies the attached target and keeps its sample representation and
-channel layout. It follows the geometry policy every geometry change shares
-(Crop, Resize, both integer resamples and the **Image > Fast Geometry** turns
-and mirrors): the acquisition record and meaning are kept, and the writer writes the
-acquisition record when the image is saved; the header cards read from the file
-are dropped; an output decision is withdrawn; and the lineage records
-`an::transformImageGeometry` with `Rotate`. Crop, Resize and Integer Resample
-carry a plate solution moved with the pixels; Rotate drops it, together with the
-card naming its solver, on a still image and on every frame of a sequence.
+## Starting points
 
-Validity: the black border counts as written, so where every output was written
-the image's validity rule is kept and an explicit mask is turned with the
-samples; where an invalid source sample prevented some output from being
-written, the result states its validity as the mask the rotation wrote.
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A small tilt of the framing | **Resize image** on, the angle, and Auto or **Bilinear** | Look at the corners on the view, then tick **Crop** and set a rectangle inside the turned image. |
+| A quarter or a half turn | **Image > Fast Geometry** | Use Rotate only to add another angle or a crop. |
+| Black corners to remove | **Resize image** on and the final angle first | **Crop** last, with a rectangle that stays inside the turned image on every side. |
 
-On a still image the result is one `Rotate` Image History step. On a sequence,
-Rotate takes the view for the run, reads every frame - whatever the player has
-selected, and demosaiced when the view demosaics them, by the method the
-sequence states from the one RAW
-[Demosaic Algorithm](../../interface/settings-dialog.md#raw-images-settings)
-setting - writes each turned (and cropped) frame into a new temporary sequence of
-the same container (a video in a container the product does not write becomes Matroska),
-publishes it whole, and shows it in the view as one Image History step. Each
-frame is stored as its container stores frames: SER at 8 or 16 unsigned bits,
-AVI and video at 8 bits, and video at an even width and height, so an odd last
-column or row is dropped from a video frame. A run that fails or is cancelled
-leaves the sequence as it was and nothing in the temporary directory. No
-other file or auxiliary image is written.
+## When it goes wrong
 
-## Performance
+!!! warning "The plate solution is gone after a turn"
+    Coordinates, the astrometry overlay and the photometric color calibrations need a solution, and Rotate drops it.
+    Plate-solve the turned image before you use them.
 
-Cost scales with output canvas pixels, channels, and kernel support. Resize image
-can substantially enlarge the canvas near diagonal angles. Bicubic/Lanczos4
-inspect wider neighbourhoods than Nearest/Bilinear. The optional crop makes
-another image, the source is kept for Image History, and sequences add temporary
-storage. Dialog estimates omit working planes, metadata, compression, and peak
-memory.
+**OK** stays disabled
+:   **Cause.** The angle is 0, and **Crop** is off or its rectangle is the whole image.
+:   **Fix.** Set an angle other than 0, or a rectangle smaller than the image.
 
-## Worked example
+The corners of the image are cut
+:   **Cause.** **Resize image** was off, so the canvas kept the image's size.
+:   **Fix.** Undo the step, tick **Resize image**, and choose **OK** again.
 
-- Evidence mode: Source-and-test-derived; not run on approved astronomical data.
-- Input/settings: solved `1200×800` still, `Rotation Angle=+90°`,
-  Resize image checked, Nearest Neighbor, Crop off.
-- Expected checkpoint: content turns clockwise about the image's centre, the
-  output is `800×1200`, no border is needed at a quarter turn, the plate solution
-  is no longer present, and the history step reads
-  `Rotated 90 degrees - Interpolation: Nearest Neighbor`.
-- Inspect at 100%/statistics/history: orientation, edge samples, dimensions,
-  absence of the astrometry overlay, and the Rotate history step.
-- Limitations: synthetic tests establish the turn, the canvas and the metadata
-  policy; they do not establish astronomical quality, photometry, production
-  timing, or peak memory.
+Black triangles at the corners
+:   **Cause.** The turned image does not cover the whole canvas, and places outside it read black.
+:   **Fix.** Undo the step and add a rectangle with **Crop** that stays inside the turned image, or keep the corners.
 
-## Warnings and limitations
+"Error running rotate", and the reason speaks of square source pixels
+:   **Cause.** The image states pixels that are not square.
+:   **Fix.** Turn an image of square pixels. A resize states the shape of its source's pixels.
 
-- Apply replaces the target and resampling is not reversible.
-- The display preview rotates an existing on-screen picture, not engine output.
-  Its smoothing, stretch and visible mask can differ from Apply; active masks are
-  not applied. The crop fields' maxima and **New Size** come from that preview,
-  so they can differ by a row or column from the grown canvas the engine makes;
-  the crop keeps whatever part of the rectangle the canvas holds.
-- The plate solution is dropped, including for zero-degree Crop-only use.
-- Resize image grows the canvas; it does not rescale the source. Black corners
-  remain.
-- A newly enabled Crop can retain source-sized default fields even when Resize
-  image created a larger canvas; verify the overlay rather than assuming full
-  bounds.
-- A still rotation has no Cancel; closing the window during a run hides it until
-  the run lands but does not stop it.
-- Arbitrary rotation changes flux sums and noise correlation and adds no SNR.
+"Error running rotate" with **Crop** on
+:   **Cause.** **Width** or **Height** is 0, or the rectangle lies outside the turned canvas.
+:   **Fix.** Set a rectangle of at least one pixel inside the canvas.
 
-## Troubleshooting
+"Rotate CFA" asks whether to run anyway
+:   **Cause.** The image is a mosaic its view does not debayer.
+:   **Fix.** Choose **No** and debayer it, or use a quarter or half turn of **Image > Fast Geometry**.
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| OK is disabled | Angle is zero and checked Crop does not change geometry | Set a nonzero angle or a changed valid crop | `RotateProcess::checkChangesPending()` |
-| Corners are clipped | Resize image is unchecked | Check Resize image and rerun from the original | `RotationCanvas::Preserve` |
-| Black triangles appear | Taps outside the turned source read black | Crop an inscribed rectangle or retain borders intentionally; no alternate fill exists | `rotationRequest` |
-| Output contains `NaN` | Source `NaN` samples under a rule that counts every sample valid took part in the interpolation | Repair non-finite samples before Rotate and rerun from the original | sampling policy |
-| **Error running rotate** with Crop checked | Crop Width or Height is zero, or the rectangle lies outside the turned canvas | Set a nonzero rectangle inside the canvas | engine crop plan |
-| **Error running rotate** saying a rotation requires square source pixels | The image states a pixel aspect other than one | Rotate an image that states square pixels; a resize keeps the aspect its source states | `planRotation`; `GeometryProcessCase.AnImageResizedToAnySizeCanBeRotated` |
-| **Error running rotate** otherwise | The engine refused the request or could not allocate the result | Read the message and the log, free memory, and retry | `GeometryInPlaceWindowTest.ARunTheEngineRefusesSaysWhyAndChangesNothing` |
-| An **Image History** error, and the rotation is not applied | Image History could not keep the image the rotation replaces; it says so once, Rotate says nothing more, and nothing changes | Free memory and run Rotate again | `GeometryProcessCase.AnEditTheHistoryCannotKeepIsSaidOnceAndChangesNothing` |
-| Astrometry overlay disappears | The geometry policy drops the plate solution of a rotation | Plate-solve the rotated result | `GeometryProcessCase.AStillImagesSolutionFollowsACropAResizeAndAResampleAndNotARotation` |
-| **Rotate CFA** question | Target is a mosaic the view does not demosaic | Choose No and Debayer, or use an exact Image-menu turn when suitable | `RotateProcess::executeImageRotate()`; `GeometryProcessCase.AMosaicIsReadAsGreyOnlyWhenThePersonSaysSo` |
+The result holds samples that are not a number
+:   **Cause.** Such samples in the image took part in the interpolation under a rule that calls every sample valid.
+:   **Fix.** Repair the samples that are not a number first, then turn the original again.
 
-## Related workflow steps
+The turned image on the view differs from the result
+:   **Cause.** The view turns the picture it shows, with its
+    [display stretch](../../reference/glossary.md#display-stretch) and its mask overlay, and the run interpolates the
+    image itself.
+:   **Fix.** Judge the framing on the view, and the samples on the result at 100 %.
 
-Use [Crop](crop.md) when no interpolation is needed and [Resize](resize.md) when
-only sampling dimensions change. For arbitrary-angle alignment of a batch, use
-[Image Registration](../registration-alignment/image-registration.md) so transform
-estimation and common geometry are handled together. Re-run
-[Plate Solving](../registration-alignment/plate-solving.md) after Rotate.
+## Related
 
-## References and provenance
-
-- AfterNight Rotate process, its display preview, the shared geometry support,
-  the engine's geometry and sampling-kernel definitions, the sequence
-  companions, and the focused tests.
-- No external library is used by Rotate.
+- [Crop](crop.md), to cut without interpolating, and for the header cards every geometry change keeps.
+- [Resize](resize.md), to change the size of the pixels' grid.
+- [Non-Interactive Processes](../utility/non-interactive-processes.md), for the exact quarter and half turns of
+  **Image > Fast Geometry**.
+- [Image Registration](../registration-alignment/image-registration.md), to align many frames, each by its own
+  transform.
+- [Plate Solving](../registration-alignment/plate-solving.md), to solve the turned image.
+- [Process Windows](../../interface/process-windows.md), for what every process window shares.

@@ -23,7 +23,8 @@ namespace ImageIntegration::detail
 FrameMetadata remapMetadataType(const FrameMetadata& meta, FrameType type)
 {
     return FrameMetadata(type, meta.dimensions(), meta.exposureSeconds(), meta.temperatureC(), meta.isoGain(),
-                         meta.offset(), meta.filter(), meta.objectName(), meta.capturedAtUtc(), meta.readoutMode());
+                         meta.offset(), meta.filter(), meta.objectName(), meta.capturedAtUtc(), meta.readoutMode(),
+                         meta.sampleLayout());
 }
 
 FrameInfo remapFrameInfoType(const FrameInfo& info, FrameType type)

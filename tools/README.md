@@ -165,8 +165,8 @@ python3 tools/generate_gaia_catalog.py GaiaSource_000000.csv.gz catalogs/gaia_dr
 
 | File | Description |
 |------|-------------|
-| `generate_bright_star_catalog.py` | Generates the bright star catalog used by the star detection overlay |
-| `generate_deep_sky_catalog.py` | Generates the deep sky object catalog for the framing assistant |
+| `generate_bright_star_catalog.py` | Generates the bundled bright-star catalog (HYG v4.2 to visual magnitude 9) the star labels, Annotate Image and the catalog search read; `--archive` reads a downloaded copy of the pinned archive |
+| `generate_deep_sky_catalog.py` | Generates the bundled deep-sky catalog (NGC 2000.0 with the Messier, Caldwell and common names and the curated extents) the overlays, Annotate Image and the catalog search read. `test_generate_deep_sky_catalog.py` holds the generator and the catalog the product ships to each other: `python -m unittest tools.test_generate_deep_sky_catalog` from the repository's root, or `python tools/test_generate_deep_sky_catalog.py` |
 | `generate_spcc_catalog.py` | Generates deterministic miniature SPCC `.anxp` catalogs and local JSONL-backed SPCC catalog packs, including regional-cache request sidecars |
 | `export_spcc_gaia_xp_metadata.py` | Exports resumable Gaia DR3 `gaia_source` + `xp_summary` metadata CSV.GZ parts from official TAP or local CSV inputs |
 | `download_spcc_gaia_xp_sampled_files.py` | Downloads official Gaia DR3 XP sampled spectrum CSV.GZ files into a resumable local staging directory and manifest |

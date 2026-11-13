@@ -228,4 +228,45 @@ TEST_F(CalibrationReuseTest, MarkingAGroupPreCalibratedMovesItsLightsFingerprint
     EXPECT_EQ(computeLightsCalibrationHashForSubset(cleared.lightsCalibration, lightIds), unmarkedFingerprint);
 }
 
+// A stage that stacks one group and finds another's master still valid names the one it left as it was. A run has
+// a result for both groups, and only this tells the master the run made from the one it did not.
+TEST_F(CalibrationReuseTest, AStageNamesTheGroupsWhoseMasterItLeftAsItWas)
+{
+    const auto groupOf = [this](const QString& name, const QString& key) {
+        WorkflowManifest::CalibrationStage::Group group;
+        group.groupKey = GroupKey{key};
+        group.outputFilename = QStringLiteral("master_bias_%1.fit").arg(name);
+        for (int index = 1; index <= 3; ++index)
+        {
+            group.inputFiles.emplace_back(
+                write(QStringLiteral("bias_%1_%2.fits").arg(name).arg(index), "Bias Frame", 1000.0));
+        }
+        group.stacking = defaultCalibrationStackingSettings(FrameType::Bias);
+        return group;
+    };
+    const WorkflowManifest::CalibrationStage::Group kept =
+        groupOf(QStringLiteral("kept"), QStringLiteral("BIAS|16x12"));
+    const WorkflowManifest::CalibrationStage::Group changed =
+        groupOf(QStringLiteral("changed"), QStringLiteral("BIAS|16x12|second"));
+    WorkflowManifest::CalibrationStage biasStage;
+    biasStage.groups = {kept, changed};
+    m_manifest.biasStage = biasStage;
+
+    BiasStackingStage bias;
+    const StageResult first = m_run.run(bias, m_manifest);
+    ASSERT_TRUE(first.isSuccess()) << first.errorMessage.toStdString();
+    EXPECT_TRUE(first.reusedCalibrationGroups.empty()) << "a first run stacks every group";
+    EXPECT_TRUE(bias.shouldSkip(m_manifest));
+
+    // A frame of one group changes: the stage runs again, stacks that group and leaves the other, whose master
+    // the next manifest finds still valid and marks so.
+    write(QStringLiteral("bias_changed_2.fits"), "Bias Frame", 1100.0, 120);
+    m_manifest.biasStage->groups[0].skipIfExists = true;
+    ASSERT_FALSE(bias.shouldSkip(m_manifest));
+    const StageResult second = m_run.run(bias, m_manifest);
+    ASSERT_TRUE(second.isSuccess()) << second.errorMessage.toStdString();
+    ASSERT_EQ(second.reusedCalibrationGroups.size(), 1u);
+    EXPECT_EQ(second.reusedCalibrationGroups.front(), kept.groupKey.toString());
+}
+
 } // namespace

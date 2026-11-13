@@ -1,0 +1,39 @@
+/* Print: the page alone, black on white, with each external link's address after it. */
+
+@page { margin: 18mm 16mm; }
+
+:root, :root[data-theme="dark"], :root[data-theme="light"] {
+    --bg: #FFFFFF;
+    --bg-2: #FFFFFF;
+    --surface: #FFFFFF;
+    --card: #FFFFFF;
+    --card-2: #F4F4F5;
+    --border: #D4D4D8;
+    --border-strong: #A1A1AA;
+    --text: #000000;
+    --text-2: #18181B;
+    --text-3: #3F3F46;
+    --accent: #000000;
+    --code-bg: #F4F4F5;
+    --code-text: #000000;
+    color-scheme: light;
+}
+
+body { font-size: 11pt; background: #FFFFFF; color: #000000; }
+.site-header, .stepper, .side, .pager, .site-footer, .skip-link, .copy-btn, .headerlink, .drawer-backdrop { display: none !important; }
+.layout { display: block !important; padding: 0 !important; }
+.wrap { max-width: none; padding: 0; }
+.chip { border-color: #A1A1AA; background: none; }
+.prose a { color: #000000; }
+.prose a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .85em; overflow-wrap: anywhere; }
+.prose pre, .prose .table-wrap, .prose div.arithmatex { overflow: visible; white-space: pre-wrap; }
+.prose table { font-size: 9.5pt; }
+h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+figure, img, tr, pre, .admonition, details, .prose .an-mermaid { break-inside: avoid; page-break-inside: avoid; }
+details > :not(summary) { display: block !important; }
+.chip i, .chip.warn i, .hero-glow, .prog, .drawer-host, .btn-primary::after, .links a::after { display: none !important; }
+.ctl, .ts, .lane .prow, .prose ol.steps > li, .prose ol.tsteps > li, .result, .pos > div, .card { break-inside: avoid; page-break-inside: avoid; }
+.tut { display: block; }
+.tut > .fig { position: static; max-width: 120mm; }
+.home .block, .hero { padding: 8mm 0; }
+.lane { border-top-width: 1px; }

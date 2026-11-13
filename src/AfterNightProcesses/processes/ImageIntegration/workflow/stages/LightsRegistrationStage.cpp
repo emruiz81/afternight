@@ -919,6 +919,8 @@ StageResult LightsRegistrationStage::execute(const WorkflowManifest& manifest, C
     const int total_groups = static_cast<int>(groups_to_process.size());
     int group_index = 0;
     IntegrationErrorReport error_report;
+    // Why each light the stage fails on has no transform: the run's record of it, which its report reads.
+    std::vector<RegistrationFailure> registration_failures;
     RegistrationStageProfile stage_profile;
 
     reporter.logger().stageStarted(name(), total_groups);
@@ -3118,6 +3120,8 @@ StageResult LightsRegistrationStage::execute(const WorkflowManifest& manifest, C
                     has_frame ? &frame_it->second : nullptr, method_uses_star_detection, effective_minimum_stars,
                     engine_reason != engine_failure_by_input.end() ? engine_reason->second : QString());
                 failed_diagnostics.push_back({input.originalId.canonicalPath(), failure_reason});
+                registration_failures.push_back(RegistrationFailure{
+                    .groupKey = group_key, .light = input.originalId.canonicalPath(), .reason = failure_reason});
                 if (failed_samples.size() < 5)
                 {
                     failed_samples << QStringLiteral("%1 (%2)").arg(input.originalId.canonicalPath(), failure_reason);
@@ -3369,10 +3373,12 @@ StageResult LightsRegistrationStage::execute(const WorkflowManifest& manifest, C
         auto result = StageResult::partialSuccess(error_report);
         result.warnings.append(calibration_warnings);
         result.alignmentGroupResults = std::move(ca_group_results);
+        result.registrationFailures = std::move(registration_failures);
         return result;
     }
     StageResult result = StageResult::success();
     result.warnings = calibration_warnings;
     result.alignmentGroupResults = std::move(ca_group_results);
+    result.registrationFailures = std::move(registration_failures);
     return result;
 }

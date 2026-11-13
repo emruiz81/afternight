@@ -29,7 +29,7 @@ Python and never touches a GPU from acquiring any of those toolchains.
 |---|---|---|
 | oneTBB | `runtime` and `memory` | The task arenas an operation's threads run in |
 | Highway | `backends/cpu` | Portable vector code for the compiled kernels |
-| CFITSIO, libtiff, libpng, libjpeg-turbo, LibRaw, OpenXISF | each in its own `io/<codec>` directory | The codecs |
+| OpenFITS, libtiff, libpng, libjpeg-turbo, LibRaw, OpenXISF | each in its own `io/<codec>` directory | The codecs |
 | FFmpeg | below `io/sequences/ffmpeg` alone | Video sequence sources and sinks |
 | Exiv2 | `interop/exiv2` | Reading and writing the Exif and XMP blocks the raster codecs carry |
 | FFTW (single precision) | `interop/fftw` | Phase correlation |
@@ -138,7 +138,8 @@ once a defect is confirmed; what changed is recorded in the file.
 ## Licensing
 
 The engine is GPL by design and stays so while any GPL dependency remains - FFTW, GSL, Exiv2, the
-RawTherapee demosaic port and FFmpeg as built are among them. OpenXISF, behind the XISF codec, is
-Apache-2.0, and the product's About dialog carries its notice. A library is never chosen or replaced on
-licence alone: OpenXISF serves the XISF codec for its region reads, bounded memory and verified
-checksums.
+RawTherapee demosaic port and FFmpeg as built are among them. OpenFITS and OpenXISF, behind the FITS
+and XISF codecs, are Apache-2.0, and the product's About dialog carries their notices. A library is never chosen
+or replaced on licence alone: OpenXISF serves the XISF codec for its region reads, bounded memory and verified
+checksums, and OpenFITS the FITS codec for its typed failures, its reads of one file from any number of threads
+and its regions, with a header written whole before the payload.

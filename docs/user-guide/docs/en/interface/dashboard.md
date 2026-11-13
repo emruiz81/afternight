@@ -1,317 +1,404 @@
+---
+kind: interface
+summary: >-
+  The Dashboard fills the main window when AfterNight starts and whenever no image is open: open files, start a
+  sequence or an integration, and return to recent work.
+---
 # Dashboard
 
-## Purpose, audience, prerequisites, and expected result
+The Dashboard is the first thing AfterNight shows, and it comes back when the last image view and the Session
+Console close. From it you open images and [sequences](../reference/glossary.md#sequence), start a new sequence or an image integration, and reopen the
+files you worked on, each with a thumbnail. What it keeps is a list of paths, thumbnails and choices: taking a file
+off the list never touches the file.
 
-The dashboard is AfterNight's startup and return surface. Use it to learn the
-application, open local images or sequences, resume recent work, start common
-no-image workflows, and customize the six dashboard quick actions.
+```figure
+image: ../assets/images/interface/dashboard.webp
+alt: >-
+  The Dashboard of a profile with recent files. At the top, the AfterNight icon, name and version, and three round
+  buttons on the right. Under them, a wide card shows a picture of the Carina Nebula behind its file name, a line of
+  facts from its header, a Continue button and a star. Then a row of three blue buttons, Open file, New sequence and
+  Image integration, with a button of three dots at the far right. Below, the Recent heading with its count, a search
+  box and a box reading Recent, a line of help, and a grid of cards, each a thumbnail of an astronomical image with its
+  size, type, file name and a short line of facts.
+caption: >-
+  The Dashboard with seven recent files, the linear Carina master featured at the top.
+pins:
+  - {n: 1, x: 20.0, y: 13.0}
+  - {n: 2, x: 8.0, y: 24.3}
+  - {n: 3, x: 25.0, y: 36.9}
+  - {n: 4, x: 92.0, y: 36.9}
+  - {n: 5, x: 6.5, y: 41.7}
+  - {n: 6, x: 4.0, y: 57.0}
+```
 
-This page is for first-time users and anyone managing recent work. No active
-image is required. A supported local file is needed only to exercise recent,
-thumbnail, and workspace behavior. The expected result is that you can choose
-the correct entry action, understand every empty/error state, and control what
-the dashboard remembers without confusing list removal with source deletion.
+## What you see
 
-![Fresh-profile Dashboard with onboarding, start cards, quick actions, and keyboard hints](../assets/images/interface/hero-screenshot.png)
+1. **The identity bar.** The application's name and version. Its three buttons open **Settings**, the **User Guide**
+   and **About**.
+2. **The featured file.** The most recent file, or the one you pinned, as a wide picture with what its header says
+   and a **Continue** button that opens it.
+3. **The quick actions.** **Open file**, **New sequence** and **Image integration**: the three ways to start work.
+4. **More actions.** The **···** button. It holds **Extension Manager**, **Clear recents** and **System info**, and the
+   menu that arranges the quick actions.
+5. **Recent.** The count of recent files, a search box, a sort box, and a line that says how to use the cards.
+6. **The recent files.** One card for each file: its thumbnail, its size and type, its name, and the target, filter,
+   exposure and camera its header states. Click a card to open the file, and right-click it for more.
 
-*The fresh-profile Dashboard keeps onboarding visible until recent images are
-available.*
+## What you can do
 
-![Returning-user Dashboard with a featured recent file, quick actions, search, sort, and recent thumbnails](../assets/images/interface/dashboard-recents.png)
+### Open files
 
-*The returning-user Dashboard replaces onboarding with a featured recent file
-and a searchable, sortable recent-files grid.*
+Choose **Open file** or press ++ctrl+o++, select one or more files and confirm. You can also drop files from your
+file manager anywhere on the Dashboard. A **File Open** window follows the reading. Each file that opens gets a view
+of its own, and the workspace replaces the Dashboard.
 
-## Reachability and availability
+A camera raw file, or a file whose header states a [CFA](../reference/glossary.md#cfa) mosaic, asks "Open CFA file"
+first. **Yes** demosaics it with the **Demosaic Algorithm** of the Raw Images settings. **No** opens the mosaic as it
+was recorded, to [debayer](../reference/glossary.md#debayer) later with the Debayer process.
 
-| Item | Current behavior |
-| --- | --- |
-| Path | Start AfterNight. The dashboard also returns when the final image view and Session Console are closed. |
-| Enabled/visible when | Identity utilities and toolbar actions need no active image. **Clear recents** disables when the list is empty. Search/sort appear only when at least one recent path exists. Onboarding appears only with no recents. |
-| Supported inputs/state | Local still/sequence paths accepted by the open workflow; empty, results, and filtered-empty recent states; stored thumbnails and best-effort image metadata. Active masks and image selections do not affect dashboard actions. |
-| Outputs/side effects | Opens dialogs/top-level workflows or creates standard views. **Open file** and a drop store the folder as the last open directory when the open starts and again when it ends, whatever its outcome; a recent-file open stores it after its view is made. Successful loads update recents, thumbnails, and workspace state. Search/sort/action order/pins/last action update settings. |
-| Persistence | Recent paths are stored in the application data `recent_files` list; thumbnail mappings use SQLite and thumbnail images use application storage. Dashboard settings store action order, hidden IDs, grid pins, featured pin, sort, search, and last-action text. |
-| External dependencies | None for the dashboard shell. Launched codecs, Image Integration, Extension Manager, Help fallback, and other workflows own their file/network/tool requirements. |
+A file that cannot be read is reported in a "File open error" message, and the next file opens. Files that opened
+before stay open. Try one file first when you open a format you have not used before.
 
-## Before you start
+### Start with a fresh profile
 
-- Use one known small local file first. A file-name suffix can pass the drop
-  filter even when the file content is invalid or unsupported by the decoder.
-- **Remove from recent files** and **Clear recents** remove dashboard history and
-  stored thumbnails, not source files. **Show in File Browser** and **Copy path**
-  can expose private folder names or paths.
-- A multi-file drop is processed sequentially on a worker path. Earlier files
-  can remain open if a later file fails or you cancel.
-- The dashboard records local paths and extracted display metadata. Remove
-  private paths before sharing screenshots or diagnostics.
-- The dashboard **Image integration** action opens the full Image Integration
-  workflow. The beginner [Quick Start](../getting-started/quick-start.md) instead
-  uses **Process > Preprocess > Image Integration Lite**.
+On a first start, or after **Clear recents**, a welcome panel stands where the recent files will be. Its **Open
+Image**, **New Sequence** and **Image Integration** cards do what the quick actions do, and its drop zone lights up
+while you drag files over the Dashboard. The panel goes with the first file you open, and comes back only when the list
+is empty again.
 
-## Procedure
-
-### Start with no recents
-
-1. Start with an empty recent list. Checkpoint: the featured card, **Recent**
-   header, search/sort row, hint, and recent grid are hidden. The welcome panel
-   shows six capability summaries, three start cards, the drop zone, and keyboard
-   hints.
-2. Choose **Open Image**, toolbar **Open file**, `Ctrl+O`, or drop one supported
-   local file anywhere on the dashboard. The visible drop-zone highlight appears
-   only while the no-recents onboarding panel is visible.
-3. Check **File Open**. One or two files use an indeterminate progress bar; three
-   or more use percentage progress. CFA input can add a debayer prompt.
-4. On successful view creation, check that the dock workspace opens. Cancelling
-   before a view or a decode failure does not create a successful recent result.
+```figure
+image: ../assets/images/interface/dashboard-first-start.webp
+alt: >-
+  The Dashboard of a new profile. Under the identity bar and the row of quick actions, a large panel reads Welcome to
+  AfterNight, with six small cards under What you can do, three larger cards under Get started - Open Image, New
+  Sequence and Image Integration - a dashed drop zone reading Drop your images here to get started, and a line of
+  keyboard hints at the bottom.
+caption: >-
+  The Dashboard on a first start, before any file has been opened.
+```
 
 ### Return to recent work
 
-1. Close the final image and Session Console. Checkpoint: the dashboard refreshes
-   from the persisted recent list without briefly showing onboarding first.
-2. If an existing/decodable candidate has a usable stored or direct thumbnail,
-   the featured card shows a filename, technical/astronomy metadata, **Continue**,
-   and its own pin button. The recent grid shows available thumbnail cards.
-3. Enter a partial, case-insensitive path or filename in **Search by name, type,
-   or path...**. A suffix such as `fits` matches because it is filename/path text;
-   the filter does not query an independent decoded-type or metadata field.
-4. Select **Recent**, **Name**, or **Type**. Then right-click one item and choose
-   **Pin to top**. Grid-pinned items remain above unpinned items in every sort.
-5. Clear the search. Left-click a card or choose **Open**. The dashboard promotes
-   it optimistically; a successful load persists it at the recent-list front.
-   Any failure other than a stop you asked for - a file the engine cannot read, a
-   demosaic failure, or a view that cannot be made - reports **File open error**
-   and removes the recent path; a stop removes nothing.
-6. Use **Remove from recent files** for one entry, or overflow **Clear recents**
-   and confirm for all entries. Verify that the source file still exists.
+Click a card, or **Continue** on the featured file, to open the file again. It moves to the front of the list. The
+featured file follows the most recent one unless you pin a file with the featured card's star.
+
+To find a file, type part of its name or path in **Search by name, type, or path...**, which ++ctrl+f++ reaches, and
+choose **Recent**, **Name** or **Type** in the sort box. **Pin to top**, in a card's right-click menu, keeps a file
+ahead of the others in every order.
+
+A recent file that can no longer be opened - moved, deleted or unreadable - leaves the list after its "File open
+error". Open it again from its new place with **Open file**.
+
+### Tidy the list
+
+Choose **Remove from recent files** in a card's menu to drop one file, or **More actions > Clear recents** to drop
+them all after a question. Both remove the paths and the thumbnails AfterNight made, never your files. **Recent Files
+Limit**, on the General page of [Settings](settings-dialog.md), sets how many files the list keeps.
+
+### Arrange the quick actions
+
+Open **More actions > Customize quick actions**, then the action to move or hide. **Move earlier** and **Move later**
+change its place, and **Hide action** takes it off the Dashboard. **Show hidden action** brings one back, and **Reset
+quick actions** restores the first order with nothing hidden. **Open file**, **New sequence** and **Image
+integration** always stay in the row and the other three in the **···** menu, whatever their order.
+
+## Controls
+
+### The Dashboard
+
+```controls
+window: The Dashboard
+controls:
+  - name: Settings
+    kind: button
+    default: ""
+    effect: Opens Settings.
+    enabled: Always. ++ctrl+comma++ does the same.
+    note: Settings, User Guide and About are not quick actions, so they cannot be moved or hidden.
+  - name: User Guide
+    kind: button
+    default: ""
+    effect: Opens this guide from the copy installed with AfterNight, or online when that copy cannot be opened and the online guide is allowed.
+    enabled: Always. ++f1++ does the same.
+  - name: About
+    kind: button
+    default: ""
+    effect: Opens About AfterNight.
+  - name: Featured file
+    kind: readout
+    default: ""
+    effect: Shows a recent file as a wide picture with its name and what its header states - the object and the night it was taken, then filter, exposure, camera and telescope - followed by its type, its size and when it was last changed. A file whose header states none of these shows only the last three.
+    range: The night is the day of `DATE-OBS` or of the camera's original date, else the day the file says it was made, never the day it was written. The camera is the EXIF model or `INSTRUME`, and for a camera raw file the make and model its decoder states. Placeholders such as `-` or `N/A` are left out.
+    enabled: Hidden while the list is empty or no listed file can be shown. The search does not filter it.
+    tradeoff: The facts are read in the background only while a thread is free, so they can be missing at first. Nothing the Dashboard reads is ever written back to the file.
+    note: The pinned file comes first, then the files in the list's order. A file that no longer exists, or whose picture cannot be read, is passed over for the next.
+  - name: Continue
+    kind: button
+    default: ""
+    effect: Opens the featured file and moves it to the front of the list, as a click on its card does.
+  - name: Pin featured file
+    kind: toolbutton
+    default: "Off"
+    effect: The star on the featured card. On, it keeps this file featured whatever you open next, and its tooltip reads **Unpin featured file**. Off, the featured file follows the most recent one.
+    persistence: Kept between sessions as `interface/dashboardPinnedHeroFile`. Dropped when the file leaves the list or no longer exists.
+    note: Separate from **Pin to top**. Neither pin sets the other.
+  - name: Open file
+    kind: button
+    default: ""
+    effect: Opens one or more image, raw, sequence or video files, each in a view of its own, as **File > Open** does.
+    range: In the file window, choosing a file of an extension AfterNight does not open refuses the whole choice with "Unsupported File Type".
+    enabled: Always. ++ctrl+o++ does the same.
+    tradeoff: Many large views at once cost memory and time. Open large files a few at a time.
+    persistence: The folder is remembered for the next open, when the open starts and again when it ends, whatever becomes of it.
+  - name: New sequence
+    kind: button
+    default: ""
+    effect: Opens New Sequence, which makes a sequence of files. See Sequences.
+  - name: Image integration
+    kind: button
+    default: ""
+    effect: Opens the full Image Integration window, for calibration, registration, stacking and their report.
+    note: The Quick Start uses Image Integration Lite instead, from **Process > Preprocess**.
+  - name: More actions
+    kind: button
+    default: ""
+    effect: Opens the menu of the other three quick actions and of **Customize quick actions**.
+    note: The button itself cannot be moved or hidden.
+  - name: Extension Manager
+    kind: action
+    default: ""
+    effect: >-
+      Opens the Extensions window on its **Browse** tab, to install and update extensions; its **Installed** tab
+      repairs them.
+    tradeoff: Installing, updating and repairing an extension use the network and disk space.
+  - name: Clear recents
+    kind: action
+    default: ""
+    effect: Asks "Are you sure you want to delete the recent opened files?" and, on **Yes**, empties the list, deletes the thumbnails AfterNight made and drops both kinds of pin.
+    enabled: With at least one recent file.
+    tradeoff: "**Yes** is the default answer, so ++enter++ clears. The question's \"delete\" means the list: your files stay on disk."
+    persistence: The search, the sort and the quick actions stay as they were. **File > Open Recent > Clear recent files list** does the same.
+  - name: System info
+    kind: action
+    default: ""
+    effect: Opens System Information, the report of the application, its build and the computer.
+    tradeoff: The report names details of your system. Read it before you share it.
+  - name: Recent
+    kind: readout
+    default: ""
+    effect: Counts the recent files. While a search is typed it reads "Showing 3 of 8", and "No matches in 8 files" when nothing matches.
+    range: It counts the paths in the list, a file whose card cannot be shown among them.
+    enabled: Hidden while the list is empty.
+    tradeoff: A picture of the Dashboard shows the names of your files and folders. Mind it before you share one.
+    persistence: The list is the file `recent_files` in AfterNight's data folder, most recent first, up to the **Recent Files Limit** of Settings, which is 20 files unless you choose another number from 1 to 100 and is kept as `general/recentFilesLimit`. Applying a lower limit in Settings drops the oldest files and their thumbnails at once. A file comes first when it opens or is saved. A file on another computer - a Windows network path such as `\\server\share\...`, `//server/share/...` or `\\?\UNC\server\...`, or a file address that names a computer - is never listed, and its folder is not remembered.
+    note: Paths are cleaned when the list is read, and a path listed twice is kept once.
+  - name: Search by name, type, or path...
+    kind: field
+    default: ""
+    effect: Shows only the files whose name or path holds what you type, in any case. Part of an extension, such as `fit`, finds files by type.
+    range: Text only. Neither the file's contents nor its header are searched.
+    enabled: Hidden while the list is empty. ++ctrl+f++ puts the cursor in it and selects its text.
+    tradeoff: The cards follow 120 ms after the last key.
+    persistence: Kept between sessions as `interface/dashboardRecentSearchText`, so a search left typed is in force at the next start. The cross in the box empties it.
+  - name: Sort recent files
+    kind: combo
+    default: Recent
+    options: [Recent, Name, Type]
+    effect: Orders the cards. **Recent** keeps the order of the list, **Name** sorts by file name, and **Type** groups by extension, then by name.
+    range: Names are compared in your language's order, and the folder never decides between two equal names.
+    enabled: Hidden while the list is empty.
+    persistence: Kept between sessions as `interface/dashboardRecentSortMode`.
+    note: Pinned files come first in every order.
+  - name: Recent file card
+    kind: button
+    default: ""
+    effect: Opens the file and moves it to the front of the list. The featured card shows it at once.
+    range: On the picture, the image's size and type. Under the name, the target, filter, exposure and camera a FITS, XISF, TIFF or raw header states, or else the folder's name. Hover over the card for its path, type, size, file size and date.
+    enabled: A card shows only for a file whose thumbnail AfterNight can read.
+    tradeoff: A file that fails to open, for any reason but a stop you asked for, leaves the list after "File open error". A stop leaves it.
+    persistence: Opening from a card remembers the file's folder for the next open once its view is made.
+  - name: Thumbnail
+    kind: readout
+    default: ""
+    effect: The card's picture of the image as it was when it last opened or was saved. It is made in the background, reduced to at most 2,400 pixels on its longer side with a Lanczos-4 kernel, and written as an 8-bit JPEG at quality 95, whole or not at all.
+    range: A linear image is shown through the view's Autostretch, measured exactly over the reduced picture, each color channel on its own. An image counts as linear when its header records it so, when it is a stack that counts its frames (`STACKCNT` or `NCOMBINE`, as AfterNight's stacks write), a frame that states its type (`IMAGETYP`), or a camera raw frame. An image recorded as stretched, as every AfterNight stretch records it, or encoded as sRGB or with a gamma, is shown as it is. A mosaic shows the gray picture of its values.
+    tradeoff: It changes only when the file opens or is saved in AfterNight again. A change another program makes to the file shows after that.
+    persistence: Kept in AfterNight's data folder, its place recorded in its database, and removed with its entry. Of two thumbnails asked for one file, only the last is kept.
+    note: Up to four are read at a time. The Dashboard keeps 256 pictures in memory and reads one again when its thumbnail file changes.
+  - name: No matches found
+    kind: readout
+    default: ""
+    effect: Stands where the cards were when the search matches no file, with "Try a different search term to see your recent files."
+    note: The featured file stays above it.
+```
+
+### A recent file's menu
+
+```controls
+window: A recent file's menu
+controls:
+  - name: Open
+    kind: action
+    default: ""
+    effect: Opens the file, as a click on its card does.
+  - name: Pin to top
+    kind: action
+    default: ""
+    effect: Keeps the file ahead of the files not pinned, in every order and search. On a pinned card it reads **Unpin from top**, and a pin mark stands in the card's corner.
+    persistence: Kept between sessions as `interface/dashboardPinnedRecents`. Dropped when the file leaves the list.
+    note: It does not make the file featured.
+  - name: Show in File Browser
+    kind: action
+    default: ""
+    effect: Opens your file manager at the file.
+    range: A file that is gone gives "File Not Found" with "The file does not exist on disk:" and its path.
+  - name: Copy path
+    kind: action
+    default: ""
+    effect: Copies the file's full path to the clipboard.
+    tradeoff: A path can name private folders. Look at it before you paste it anywhere public.
+  - name: Remove from recent files
+    kind: action
+    default: ""
+    effect: Takes the file off the list and off **File > Open Recent**, with its thumbnail and its pin.
+    note: The file stays where it is.
+```
 
 ### Customize quick actions
 
-1. Open **More actions** (`···`) > **Customize quick actions**.
-2. Open one of the six action submenus and choose **Move earlier**, **Move
-   later**, or **Hide action**. At least one toolbar action must remain visible.
-3. Recover an action through **Show hidden action**, or choose **Reset quick
-   actions** for the canonical order and no hidden actions.
-4. Check the placement rule: the three start actions always render in the
-   primary row and the other three in overflow. A move across that group boundary
-   can persist without a visible position change until relative order within the
-   same group changes.
+```controls
+window: Customize quick actions
+controls:
+  - name: Move earlier
+    kind: action
+    default: ""
+    effect: Swaps the action with the one before it in the order of the six.
+    enabled: Not for the first action.
+    tradeoff: A swap across the two groups changes the order and nothing on the screen, since the three start actions always stay in the row and the other three in the menu.
+    persistence: Kept between sessions, as every choice of this menu is.
+  - name: Move later
+    kind: action
+    default: ""
+    effect: Swaps the action with the one after it.
+    enabled: Not for the last action.
+    tradeoff: The same as **Move earlier** across the two groups.
+  - name: Hide action
+    kind: action
+    default: ""
+    effect: Takes the action off the Dashboard. On a hidden action it reads **Show action** and brings it back.
+    enabled: Not for the last action still shown. One stays visible.
+    note: A hidden action stays where the menus offer it, such as **File > Open**.
+  - name: Show hidden action
+    kind: action
+    default: ""
+    effect: Lists the hidden actions. Choose one to show it again in its place.
+    enabled: While an action is hidden.
+  - name: Reset quick actions
+    kind: action
+    default: ""
+    effect: Restores **Open file**, **New sequence** and **Image integration**, then **Extension Manager**, **Clear recents** and **System info**, with nothing hidden.
+    note: Dashboard settings written in another format, by another version of AfterNight, are set aside at start, and the Dashboard starts from these defaults. The Dashboard also records the last action you chose, as `interface/dashboardLastAction`, which nothing shows.
+```
 
-## Complete control and action reference
+### The welcome panel
 
-| UI label/action | Type and unit | Default | Valid values/constraints | Effect | Enabled, hidden, or ignored rules | Trade-off or side effect | Scope | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AfterNight identity/version/tagline | Informational identity bar | Visible | Running application/version | Identifies product, version, and dashboard purpose | Always visible on dashboard | Display only | Application | None |
-| Settings (`Ctrl+,`) | Identity utility button | Visible/enabled | Application available | Opens Settings | No active image required; not part of quick-action customization | Settings can change file, UI, network, and processing behavior | Application | Settings-specific |
-| User Guide (`F1`) | Identity utility button | Visible/enabled | Bundled guide or allowed online fallback | Opens Help | No active image required; not customizable | May open network fallback when bundled docs are absent | Application | None |
-| About | Identity utility button | Visible/enabled | Application available | Opens About AfterNight | No active image required; not customizable | Modal information only | Application | None |
-| Open file (`Ctrl+O`) | Primary toolbar button | First primary action | File chooser and supported decoder path | Opens File dialog and background load | Available without active image; can be hidden but one action must remain visible overall | The open directory is stored when the open starts; successful loads update recents, thumbnails, and workspace | Selected files | Order/hidden state; open directory and successful recents |
-| New sequence | Primary toolbar button | Second primary action | New Sequence workflow | Opens the top-level New Sequence window | Available without active image | Creating a sequence can allocate/write storage after confirmation | New sequence | Order/hidden state; workflow-specific state |
-| Image integration | Primary toolbar button | Third primary action | Full Image Integration workflow | Opens full calibration/alignment/stacking/reporting process | Available without active image | Workflow can use substantial memory/disk | Integration project/session | Order/hidden state; process/project state |
-| Extension Manager | Overflow action | First secondary action | Extension subsystem | Opens the separate **Extensions** dialog on its **Browse** tab | Available without active image | Can use network/disk and modify environments | Application | Order/hidden state; extension state |
-| Clear recents | Overflow action | Second secondary action; disabled empty | Nonempty recent list and confirmation | Clears recent paths, persisted thumbnail files/mappings, grid pins, and featured pin | Disabled with no recents; No cancels | Does not delete source files; confirmation default is Yes | Dashboard history | Order/hidden state; clears recent/thumb/pin state |
-| System info | Overflow action | Third secondary action | Application available | Opens runtime/system diagnostics | Available without active image | Copied diagnostics may reveal system details | Application | Order/hidden state |
-| More actions (`···`) | Menu button | Visible | Dashboard toolbar | Opens secondary and customization actions | Always visible; it is not one of the six customizable actions | Controls discoverability | Dashboard | None |
-| Customize quick actions | Overflow submenu | Available | Six canonical action IDs | Opens one submenu per quick action | Identity utilities are excluded | Reordering/hiding can make entry paths harder to find | Dashboard toolbar | Uses action-order/hidden-ID settings |
-| Move earlier | Per-action menu item | First action disabled | Position greater than zero | Swaps action with prior canonical-list item | Disabled at list start | Cross primary/secondary group swaps can be visually inert | Selected quick action | Immediate persistent order |
-| Move later | Per-action menu item | Last action disabled | Position before list end | Swaps action with next canonical-list item | Disabled at list end | Same group-boundary limitation | Selected quick action | Immediate persistent order |
-| Hide action / Show action | Per-action menu item | Actions shown | Canonical action; at least one visible overall | Hides or restores action | Hide disabled for the final visible action | Hidden actions remain callable through menus elsewhere when such a route exists | Selected quick action | Immediate hidden-ID setting |
-| Show hidden action | Customization submenu | Disabled with none hidden | Hidden canonical actions | Restores selected hidden action | Enabled only when hidden set is nonempty | Restores to its persisted/canonical relative position | Dashboard toolbar | Immediate hidden-ID setting |
-| Reset quick actions | Customization action | Enabled | Any nondefault order/hidden set | Restores Open/New/Integration, then Extension/Clear/System; shows all | No-op when already canonical | Discards custom layout | Dashboard toolbar | Immediate action settings |
-| Welcome to AfterNight / What you can do | Informational onboarding panel | Visible with no recents | Empty recent list | Shows identity, description, and six capability cards | Hidden as soon as recents exist; not restored by search-empty state | Capability text is orientation, not proof a specific input supports every process | No-recents dashboard | Determined by recent list |
-| Open Image | Onboarding action card | Visible with no recents | Same open workflow | Emits the same open request as toolbar **Open file** | Hidden when any recent path exists | Subtitle lists only FITS/XISF/TIFF/RAW, not exhaustive formats | Selected files | Successful recents/open directory |
-| New Sequence | Onboarding action card | Visible with no recents | Same New Sequence workflow | Opens New Sequence | Hidden when recents exist | Same as toolbar action | New sequence | Workflow-specific |
-| Image Integration | Onboarding action card | Visible with no recents | Full Image Integration | Opens full process | Hidden when recents exist | Not the Lite Quick Start path | Integration session | Process/project-specific |
-| Drop your images here to get started | Informational drop zone | Visible with no recents | Dashboard accepts local URLs; open service retains recognized suffixes | Highlights during an accepted local drag and opens retained files on drop | Highlight hidden with recents; nonlocal/unsupported-only drops do nothing | Multi-open can be partial; suffix acceptance is not decoder proof | Dropped local paths | Successful paths update recents; last directory becomes final retained file's folder |
-| `Ctrl+O to open` | Onboarding hint/shortcut | Active | Application shortcut | Opens file chooser | Hint visible only with no recents; shortcut works through application action | Same open side effects | Application | None |
-| `Ctrl+N for new sequence` | Onboarding hint | Stale | No assigned application shortcut | No current shortcut action | Text remains visible with no recents | Use card, toolbar, or **File > New Sequence...** | None | None |
-| `F1 for help` | Onboarding hint/shortcut | Active | Application shortcut | Opens User Guide | Hint visible only with no recents | May use online fallback | Application | None |
-| Featured file | Hero card | Hidden empty | Existing recent source and decodable stored/direct thumbnail candidate | Shows most-relevant recent filename and metadata | Hidden with no candidate; search does not filter it | Best-effort metadata/thumbnail may be absent or stale | Dashboard recents | Selection follows recent order unless hero pinned |
-| Continue | Featured-card button | Enabled with featured path | Current featured path | Opens featured recent file and promotes it | Hidden with card | Load can prompt/fail; success updates recent state | Featured file | Successful recent promotion |
-| Pin featured file / Unpin featured file | Featured-card icon button | Most recent unpinned | Existing file in recents | Makes one file override automatic featured selection, or releases it | A pin whose path leaves recents is cleared on refresh | Independent of grid **Pin to top** | Featured card | `interface/dashboardPinnedHeroFile` |
-| Recent | Section header/count | Hidden empty | Nonempty recent list | Shows total or filtered count | Hidden only for no-recents state | Count reflects filtered path entries, even if some lack usable thumbnail cards | Dashboard recents | Derived |
-| Search by name, type, or path... | Search field | Empty on fresh profile | Trimmed partial text; case-insensitive filename/path match | Filters recent path entries after 120 ms debounce | Hidden when no recents; clear button empties text | Persisted text can reopen directly into **No matches found**; no metadata-field search | Dashboard recents | `interface/dashboardRecentSearchText` |
-| `Ctrl+F` | Dashboard shortcut | Active only when search visible | Dashboard with recents | Focuses search and selects all text | Does nothing when search is hidden | No file-system search | Dashboard | None |
-| Recent sort | Combo option | Fresh default | Stored recent order, then stable grid-pin partition | Keeps recent-list order | Hidden when no recents | Grid pins appear first | Dashboard recents | `interface/dashboardRecentSortMode=recent` |
-| Name sort | Combo option | Not fresh default | Locale-aware filename ascending, then stable grid-pin partition | Sorts visible matches by name | Hidden when no recents | Folder/path is not a tie-breaker | Dashboard recents | `...=name` |
-| Type sort | Combo option | Not fresh default | Lowercase suffix ascending; locale-aware filename tie-break; grid pins first | Groups visible matches by extension | Hidden when no recents | Uses suffix text, not decoded content type | Dashboard recents | `...=type` |
-| Recent thumbnail left-click | Card action | Available per rendered card | Stored path with usable thumbnail | Previews/promotes featured state and starts recent open | Card is absent if no usable thumbnail was loaded | Open may fail; any failure other than a stop removes the recent entry | Recent path | Success promotes/persists recent path |
-| Open | Thumbnail context action | Available | Recent card | Same recent-file open | Requires rendered card | Same open prompts/failure | Recent path | Success promotion |
-| Pin to top / Unpin from top | Thumbnail context action | Unpinned | Recent path | Stable-partitions pinned cards above unpinned cards | Requires rendered card | Does not select featured hero | Recent grid | `interface/dashboardPinnedRecents` |
-| Show in File Browser | Thumbnail context action | Available | Existing local source path | Reveals source in platform file manager | Missing path shows **File Not Found** | External file-manager action exposes path | Recent path | None |
-| Copy path | Thumbnail context action | Available | Recent path | Copies normalized path to clipboard | Requires rendered card | Clipboard can disclose private path | Recent path | Clipboard only |
-| Remove from recent files | Thumbnail context action | Available | Recent path | Removes path, its stored thumbnail, and its grid pin; refreshes dashboard/menu | Requires rendered card | Does not delete source file | One recent item | Persists recent list and thumbnail mapping |
-| No matches found | Filtered-empty panel | Hidden | Nonempty list with zero search matches | Replaces grid and suggests another term | Featured card can remain visible | Not the no-recents onboarding state | Dashboard recents | Derived from persisted search/list |
-| No recent files state | Empty state | Fresh/cleared list | Zero recent paths | Shows onboarding; hides recent header/controls/hint/grid/featured | Clear recents or profile state controls it | Search/sort/action layout settings remain stored | Dashboard | Recent/thumb/pin history cleared; other dashboard settings retained |
-| File Open progress / Cancel | Progress dialog/action | Opens after selection/drop/recent click | One or more retained paths | Reports background loading; Cancel stops the current read, sequence open, or demosaic and reads no further file | Fewer than three files indeterminate; three or more percent; a recent-file open is always indeterminate | Already opened files remain after later error/cancel; a file that cannot be read is reported and the open goes on, while a view that cannot be made stops the batch | Current open batch | Successful items update recents |
-| Clear-recents confirmation Yes / No | Modal confirmation | Yes is default | **Are you sure you want to delete the recent opened files?** | Yes clears history/thumbnails; No preserves it | Shown only after enabled Clear action | The phrase “delete” refers to recent history, not source files | Entire recent list | Yes persists cleared state |
-| General > Recent files limit | Settings spin box, files | 20 files | 1–100 | Caps stored recents; applying a lower value removes oldest excess paths/thumbnails | Future additions also trim to limit | Removed history is not recoverable from dashboard; source files remain | Application recent list | `general/recentFilesLimit` |
+```controls
+window: The welcome panel
+controls:
+  - name: What you can do
+    kind: readout
+    default: ""
+    effect: Six cards that say what AfterNight does - Multi-Format Support, Frame Calibration, Star Alignment, Image Stacking, Background Extraction and Enhancement.
+    range: Three columns, two on a narrower Dashboard, one on a narrow one.
+    enabled: The whole panel shows only while the list is empty. With recent files at start it never shows, not even for a moment, and a search that matches nothing does not bring it back.
+    note: They are no buttons, and do not say that every file suits every process.
+  - name: Open Image
+    kind: button
+    default: ""
+    effect: The same as **Open file**.
+    note: Its line names FITS, XISF, TIFF and RAW. Supported Formats lists them all.
+  - name: New Sequence
+    kind: button
+    default: ""
+    effect: The same as **New sequence**.
+  - name: Image Integration
+    kind: button
+    default: ""
+    effect: The same as **Image integration**, the full window and not Lite.
+  - name: Drop your images here to get started
+    kind: readout
+    default: ""
+    effect: Lights up while you drag local files over the Dashboard. Files dropped anywhere on the Dashboard open as with **Open file**.
+    range: A file from another computer, or of an extension AfterNight does not open, is left out without a message, and the others open. The extension decides; a file whose contents cannot be read still fails at the open.
+    persistence: The folder of the last file dropped is remembered for the next open.
+    note: Its line names FITS, XISF, TIFF, RAW, JPEG and PNG. The highlight shows only with the panel, and a drop works whatever the Dashboard shows.
+  - name: Keyboard hints
+    kind: readout
+    default: Ctrl+O to open · Ctrl+N for new sequence · F1 for help
+    effect: ++ctrl+o++ opens files and ++f1++ the User Guide.
+    tradeoff: ++ctrl+n++ is no shortcut of New Sequence and does nothing.
+```
 
-## Behavior and state model
+### File Open
 
-### Dashboard states
+```controls
+window: File Open
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Names the file being read. One or two files show a moving bar, three or more a percentage.
+    range: Reopening a recent file always shows a moving bar.
+    note: A file that cannot be read is reported and the open goes on. A file whose view cannot be made is reported and stops the files after it.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Stops the read, the sequence open or the demosaic in progress, and reads no further file.
+    tradeoff: Files already open stay open and in the list.
+  - name: "Open CFA file: Yes"
+    kind: button
+    default: ""
+    effect: Demosaics the mosaic with the **Demosaic Algorithm** of **Settings > Raw Images** before its view opens.
+  - name: "Open CFA file: No"
+    kind: button
+    default: ""
+    effect: Opens the mosaic as it was recorded. The Debayer process can demosaic it later.
+```
 
-| State | Visible recent area | Transition condition |
-| --- | --- | --- |
-| No recents | Onboarding only; featured/header/search/sort/hint/grid hidden | Persisted recent list is empty or **Clear recents** succeeds |
-| Results | Optional featured card, **Recent** count, search/sort, hint, thumbnail grid | Nonempty list and search has one or more path/name matches |
-| Filtered empty | Optional featured card, **Recent** with **No matches in N files**, search/sort, no-match card | Nonempty list and trimmed search has zero path/name matches |
+## When it goes wrong
 
-The recent store normalizes paths, removes empty/duplicate entries when loading,
-and keeps the most recently successful file first, up to **Recent files limit**;
-a successful save also adds each file it wrote.
-A file on another machine is never a recent file: a Windows network (UNC) path,
-whether spelled `\\server\share\...`, `//server/share/...`, in its long form
-`\\?\UNC\server\...` or as a file URL naming a host, is not added. The
-last-open folder is not remembered for such a path either. Grid pins
-are then stable-partitioned above unpinned matches after search and selected sort.
-Grid pinning never changes the independent featured-file pin.
+"No matches found" just after AfterNight starts
+:   **Cause.** A search typed in an earlier session is still in the search box, and it matches no file now.
+:   **Fix.** Empty the box with the cross at its right end.
 
-The featured presenter tries the persisted hero pin first, then recent-list
-order. A candidate must still exist and have a usable cached, stored, or directly
-decodable image. It falls forward when a candidate cannot produce a hero image.
-When metadata is available, the card can show object, date, filter, exposure,
-camera, telescope, type, dimensions, and edit time; otherwise it falls back to
-technical file information. The date is the night the frame was taken - the day
-of `DATE-OBS` or the EXIF original date - and, failing those, the day the file
-says it was made, never the day the file was written. The camera is the EXIF
-model or `INSTRUME`, and for a camera RAW the make and model its decoder states.
-Placeholder values such as `-` or `N/A` are left out. A recent card's summary is
-the target, filter, exposure, and camera, each shown only when the file states
-it. The facts are read by background work that runs only when the session has
-a free thread, so they can be missing. Extraction does not edit source
-metadata.
+The Recent count is higher than the number of cards
+:   **Cause.** A listed file has no thumbnail AfterNight can read: it was never written, or it was removed.
+:   **Fix.** Open the file once with **Open file** to make a new thumbnail, or remove the entry.
 
-Six onboarding capability cards are informational: **Multi-Format Support**,
-**Frame Calibration**, **Star Alignment**, **Image Stacking**, **Background
-Extraction**, and **Enhancement**. Their grid reflows from three to two to one
-column as width narrows. They are not actions and do not assert that every file
-supports every capability.
+A card disappears after "File open error"
+:   **Cause.** The file was moved, deleted, or could not be read or shown, and a recent file that fails to open
+    leaves the list.
+:   **Fix.** Find the file and open it with **Open file** from where it is now.
 
-Runtime refresh removes grid pins and the hero pin when their paths leave
-recents. `interface/dashboardLastAction` records a
-human-readable audit string; no current dashboard control displays or restores
-behavior from that value.
+A dropped file is ignored
+:   **Cause.** It is not a local file, or its extension is not one AfterNight opens.
+:   **Fix.** Drop a local file in a format of [Supported Formats](../getting-started/supported-formats.md), or use
+    **Open file**.
 
-## Inputs, outputs, and metadata
+++ctrl+n++ does nothing
+:   **Cause.** The welcome panel's hint names a shortcut that New Sequence does not have.
+:   **Fix.** Choose **New sequence**, its card, or **File > New Sequence...**.
 
-The dashboard reads local paths, recent settings, thumbnail mappings/files,
-source timestamps, image dimensions, and best-effort FITS/XISF/TIFF/RAW metadata.
-It never changes source pixels or embedded metadata.
+Moving a quick action seems to do nothing
+:   **Cause.** It swapped places with an action of the other group, and each group keeps its place.
+:   **Fix.** Move it again until it passes an action of its own group, or choose **Reset quick actions**.
 
-A successful open can create a still/sequence view and history, persist the last
-directory, add/promote one recent path, and write a display thumbnail. The
-thumbnail is reduced with Lanczos-4 to at most 2,400 pixels on its longer axis
-and written on a worker as an 8-bit JPEG at quality 95, whole or not at all; only
-the last request for a file is recorded. An image that is linear data receives
-the thumbnail autostretch, measured exactly over its samples, each colour
-channel stretched on its own: an image recorded linear, a stack whose header
-counts the frames it combines (`STACKCNT` or `NCOMBINE`, as AfterNight's stacks
-write), a frame whose header records its frame type (`IMAGETYP`), or a camera
-RAW frame. An image whose processing-state cards record it stretched, as every
-AfterNight stretch does, or that is sRGB or gamma encoded, is shown as it is; a
-mosaic's thumbnail is the grey picture of its codes. Each thumbnail byte is
-rounded to the nearest value. Source images remain unchanged. Remove/clear
-deletes dashboard thumbnail artifacts and mappings only.
+## Related
 
-Search, sort, quick-action layout, pins, and last-action state are global
-application settings. There is no project-specific dashboard state and no
-restore of open image views from the previous session.
-
-## Performance and responsiveness
-
-Recent filtering waits 120 ms after typing. Thumbnail work is batched four at a
-time with at most four worker loads in flight; decoded dashboard cache is capped
-at 256 entries and invalidates an entry when the persisted thumbnail timestamp
-changes. The featured presenter also uses worker decoding when no cache result
-exists. Grid layout and state transitions remain GUI work.
-
-Opening images/sequences is background work, but decoder cost, CFA prompts, view
-creation, and many simultaneous views can still affect responsiveness and
-memory. Use one file first. A persisted thumbnail can lag source-file edits until
-the successful-open/save path regenerates it; the cache watches the thumbnail,
-not the source image timestamp.
-
-## Worked example
-
-- Evidence mode: Source-and-test-derived.
-- Starting state: empty recent list, Session Console closed, and one known small
-  supported local still.
-- Actions and checkpoints: verify onboarding; use **Open Image**; observe **File
-  Open** and successful workspace view; close the view; verify results state and
-  featured/recent entry; search by part of its filename; select **Name**; use
-  **Pin to top**, then **Remove from recent files**; verify onboarding returns and
-  the source remains on disk.
-- Result and limitations: source/tests establish signals, states, persistence,
-  filtering/sorting/pinning, and transitions. No approved file was executed, so
-  actual decoding, thumbnail appearance, platform layout, timing, memory, and
-  visual quality are unclaimed.
-
-## Warnings and limitations
-
-- The displayed `Ctrl+N` hint is stale. There is no current application shortcut
-  assigned to New Sequence.
-- Search reads filename/path text only. “Type” in the placeholder is satisfied
-  only when the typed suffix/text occurs in that string; decoded format and
-  extracted metadata are not independent search fields.
-- Primary and overflow actions are rendered as separate groups. Moving an item
-  across that boundary can persist while producing no visible reordering.
-- A recent path without a usable stored/direct thumbnail can count in the section
-  total but lack a rendered card. The featured presenter may skip it for another
-  candidate.
-- Thumbnail/featured metadata is best-effort and may be missing, stale, or
-  incomplete. It is not an authoritative FITS/EXIF inspection.
-- Unsupported or nonlocal-only drops are silently ignored. Mixed drops discard
-  unrecognized suffixes and open the retained paths; suffix filtering does not
-  validate content.
-- Multi-open is not transactional. Earlier views and recents can survive a later
-  decoder error or cancellation.
-- **Clear recents** uses a modal confirmation and defaults to Yes. Read the prompt
-  before accepting; source files are not deleted.
-- The fresh-profile and returning-profile states shown here were validated on
-  the capture platform. This does not establish identical rendering on every
-  platform, scale factor, or window size.
-
-## Troubleshooting
-
-| Symptom or exact error | Verified cause/enablement path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Onboarding is absent | At least one recent path exists, even if no card renders. | Use search/recents, remove stale entries, or clear recents intentionally. | `MainDashboard.cpp` |
-| Search/sort is absent or `Ctrl+F` does nothing | The recent list is empty, so the controls are hidden. | Open one supported file successfully first. | `MainDashboard.cpp` |
-| **No matches found** appears immediately after restart | Search text persists and matches no current filename/path. | Use the field's clear button or enter a matching path/name fragment. | `MainDashboard.cpp`; `RecentFilesGrid.cpp` |
-| **Recent** count exceeds visible cards | One or more matching paths lack a usable thumbnail mapping/file/decoder result. | Open the source through **File > Open** to regenerate a thumbnail, or remove the stale entry. | `RecentFilesGrid.cpp`; `FileManager.cpp` |
-| Featured file is unexpected | A separate hero pin overrides recent order, or earlier candidates are missing/undecodable. | Use **Unpin featured file**; verify candidate source and thumbnail files. | `FeaturedFilePresenter.cpp`; `MainDashboard.cpp` |
-| **Clear recents** is disabled | No recent paths exist. | No action is required; opening a file successfully will enable it. | `MainDashboard.cpp`; `DashboardToolbar.cpp` |
-| A recent card reports **File open error** and disappears | The path is stale, the engine refused to read the file, its demosaic failed, or its view could not be made; any recent-open failure other than a stop removes it. | Locate the file and reopen from its new path; inspect Session Console/File Formats. | `FileWorkflowRunner.cpp`; `FileManager.cpp` |
-| **File Not Found** from **Show in File Browser** | The stored source path no longer exists. | Remove the entry or restore/reopen the file at its current location. | `ImageThumbnailWidget.cpp` |
-| A dropped file is ignored | It is nonlocal or lacks one of the exact recognized still/RAW/sequence/video suffixes (compared case-insensitively). | Drop a local supported file or use **Open file** and consult File Formats. | `MainDashboard.cpp`; `FileDialogUtils.h`; `FileManager.cpp` |
-| Some dropped files open before a failure/cancel | Multi-open processes retained files sequentially and is not atomic: a file that cannot be read is reported and the next one opens, while a view that cannot be made stops the batch. | Keep wanted views; close unwanted partial results; retry the failed file alone. | `FileWorkflowRunner.cpp`; `FileOpenTest.cpp` |
-| Moving a quick action seems to do nothing | The swap crossed the primary/secondary rendering boundary rather than another item in the same visible group. | Continue moving until its relative order changes within primary or overflow, or reset. | `DashboardToolbar.cpp`; `MainDashboard.cpp` |
-| Hidden action cannot be hidden | It is the final visible quick action. | Show another action first, then hide this one. | `MainDashboard.cpp` |
-| Lowering Recent files limit removes entries | Applying Settings trims oldest paths and thumbnails immediately. | Reopen source files to add them again; increase the limit for future retention. | `GeneralSettingsPage.cpp`; `DialogOrchestrationCoordinator.cpp` |
-
-## Related workflow steps
-
-- [First Launch](../getting-started/first-launch.md) provides the learning path;
-  this page is the exhaustive dashboard reference.
-- [Quick Start](../getting-started/quick-start.md) uses Image Integration Lite,
-  not the dashboard's full **Image integration** action.
-- [Interface Overview](overview.md) explains dashboard/workspace transitions and
-  global action state.
-- [Sequences](sequences.md) owns New Sequence and sequence behavior.
-- [Image Integration](../processes/stacking-integration/image-integration.md)
-  owns the full dashboard-launched integration workflow.
-- [Settings](settings-dialog.md) owns **Recent files limit** and other application
-  persistence controls.
-- [Supported Formats](../getting-started/supported-formats.md) helps choose a
-  source; [File Formats](../reference/file-formats.md) is the compatibility
-  authority.
-
-## References and provenance
-
-- AfterNight dashboard, file-workflow, persistence, settings, metadata, and
-  focused-test sources.
-- [Interface Overview](overview.md) is the authority for central-surface and
-  active-action transitions.
-- [File Formats](../reference/file-formats.md) is the authority for exact codec,
-  precision, metadata, and sequence support.
-- No external standard is required for dashboard behavior.
+- [Interface Overview](overview.md), for the main window around the Dashboard and the workspace that replaces it.
+- [Image Viewer](image-viewer.md), for the view a file opens in.
+- [Sequences](sequences.md), for New Sequence and the sequences it makes.
+- [Image Integration](../processes/stacking-integration/image-integration.md), the window the Dashboard opens; the
+  [Quick Start](../getting-started/quick-start.md) uses Image Integration Lite instead for a first stack.
+- [Supported Formats](../getting-started/supported-formats.md), for the files you can open.
+- [Settings](settings-dialog.md), for **Recent Files Limit** and the Raw Images settings.

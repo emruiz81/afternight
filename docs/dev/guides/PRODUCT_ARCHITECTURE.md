@@ -306,12 +306,54 @@ acquisition record's exposure start (`app/ObservationEpochUtils.h`). The interna
 the session and solves with `solvePlate` against `GaiaCatalogSource::regionCatalog` - the installed chunk catalog's
 tiles inside a HEALPix disc, mapped, decoded and carried to the epoch - one region for a hinted solve and one per
 blind centre; the astrometry.net web solver is one state machine on the worker (`setAstrometryWebEndpoint` points it
-elsewhere). The bundled catalogs are read by `loadBundledCatalog` on a worker by each owner and never kept in process
-state, because a `SkyCatalog` leases the session's engine. The overlays (`controls/*DisplayModule`, made behind the
-seam in `controls/AstrometryOverlays.cpp`) ask `FieldCatalogQueries` for the field's entries on a worker, project the
-last answer at paint and draw an engine pixel coordinate times the scale, with no half pixel to subtract. The SPCC
+elsewhere). The bundled catalogs are read on a worker. A reader that only asks what lies in a field - the overlays of
+every view, Annotate Image - shares one copy of each (`sharedBundledCatalog`, `app/BundledCatalogs.h`): it is read
+once, a second reader waits for the first one's read, and it is kept for the engine context the session held when it
+was read and read again for another, because a `SkyCatalog` leases the session's engine. It builds no name index: the
+bright stars, 83 479 to magnitude 9, then hold about 19 MiB and load in about 40 ms, where the catalog search's copy
+with its index holds about 51 MiB. A reader that names a source of its own, and the search by name, read their own
+(`loadBundledCatalog`). The overlays (`controls/*DisplayModule`,
+made behind the seam in `controls/AstrometryOverlays.cpp`) ask `FieldCatalogQueries` for the field's entries on a
+worker, project the last answer at paint and draw an engine pixel coordinate times the scale, with no half pixel to
+subtract; the star labels are measured when the view or the answer changes, brightest first, and a fainter star whose
+label or marker would cover a brighter one's is left out, so a paint draws a bounded number of them. The SPCC
 region is the solution's `fieldCenter` and `queryRadiusDegrees`, its chunks `selectSpectrumChunksForRegion` on a
 worker. `Test_ControlsAstrometry` holds all of it.
+
+### The annotated picture (`controls/annotation/`)
+
+Annotate Image makes a picture of a solved image with its objects, stars and coordinates named, in four steps that each
+know nothing of the one after it. `controls/annotation/AnnotationSettings.h` is what a person chooses - layers, a level
+of detail that writes the catalogue selection, label text, palette, sizes, corners, output - stored as one JSON text
+under `annotation/settings` (title excepted) and read back field by field through fixed tables. `buildAnnotationScene`
+turns a `WcsSolution`, the bundled catalogues' entries (`queryAnnotationCatalogs`: both catalogues, the field's radius
+and two degrees more, on a worker) and the header cards into marks, grid lines clipped to the frame with their edge
+crossings, the sky's directions and scale at each corner, and the panel's facts. Entries of different catalogues that
+name one object - one position, or one common name close together - become one mark under the designation people use
+most (Messier, NGC, IC, Caldwell); two entries of one catalogue never merge. `layoutAnnotations` shapes every label into
+glyph outlines (`QPainterPath::addText`, unhinted, at one size and scaled) and places them greedily in the scene's
+priority order against an occupancy grid: the decorations first in their corner stacks, then the grid's edge labels,
+then each mark's label beside it, on a leader line farther out, or not at all; a place that covers a smaller mark or
+crosses another object's outline costs more than a leader line, so a label covers another object only when no line
+reaches a free place. A star is named by its proper name, its Bayer or Flamsteed designation or, when every star is
+asked for, its catalogue number, and a star left unnamed may be marked alone (`AnnotationMark::markOnly`).
+`paintAnnotations` draws a scene through a layout with any `QPainter`. The style sets the text and the lines apart -
+typeface, weight, slant, label and panel sizes and backing on one side; line width and opacity, the dark edge behind the
+lines, the fill and the star marker on the other - so no choice of one changes the other: the letters' halo follows the
+text's size alone. Every length is a fraction of the image's reference length - the geometric mean of its sides - so the
+window's preview, a smaller picture and the full-size one are one drawing at different scales and the preview shows
+where the picture puts a label. The base under the annotations is the view's own presentation (`presentAnnotationBase`:
+`presentForView` at the largest display-proxy factor that leaves it at least the picture's size, stretched through the
+whole image's analysis, the view's kept one when it has it), so a picture of any size is stretched as the view stretches
+the image. `annotatedPictureAsset` makes the drawn picture an image of the session - eight-bit display RGB, recorded
+nonlinear, `derivedFrameCards` plus the solution `resizeWcsSolution` moves to the picture's grid - which
+`writeViewImage` writes under the export settings' intent or a new view shows. `AnnotateImageControl` runs each step on
+a worker and drops an answer a later request, a change of the image or its closing made stale: the catalogue query once
+per solution, the scene and layout once per change of what is shown or placed (a colour only repaints), the preview's
+base per stretch and zoom, and the picture with its own read lease taken on the GUI thread before admission. It is one
+per view (`ViewTool::AnnotateImage`), opened from the view's toolbar and **Image > Information**, the latter enabled by
+`ImageViewControl::canAnnotateCurrentImage`. `Test_ControlsAstrometry` holds the steps and the window, and
+`ApplicationMenu` the menu entry.
 
 ### Statistics, curves and stars (`widgets/HistogramComputation.h`, `widgets/HistogramCompanions.h`, `widgets/ToneCurveModel.h`, `controls/StarFilter.h`)
 
@@ -477,7 +519,11 @@ under, its exclusive access and its still-image requirement; the registry launch
 the reading the menu's action state shares, and an attached window answers `requiresExclusiveAccess` from its
 descriptor. The members that open a process are `app/ProcessEntryPoints.cpp`, compiled only with every process; the
 image operations' non-interactive half is `nonInteractiveImageOperations`, beside the channel extractor; the registry
-binds Export to `ExportSequenceControl::openFor`. `Test_ProcessesShared`, an isolated suite, holds the helpers, the
+binds Export to `ExportSequenceControl::openFor`. A descriptor also states the user guide's page of its process
+(`helpPath`, from the help table beside the registrations), and the launcher states it on the window a launch shows -
+the process window shown after the launch that was not shown before it, since an entry point hands its window to
+nobody - so that Help, asked from that window, opens the page; `docs/dev/USER_GUIDE_AUTHORING.md` says how the table
+is held to the guide. `Test_ProcessesShared`, an isolated suite, holds the helpers, the
 launcher and the registry: every registered action opens its real window, or runs its real channel action, through
 the library's entry points; a process family's suite (`Test_Processes<Family>`) holds its own processes the same way.
 
@@ -614,11 +660,18 @@ nothing, its split overlay the second image presented by `presentForView` on a w
 first. A second image is snapshotted on the GUI thread and read under a lease of the run's own, cropped to a preview
 area as the framework crops the target (`LeasedImage`); `BoundImage` reads a frame decoded in its sensor's codes as
 fractions of full scale; a combination's record is built whole over its sources (`combinedResultMetadata`: the cards
-every source states identically, no exposure card of a combination) and a recombination's from the starless image's
-(`recombinedResultMetadata`), each with its processing-state cards. A second image is the asset the GUI thread chose
-because its view can close or change under the run; a combination's record is built over every source because one
-source's cards - its exposure, object and frame type - describe that source alone, and a recombination keeps the
-starless image's because a starless image and its stars are one frame in two parts. `Test_ProcessesCombinations`
+every source states identically and none of a source's exposure cards, the first source's pointing cards, the
+earliest source's observation start with its start cards, and an exposure that is the integration summed over the
+distinct acquisitions - each source's `TOTEXP`, else `LIVETIME`, else its exposure times its `STACKCNT` or `NCOMBINE`
+frames - stated in the combination's own `EXPTIME` and `TOTEXP` cards) and a recombination's from the starless
+image's (`recombinedResultMetadata`), each with its processing-state cards. A second image is the asset the GUI thread
+chose because its view can close or change under the run; a combination's record is built over every source because
+one source's cards - its exposure, object and frame type - describe that source alone; it points where the first
+source pointed because the result is on that source's grid, begins when the earliest source began, and counts the
+sources of one exposure start once, with the largest integration and frame count any of them states, because an image
+and the copies made of it - its starless image, its stars, a channel taken out of it - hold one acquisition's light,
+which a copy may have lost the cards to state; and a recombination keeps the starless image's because a starless
+image and its stars are one frame in two parts. `Test_ProcessesCombinations`
 holds the behavior records through the windows, every process's behavior dimensions, and what only one does - the
 comparison's modes, lens and histograms among them.
 
@@ -632,11 +685,12 @@ over every frame of its sequence through `openProcessFrames` and one `createProc
 admission, and opens what it makes on the GUI thread; a worker never waits for it. A stored channel is
 `extractChannelScope`'s copy, keeping the image's cards, meaning and its plane of an explicit mask; a colour component
 is the scope's Float32 plane - Float64 for a Float64 image - in the unit interval, keeping only the acquisition record,
-the solution and the lineage; a conversion reads every sample as a fraction of its representation's range and writes
-it in double to the nearest code, a full-scale sample saturating, and a conversion to the image's own representation
-is an exact copy. A component is a floating plane so that no hue, chroma or lightness is rounded to the image's codes
-before anything reads it, and it drops the cards, which describe the colour image, but keeps the acquisition record
-and the solution because its pixels are the image's. Duplicate,
+the solution, the lineage and the frame's observing context and integration cards (`derivedFrameCards`); a conversion
+reads every sample as a fraction of its representation's range and writes it in double to the nearest code, a
+full-scale sample saturating, and a conversion to the image's own representation is an exact copy. A component is a
+floating plane so that no hue, chroma or lightness is rounded to the image's codes before anything reads it, and it
+drops the other cards, which describe the colour image, but keeps the acquisition record, the observing context, the
+integration cards and the solution because its pixels are the image's and hold its light. Duplicate,
 Extract Frame and the container conversions open or show sequences through the file companions; grey, colour and the
 negative are `editImage` edits of a still view and frame-by-frame replacements of a sequence (`greyImageOf`,
 `colourImageOf`, `negativeImageOf`, the negative of a signed image the complement of its fractions), and a sequence's
@@ -670,11 +724,15 @@ repository are described in `docs/dev/SPCC_*.md`.
 Crop, resize, rotate, the integer and CFA integer resamples, debayer, split and merge CFA and extract sequence are
 own-thread windows that turn their dialog into a value on the GUI thread when Apply is pressed (`settings()`) and run
 it through two units. `GeometryProcessSupport.h`: each step the engine's plan (`planGeometryStep`, `transformImage`)
-under one policy for a geometry change - the acquisition record and the meaning kept, the codec's cards dropped, an
-output decision withdrawn, the validity rule kept where every sample was written and stated as the mask written where
-one was not, as the view's own turns follow - and the solution the cards state moved with the pixels of a crop, a
-resize or an integer resample (`movedSolution`, the engine's `cropWcsSolution` and `resizeWcsSolution`) with the
-solver's card, and dropped by a rotation or a filter-array resample; the dialogs' eight interpolations, Auto saying
+under one policy for a geometry change - the acquisition record and the meaning kept, the frame's observing context
+and integration cards kept (`derivedFrameCards`: the engine's `withObservationCards` and the frame's own `EXPTIME`,
+`TOTEXP`, `LIVETIME`, `STACKCNT` and `NCOMBINE`) and the codec's other cards dropped, an output decision withdrawn, the
+validity rule kept where every sample was written and stated as the mask written where one was not, as the view's own
+turns follow - and the solution the cards state moved with the pixels of a crop, a resize or an integer resample
+(`movedSolution`, the engine's `cropWcsSolution` and `resizeWcsSolution`) with the solver's card, and dropped by a
+rotation or a filter-array resample; a step that rescales the frame divides the context's `XPIXSZ` and `YPIXSZ` by
+its scale along each axis (`withPixelScale`), a resize by its own and either integer resample by its exact factor;
+the dialogs' eight interpolations, Auto saying
 what it chooses and the step naming what ran; a resize that repeats the edge sample under the dark-ringing guard and
 keeps the source's pixel aspect, a rotation clockwise about the image's centre on a black border, a normalized
 floating result held to the unit interval; and the runs, `runInPlace` (an `editImage` edit, or every frame of a
@@ -683,7 +741,11 @@ shows as one history step) and `runToNewViews` (views of what a still image or e
 output, each published whole), every failure said under the process's title, an edit the history refuses said once by
 the history, and a stop the person asked for quiet. A filter-array resample drops the solution because its planes'
 samples sit at different places within each block, which one solution cannot describe, and a resize keeps the
-source's pixel aspect because the engine states unequal axis scales as stretched pixels, which a rotation refuses. A
+source's pixel aspect because the engine states unequal axis scales as stretched pixels, which a rotation refuses. The
+observing context stays because a cropped, turned or resized frame is still that frame, whose plate solve and header
+still need its optics, its site and where it pointed, the integration cards because it holds the same light - for a
+stacked master its whole integration and frame count - and a rescaled frame restates its pixel size so that the
+plate scale its optics imply is still its own. A
 crop keeps a mosaic's filters under its samples through its
 phase; a resize, rotation or integer resample of a mosaic reads it as grey only when the person says so.
 `CfaProcessSupport.h`: `splitMosaicPlanes`, `joinMosaicPlanes`, `extractHydrogenAlpha`, `extractGreen` and
@@ -838,7 +900,8 @@ The large multi-stage stacking workflow: `model/` (frames, grouping, calibration
 `workflow/` (manifest build and diff, `ExecutionPlanner`, `WorkflowExecutor`, progress, artifacts, cancellation) with
 `workflow/stages/` (Bias, Dark, Flat, LightsCalibration, LightsRegistration, LightsAlignment, LightsNormalization,
 LightsStacking, LightsDrizzle), `persistence/` (SQLite project state, autosave, presets), `reporting/`
-(`WorkflowReportBuilder`), and `tabs/`, `widgets/`, `controls/` and `dialogs/` for the UI. `lite/` and
+(the report model and the document written from it), and `tabs/`, `widgets/`, `controls/` and `dialogs/` for the
+UI. `lite/` and
 `ImageIntegrationLiteProcess.*` are the simplified front end only: shared behaviour belongs in the full model and
 workflow and is reused by Lite. How artifacts are written and reused is `AGENTS.md` ("Artifact writing and incremental
 reuse") and `docs/dev/IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md`.
@@ -924,7 +987,10 @@ plan per light description. `Test_ImageIntegration` runs the stages through `Tes
 `stages/RegistrationFrames` is how both stages and the comet registration reach a light: `probeRegistrationFrame`
 reads its header (extent, filter, exposure start, its own `WcsSolution` and distortion), `readRegistrationImage` reads
 it as Float32 fractions calibrated by the master set and demosaiced, and `warpRegistrationFrame` resamples it onto a
-plane. The registration detects each frame in its own admitted operation with typed progress and fits star matching,
+plane: the engine's warp writes only where the light's pixels reach, so the plane holds exact zero wherever they do not,
+and reads the light's own edge sample past its edge (`KernelBorderMode::Clamp`) rather than a step to zero, which a
+cubic or Lanczos-4 kernel would ring on. The chromatic-aberration correction warps each channel the same way, and a
+channel keeps its own samples where, moved, it does not reach. The registration detects each frame in its own admitted operation with typed progress and fits star matching,
 phase correlation, control points and the comet track in engine pixel coordinates over the frames as they are,
 recording each transform at schema 5 as `ExplicitNone`; an unmatched frame is registered by sampling its solution - its
 cards or `PlateSolveService`'s answer - against the reference's. The stars are matched as the frames hold them, so a
@@ -944,10 +1010,14 @@ The normalization stage measures a group's lights where its stack reads them - a
 (`NormalizationMeasurementPlane::Frames`), on the current registered lights or the registration inputs warped onto the
 registration's plane in memory (`RegisteredCanvas`), or warped onto a drizzled group's analysis plane
 (`DrizzleAnalysisPlane`, the canvas `resolveDrizzleGroupGeometry` plans) - in one admitted operation, with the engine's
-global matches, overlap solve and local fit. The engine applies an analysis-plane document only to frames on that
-plane, so a drizzled Local group is not measured and its stack fits the normalization itself - one rule,
-`localNormalizationFittedByDrizzledStack`, that the planner, the stage and the stack share - and a drizzled Global
-group's matches are measured on the analysis plane, the canvas before its scale, so they hold at any drizzle scale.
+global matches, overlap solve and local fit. A drizzled group is measured on the analysis plane, the canvas before its
+scale, so its coefficients hold at any drizzle scale: a Global group's matches apply as they are, and a Local group's
+document is applied through the plane mapping `drizzleLocalNormalizationPlane` states
+(`Algorithms/Normalization/DrizzleLocalNormalization.h`), which the stack hands the engine beside the document, so every
+surface is read where a drizzled pixel lies on the plane, exactly at each pixel's centre, and the stack measures no
+normalization of its own. A grid's nodes span the frame it was fitted on, so restating the grids onto the drizzled
+extent would move them by up to `(1 - 1/scale) / 2` pixel; measuring on the drizzled lights would cost the scale squared
+in pixels and put the drop's holes under the detection and the filters.
 `localNormalizationRequestFor` (`core/NormalizationUtils.h`) states every
 value of the engine's local request and the settings fingerprint hashes it; `core/NormalizationAnalysis.h` is the rest
 of the local settings - the analysis filters, the ranking figures of the single-best and integrated reference
@@ -982,7 +1052,10 @@ to the planner, so a tile holds a piece's rows where the memory allows rather th
 other routes read whole frames, and the run's log says which form a group read with and why. The stored texts are
 read by `integrationStackChoice` through the closed maps, an unknown one refused
 by name, and `stackingSettingsNotes` says what the stack cannot honour; weights come from the registration's records,
-and the number-of-images weighting from each light's own count of combined frames (`combinedFrameCount`);
+a colour light's one star width - measured in green - weighing every channel, because widths of each channel's own,
+measured on two real colour sessions, moved the weights by a few percent and a stack's star width by a third of a
+percent at most (`docs/dev/FRAME_WEIGHTING_INPUTS.md`), and the number-of-images weighting from each light's own
+count of combined frames (`combinedFrameCount`);
 the normalization stage's document is applied through `stackNormalizationInputsFor` where it describes the frames, the
 stack measuring its own otherwise; the exposure merge is buckets blended by `exposureMergeBlendWeight`. Progress is the
 stack's typed reports; the quality record keeps clustered pixels and every rejected element apart. The master's
@@ -1008,9 +1081,14 @@ the run, left as it is; a transform record or a last run's manifest of another f
 hash a choice's key. A window refused its stored session starts empty and keeps its autosave off. The report reads
 statistics with `readViewImage` and the
 engine's statistics, header facts with `probeImage` and weights through `deriveStackWeights`
-(`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given,
-and is exported on the thread pool; previews are `generateBoundedPreview` - the largest-sample shrink presented
-through `presentForView`. Every weighting's dashboard preview shows the weights the stack applies, and the stack and
+(`core/StackWeightingInputs.h`), the measurement and request the stack uses, all in the `EngineSession*` it is given.
+It is built once, as the archiver commits the run, into a model the archive keeps (`kStoredReportFileName`); the
+document is written from that model, and written again or saved as one file from it on the thread pool, with no
+image read. Previews are `generateBoundedPreview` - the largest-sample shrink presented through `presentForView`.
+When a report is written, what it reads, how its values are printed (`reporting/ReportFormat.h`) and the runs its
+suites build are in [IMAGE_INTEGRATION_REPORT.md](../IMAGE_INTEGRATION_REPORT.md). Every weighting's dashboard
+preview shows the
+weights the stack applies, and the stack and
 the preview state the group's floor as the photometric raw floor. Every question and settings dialog of the
 integration and Lite opens with `open()`; the shared file pickers (`app/FileDialogUtils.h`) and `QMenu::exec` context
 menus stay blocking: the pickers are the product's shared wrappers, which run their dialog's own loop, so a
@@ -1031,9 +1109,10 @@ thread of its own (`BudgetedMemoryResource::kDeferredReleaseBytes`), never in an
 large block unmaps every page of it on the freeing thread, at a cost that grows with the processors that touched it,
 so another thread takes that wait, while a sanitized build returns at once so that a use after release is found where
 it happens. A run's
-report measures at the run's width (`core::parallelCoreWidth`), and the FITS codec reads a whole-row payload of 32 MiB
-or more on the operation's workers when it is granted eight or more, each worker through a handle of its own; a
-reader admitted beside a computing operation is granted fewer and reads on one. The engine-side lessons - compiled
+report measures at the run's width (`core::parallelCoreWidth`), and the FITS codec reads an uncompressed region of
+32 MiB or more on the operation's workers when it is granted eight or more, each worker reading its strips through the
+file's one reader, which OpenFITS lets any number of threads read at once; a reader admitted beside a computing
+operation is granted fewer and reads on one. The engine-side lessons - compiled
 runs where MSVC leaves a loop scalar, interval rules read as value windows, held selections - are in `AGENTS.md`
 ("Performance and parallelism").
 

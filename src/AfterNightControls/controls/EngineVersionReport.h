@@ -32,10 +32,10 @@ namespace an::ui
 /// One library the engine uses, as its report states it.
 struct EngineLibrary
 {
-    /// The engine's name for it, as `cfitsio` or `libjpeg-turbo`.
+    /// The engine's name for it, as `openfits` or `libjpeg-turbo`.
     QString name;
 
-    /// What it is called where it is shown, as `CFITSIO`; the engine's name for one this table does not know.
+    /// What it is called where it is shown, as `OpenFITS`; the engine's name for one this table does not know.
     QString label;
 
     /// Where the library is published, or empty for one this table does not know.

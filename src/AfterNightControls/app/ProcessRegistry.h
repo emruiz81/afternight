@@ -60,6 +60,11 @@ struct ProcessDescriptor
     bool provides_starless_output = false;
     bool provides_star_mask_output = false;
 
+    /// The user guide's page of the process, relative to the guide's root as the built guide names it
+    /// (`processes/stretching/histogram-transformation.html`); empty for a process the guide has no page of, an
+    /// extension's among them. Help opens it from a window of the process.
+    std::string helpPath;
+
     [[nodiscard]] bool is_available() const noexcept
     {
         return availability == ProcessAvailability::Available;

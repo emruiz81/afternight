@@ -77,7 +77,6 @@ public:
     QHBoxLayout* horizontalLayout_minWeightFloor = nullptr;
     QLabel* minWeightFloorLabel = nullptr;
     QDoubleSpinBox* minWeightFloorValue = nullptr;
-    QCheckBox* perChannelFwhmWeighting = nullptr;
     QCheckBox* localWeightingEnabled = nullptr;
     QHBoxLayout* horizontalLayout_localWeightingWindowSize = nullptr;
     QLabel* localWeightingWindowSizeLabel = nullptr;
@@ -410,9 +409,6 @@ public:
         auto* spacerItem11 = new QSpacerItem(40, 20, QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Minimum);
         horizontalLayout_minWeightFloor->addItem(spacerItem11);
         verticalLayout_weightingOptions->addLayout(horizontalLayout_minWeightFloor);
-        perChannelFwhmWeighting = new QCheckBox(weightingOptionsGroupBox->contentWidget());
-        perChannelFwhmWeighting->setObjectName("perChannelFwhmWeighting");
-        verticalLayout_weightingOptions->addWidget(perChannelFwhmWeighting);
         localWeightingEnabled = new QCheckBox(weightingOptionsGroupBox->contentWidget());
         localWeightingEnabled->setObjectName("localWeightingEnabled");
         verticalLayout_weightingOptions->addWidget(localWeightingEnabled);
@@ -729,11 +725,6 @@ public:
         minWeightFloorLabel->setText(QCoreApplication::translate("StackingSettingsDialog", "Min Weight Floor:"));
         minWeightFloorValue->setToolTip(QCoreApplication::translate(
             "StackingSettingsDialog", "Minimum weight floor (0.0 to 1.0) to prevent complete exclusion of frames"));
-        perChannelFwhmWeighting->setToolTip(QCoreApplication::translate(
-            "StackingSettingsDialog", "If enabled and per-channel FWHM data is available, use per-channel FWHM weights "
-                                      "instead of combined weights"));
-        perChannelFwhmWeighting->setText(
-            QCoreApplication::translate("StackingSettingsDialog", "Enable Per-Channel FWHM Weighting"));
         localWeightingEnabled->setToolTip(QCoreApplication::translate(
             "StackingSettingsDialog",
             "Estimate a downsampled quality grid for each frame and apply spatially varying weights during stacking."));

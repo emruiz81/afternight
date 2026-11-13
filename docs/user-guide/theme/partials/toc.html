@@ -1,0 +1,35 @@
+{#- On this page: the page's sections, with a tutorial's steps under them, a process page's controls, then the
+    page's actions. nav.js marks the section in view. -#}
+<aside class="side side-toc" aria-label="On this page">
+  {%- if gp.toc %}
+  <h2 class="side-title">On this page</h2>
+  <ul class="toc-list">
+    {%- for item in gp.toc %}
+    <li><a href="{{ item.url }}">{{ item.title }}</a>
+      {%- if item.children %}
+      <ul>
+        {%- for child in item.children %}
+        <li><a href="{{ child.url }}">{{ child.title }}</a></li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+    </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if gp.controls %}
+  <h2 class="side-title">Controls</h2>
+  <ul class="toc-list toc-controls">
+    {%- for control in gp.controls %}
+    <li><a href="#{{ control.id }}">{{ control.name|e }}</a></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  <h2 class="side-title">This page</h2>
+  <ul class="toc-actions">
+    {%- if page.edit_url %}
+    <li><a href="{{ page.edit_url }}">Edit on GitHub</a></li>
+    {%- endif %}
+    <li><button type="button" class="link-btn print-btn">Print</button></li>
+  </ul>
+</aside>

@@ -22,7 +22,7 @@ It is intended for any agentic workflow (GitHub Copilot, Codex, Cursor, Claude C
 - Build system: Premake5 generates native projects (Makefiles, VS2026)
 - UI: Qt 6 + KDDockWidgets. The authoritative Qt version is `QT_VERSION` in `build/premake/afternight-common.lua` (currently 6.10.3).
 - Tests: Google Test
-- Deps of the product: oneTBB, Highway, CFITSIO, libtiff, libpng, libjpeg-turbo, LibRaw and a private RawSpeed build, OpenXISF, FFmpeg, Exiv2, FFTW (single precision), GSL (one function), nlohmann-json, G'MIC (through its adapter), Crashpad (MSVC/Linux), Qt's SQLite driver, and Python 3.14.7 for the extension hosts and runtime backend; `build/scripts/tools/dependencies.txt` is the register. OpenCV, the public LibRaw and, on Windows, Eigen serve only the library parity suite as reference libraries.
+- Deps of the product: oneTBB, Highway, OpenFITS, libtiff, libpng, libjpeg-turbo, LibRaw and a private RawSpeed build, OpenXISF, FFmpeg, Exiv2, FFTW (single precision), GSL (one function), nlohmann-json, G'MIC (through its adapter), Crashpad (MSVC/Linux), Qt's SQLite driver, and Python 3.14.7 for the extension hosts and runtime backend; `build/scripts/tools/dependencies.txt` is the register. OpenCV, the public LibRaw and, on Windows, Eigen serve only the library parity suite as reference libraries.
 - Platforms: Linux (Clang), Windows MSVC
 
 Key build scripts and configs live under `build/`:
@@ -468,7 +468,7 @@ Beside the file:
   (`AboutDialog::getLicenseText`, `src/AfterNightControls/controls/AboutDialog.cpp`): it is a derived work of the
   upstream work by its authors, the copyright line, the licence, and that it is distributed under that licence.
   Extend `Test_ControlsDialogs`' `TheLicenceCreditsEachDerivedProcessAndDescribesTheOriginalOneAsItIsNow` for it.
-  Its user-guide page's references section names the upstream work and author as well.
+  Its user-guide page names the upstream work, its authors and its licence under `## Credits` as well.
 - A process window built on derived logic credits the upstream work in its header too.
 - Original code that resembles a known project says that it is original and what it does not include
   (`docs/dev/NBRGB_COMBINATION_PROVENANCE.md` and the About dialog's NBRGB paragraph), and keeps saying only what
@@ -618,12 +618,12 @@ Debug symbols (`.debug` on Linux, `.pdb` on Windows) must match the exact binary
 
 ## Installer builds
 
-- Windows (Inno Setup): ensure deploy has populated `bin/msvc/release`; build the user guide with `build\scripts\msvc\build_user_guide_docs.bat`; install Inno Setup 6.2+; run `iscc installer\win_installer.iss /DMSVC`. Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must pass `/DREQUIRE_DOCS` so missing offline docs fail loudly. Use `/DADMIN=1` for elevation.
+- Windows (Inno Setup): ensure deploy has populated `bin/msvc/release`; build the user guide with `build\scripts\msvc\build_user_guide_docs.bat`; install Inno Setup 6.6+ (continuous integration pins 6.7.1); run `iscc installer\win_installer.iss /DMSVC`. The wizard's pictures are checked in under `installer/artwork/`, drawn from the logo by `build/scripts/tools/render_installer_artwork.py` at each size the wizard shows; run it only to change them, and `--check` holds the set. Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must pass `/DREQUIRE_DOCS` so missing offline docs fail loudly. Use `/DADMIN=1` for elevation.
 - Linux AppImage: complete release build and deploy; build the user guide with `build/scripts/linux/build_user_guide_docs.sh`; run `installer/linux_packager.sh` (downloads `appimagetool` if needed). Local/manual builds bundle `docs/user-guide/site/` when it exists. Release builds must run with `REQUIRE_DOCS_SITE=1` so missing offline docs fail loudly. Output: `installer/AfterNight-<version>-x86_64.AppImage`.
 
 ## User documentation system
 
-End-user documentation lives in `docs/user-guide/` and is built with MkDocs Material.
+End-user documentation lives in `docs/user-guide/` and is built with MkDocs and the guide's own theme.
 
 ### Structure
 - Source: `docs/user-guide/docs/en/` (Markdown files)
@@ -654,11 +654,10 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 
 ### Adding/editing pages
 - Edit Markdown files under `docs/user-guide/docs/en/`
-- Add new pages to the `nav:` section in `docs/user-guide/mkdocs.yml`
+- Add new pages to the `nav:` section in `docs/user-guide/mkdocs.yml`, each opening with front matter ("Page metadata" in `docs/dev/USER_GUIDE_AUTHORING.md`)
 - Place images in `docs/user-guide/docs/en/assets/images/`
-- Follow the page templates under `docs/user-guide/templates/` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
-- Update `docs/user-guide/DOCUMENTATION_COMPLETION_TRACKER.md` whenever page status, reviewed sources, screenshot state, diagrams, or strict-build validation changes
-- Track requested screenshots in `docs/user-guide/SCREENSHOT_REQUEST_MANIFEST.md`; commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
+- Follow the page templates under `docs/user-guide/templates/`, the style guide in `docs/dev/USER_GUIDE_STYLE.md` and the authoring rules in `docs/dev/USER_GUIDE_AUTHORING.md`
+- Commit real images only with matching entries in `docs/user-guide/docs/en/assets/MEDIA_PROVENANCE.md`
 
 ### CI
 - A workflow that calls one reusable workflow more than once must key their concurrency groups apart. A reusable workflow inherits its caller's context, so two calls in one run see the same `github.workflow` and the same ref; with `cancel-in-progress` they share a group and the second cancels the first, taking the job that waited on it. The run then reports `cancelled` rather than `failure`, with no failing step anywhere, so the missing half reads as somebody pressing stop. `cache-linux.yml` and `cache-windows.yml` take a `variant` input for this; pass whatever distinguishes the calls. When a workflow runs several modes of one job, check that every mode reported rather than that nothing failed
@@ -671,6 +670,7 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 
 ### In-app help
 - `Help -> User Guide` opens bundled offline docs first from the installed app's docs location
+- F1 is that one command in every window of the application, and no window binds F1 to anything else; from a process window it opens that process's page, which the help table of `ProcessRegistryBuiltins.cpp` names (`docs/dev/USER_GUIDE_AUTHORING.md`, "Help from a process window")
 - If bundled docs are unavailable, the app falls back to the published online guide
 - Set `AFTERNIGHT_DISABLE_ONLINE_USER_GUIDE=1` for offline-policy smoke tests; with that policy enabled, missing bundled docs should show a clear warning instead of opening the web guide
 
@@ -703,7 +703,7 @@ Routing guidance:
 - Domain model: `model/` owns frame metadata, grouping, validation, calibration matching, and integration errors.
 - Workflow core: `workflow/` provides manifest generation/diffing, execution planning, progress/control, artifact tracking, and cancellation. A run's stages work in the session `WorkflowExecutionOptions::session` names, through the `WorkflowStageServices` it binds: each stage admits its operations at the run's width and changes nothing process-wide.
 - Pipeline stages: `workflow/stages/` contains stage implementations (`Bias`, `Dark`, `Flat`, `LightsCalibration`, `LightsRegistration`, `LightsAlignment`, `LightsNormalization`, `LightsStacking`, `LightsDrizzle`).
-- Reporting: `reporting/` generates the final HTML/Markdown workflow report via `WorkflowReportBuilder`.
+- Reporting: `reporting/` states a run in a report model (`buildReportModel`), which the archiver stores in the run's archive as `workflow_report.json` with the document written from it, `workflow_report.html`. A report is written again, or saved as one file, from the stored model alone. `docs/dev/IMAGE_INTEGRATION_REPORT.md` is the note to read before changing it.
 - Persistence: `persistence/` manages SQLite-backed project state, autosave, presets, and schema. A store reads the schema it writes and refuses any other without writing to it.
 - UI composition: `tabs/`, `widgets/`, `controls/`, `dialogs/`, and `ui_models/` encapsulate presentation and interaction logic.
 
@@ -722,7 +722,7 @@ SIP (Simple Imaging Polynomial) distortion correction is handled by the engine w
 
 - **Engine layer**: `parseWcsCards` (`Algorithms/Astrometry/WcsCards.h`) reads the cards into a `WcsSolution` whose `distortion` is a `SipDistortion` (`Algorithms/Astrometry/SipDistortion.h`) in engine pixel coordinates, the first pixel's centre at (0.5, 0.5); the forward polynomials undistort star positions before matching, and the inverse ones - or, when AP/BP are absent, a Newton solve of the forward model, the route reported with the answer - warp images during alignment. `Algorithms/Registration/RegistrationTransform.h` and `RegistrationPlan.h` take the source distortion beside the transform.
 - **Integration points**: `workflow/stages/RegistrationFrames.h` probes each light's own solution and distortion, and `warpRegistrationFrame` undoes the distortion before sampling the transform; `planRegistrationOutputPlane` and `registrationOutputPlaneSolution` drop a distortion the alignment undoes from the plane's solution; the drizzle descriptors (`Algorithms/Drizzle/DrizzleMapDescriptor.h`) carry it into the drizzled stack.
-- **Reporting**: the alignment stage counts the frames it corrected into `AlignmentGroupResult::sipCorrectedCount`, which flows through `WorkflowExecutor::Result` to `WorkflowReportBuilder`, rendering a SIP Distortion Correction callout in the final report when any frame had SIP correction.
+- **Reporting**: the alignment stage counts the frames it corrected into `AlignmentGroupResult::sipCorrectedCount`, which flows through `WorkflowExecutor::Result` to the report model (`ReportRegistrationGroup::distortionCorrected`, `reporting/facts/RegistrationFacts.cpp`); the report states the count in the registration group's card.
 - **Conventions**: a FITS solution counts pixels from one, with the first pixel's centre at one; the engine counts from zero, with that centre at one half. `parseWcsCards` subtracts the half pixel on the way in and the card writer adds it back on the way out, and nothing else moves it, so a reference pixel and the distortion that shares it are moved exactly once (`Algorithms/Astrometry/WcsCards.h`).
 
 The maintained full implementation and the Lite front end coexist under `src/AfterNightProcesses/processes/`; route changes according to the guidance above.

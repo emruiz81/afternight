@@ -1,9 +1,11 @@
 # Direct documentation tooling pins. When updating docs tooling, update this file,
 # regenerate requirements.txt, and run `mkdocs build -f docs/user-guide/mkdocs.yml --strict`.
-# 9.7.7 fixes GHSA-xvg9-69gf-fjrf and admits pymdown-extensions 11.0.1, which
-# fixes GHSA-gm37-52c6-37mw and GHSA-9xwg-3r6f-jcx2.
-mkdocs-material==9.7.7
+# Exact pin: MkDocs 2.x cannot load this theme or its hooks.
+mkdocs==1.6.1
 mkdocs-glightbox==0.5.2
+# 11.0.1 fixes GHSA-gm37-52c6-37mw and GHSA-9xwg-3r6f-jcx2.
 pymdown-extensions==11.0.1
+# pymdownx.highlight colors code only when Pygments is installed, and nothing above requires it.
+pygments==2.20.0
 # Future i18n:
 # mkdocs-static-i18n==<pin exact version when enabled>

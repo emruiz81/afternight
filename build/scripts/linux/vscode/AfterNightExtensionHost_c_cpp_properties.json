@@ -26,7 +26,6 @@
         "DEBUG",
         "linux",
         "__linux__",
-        "AN_MARKDOWN_BACKEND_CMARK_GFM",
         "KDDW_FRONTEND_QT",
         "KDDW_FRONTEND_QTWIDGETS",
         "QT_CORE_LIB",

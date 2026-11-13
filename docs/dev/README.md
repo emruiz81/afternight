@@ -28,6 +28,10 @@ works; there are no decision records.
 
 - [IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md](IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md) - how the workflow writes its
   artifacts and decides to reuse them.
+- [IMAGE_INTEGRATION_REPORT.md](IMAGE_INTEGRATION_REPORT.md) - how a run's report is built: when it is written,
+  what its archive keeps of it, what it reads, the model it is stated in, how its values are printed, how its charts
+  are drawn and its document written, how it is written again and saved as one file, how to open sample reports in
+  real browsers, and the runs its suites build.
 - [NO_DATA_SAMPLE_CONTRACT.md](NO_DATA_SAMPLE_CONTRACT.md) - how exact-zero and non-finite samples are marked and
   handled.
 - [OVERLAP_NORMALIZATION.md](OVERLAP_NORMALIZATION.md) - overlap-based global normalization.
@@ -40,6 +44,8 @@ works; there are no decision records.
 - [INCREMENTAL_BUILD_DEPENDENCY_TRACKING.md](INCREMENTAL_BUILD_DEPENDENCY_TRACKING.md) - the MSVC stale-object
   hazard and its two guards.
 - [CRASH_SYMBOLICATION.md](CRASH_SYMBOLICATION.md) - where crash dumps go and how to symbolicate them.
+- [XISF_PIXINSIGHT_CHECK.md](XISF_PIXINSIGHT_CHECK.md) - one unit of each form the XISF writer produces, read in
+  PixInsight: how to run the check and what the last one found.
 
 ### Catalogs and spectrophotometric colour calibration
 
@@ -74,15 +80,16 @@ from, under which licence, and which files carry its notice ("Credit for derived
 
 ### The user guide
 
-- [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) - how the user guide is built and written: its architecture and
-  packaging, the page templates and the content rules, and what makes a page complete.
-- [USER_GUIDE_SCREENSHOT_TRIAGE.md](USER_GUIDE_SCREENSHOT_TRIAGE.md) - the media triage that
-  `build/scripts/validate_user_guide_media.ps1` reads.
-- [../user-guide/DOCUMENTATION_COMPLETION_TRACKER.md](../user-guide/DOCUMENTATION_COMPLETION_TRACKER.md),
-  [../user-guide/SCREENSHOT_REQUEST_MANIFEST.md](../user-guide/SCREENSHOT_REQUEST_MANIFEST.md),
-  [../user-guide/CONTENT_VERIFICATION_PREREQUISITES.md](../user-guide/CONTENT_VERIFICATION_PREREQUISITES.md) and
-  the page templates under [../user-guide/templates/](../user-guide/templates/) - the page status, the capture brief,
-  the verification prerequisites and the templates the audit tooling reads.
+- [USER_GUIDE_AUTHORING.md](USER_GUIDE_AUTHORING.md) - how the user guide is built and written: its theme, hooks,
+  data and packaging, the page metadata, the content rules, what makes a page complete, and the checks that hold
+  it.
+- [USER_GUIDE_STYLE.md](USER_GUIDE_STYLE.md) - how a page of the user guide is written: who reads which kind of
+  page, voice and sentences, what a page does not say, pictures, troubleshooting, credits and length.
+- The page templates under [../user-guide/templates/](../user-guide/templates/), one per kind of page, and the
+  budgets, the vocabulary and the inventory of the process windows' controls under
+  [../user-guide/data/](../user-guide/data/) that `check_user_guide.py` holds every page to.
+- [../user-guide/SCREENSHOTS.md](../user-guide/SCREENSHOTS.md) - how a picture of a window is captured from the
+  application and prepared for a page.
 
 ## Inputs the tools read
 

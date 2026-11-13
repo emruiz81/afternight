@@ -313,8 +313,12 @@ TEST_F(FitsCodecTest, ADirectEncodeUnderNarrowerLimitsIsRefusedRatherThanWorkedA
     EXPECT_EQ(written.status().code(), an::ErrorCode::LimitExceeded);
 }
 
-TEST_F(FitsCodecTest, MisalignedRowsUseBudgetedWorkspaceAndPreserveCodes)
+TEST_F(FitsCodecTest, MisalignedRowsAreCopiedOutWithoutContextMemoryAndPreserveCodes)
 {
+    // Rows that sit at no multiple of their samples' size, in memory the codec only borrows, are copied out run by run
+    // into the FITS library's own staging as it asks for them: the codes come back exactly, the source is untouched,
+    // and the write takes nothing from the context, so a context whose budget holds not even one row still writes
+    // the frame and leaves nothing but its destination behind.
     const std::vector<std::uint32_t> input{0u, 1u, 16777217u, 4294967295u, 2u, 2147483648u};
     auto aligned = frame(input, 3u, 2u);
     const auto descriptor = *aligned.descriptor();
@@ -340,12 +344,14 @@ TEST_F(FitsCodecTest, MisalignedRowsUseBudgetedWorkspaceAndPreserveCodes)
     auto execution = an::ExecutionContext::create(*limited, {});
     ASSERT_TRUE(execution.hasValue());
     const auto destination = path("budget.fits");
-    const auto refused = an::writeImage(*limited, *execution, {.destinationPath = destination}, *source, {});
-    ASSERT_FALSE(refused.hasValue());
-    EXPECT_EQ(refused.status().rootCause().code(), an::ErrorCode::MemoryBudgetExceeded);
+    const auto written = an::writeImage(*limited, *execution, {.destinationPath = destination}, *source, {});
+    ASSERT_TRUE(written.hasValue()) << written.status().message();
+    EXPECT_EQ(bytes, originalBytes);
     EXPECT_EQ(limited->memoryResource()->counters().liveBytes, 0u);
-    EXPECT_FALSE(std::filesystem::exists(std::filesystem::path(
-        std::u8string_view(reinterpret_cast<const char8_t*>(destination.data()), destination.size()))));
+    EXPECT_EQ(limited->memoryResource()->counters().peakBytes, 0u);
+    const auto reread = decode("budget.fits");
+    ASSERT_TRUE(reread.hasValue());
+    EXPECT_EQ(values<std::uint32_t>(reread->frame), input);
     for (const auto& entry : std::filesystem::directory_iterator(directory))
         EXPECT_EQ(entry.path().extension(), ".fits");
 }
@@ -669,6 +675,92 @@ TEST_F(FitsCodecTest, IndependentImageExtensionsAreSelectedByImageIndex)
               an::ErrorCode::OutOfRange);
 }
 
+TEST_F(FitsCodecTest, AnExtensionWhoseHeaderGivesNoSizeLeavesTheImagesBeforeItReadable)
+{
+    auto source = frame<std::uint8_t>({1, 2, 3}, 3u, 1u);
+    ASSERT_TRUE(save(source).hasValue()) << lastError;
+    // An extension that states neither its sample type nor its axes: the walk of the file's units stops at it.
+    std::string extension;
+    for (const std::string text :
+         {"XTENSION= 'IMAGE   '", "PCOUNT  =                    0", "GCOUNT  =                    1", "END"})
+        extension += text + std::string(80u - text.size(), ' ');
+    extension.resize(2880u, ' ');
+    {
+        std::ofstream out(directory / "frame.fits", std::ios::binary | std::ios::app);
+        out.write(extension.data(), extension.size());
+    }
+    auto execution = an::ExecutionContext::create(engine, {});
+    const auto sourcePath = path();
+    for (const bool validate : {false, true})
+    {
+        const auto info = an::probeImage(engine, *execution, {.path = sourcePath, .validatePayload = validate});
+        ASSERT_TRUE(info.hasValue()) << info.status().message();
+        EXPECT_EQ(info->imageCount, 1u) << "the images before the damaged unit are the file's images";
+    }
+    auto decoded = an::decodeImage(engine, *execution, {.path = sourcePath});
+    ASSERT_TRUE(decoded.hasValue()) << decoded.status().message();
+    EXPECT_EQ(values<std::uint8_t>(decoded->frame), (std::vector<std::uint8_t>{1, 2, 3}));
+    EXPECT_EQ(an::decodeImage(engine, *execution, {.path = sourcePath, .imageIndex = 1u}).status().code(),
+              an::ErrorCode::OutOfRange);
+    const auto bounded = an::supportsBoundedFitsRegionDecode(engine, *execution, sourcePath);
+    ASSERT_TRUE(bounded.hasValue()) << bounded.status().message();
+    EXPECT_TRUE(*bounded);
+}
+
+TEST_F(FitsCodecTest, AnIntegerImageWhoseBlankCardStatesNoIntegerIsStillRead)
+{
+    // BLANK names the stored code of an undefined sample, and the codec reads no sample as undefined. A file whose
+    // BLANK is not the integer the standard asks for is still an image of the samples it holds.
+    for (const std::string blank : {"BLANK   = 'NONE    '", "BLANK   =             -32768.5"})
+    {
+        std::string header;
+        for (const std::string& text :
+             {std::string("SIMPLE  =                    T"), std::string("BITPIX  =                   16"),
+              std::string("NAXIS   =                    2"), std::string("NAXIS1  =                    2"),
+              std::string("NAXIS2  =                    1"), blank, std::string("OBJECT  = 'kept    '"),
+              std::string("END")})
+            header += text + std::string(80u - text.size(), ' ');
+        header.resize(2880u, ' ');
+        std::string payload(2880u, '\0');
+        payload[1] = 7;
+        payload[3] = 9;
+        {
+            std::ofstream out(directory / "blank.fits", std::ios::binary | std::ios::trunc);
+            out.write(header.data(), header.size());
+            out.write(payload.data(), payload.size());
+        }
+        auto execution = an::ExecutionContext::create(engine, {});
+        const auto sourcePath = path("blank.fits");
+        const auto info = an::probeImage(engine, *execution, {sourcePath});
+        ASSERT_TRUE(info.hasValue()) << blank << ": " << info.status().message();
+        auto decoded = an::decodeImage(engine, *execution, {.path = sourcePath});
+        ASSERT_TRUE(decoded.hasValue()) << blank << ": " << decoded.status().message();
+        EXPECT_EQ(values<std::int16_t>(decoded->frame), (std::vector<std::int16_t>{7, 9})) << blank;
+        EXPECT_NE(decoded->metadata.codec().find(an::CodecNamespace::Fits, "OBJECT"), nullptr) << blank;
+        auto region = an::decodeImageRegion(engine, *execution, {sourcePath}, {1u, 0u, 1u, 1u});
+        ASSERT_TRUE(region.hasValue()) << blank << ": " << region.status().message();
+        EXPECT_EQ(values<std::int16_t>(region->frame), (std::vector<std::int16_t>{9})) << blank;
+    }
+}
+
+TEST_F(FitsCodecTest, AHeaderCutBeforeItsEndCardIsRefused)
+{
+    auto source = frame<float>(std::vector<float>(4096u, 0.5f), 64u, 64u);
+    ASSERT_TRUE(save(source).hasValue()) << lastError;
+    // Five records: the file ends after its axes, before the header's END and before any sample.
+    std::filesystem::resize_file(directory / "frame.fits", 5u * 80u);
+    auto execution = an::ExecutionContext::create(engine, {});
+    const auto sourcePath = path();
+    for (const bool validate : {false, true})
+    {
+        const auto probed = an::probeImage(engine, *execution, {.path = sourcePath, .validatePayload = validate});
+        ASSERT_FALSE(probed.hasValue()) << "a header with no END describes no image";
+        EXPECT_EQ(probed.status().code(), an::ErrorCode::InvalidData);
+    }
+    *execution = an::ExecutionContext{};
+    EXPECT_FALSE(decode().hasValue());
+}
+
 TEST_F(FitsCodecTest, OneImmutableAdapterSupportsConcurrentContextsAndIndependentHandles)
 {
     auto source = frame<float>(std::vector<float>(4096u, 0.125f), 64u, 64u);
@@ -766,6 +858,72 @@ TEST_F(FitsCodecTest, LongStringsAndQuotedNumericStringsSurviveRepeatedSaves)
     EXPECT_EQ(second->metadata.codec().find(an::CodecNamespace::Fits, "FRACTION")->value(), "'1/2'");
     EXPECT_EQ(second->metadata.codec().find(an::CodecNamespace::Fits, "LONG.HIERARCHICAL.KEY")->value(),
               "'" + std::string(60u, 'z') + "'");
+}
+
+TEST_F(FitsCodecTest, AStringContinuedOverCardsOfItsOwnIsWrittenWhole)
+{
+    // What the reader of another format hands over for a long string: its first piece under its keyword, ending in
+    // the ampersand that says more follows, and each further piece as a CONTINUE card of its own.
+    auto source = frame<float>({0.125f}, 1u, 1u);
+    const std::string first(60u, 'a');
+    const std::string second(60u, 'b');
+    const std::string third(30u, 'c');
+    auto intent =
+        an::OutputIntent::create({.sampleType = an::SampleType::Float32,
+                                  .cards = {card("LONGKEY", "'" + first + "&'"), card("CONTINUE", "'" + second + "&'"),
+                                            card("CONTINUE", "'" + third + "'", "a remark"), card("AFTER", "'kept'"),
+                                            // A continuation of nothing continues nothing, and is left out.
+                                            card("CONTINUE", "'astray'")}});
+    ASSERT_TRUE(intent.hasValue()) << intent.status().message();
+    ASSERT_TRUE(save(source, &*intent).hasValue()) << lastError;
+    auto decoded = decode();
+    ASSERT_TRUE(decoded.hasValue()) << lastError;
+    const auto* whole = decoded->metadata.codec().find(an::CodecNamespace::Fits, "LONGKEY");
+    ASSERT_NE(whole, nullptr);
+    EXPECT_EQ(whole->value(), "'" + first + second + third + "'");
+    EXPECT_EQ(decoded->metadata.codec().find(an::CodecNamespace::Fits, "CONTINUE"), nullptr);
+    const auto* after = decoded->metadata.codec().find(an::CodecNamespace::Fits, "AFTER");
+    ASSERT_NE(after, nullptr);
+    EXPECT_EQ(after->value(), "'kept'");
+
+    // The pieces a source's own cards hold are joined the same way when the save keeps them.
+    auto preserve = an::OutputIntent::create({.sampleType = an::SampleType::Float32});
+    const auto carried = an::CodecMetadata::create(
+        an::SourceEncoding{},
+        std::vector<an::CodecCard>{card("LONGKEY", "'" + first + "&'"), card("CONTINUE", "'" + second + "'")});
+    ASSERT_TRUE(carried.hasValue()) << carried.status().message();
+    const an::ImageMetadata metadata = an::ImageMetadata::create(
+        decoded->metadata.acquisition(), decoded->metadata.semantics(), decoded->metadata.astrometry(),
+        decoded->metadata.provenance(), *carried, decoded->metadata.outputIntent());
+    ASSERT_TRUE(save(decoded->frame, &*preserve, metadata, nullptr, "second.fits").hasValue()) << lastError;
+    auto second_ = decode("second.fits");
+    ASSERT_TRUE(second_.hasValue()) << lastError;
+    const auto* joined = second_->metadata.codec().find(an::CodecNamespace::Fits, "LONGKEY");
+    ASSERT_NE(joined, nullptr);
+    EXPECT_EQ(joined->value(), "'" + first + second + "'");
+}
+
+TEST_F(FitsCodecTest, AHeaderOfMoreRecordsThanAReadTakesIsRefusedBeforeItIsWritten)
+{
+    auto source = frame<std::uint16_t>({1u, 2u}, 2u, 1u);
+    // A history line of 217 characters takes four records of a header.
+    const auto histories = [](unsigned count) {
+        return std::vector<an::CodecCard>(count, card("HISTORY", std::string(217u, 'x')));
+    };
+    // Two thousand of them stay under the records a read holds a header to, and the file is read back.
+    auto within = an::OutputIntent::create({.sampleType = an::SampleType::UInt16, .cards = histories(2000u)});
+    ASSERT_TRUE(within.hasValue()) << within.status().message();
+    ASSERT_TRUE(save(source, &*within).hasValue()) << lastError;
+    ASSERT_TRUE(decode().hasValue()) << lastError;
+    const auto kept = readBytes(path());
+
+    // A hundred more pass it. The file would be one this codec's own read refuses, so it is not written.
+    auto beyond = an::OutputIntent::create({.sampleType = an::SampleType::UInt16, .cards = histories(2100u)});
+    ASSERT_TRUE(beyond.hasValue()) << beyond.status().message();
+    const auto refused = save(source, &*beyond);
+    ASSERT_FALSE(refused.hasValue());
+    EXPECT_EQ(refused.status().code(), an::ErrorCode::LimitExceeded);
+    EXPECT_EQ(readBytes(path()), kept) << "the destination is left as it was";
 }
 
 TEST_F(FitsCodecTest, ExpandedHistoryReservesExplicitScalingCardsBeforeThePayload)

@@ -1,0 +1,89 @@
+# A small guide that shows every page kind and every component of the guide's theme, with made-up content. The hooks'
+# tests build it strictly (guide_hooks_test.py), and it is the page to look at while changing the theme:
+#
+#   mkdocs build -f docs/user-guide/hooks/fixtures/components/mkdocs.yml -d <a folder outside the repository> --strict
+#
+# It uses the guide's theme, hooks and data in place (`extra.guide_root`), and the guide's Markdown extensions. It
+# loads neither MathJax nor Mermaid, whose runtimes live with the guide's own pages.
+site_name: Component fixture
+site_description: Every page kind and component of the AfterNight guide's theme.
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+copyright: Copyright fixture
+repo_url: https://github.com/emruiz81/afternight
+edit_uri: edit/main/docs/user-guide/hooks/fixtures/components/docs/
+
+theme:
+  name: null
+  custom_dir: ../../../theme
+  static_templates: [404.html]
+  locale: en
+  logo: assets/logo.png
+  favicon: assets/logo.png
+
+hooks:
+  - ../../guide_hooks.py
+
+extra:
+  guide_root: ../../..
+
+plugins:
+  - glightbox
+
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+    unrecognized_links: warn
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - First Stack: start/first-stack.md
+  - Interface:
+      - Image Viewer: interface/viewer.md
+  - Processes:
+      - Overview: processes/index.md
+      - Calibration:
+          - Flat Division: processes/calibration/flat-division.md
+      - Stretching:
+          - Levels: processes/stretching/levels.md
+          - Soft Stretch: processes/stretching/soft-stretch.md
+      - Geometry:
+          - Trim: processes/geometry/trim.md
+  - Workflows:
+      - Deep Sky: workflows/deep-sky.md
+  - Reference:
+      - Markdown: reference/markdown.md

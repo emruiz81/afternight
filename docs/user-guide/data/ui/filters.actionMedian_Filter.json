@@ -1,0 +1,15 @@
+{
+  "id": "filters.actionMedian_Filter",
+  "window": "Median Filter <{image}>",
+  "controls": [
+    {"label": "Kernel Size", "kind": "combo", "object": "kernelSize", "group": "", "visible": true, "default": "3x3", "options": ["3x3", "5x5", "7x7", "9x9", "11x11", "13x13", "15x15"]},
+    {"label": "Iterations", "kind": "spinbox", "object": "iterationsValue", "group": "", "visible": true, "default": "1", "min": 1, "max": 10, "step": 1, "slider": true},
+    {"label": "Modulation", "kind": "spinbox", "object": "modulationValue", "group": "", "visible": true, "default": "1.00", "min": 0, "max": 1, "step": 0.05, "decimals": 2, "slider": true},
+    {"label": "Target Image", "kind": "combo", "object": "targetImageSelector", "group": "", "visible": true, "varies": ["default", "options"]},
+    {"label": "Channel", "kind": "combo", "object": "channelSelector", "group": "", "visible": true, "default": "RGB", "options": ["RGB", "Red", "Green", "Blue", "CIE L* (Lightness)", "CIE a*", "CIE b*", "CIE c*", "CIE h*", "CIE X", "CIE Y (Luminance)", "CIE Z", "HSL Hue", "HSL Saturation", "HSL Lightness", "HSV Hue", "HSV Saturation", "HSV Value", "YCbCr Luma", "YCbCr Blue Chroma", "YCbCr Red Chroma"]},
+    {"label": "Preview", "kind": "check", "object": "preview", "group": "", "visible": true, "default": "On"},
+    {"label": "Close", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Reset", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"},
+    {"label": "Apply", "kind": "button", "object": "", "group": "", "visible": true, "default": "", "shared": "process-window"}
+  ]
+}

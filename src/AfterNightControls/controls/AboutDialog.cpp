@@ -31,12 +31,6 @@
 #include <kddockwidgets/kddockwidgets_version.h>
 #endif
 
-#if __has_include(<cmark-gfm_version.h>)
-#include <cmark-gfm_version.h>
-#elif __has_include(<cmark_version.h>)
-#include <cmark_version.h>
-#endif
-
 W_OBJECT_IMPL(AboutDialog)
 
 namespace
@@ -87,17 +81,6 @@ std::string querySqliteVersion()
 
     QSqlDatabase::removeDatabase(connectionName);
     return version.toStdString();
-}
-
-std::string getMarkdownBackendVersion()
-{
-#ifdef CMARK_GFM_VERSION_STRING
-    return CMARK_GFM_VERSION_STRING;
-#elif defined(CMARK_VERSION_STRING)
-    return CMARK_VERSION_STRING;
-#else
-    return {};
-#endif
 }
 
 QString toCssColor(const QColor& color)
@@ -433,7 +416,6 @@ QString AboutDialog::getLibrariesText() const
     const std::string kddockwidgetsVersion = getKDDockWidgetsVersion();
     const std::string sqliteVersion = querySqliteVersion();
     const std::string crashpadVersion;
-    const std::string cmarkVersion = getMarkdownBackendVersion();
 
     const auto sv = [](const std::string& v) {
         const QString q = QString::fromStdString(v).trimmed();
@@ -476,8 +458,6 @@ QString AboutDialog::getLibrariesText() const
 
     s << "### Runtime & Diagnostics\n\n";
     s << "- [Crashpad](https://chromium.googlesource.com/crashpad/crashpad/) — `" << sv(crashpadVersion) << "`\n";
-    s << "- [cmark-gfm](https://github.com/github/cmark-gfm) / [cmark](https://github.com/commonmark/cmark) — `"
-      << sv(cmarkVersion) << "`\n";
 
     return md;
 }
@@ -566,6 +546,16 @@ QString AboutDialog::getLicenseText() const
          "Dawid, licensed under the MIT License, changed to draw with the theme's colours; its notice is reproduced "
          "under Third-Party Notices.\n\n";
     s << "## Third-Party Notices\n\n";
+    s << "AfterNight reads and writes FITS files through OpenFITS, distributed under the **Apache License 2.0**, "
+         "whose NOTICE states:\n\n";
+    s << "> OpenFITS\\\n";
+    s << "> Copyright 2026 Ezequiel Ruiz\n>\n";
+    s << "> This product includes software developed by Ezequiel Ruiz and the contributors to OpenFITS.\n>\n";
+    s << "> OpenFITS is an independent implementation of FITS, the Flexible Image Transport System, written from the "
+         "standard of the IAU FITS Working Group. Where the standard leaves a detail open, the behaviour of CFITSIO, "
+         "developed at the HEASARC of NASA's Goddard Space Flight Center, is the reference; no code of CFITSIO is "
+         "included. OpenFITS is not affiliated with or endorsed by the International Astronomical Union or by "
+         "NASA.\n\n";
     s << "AfterNight reads and writes XISF files through OpenXISF, distributed under the **Apache License 2.0**, "
          "whose NOTICE states:\n\n";
     s << "> OpenXISF\\\n";

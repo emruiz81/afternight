@@ -1,353 +1,404 @@
+---
+kind: process
+stage: stretch
+menu: Process > Intensity Transformations > Statistical Stretch
+summary: >-
+  Measures the median and a black point of the image, then stretches it with one curve that places the median at the
+  level you choose.
+data_in: linear
+data_out: nonlinear
+destructive: true
+preview: real-time
+sequences: true
+masks: post-blend
+external: none
+glance:
+  enabled: >-
+    An image or a sequence is active, no other Statistical Stretch window is open on it, and no window that needs the
+    image for itself is open on it.
+  inputs: >-
+    One grayscale or RGB image or sequence, and an optional mask of the same size on its view. Any other number of
+    channels is refused.
+  outputs: >-
+    The same view, replaced, with one history step. Its size and pixel type are kept. No file, preset or report is
+    written.
+  state: A linear master, mono or RGB, after gradient removal and color calibration.
+derived: false
+---
 # Statistical Stretch
 
-## Purpose and expected result
+Statistical [Stretch](../../reference/glossary.md#stretch) stretches a
+[linear image](../../reference/glossary.md#linear-image) from its own statistics. It measures the median and a
+[black point](../../reference/glossary.md#black-point), sends everything at or below the black point to black, and
+places the median at the level you set in **Target Median**. An RGB image gets one curve for each channel, or one for
+the three. Two optional stages follow: a curve that lifts the range above the target, and a division by the
+brightest sample.
 
-Statistical Stretch derives a black point and source median from the target, then
-uses one rational transfer to place that median near **Target Median** while
-keeping the computed black and normalized white anchors at `0` and `1`. It can
-derive one pooled transform for RGB (**Linked Stretch**) or an independent
-transform for each RGB channel. Optional post-stages lift the upper range with a
-fixed piecewise-linear curve and divide by the output maximum.
+The preview shows a result as soon as the window opens, stretched from the starting values. **Apply**
+replaces the image or [sequence](../../reference/glossary.md#sequence) with the stretched one, keeps its size and
+[pixel type](../../reference/glossary.md#pixel-type), and adds one step to its
+[history](../../reference/glossary.md#history). The result is recorded as nonlinear.
 
-The intended result is a nonlinear, same-size still image in the source pixel
-type. On ordinary finite normalized data, defaults usually provide a quick
-first display stretch. The target value is exact only for the transform's
-computed median before **Apply Curves Adjustment**, **Normalize Image**, mask
-blending, integer quantization, and output clamping. This is a one-pass mapping,
-not an iterative solver.
-
-Every sample at or below the computed black point becomes black, and every
-statistic is the whole image's: the target's for **Apply**, the preview, and a
-**Preview area**, and each frame's own for a sequence, whose frames are each
-stretched from their own statistics.
-
-## At a glance
-
-| Item | Current behavior |
-| --- | --- |
-| Menu path | **Process > Intensity Transformations > Statistical Stretch** |
-| Enabled when | An image or sequence is active, the same process is not already attached to it, and no attached process holds exclusive access |
-| Inputs | One grayscale or three-channel RGB still image or sequence; any other channel count is refused with the error "a statistical stretch needs a mono or RGB source"; unsigned integer samples are read as fractions of their full scale, signed ones from their smallest value to their largest, and floating samples as they are; samples the image marks as holding no data are left out of the statistics; an optional active mask must match the target geometry |
-| Outputs | Destructively replaces a still target after success; **Take snapshot** creates an auxiliary still without replacing the target; dimensions, channel count, pixel format, and pixel type are preserved; no file is written directly |
-| Recommended image state | Linear, background-corrected, and color-calibrated data before the main display stretch |
-| Preview support | Asynchronous RT preview that is the result **Apply** writes, plus a histogram of the mask-aware preview; disabling **Preview** returns the histogram to the source; a **Preview area** shows the whole target's stretch cropped to the area, exactly what **Apply** writes there |
-| Sequence support | Supported: every frame is stretched from its own statistics, as the process stretches that frame alone, with progress, cooperative cancellation, and replacement of the sequence only after every frame succeeds |
-| Mask support | Supported for preview, Apply, and sequences; white applies the result, black keeps the source, gray blends, and **Invert Mask** reverses the weights |
-| External dependencies | None; execution uses the bundled engine and does not access a tool, model, catalog, or network service |
+```figure
+image: ../../assets/images/processes/stretching/statistical-stretch.webp
+alt: >-
+  The Statistical Stretch window. On the left, a histogram of three overlapping peaks in the lower part of the range,
+  with two clipping shares written in its corner. Under it a toolbar, the Target Median box and slider, the Linked
+  Stretch check box, the Black Point Sigma box and slider, three more check boxes, the Curves Boost box and slider,
+  a line of text with three black points and a count of pixels, Target Image and Preview. On the right, the preview
+  shows a red nebula on a dark background. Reset, Close and Apply run along the bottom.
+caption: >-
+  Statistical Stretch on a linear master with Target Median at 0.15. The histogram is the result's, the line under
+  Curves Boost gives the black points, and the preview shows what Apply writes.
+pins:
+  - {n: 2, x: 10.9, y: 45.3}
+  - {n: 3, x: 1.9, y: 49.2}
+  - {n: 4, x: 1.9, y: 73.8}
+  - {n: 6, x: 70.4, y: 54.4}
+  - {n: 7, x: 90.3, y: 96.7}
+```
 
 ## Before you start
 
-- Finish background correction and color calibration first. The estimator does
-  not identify gradients, remove a pedestal selectively, or calibrate RGB.
-- Use a one-channel or three-channel image. Any other channel count is refused
-  by name when the process runs.
-- Prefer floating-point data while stretching. Processing uses single-precision
-  normalized buffers (double precision for a 64-bit floating or 32-bit integer
-  image); integer results are rounded to the nearest code of the original type.
-- Leave **Black Point Sigma** near its default until the clip readout and preview
-  have been checked. Lower values raise the computed black point, and every
-  sample at or below it becomes black.
-- **No Black Clipping** keeps the threshold from rising above the image minimum.
-  Despite its label, the minimum sample is still mapped to black and counted by
-  the `<= black point` diagnostic.
-- A **Preview area** is a view of the target: it shows the whole target's
-  stretch cropped to the area.
-- Duplicate the target or be prepared to use Image History. Apply replaces the
-  current image after processing succeeds.
+- Finish the work that needs linear data first: gradient removal, color calibration, measurement,
+  [deconvolution](../../reference/glossary.md#deconvolution) and linear noise reduction. The process finds no
+  gradient, removes no [pedestal](../../reference/glossary.md#pedestal) and calibrates no color.
+- **Apply** replaces the image. Its history keeps the step before, and this window has no inverse. Duplicate the
+  image first to compare two stretches.
+- The image is grayscale or RGB. Prefer a floating-point one: an integer image is rounded back to its own values.
+- Every statistic is the whole image's, also for a [**Preview area**](../../reference/glossary.md#preview-area) and
+  under a [mask](../../reference/glossary.md#mask), which blends the result with the original afterwards.
+- On a sequence, every frame is measured and stretched alone.
 
-## Procedure
+## Steps
 
-1. Select a calibrated linear still and open **Process > Intensity
-   Transformations > Statistical Stretch**. Confirm **Target Image** and leave
-   **Preview** selected.
-2. Start with **Target Median: 0.25**, **Black Point Sigma: 5.0**, and all four
-   checkboxes clear. Read the separate black-point/clipped-pixel line below the
-   curve controls; it is not the histogram's endpoint-bin overlay.
-3. On RGB, compare **Linked Stretch** off and on. Off targets each channel's own
-   median and can neutralize a color cast. On pools all RGB samples to derive one
-   transfer, but still evaluates that nonlinear function per channel and does
-   not preserve RGB ratios.
-4. Adjust **Target Median** for overall midtone placement. Do not assume the
-   final measured median must equal the control when curves, normalization, a
-   mask, quantization, or clipping is active.
-5. If the computed black point rises above the source minimum, the readout's
-   clipped pixels become black. Increase **Black Point Sigma** or select **No
-   Black Clipping** when that loses faint signal.
-6. Use **Apply Curves Adjustment** only when extra upper-midtone/highlight lift
-   is wanted; then increase **Curves Boost** cautiously. Use **Normalize Image**
-   only when scaling the global post-curve maximum to `1` is intentional.
-7. Inspect histogram endpoints, background, bright stars, channel balance, and
-   mask boundaries at 100% zoom, then select **Apply**.
+1. **Open the window.** Make the linear [master](../../reference/glossary.md#master) the
+   [active image](../../reference/glossary.md#active-image) and choose **Process > Intensity Transformations >
+   Statistical Stretch**. The preview shows the image already stretched, and the histogram shows that result.
+2. **Set the background level.** Move **Target Median** to the brightness the median should have. On most deep-sky
+   images the median is the sky background, and the peak of the histogram moves with it.
+3. **Choose one curve or three.** On an RGB image, leave **Linked Stretch** off to bring the three backgrounds to
+   one level, or select it to give the channels one curve. Compare the colors of the background and the stars.
+4. **Check the black point.** Read the line under **Curves Boost**: it gives the black point and the number of pixels
+   that become black. If that is more than the background can lose, raise **Black Point Sigma** or select **No
+   Black Clipping**.
+5. **Leave the finishing stages off at first.** Select **Apply Curves Adjustment** and raise **Curves Boost** only
+   when the range above the target needs more lift. Select **Normalize Image** only when the brightest sample must
+   become white.
+6. **Check the preview at 100 %.** Zoom into the background, the faint areas and the brightest stars, and press
+   ++space++ over the preview to compare with the original.
+7. **Apply.** Choose **Apply**. The image in its view is the stretched one, its history lists **Statistical
+   Stretch**, and the controls return to their starting values. The preview then shows a second stretch, of the
+   stretched image: close the window.
 
-## Complete parameter and action reference
+## Controls
 
-| UI label/action | Type and unit | Runtime default | Persisted-default exception | Valid values, step, or constraints | Effect of increasing, decreasing, or selecting | Dependencies and enable/visibility rules | Quality, artifact, runtime, memory, or disk trade-off | Scope: preview/apply, channel, mask, still/sequence | Persistence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Histogram plot | Graph, normalized intensity/count | Source or current preview; RGB channels overlaid | None | Binning comes from **Plot resolution** | Shows source or mask-aware result distribution and endpoint clipping; never changes samples | Always present; Preview chooses result versus source | Recalculation adds work; the endpoint counts do not depend on resolution | Display only; shown source/preview channels | Recomputed after source, preview, or resolution changes |
-| Left-drag in histogram | Graph gesture | No readout | None | Hold left button and move in graph | Shows normalized coordinate readout | Histogram is always present | Diagnostic only; does not choose the statistical black point | Display only | Ends on button release |
-| Middle-drag in histogram | Graph gesture | Fitted/unpanned | None | Hold middle button and drag | Pans the graph within its scroll area | Useful only when graph exceeds viewport | No output cost or effect | Display only | Until pan/zoom reset or window closes |
-| Ctrl+mouse wheel in histogram | Graph gesture | Fitted size | None | Up `1.20x`; down `0.8x`; wheel without Ctrl scrolls normally | Zooms around the cursor | Interactive graph enabled | Larger graph uses more rendering area | Display only | Window lifetime; process Reset does not change it |
-| Zoom in | Toolbar action | Fitted size | None | Each selection multiplies size by `1.30` | Enlarges plot | Always available while idle | Plot rendering only | Display only | Window lifetime; process Reset does not change it |
-| Zoom out | Toolbar action | Fitted size | None | Each selection multiplies size by `0.70` | Shrinks plot | Always available while idle | Plot rendering only | Display only | Window lifetime; process Reset does not change it |
-| Zoom reset | Toolbar action | — | None | One action | Fits graph and resets scrolling | Always available while idle | Plot rendering only | Display only | Immediate |
-| Show grid | Toggle | Checked | None | Checked/unchecked | Shows or hides graph grid | Always available while idle | Display-only visual aid | Display only | Window lifetime; process Reset does not change it |
-| Show clipping info | Toggle | Checked | None | Checked/unchecked | Shows or hides the share of samples at or below `0` and at or above `1` in the plotted image | Independent of the statistical clip-threshold text line | Counts exact endpoint samples, independent of Plot resolution; values just inside `0` or `1` are not counted | Display only; source or preview histogram | Window lifetime; process Reset does not change it |
-| Absolute scales | Toggle | Unchecked | None | Checked/unchecked | Checked normalizes each visible channel to its own peak; unchecked preserves relative/global height | Always available while idle | Can conceal relative channel strength; never normalizes image data | Display only | Window lifetime; process Reset does not change it |
-| Draw histogram areas | Toggle | Unchecked | None | Checked/unchecked | Selects filled-area or line rendering | Always available while idle | Area mode can obscure overlapping channel lines | Display only | Window lifetime; process Reset does not change it |
-| Plot resolution | Combo box, bins | **8-bit (256)** | None | **6-bit (64)**, **7-bit (128)**, **8-bit (256)**, **9-bit (512)**, **10-bit (1024)**, **12-bit (4096)**, **14-bit (16K)**, **16-bit (64K)**, **100 levels**, **1000 levels**, **10000 levels** | More bins show finer distribution; the endpoint counts do not change | Always available while idle | Higher bin counts increase histogram memory/rendering; transform precision is unchanged | Display only | Window lifetime; process Reset does not change it |
-| Target Median | Double value plus slider, normalized intensity | `0.25` | None | `0.01..0.99`; three decimals; spin step `0.01`; slider is linear over 1,000 positions | Raises or lowers the rational transfer's median anchor before optional post-stages | Enabled while idle | High targets brighten background/noise and compress more upper range; low targets give a darker result | Preview/Apply; pooled or per-channel transform; mask post-blend; stills and every frame of a sequence | Captured per execution; Reset or a successful Apply returns `0.25` |
-| Linked Stretch | Checkbox | Unchecked | None | Checked/unchecked | Checked pools RGB samples and uses one black point/median/transfer; unchecked computes each channel independently | Enabled only when current target reports RGB; disabled for mono | Linked does not preserve RGB ratios; unlinked can neutralize or shift channel balance by forcing separate medians | Preview/Apply; RGB only; mask post-blend | Captured per execution; Reset or a successful Apply clears it |
-| Black Point Sigma | Double value plus slider, robust-sigma multiplier | `5.0` | None | `0.5..10.0`; two decimals; spin step `0.1`; slider is linear over 1,000 positions | Larger values lower the threshold toward the source minimum; smaller values raise it and increase the nominal `<= threshold` count | Disabled while **No Black Clipping** is selected | Low settings clip more shadows to black; the spread is estimated from a deterministic sample of at most 400,000 values per channel/pool | Preview/Apply; pooled or per-channel estimator; stills and every frame of a sequence | Captured per execution; Reset or a successful Apply returns `5.0` |
-| No Black Clipping | Checkbox | Unchecked | None | Checked/unchecked | Uses the image/channel minimum as black point instead of `median - sigma × robust noise` | Disables **Black Point Sigma** | Avoids any sample below the selected black point, but still maps/counts the minimum as black | Preview/Apply; pooled or per-channel; stills and every frame of a sequence | Captured per execution; Reset or a successful Apply clears it |
-| Normalize Image | Checkbox | Unchecked | None | Checked/unchecked | After the stretch and optional curve, divides every processed sample by the single global maximum when that maximum is positive | Enabled while idle | Forces the brightest sample to `1`; changes the requested median and can amplify noise; one global RGB maximum preserves inter-channel scaling only at this stage | Preview/Apply; whole mono/RGB output; stills and every frame of a sequence | Captured per execution; Reset or a successful Apply clears it |
-| Apply Curves Adjustment | Checkbox | Unchecked | None | Checked/unchecked | Adds the fixed six-anchor piecewise-linear upper-range lift after the rational stretch | Enables **Curves Boost** | Can brighten upper midtones, flatten highlights, and move the measured median/maximum | Preview/Apply; same curve on every stored sample; stills and every frame of a sequence | Captured per execution; Reset or a successful Apply clears it |
-| Curves Boost | Double value plus slider, unitless | `0.20` | None | `0..1`; two decimals; spin step `0.05`; slider is linear over 1,000 positions | Raises two anchors above **Target Median**; `0` is identity and `1` drives both upper anchors to white | Enabled only with **Apply Curves Adjustment** | Strong values can create steep transitions and broad near-white highlights | Preview/Apply; all processed channels; stills and every frame of a sequence | Captured per execution even when ignored; Reset or a successful Apply returns `0.20` |
-| Black clipping readout | Selectable diagnostic text | Computed from current target and defaults | None | Threshold shown to six decimals; count/total and percentage to four decimals | Updates for source, Linked Stretch, sigma, and No Black Clipping | RGB-unlinked shows R/G/B thresholds; RGB count is a pixel count where any channel is `<=` its threshold | Count is exact over the current precomputed image, but threshold noise uses deterministic subsampling; the text counts exactly the valid pixels the stretch sends to black in at least one channel | Source diagnostic only; not mask-aware; one pixel counted at most once | Recomputed; not saved |
-| Target Image | Image selector | Attached/active target | None | Open eligible image or sequence | Changes source statistics, histogram, preview, and Apply | Active image required; duplicate/exclusive process gates apply; a channel count other than one or three is refused by name when the process runs | Wrong target is destructively replaced; a sequence's frames are each stretched from their own statistics | Preview/Apply source and active mask | Follows attachment/selection lifecycle; Reset does not change it |
-| Preview | Checkbox | Checked | None | Checked/unchecked | Starts/removes asynchronous full-image preview and switches histogram between preview/source | Process must be idle to change it | Full-image float conversion, statistics, transform, mask blend, and histogram consume time/memory | Preview only; mask-aware; current still/current displayed sequence frame | Window lifetime; Reset does not change it |
-| Preview pane | Full-image viewer | Current transformed target | None | Standard viewer zoom/pan/display controls | Shows the mask-aware full-image transform | Exists only while Preview is checked | Holds an additional float/result image; frequent parameter changes schedule new work | Preview only; target remains unchanged | Window lifetime |
-| Switch image | Preview-toolbar action | Transformed preview shown | None | Click; **Space**; right-click; **Ctrl+Shift+O** | Toggles the preview viewer between the current transformed result and original target | Exists only while Preview is checked | Display comparison only; does not recompute or change pixels | Preview display only; still/current displayed sequence frame | Preview-window lifetime |
-| Preview area | Preview-toolbar checkbox | Unchecked | None | Checked/unchecked; move/resize the selection overlay | Shows the whole target's stretch cropped to the area, exactly what **Apply** writes there; the area's own statistics are never used | Exists only while Preview is checked | Stretches the whole target for each change, its statistics measured once and kept | Preview and Take snapshot only | Preview-window lifetime; Reset does not change it |
-| Take snapshot | Preview-toolbar action | No snapshot | None | Click or **Ctrl+Shift+K** | With Preview area clear, re-executes the current settings at source depth and opens a new still named `<target> - Statistical Stretch - SNAPSHOT` | Exists only while Preview is checked | Allocates and processes an auxiliary image; active mask is honored; with Preview area selected, it is processed as the preview is | New still image; target is unchanged | Each action creates a separate image view |
-| Apply | Button/action | Enabled after initialization | None | One action | Captures all parameter values and destructively processes the target | Target must lock; controls disable during work | Full-image and parallel; a sequence's frames are each stretched from their own statistics | Stills, sequences, and the active mask | A successful commit records history and resets stretch settings |
-| Reset | Button/action | Enabled while idle | None | One action | Restores `0.25`, `5.0`, `0.20`; clears all four checkboxes; recomputes statistics/readout | Does not change target, Preview, or histogram toolbar state/zoom | No target image change | Configuration only | Immediate |
-| Close | Button/action | Enabled while idle | None | One action | Closes the process without applying current settings | Disabled with other controls during Apply; shared close handling applies to active workers | No output by itself | Window and active execution | No settings persist after destruction |
-| Sequence progress / Cancel | Shared modal progress dialog and Cancel action | Created automatically when sequence Apply starts | None | One progress update per frame; cooperative Cancel | Processes into a temporary sequence, removes it on cancellation, and replaces the target only after success | Sequence target only | Protects the original sequence from partial replacement | Sequence framework; every frame stretched from its own statistics | Cancel discards the temporary sequence; success replaces the sequence, records one history step, and resets settings |
+The toolbar under the histogram - zoom, grid, clipping shares, scales, areas and **Plot resolution** - changes only
+how the histogram is drawn, and is the same in every window that has one: see
+[Process Windows](../../interface/process-windows.md).
 
-## How the algorithm works
+```controls
+window: The histogram
+controls:
+  - name: Histogram
+    kind: readout
+    default: ""
+    effect: Shows the counts of the preview, which is the stretched image with the mask blended in. With **Preview** off it shows the image as it is.
+    range: One line for a grayscale image, three for RGB, in the bins of the toolbar's **Plot resolution**.
+    enabled: Always shown. The lines it draws follow the channel the preview displays.
+    tradeoff: It is counted again after every preview, which adds to the work of each change.
+    scope: The window only, and it never changes a sample. While the preview shows the original, so does the histogram.
+    persistence: Counted again when the target, the preview or **Plot resolution** changes.
+    note: Holding the left button shows the coordinates under the pointer, which does not set the black point. Dragging with the middle button pans, and ++ctrl++ with the wheel zooms around the pointer.
+  - name: Clipping Low and Clipping High
+    kind: readout
+    default: ""
+    effect: Give the share of the plotted samples at or below 0 and at or above 1, over every channel.
+    enabled: Shown while the toolbar's **Show clipping info** button is on, as it is when the window opens.
+    tradeoff: They count samples of the result, with the mask. The line under **Curves Boost** counts pixels of the image at or below the black point, without it. The two numbers answer different questions and need not agree.
+    scope: The image the histogram plots.
+```
 
-### Statistics and black point
+```controls
+window: Statistical Stretch
+controls:
+  - name: Target Median
+    kind: spinbox
+    default: "0.250"
+    widget: {min: 0.01, max: 0.99, step: 0.01, decimals: 3}
+    effect: Sets the level the median of the image lands at. Higher gives a brighter background and less room for everything above it. Lower gives a darker result.
+    range: The slider beside the box moves the same value in 1,000 equal steps.
+    tradeoff: A high target brightens the background with its noise and presses the bright signal together.
+    scope: The preview and Apply. Each channel's median with **Linked Stretch** off, the median of the three channels together with it on.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+    note: The median lands on the target before **Normalize Image**, the mask and the rounding of an integer image. Each of them can move the median you measure afterwards.
+  - name: Linked Stretch
+    kind: check
+    default: "Off"
+    effect: Off measures each channel alone and gives it its own black point and curve. On measures the three channels as one set of samples and gives them one black point and one curve.
+    enabled: For an RGB image. It is disabled for a grayscale image, which has one curve in any case.
+    tradeoff: Off puts every channel's median on the target, which removes a color cast from the background and can shift the color of everything brighter. On keeps a neutral sample neutral, but one curve on each channel still changes the ratios between the colors and their saturation.
+    scope: The preview, Apply and the line under **Curves Boost**.
+    persistence: Until the window closes. **Reset** and a finished Apply clear it. The history does not record it.
+    note: It is not a stretch of the luminance. Either way, calibrate color first.
+  - name: Black Point Sigma
+    kind: spinbox
+    default: "5.00"
+    widget: {min: 0.5, max: 10, step: 0.1, decimals: 2}
+    effect: Sets how far below the median the black point lies, in units of the spread of the dark half of the image. Higher lowers the black point and softens the stretch. Lower raises it, sends more of the background to black and steepens the stretch.
+    range: The black point is never placed below the smallest sample or above 0.99. The slider moves the same value in 1,000 equal steps.
+    enabled: While **No Black Clipping** is off.
+    tradeoff: A low value cuts faint signal for good. The spread is estimated from at most 400,000 samples of each channel, or of the three together when linked, always the same ones for one image.
+    scope: The preview, Apply and the line under **Curves Boost**, for each channel or for the three together.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default.
+  - name: No Black Clipping
+    kind: check
+    default: "Off"
+    effect: Takes the smallest sample of the image, or of each channel, as the black point in place of the one **Black Point Sigma** sets.
+    enabled: Always. Selecting it disables **Black Point Sigma**.
+    tradeoff: Nothing lies below the black point, so no faint signal is cut. One dark outlier then sets the black point, and the farther it lies below the background, the softer the stretch of everything else.
+    scope: The preview, Apply and the line under **Curves Boost**, for each channel or for the three together.
+    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+    note: Despite its label, the smallest sample itself still becomes black and is counted by the line.
+  - name: Normalize Image
+    kind: check
+    default: "Off"
+    effect: Divides the result by its brightest sample, which becomes white.
+    range: One maximum over every channel, taken after the curve of **Apply Curves Adjustment**. Nothing is divided when it is not above zero.
+    tradeoff: It moves the median off the target and amplifies the noise with everything else, and one hot pixel can set the scale. When a sample already reaches white after the stretch, it changes nothing.
+    scope: The preview and Apply. Every channel is divided by the same number, which keeps the ratios between the channels at this stage.
+    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+  - name: Apply Curves Adjustment
+    kind: check
+    default: "Off"
+    effect: Adds a fixed curve after the stretch that leaves everything up to the target as it is and lifts the range above it.
+    enabled: Always. Selecting it enables **Curves Boost**.
+    tradeoff: It brightens the upper midtones, can flatten the highlights and can raise the brightest sample.
+    scope: The preview and Apply, with the same curve on every channel.
+    persistence: Until the window closes. **Reset** and a finished Apply clear it.
+  - name: Curves Boost
+    kind: spinbox
+    default: "0.20"
+    widget: {min: 0, max: 1, step: 0.05, decimals: 2}
+    effect: Sets how far the curve lifts the range above the target. Higher lifts more. At 0 the curve changes nothing, and at 1 everything above the first quarter of that range is white.
+    range: The slider beside the box moves the same value in 1,000 equal steps.
+    enabled: While **Apply Curves Adjustment** is on. Its value has no effect while that is off.
+    tradeoff: A high value makes a steep step just above the target and wide areas near white.
+    scope: The preview and Apply, on every channel.
+    persistence: Until the window closes. **Reset** and a finished Apply return it to its default. The history does not record the value.
+  - name: Black clipping
+    kind: readout
+    default: ""
+    effect: Gives the black point and the number of pixels at or below it, which the stretch sends to black, with their share of the image.
+    range: The black point has six decimals and the share four. An RGB image with **Linked Stretch** off shows one black point for each of R, G and B, and counts a pixel once when any of its channels is at or below its black point.
+    enabled: Always shown, under **Curves Boost**. With **No Black Clipping** it begins "Black clipping disabled". When there is nothing to measure it reads "No clipping statistics available."
+    tradeoff: The count is exact, over every valid pixel of the image. The black point rests on the sampled spread.
+    scope: The whole image as it is, without the mask and whatever the **Preview area**. It follows the target, **Linked Stretch**, **Black Point Sigma** and **No Black Clipping**, and not **Target Median** or the finishing stages.
+    persistence: Measured again when one of those changes. It is not saved, and its text can be selected and copied.
+  - name: Target Image
+    kind: combo
+    default: The active image
+    options: [The active image, Every other open image or sequence the window can work on]
+    effect: Chooses the image Apply replaces. The statistics, the line under **Curves Boost**, the histogram and the preview follow it.
+    tradeoff: The image you choose is the one replaced. A larger image or a sequence takes more time, memory and disk.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the stretched image beside the controls, with the mask blended in. Off removes it, and the histogram then shows the image as it is.
+    tradeoff: Each change stretches the whole image again, with a **Preview area** too, and counts the histogram again. The statistics are measured once for each state of the image and kept. On a large image, turn it off while you adjust and on again for the last check.
+    scope: The window only. On a sequence it shows the frame the view displays.
+    persistence: Until the window closes. **Reset** leaves it as it is.
+    note: A snapshot taken from the preview is stretched as the preview is, from the whole image's statistics.
+  - name: Reset
+    kind: button
+    default: ""
+    effect: Returns the three values to their defaults, clears the four check boxes and measures the line under **Curves Boost** again.
+    range: It leaves the target, **Preview**, the toolbar's choices and the zoom of the histogram as they are.
+    scope: The window only. The image is not changed, the preview shows the defaults again and Apply stays enabled.
+  - name: Apply
+    kind: button
+    default: ""
+    effect: Stretches the image, or every frame of the sequence, with the values the window shows, and then returns the controls to their defaults.
+    enabled: As soon as the window opens. Untouched, it writes the stretch of the starting values, which is what the preview shows. While it works every control is disabled, and when another process is working on the image it only shows a warning.
+    tradeoff: The whole image is stretched on several threads at once, and the result does not depend on how many.
+    scope: The whole image, or every frame of the sequence measured and stretched alone, with the mask blended afterwards. White in the mask takes the stretched image, black keeps the original, gray blends the two, and **Invert Mask** swaps them. Set the stretch with the mask off, then enable it and check its edges.
+    persistence: The image and its history keep the result. The history records the target median, the black point sigma, and whether **No Black Clipping**, **Normalize Image** and the curve were on. The image keeps its header, its acquisition data, its plate solution and the record of its color calibration, and is recorded as display RGB when it is a color image and as monochrome when it is grayscale. It states no transfer function afterwards.
+    note: Closing the window instead discards the values. Nothing of the window is saved between sessions.
+```
 
-The process converts the whole target to normalized single-precision float
-(double for a Float64 or 32-bit integer image) and measures it once for each
-change of the image, keeping the measurement for every preview and run. For
-mono and unlinked RGB it computes one median per channel. For linked RGB it
-computes one median across the pooled RGB samples.
+```controls
+window: Sequence progress
+controls:
+  - name: Progress
+    kind: readout
+    default: ""
+    effect: Shows the preparation and the frame being stretched, from 0 to 100 percent.
+    enabled: Shown only while Apply works on a sequence. A single image has no progress window.
+    tradeoff: The sequence is written again in a temporary place, which needs the disk space of a second copy.
+    note: The stretched sequence takes the place of the original only after every frame succeeded, with one step in its history.
+  - name: Cancel
+    kind: button
+    default: ""
+    effect: Asks the run to stop. The temporary sequence is removed and the original stays as it was.
+    range: The request is noticed before each frame, and while one is measured and stretched.
+```
 
-The minimum `x_min` and the median `M` are exact: every sample the image's
-validity admits takes part, and the median of an even count is the lower middle
-value plus half the distance to the upper one. The lower-half spread is
-estimated from a deterministic sample of at most 400,000 values per stream.
-It keeps sampled values at or below the sample's own median (which is `M` while
-the sample holds every value), finds their median `L`, and estimates
+## How it works
 
-\[
-\sigma_{\mathrm{lower}}=1.4826\,
-  \operatorname{median}_{x\le M}\left(|x-L|\right).
-\]
+1. The valid pixels of the whole image are measured, once for each state of the image: the smallest sample and the
+   median of each channel exactly, and the spread of its dark half from a sample of the image. A linked stretch
+   measures the three channels as one.
+2. The black point is placed below the median by **Black Point Sigma** times that spread, or at the smallest sample
+   with **No Black Clipping**.
+3. Every sample is placed between the black point and 1, held to that range, and sent through one curve that keeps
+   black and white where they are and moves the median to **Target Median**.
+4. The optional curve and the optional normalization follow. The result is held to the range 0 to 1 and written
+   back in the image's own pixel type, rounded to the nearest value.
+5. A mask on the view then blends the result with the original, and the image replaces the target. Its
+   [processing state](../../reference/glossary.md#processing-state) is recorded as nonlinear with the operation
+   `statistical-stretch`.
 
-With **Black Point Sigma** `k`, the black point is
+### Model
 
-\[
-B=\min\!\left(0.99,
-   \max\!\left(x_{\min},M-k\sigma_{\mathrm{lower}}\right)\right).
-\]
+For one channel, or for the three of a linked stretch, let \(x_{\min}\) be the smallest sample, \(M\) the median
+and \(L\) the median of the samples at or below \(M\). The spread of the dark half is
 
-**No Black Clipping** instead sets `B=x_min`. The control therefore prevents
-the threshold from rising above the minimum; it does not make the minimum pass
-through unchanged.
+\[ \sigma = 1.4826 \, \operatorname{median}_{x \le M} \lvert x - L \rvert \tag{1} \]
 
-### Rational target-median transfer
+With \(k\) the value of **Black Point Sigma**, the black point is
 
-For a source sample `x`, define the black-rescaled sample and median
+\[ B = \min\bigl(0.99,\ \max(x_{\min},\ M - k\,\sigma)\bigr) \tag{2} \]
 
-\[
-z=\frac{x-B}{\max(1-B,10^{-12})},\qquad
-m=\frac{M-B}{\max(1-B,10^{-12})},
-\]
+and with **No Black Clipping** it is \(B = x_{\min}\). A sample \(x\) and the median are then placed between the
+black point and 1:
 
-and let `t` be **Target Median**. The engine evaluates
+\[ z = \frac{x - B}{1 - B}, \qquad m = \frac{M - B}{1 - B} \tag{3} \]
 
-\[
-f(x)=
-\frac{(m-1)t z}
-     {m(t+z-1)-tz},
-\]
+A sample at or below \(B\) gives \(z = 0\), and one at or above 1 gives \(z = 1\). With \(t\) the value of **Target
+Median**, the result is
 
-replacing a denominator whose absolute magnitude is below `10^-12` with
-positive `10^-12`. After optional post-stages, it clamps the image to `[0,1]`.
-When the denominator is well behaved, `f(B)=0`, `f(M)=t`, and `f(1)=1`.
-This establishes anchors in one pass; there is no convergence loop or tolerance.
-For an even-length sample set, transforming the two middle samples separately
-also need not make their average exactly `t`.
+\[ f(z) = \frac{(m - 1)\,t\,z}{m\,(t + z - 1) - t\,z} \tag{4} \]
 
-`z` is held to `[0,1]` before the transfer, so every sample at or below `B`
-becomes black - the population the clipping readout counts - and nothing above
-white exceeds it.
+Equation (4) sends the black point to 0, the median to \(t\) and 1 to 1 in one pass, with nothing to iterate. It is
+a [midtones transfer function](../../reference/glossary.md#midtones-transfer-function) whose midtones balance is
+\(m(1 - t) / (m + t - 2mt)\).
+The smaller \(m\) is, the steeper the curve: a black point close to the median makes a hard stretch, and a higher
+**Black Point Sigma** or **No Black Clipping** a softer one.
 
-### Linked and unlinked RGB
+With \(q\) the value of **Curves Boost**, the curve of **Apply Curves Adjustment** runs in straight lines through
+six points. Four lie on the diagonal, at 0, \(t/2\), \(t\) and 1. The other two, at \(a = t + 0.25\,(1 - t)\) and
+\(b = t + 0.75\,(1 - t)\), are raised:
 
-- **Linked Stretch** uses one pooled `M`, `B`, and `f` for all RGB samples, then
-  applies the same nonlinear scalar function independently to R, G, and B. It
-  is not luminance scaling and does not preserve channel ratios.
-- Unlinked RGB derives `M_c`, `B_c`, and `f_c` separately for each channel. In
-  the pre-post-stage transform, each channel median is directed toward the same
-  target, which can reduce an existing background/color imbalance as well as
-  stretch it.
+\[ a \mapsto a^{\,1 - q}, \qquad b \mapsto b^{\,(1 - q)^{2}} \tag{5} \]
 
-### Optional curve and normalization
+### Boundaries
 
-With **Apply Curves Adjustment**, AfterNight builds six x anchors
+- Pixels the image marks as invalid are left out of the statistics and left unchanged. An image without one valid
+  pixel is refused with "no pixel participates in this statistical-stretch analysis", as when a registration border
+  covers the whole frame.
+- A valid sample that is not a finite number stops the run with "a selected statistical-stretch sample is not
+  finite", and nothing is written.
+- An unsigned integer image is read as fractions of its full scale, a signed one from its smallest value to its
+  largest, and a floating-point one as it is. A 64-bit floating-point or 32-bit integer image is computed in double
+  precision, every other type in single precision.
+- Samples above 1 become white. The divisor of equation (3) and the denominator of equation (4) are kept at least
+  \(10^{-12}\) away from zero.
+- Equation (1) uses the median of the sample it is taken on. The median of an even number of samples is the mean of
+  the two middle ones, so a median measured after the stretch can differ from the target in its last digits.
 
-\[
-0,\quad 0.5t,\quad t,\quad t+0.25(1-t),\quad
-t+0.75(1-t),\quad 1.
-\]
+### Worked example
 
-The first three and last y anchors equal x. For boost `q`, the other two are
+The master in the picture above is an RGB image whose three channels have their median at 0.02766. With **Target
+Median** at 0.15 and every other control at its starting value, the line under **Curves Boost** reads "Black
+clipping @ R=0.023308, G=0.021179, B=0.021947: 4087/39338534 pixels (0.0104%)".
 
-\[
-y_3=x_3^{1-q},\qquad y_4=x_4^{(1-q)^2}.
-\]
+For the red channel, equation (3) gives \(m = 0.0045\), and equation (4) moves the median to 0.15, as in green and
+blue. A red sample of 0.05, less than twice the median, gives \(z = 0.027\) and lands at 0.53. The same value in
+green lands at 0.45, because the green black point is lower: with **Linked Stretch** off, a neutral sample above
+the background takes a color.
 
-Linear interpolation between the anchors leaves the range through `t`
-unchanged and lifts the upper range when `q>0`. At `q=0` it is identity; at
-`q=1` both adjustable anchors are `1`.
+```figure
+images:
+  - image: ../../assets/images/processes/stretching/statistical-stretch-before.webp
+    alt: The whole frame before the stretch, black except for a few of the brightest stars.
+    label: Before
+  - image: ../../assets/images/processes/stretching/statistical-stretch-after.webp
+    alt: The whole frame after the stretch, the red and white clouds of the nebula across a field of stars on a dark gray background.
+    label: After
+caption: >-
+  The Carina Nebula master before and after Apply with Target Median at 0.15 and every other control at its starting
+  value. Both are the whole frame as the view shows it in the Linear display mode, without a display stretch.
+```
 
-**Normalize Image** then finds one maximum over every processed sample (pooled
-across RGB) and divides all values by it when it is positive. Final clamping and
-conversion restore the source pixel type, rounding to the nearest code. The
-output is marked nonlinear with operation provenance `statistical-stretch`; RGB
-becomes display RGB and mono retains its monochrome basis. An active mask is
-blended afterward.
+Equations (1) and (2) can be followed by hand on eight samples: 0.02, 0.08, 0.15, 0.22, 0.30, 0.42, 0.62 and 0.85.
+Their median is 0.26, the dark half is the first four with a median of 0.115, and \(\sigma = 0.0964\). With **Black
+Point Sigma** at 0.5 the black point is 0.2118. The first three samples become black, which is what the line
+counts, and at the default target 0.22 lands at 0.051.
 
-## Parameter interactions and starting points
+## Starting points
 
-| Combination | Conservative starting point | Too weak looks like | Too strong or defective looks like | Adjustment order |
-| --- | --- | --- | --- | --- |
-| Target Median + Black Point Sigma | `0.25` and `5.0` | Background/faint structure remains too low | Washed background or crushed shadows | Establish a safe black point first, then set median |
-| Linked + RGB balance | Compare unchecked and checked on calibrated RGB | Channels remain separated more than intended | Unlinked neutralizes a real color signal; linked nonlinear mapping shifts saturation | Confirm color calibration, compare histograms, then choose estimator mode |
-| No Black Clipping + faint signal | Select it when a low sigma clips faint signal | Background pedestal remains more visible | Minimum still maps to black; it does not preserve every faint sample | Keep the faint signal first, then adjust Target Median |
-| Curves Adjustment + Curves Boost | Leave off; if needed start near `0.05` | Upper midtones remain flat | Highlight plateau/steep transition near adjustable anchors | Finish rational stretch, enable curve, raise boost slowly |
-| Normalize + target accuracy | Leave off unless maximum scaling is required | Brightest sample remains below `1` | Median and noise rise because the entire image is divided by a sub-unity maximum | Set stretch/curve first, inspect maximum, normalize last |
-| Mask + global statistics | Derive settings on the whole source, then judge mask-aware preview | Protected region changes too little | Transition is visible or unmasked statistics poorly represent the applied region | Inspect mask, reduce transform strength, fix mask upstream |
+| Situation | Start | Then adjust |
+| --- | --- | --- |
+| A linear master | The starting values | The black point first, then **Target Median**. |
+| A calibrated RGB master | **Linked Stretch** off, then on | Keep the one whose background and stars look right at 100 %. |
+| Faint signal is cut | **Black Point Sigma** raised | **No Black Clipping**, if the line still counts too many pixels. |
+| The range above the background is flat | **Apply Curves Adjustment**, **Curves Boost** near 0.05 | Raise the boost slowly. **Normalize Image** last, if at all. |
 
-## Inputs, outputs, and metadata
+## When it goes wrong
 
-- One target produces one modified image or sequence. Dimensions, channel count,
-  pixel format, and pixel type remain unchanged. The transform works in float and
-  rounds back to the nearest code for integer sources.
-- The target is replaced only after successful still processing. **Take
-  snapshot** instead creates an auxiliary full-size still at source depth; no
-  background model, clipping mask, statistics file, preset, or file is created.
-- The source's header cards, acquisition record, and astrometric solution are
-  kept. Processing state is updated to nonlinear with provenance
-  `statistical-stretch`; RGB is display RGB and mono remains monochrome. The
-  image states no transfer function, and its processing history records the
-  stretch. Existing color-calibration provenance remains in the metadata.
-- Image History records **Statistical Stretch**, target median, black-point
-  sigma, No Black Clipping, Normalize, and whether curves were applied. It omits
-  Linked Stretch and the Curves Boost value, so history cannot reproduce every
-  execution setting.
-- Mask blending is `source × (1-mask) + transformed × mask`, reversed when the
-  mask is inverted. Statistics and the clipping-threshold readout are calculated
-  from the unmasked source, not only the applied region.
-- Each sequence frame is stretched from its own statistics. The shared framework
-  creates a progress dialog, supports cooperative cancellation, writes a
-  temporary sequence, and replaces the target only after success.
+!!! warning "Apply cannot be taken back from this window"
+    The stretch replaces the image and records it as nonlinear. Finish color calibration and every other linear
+    step first, and use the image's history to return to the linear master.
 
-## Performance
+!!! warning "A low Black Point Sigma cuts faint signal"
+    Every sample at or below the black point becomes black. Raise **Black Point Sigma** or select **No Black
+    Clipping** when the line under **Curves Boost** counts more pixels than the background should lose.
 
-The whole target is measured once for each change of the image and kept, so
-moving a control or the preview area does not measure it again. The minimum and
-median count every sample; the spread reads at most 400,000 values per stream.
-The transform, optional curve, normalization, clamp, mask blend, and histogram
-traverse image-sized buffers, and a **Preview area** stretches the whole target
-before cropping it. Pixel loops and the
-maximum reduction run on the engine's threads. Linked RGB computes one statistics stream;
-unlinked computes three. Preview holds float/result buffers and refreshes its
-histogram after completed generations.
+!!! warning "The history leaves out two settings"
+    The step records neither **Linked Stretch** nor the value of **Curves Boost**. Note them yourself when you must
+    be able to repeat the stretch.
 
-Prototype on a duplicate crop or disable **Preview** while making several rapid
-changes on a large image. Increasing histogram resolution changes only the
-diagnostic graph's memory/render cost, not transform precision; the histogram
-places a whole code on a bin boundary in its own bin, by exact interval
-arithmetic. No approved astronomical target was timed.
+"a statistical stretch needs a mono or RGB source"
+:   **Cause.** The image has a number of channels other than one or three.
+:   **Fix.** Extract or combine its channels into a grayscale or an RGB image first.
 
-## Worked example
+After Apply the preview no longer looks like the image
+:   **Cause.** A finished Apply returns the controls to their starting values, and the preview shows them applied to
+    the stretched image.
+:   **Fix.** Close the window. To stretch another image, set your values again.
 
-- **Evidence mode:** Source-, focused-test-, and calculator-derived; not executed
-  on project-owned astronomical data.
-- **Input condition and settings:** A normalized mono row
-  `[0.02, 0.08, 0.15, 0.22, 0.30, 0.42, 0.62, 0.85]`, with **Target Median**
-  `0.25`, **Black Point Sigma** `0.5`, and both optional post-stages off.
-- **Estimator checkpoint:** `M=0.26`. The lower-half values are
-  `[0.02,0.08,0.15,0.22]`, their median is `0.115`, the median absolute
-  deviation is `0.065`, and `sigma_lower=0.096369`. The resulting black point is
-  `B=0.2118155`; the readout therefore counts the first three samples as
-  `<= B`.
-- **Transfer checkpoint:** The formula maps the conceptual median anchor to
-  `0.25`. It maps input `0.22` to about `0.05098`; inputs `0.02`, `0.08`, and
-  `0.15` lie at or below `B` and become black, the three samples the readout
-  counts.
-- **Inspect in real use:** If the threshold is above the minimum, compare the
-  threshold readout with the darkest background at 100%. Prefer **No Black
-  Clipping** or a higher sigma when faint signal is clipped.
-- **Limitations:** No real-image stretch quality, median accuracy after masking,
-  color behavior, or production timing was measured.
+The median measured after Apply is not the Target Median
+:   **Cause.** **Normalize Image**, a mask or the rounding of an integer image moved it, or the stretch was linked
+    and you measured one channel.
+:   **Fix.** Turn **Normalize Image** off and compare on an unmasked floating-point image.
 
-## Warnings and limitations
+The colors shifted after the stretch
+:   **Cause.** With **Linked Stretch** off each channel got its own curve, and with it on one curve still changes
+    the ratios between the colors.
+:   **Fix.** Undo the step, compare the two settings in the preview, and calibrate color before you stretch.
 
-!!! warning "Low-sigma black points clip faint signal"
-    Every sample at or below the computed black point becomes black. Use **No
-    Black Clipping** or raise sigma when the readout counts more pixels than
-    the background should lose.
+Normalize Image changes nothing, or brightens everything
+:   **Cause.** It divides by the brightest sample of the result, which is already white or lies below it.
+:   **Fix.** Leave it off unless the brightest sample must be white, and judge it after the curve is set.
 
-- **Target Median** is an internal anchor, not a guarantee about the final
-  measured median after curves, normalization, masks, clamp, quantization, or an
-  even-sample median definition.
-- Linked RGB shares a function but does not use common luminance scaling. Any
-  nonlinear per-sample transfer can change RGB ratios and saturation.
-- Unlinked RGB pushes each channel's statistics toward a common target and can
-  remove or create color balance changes. Use only after color calibration.
-- **No Black Clipping** still maps the minimum to black and the readout counts
-  it as clipped. It means “do not raise black above the minimum,” not “preserve
-  every low sample.”
-- **Normalize Image** uses one global maximum and changes the median target.
-  One hot/saturated sample can determine the scale.
-- The robust-noise estimator is deterministic but sampled on large images; it
-  is not a full-resolution per-pixel noise model and is not mask-aware.
-- A **Preview area** stretches the whole target before cropping it, so it costs a
-  whole-image stretch per change on a large image.
-- A non-finite sample in a pixel the image's validity admits makes the engine
-  refuse the run, and nothing is published; pixels the validity rule rejects
-  are left out of the statistics and left as they were. Supply finite
-  normalized input.
-- History omits Linked Stretch and Curves Boost, so it cannot reproduce the
-  full settings.
+The clipping shares in the histogram and the line under Curves Boost disagree
+:   **Cause.** The histogram counts samples of the result at 0 and at 1, and the line counts pixels of the image at
+    or below the black point.
+:   **Fix.** Read the line for what the stretch cuts, and use Image Statistics after Apply for the result.
 
-## Troubleshooting
+## Related
 
-| Symptom or exact error | Verified cause/validation path | Recovery | Evidence source |
-| --- | --- | --- | --- |
-| Error: "a statistical stretch needs a mono or RGB source" | The image has other than one or three channels | Extract or combine to a mono or RGB image first | `stretchImageStatistically` input validation, reached from `StatisticalStretch::executeTypedProcessImpl` |
-| Error: "no pixel participates in this statistical-stretch analysis" | Every sample of the image is marked as holding no data, so there is nothing to measure | Check the image's validity, for example a registration border covering the frame | `analyzeImageStatisticalStretch` |
-| Darker background than the readout suggests | Every sample at or below a raised black point becomes black | Select **No Black Clipping** or raise Black Point Sigma | `stretchImageStatistically`; `computeStatisticalStretchClipStatistics` |
-| Final median differs from Target Median | Curves, normalization, mask blending, quantization/clamp, or even-sample statistics change the final distribution | Disable post-stages, compare unmasked float output, and regard the control as the rational anchor | Statistical transfer and post-stage order |
-| RGB color balance changes in Linked Stretch | One nonlinear function is applied independently to R/G/B values rather than as a common scale | Compare unlinked carefully or use a color-preserving stretch model; inspect star colors | `analyzeImageStatisticalStretch` (linked); `stretchImageStatistically` |
-| RGB background becomes unexpectedly neutral/shifted with Linked off | Each channel receives its own median/black-point transfer toward the same target | Re-enable Linked Stretch or recalibrate/reassess channel intent | `analyzeImageStatisticalStretch` (unlinked); `stretchImageStatistically` |
-| Curves Boost has no effect | **Apply Curves Adjustment** is clear, or boost is `0` | Select the checkbox and increase boost cautiously | UI dependency; the highlight curve in `stretchImageStatistically` |
-| Normalize changes brightness more than expected | Global post-curve maximum was below `1`, so every sample was divided by it | Clear Normalize or judge it only after final curve settings | normalization in `stretchImageStatistically` |
-| Histogram clipping and text clipping disagree | Histogram counts samples at or below `0` and at or above `1` in the source or mask-aware preview, over every channel; text counts source pixels at/below statistical thresholds | Use each diagnostic for its stated purpose and confirm output statistics after Apply | Histogram widget; statistical clip readout |
-| History cannot reproduce the result | Step description omits Linked Stretch and Curves Boost | Record those values externally or preserve a duplicate result | `StatisticalStretch::executeTypedProcessImpl` |
-| Apply resets the controls | Shared successful-commit path calls Statistical Stretch Reset | This is expected; re-enter settings for another still | `resetSettingsAsync`; `StatisticalStretch::resetSettings` |
-
-## Related workflow steps
-
-Complete [Background Neutralization](../color-calibration/background-neutralization.md)
-and [Photometric Color Calibration](../color-calibration/photometric-cc.md) or
-[Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md)
-before nonlinear work. Compare Statistical Stretch with
-[Histogram Transformation](histogram-transformation.md),
-[Generalized Hyperbolic Transformation](gh-transformation.md), and
-[ArcSinh Stretch](arcsinh-stretch.md). Continue with
-[Curves Transformation](curves-transformation.md) and deliberate nonlinear
-finishing while monitoring [Image History](../../interface/image-history.md) and
-[Image Statistics](../../interface/image-statistics.md).
-
-## References and provenance
-
-- AfterNight project source — authoritative for the
-  custom estimator, rational transfer, curve anchors, normalization, UI,
-  masks, state, history, the whole-image statistics rule, and the sequence and
-  below-black-point behavior.
+- [Background Neutralization](../color-calibration/background-neutralization.md),
+  [Photometric Color Calibration](../color-calibration/photometric-cc.md) and
+  [Spectrophotometric Color Calibration](../color-calibration/spectrophotometric-cc.md), which need the image linear
+  and come before.
+- [Histogram Transformation](histogram-transformation.md), to set the black point and the midtones of the same kind
+  of curve yourself.
+- [Generalized Hyperbolic Transformation](gh-transformation.md) and [ArcSinh Stretch](arcsinh-stretch.md), stretches
+  with other curves.
+- [Curves Transformation](curves-transformation.md), to shape tone and color after the stretch.
+- [Image Statistics](../../interface/image-statistics.md) and [Image History](../../interface/image-history.md), to
+  measure the result and to return to the linear master.
+- [Process Windows](../../interface/process-windows.md), for the preview, the histogram toolbar and what every
+  process window shares.

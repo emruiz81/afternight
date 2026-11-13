@@ -63,8 +63,8 @@ stackFrameMeasurementFor(const FrameQualityMetrics& metrics, const FrameNoiseSta
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString weightingInputDescription(an::StackWeighting weighting);
 
 /// The weighting a group asks of its stack: the source, its floor - held to the unit interval, and the photometric
-/// model's raw floor too - the star-count scaling and its steepness (the engine's default where the stored one is not
-/// positive), and widths weighed per channel where the source is the width and the group asks for it.
+/// model's raw floor too - and the star-count scaling and its steepness (the engine's default where the stored one is
+/// not positive). Every channel is weighed by its light's one star width: the registration measures one per light.
 ///
 /// @param settings the group's settings, as sanitized.
 /// @param weighting the source the stack weighs by.

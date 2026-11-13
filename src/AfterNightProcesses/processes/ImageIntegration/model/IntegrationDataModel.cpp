@@ -549,7 +549,6 @@ QJsonObject stackingSettingsToJson(const StackingSettings& settings)
     obj.insert(QStringLiteral("starCountScaling"), settings.starCountScaling);
     obj.insert(QStringLiteral("exponentialAlpha"), settings.exponentialAlpha);
     obj.insert(QStringLiteral("minWeightFloor"), settings.minWeightFloor);
-    obj.insert(QStringLiteral("perChannelFwhmWeighting"), settings.perChannelFwhmWeighting);
     obj.insert(QStringLiteral("localWeighting"), localWeightingToJson(settings.localWeighting));
     obj.insert(QStringLiteral("normalizationMode"), static_cast<int>(settings.normalizationMode));
     obj.insert(QStringLiteral("globalNormalizationMethod"), static_cast<int>(settings.globalNormalizationMethod));
@@ -589,8 +588,8 @@ StackingSettings stackingSettingsFromJson(const QJsonObject& obj)
     settings.starCountScaling = obj.value(QStringLiteral("starCountScaling")).toString(settings.starCountScaling);
     settings.exponentialAlpha = obj.value(QStringLiteral("exponentialAlpha")).toDouble(settings.exponentialAlpha);
     settings.minWeightFloor = obj.value(QStringLiteral("minWeightFloor")).toDouble(settings.minWeightFloor);
-    settings.perChannelFwhmWeighting =
-        obj.value(QStringLiteral("perChannelFwhmWeighting")).toBool(settings.perChannelFwhmWeighting);
+    // A per-channel width weighting an earlier version stored ("perChannelFwhmWeighting") is not read: every channel is
+    // weighed by its light's one star width, as every stack weighed it.
     settings.localWeighting = localWeightingFromJson(obj.value(QStringLiteral("localWeighting")).toObject());
     settings.normalizationMode = persistedEnumerator(
         obj.value(QStringLiteral("normalizationMode")).toInt(static_cast<int>(settings.normalizationMode)),
@@ -733,6 +732,11 @@ QJsonObject frameMetadataToJson(const FrameMetadata& meta)
     obj.insert(QStringLiteral("objectName"), meta.objectName());
     obj.insert(QStringLiteral("capturedAtUtc"), meta.capturedAtUtc().toString(Qt::ISODateWithMs));
     obj.insert(QStringLiteral("readoutMode"), meta.readoutMode());
+    if (const std::optional<FrameSampleLayout> layout = meta.sampleLayout(); layout.has_value())
+    {
+        obj.insert(QStringLiteral("channels"), layout->channels);
+        obj.insert(QStringLiteral("mosaic"), layout->mosaic);
+    }
     return obj;
 }
 
@@ -779,8 +783,15 @@ FrameMetadata frameMetadataFromJson(const QJsonObject& obj, FrameType fallback_t
 
     const QString readout = obj.value(QStringLiteral("readoutMode")).toString();
 
+    // A project saved before the import recorded what each pixel holds states no channel count.
+    std::optional<FrameSampleLayout> layout;
+    if (const int channels = obj.value(QStringLiteral("channels")).toInt(0); channels > 0)
+    {
+        layout = FrameSampleLayout{.channels = channels, .mosaic = obj.value(QStringLiteral("mosaic")).toBool(false)};
+    }
+
     return FrameMetadata(type, QSize(width, height), exposure, temperature, iso_gain, offset, filter, object,
-                         captured_at, readout);
+                         captured_at, readout, layout);
 }
 
 QJsonObject frameInfoToJson(const FrameInfo& frame)
@@ -1533,7 +1544,7 @@ void IntegrationDataModel::addExternalMaster(FrameType type, const FrameInfo& ma
         read.capturedAtUtc().isValid() ? read.capturedAtUtc() : QDateTime::currentDateTimeUtc();
 
     const FrameMetadata metadata(type, read.dimensions(), exposure, temperature, isoGain, offset, read.filter(),
-                                 read.objectName(), capturedAt, read.readoutMode());
+                                 read.objectName(), capturedAt, read.readoutMode(), read.sampleLayout());
     const FrameInfo frame(FrameId(path), path, metadata, capturedAt.date().toString(Qt::ISODate), QString(), false,
                           std::nullopt);
 

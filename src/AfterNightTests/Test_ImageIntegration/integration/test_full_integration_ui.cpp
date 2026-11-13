@@ -4,8 +4,8 @@
 /// @file
 /// The integration window as a whole, under the application context the suite lends it: its nested tabs and action
 /// bar, a plan preparation dismissed before it finishes, the warning a regroup shows and hides, the report exported
-/// from a run's archive - built on the thread pool in the context's engine session - and the badge that summarizes the
-/// workflow's issues.
+/// from a run's archive - built on the thread pool in the context's engine session - the Frame Quality panel reading
+/// the records a run wrote, and the badge that summarizes the workflow's issues.
 
 #include <gtest/gtest.h>
 #include <QtTest/QSignalSpy>
@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QProgressDialog>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QCheckBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -36,13 +37,17 @@
 
 #include <algorithm>
 
+#include "Test_ImageIntegration/reporting/ReportScenarios.h"
 #include "Test_ImageIntegration/ui/ProcessWindowContext.h"
 
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/FrameId.h"
+#include "processes/ImageIntegration/model/RegistrationGroupEngine.h"
+#include "processes/ImageIntegration/tabs/StackingTab.h"
 #include "processes/ImageIntegration/tabs/SummaryTab.h"
 #include "processes/ImageIntegration/widgets/FrameTreeView.h"
+#include "processes/core/RegistrationMetricsWriter.h"
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
 #include "processes/ImageIntegration/workflow/stages/RegistrationMetricsSchema.h"
 
@@ -307,143 +312,119 @@ TEST_F(FullIntegrationUiTest, WarningAutoHidesAfterTimeout)
     EXPECT_TRUE(warning->isHidden()) << "Warning should auto-hide after ~5 seconds";
 }
 
-TEST_F(FullIntegrationUiTest, ExportReportGeneratesHumanReadableMarkdown)
+/// The message boxes the window has open under one title.
+[[nodiscard]] QList<QMessageBox*> messageBoxesTitled(const QWidget* window, const QString& title)
 {
-    QTemporaryDir temp_dir;
-    ASSERT_TRUE(temp_dir.isValid());
+    QList<QMessageBox*> found;
+    for (QMessageBox* box : window->findChildren<QMessageBox*>())
+    {
+        if (box->windowTitle() == title)
+        {
+            found.append(box);
+        }
+    }
+    return found;
+}
 
-    const QString output_dir = temp_dir.path();
-    IntegrationDataModel* model = process->model();
-    ASSERT_NE(model, nullptr);
-    model->setOutputDirectory(output_dir);
-    model->addFrames(FrameType::Light,
-                     {createTestFrame(QDir(output_dir).filePath(QStringLiteral("light1.fit")), FrameType::Light)});
+/// Lets the work a report action put on the thread pool end and its answer reach the window.
+void settleReportAction()
+{
+    QThreadPool::globalInstance()->waitForDone();
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+}
+
+TEST_F(FullIntegrationUiTest, TheReportActionWritesTheReportAgainFromTheModelTheArchiveKeeps)
+{
+    using namespace an::tests::integration::report;
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    const QDir run(scenario->runDirectory);
+    ASSERT_TRUE(run.exists(QStringLiteral("workflow_report.json")));
+    ASSERT_TRUE(QFile::remove(run.filePath(QStringLiteral("workflow_report.html"))));
 
     SummaryTab* summary = process->findChild<SummaryTab*>();
     ASSERT_NE(summary, nullptr);
+    summary->exportReportRequested(run.absolutePath());
+    settleReportAction();
 
-    const QDir run_dir(QDir(output_dir).filePath(QStringLiteral("history/20250101_120000_000")));
-    ASSERT_TRUE(QDir().mkpath(run_dir.path()));
-
-    QJsonObject drizzle;
-    drizzle.insert(QStringLiteral("enabled"), true);
-    drizzle.insert(QStringLiteral("scale"), 2.0);
-    drizzle.insert(QStringLiteral("pixelFraction"), 0.9);
-    drizzle.insert(QStringLiteral("kernel"), QStringLiteral("Square"));
-
-    QJsonObject local_norm;
-    local_norm.insert(QStringLiteral("gridSize"), 64);
-    local_norm.insert(QStringLiteral("referenceStrategy"), QStringLiteral("Automatic"));
-    local_norm.insert(QStringLiteral("localScaleEnabled"), true);
-
-    QJsonObject stacking;
-    stacking.insert(QStringLiteral("stackMethod"), QStringLiteral("Average"));
-    stacking.insert(QStringLiteral("rejectionMethod"), QStringLiteral("Winsorized Sigma Clip"));
-    stacking.insert(QStringLiteral("sigmaLow"), 2.8);
-    stacking.insert(QStringLiteral("sigmaHigh"), 3.0);
-    stacking.insert(QStringLiteral("weighting"), QStringLiteral("FWHM"));
-    stacking.insert(QStringLiteral("starCountScaling"), QStringLiteral("Sqrt"));
-    stacking.insert(QStringLiteral("exponentialAlpha"), 2.0);
-    stacking.insert(QStringLiteral("minWeightFloor"), 0.25);
-    stacking.insert(QStringLiteral("perChannelFwhmWeighting"), true);
-    stacking.insert(QStringLiteral("normalizationMode"), static_cast<int>(NormalizationMode::Local));
-    stacking.insert(QStringLiteral("globalNormalizationMethod"),
-                    static_cast<int>(GlobalNormalizationMethod::AdditiveScaling));
-    stacking.insert(QStringLiteral("scaleEstimator"), static_cast<int>(ScaleEstimatorMethod::MAD));
-    stacking.insert(QStringLiteral("localNormalization"), local_norm);
-    stacking.insert(QStringLiteral("drizzle"), drizzle);
-
-    QJsonObject int_group;
-    int_group.insert(QStringLiteral("groupKey"), QStringLiteral("TestGroup"));
-    int_group.insert(QStringLiteral("outputFilename"), QStringLiteral("stacked_TestGroup.fit"));
-    int_group.insert(QStringLiteral("object"), QStringLiteral("M42"));
-    int_group.insert(QStringLiteral("filter"), QStringLiteral("L"));
-    int_group.insert(QStringLiteral("exposure"), 60.0);
-    int_group.insert(QStringLiteral("resolution"), QStringLiteral("1000x1000"));
-    int_group.insert(QStringLiteral("lightFiles"), QJsonArray{});
-    int_group.insert(QStringLiteral("stacking"), stacking);
-    int_group.insert(QStringLiteral("registrationGroupKey"), QStringLiteral("RegGroup"));
-
-    QJsonObject reg_settings;
-    reg_settings.insert(QStringLiteral("alignmentMode"), QStringLiteral("Star"));
-    reg_settings.insert(QStringLiteral("transformation"), QStringLiteral("Affine"));
-    reg_settings.insert(QStringLiteral("interpolation"), QStringLiteral("Lanczos3"));
-    reg_settings.insert(QStringLiteral("cfaPattern"), QString());
-    reg_settings.insert(QStringLiteral("debayerMethod"), QStringLiteral("VNG"));
-
-    QJsonObject reg_group;
-    reg_group.insert(QStringLiteral("groupKey"), QStringLiteral("RegGroup"));
-    reg_group.insert(QStringLiteral("settings"), reg_settings);
-
-    QJsonObject manifest;
-    manifest.insert(QStringLiteral("outputDirectory"), output_dir);
-    manifest.insert(QStringLiteral("executionMode"), 0);
-    QJsonArray int_groups;
-    int_groups.append(int_group);
-    manifest.insert(QStringLiteral("integrationGroups"), int_groups);
-    QJsonArray reg_groups;
-    reg_groups.append(reg_group);
-    manifest.insert(QStringLiteral("registrationGroups"), reg_groups);
-
-    QJsonObject run_json;
-    run_json.insert(QStringLiteral("schemaVersion"), 3);
-    run_json.insert(QStringLiteral("archivedAtUtc"), QStringLiteral("2025-01-01T12:00:00.000Z"));
-    run_json.insert(QStringLiteral("archivedAtLocal"), QStringLiteral("2025-01-01T12:00:00.000"));
-    run_json.insert(QStringLiteral("executionId"), QStringLiteral("test-exec-full-001"));
-    run_json.insert(QStringLiteral("archiveReason"), QStringLiteral("overwrite"));
-    run_json.insert(QStringLiteral("executionMode"), QStringLiteral("Full"));
-    run_json.insert(QStringLiteral("executionScope"), QStringLiteral("full"));
-    run_json.insert(QStringLiteral("totalDurationMs"), 120000);
-    run_json.insert(QStringLiteral("overallResult"), QStringLiteral("success"));
-    run_json.insert(QStringLiteral("warningCount"), 0);
-    run_json.insert(QStringLiteral("manifest"), manifest);
-    run_json.insert(QStringLiteral("stageResults"),
-                    QJsonArray{QJsonObject{{QStringLiteral("stage"), QStringLiteral("LightsStacking")},
-                                           {QStringLiteral("status"), QStringLiteral("completed")},
-                                           {QStringLiteral("durationMs"), 120000},
-                                           {QStringLiteral("groupsProcessed"), 1}}});
-    run_json.insert(
-        QStringLiteral("integrationGroupResults"),
-        QJsonArray{QJsonObject{
-            {QStringLiteral("groupKey"), QStringLiteral("TestGroup")},
-            {QStringLiteral("outputPath"), QDir(output_dir).filePath(QStringLiteral("stacked_TestGroup.fit"))},
-            {QStringLiteral("outputFilename"), QStringLiteral("stacked_TestGroup.fit")},
-            {QStringLiteral("outputBytes"), 1024 * 1024},
-            {QStringLiteral("previewPath"), QStringLiteral("groups/TestGroup/preview.png")},
-            {QStringLiteral("lightFrameCount"), 1},
-            {QStringLiteral("registrationGroupKey"), QStringLiteral("RegGroup")},
-            {QStringLiteral("durationMs"), 120000},
-            {QStringLiteral("result"), QStringLiteral("success")}}});
-    run_json.insert(QStringLiteral("warnings"), QJsonArray{});
-    run_json.insert(QStringLiteral("errors"), QJsonArray{});
-
-    const QString manifest_path = run_dir.filePath(QStringLiteral("workflow_manifest.json"));
-    QFile file(manifest_path);
-    ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-    file.write(QJsonDocument(run_json).toJson(QJsonDocument::Indented));
-    file.close();
-
-    summary->exportReportRequested(run_dir.path());
-
-    // The report is built on the thread pool in the context's session and written before the window hears of it.
-    const QString report_path = run_dir.filePath(QStringLiteral("workflow_report.md"));
-    QThreadPool::globalInstance()->waitForDone();
-    EXPECT_TRUE(QFileInfo::exists(report_path));
-    QCoreApplication::processEvents();
-    QFile reportFile(report_path);
-    ASSERT_TRUE(reportFile.open(QIODevice::ReadOnly));
-    const QString content = QString::fromUtf8(reportFile.readAll());
-
-    EXPECT_TRUE(content.contains(QStringLiteral("Integration Report")));
-    EXPECT_TRUE(content.contains(QStringLiteral("Executive Summary")));
-    EXPECT_TRUE(content.contains(QStringLiteral("Summary")));
-    EXPECT_TRUE(content.contains(QStringLiteral("Pipeline Stages")));
-    EXPECT_TRUE(content.contains(QStringLiteral("Input Files")));
-    EXPECT_FALSE(content.contains(QStringLiteral("```json")));
+    // The document is there again, written from the stored model on the thread pool; nothing was refused.
+    EXPECT_TRUE(run.exists(QStringLiteral("workflow_report.html")));
+    EXPECT_FALSE(run.exists(QStringLiteral("workflow_report.md")));
+    EXPECT_TRUE(messageBoxesTitled(process, QStringLiteral("Report")).isEmpty());
 }
 
-// Re-run from the Summary tab checks the output directory as every other run does: registration records a newer version
-// wrote refuse the run, said in a message, and are left as they are. A re-run started without the check.
+TEST_F(FullIntegrationUiTest, TheReportActionOnAnArchiveThatKeepsNoStoredReportSaysSoAndWritesNothing)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    // An archive as an earlier version of the application left it: a manifest and a report file, and no model the
+    // report could be written again from.
+    const QDir run_dir(QDir(temp_dir.path()).filePath(QStringLiteral("history/20250101_120000_000")));
+    ASSERT_TRUE(QDir().mkpath(run_dir.path()));
+    const QByteArray earlierDocument = QByteArrayLiteral("<html><body>written by an earlier version</body></html>");
+    for (const auto& [name, bytes] :
+         {std::pair<QString, QByteArray>{QStringLiteral("workflow_manifest.json"), QByteArrayLiteral("{}")},
+          std::pair<QString, QByteArray>{QStringLiteral("workflow_report.html"), earlierDocument}})
+    {
+        QFile file(run_dir.filePath(name));
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        ASSERT_EQ(file.write(bytes), bytes.size());
+    }
+
+    SummaryTab* summary = process->findChild<SummaryTab*>();
+    ASSERT_NE(summary, nullptr);
+    summary->exportReportRequested(run_dir.path());
+    settleReportAction();
+
+    const QList<QMessageBox*> boxes = messageBoxesTitled(process, QStringLiteral("Report"));
+    ASSERT_EQ(boxes.size(), 1);
+    EXPECT_TRUE(boxes.front()->text().contains(QStringLiteral("keeps no stored report")))
+        << boxes.front()->text().toStdString();
+
+    // Nothing was written: no model, no Markdown, and the report file the archive held is as it was.
+    EXPECT_FALSE(run_dir.exists(QStringLiteral("workflow_report.json")));
+    EXPECT_FALSE(run_dir.exists(QStringLiteral("workflow_report.md")));
+    QFile kept(run_dir.filePath(QStringLiteral("workflow_report.html")));
+    ASSERT_TRUE(kept.open(QIODevice::ReadOnly));
+    EXPECT_EQ(kept.readAll(), earlierDocument);
+}
+
+TEST_F(FullIntegrationUiTest, SavingAReportAsOneFileWritesAFileThatStandsAloneAndNamesAFailure)
+{
+    using namespace an::tests::integration::report;
+    std::optional<ReportScenario> scenario = buildReportScenario(ReportScenarioId::OneMonoMaster);
+    ASSERT_TRUE(scenario.has_value());
+    ASSERT_TRUE(archiveScenarioRun(*scenario));
+    QTemporaryDir elsewhere;
+    ASSERT_TRUE(elsewhere.isValid());
+
+    const QString saved = QDir(elsewhere.path()).filePath(QStringLiteral("report.html"));
+    process->saveReportAsOneFile(scenario->runDirectory, saved);
+    settleReportAction();
+    ASSERT_TRUE(QFileInfo::exists(saved));
+    EXPECT_TRUE(messageBoxesTitled(process, QStringLiteral("Save Report As One File")).isEmpty());
+    QFile file(saved);
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    const QString document = QString::fromUtf8(file.readAll());
+    // Its pictures are inside it, and it names no folder of the host.
+    EXPECT_TRUE(document.contains(QStringLiteral("data:image/jpeg;base64,")));
+    EXPECT_FALSE(document.contains(QStringLiteral("report_previews/")));
+    EXPECT_FALSE(document.contains(QDir::toNativeSeparators(scenario->outputDirectory)));
+    EXPECT_FALSE(document.contains(scenario->outputDirectory));
+
+    // A run whose folder is gone: the failure is named in a message titled as the action, and no file is written.
+    const QString gone = QDir(elsewhere.path()).filePath(QStringLiteral("history/20240101_000000_000"));
+    const QString notSaved = QDir(elsewhere.path()).filePath(QStringLiteral("not_saved.html"));
+    process->saveReportAsOneFile(gone, notSaved);
+    settleReportAction();
+    const QList<QMessageBox*> boxes = messageBoxesTitled(process, QStringLiteral("Save Report As One File"));
+    ASSERT_EQ(boxes.size(), 1);
+    EXPECT_TRUE(boxes.front()->text().contains(QStringLiteral("is not there"))) << boxes.front()->text().toStdString();
+    EXPECT_FALSE(QFileInfo::exists(notSaved));
+}
+
 TEST_F(FullIntegrationUiTest, ARerunIsRefusedOverRegistrationRecordsANewerVersionWrote)
 {
     QTemporaryDir temp_dir;
@@ -570,6 +551,82 @@ TEST_F(FullIntegrationUiTest, ARerunOfAManifestOfAnotherFormatIsRefused)
         QCoreApplication::processEvents();
     }
     EXPECT_FALSE(QFileInfo::exists(QDir(output_dir).filePath(QStringLiteral("registration_metrics.db"))));
+}
+
+// A run writes its lights' registration records, and the Stacking tab's Frame Quality panel read them only when
+// something else moved it - a group chosen, a setting changed - so after a run it went on saying that the figures were
+// not available until the window was opened again. What every run ends with reads them again.
+TEST_F(FullIntegrationUiTest, TheStackingTabsFrameQualityReadsTheRecordsARunWrote)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    IntegrationDataModel* model = process->model();
+    ASSERT_NE(model, nullptr);
+    model->setOutputDirectory(temp_dir.path());
+    const QStringList paths{QStringLiteral("C:/images/L_001.fit"), QStringLiteral("C:/images/L_002.fit")};
+    model->addFrames(FrameType::Light,
+                     {createTestFrame(paths[0], FrameType::Light), createTestFrame(paths[1], FrameType::Light)});
+    const auto settle = []() {
+        QElapsedTimer elapsed;
+        elapsed.start();
+        while (elapsed.elapsed() < 500)
+        {
+            QApplication::processEvents();
+        }
+    };
+    settle();
+    ASSERT_FALSE(model->registrationGroups().empty());
+    auto* stacking = process->findChild<StackingTab*>();
+    ASSERT_NE(stacking, nullptr);
+    auto* quality = stacking->findChild<QTableWidget*>(QStringLiteral("qualityTable"));
+    ASSERT_NE(quality, nullptr);
+    const auto showsStars = [quality](const QString& stars) {
+        for (int row = 0; row < quality->rowCount(); ++row)
+        {
+            for (int column = 0; column < quality->columnCount(); ++column)
+            {
+                const QTableWidgetItem* item = quality->item(row, column);
+                if (item != nullptr && item->text() == stars)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    ASSERT_FALSE(showsStars(QStringLiteral("321")));
+
+    // The records a run writes, after the panel last read them.
+    const QString groupKey =
+        RegistrationGroupEngine::toMachineGroupKey(model->registrationGroups().begin()->first).toString();
+    {
+        an::ui::RegistrationMetricsWriter writer(
+            QDir(temp_dir.path()).filePath(QStringLiteral("registration_metrics.db")),
+            QStringLiteral("FrameQualityAfterRunSeedWriter"));
+        QString error;
+        ASSERT_TRUE(writer.initialize(&error)) << error.toStdString();
+        int stars = 321;
+        for (const QString& path : paths)
+        {
+            an::ui::RegistrationMetricRecord metric;
+            metric.frameId = FrameId(path);
+            metric.groupKey = groupKey;
+            metric.settingsVersion = 0;
+            metric.metrics.stars = stars++;
+            metric.metrics.fwhm = 2.5;
+            metric.metrics.snr = 40.0;
+            metric.metrics.eccentricity = 0.3;
+            metric.metrics.succeeded = true;
+            ASSERT_TRUE(writer.upsertMetric(metric, &error)) << error.toStdString();
+        }
+    }
+    settle();
+    EXPECT_FALSE(showsStars(QStringLiteral("321"))) << "nothing but a run's end reads the records again here";
+
+    process->refreshAfterRun();
+    settle();
+    EXPECT_TRUE(showsStars(QStringLiteral("321")));
+    EXPECT_TRUE(showsStars(QStringLiteral("322")));
 }
 
 TEST_F(FullIntegrationUiTest, WorkflowParentBadgeShowsSummary)

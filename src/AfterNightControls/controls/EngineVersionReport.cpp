@@ -30,7 +30,6 @@ struct LibraryEntry
 };
 
 constexpr std::array<LibraryEntry, 13u> kLibraries{{
-    {"cfitsio", "CFITSIO", "https://heasarc.gsfc.nasa.gov/fitsio/"},
     {"exiv2", "Exiv2", "https://exiv2.org/"},
     {"ffmpeg", "FFmpeg", "https://ffmpeg.org/"},
     {"fftw3", "FFTW", "http://www.fftw.org/"},
@@ -42,6 +41,7 @@ constexpr std::array<LibraryEntry, 13u> kLibraries{{
     {"libtiff", "LibTIFF", "https://libtiff.gitlab.io/libtiff/"},
     {"nlohmann-json", "JSON for Modern C++", "https://github.com/nlohmann/json"},
     {"onetbb", "oneTBB", "https://uxlfoundation.github.io/oneTBB/"},
+    {"openfits", "OpenFITS", "https://github.com/astroformats/openfits"},
     {"openxisf", "OpenXISF", "https://github.com/astroformats/openxisf"},
 }};
 

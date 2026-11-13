@@ -45,6 +45,7 @@
 #include <AfterNightConsumerRuntime/OperationScope.h>
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsSolution.h>
+#include <AfterNightEngine/Algorithms/Registration/RegistrationTransform.h>
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/OutputTransaction.h>
 #include <AfterNightEngine/Image/OutputIntent.h>
@@ -53,20 +54,25 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QPointF>
 #include <QTemporaryDir>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -458,6 +464,94 @@ protected:
         return lights;
     }
 
+    /// Drizzles the group at the scale stated with a whole drop and the Square kernel.
+    void drizzleWholeDrops(const float scale)
+    {
+        updateGroup([scale](auto& group) {
+            WorkflowManifest::IntegrationGroup::DrizzleSettings settings;
+            settings.enabled = true;
+            settings.scale = scale;
+            settings.pixelFraction = 1.0f;
+            settings.kernel = QStringLiteral("Square");
+            group.drizzle = settings;
+        });
+    }
+
+    /// Measures the group's normalization, drizzles its lights and stacks them, each stage succeeding.
+    StageResult normalizeDrizzleAndStack()
+    {
+        LightsNormalizationStage normalization;
+        const StageResult normalized = m_run.run(normalization, m_manifest);
+        EXPECT_TRUE(normalized.isSuccess()) << normalized.error.toLogString().toStdString();
+        LightsDrizzleStage drizzle;
+        const StageResult drizzled = m_run.run(drizzle, m_manifest);
+        EXPECT_TRUE(drizzled.isSuccess()) << drizzled.error.toLogString().toStdString();
+        return stack();
+    }
+
+    /// The pair `registerTranslatedPair` registers, the second light brighter, with every transform restated as the
+    /// whole-pixel shift the stars were moved by: the registration measures the shift from the stars to a fraction of a
+    /// pixel only, and a whole shift makes a light's registered image and its drizzle with a whole drop at a scale of
+    /// one the same samples.
+    ///
+    /// @param shift receives the second light's shift onto the reference, in whole pixels.
+    void registerWholePixelPair(std::pair<double, double>& shift)
+    {
+        registerTranslatedPair(4.0, -3.0, 0.10);
+        an::ui::RegistrationMetricsStateLoader loader(metricsPath(), QStringLiteral("WholePixelReader"));
+        ASSERT_TRUE(loader.open());
+        std::vector<an::ui::RegistrationMetricRecord> records;
+        ASSERT_TRUE(
+            loader.loadMetricRecords(m_registration.groupKey.toString(), m_registration.settings.version, records));
+        ASSERT_EQ(records.size(), 2u);
+        an::ui::RegistrationMetricsWriter writer(metricsPath(), QStringLiteral("WholePixelWriter"));
+        ASSERT_TRUE(writer.openExisting());
+        for (an::ui::RegistrationMetricRecord& record : records)
+        {
+            QString error;
+            const std::optional<stage_utils::ParsedTransformRecord> parsed =
+                stage_utils::parseTransformRecord(record.transformJson, error);
+            ASSERT_TRUE(parsed.has_value()) << error.toStdString();
+            const std::array<double, 9>& solved = parsed->transform.matrix();
+            const double dx = std::round(solved[2]);
+            const double dy = std::round(solved[5]);
+            const an::Result<an::RegistrationTransform> whole =
+                an::RegistrationTransform::create({.linearKind = an::RegistrationTransformKind::Similarity,
+                                                   .sourceToReference = {1.0, 0.0, dx, 0.0, 1.0, dy, 0.0, 0.0, 1.0}});
+            ASSERT_TRUE(whole.hasValue()) << whole.status().message();
+            record.transformJson = stage_utils::serializeTransformJson(*whole, parsed->provenance);
+            ASSERT_TRUE(writer.upsertMetric(record, &error)) << error.toStdString();
+            if (record.frameId == FrameId(m_lightPath))
+            {
+                shift = {dx, dy};
+            }
+        }
+    }
+
+    /// The pair normalized locally to its first light and stacked as registered images; the master that writes.
+    std::optional<an::tests::fixtures::FixtureSamples> stackRegisteredLocalPair()
+    {
+        updateGroup([](auto& group) {
+            group.stacking.normalizationMode = NormalizationMode::Local;
+            group.stacking.localNormalization.enabled = true;
+            group.normalizationReferenceFrames = {group.lightFiles.front()};
+        });
+        LightsAlignmentStage alignment;
+        const StageResult aligned = m_run.run(alignment, m_manifest);
+        EXPECT_TRUE(aligned.isSuccess()) << aligned.error.toLogString().toStdString();
+        LightsNormalizationStage normalization;
+        const StageResult normalized = m_run.run(normalization, m_manifest);
+        EXPECT_TRUE(normalized.isSuccess()) << normalized.error.toLogString().toStdString();
+        const StageResult stacked = stack();
+        EXPECT_TRUE(stacked.isSuccess()) << stacked.error.toLogString().toStdString();
+        const auto written = readWrittenImage(masterPath());
+        if (!written.has_value())
+        {
+            return std::nullopt;
+        }
+        return written->samples;
+    }
+
     QTemporaryDir m_root;
     CalibrationRun m_run;
     WorkflowManifest m_manifest;
@@ -554,6 +648,22 @@ TEST_F(LightsStackingTest, AnUnknownStoredMethodStopsTheGroupByName)
     EXPECT_TRUE(result.error.toLogString().contains(QStringLiteral("Fancy Mean")))
         << result.error.toLogString().toStdString();
     EXPECT_FALSE(QFileInfo::exists(masterPath()));
+}
+
+// A group whose stack fails before a master of it is written makes no group result. The stage names the group with
+// why, so that the run's report says the master failed where it would otherwise find no record of it at all.
+TEST_F(LightsStackingTest, AGroupWhoseStackFailsBeforeItsMasterIsNamedWithWhy)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.0, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.0, 2u)});
+    updateGroup([](auto& group) { group.stacking.stackMethod = QStringLiteral("Fancy Mean"); });
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isFailure());
+    EXPECT_TRUE(result.groupResults.empty());
+    ASSERT_EQ(result.failedGroups.size(), 1u);
+    EXPECT_EQ(result.failedGroups.front().groupKey, m_manifest.integrationGroups.front().groupKey.toString());
+    EXPECT_TRUE(result.failedGroups.front().error.contains(QStringLiteral("method")))
+        << result.failedGroups.front().error.toStdString();
 }
 
 // Lights stored compressed are combined in tiles of the rows one compressed piece of theirs spans, where a sample
@@ -897,6 +1007,62 @@ TEST_F(LightsStackingTest, RegisteredImagesAreStackedAndOneChangedSinceIsRefused
     EXPECT_TRUE(refused.isFailure());
     EXPECT_TRUE(refused.error.toLogString().contains(QStringLiteral("changed after it was persisted")))
         << refused.error.toLogString().toStdString();
+}
+
+// A light the registration places a fractional shift from its reference - 4.3 pixels across and 2.6 up - holds nothing
+// where it does not reach, so the stack leaves it out there: wherever the reference alone reaches, in the three rows
+// before the light's first and the four columns past its last, the master is the reference's own sample, whether the
+// stack warps the lights as it reads them or reads the registered images.
+TEST_F(LightsStackingTest, WhereOneLightAloneReachesTheMasterIsThatLightsSample)
+{
+    registerTranslatedPair(4.3, -2.6);
+    const auto reference = readWrittenImage(m_referencePath);
+    ASSERT_TRUE(reference.has_value());
+    const std::uint32_t width = reference->samples.width();
+    const std::uint32_t height = reference->samples.height();
+    for (const bool warpedAsRead : {true, false})
+    {
+        SCOPED_TRACE(warpedAsRead ? "the lights warped as the stack reads them" : "the registered images");
+        if (warpedAsRead)
+        {
+            updateGroup(
+                [](auto& group) { group.stacking.registeredOutputPolicy = RegisteredOutputPolicy::Discardable; });
+        }
+        else
+        {
+            updateGroup([](auto& group) { group.stacking.registeredOutputPolicy = RegisteredOutputPolicy::Retained; });
+            m_manifest.reprocessExisting = true;
+            LightsAlignmentStage alignment;
+            ASSERT_TRUE(m_run.run(alignment, m_manifest).isSuccess());
+        }
+        const StageResult result = stack();
+        ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+        EXPECT_TRUE(result.groupResults.front().registrationInputPolicy.startsWith(
+            warpedAsRead ? QStringLiteral("Transform-on-read") : QStringLiteral("Materialized")))
+            << result.groupResults.front().registrationInputPolicy.toStdString();
+        const auto master = readWrittenImage(masterPath());
+        ASSERT_TRUE(master.has_value());
+        ASSERT_EQ(master->samples.width(), width);
+        ASSERT_EQ(master->samples.height(), height);
+        std::uint32_t differing = 0u;
+        double worst = 0.0;
+        for (std::uint32_t y = 0u; y < height; ++y)
+        {
+            for (std::uint32_t x = 0u; x < width; ++x)
+            {
+                // The reference's pixel (x, y) is the light's (x + 4.3, y - 2.6).
+                if (y >= 3u && x + 4u < width)
+                {
+                    continue;
+                }
+                const double difference =
+                    std::abs(master->samples.value(x, y, 0u) - reference->samples.value(x, y, 0u));
+                differing += difference != 0.0 ? 1u : 0u;
+                worst = (std::max)(worst, difference);
+            }
+        }
+        EXPECT_EQ(differing, 0u) << "the master differs from the reference by up to " << worst;
+    }
 }
 
 // A stack bounded by memory reads the registered images a band at a time, as one that is not: the planner tiles it
@@ -1249,35 +1415,6 @@ TEST_F(LightsStackingTest, ALightWhoseStarsHaveNoMeasuredRoundnessIsWeighedWithT
     EXPECT_LT(quality.weightMin, quality.weightMax);
 }
 
-// A stored per-channel width weighting is passed to the stack, which weighs a channel by its own width only where the
-// registration measured one per channel; it measures one width per frame, so the group says every channel was weighed
-// by the frame's width. The stack weighed them so and said nothing.
-TEST_F(LightsStackingTest, APerChannelFwhmWeightingTheRegistrationCannotMeasureIsSaid)
-{
-    useMeasuredLights(QStringLiteral("Weighted FWHM"), [](const std::size_t index, auto& metric) {
-        metric.metrics.stars = 200;
-        metric.metrics.fwhm = 2.0 + 0.5 * static_cast<double>(index);
-        metric.metrics.eccentricity = 0.2;
-    });
-    updateGroup([](auto& group) { group.stacking.perChannelFwhmWeighting = true; });
-
-    const StageResult result = stack();
-    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
-    ASSERT_TRUE(result.groupResults.front().qualityReport.hasWeightingStats);
-    const auto said = std::count_if(result.warnings.begin(), result.warnings.end(), [](const QString& warning) {
-        return warning.contains(QStringLiteral("per-channel FWHM weighting")) &&
-               warning.contains(QStringLiteral("one star width per frame"));
-    });
-    EXPECT_EQ(said, 1) << result.warnings.join(QStringLiteral("\n")).toStdString();
-
-    // Without the stored choice nothing is said.
-    updateGroup([](auto& group) { group.stacking.perChannelFwhmWeighting = false; });
-    const StageResult plain = stack();
-    ASSERT_TRUE(plain.isSuccess()) << plain.error.toLogString().toStdString();
-    EXPECT_FALSE(anyContains(plain.warnings, QStringLiteral("per-channel FWHM weighting")))
-        << plain.warnings.join(QStringLiteral("\n")).toStdString();
-}
-
 // What the engine says of a group's stack is said among the stage's warnings: a sum of lights no sample of which is
 // positive is written as it is, and the engine says so. The group's stack was admitted with no one to tell, so the
 // engine said nothing and the warning was lost.
@@ -1591,34 +1728,29 @@ TEST_F(LightsStackingTest, ADrizzledGroupsCoefficientsBringEachLightToTheReferen
     EXPECT_NEAR(*master, *reference, 0.05 * *reference);
 }
 
-// A drizzled Local group has no normalization document: the drizzled stack fits each light's surfaces and its global
-// match itself, against the group's reference, and reads none of the analysis the normalization stage makes. The run
-// says so, naming what does not apply. It said only that the stack measured its own, as after a refusal.
-TEST_F(LightsStackingTest, ADrizzledLocalGroupSaysItsStackFitsTheSurfacesWithoutTheAnalysis)
+// A drizzled Local group's stack applies the normalization stage's document, measured on the canvas's analysis plane
+// under the group's reference strategy and every analysis setting: the run says the stage's coefficients brought the
+// lights to the reference, and the settings it states name the strategy. The drizzled stack fitted its own surfaces on
+// the drizzled lights, and the run said the strategy, the evaluation, the PSF flux scale and the filters did not apply.
+TEST_F(LightsStackingTest, ADrizzledLocalGroupsStackAppliesTheNormalizationStagesDocument)
 {
     registerTranslatedPair(4.0, -3.0, 0.10);
     updateGroup([](auto& group) {
-        WorkflowManifest::IntegrationGroup::DrizzleSettings settings;
-        settings.enabled = true;
-        settings.scale = 2.0f;
-        settings.pixelFraction = 1.0f;
-        group.drizzle = settings;
         group.stacking.normalizationMode = NormalizationMode::Local;
         group.stacking.localNormalization.enabled = true;
         group.normalizationReferenceFrames = {group.lightFiles.front()};
     });
-    LightsDrizzleStage drizzle;
-    const StageResult drizzled = m_run.run(drizzle, m_manifest);
-    ASSERT_TRUE(drizzled.isSuccess()) << drizzled.error.toLogString().toStdString();
-
-    const StageResult result = stack();
+    drizzleWholeDrops(2.0f);
+    const StageResult result = normalizeDrizzleAndStack();
     ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    EXPECT_FALSE(anyContains(result.warnings, QStringLiteral("normalization coefficients")))
+        << result.warnings.join(QStringLiteral("\n")).toStdString();
     ASSERT_EQ(result.groupResults.size(), 1u);
     const QString& applied = result.groupResults.front().qualityReport.normalization;
-    EXPECT_TRUE(applied.contains(QStringLiteral("drizzled stack"))) << applied.toStdString();
-    EXPECT_TRUE(applied.contains(QStringLiteral("reference strategy"))) << applied.toStdString();
+    EXPECT_TRUE(applied.contains(QStringLiteral("normalization stage's coefficients"))) << applied.toStdString();
     EXPECT_TRUE(applied.contains(QFileInfo(m_referencePath).fileName())) << applied.toStdString();
-    // The settings the run log states before the stack name no reference strategy for it either.
+    EXPECT_FALSE(applied.contains(QStringLiteral("drizzled stack"))) << applied.toStdString();
+    // The settings the run log states before the stack name the reference strategy, as any Local group's do.
     QString settings;
     for (const QString& detail : m_run.loggedDetails())
     {
@@ -1629,22 +1761,18 @@ TEST_F(LightsStackingTest, ADrizzledLocalGroupSaysItsStackFitsTheSurfacesWithout
         }
     }
     ASSERT_FALSE(settings.isEmpty()) << m_run.loggedDetails().join(QStringLiteral("\n")).toStdString();
-    EXPECT_TRUE(settings.contains(QStringLiteral("fitted by the drizzled stack"))) << settings.toStdString();
-    EXPECT_FALSE(settings.contains(QStringLiteral("ref:"))) << settings.toStdString();
+    EXPECT_TRUE(settings.contains(QStringLiteral("ref:"))) << settings.toStdString();
+    EXPECT_FALSE(settings.contains(QStringLiteral("drizzled stack"))) << settings.toStdString();
 }
 
-// A drizzled Local group's stack reads no normalization document, since it fits the surfaces itself: a document an
-// earlier run measured - under the Global normalization the group stated then - is neither read nor said to have been
-// measured under other settings. The stack read it, warned so, and then measured its own as it always does.
-TEST_F(LightsStackingTest, ADrizzledLocalGroupReadsNoDocumentAnEarlierRunMeasured)
+// A drizzled Local group's stack reads the normalization stage's document as any group's stack does: one an earlier run
+// measured under the Global normalization the group stated then is said to be under other settings, and the stack
+// measures its own. The drizzled stack read no document for such a group and said nothing of it.
+TEST_F(LightsStackingTest, ADrizzledLocalGroupSaysADocumentMeasuredUnderOtherSettingsIsNotApplied)
 {
     registerTranslatedPair(4.0, -3.0, 0.10);
+    drizzleWholeDrops(2.0f);
     updateGroup([](auto& group) {
-        WorkflowManifest::IntegrationGroup::DrizzleSettings settings;
-        settings.enabled = true;
-        settings.scale = 2.0f;
-        settings.pixelFraction = 1.0f;
-        group.drizzle = settings;
         group.stacking.normalizationMode = NormalizationMode::Global;
         group.normalizationReferenceFrames = {group.lightFiles.front()};
     });
@@ -1663,11 +1791,160 @@ TEST_F(LightsStackingTest, ADrizzledLocalGroupReadsNoDocumentAnEarlierRunMeasure
     ASSERT_TRUE(drizzled.isSuccess()) << drizzled.error.toLogString().toStdString();
     const StageResult result = stack();
     ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
-    EXPECT_FALSE(anyContains(result.warnings, QStringLiteral("normalization coefficients")))
+    EXPECT_TRUE(anyContains(result.warnings, QStringLiteral("measured under settings other than the group's")))
         << result.warnings.join(QStringLiteral("\n")).toStdString();
     ASSERT_EQ(result.groupResults.size(), 1u);
     const QString& applied = result.groupResults.front().qualityReport.normalization;
-    EXPECT_TRUE(applied.contains(QStringLiteral("drizzled stack"))) << applied.toStdString();
+    EXPECT_TRUE(applied.contains(QStringLiteral("Measured by the stack"))) << applied.toStdString();
+}
+
+/// The columns and rows of the reference's plane both lights of a pair hold samples at, the second shifted onto it by
+/// whole pixels: from the first index on, up to the end index.
+struct BothLightsCover
+{
+    std::uint32_t firstColumn = 0u;
+    std::uint32_t endColumn = 0u;
+    std::uint32_t firstRow = 0u;
+    std::uint32_t endRow = 0u;
+};
+
+[[nodiscard]] BothLightsCover bothLightsCover(const std::pair<double, double>& shift, const std::uint32_t width,
+                                              const std::uint32_t height)
+{
+    const auto first = [](const double offset) { return static_cast<std::uint32_t>((std::max)(0.0, offset)); };
+    const auto end = [](const double offset, const std::uint32_t extent) {
+        return static_cast<std::uint32_t>((std::min)(static_cast<double>(extent), extent + offset));
+    };
+    return BothLightsCover{.firstColumn = first(shift.first),
+                           .endColumn = end(shift.first, width),
+                           .firstRow = first(shift.second),
+                           .endRow = end(shift.second, height)};
+}
+
+// A drizzled Local group's stack applies the normalization stage's document where each drizzled light lies on the
+// plane it was measured on. At a scale of one, with a whole drop, the Square kernel and a whole-pixel shift, each
+// drizzled light holds its registered image's samples, so wherever both lights hold samples the drizzled master is
+// the master the same lights make stacked as registered images, within float rounding. The drizzled stack fitted its
+// own surfaces on the drizzled lights instead, and its master stood up to 0.05 from that one.
+TEST_F(LightsStackingTest, ADrizzledLocalMasterAtScaleOneIsTheMasterOfTheRegisteredLights)
+{
+    std::pair<double, double> shift;
+    ASSERT_NO_FATAL_FAILURE(registerWholePixelPair(shift));
+    const std::optional<an::tests::fixtures::FixtureSamples> registered = stackRegisteredLocalPair();
+    ASSERT_TRUE(registered.has_value());
+
+    drizzleWholeDrops(1.0f);
+    const StageResult result = normalizeDrizzleAndStack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    EXPECT_FALSE(anyContains(result.warnings, QStringLiteral("normalization coefficients")))
+        << result.warnings.join(QStringLiteral("\n")).toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    EXPECT_TRUE(result.groupResults.front().qualityReport.normalization.contains(
+        QStringLiteral("normalization stage's coefficients")))
+        << result.groupResults.front().qualityReport.normalization.toStdString();
+    const auto drizzled = readWrittenImage(masterPath());
+    ASSERT_TRUE(drizzled.has_value());
+    ASSERT_EQ(drizzled->samples.width(), registered->width());
+    ASSERT_EQ(drizzled->samples.height(), registered->height());
+    const BothLightsCover covered = bothLightsCover(shift, registered->width(), registered->height());
+    std::size_t compared = 0u;
+    for (std::uint32_t y = covered.firstRow; y < covered.endRow; ++y)
+    {
+        for (std::uint32_t x = covered.firstColumn; x < covered.endColumn; ++x)
+        {
+            const double expected = registered->value(x, y, 0u);
+            const double actual = drizzled->samples.value(x, y, 0u);
+            ASSERT_TRUE(std::isfinite(expected) && std::isfinite(actual)) << x << ',' << y;
+            EXPECT_NEAR(actual, expected, 4.0 * std::numeric_limits<float>::epsilon() * std::abs(expected))
+                << x << ',' << y;
+            ++compared;
+        }
+    }
+    EXPECT_GT(compared, static_cast<std::size_t>(registered->width()) * registered->height() / 2u);
+}
+
+// At a scale of two each light drizzles onto blocks of two by two, and every surface is read a quarter pixel from the
+// block's centre on the plane it was measured on: wherever both lights hold samples, the drizzled Local master's block
+// means are the samples of the master the lights make stacked as registered images, within a thousandth of the
+// background.
+TEST_F(LightsStackingTest, ADrizzledLocalMastersBlocksAtScaleTwoAreTheMasterOfTheRegisteredLights)
+{
+    std::pair<double, double> shift;
+    ASSERT_NO_FATAL_FAILURE(registerWholePixelPair(shift));
+    const std::optional<an::tests::fixtures::FixtureSamples> registered = stackRegisteredLocalPair();
+    ASSERT_TRUE(registered.has_value());
+    const std::optional<double> background = medianOf(masterPath());
+    ASSERT_TRUE(background.has_value());
+
+    drizzleWholeDrops(2.0f);
+    const StageResult result = normalizeDrizzleAndStack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    const auto drizzled = readWrittenImage(masterPath());
+    ASSERT_TRUE(drizzled.has_value());
+    ASSERT_EQ(drizzled->samples.width(), 2u * registered->width());
+    ASSERT_EQ(drizzled->samples.height(), 2u * registered->height());
+    const BothLightsCover covered = bothLightsCover(shift, registered->width(), registered->height());
+    std::size_t compared = 0u;
+    double worst = 0.0;
+    for (std::uint32_t y = covered.firstRow; y < covered.endRow; ++y)
+    {
+        for (std::uint32_t x = covered.firstColumn; x < covered.endColumn; ++x)
+        {
+            const double expected = registered->value(x, y, 0u);
+            double sum = 0.0;
+            for (std::uint32_t dy = 0u; dy < 2u; ++dy)
+            {
+                for (std::uint32_t dx = 0u; dx < 2u; ++dx)
+                {
+                    sum += drizzled->samples.value(2u * x + dx, 2u * y + dy, 0u);
+                }
+            }
+            ASSERT_TRUE(std::isfinite(expected) && std::isfinite(sum)) << x << ',' << y;
+            worst = (std::max)(worst, std::abs(sum / 4.0 - expected));
+            ++compared;
+        }
+    }
+    EXPECT_GT(compared, static_cast<std::size_t>(registered->width()) * registered->height() / 2u);
+    EXPECT_LT(worst, 1.0e-3 * *background) << "background " << *background;
+}
+
+// A drizzled Local group is brought to the reference its local normalization ranks best, which only the normalization
+// stage's analysis chooses: the master holds the brighter light's level. The drizzled stack fitted its own surfaces
+// against the manifest's reference, whatever the strategy, and held the first light's.
+TEST_F(LightsStackingTest, ADrizzledLocalGroupIsBroughtToTheReferenceItsAnalysisRanksBest)
+{
+    // The second light's background is 0.05 above the first's, so its median ranks it best; the manifest names the
+    // first.
+    registerTranslatedPair(4.0, -3.0, 0.10);
+    updateGroup([](auto& group) {
+        group.stacking.normalizationMode = NormalizationMode::Local;
+        group.stacking.localNormalization.enabled = true;
+        group.stacking.localNormalization.referenceStrategy = QStringLiteral("Single Best Frame");
+        group.stacking.localNormalization.evaluationCriteria = QStringLiteral("Median");
+        group.normalizationReferenceFrames = {group.lightFiles.front()};
+    });
+    drizzleWholeDrops(2.0f);
+    const StageResult result = normalizeDrizzleAndStack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    const ImageIntegration::NormalizationDocumentRead document = ImageIntegration::readNormalizationCoefficients(
+        stage_utils::normalizationArtifactPath(m_manifest, m_manifest.integrationGroups.front()), std::nullopt);
+    ASSERT_TRUE(document.coefficients.has_value()) << document.message.toStdString();
+    ASSERT_TRUE(document.coefficients->local.has_value());
+    EXPECT_EQ(document.coefficients->plane, ImageIntegration::NormalizationMeasurementPlane::DrizzleAnalysisPlane);
+    ASSERT_EQ(document.coefficients->local->referenceIndex, std::optional<std::uint32_t>(1u))
+        << "the document names the brighter light, which the manifest does not";
+    EXPECT_FALSE(anyContains(result.warnings, QStringLiteral("measures its own")))
+        << result.warnings.join(QStringLiteral("\n")).toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    EXPECT_TRUE(result.groupResults.front().qualityReport.normalization.contains(QFileInfo(m_lightPath).fileName()))
+        << result.groupResults.front().qualityReport.normalization.toStdString();
+    // Both lights brought to the brighter one: the master holds its level, not the first light's.
+    const std::optional<double> brighter = medianOf(m_lightPath);
+    const std::optional<double> first = medianOf(m_referencePath);
+    const std::optional<double> master = medianOf(masterPath());
+    ASSERT_TRUE(brighter.has_value() && first.has_value() && master.has_value());
+    EXPECT_NEAR(*master, *brighter, 0.05 * *brighter);
+    EXPECT_GT(std::abs(*master - *first), 0.5 * std::abs(*brighter - *first));
 }
 
 // A local normalization that ranks the lights itself writes the light it ranks best as its document's reference, and
@@ -2019,6 +2296,41 @@ TEST_F(LightsStackingTest, AnExposureMergeBucketOfOneLightLeavesOutWhereItsFlatI
     const double there = written->samples.value(2u, 3u, 0u);
     EXPECT_TRUE(std::isfinite(there)) << "the shorter bucket's not-a-number reached the master";
     EXPECT_NEAR(there, 10000.0 / 65535.0, 1e-6) << "below the highlight the longer exposure is kept";
+}
+
+// An exposure merge is made of one stack an exposure, so no one stack's report describes the master. What the run
+// records of it is the lights it combines, each with the weight its own exposure's stack gave it: that list is what
+// a report names a light as used by. The merge recorded nothing, and its report said the master combined none of
+// its lights.
+TEST_F(LightsStackingTest, AnExposureMergeRecordsTheLightsItCombines)
+{
+    const QString longFirst = writeCodeLight(QStringLiteral("long1"), 10000.0);
+    const QString longSecond = writeCodeLight(QStringLiteral("long2"), 10000.0);
+    const QString shortLight = writeCodeLight(QStringLiteral("short1"), 3000.0);
+    const QString flat = writeFlatMaster(QStringLiteral("flat"), kLightWidth, kLightHeight);
+    calibrateInMemoryBy(longFirst, flat);
+    calibrateInMemoryBy(longSecond, flat);
+    calibrateInMemoryBy(shortLight, flat);
+    useUnregisteredLights({longFirst, longSecond, shortLight});
+    updateGroup([](auto& group) {
+        group.lightExposureSeconds = {60.0, 60.0, 15.0};
+        group.stacking.hdr.enabled = true;
+    });
+
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    const StackQualityRecord& record = result.groupResults.front().qualityReport;
+    ASSERT_TRUE(record.valid);
+    ASSERT_EQ(record.lightWeights.size(), 3u);
+    QSet<QString> named;
+    for (const StackLightWeight& light : record.lightWeights)
+    {
+        named.insert(FrameId(light.light).identityKey());
+        EXPECT_GT(light.weight, 0.0) << light.light.toStdString();
+    }
+    EXPECT_EQ(named, (QSet<QString>{FrameId(longFirst).identityKey(), FrameId(longSecond).identityKey(),
+                                    FrameId(shortLight).identityKey()}));
 }
 
 // The exposure merge blends only samples: where the longer exposure holds none - a calibration left it not a number -
@@ -2674,6 +2986,15 @@ protected:
                                         << m_run.loggedWarnings().join(QLatin1Char('\n')).toStdString();
         EXPECT_TRUE(result.groupResults.front().registrationInputPolicy.startsWith(QStringLiteral("Stars + comet")))
             << result.groupResults.front().registrationInputPolicy.toStdString();
+        // A composite is made of two stacks, so no one stack's report is its record: what the run records of it is
+        // the lights it combines, each named with a weight, which is what a report names a light as used by.
+        const StackQualityRecord& record = result.groupResults.front().qualityReport;
+        EXPECT_TRUE(record.valid);
+        EXPECT_EQ(record.lightWeights.size(), static_cast<std::size_t>(result.groupResults.front().lightFrameCount));
+        for (const StackLightWeight& light : record.lightWeights)
+        {
+            EXPECT_GT(light.weight, 0.0) << light.light.toStdString();
+        }
 
         const auto masterStamp = writtenIdentity(m_run.session(), masterPath());
         ASSERT_TRUE(masterStamp.has_value());
@@ -2800,6 +3121,152 @@ TEST_F(CometStackingTest, AStarsPlusCometGroupIsNotDrizzled)
     EXPECT_TRUE(result.error.toLogString().contains(QStringLiteral("does not drizzle")))
         << result.error.toLogString().toStdString();
     EXPECT_FALSE(QFileInfo::exists(masterPath()));
+}
+
+// A group whose master is still what the run would make is not stacked again: it leaves no result, and the stage
+// names it among the groups it reused, with the master it left as it is.
+TEST_F(LightsStackingTest, AGroupWhoseOutputIsValidIsNamedAsReusedAndHasNoResult)
+{
+    useUnregisteredLights({writeFlatLight(QStringLiteral("a"), 0.1, 0.0, 1u),
+                           writeFlatLight(QStringLiteral("b"), 0.2, 0.0, 2u),
+                           writeFlatLight(QStringLiteral("c"), 0.3, 0.0, 3u)});
+    updateGroup([](auto& group) { group.skipIfExists = true; });
+
+    const StageResult made = stack();
+    ASSERT_TRUE(made.isSuccess()) << made.error.toLogString().toStdString();
+    EXPECT_EQ(made.groupResults.size(), 1u);
+    EXPECT_TRUE(made.reusedGroups.empty()) << "a master the run made is not one it reused";
+
+    const StageResult reused = stack();
+    ASSERT_TRUE(reused.isSuccess()) << reused.error.toLogString().toStdString();
+    EXPECT_TRUE(reused.groupResults.empty());
+    ASSERT_EQ(reused.reusedGroups.size(), 1u);
+    EXPECT_EQ(reused.reusedGroups.front().groupKey, m_integration.groupKey.toString());
+    EXPECT_EQ(QDir::cleanPath(reused.reusedGroups.front().outputPath), QDir::cleanPath(masterPath()));
+
+    // A run told to stack everything again reuses nothing.
+    m_manifest.reprocessExisting = true;
+    const StageResult again = stack();
+    ASSERT_TRUE(again.isSuccess()) << again.error.toLogString().toStdString();
+    EXPECT_EQ(again.groupResults.size(), 1u);
+    EXPECT_TRUE(again.reusedGroups.empty());
+}
+
+// A light the alignment wrote no registered image of is left out of the stack: the group's result names it with the
+// reason, and the stage's warning still says so in its own words.
+TEST_F(LightsStackingTest, ALightWithNoRegisteredOutputIsNamedAmongTheLightsTheStackDropped)
+{
+    registerTranslatedPair(4.0, -3.0);
+    const QString third =
+        writeStarLight(QStringLiteral("light_003"),
+                       movedStars(m_stars, [](double x, double y) { return std::pair{x - 2.0, y + 5.0}; }), 73u);
+    m_registration.lightFiles.push_back(FrameId(third));
+    m_integration.lightFiles = m_registration.lightFiles;
+    m_integration.lightExposureSeconds = {60.0, 60.0, 60.0};
+    m_manifest.registrationGroups = {m_registration};
+    m_manifest.integrationGroups = {m_integration};
+    LightsRegistrationStage registration;
+    const StageResult registered = m_run.run(registration, m_manifest);
+    ASSERT_TRUE(registered.isSuccess()) << registered.error.toLogString().toStdString();
+    ASSERT_FALSE(registered.isPartialSuccess()) << "the third light was left unregistered";
+    LightsAlignmentStage alignment;
+    const StageResult aligned = m_run.run(alignment, m_manifest);
+    ASSERT_TRUE(aligned.isSuccess()) << aligned.error.toLogString().toStdString();
+
+    // Every light has its registered image: the stack drops none.
+    const StageResult whole = stack();
+    ASSERT_TRUE(whole.isSuccess()) << whole.error.toLogString().toStdString();
+    ASSERT_EQ(whole.groupResults.size(), 1u);
+    EXPECT_EQ(whole.groupResults.front().lightFrameCount, 3);
+    EXPECT_TRUE(whole.groupResults.front().droppedLights.empty());
+
+    const QString registeredThird =
+        QDir(m_manifest.outputDirectory)
+            .filePath(QStringLiteral("registered_lights/%1/light_003_reg.fits")
+                          .arg(ImageIntegration::sanitizeFilename(m_registration.groupKey.toString())));
+    ASSERT_TRUE(QFileInfo::exists(registeredThird));
+    ASSERT_TRUE(QFile::remove(registeredThird));
+    m_manifest.reprocessExisting = true;
+
+    const StageResult result = stack();
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    const IntegrationGroupResult& group = result.groupResults.front();
+    EXPECT_EQ(group.lightFrameCount, 2);
+    ASSERT_EQ(group.droppedLights.size(), 1u);
+    EXPECT_EQ(FrameId(group.droppedLights.front().light).identityKey(), FrameId(third).identityKey());
+    EXPECT_EQ(group.droppedLights.front().reason, DroppedLightReason::NoRegisteredOutput);
+    EXPECT_TRUE(anyContains(result.warnings, QStringLiteral("Skipping 1 light frame(s): ")))
+        << result.warnings.join(QLatin1Char('\n')).toStdString();
+    EXPECT_TRUE(anyContains(result.warnings, QStringLiteral("(no registered output)")))
+        << result.warnings.join(QLatin1Char('\n')).toStdString();
+    // The stack's own record of the lights it combined does not name the light either.
+    for (const StackLightWeight& weight : group.qualityReport.lightWeights)
+    {
+        EXPECT_NE(FrameId(weight.light).identityKey(), FrameId(third).identityKey());
+    }
+}
+
+// The detail is the master's centre at full scale: 960 by 540 pixels of a master larger than that, and the whole of a
+// smaller one, which is its own detail.
+TEST_F(LightsStackingTest, TheResultCarriesADetailOfTheMastersCentreBesideItsWholeFramePreview)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.01, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.01, 2u)});
+    const StageResult small = stack();
+    ASSERT_TRUE(small.isSuccess()) << small.error.toLogString().toStdString();
+    ASSERT_EQ(small.groupResults.size(), 1u);
+    const IntegrationGroupResult& smallGroup = small.groupResults.front();
+    const QSize own(static_cast<int>(kLightWidth), static_cast<int>(kLightHeight));
+    EXPECT_EQ(smallGroup.reportPreviewSize, own);
+    EXPECT_EQ(smallGroup.reportDetailSize, own);
+    EXPECT_EQ(QImage::fromData(smallGroup.reportDetailJpeg, "JPEG").size(), own);
+    // The same pixels through the same stretch: a small master's detail is its whole-frame preview.
+    EXPECT_EQ(smallGroup.reportDetailJpeg, smallGroup.reportPreviewJpeg);
+
+    constexpr std::uint32_t kWide = 1100u;
+    constexpr std::uint32_t kTall = 600u;
+    m_integration.outputFilename = QStringLiteral("master_Large.fits");
+    useUnregisteredLights({writeFlatLight(QStringLiteral("large_a"), 0.1, 0.01, 11u, {}, {}, kWide, kTall),
+                           writeFlatLight(QStringLiteral("large_b"), 0.2, 0.01, 12u, {}, {}, kWide, kTall)});
+    const StageResult large = stack();
+    ASSERT_TRUE(large.isSuccess()) << large.error.toLogString().toStdString();
+    ASSERT_EQ(large.groupResults.size(), 1u);
+    const IntegrationGroupResult& largeGroup = large.groupResults.front();
+    EXPECT_EQ(largeGroup.reportPreviewSize, QSize(static_cast<int>(kWide), static_cast<int>(kTall)));
+    EXPECT_EQ(largeGroup.reportDetailSize, QSize(960, 540));
+    EXPECT_EQ(QImage::fromData(largeGroup.reportDetailJpeg, "JPEG").size(), QSize(960, 540));
+}
+
+TEST_F(LightsStackingTest, AMasterWhosePreviewCannotBeMadeHasNoDetail)
+{
+    useUnregisteredLights(
+        {writeFlatLight(QStringLiteral("a"), 0.1, 0.01, 1u), writeFlatLight(QStringLiteral("b"), 0.2, 0.01, 2u)});
+    LightsStackingStage failing(
+        {}, {}, [](const an::consumer::OperationScope&, const an::Image<float>&, const QString&) -> StackPreviewAssets {
+            throw std::runtime_error("the preview could not be made");
+        });
+    const StageResult result = m_run.run(failing, m_manifest);
+    ASSERT_TRUE(result.isSuccess()) << result.error.toLogString().toStdString();
+    ASSERT_EQ(result.groupResults.size(), 1u);
+    EXPECT_TRUE(result.groupResults.front().success) << "a master is made whether or not its pictures are";
+    EXPECT_TRUE(result.groupResults.front().reportPreviewJpeg.isEmpty());
+    EXPECT_TRUE(result.groupResults.front().reportDetailJpeg.isEmpty());
+    EXPECT_FALSE(result.groupResults.front().reportDetailSize.isValid());
+
+    // A generator that gives a detail and no whole frame gives nothing the result keeps: a detail is never alone.
+    m_manifest.reprocessExisting = true;
+    LightsStackingStage detailOnly(
+        {}, {}, [](const an::consumer::OperationScope&, const an::Image<float>&, const QString&) -> StackPreviewAssets {
+            StackPreviewAssets assets;
+            assets.reportDetailJpeg = QByteArrayLiteral("not a picture");
+            assets.reportDetailSize = QSize(8, 8);
+            return assets;
+        });
+    const StageResult alone = m_run.run(detailOnly, m_manifest);
+    ASSERT_TRUE(alone.isSuccess()) << alone.error.toLogString().toStdString();
+    ASSERT_EQ(alone.groupResults.size(), 1u);
+    EXPECT_TRUE(alone.groupResults.front().reportDetailJpeg.isEmpty());
 }
 
 } // namespace

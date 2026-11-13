@@ -1,0 +1,10 @@
+{#- A tutorial or workflow: the head with its menu path, stages and needs, then the body, whose checklist, branch
+    cards, steps beside their figure, result box and next cards the guide's hooks dress by their headings. Its table
+    of contents lists the steps, under the left navigation: the steps and their figure take the right rail's width. -#}
+{% extends "base.html" %}
+{% block layout %}
+{%- set crumbs = false %}
+{%- set wide = false %}
+{%- set two = true %}
+{% include "partials/document.html" %}
+{% endblock %}

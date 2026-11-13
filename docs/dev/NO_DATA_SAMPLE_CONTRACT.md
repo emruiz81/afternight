@@ -122,10 +122,18 @@ than clamping it to the unit interval.
 
 A registered light and a light warped as the stack reads it come out of one function,
 `stage_utils::warpRegistrationFrame` (`RegistrationFrames.cpp`): the destination starts zeroed and
-a tap outside the source reads zero (`KernelBorderMode::Constant`, `constantBorder` 0), so what the
-frame does not reach is exact zero on both routes. The alignment stage publishes the warped image as
-a Float32 file (`publishWorkflowImage`) and the stack reads it back under `ZeroIsNoData`; the
-transform-on-read route hands the same image to the stack in memory under the same rule.
+the engine's warp writes only where the frame reaches - a destination sample whose position lies off
+the frame's pixels is left unwritten, whatever the border rule (`warpRegisteredImage`) - so what the
+frame does not reach is exact zero on both routes. Near its edge the warp reads the frame's own edge
+sample past it (`KernelBorderMode::Clamp`). Under a zero border a Lanczos-4 or bicubic kernel read a
+step from the frame to zero: it wrote a partial sum of the edge samples into the pixels just off the
+frame, which this rule took for data, and rang for up to four pixels inside the edge
+(`RegistrationPlanTest.AWarpWritesOnlyTheSamplesWhosePositionLiesOnTheFrame`,
+`LightsAlignmentTest.ARegisteredLightHoldsNothingWhereItDoesNotReachAndItsSkyToItsEdge`,
+`LightsStackingTest.WhereOneLightAloneReachesTheMasterIsThatLightsSample`). The alignment stage
+publishes the warped image as a Float32 file (`publishWorkflowImage`) and the stack reads it back
+under `ZeroIsNoData`; the transform-on-read route hands the same image to the stack in memory under
+the same rule.
 
 Neither route clamps the result - nothing in `RegistrationFrames.cpp`, `LightsAlignmentStage.cpp` or
 `StackFrameSources.cpp` does, and the Float32 file keeps what it was given - so the two cannot
@@ -157,8 +165,11 @@ The fitted document records the rule its grids were fitted under (`LocalNormaliz
 written as `validity=`), and the stack's source path refuses a frame whose rule is not the document's.
 A drizzled group's coefficients are measured on its canvas's analysis plane
 (`NormalizationMeasurementPlane::DrizzleAnalysisPlane`, a warped plane where an exact zero is where no
-light reaches), and its stack applies the document's global matches and fits its local normalization
-in the stack itself.
+light reaches), while its drizzled lights mark where no drop reached with a quiet NaN under the
+finite-only rule. A Local group's document is applied to them through a plane mapping
+(`StackPlaneMapping`, `Algorithms/Stacking/StackSource.h`): the document keeps the zero rule of the
+plane it was measured on, the mapping states the frames' finite-only rule, and each band is checked
+against the mapping's.
 
 ### Changing the rule invalidates coefficients
 

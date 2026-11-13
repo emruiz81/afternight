@@ -170,6 +170,8 @@ warpRegistrationFrame(const an::consumer::OperationScope& scope, const an::Image
     {
         return an::Status::failure(an::ErrorCode::NotInitialized, "the frame holds nothing");
     }
+    // The warp writes only where the frame reaches, so the zeroed canvas holds zero wherever it does not; the clamp
+    // border continues the frame's edge sample past its edge, where a step to zero would ring.
     const an::Result<an::RegistrationWarpPlan> plan =
         an::planRegistrationWarp(*descriptor, transform, distortion.value_or(an::SipDistortion{}),
                                  an::RegistrationWarpRequest{.width = canvas.width,
@@ -177,7 +179,7 @@ warpRegistrationFrame(const an::consumer::OperationScope& scope, const an::Image
                                                              .canvasOrigin = canvas.origin,
                                                              .sampling = an::SamplingKernelParameters{
                                                                  .interpolation = interpolation,
-                                                                 .border = an::KernelBorderMode::Constant,
+                                                                 .border = an::KernelBorderMode::Clamp,
                                                                  .invalid = an::SamplingInvalidPolicy::RequireAll}});
     if (!plan.hasValue())
     {

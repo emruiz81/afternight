@@ -184,8 +184,9 @@ sources Test_FixtureEngine
 # neutral fixture layer writing the frames the scenarios read. Its cases link the processes and Controls libraries and
 # compile nothing of them.
 # The integration's durable documents fuzzed, class engine: the readers and writers of the session document, the
-# document envelope, the transform records, the drizzle descriptor and the coefficient set, linked from the processes
-# library, with the fuzz harness and its standalone driver - which a libFuzzer build leaves out.
+# document envelope, the transform records, the drizzle descriptor, the coefficient set and the report model a run's
+# archive keeps, linked from the processes library, with the fuzz harness and its standalone driver - which a
+# libFuzzer build leaves out.
 sources Fuzz_ConsumerDocuments
     unit     src/AfterNightTests/Fuzz_ConsumerDocuments/DocumentsFuzz.cpp
     unit     src/AfterNightTests/FuzzEngine/FuzzHarness.cpp
@@ -206,6 +207,9 @@ sources Fuzz_ConsumerDocuments
     header   src/AfterNightProcesses/processes/ImageIntegration/model/RegistrationGroupEngine.h
     header   src/AfterNightProcesses/processes/ImageIntegration/model/ValidationResult.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportArchiveReader.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelJson.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/DocumentPublication.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/DrizzleDescriptorDocument.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/NormalizationArtifactSupport.h
@@ -970,6 +974,8 @@ sources Test_ControlsFiles
 # solved image. The plate-solve cases moved here from the integration suite. Its cases link the Controls library and
 # compile nothing of it.
 sources Test_ControlsAstrometry
+    unit     src/AfterNightTests/Test_ControlsAstrometry/AnnotateImageWindowTest.cpp
+    unit     src/AfterNightTests/Test_ControlsAstrometry/AnnotationTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/AstrometryOverlaysTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/AstrometryWebSolveTest.cpp
     unit     src/AfterNightTests/Test_ControlsAstrometry/CatalogDownloadServiceTest.cpp
@@ -995,6 +1001,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/app/CatalogDownloadService.h
     header   src/AfterNightControls/app/CatalogSearchService.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
+    header   src/AfterNightControls/app/FilePolicies.h
     header   src/AfterNightControls/app/GaiaCatalogSettings.h
     header   src/AfterNightControls/app/GaiaCatalogSource.h
     header   src/AfterNightControls/app/ObservationEpochUtils.h
@@ -1005,11 +1012,12 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/app/SolverProcessRunner.h
     header   src/AfterNightControls/app/SpccCatalogSettings.h
     header   src/AfterNightControls/app/SpccResponseSettings.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
     header   src/AfterNightControls/components/AnInfoBanner.h
     header   src/AfterNightControls/controls/AstrometryOverlayUtils.h
     header   src/AfterNightControls/controls/AstrometryStarDisplayModule.h
     header   src/AfterNightControls/controls/AstrometryStarOverlayUtils.h
-    header   src/AfterNightControls/controls/BrightStarAnnotationDisplayModule.h
+    header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/CatalogAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/CoordinateGridDisplayModule.h
@@ -1029,12 +1037,19 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/controls/PlateSolveControl.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
+    header   src/AfterNightControls/controls/annotation/AnnotationLayout.h
+    header   src/AfterNightControls/controls/annotation/AnnotationPicture.h
+    header   src/AfterNightControls/controls/annotation/AnnotationRenderer.h
+    header   src/AfterNightControls/controls/annotation/AnnotationScene.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/dialogs/CatalogSearchDialog.h
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -1563,6 +1578,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/controls/StarsFilterControlV1.cpp
     unit     src/AfterNightControls/controls/StarsFilterControlV2.cpp
     unit     src/AfterNightControls/controls/StarsFilterWindow.cpp
+    unit     src/AfterNightControls/controls/annotation/AnnotationSettings.cpp
     unit     src/AfterNightControls/controls/drawing/BrushEngine.cpp
     unit     src/AfterNightControls/controls/drawing/CoveragePlane.cpp
     unit     src/AfterNightControls/controls/drawing/DrawingCanvasController.cpp
@@ -1672,6 +1688,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/StaticPreviewCacheLimits.h
     header   src/AfterNightControls/controls/ToolbarOverflowLayout.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/drawing/BrushEngine.h
     header   src/AfterNightControls/controls/drawing/CoveragePlane.h
     header   src/AfterNightControls/controls/drawing/DrawingCanvasController.h
@@ -1779,13 +1796,13 @@ sources Test_ImageViewControl
     unit     src/AfterNightTests/Test_ImageViewControl/test_close_lifecycle.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_coalesced_gui_update.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_comparison_image_generator.cpp
-    unit     src/AfterNightTests/Test_ImageViewControl/test_coordinate_grid_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_distortion_map_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_history_lineage.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_history_safety.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_image_loading.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_listener_notification.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_mask_operations.cpp
+    unit     src/AfterNightTests/Test_ImageViewControl/test_sexagesimal_formatter.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_split_comparison_display_module.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_static_preview_behavior.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_status_bar_coordinates.cpp
@@ -1813,12 +1830,10 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/AutostretchSettingsControl.h
     header   src/AfterNightControls/controls/AutostretchSettingsControlUiBuilder.h
-    header   src/AfterNightControls/controls/BrightStarAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/CalibrationPreviewUtils.h
     header   src/AfterNightControls/controls/CatalogAnnotationDisplayModule.h
     header   src/AfterNightControls/controls/ComparisonImageGenerator.h
-    header   src/AfterNightControls/controls/CoordinateGridDisplayModule.h
     header   src/AfterNightControls/controls/DistortionMapDisplayModule.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
@@ -1980,6 +1995,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
     header   src/AfterNightControls/app/AppLifecycleCoordinator.h
     header   src/AfterNightControls/app/ApplicationStorage.h
+    header   src/AfterNightControls/app/BundledCatalogs.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/DialogOrchestrationCoordinator.h
     header   src/AfterNightControls/app/ExtensionCommon.h
@@ -2082,6 +2098,8 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
+    header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/settings/ExtensionManagerPage.h
     header   src/AfterNightControls/controls/settings/ExtensionStatusPage.h
     header   src/AfterNightControls/controls/settings/PathPickerWidget.h
@@ -2533,6 +2551,7 @@ sources Test_ProcessesShared
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessChoiceMapsTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessLauncherTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessRegistryTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesShared/ProcessUiInventoryTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -2550,8 +2569,12 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/app/ProcessControlEvent.h
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/SequenceOutputCleanup.h
+    header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnInputField.h
     header   src/AfterNightControls/components/AnProgressCard.h
     header   src/AfterNightControls/components/AnSectionHeader.h
+    header   src/AfterNightControls/components/AnSliderControl.h
     header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
@@ -4311,7 +4334,6 @@ sources AfterNightWorkflowDriver
     link     AfterNightConsumerRuntime
     external kddockwidgets
     external tbb
-    external cmark
     qt       core gui widgets sql
 
 # The integration workflow's suite, linked against the processes library: the model, the frame import over the engine's
@@ -4459,7 +4481,23 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_full_workflow.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_stacking_defaults.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/integration/test_ug60_real_data.cpp
-    unit     src/AfterNightTests/Test_ImageIntegration/reporting/test_workflow_report_builder.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFormatTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenariosTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelJsonTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelBuilderTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSettingsFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportFrameFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportIssueFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportRunFactsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportComparisonTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportArchiveReaderTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlWriterTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlPartsTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportHtmlEarlierTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/reporting/ReportSamplesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/test_gaia_catalog_settings.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_process.cpp
@@ -4475,6 +4513,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_preview_thumbnail_generator.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_registration_work_analyzer.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_archiver.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/workflow/WorkflowArchiverReportTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_execution_controller.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/test_workflow_preparation.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
@@ -4618,6 +4657,11 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/core/RegistrationWorkState.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     header   src/AfterNightTests/Test_ImageIntegration/ImportSession.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportScenarios.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportModelTestSupport.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportDocumentTestSupport.h
+    header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportRenderedScenarios.h
     header   src/AfterNightWorkflowDriver/ResidentMemory.h
     header   src/AfterNightWorkflowDriver/WorkflowDriver.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/CalibrationRun.h
@@ -4634,7 +4678,6 @@ sources Test_ImageIntegration
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/PreviewThumbnailGenerator.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowArchiver.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportArchiveLoader.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationConstants.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationImportSession.h
     header   src/AfterNightProcesses/processes/ImageIntegration/dialogs/ImportProgressDialog.h
@@ -4701,8 +4744,16 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/ProjectManager.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/RegistrationMetricsRepository.h
     header   src/AfterNightProcesses/processes/ImageIntegration/persistence/SessionDocument.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/MarkdownHtmlRenderer.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReportBuilder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportFormat.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelBuilder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportModelJson.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportSources.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportCharts.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportAssets.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportHtmlWriter.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/WorkflowReport.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/reporting/ReportArchiveReader.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/BaseCalibrationPanel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationGroupTable.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/CalibrationPanelUtils.h
@@ -4755,7 +4806,6 @@ sources Test_ImageIntegration
     link     AfterNightConsumerRuntime
     external kddockwidgets
     external tbb
-    external cmark
     qt       core gui widgets sql testlib
 
 # The process framework suite, linked against the processes and Controls libraries: the extension manager, host manager,

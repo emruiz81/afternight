@@ -30,6 +30,7 @@
 
 #include "controls/AutostretchSettingsControl.h"
 #include "controls/StaticPreviewCacheLimits.h"
+#include "controls/annotation/AnnotationSettings.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 
@@ -79,7 +80,9 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <tuple>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -913,13 +916,20 @@ struct ImageViewControl::Impl
     QAction* m_AstrometrySettingsAction = nullptr;
     QAction* m_AstrometryInfoAction = nullptr;
     QAction* m_PlateSolveToolbarAction = nullptr;
+    QAction* m_AnnotateImageToolbarAction = nullptr;
     QMenu* m_AstrometrySettingsMenu = nullptr;
     QAction* m_AstrometryGridMenuAction = nullptr;
     QAction* m_AstrometryAnnotationsMenuAction = nullptr;
     QAction* m_AstrometryStarLabelsMenuAction = nullptr;
     QAction* m_AstrometrySipMenuAction = nullptr;
     QAction* m_AstrometryDetectedStarsMenuAction = nullptr;
-    QMenu* m_AstrometryMagnitudeSubMenu = nullptr;
+    QMenu* m_AstrometryDetailSubMenu = nullptr;
+    QMenu* m_AstrometryLabelsSubMenu = nullptr;
+    QMenu* m_AstrometryPaletteSubMenu = nullptr;
+    QMenu* m_AstrometryTextSizeSubMenu = nullptr;
+
+    /// What the live annotations name and how they look, as the menu chose and the settings keep them.
+    an::ui::AnnotationViewChoices m_AnnotationChoices;
 
     QAction* m_RTPreviewTakeSnapshotActionSpacer = nullptr;
     QAction* m_RTPreviewTakeSnapshotAction = nullptr;
@@ -930,6 +940,10 @@ struct ImageViewControl::Impl
     QAction* m_ImageViewModeComboBoxAction = nullptr;
     QAction* m_CalibrationPreviewAction = nullptr;
     QAction* m_StatsOverlayToggleAction = nullptr;
+    /// The toolbar's choices of how the image is presented - the channel, the display mode, the stretch's settings,
+    /// the statistics - and the separators between them, which a preview whose owner decides them does not offer.
+    std::vector<QPointer<QAction>> m_PresentationChoiceActions;
+    bool m_PresentationChoicesOffered = true;
     ViewControlTextOverlay* m_ViewControlTextOverlay = nullptr;
     StatsOverlayWidget* m_StaticPreviewStatsOverlay = nullptr;
     bool m_StaticPreviewStatsOverlayVisible = true;
@@ -992,6 +1006,9 @@ struct ImageViewControl::Impl
     bool m_IsFloating = false;
 
     bool m_ShowAutostretchBanner = true;
+
+    /// Whether the view's Autostretch Settings window is open.
+    bool m_AutostretchSettingsOpen = false;
     bool m_AutoDebayerCfaImagePreviews = false;
     an::ui::CalibrationPreviewConfig m_CalibrationPreviewConfig;
     StaticPreviewCache m_StaticPreviewCache;
@@ -1019,8 +1036,33 @@ struct ImageViewControl::Impl
     std::unique_ptr<ImageViewWidgetDisplayModule> m_AstrometryStarDisplayModule;
     std::unique_ptr<ImageViewWidgetDisplayModule> m_CoordinateGridDisplayModule;
     std::unique_ptr<ImageViewWidgetDisplayModule> m_DistortionMapDisplayModule;
+    /// The catalogue annotations: the deep-sky objects and the bright stars, each a layer of the one overlay.
     std::unique_ptr<ImageViewWidgetDisplayModule> m_CatalogAnnotationDisplayModule;
-    std::unique_ptr<ImageViewWidgetDisplayModule> m_BrightStarAnnotationDisplayModule;
+
+    /// Draws the catalogue annotations' layers the menu checks while the astrometry overlays are shown, and nothing
+    /// when neither is checked.
+    void showCatalogAnnotations(const bool shown, const bool deepSky, const bool stars) const
+    {
+        if (m_CatalogAnnotationDisplayModule)
+        {
+            an::ui::setAstrometryOverlayLayers(*m_CatalogAnnotationDisplayModule, deepSky, stars);
+            m_CatalogAnnotationDisplayModule->enableDisplayModule(shown && (deepSky || stars));
+        }
+    }
+
+    /// Hands what the live annotations name and how they look to the overlays that draw them: the catalogue
+    /// annotations, and the grid its palette.
+    void showAnnotationChoices() const
+    {
+        for (const std::unique_ptr<ImageViewWidgetDisplayModule>* overlay :
+             {&m_CoordinateGridDisplayModule, &m_CatalogAnnotationDisplayModule})
+        {
+            if (*overlay)
+            {
+                an::ui::setAstrometryOverlayChoices(**overlay, m_AnnotationChoices);
+            }
+        }
+    }
 
     [[nodiscard]] bool hasCalibrationInput() const
     {
@@ -1137,6 +1179,25 @@ struct ImageViewControl::Impl
         if (m_chkCalibrationPreview)
         {
             m_chkCalibrationPreview->setToolTip(buildCalibrationToolTip());
+        }
+    }
+
+    /// Whether the Autostretch Settings window can be opened: its settings only change what the view shows while it
+    /// shows the image stretched, and one window is open at a time.
+    [[nodiscard]] bool autostretchSettingsAvailable() const
+    {
+        return m_PresentationChoicesOffered && !m_AutostretchSettingsOpen && m_ImageViewWidget &&
+               m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE;
+    }
+
+    /// Offers the Autostretch Settings button as `autostretchSettingsAvailable` says, and the display mode unless the
+    /// window is open.
+    void refreshAutostretchSettingsAvailability()
+    {
+        setToolbarActionEnabled(m_AutostretchSettingsAction, autostretchSettingsAvailable());
+        if (m_imageViewModeComboBox)
+        {
+            m_imageViewModeComboBox->setEnabled(!m_AutostretchSettingsOpen);
         }
     }
 
@@ -1295,7 +1356,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     bool detectedStarsEnabled = SettingsDefaults::PLATESOLVE_DETECTED_STARS_ENABLED;
     bool catalogAnnotationsEnabled = SettingsDefaults::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED;
     bool starLabelsEnabled = SettingsDefaults::PLATESOLVE_STAR_LABELS_ENABLED;
-    double catalogMagnitudeLimit = SettingsDefaults::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT;
+    an::ui::AnnotationViewChoices annotationChoices;
     auto* settings = context ? context->getGlobalSettings() : nullptr;
     if (settings)
     {
@@ -1313,11 +1374,23 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                              SettingsDefaults::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED ? "1" : "0") == "1";
         starLabelsEnabled = settings->select(SettingsKeys::PLATESOLVE_STAR_LABELS_ENABLED,
                                              SettingsDefaults::PLATESOLVE_STAR_LABELS_ENABLED ? "1" : "0") == "1";
-        catalogMagnitudeLimit = settings
-                                    ->select(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT,
-                                             QString::number(SettingsDefaults::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT))
-                                    .toDouble();
+        if (const std::optional<QString> stored = settings->selectOptional(SettingsKeys::ANNOTATION_VIEW_CHOICES))
+        {
+            annotationChoices = an::ui::annotationViewChoicesFromStored(*stored);
+        }
+        else if (const std::optional<QString> limit =
+                     settings->selectOptional(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT))
+        {
+            // A view that kept a magnitude limit before it offered levels starts at the level naming about as much.
+            bool ok = false;
+            const double magnitude = limit->toDouble(&ok);
+            if (ok)
+            {
+                annotationChoices.detail = an::ui::annotationDetailOfMagnitudeLimit(magnitude);
+            }
+        }
     }
+    m_impl->m_AnnotationChoices = annotationChoices;
     // Create the toolbar
     m_impl->m_ToolBar = new CustomToolBar(this);
     m_impl->m_ToolBar->setObjectName(QStringLiteral("anImageViewToolbar"));
@@ -1349,7 +1422,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_MaximizeAction->setToolTip("Maximize image view (F11)");
     }
 
-    m_impl->m_ToolBar->addSeparator();
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addSeparator());
 
     // Create the image view channel combobox
     m_impl->m_imageViewChannelComboBox = new QComboBox();
@@ -1361,12 +1434,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     m_impl->m_imageViewChannelComboBox->setMinimumContentsLength(9);
     m_impl->m_imageViewChannelComboBox->setMinimumWidth(kImageChannelComboMinWidth);
 
-    m_impl->m_ToolBar->addWidget(m_impl->m_imageViewChannelComboBox);
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addWidget(m_impl->m_imageViewChannelComboBox));
 
     QObject::connect(m_impl->m_imageViewChannelComboBox, &QComboBox::currentTextChanged, this,
                      &ImageViewControl::on_imageViewChannelComboBox_currentTextChanged);
 
-    m_impl->m_ToolBar->addSeparator();
+    m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addSeparator());
 
     // Create the image view mode combobox
     if (mode == ViewControlMode::standard)
@@ -1393,6 +1466,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AutostretchSettingsAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("settings"), "Autostretch Settings", this, &ImageViewControl::autostretchSettings);
         m_impl->m_AutostretchSettingsAction->setToolTip("Autostretch Settings (Ctrl+Shift+A)");
+        m_impl->refreshAutostretchSettingsAvailability();
         m_impl->m_ToolBar->addSeparator();
 
         m_impl->m_UndoAction =
@@ -1459,38 +1533,69 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
 
         m_impl->m_AstrometrySettingsMenu->addSeparator();
 
-        m_impl->m_AstrometryMagnitudeSubMenu = m_impl->m_AstrometrySettingsMenu->addMenu(tr("Magnitude Limit"));
-        {
-            auto* magnitudeGroup = new QActionGroup(m_impl->m_AstrometryMagnitudeSubMenu);
-            magnitudeGroup->setExclusive(true);
-            const std::array<std::pair<QString, double>, 7> magnitudeOptions = {{{tr("Mag <= 6"), 6.0},
-                                                                                 {tr("Mag <= 8"), 8.0},
-                                                                                 {tr("Mag <= 10"), 10.0},
-                                                                                 {tr("Mag <= 12"), 12.0},
-                                                                                 {tr("Mag <= 14"), 14.0},
-                                                                                 {tr("Mag <= 16"), 16.0},
-                                                                                 {tr("All Catalog Objects"), 99.0}}};
-            for (const auto& [label, value] : magnitudeOptions)
+        // What the annotations name and how they look: an annotated picture's choices, named as Annotate Image names
+        // them, each submenu a group of exclusive items.
+        const auto addChoices = [this](const QString& title, const QString& name,
+                                       const std::vector<std::tuple<QString, int, QString>>& items, const int chosen) {
+            QMenu* menu = m_impl->m_AstrometrySettingsMenu->addMenu(title);
+            menu->setObjectName(name);
+            menu->setToolTipsVisible(true);
+            auto* group = new QActionGroup(menu);
+            group->setExclusive(true);
+            for (const auto& [label, value, tip] : items)
             {
-                auto* action = m_impl->m_AstrometryMagnitudeSubMenu->addAction(label);
+                QAction* action = menu->addAction(label);
                 action->setCheckable(true);
                 action->setData(value);
-                magnitudeGroup->addAction(action);
-                if (qFuzzyCompare(value, catalogMagnitudeLimit))
-                {
-                    action->setChecked(true);
-                }
+                action->setToolTip(tip);
+                action->setChecked(value == chosen);
+                group->addAction(action);
             }
-            if (!magnitudeGroup->checkedAction())
-            {
-                // Default to Mag <= 12 if saved value doesn't match exactly
-                const auto actions = magnitudeGroup->actions();
-                if (actions.size() > 3)
-                {
-                    actions[3]->setChecked(true);
-                }
-            }
+            return menu;
+        };
+        std::vector<std::tuple<QString, int, QString>> details;
+        for (const an::ui::AnnotationDetail detail : an::ui::annotationDetails())
+        {
+            details.emplace_back(an::ui::annotationDetailName(detail), static_cast<int>(detail),
+                                 an::ui::annotationDetailDescription(detail));
         }
+        m_impl->m_AstrometryDetailSubMenu = addChoices(tr("Level of Detail"), QStringLiteral("astrometryDetailMenu"),
+                                                       details, static_cast<int>(annotationChoices.detail));
+        m_impl->m_AstrometryLabelsSubMenu =
+            addChoices(tr("Labels"), QStringLiteral("astrometryLabelsMenu"),
+                       {{tr("Designation"), static_cast<int>(an::ui::AnnotationLabelText::Designation),
+                         tr("An object's designation, or its name when it has none: M 42, α Lyr")},
+                        {tr("Name"), static_cast<int>(an::ui::AnnotationLabelText::Name),
+                         tr("An object's common name, or its designation when it has none: Orion Nebula, Vega")},
+                        {tr("Designation and Name"), static_cast<int>(an::ui::AnnotationLabelText::DesignationAndName),
+                         tr("An object's designation, with its common name on a second line")}},
+                       static_cast<int>(annotationChoices.labelText));
+        std::vector<std::tuple<QString, int, QString>> palettes;
+        for (const an::ui::AnnotationPalette palette : an::ui::annotationPalettes())
+        {
+            palettes.emplace_back(an::ui::annotationPaletteName(palette), static_cast<int>(palette), QString());
+        }
+        m_impl->m_AstrometryPaletteSubMenu = addChoices(tr("Palette"), QStringLiteral("astrometryPaletteMenu"),
+                                                        palettes, static_cast<int>(annotationChoices.palette));
+        const auto textSizeTip = [](const an::ui::AnnotationViewTextSize size) {
+            switch (size)
+            {
+            case an::ui::AnnotationViewTextSize::Small:
+                return tr("Labels as large as the interface's captions");
+            case an::ui::AnnotationViewTextSize::Medium:
+                break;
+            case an::ui::AnnotationViewTextSize::Large:
+                return tr("Labels half as large again as the interface's captions");
+            }
+            return tr("Labels a quarter larger than the interface's captions");
+        };
+        std::vector<std::tuple<QString, int, QString>> textSizes;
+        for (const an::ui::AnnotationViewTextSize size : an::ui::annotationViewTextSizes())
+        {
+            textSizes.emplace_back(an::ui::annotationViewTextSizeName(size), static_cast<int>(size), textSizeTip(size));
+        }
+        m_impl->m_AstrometryTextSizeSubMenu = addChoices(tr("Text Size"), QStringLiteral("astrometryTextSizeMenu"),
+                                                         textSizes, static_cast<int>(annotationChoices.textSize));
 
         m_impl->m_AstrometrySettingsAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("settings"), tr("Astrometry Settings"));
@@ -1501,6 +1606,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AstrometryInfoAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("info"), tr("Astrometry Info"));
         m_impl->m_AstrometryInfoAction->setToolTip(tr("Show astrometry solution details (Ctrl+Shift+P)"));
+
+        // Annotated picture button (shown only for a solved image)
+        m_impl->m_AnnotateImageToolbarAction =
+            m_impl->m_ToolBar->addAction(iconManager->getIcon("panorama"), tr("Annotate Image"));
+        m_impl->m_AnnotateImageToolbarAction->setToolTip(
+            tr("Export a picture of the solved image with its objects, stars and coordinates named (Ctrl+Shift+L)"));
 
         // Plate solve button (shown only when no astrometry)
         m_impl->m_PlateSolveToolbarAction =
@@ -1565,7 +1676,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_imageViewModeComboBox->setAccessibleName(QStringLiteral("Display Mode"));
         m_impl->m_imageViewModeComboBox->setToolTip(QStringLiteral("Display Mode"));
 
-        m_impl->m_ToolBar->addWidget(m_impl->m_imageViewModeComboBox);
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_ToolBar->addWidget(m_impl->m_imageViewModeComboBox));
 
         QObject::connect(m_impl->m_imageViewModeComboBox, &QComboBox::currentTextChanged, this,
                          &ImageViewControl::on_imageViewModeComboBox_currentTextChanged);
@@ -1578,6 +1689,8 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_AutostretchSettingsAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("settings"), "Autostretch Settings", this, &ImageViewControl::autostretchSettings);
         m_impl->m_AutostretchSettingsAction->setToolTip(tr("Autostretch Settings (Ctrl+Shift+A)"));
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_AutostretchSettingsAction);
+        m_impl->refreshAutostretchSettingsAvailability();
 
         m_impl->m_StatsOverlayToggleAction = m_impl->m_ToolBar->addAction(
             iconManager->getIcon("stats"), tr("Show statistics"), this, [this](bool checked) {
@@ -1587,6 +1700,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         m_impl->m_StatsOverlayToggleAction->setCheckable(true);
         m_impl->m_StatsOverlayToggleAction->setChecked(true);
         m_impl->m_StatsOverlayToggleAction->setToolTip(tr("Show / hide image statistics overlay"));
+        m_impl->m_PresentationChoiceActions.emplace_back(m_impl->m_StatsOverlayToggleAction);
 
         m_impl->updateCalibrationToolTip();
     }
@@ -1659,18 +1773,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                       astrometryOverlayEnabled && coordinateGridEnabled);
         attachOverlay(m_impl->m_DistortionMapDisplayModule, an::ui::AstrometryOverlay::DistortionMap,
                       astrometryOverlayEnabled && distortionMapEnabled);
-        attachOverlay(m_impl->m_CatalogAnnotationDisplayModule, an::ui::AstrometryOverlay::CatalogAnnotations,
-                      astrometryOverlayEnabled && catalogAnnotationsEnabled);
-        attachOverlay(m_impl->m_BrightStarAnnotationDisplayModule, an::ui::AstrometryOverlay::BrightStarLabels,
-                      astrometryOverlayEnabled && starLabelsEnabled);
-        for (ImageViewWidgetDisplayModule* labelled :
-             {m_impl->m_CatalogAnnotationDisplayModule.get(), m_impl->m_BrightStarAnnotationDisplayModule.get()})
-        {
-            if (labelled != nullptr)
-            {
-                an::ui::setAstrometryOverlayMagnitudeLimit(*labelled, catalogMagnitudeLimit);
-            }
-        }
+        attachOverlay(m_impl->m_CatalogAnnotationDisplayModule, an::ui::AstrometryOverlay::CatalogAnnotations, false);
+        m_impl->showAnnotationChoices();
+        m_impl->showCatalogAnnotations(astrometryOverlayEnabled, catalogAnnotationsEnabled, starLabelsEnabled);
     }
     const auto persistBoolSetting = [this](const QString& key, const bool enabled) {
         if (auto* persistence = an::ui::appContext()->getGlobalSettings())
@@ -1689,50 +1794,43 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     // Astrometry master toggle
     if (m_impl->m_AstrometryToggleAction)
     {
-        QObject::connect(
-            m_impl->m_AstrometryToggleAction, &QAction::toggled, this, [this, persistBoolSetting](bool enabled) {
-                if (m_impl->m_AstrometrySettingsAction)
-                {
-                    m_impl->m_AstrometrySettingsAction->setEnabled(enabled);
-                }
+        QObject::connect(m_impl->m_AstrometryToggleAction, &QAction::toggled, this,
+                         [this, persistBoolSetting](bool enabled) {
+                             if (m_impl->m_AstrometrySettingsAction)
+                             {
+                                 m_impl->m_AstrometrySettingsAction->setEnabled(enabled);
+                             }
 
-                const bool gridChecked =
-                    m_impl->m_AstrometryGridMenuAction && m_impl->m_AstrometryGridMenuAction->isChecked();
-                const bool annotationsChecked =
-                    m_impl->m_AstrometryAnnotationsMenuAction && m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
-                const bool starLabelsChecked =
-                    m_impl->m_AstrometryStarLabelsMenuAction && m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
-                const bool sipChecked =
-                    m_impl->m_AstrometrySipMenuAction && m_impl->m_AstrometrySipMenuAction->isChecked();
-                const bool starsChecked = m_impl->m_AstrometryDetectedStarsMenuAction &&
-                                          m_impl->m_AstrometryDetectedStarsMenuAction->isChecked();
+                             const bool gridChecked =
+                                 m_impl->m_AstrometryGridMenuAction && m_impl->m_AstrometryGridMenuAction->isChecked();
+                             const bool annotationsChecked = m_impl->m_AstrometryAnnotationsMenuAction &&
+                                                             m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
+                             const bool starLabelsChecked = m_impl->m_AstrometryStarLabelsMenuAction &&
+                                                            m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
+                             const bool sipChecked =
+                                 m_impl->m_AstrometrySipMenuAction && m_impl->m_AstrometrySipMenuAction->isChecked();
+                             const bool starsChecked = m_impl->m_AstrometryDetectedStarsMenuAction &&
+                                                       m_impl->m_AstrometryDetectedStarsMenuAction->isChecked();
 
-                if (m_impl->m_CoordinateGridDisplayModule)
-                {
-                    m_impl->m_CoordinateGridDisplayModule->enableDisplayModule(enabled && gridChecked);
-                }
-                if (m_impl->m_DistortionMapDisplayModule)
-                {
-                    m_impl->m_DistortionMapDisplayModule->enableDisplayModule(enabled && sipChecked);
-                }
-                if (m_impl->m_CatalogAnnotationDisplayModule)
-                {
-                    m_impl->m_CatalogAnnotationDisplayModule->enableDisplayModule(enabled && annotationsChecked);
-                }
-                if (m_impl->m_BrightStarAnnotationDisplayModule)
-                {
-                    m_impl->m_BrightStarAnnotationDisplayModule->enableDisplayModule(enabled && starLabelsChecked);
-                }
-                if (m_impl->m_AstrometryStarDisplayModule)
-                {
-                    m_impl->m_AstrometryStarDisplayModule->enableDisplayModule(enabled && starsChecked);
-                }
-                // Master toggle state intentionally not persisted; starts unchecked per session.
-                if (m_impl->m_ImageViewWidget)
-                {
-                    m_impl->m_ImageViewWidget->update();
-                }
-            });
+                             if (m_impl->m_CoordinateGridDisplayModule)
+                             {
+                                 m_impl->m_CoordinateGridDisplayModule->enableDisplayModule(enabled && gridChecked);
+                             }
+                             if (m_impl->m_DistortionMapDisplayModule)
+                             {
+                                 m_impl->m_DistortionMapDisplayModule->enableDisplayModule(enabled && sipChecked);
+                             }
+                             m_impl->showCatalogAnnotations(enabled, annotationsChecked, starLabelsChecked);
+                             if (m_impl->m_AstrometryStarDisplayModule)
+                             {
+                                 m_impl->m_AstrometryStarDisplayModule->enableDisplayModule(enabled && starsChecked);
+                             }
+                             // Master toggle state intentionally not persisted; starts unchecked per session.
+                             if (m_impl->m_ImageViewWidget)
+                             {
+                                 m_impl->m_ImageViewWidget->update();
+                             }
+                         });
     }
 
     // Astrometry settings button opens popup menu
@@ -1778,11 +1876,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          [this, persistBoolSetting](bool enabled) {
                              const bool masterEnabled =
                                  m_impl->m_AstrometryToggleAction && m_impl->m_AstrometryToggleAction->isChecked();
-                             if (m_impl->m_CatalogAnnotationDisplayModule)
-                             {
-                                 m_impl->m_CatalogAnnotationDisplayModule->enableDisplayModule(masterEnabled &&
-                                                                                               enabled);
-                             }
+                             const bool starLabelsChecked = m_impl->m_AstrometryStarLabelsMenuAction &&
+                                                            m_impl->m_AstrometryStarLabelsMenuAction->isChecked();
+                             m_impl->showCatalogAnnotations(masterEnabled, enabled, starLabelsChecked);
                              persistBoolSetting(SettingsKeys::PLATESOLVE_CATALOG_ANNOTATIONS_ENABLED, enabled);
                              if (m_impl->m_ImageViewWidget)
                              {
@@ -1797,11 +1893,9 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          [this, persistBoolSetting](bool enabled) {
                              const bool masterEnabled =
                                  m_impl->m_AstrometryToggleAction && m_impl->m_AstrometryToggleAction->isChecked();
-                             if (m_impl->m_BrightStarAnnotationDisplayModule)
-                             {
-                                 m_impl->m_BrightStarAnnotationDisplayModule->enableDisplayModule(masterEnabled &&
-                                                                                                  enabled);
-                             }
+                             const bool annotationsChecked = m_impl->m_AstrometryAnnotationsMenuAction &&
+                                                             m_impl->m_AstrometryAnnotationsMenuAction->isChecked();
+                             m_impl->showCatalogAnnotations(masterEnabled, annotationsChecked, enabled);
                              persistBoolSetting(SettingsKeys::PLATESOLVE_STAR_LABELS_ENABLED, enabled);
                              if (m_impl->m_ImageViewWidget)
                              {
@@ -1847,35 +1941,42 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
                          });
     }
 
-    // Magnitude limit submenu
-    if (m_impl->m_AstrometryMagnitudeSubMenu)
-    {
-        QObject::connect(m_impl->m_AstrometryMagnitudeSubMenu, &QMenu::triggered, this,
-                         [this, persistStringSetting](QAction* action) {
-                             if (!action)
-                             {
-                                 return;
-                             }
-                             bool ok = false;
-                             const double magnitude_limit = action->data().toDouble(&ok);
-                             if (!ok)
-                             {
-                                 return;
-                             }
-                             if (m_impl->m_CatalogAnnotationDisplayModule)
-                             {
-                                 an::ui::setAstrometryOverlayMagnitudeLimit(*m_impl->m_CatalogAnnotationDisplayModule,
-                                                                            magnitude_limit);
-                             }
-                             if (m_impl->m_BrightStarAnnotationDisplayModule)
-                             {
-                                 an::ui::setAstrometryOverlayMagnitudeLimit(
-                                     *m_impl->m_BrightStarAnnotationDisplayModule, magnitude_limit);
-                             }
-                             persistStringSetting(SettingsKeys::PLATESOLVE_CATALOG_MAGNITUDE_LIMIT,
-                                                  QString::number(magnitude_limit, 'f', 1));
-                         });
-    }
+    // The level of detail, the labels, the palette and the text size: each choice is handed to the overlays and kept.
+    const auto connectChoices = [this, persistStringSetting](QMenu* menu,
+                                                             void (*choose)(an::ui::AnnotationViewChoices&, int)) {
+        if (menu == nullptr)
+        {
+            return;
+        }
+        QObject::connect(menu, &QMenu::triggered, this, [this, persistStringSetting, choose](QAction* action) {
+            bool ok = false;
+            const int value = action != nullptr ? action->data().toInt(&ok) : 0;
+            if (!ok)
+            {
+                return;
+            }
+            choose(m_impl->m_AnnotationChoices, value);
+            m_impl->showAnnotationChoices();
+            persistStringSetting(SettingsKeys::ANNOTATION_VIEW_CHOICES,
+                                 an::ui::storedAnnotationViewChoices(m_impl->m_AnnotationChoices));
+            if (m_impl->m_ImageViewWidget)
+            {
+                m_impl->m_ImageViewWidget->update();
+            }
+        });
+    };
+    connectChoices(m_impl->m_AstrometryDetailSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.detail = static_cast<an::ui::AnnotationDetail>(value);
+    });
+    connectChoices(m_impl->m_AstrometryLabelsSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.labelText = static_cast<an::ui::AnnotationLabelText>(value);
+    });
+    connectChoices(m_impl->m_AstrometryPaletteSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.palette = static_cast<an::ui::AnnotationPalette>(value);
+    });
+    connectChoices(m_impl->m_AstrometryTextSizeSubMenu, [](an::ui::AnnotationViewChoices& choices, const int value) {
+        choices.textSize = static_cast<an::ui::AnnotationViewTextSize>(value);
+    });
 
     // Astrometry info button
     if (m_impl->m_AstrometryInfoAction)
@@ -1889,6 +1990,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     {
         QObject::connect(m_impl->m_PlateSolveToolbarAction, &QAction::triggered, this,
                          &ImageViewControl::executePlateSolve);
+    }
+
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        QObject::connect(m_impl->m_AnnotateImageToolbarAction, &QAction::triggered, this,
+                         &ImageViewControl::executeAnnotateImage);
     }
 
     m_impl->m_ScrollArea->setOverlayWidget(m_impl->m_ViewControlTextOverlay);
@@ -2693,6 +2800,13 @@ void ImageViewControl::executePlateSolve()
     (void)an::ui::openViewTool(an::ui::ViewTool::PlateSolve, *this);
 }
 
+void ImageViewControl::executeAnnotateImage()
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    (void)an::ui::openViewTool(an::ui::ViewTool::AnnotateImage, *this);
+}
+
 void ImageViewControl::adjustImageToWindow()
 {
     CHECK_IF_CONTROL_IS_CLOSING;
@@ -2958,7 +3072,8 @@ void ImageViewControl::notifyImageLoaded()
 
 void ImageViewControl::requestPreviewStatistics()
 {
-    if (!m_impl->m_MeasuresPreviewStatistics)
+    // The owner's own choice, and the presentation choices being offered at all: neither is the other's to change.
+    if (!m_impl->m_MeasuresPreviewStatistics || !m_impl->m_PresentationChoicesOffered)
     {
         return;
     }
@@ -2994,6 +3109,44 @@ void ImageViewControl::setMeasuresPreviewStatistics(const bool measures)
     if (!measures)
     {
         m_impl->m_Statistics.cancel();
+    }
+}
+
+bool ImageViewControl::measuresPreviewStatistics() const
+{
+    return m_impl->m_MeasuresPreviewStatistics;
+}
+
+void ImageViewControl::setPresentationChoicesOffered(const bool offered)
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    m_impl->m_PresentationChoicesOffered = offered;
+    for (const QPointer<QAction>& action : m_impl->m_PresentationChoiceActions)
+    {
+        if (action)
+        {
+            // Hidden here rather than by the overflow, whose next pass would show it again.
+            action->setProperty(kOverflowHiddenProperty, false);
+            action->setVisible(offered);
+        }
+    }
+    m_impl->refreshAutostretchSettingsAvailability();
+    // Whether the preview measures statistics and whether it shows the banner over an automatic stretch are its
+    // owner's own choices (`setMeasuresPreviewStatistics`, `setShowAutostretchBanner`). Taking the presentation
+    // choices away stops both; offering them again leaves each as its owner set it.
+    if (!offered)
+    {
+        m_impl->m_Statistics.cancel();
+    }
+    m_impl->m_StaticPreviewStatsOverlayVisible =
+        offered && (m_impl->m_StatsOverlayToggleAction == nullptr || m_impl->m_StatsOverlayToggleAction->isChecked());
+    m_impl->updateStaticPreviewStatsOverlay(offered ? m_impl->m_StaticPreviewOverlayStats : std::nullopt);
+    enableAutostretchBanner(offered && m_impl->m_ShowAutostretchBanner && m_impl->m_ImageViewWidget != nullptr &&
+                            m_impl->m_ImageViewWidget->getViewMode() == ImageViewMode::AUTOSTRETCH_MODE);
+    if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
+    {
+        customToolBar->refreshOverflow();
     }
 }
 
@@ -3037,6 +3190,15 @@ void ImageViewControl::notifyImageSaved()
     if (m_impl->m_ViewControlMode == ViewControlMode::standard)
     {
         resetPendingChanges();
+
+        // A save can make an image a file for the first time: the menus offer what a file has.
+        if (auto* context = an::ui::appContext())
+        {
+            if (auto* actionStateManager = context->getActionStateManager())
+            {
+                actionStateManager->updateActiveImageActions();
+            }
+        }
     }
 }
 
@@ -3097,7 +3259,22 @@ void ImageViewControl::notifyImageUpdatedImpl(std::optional<an::DisplayPresentat
     // A real-time preview's frames keep the source's metadata, so its coordinates are not read again per frame.
     if (m_impl->m_ViewControlMode != ViewControlMode::rt_preview)
     {
+        const bool solvedBefore = m_impl->m_CelestialCoordinateSystem.has_value();
         refreshCelestialCoordinateSystemCache();
+        // What the menus offer of an image follows whether it states a solution - Annotate Image is offered for one
+        // that does - so a view that gains or loses its solution, as a plate solve or an edit makes it, has the
+        // application's actions read again. The view's own toolbar is refreshed with every update.
+        if (m_impl->m_ViewControlMode == ViewControlMode::standard &&
+            solvedBefore != m_impl->m_CelestialCoordinateSystem.has_value())
+        {
+            if (auto* context = an::ui::appContext())
+            {
+                if (auto* actionStateManager = context->getActionStateManager())
+                {
+                    actionStateManager->updateActiveImageActions();
+                }
+            }
+        }
     }
 
     updateSupportedImageChannels();
@@ -3649,6 +3826,10 @@ void ImageViewControl::refreshTheme()
     if (m_impl->m_PlateSolveToolbarAction)
     {
         m_impl->m_PlateSolveToolbarAction->setIcon(iconManager->getIcon("search"));
+    }
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        m_impl->m_AnnotateImageToolbarAction->setIcon(iconManager->getIcon("panorama"));
     }
     if (m_impl->m_RTPreviewShowOriginalAction)
     {
@@ -4510,6 +4691,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
             m_impl->m_ToolBar->addAction(m_impl->m_AutostretchSettingsAction);
             m_impl->m_RTPreviewAutostretchSeparatorAction = m_impl->m_ToolBar->addSeparator();
         }
+        m_impl->refreshAutostretchSettingsAvailability();
     }
 
     if (m_impl->m_imageViewModeComboBox)
@@ -4544,7 +4726,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
 void ImageViewControl::setShowAutostretchBanner(bool show)
 {
     m_impl->m_ShowAutostretchBanner = show;
-    enableAutostretchBanner(show);
+    enableAutostretchBanner(show && m_impl->m_PresentationChoicesOffered);
 }
 
 bool ImageViewControl::isShowAutostretchBannerEnabled()
@@ -4636,6 +4818,11 @@ void ImageViewControl::updateImageActions()
     {
         m_impl->m_PlateSolveToolbarAction->setVisible(hasImage && !isSeq);
         m_impl->m_PlateSolveToolbarAction->setEnabled(canPlateSolveCurrentImage());
+    }
+    if (m_impl->m_AnnotateImageToolbarAction)
+    {
+        m_impl->m_AnnotateImageToolbarAction->setVisible(hasAstrometry && !isSeq);
+        m_impl->m_AnnotateImageToolbarAction->setEnabled(hasAstrometry && !isSeq);
     }
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
@@ -4892,17 +5079,10 @@ QCheckBox* ImageViewControl::getRTPreviewAreaCheckBox() const
     return m_impl->m_chkRTPreviewArea;
 }
 
-void ImageViewControl::setAutostretchSettingsActionEnabled(bool enabled)
+void ImageViewControl::setAutostretchSettingsOpen(bool open)
 {
-    if (m_impl->m_AutostretchSettingsAction)
-    {
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, enabled);
-    }
-
-    if (m_impl->m_imageViewModeComboBox)
-    {
-        m_impl->m_imageViewModeComboBox->setEnabled(enabled);
-    }
+    m_impl->m_AutostretchSettingsOpen = open;
+    m_impl->refreshAutostretchSettingsAvailability();
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
     {
@@ -4918,6 +5098,7 @@ void ImageViewControl::setViewMode(ImageViewMode mode)
         {
             m_impl->m_ImageViewWidget->setViewMode(mode);
         }
+        m_impl->refreshAutostretchSettingsAvailability();
         return;
     }
 
@@ -5168,6 +5349,11 @@ bool ImageViewControl::canPlateSolveCurrentImage() const
     return m_impl->hasImage() && !isSequence();
 }
 
+bool ImageViewControl::canAnnotateCurrentImage() const
+{
+    return canPlateSolveCurrentImage() && imageSolution().has_value();
+}
+
 ImageViewWorkTelemetry ImageViewControl::workTelemetry() const
 {
     return m_impl->m_Telemetry;
@@ -5209,7 +5395,6 @@ ImageViewControl::~ImageViewControl()
     m_impl->m_CoordinateGridDisplayModule.reset();
     m_impl->m_DistortionMapDisplayModule.reset();
     m_impl->m_CatalogAnnotationDisplayModule.reset();
-    m_impl->m_BrightStarAnnotationDisplayModule.reset();
     m_impl->m_History.reset();
     if (m_impl->m_SequencePlayer)
     {
@@ -5349,14 +5534,14 @@ void ImageViewControl::on_imageViewModeComboBox_currentTextChanged(const QString
     if (text == IMAGE_VIEW_MODE_LINEAR)
     {
         m_impl->m_ImageViewWidget->setViewMode(ImageViewMode::LINEAR_MODE);
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, false);
+        m_impl->refreshAutostretchSettingsAvailability();
         enableAutostretchBanner(false);
     }
     else if (text == IMAGE_VIEW_MODE_AUTOSTRETCH)
     {
         m_impl->m_ImageViewWidget->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
-        setToolbarActionEnabled(m_impl->m_AutostretchSettingsAction, true);
-        enableAutostretchBanner(m_impl->m_ShowAutostretchBanner);
+        m_impl->refreshAutostretchSettingsAvailability();
+        enableAutostretchBanner(m_impl->m_ShowAutostretchBanner && m_impl->m_PresentationChoicesOffered);
     }
 
     if (auto* customToolBar = dynamic_cast<CustomToolBar*>(m_impl->m_ToolBar))
@@ -5438,6 +5623,11 @@ void ImageViewControl::guestViewChanged()
 
 void ImageViewControl::autostretchSettings()
 {
+    if (!m_impl->autostretchSettingsAvailable())
+    {
+        return;
+    }
+
     AutostretchSettingsControl* control = new AutostretchSettingsControl(this);
 
     control->setColorCalibrationControlsEnabled(!isSequence());
@@ -5593,6 +5783,8 @@ void ImageViewControl::updateSupportedImageChannels(bool forceUpdate)
             }
         }
 
+        // The mode was restored with its signals blocked, so the settings button is offered for it here.
+        m_impl->refreshAutostretchSettingsAvailability();
         m_impl->m_LastImageChannels.store(current_channel_count, std::memory_order_relaxed);
         channel_count_changed = previous_channel_count != current_channel_count;
     }
@@ -5787,6 +5979,10 @@ bool ImageViewControl::eventFilter(QObject* watched, QEvent* event)
         case Qt::Key_W:
             if (isShortcutActionAvailable(m_impl->m_AstrometryToggleAction))
                 m_impl->m_AstrometryToggleAction->toggle();
+            return true;
+        case Qt::Key_L:
+            if (isShortcutActionAvailable(m_impl->m_AnnotateImageToolbarAction))
+                executeAnnotateImage();
             return true;
         case Qt::Key_K:
             if (m_impl->m_ViewControlMode == ViewControlMode::rt_preview)
