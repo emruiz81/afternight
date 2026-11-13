@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="https://afternightastro.org/"><strong>Website</strong></a> &nbsp;·&nbsp;
   <a href="https://github.com/emruiz81/afternight/releases"><strong>Download</strong></a> &nbsp;·&nbsp;
   <a href="https://docs.afternightastro.org/"><strong>User guide</strong></a> &nbsp;·&nbsp;
   <a href="https://docs.afternightastro.org/getting-started/quick-start.html"><strong>Quick start</strong></a> &nbsp;·&nbsp;
@@ -129,6 +130,7 @@ set of frames to a master.
 
 ## Documentation
 
+- The [AfterNight website](https://afternightastro.org/) is the project's home page.
 - The [user guide](https://docs.afternightastro.org/) covers installation, the interface, every process and the
   common workflows. The installers carry it too, and **Help > User Guide** opens that copy without a network
   connection.

@@ -32,6 +32,21 @@
 .header-links a:hover { color: var(--text); }
 .header-links a[aria-current] { color: var(--text); border-bottom-color: var(--accent); }
 .header-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.site-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-2);
+    font-size: 14px;
+    white-space: nowrap;
+}
+.site-link:hover { color: var(--text); border-color: var(--border-strong); }
+.site-link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .menu-btn { display: none; }
 .theme-btn .icon-sun { display: none; }
 :root[data-theme="light"] .theme-btn .icon-sun { display: block; }
@@ -344,6 +359,12 @@
     .side-toc { display: none; }
 }
 
+/* While the section links share the header, the website link is the globe alone; its label returns with the drawer. */
+@media (min-width: 1024px) and (max-width: 1300px) {
+    .site-link { width: 38px; padding: 0; justify-content: center; }
+    .site-link span { display: none; }
+}
+
 @media (max-width: 1180px) {
     .brand-docs { display: none; }
     .header-row { gap: 16px; }
@@ -390,7 +411,7 @@
     .search { flex: 1; }
     .search input { width: 100%; }
     .search-results { position: fixed; top: calc(var(--nav-h) + 6px); left: 12px; right: 12px; width: auto; }
-    .repo-link { display: none; }
+    .repo-link, .site-link { display: none; }
     .stepper-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding-top: 16px; }
     .stp { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; }
     .stp::before, .stepper-here .stp > li.cur::after { display: none; }
