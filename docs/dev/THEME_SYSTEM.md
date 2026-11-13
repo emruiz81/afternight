@@ -400,7 +400,7 @@ Reasons:
 - QSS strings are opaque to the compiler, lose type safety, and are impossible to validate at build time.
 - QSS does not participate in the token resolution pipeline (contrast profiles, accent families, surface tints).
 
-**No code under `src/` calls `setStyleSheet()`, and the process-window tests assert that a window and its children carry no style sheet (`expectNoStyleSheet` in `src/AfterNightTests/Test_ProcessFramework/ProcessWindowCaseSupport.h`). Meet a styling need with an `AnProxyStyle` override or a custom `paintEvent()`.**
+**No code under `src/` calls `setStyleSheet()`: `SourceGuards.NoStyleSheetsInSrc` in `Test_ImageIntegration` reads the product's sources for a stylesheet set or read, the stylesheet style and a `.qss` file, and the process-window tests assert that a window and its children carry no style sheet (`expectNoStyleSheet` in `src/AfterNightTests/Test_ProcessFramework/ProcessWindowCaseSupport.h`). Meet a styling need with an `AnProxyStyle` override or a custom `paintEvent()`.**
 
 ### 2. No Hardcoded Colors
 

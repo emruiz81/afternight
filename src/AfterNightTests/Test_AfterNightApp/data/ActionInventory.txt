@@ -1,0 +1,455 @@
+# The actions and the menu bar of AfterNight 1.1's main window.
+#
+# [actions]: every action the window declares, in the order it declares them:
+#   object name | text | tool tip | shortcut | shortcut context | icon | checkable or plain |
+#   the menus of the menu bar that hold it, `;` between two
+# The icon is the name of the application's icon resource the action shows. The actions are
+# read with one image open that was never edited or maximized: Undo, Redo and Maximize View
+# follow the active image.
+#
+# [menu bar]: the menu bar's tree, four spaces a level:
+#   menu | object name | title      a menu and, under it, what it holds
+#   action | object name            an action of [actions]
+#   entry | text                    an entry the window adds that [actions] does not hold
+#   separator
+# A menu marked `varies` holds what a person did - the recent files, the favourite and the
+# recent processes - and is held by its name alone; of the Extensions menu, which also lists
+# what is installed, only the actions of [actions] are held. Neither counts among the menus
+# that hold an action.
+#
+# ApplicationMenu.ActionInventoryMatchesTheRecord and .MenuBarTreeMatchesTheRecord in Test_AfterNightApp compares the running application with this record.
+# An entry is edited by the change that means to move it - a renamed action, a new menu
+# entry, a retired process; the record is not written again whole. A field is `-` when
+# empty; `\t` is a tab and `\|` a bar inside a text.
+
+[actions]
+actionOpen | Open | Open | Ctrl+O | window | folder_open | plain | File
+actionSave_as | Save as... | Save as | Ctrl+Shift+S | window | file_save | plain | File
+actionExit | Exit | Exit | - | window | exit | plain | File
+actionAbout_Qt | About Qt | About Qt | - | window | - | plain | About
+actionAbout_AfterNight | About AfterNight | About AfterNight | - | window | - | plain | About
+actionSystem_Information | System Information | System Information | - | window | - | plain | About
+actionUser_Guide | User Guide | Open the AfterNight User Guide. | F1 | application | help | plain | Help
+actionUndo | Undo | Undo | Ctrl+Z | window | undo | plain | Edit
+actionRedo | Redo | Redo | Ctrl+Y | window | redo | plain | Edit
+actionClose | Close | Close | - | window | close | plain | File
+actionClose_All | Close All | Close All | - | window | close | plain | File
+actionDuplicate | Duplicate | Duplicate | - | window | copy | plain | Image > Actions
+actionRename | Rename | Rename | - | window | edit | plain | Image > Actions
+actionShow_In_File_Browser | Show in File Browser | Show in File Browser | - | window | folder_open | plain | Image
+actionExtract_Red_Channel | Extract Red Channel | Extract Red Channel | - | window | red_circle | plain | Image > Extract Channel
+actionExtract_Green_Channel | Extract Green Channel | Extract Green Channel | - | window | green_circle | plain | Image > Extract Channel
+actionExtract_Blue_Channel | Extract Blue Channel | Extract Blue Channel | - | window | blue_circle | plain | Image > Extract Channel
+actionExtract_RGB_Channels | Extract RGB Channels | Extract RGB Channels | - | window | rgb | plain | Image > Extract Channel
+actionConvert_to_8_bit | Convert to 8 bit | Convert to 8 bit | - | window | - | plain | Image > Convert Format
+actionConvert_to_signed_16_bit | Convert to signed 16 bit | Convert to signed 16 bit | - | window | - | plain | Image > Convert Format
+actionConvert_to_unsigned_16_bit | Convert to unsigned 16 bit | Convert to unsigned 16 bit | - | window | - | plain | Image > Convert Format
+actionConvert_to_signed_32_bit | Convert to signed 32 bit | Convert to signed 32 bit | - | window | - | plain | Image > Convert Format
+actionConvert_to_unsigned_32_bit | Convert to unsigned 32 bit | Convert to unsigned 32 bit | - | window | - | plain | Image > Convert Format
+actionConvert_to_32_bit_float | Convert to 32 bit float | Convert to 32 bit float | - | window | - | plain | Image > Convert Format
+actionConvert_to_64_bit_float | Convert to 64 bit float | Convert to 64 bit float | - | window | - | plain | Image > Convert Format
+action | . | . | - | window | - | plain | -
+actionHorizontal_Mirror | Horizontal Mirror | Horizontal Mirror | - | window | swap_horiz | plain | Image > Fast Geometry
+actionVertical_Mirror | Vertical Mirror | Vertical Mirror | - | window | swap_vert | plain | Image > Fast Geometry
+actionArcSinh_Stretch | ArcSinh Stretch | ArcSinh Stretch | - | window | - | plain | Process > Intensity Transformations
+actionRotate_180 | Rotate 180º | Rotate 180º | - | window | rotate_180 | plain | Image > Fast Geometry
+actionRotate_90_Left | Rotate 90º Left | Rotate 90º Left | - | window | rotate_90_ccw | plain | Image > Fast Geometry
+actionRotate_90_Right | Rotate 90º Right | Rotate 90º Right | - | window | rotate_90_cw | plain | Image > Fast Geometry
+actionStarnet | Starnet++ | Starnet++ | - | window | - | plain | Process > Star Processing
+actionStar_Reduction | Star Reduction | Star Reduction | - | window | - | plain | Process > Star Processing
+actionAutomatic_MTF_Transform | Automatic MTF Transform | Automatic MTF Transform | - | window | - | plain | -
+actionExtract_CIE_L | Extract CIE L* | Extract CIE L* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_a | Extract CIE a* | Extract CIE a* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_b | Extract CIE b* | Extract CIE b* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_a_b | Extract CIE a*=R / b*=G | Extract CIE a*=R / b*=G | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_L_a_b | Extract CIE L*a*b* | Extract CIE L*a*b* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_L_c_h | Extract CIE L*c*h* | Extract CIE L*c*h* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_c | Extract CIE c* | Extract CIE c* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_h | Extract CIE h* | Extract CIE h* | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_X | Extract CIE X | Extract CIE X | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_Y | Extract CIE Y | Extract CIE Y | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_Z | Extract CIE Z | Extract CIE Z | - | window | cielab | plain | Image > Extract Channel
+actionExtract_CIE_X_Y_Z | Extract CIE XYZ | Extract CIE XYZ | - | window | cielab | plain | Image > Extract Channel
+actionExtract_HSL_Hue | Extract HSL Hue | Extract HSL Hue | - | window | hsl | plain | Image > Extract Channel
+actionExtract_HSL_Saturation | Extract HSL Saturation | Extract HSL Saturation | - | window | hsl | plain | Image > Extract Channel
+actionExtract_HSL_Lightness | Extract HSL Lightness | Extract HSL Lightness | - | window | hsl | plain | Image > Extract Channel
+actionExtract_HSL | Extract HSL | Extract HSL | - | window | hsl | plain | Image > Extract Channel
+actionExtract_HSV_Hue | Extract HSV Hue | Extract HSV Hue | - | window | hsv | plain | Image > Extract Channel
+actionExtract_HSV_Saturation | Extract HSV Saturation | Extract HSV Saturation | - | window | hsv | plain | Image > Extract Channel
+actionExtract_HSV_Value | Extract HSV Value | Extract HSV Value | - | window | hsv | plain | Image > Extract Channel
+actionExtract_HSV | Extract HSV | Extract HSV | - | window | hsv | plain | Image > Extract Channel
+actionExtract_HSI_Hue | Extract HSI Hue | Extract HSI Hue | - | window | - | plain | Image > Extract Channel
+actionExtract_HSI_Saturation | Extract HSI Saturation | Extract HSI Saturation | - | window | - | plain | Image > Extract Channel
+actionExtract_HSI_Intensity | Extract HSI Intensity | Extract HSI Intensity | - | window | - | plain | Image > Extract Channel
+actionExtract_HSI | Extract HSI | Extract HSI | - | window | - | plain | Image > Extract Channel
+actionNegative_Transformation | Negative Transformation | Negative Transformation | - | window | film | plain | Process > Adjustments
+actionImage_History | Image History | Image History | - | window | history | plain | Edit
+actionasd | asd | asd | - | window | - | plain | -
+actionasd_2 | asd | asd | - | window | - | plain | -
+actionStatistics | Statistics | Statistics | - | window | stats | plain | Image > Information
+actionHistogram | Histogram | Histogram | - | window | histogram | plain | Image > Information
+actionImage_EXIFViewer | EXIF Viewer | EXIF Viewer | - | window | camera | plain | Image > Information
+actionFITSHeader | FITS Header | FITS Header | - | window | header | plain | Image > Information
+actionAstrometryInfo | Astrometry Info | Astrometry Info | - | window | summary | plain | Image > Information
+actionPlateSolve | Plate Solve | Plate Solve | - | window | grid | plain | Image > Information
+actionAnnotateImage | Annotate Image... | Annotate Image | - | window | panorama | plain | Image > Information
+actionAdjustBrightness_Contrast | Brightness/Contrast | Brightness/Contrast | - | window | brightness | plain | Process > Adjustments
+actionGamma_Correction | Gamma Correction | Gamma Correction | - | window | gamma | plain | Process > Adjustments
+actionAdjustHSL | Hue/Saturation/Lightness | Hue/Saturation/Lightness | - | window | hsl | plain | Process > Adjustments
+actionStarmask_Recombination | Starmask Recombination | Starmask Recombination | - | window | - | plain | Process > Star Processing
+actionSCNR | SCNR Filter | SCNR Filter | - | window | - | plain | Process > Color Calibration
+actionMedian_Filter | Median Filter | Median Filter | - | window | - | plain | Process > Filters
+actionClose_2 | Close | Close | - | window | close | plain | Image > Actions
+actionZoom_In | Zoom In | Zoom In | Ctrl++ | window | zoom_in | plain | Image > View
+actionZoom_Out | Zoom Out | Zoom Out | Ctrl+- | window | zoom_out | plain | Image > View
+actionZoom_100 | Zoom 100% | Zoom 100% | Ctrl+0 | window | zoom_100 | plain | Image > View
+actionFit_To_Window | Fit To Window | Fit To Window | - | window | zoom_fit | plain | Image > View
+actionClose_All_Others | Close All Others | Close All Others | - | window | close | plain | File
+actionChannelComposition | Channel Composition | Channel Composition | - | window | - | plain | Process > Color Spaces
+actionDebayer | Debayer | Debayer | - | window | - | plain | Process > Color Spaces
+actionConvert_to_Grayscale | Convert to Grayscale | Convert to Grayscale | - | window | grayscale | plain | Process > Adjustments
+actionConvert_to_RGB | Convert to RGB | Convert to RGB | - | window | rgb | plain | Process > Adjustments
+actionSummary | Summary | Summary | - | window | summary | plain | Image > Information
+actionResize | Resize | Resize | - | window | zoom_100 | plain | Process > Geometry
+actionCrop | Crop | Crop | - | window | crop | plain | Process > Geometry
+actionRotate | Rotate | Rotate | - | window | crop_rotate | plain | Process > Geometry
+actionHistogram_Transformation | Histogram Transformation | Histogram Transformation | - | window | - | plain | Process > Intensity Transformations
+actionColor_Calibration_2 | Color Calibration | Color Calibration | - | window | - | plain | Process > Color Calibration
+actionPhotometric_Color_Calibration | Photometric Color Calibration | Photometric Color Calibration | - | window | - | plain | Process > Color Calibration
+actionSpectrophotometric_Color_Calibration | Spectrophotometric Color Calibration | Spectrophotometric Color Calibration | - | window | - | plain | Process > Color Calibration
+actionBackground_Neutralization | Background Neutralization | Background Neutralization | - | window | - | plain | Process > Color Calibration
+actionMask_Drawing | Mask Drawing | Mask Drawing | - | window | - | plain | Process > Mask Generation
+actionRange_Selection | Range Selection | Range Selection | - | window | - | plain | Process > Mask Generation
+actionSelect_Mask | Select Mask | Select Mask | - | window | - | plain | Image > Mask
+actionRemove_Mask | Remove Mask | Remove Mask | - | window | - | plain | Image > Mask
+actionInvert_Mask | Invert Mask | Invert Mask | - | window | - | checkable | Image > Mask
+actionEnable_Mask | Enable Mask | Enable Mask | - | window | - | checkable | Image > Mask
+actionShow_Mask | Show Mask | Show Mask | - | window | - | checkable | Image > Mask
+actionOverlay_Red | Overlay Red | Overlay Red | - | window | red_circle | checkable | Image > Mask > Rendering Mode
+actionOverlay_Green | Overlay Green | Overlay Green | - | window | green_circle | checkable | Image > Mask > Rendering Mode
+actionOverlay_Blue | Overlay Blue | Overlay Blue | - | window | blue_circle | checkable | Image > Mask > Rendering Mode
+actionOverlay_Yellow | Overlay Yellow | Overlay Yellow | - | window | yellow_circle | checkable | Image > Mask > Rendering Mode
+actionOverlay_Magenta | Overlay Magenta | Overlay Magenta | - | window | magenta_circle | checkable | Image > Mask > Rendering Mode
+actionOverlay_Cyan | Overlay Cyan | Overlay Cyan | - | window | cyan_circle | checkable | Image > Mask > Rendering Mode
+actionReplace | Replace | Replace | - | window | - | checkable | Image > Mask > Rendering Mode
+actionMultiply | Multiply | Multiply | - | window | - | checkable | Image > Mask > Rendering Mode
+actionIntegerResample | Integer Resample | Integer Resample | - | window | grid_2 | plain | Process > Geometry
+actionCLA_Histogram_Equalization | CLA Histogram Equalization | CLA Histogram Equalization | - | window | - | plain | Process > Intensity Transformations
+actionDeepSNR | DeepSNR | DeepSNR | - | window | - | plain | Process > Noise Reduction
+actionNon_Local_Bayes_Filter | Non-Local Bayes Filter | Non-Local Bayes Filter | - | window | - | plain | Process > Noise Reduction
+actionBackground_Extraction | Background Extraction | Background Extraction | - | window | - | plain | Process > Background Modelization
+actionAuto_Gradient_Removal | Auto Gradient Removal | Auto Gradient Removal | - | window | - | plain | Process > Background Modelization
+actionWavelet_Denoise_Filter | Wavelet Denoise Filter | Wavelet Denoise Filter | - | window | - | plain | Process > Noise Reduction
+actionPatch_PCA_Filter | Patch PCA Denoise Filter | Patch PCA Denoise Filter | - | window | - | plain | Process > Noise Reduction
+actionLocal_Histogram_Equalization | Local Histogram Equalization | Local Histogram Equalization | - | window | - | plain | Process > Intensity Transformations
+actionLocal_Contrast_Enhancement | Local Contrast Enhancement | Local Contrast Enhancement | - | window | - | plain | Process > Details
+actionDark_Structure_Enhance | Dark Structure Enhance | Dark Structure Enhance | - | window | - | plain | Process > Details
+actionLinear_Match | Linear Match | Linear Match | - | window | - | plain | Process > Color Calibration
+actionCurves_Transformation | Curves Transformation | Curves Transformation | - | window | - | plain | Process > Intensity Transformations
+actionExtract_YCbCr_Luminance | Extract YCbCr Luma | Extract YCbCr Luma | - | window | cielab | plain | Image > Extract Channel
+actionExtract_YCbCr_Blue_Chrominance | Extract YCbCr Blue Chroma | Extract YCbCr Blue Chroma | - | window | cielab | plain | Image > Extract Channel
+actionExtract_YCbCr_Red_Chrominance | Extract YCbCr Red Chroma | Extract YCbCr Red Chroma | - | window | cielab | plain | Image > Extract Channel
+actionExtract_YCbCr | Extract YCbCr | Extract YCbCr | - | window | cielab | plain | Image > Extract Channel
+actionMultiscale_Linear_Transform | Multiscale Linear Transform | Multiscale Linear Transform | - | window | - | plain | Process > Multiscale
+actionMultiscale_Alpha_Sharpen | Multiscale Alpha Sharpen | Multiscale Alpha Sharpen | - | window | - | plain | Process > Details
+actionStar_Mask | Star Mask | Star Mask | - | window | - | plain | Process > Mask Generation
+actionStarnet_Star_Mask | Starnet++ Star Mask | Starnet++ Star Mask | - | window | - | plain | Process > Mask Generation
+actionGaussian_Blur | Gaussian Blur | Gaussian Blur | - | window | - | plain | Process > Details; Process > Filters
+actionHigh_Pass | High Pass | High Pass | - | window | - | plain | Process > Details
+actionFilters | Filters | Filters | - | window | - | plain | -
+actionMorphological_Transformation | Morphological Transformation | Morphological Transformation | - | window | - | plain | Process > Morphology
+actionGRAYCstoration_Filter | GRAYCstoration Filter | GRAYCstoration Filter | - | window | - | plain | Process > Noise Reduction
+actionAdjustLightness_Chroma_Hue | Lightness/Chroma/Hue | Lightness/Chroma/Hue | - | window | cielab | plain | Process > Adjustments
+actionExposure | Exposure | Exposure | - | window | exposure | plain | Process > Adjustments
+actionCosmetic_Correction_Filter | Cosmetic Correction Filter | Cosmetic Correction Filter | - | window | - | plain | Process > Filters
+actionBanding_Reduction_Filter | Banding Reduction Filter | Banding Reduction Filter | - | window | - | plain | Process > Filters
+actionStar_Profiler_v2 | Star Profiler v2 | Star Profiler v2 | - | window | - | plain | Process > Star Processing
+actionTighten_Edges | Tighten Edges | Tighten Edges | - | window | - | plain | Process > Morphology
+actionProfiled_Starmask_Recombination | Profiled Starmask Recombination | Profiled Starmask Recombination | - | window | - | plain | Process > Star Processing
+actionStar_Profiler_v1 | Star Profiler v1 | Star Profiler v1 | - | window | - | plain | Process > Star Processing
+actionLock_Layout | Lock Layout | Lock Layout | - | window | lock | plain | Window
+actionUnlock_Layout | Unlock Layout | Unlock Layout | - | window | unlock | plain | Window
+actionFit_Images_To_Window | Fit Images To Window | Fit Images To Window | - | window | zoom_fit | plain | Window
+actionGroup_All_Images | Group All Images | Group All Images | - | window | tab_group | plain | Window
+actionSplit_All_Images | Split All Images | Split All Images | - | window | grid_3 | plain | Window
+actionUnsharp_Mask | Unsharp Mask | Unsharp Mask | - | window | - | plain | Process > Details
+actionNoise_Generator | Noise Generator | Noise Generator | - | window | - | plain | Process > Utilities
+actionTotal_Variation_Denoise_Filter | Total Variation Denoise Filter | Total Variation Denoise Filter | - | window | - | plain | Process > Noise Reduction
+actionImage_Blend | Image Blend | Image Blend | - | window | - | plain | Process > Utilities
+actionImage_Compare | Image Compare | Image Compare | - | window | - | plain | Process > Utilities
+actionSplit_CFA | Split CFA | Split CFA | - | window | - | plain | Process > Color Spaces
+actionMerge_CFA | Merge CFA | Merge CFA | - | window | - | plain | Process > Color Spaces
+actionGeneralized_Hyperbolic_Transformation | Generalized Hyperbolic Transformation | Generalized Hyperbolic Transformation | - | window | - | plain | Process > Intensity Transformations
+actionColor_Saturation | Color Saturation | Color Saturation | - | window | - | plain | Process > Intensity Transformations
+actionBilateral_Filter | Bilateral Filter | Bilateral Filter | - | window | - | plain | Process > Filters
+actionLog_Viewer | Session Console | Session Console | - | window | - | checkable | View
+actionExtract_Frame | Extract Frame | Extract Frame | - | window | film | plain | Image > Sequence
+actionExtract_Sequence | Extract Sequence | Extract Sequence | - | window | movie | plain | Image > Sequence
+actionNew_Sequence | New Sequence... | New Sequence | - | window | movie | plain | File
+actionConvert_to_SER | Convert to SER | Convert to SER | - | window | - | plain | Image > Sequence > Convert
+actionConvert_to_Image_List | Convert to Image List | Convert to Image List | - | window | - | plain | Image > Sequence > Convert
+actionConvert_to_FITS | Convert to FITS | Convert to FITS | - | window | - | plain | Image > Sequence > Convert
+actionCFA_Integer_Resample | CFA Integer Resample | CFA Integer Resample | - | window | grid_2 | plain | Process > Geometry
+actionMaximize_View | Maximize View | Maximize View | - | window | fullscreen | plain | Image > View
+actionPixel_Math_2 | Pixel Math | Pixel Math | - | window | - | plain | Process > Pixel Math
+actionBinarize | Binarize | Binarize | - | window | - | plain | Process > Intensity Transformations
+actionImage_Calibration | Image Calibration | Image Calibration | - | window | - | plain | Process > Preprocess
+actionImage_Registration | Image Registration | Image Registration | - | window | - | plain | Process > Preprocess
+actionImage_Stacking | Image Stacking | Image Stacking | - | window | - | plain | Process > Preprocess
+actionImage_Integration | Image Integration | Image Integration | - | window | - | plain | Process > Preprocess
+actionImage_Integration_Lite | Image Integration Lite | Image Integration Lite | - | window | - | plain | Process > Preprocess
+actionStatistical_Stretch | Statistical Stretch | Statistical Stretch | - | window | - | plain | Process > Intensity Transformations
+actionLRGB_Combination | LRGB Combination | LRGB Combination | - | window | - | plain | Process > Color Spaces
+actionNBRGB_Combination | NBRGB Combination | NBRGB Combination | - | window | - | plain | Process > Color Spaces
+actionNBColorMapper | NB Color Mapper | NB Color Mapper | - | window | - | plain | Process > Color Spaces
+actionNarrowbandPaletteComposer | Narrowband Palette Composer | Narrowband Palette Composer | - | window | - | plain | Process > Color Spaces
+actionSave_File | Save File... | Save File | - | window | file_save | plain | Image > Actions
+actionImage_List_Analyzer | Image List Analyzer | Image List Analyzer | - | window | - | plain | Process > Utilities
+actionExport | Export... | Export | - | window | movie | plain | Image > Sequence
+actionColorize | Colorize | Colorize | - | window | - | plain | Process > Color Spaces
+actionSettings | Settings... | Settings | Ctrl+, | window | settings | plain | Edit
+actionManage_Extensions | Manage Extensions... | Install, update, remove, and configure extensions. | - | window | extension | plain | Extensions
+
+[menu bar]
+menu | menuFile | File
+    action | actionOpen
+    menu | menuOpen_Recent | Open Recent | varies
+    separator
+    action | actionNew_Sequence
+    separator
+    action | actionSave_as
+    separator
+    action | actionClose
+    action | actionClose_All
+    action | actionClose_All_Others
+    separator
+    action | actionExit
+menu | menuEdit | Edit
+    action | actionUndo
+    action | actionRedo
+    separator
+    action | actionImage_History
+    separator
+    action | actionSettings
+menu | menuView_2 | View
+    action | actionLog_Viewer
+menu | menuImage | Image
+    menu | menuActions | Actions
+        action | actionDuplicate
+        action | actionRename
+        action | actionClose_2
+        action | actionSave_File
+    menu | menuConvert_Format | Convert Format
+        action | actionConvert_to_8_bit
+        action | actionConvert_to_signed_16_bit
+        action | actionConvert_to_unsigned_16_bit
+        action | actionConvert_to_signed_32_bit
+        action | actionConvert_to_unsigned_32_bit
+        action | actionConvert_to_32_bit_float
+        action | actionConvert_to_64_bit_float
+    menu | menuExtract_Channel | Extract Channel
+        action | actionExtract_Red_Channel
+        action | actionExtract_Green_Channel
+        action | actionExtract_Blue_Channel
+        action | actionExtract_RGB_Channels
+        separator
+        action | actionExtract_CIE_L
+        action | actionExtract_CIE_a
+        action | actionExtract_CIE_b
+        action | actionExtract_CIE_c
+        action | actionExtract_CIE_h
+        action | actionExtract_CIE_a_b
+        action | actionExtract_CIE_L_a_b
+        action | actionExtract_CIE_L_c_h
+        separator
+        action | actionExtract_CIE_X
+        action | actionExtract_CIE_Y
+        action | actionExtract_CIE_Z
+        action | actionExtract_CIE_X_Y_Z
+        separator
+        action | actionExtract_HSL_Hue
+        action | actionExtract_HSL_Saturation
+        action | actionExtract_HSL_Lightness
+        action | actionExtract_HSL
+        separator
+        action | actionExtract_HSV_Hue
+        action | actionExtract_HSV_Saturation
+        action | actionExtract_HSV_Value
+        action | actionExtract_HSV
+        separator
+        action | actionExtract_HSI_Hue
+        action | actionExtract_HSI_Saturation
+        action | actionExtract_HSI_Intensity
+        action | actionExtract_HSI
+        separator
+        action | actionExtract_YCbCr_Luminance
+        action | actionExtract_YCbCr_Blue_Chrominance
+        action | actionExtract_YCbCr_Red_Chrominance
+        action | actionExtract_YCbCr
+    menu | menuGeometry | Fast Geometry
+        action | actionHorizontal_Mirror
+        action | actionVertical_Mirror
+        separator
+        action | actionRotate_180
+        action | actionRotate_90_Left
+        action | actionRotate_90_Right
+    menu | menuInformation | Information
+        action | actionStatistics
+        action | actionHistogram
+        action | actionImage_EXIFViewer
+        action | actionFITSHeader
+        action | actionAstrometryInfo
+        action | actionPlateSolve
+        action | actionAnnotateImage
+        action | actionSummary
+    menu | menuMask | Mask
+        action | actionSelect_Mask
+        action | actionRemove_Mask
+        separator
+        action | actionInvert_Mask
+        action | actionEnable_Mask
+        action | actionShow_Mask
+        separator
+        menu | menuRendering_Mode | Rendering Mode
+            action | actionOverlay_Red
+            action | actionOverlay_Green
+            action | actionOverlay_Blue
+            action | actionOverlay_Yellow
+            action | actionOverlay_Magenta
+            action | actionOverlay_Cyan
+            separator
+            action | actionReplace
+            action | actionMultiply
+    menu | menuSequence | Sequence
+        menu | menuConvert | Convert
+            action | actionConvert_to_SER
+            action | actionConvert_to_Image_List
+            action | actionConvert_to_FITS
+        action | actionExtract_Frame
+        action | actionExtract_Sequence
+        action | actionExport
+    menu | menuView | View
+        action | actionZoom_In
+        action | actionZoom_Out
+        action | actionZoom_100
+        separator
+        action | actionFit_To_Window
+        action | actionMaximize_View
+    separator
+    action | actionShow_In_File_Browser
+menu | menuProcess | Process
+    menu | menuFavorite_Processes | Favorite Processes | varies
+    menu | menuRecent_Processes | Recent Processes | varies
+    separator
+    menu | menuAdjustments | Adjustments
+        action | actionAdjustBrightness_Contrast
+        action | actionGamma_Correction
+        action | actionExposure
+        action | actionAdjustHSL
+        action | actionAdjustLightness_Chroma_Hue
+        separator
+        action | actionNegative_Transformation
+        separator
+        action | actionConvert_to_RGB
+        action | actionConvert_to_Grayscale
+    menu | menuBackground_Modelization | Background Modelization
+        action | actionBackground_Extraction
+        action | actionAuto_Gradient_Removal
+    menu | menuColor_Calibration | Color Calibration
+        action | actionBackground_Neutralization
+        action | actionSCNR
+        action | actionColor_Calibration_2
+        action | actionPhotometric_Color_Calibration
+        action | actionSpectrophotometric_Color_Calibration
+        action | actionLinear_Match
+    menu | menuColor_Spaces | Color Spaces
+        action | actionChannelComposition
+        action | actionColorize
+        action | actionDebayer
+        action | actionLRGB_Combination
+        action | actionNBRGB_Combination
+        action | actionNBColorMapper
+        action | actionNarrowbandPaletteComposer
+        action | actionMerge_CFA
+        action | actionSplit_CFA
+    menu | menuDetails | Details
+        action | actionGaussian_Blur
+        action | actionHigh_Pass
+        action | actionLocal_Contrast_Enhancement
+        action | actionDark_Structure_Enhance
+        action | actionMultiscale_Alpha_Sharpen
+        action | actionUnsharp_Mask
+    menu | menuFilters | Filters
+        action | actionGaussian_Blur
+        action | actionMedian_Filter
+        action | actionBilateral_Filter
+        action | actionBanding_Reduction_Filter
+        action | actionCosmetic_Correction_Filter
+    menu | menuGeometry_2 | Geometry
+        action | actionResize
+        action | actionCrop
+        action | actionRotate
+        action | actionIntegerResample
+        action | actionCFA_Integer_Resample
+    menu | menuIntensity_Transformations | Intensity Transformations
+        action | actionArcSinh_Stretch
+        action | actionBinarize
+        action | actionCLA_Histogram_Equalization
+        action | actionColor_Saturation
+        action | actionCurves_Transformation
+        action | actionGeneralized_Hyperbolic_Transformation
+        action | actionHistogram_Transformation
+        action | actionLocal_Histogram_Equalization
+        action | actionStatistical_Stretch
+    menu | menuMask_Generation | Mask Generation
+        action | actionMask_Drawing
+        action | actionRange_Selection
+        action | actionStar_Mask
+        action | actionStarnet_Star_Mask
+    menu | menuMorphology | Morphology
+        action | actionMorphological_Transformation
+        action | actionTighten_Edges
+    menu | menuMultiscale | Multiscale
+        action | actionMultiscale_Linear_Transform
+    menu | menuNoise_Reduction | Noise Reduction
+        action | actionDeepSNR
+        action | actionGRAYCstoration_Filter
+        action | actionNon_Local_Bayes_Filter
+        action | actionPatch_PCA_Filter
+        action | actionTotal_Variation_Denoise_Filter
+        action | actionWavelet_Denoise_Filter
+    menu | menuPixel_Math | Pixel Math
+        action | actionPixel_Math_2
+    menu | menuPreprocess | Preprocess
+        action | actionImage_Calibration
+        action | actionImage_Registration
+        action | actionImage_Stacking
+        action | actionImage_Integration
+        action | actionImage_Integration_Lite
+    menu | menuStar_Processing | Star Processing
+        action | actionProfiled_Starmask_Recombination
+        action | actionStarmask_Recombination
+        action | actionStar_Reduction
+        action | actionStarnet
+        action | actionStar_Profiler_v1
+        action | actionStar_Profiler_v2
+    menu | menuUtilities | Utilities
+        action | actionImage_Blend
+        action | actionImage_Compare
+        action | actionNoise_Generator
+        action | actionImage_List_Analyzer
+menu | menuExtensions | Extensions
+    action | actionManage_Extensions
+menu | menuWindow | Window
+    action | actionLock_Layout
+    action | actionUnlock_Layout
+    separator
+    action | actionGroup_All_Images
+    action | actionSplit_All_Images
+    action | actionFit_Images_To_Window
+menu | menuHelp | Help
+    action | actionUser_Guide
+menu | menuAbout | About
+    action | actionAbout_Qt
+    action | actionAbout_AfterNight
+    action | actionSystem_Information

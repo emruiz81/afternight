@@ -1,0 +1,134 @@
+# The processes AfterNight 1.1 registers, in the registry's order, extensions left out:
+#   id | name | process name | category | launch mode | action | sort order | guards |
+#   outputs | help page
+# The name is the one the menu gives the process. The guards are what a launch asks of the
+# active view; the outputs, what the process states it makes beside its result.
+#
+# ProcessRegistry.InventoryMatchesTheRecord in Test_AfterNightApp compares the running application with this record.
+# An entry is edited by the change that means to move it - a renamed action, a new menu
+# entry, a retired process; the record is not written again whole. A field is `-` when
+# empty; `\t` is a tab and `\|` a bar inside a text.
+
+[processes]
+non_interactive.actionExtract_Frame | Extract Frame | Extract Frame | non_interactive | non-interactive | actionExtract_Frame | 100 | - | - | processes/utility/non-interactive-processes.html
+multi_image_stacking.actionExtract_Sequence | Extract Sequence | Extract Sequence | multi_image_stacking | single image | actionExtract_Sequence | 100 | - | - | processes/utility/extract-sequence.html
+non_interactive.actionExtract_Red_Channel | Extract Red Channel | Extract Red Channel | non_interactive | non-interactive | actionExtract_Red_Channel | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_Green_Channel | Extract Green Channel | Extract Green Channel | non_interactive | non-interactive | actionExtract_Green_Channel | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_Blue_Channel | Extract Blue Channel | Extract Blue Channel | non_interactive | non-interactive | actionExtract_Blue_Channel | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_RGB_Channels | Extract RGB Channels | Extract RGB Channels | non_interactive | non-interactive | actionExtract_RGB_Channels | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_L | Extract CIE L* | Extract CIE L* | non_interactive | non-interactive | actionExtract_CIE_L | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_a | Extract CIE a* | Extract CIE a* | non_interactive | non-interactive | actionExtract_CIE_a | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_b | Extract CIE b* | Extract CIE b* | non_interactive | non-interactive | actionExtract_CIE_b | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_c | Extract CIE c* | Extract CIE c* | non_interactive | non-interactive | actionExtract_CIE_c | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_h | Extract CIE h* | Extract CIE h* | non_interactive | non-interactive | actionExtract_CIE_h | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_L_c_h | Extract CIE L*c*h* | Extract CIE L*c*h* | non_interactive | non-interactive | actionExtract_CIE_L_c_h | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_a_b | Extract CIE a*=R / b*=G | Extract CIE a*=R / b*=G | non_interactive | non-interactive | actionExtract_CIE_a_b | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_L_a_b | Extract CIE L*a*b* | Extract CIE L*a*b* | non_interactive | non-interactive | actionExtract_CIE_L_a_b | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_X | Extract CIE X | Extract CIE X | non_interactive | non-interactive | actionExtract_CIE_X | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_Y | Extract CIE Y | Extract CIE Y | non_interactive | non-interactive | actionExtract_CIE_Y | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_Z | Extract CIE Z | Extract CIE Z | non_interactive | non-interactive | actionExtract_CIE_Z | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_CIE_X_Y_Z | Extract CIE XYZ | Extract CIE XYZ | non_interactive | non-interactive | actionExtract_CIE_X_Y_Z | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSL_Hue | Extract HSL Hue | Extract HSL Hue | non_interactive | non-interactive | actionExtract_HSL_Hue | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSL_Saturation | Extract HSL Saturation | Extract HSL Saturation | non_interactive | non-interactive | actionExtract_HSL_Saturation | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSL_Lightness | Extract HSL Lightness | Extract HSL Lightness | non_interactive | non-interactive | actionExtract_HSL_Lightness | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSL | Extract HSL | Extract HSL | non_interactive | non-interactive | actionExtract_HSL | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSV_Hue | Extract HSV Hue | Extract HSV Hue | non_interactive | non-interactive | actionExtract_HSV_Hue | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSV_Saturation | Extract HSV Saturation | Extract HSV Saturation | non_interactive | non-interactive | actionExtract_HSV_Saturation | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSV_Value | Extract HSV Value | Extract HSV Value | non_interactive | non-interactive | actionExtract_HSV_Value | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSV | Extract HSV | Extract HSV | non_interactive | non-interactive | actionExtract_HSV | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSI_Hue | Extract HSI Hue | Extract HSI Hue | non_interactive | non-interactive | actionExtract_HSI_Hue | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSI_Saturation | Extract HSI Saturation | Extract HSI Saturation | non_interactive | non-interactive | actionExtract_HSI_Saturation | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSI_Intensity | Extract HSI Intensity | Extract HSI Intensity | non_interactive | non-interactive | actionExtract_HSI_Intensity | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_HSI | Extract HSI | Extract HSI | non_interactive | non-interactive | actionExtract_HSI | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_YCbCr_Luminance | Extract YCbCr Luma | Extract YCbCr Luma | non_interactive | non-interactive | actionExtract_YCbCr_Luminance | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_YCbCr_Blue_Chrominance | Extract YCbCr Blue Chroma | Extract YCbCr Blue Chroma | non_interactive | non-interactive | actionExtract_YCbCr_Blue_Chrominance | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_YCbCr_Red_Chrominance | Extract YCbCr Red Chroma | Extract YCbCr Red Chroma | non_interactive | non-interactive | actionExtract_YCbCr_Red_Chrominance | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExtract_YCbCr | Extract YCbCr | Extract YCbCr | non_interactive | non-interactive | actionExtract_YCbCr | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_8_bit | Convert to 8 bit | Convert to 8 bit | non_interactive | non-interactive | actionConvert_to_8_bit | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_signed_16_bit | Convert to signed 16 bit | Convert to signed 16 bit | non_interactive | non-interactive | actionConvert_to_signed_16_bit | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_unsigned_16_bit | Convert to unsigned 16 bit | Convert to unsigned 16 bit | non_interactive | non-interactive | actionConvert_to_unsigned_16_bit | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_signed_32_bit | Convert to signed 32 bit | Convert to signed 32 bit | non_interactive | non-interactive | actionConvert_to_signed_32_bit | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_unsigned_32_bit | Convert to unsigned 32 bit | Convert to unsigned 32 bit | non_interactive | non-interactive | actionConvert_to_unsigned_32_bit | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_32_bit_float | Convert to 32 bit float | Convert to 32 bit float | non_interactive | non-interactive | actionConvert_to_32_bit_float | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_64_bit_float | Convert to 64 bit float | Convert to 64 bit float | non_interactive | non-interactive | actionConvert_to_64_bit_float | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_SER | Convert to SER | Convert to SER | non_interactive | non-interactive | actionConvert_to_SER | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionConvert_to_Image_List | Convert to Image List | Convert to Image List | non_interactive | non-interactive | actionConvert_to_Image_List | 100 | - | - | processes/utility/non-interactive-processes.html
+non_interactive.actionExport | Export... | Export... | non_interactive | non-interactive | actionExport | 100 | - | - | interface/saving-and-exporting.html
+non_interactive.actionConvert_to_FITS | Convert to FITS | Convert to FITS | non_interactive | non-interactive | actionConvert_to_FITS | 100 | - | - | processes/utility/non-interactive-processes.html
+tone_brightness.actionAdjustBrightness_Contrast | Brightness/Contrast | Adjust Brightness And Contrast | tone_brightness | single image | actionAdjustBrightness_Contrast | 100 | - | - | processes/color-adjustment/adjust-brightness-contrast.html
+tone_brightness.actionGamma_Correction | Gamma Correction | Gamma Correction | tone_brightness | single image | actionGamma_Correction | 100 | - | - | processes/stretching/gamma-correction.html
+tone_brightness.actionExposure | Exposure | Exposure Correction | tone_brightness | single image | actionExposure | 100 | - | - | processes/stretching/exposure-correction.html
+tone_brightness.actionAdjustHSL | Hue/Saturation/Lightness | Adjust Hue/Saturation/Lightness | tone_brightness | single image | actionAdjustHSL | 100 | - | - | processes/color-adjustment/adjust-hsl.html
+tone_brightness.actionAdjustLightness_Chroma_Hue | Lightness/Chroma/Hue | Adjust Lightness/Chroma/Hue | tone_brightness | single image | actionAdjustLightness_Chroma_Hue | 100 | - | - | processes/color-adjustment/adjust-lch.html
+tone_brightness.actionArcSinh_Stretch | ArcSinh Stretch | ArcSinhStretch | tone_brightness | single image | actionArcSinh_Stretch | 100 | - | - | processes/stretching/arcsinh-stretch.html
+tone_brightness.actionHistogram_Transformation | Histogram Transformation | Histogram Transformation | tone_brightness | single image | actionHistogram_Transformation | 100 | - | - | processes/stretching/histogram-transformation.html
+transforms.actionGeneralized_Hyperbolic_Transformation | Generalized Hyperbolic Transformation | Generalized Hyperbolic Transformation | transforms | single image | actionGeneralized_Hyperbolic_Transformation | 100 | - | - | processes/stretching/gh-transformation.html
+transforms.actionCurves_Transformation | Curves Transformation | Curves Transformation | transforms | single image | actionCurves_Transformation | 100 | - | - | processes/stretching/curves-transformation.html
+star_object.actionStarnet | Starnet++ | Starnet++ | star_object | single image | actionStarnet | 100 | - | starless, star mask | processes/star-operations/starnet.html
+multi_image_stacking.actionStarmask_Recombination | Starmask Recombination | Starmask Recombination | multi_image_stacking | top level | actionStarmask_Recombination | 100 | - | - | processes/star-operations/starmask-recombination.html
+multi_image_stacking.actionProfiled_Starmask_Recombination | Profiled Starmask Recombination | Profiled Starmask Recombination | multi_image_stacking | top level | actionProfiled_Starmask_Recombination | 100 | - | - | processes/star-operations/profiled-starmask-recomb.html
+star_object.actionStar_Reduction | Star Reduction | Star Reduction | star_object | single image | actionStar_Reduction | 100 | - | - | processes/star-operations/star-reduction.html
+color.actionSCNR | SCNR Filter | SCNR | color | single image | actionSCNR | 100 | - | - | processes/color-calibration/scnr.html
+filters.actionMedian_Filter | Median Filter | Median Filter | filters | single image | actionMedian_Filter | 100 | - | - | processes/noise-reduction/median-filter.html
+denoising.actionDeepSNR | DeepSNR | DeepSNR | denoising | single image | actionDeepSNR | 100 | - | - | processes/noise-reduction/deepsnr.html
+denoising.actionNon_Local_Bayes_Filter | Non-Local Bayes Filter | Non-Local Bayes | denoising | single image | actionNon_Local_Bayes_Filter | 100 | - | - | processes/noise-reduction/nl-bayes.html
+denoising.actionWavelet_Denoise_Filter | Wavelet Denoise Filter | Wavelet Denoise | denoising | single image | actionWavelet_Denoise_Filter | 100 | - | - | processes/noise-reduction/wavelet-denoise.html
+denoising.actionPatch_PCA_Filter | Patch PCA Denoise Filter | Patch PCA Denoise | denoising | single image | actionPatch_PCA_Filter | 100 | - | - | processes/noise-reduction/patch-pca-denoise.html
+sharpening_enhancement.actionLocal_Histogram_Equalization | Local Histogram Equalization | Local Histogram Equalization | sharpening_enhancement | single image | actionLocal_Histogram_Equalization | 100 | - | - | processes/sharpening/local-histogram-equalization.html
+sharpening_enhancement.actionLocal_Contrast_Enhancement | Local Contrast Enhancement | Local Contrast Enhancement | sharpening_enhancement | single image | actionLocal_Contrast_Enhancement | 100 | - | - | processes/sharpening/local-contrast-enhancement.html
+sharpening_enhancement.actionDark_Structure_Enhance | Dark Structure Enhance | DarkStructureEnhance | sharpening_enhancement | single image | actionDark_Structure_Enhance | 100 | - | - | processes/star-operations/dark-structure-enhance.html
+sharpening_enhancement.actionMultiscale_Alpha_Sharpen | Multiscale Alpha Sharpen | Multiscale Sharpen Alpha | sharpening_enhancement | single image | actionMultiscale_Alpha_Sharpen | 100 | - | - | processes/sharpening/sharpen-alpha.html
+filters.actionGaussian_Blur | Gaussian Blur | Gaussian Blur | filters | single image | actionGaussian_Blur | 100 | - | - | processes/noise-reduction/gaussian-blur.html
+sharpening_enhancement.actionHigh_Pass | High Pass | High Pass Filter | sharpening_enhancement | single image | actionHigh_Pass | 100 | - | - | processes/sharpening/high-pass-filter.html
+color.actionChannelComposition | Channel Composition | Channel Composition | color | top level | actionChannelComposition | 100 | - | - | processes/color-composition/channel-composition.html
+sensor_calibration.actionDebayer | Debayer | Debayer | sensor_calibration | single image | actionDebayer | 100 | - | - | processes/calibration/debayer.html
+sensor_calibration.actionSplit_CFA | Split CFA | Split CFA | sensor_calibration | single image | actionSplit_CFA | 100 | - | - | processes/calibration/split-cfa.html
+sensor_calibration.actionMerge_CFA | Merge CFA | Merge CFA | sensor_calibration | top level | actionMerge_CFA | 100 | - | - | processes/calibration/merge-cfa.html
+geometry.actionResize | Resize | Resize | geometry | single image | actionResize | 100 | - | - | processes/geometry/resize.html
+geometry.actionIntegerResample | Integer Resample | Integer Resample | geometry | single image | actionIntegerResample | 100 | - | - | processes/geometry/integer-resample.html
+geometry.actionCFA_Integer_Resample | CFA Integer Resample | CFA Integer Resample | geometry | single image | actionCFA_Integer_Resample | 100 | - | - | processes/calibration/cfa-integer-resample.html
+geometry.actionCrop | Crop | Crop | geometry | single image | actionCrop | 100 | exclusive access | - | processes/geometry/crop.html
+geometry.actionRotate | Rotate | Rotate | geometry | single image | actionRotate | 100 | exclusive access | - | processes/geometry/rotate.html
+mask_generation.actionMask_Drawing | Mask Drawing | Mask Drawing | mask_generation | single image | actionMask_Drawing | 100 | - | - | processes/masking/mask-drawing.html
+sensor_calibration.actionRange_Selection | Range Selection | Range Selection | sensor_calibration | single image | actionRange_Selection | 100 | - | - | processes/analysis/range-selection.html
+non_interactive.actionSelect_Mask | Select Mask | Select Mask | non_interactive | single image | actionSelect_Mask | 100 | - | - | interface/masks.html
+non_interactive.actionRemove_Mask | Remove Mask | Remove Mask | non_interactive | single image | actionRemove_Mask | 100 | - | - | interface/masks.html
+star_object.actionStar_Mask | Star Mask | Star Mask | star_object | single image | actionStar_Mask | 100 | - | - | processes/star-operations/star-mask.html
+star_object.actionStarnet_Star_Mask | Starnet++ Star Mask | Starnet++ Star Mask | star_object | single image | actionStarnet_Star_Mask | 100 | - | star mask | processes/star-operations/starnet-star-mask.html
+sharpening_enhancement.actionCLA_Histogram_Equalization | CLA Histogram Equalization | CLAHE | sharpening_enhancement | single image | actionCLA_Histogram_Equalization | 100 | - | - | processes/sharpening/clahe.html
+color.actionColor_Saturation | Color Saturation | Color Saturation | color | single image | actionColor_Saturation | 100 | - | - | processes/color-adjustment/color-saturation.html
+color.actionColor_Calibration_2 | Color Calibration | ColorCalibration | color | single image | actionColor_Calibration_2 | 100 | exclusive access | - | processes/color-calibration/color-calibration.html
+color.actionPhotometric_Color_Calibration | Photometric Color Calibration | Photometric Color Calibration | color | single image | actionPhotometric_Color_Calibration | 100 | exclusive access | - | processes/color-calibration/photometric-cc.html
+color.actionSpectrophotometric_Color_Calibration | Spectrophotometric Color Calibration | Spectrophotometric Color Calibration | color | single image | actionSpectrophotometric_Color_Calibration | 100 | exclusive access | - | processes/color-calibration/spectrophotometric-cc.html
+color.actionBackground_Neutralization | Background Neutralization | Background Neutralization | color | single image | actionBackground_Neutralization | 100 | exclusive access | - | processes/color-calibration/background-neutralization.html
+background_extraction.actionBackground_Extraction | Background Extraction | Background Extraction | background_extraction | single image | actionBackground_Extraction | 100 | exclusive access | - | processes/background-extraction/background-extraction.html
+background_extraction.actionAuto_Gradient_Removal | Auto Gradient Removal | Auto Gradient Removal | background_extraction | single image | actionAuto_Gradient_Removal | 100 | exclusive access, still image | - | processes/background-extraction/auto-gradient-removal.html
+transforms.actionMultiscale_Linear_Transform | Multiscale Linear Transform | Multiscale Linear Transform | transforms | single image | actionMultiscale_Linear_Transform | 100 | - | - | processes/multiscale/multiscale-linear.html
+filters.actionMorphological_Transformation | Morphological Transformation | Morphological Transformation | filters | single image | actionMorphological_Transformation | 100 | - | - | processes/masking/morphological-transformation.html
+sharpening_enhancement.actionTighten_Edges | Tighten Edges | Tighten Edges | sharpening_enhancement | single image | actionTighten_Edges | 100 | - | - | processes/color-adjustment/tighten-edges.html
+denoising.actionGRAYCstoration_Filter | GRAYCstoration Filter | GRAYCstoration | denoising | single image | actionGRAYCstoration_Filter | 100 | - | - | processes/noise-reduction/graycstoration.html
+filters.actionCosmetic_Correction_Filter | Cosmetic Correction Filter | Cosmetic Correction | filters | single image | actionCosmetic_Correction_Filter | 100 | - | - | processes/calibration/cosmetic-correction.html
+filters.actionBanding_Reduction_Filter | Banding Reduction Filter | Banding Reduction | filters | single image | actionBanding_Reduction_Filter | 100 | - | - | processes/noise-reduction/banding-reduction.html
+filters.actionBilateral_Filter | Bilateral Filter | Bilateral Filter | filters | single image | actionBilateral_Filter | 100 | - | - | processes/noise-reduction/bilateral-filter.html
+star_object.actionStar_Profiler_v1 | Star Profiler v1 | StarProfilerV1 | star_object | single image | actionStar_Profiler_v1 | 100 | exclusive access | - | processes/registration-alignment/star-profiler.html
+star_object.actionStar_Profiler_v2 | Star Profiler v2 | StarProfiler | star_object | single image | actionStar_Profiler_v2 | 100 | exclusive access | - | processes/registration-alignment/star-profiler.html
+tone_brightness.actionStatistical_Stretch | Statistical Stretch | Statistical Stretch | tone_brightness | single image | actionStatistical_Stretch | 100 | - | - | processes/stretching/statistical-stretch.html
+sharpening_enhancement.actionUnsharp_Mask | Unsharp Mask | Unsharp Mask | sharpening_enhancement | single image | actionUnsharp_Mask | 100 | - | - | processes/sharpening/unsharp-mask.html
+filters.actionNoise_Generator | Noise Generator | Noise Generator | filters | single image | actionNoise_Generator | 100 | - | - | processes/utility/noise-generator.html
+denoising.actionTotal_Variation_Denoise_Filter | Total Variation Denoise Filter | Total Variation Denoise | denoising | single image | actionTotal_Variation_Denoise_Filter | 100 | - | - | processes/noise-reduction/total-variation-denoise.html
+multi_image_stacking.actionImage_Compare | Image Compare | Image Compare | multi_image_stacking | single image | actionImage_Compare | 100 | - | - | processes/analysis/image-compare.html
+multi_image_stacking.actionImage_Blend | Image Blend | Image Blend | multi_image_stacking | single image | actionImage_Blend | 100 | - | - | processes/analysis/image-blend.html
+multi_image_stacking.actionImage_List_Analyzer | Image List Analyzer | Image List Analyzer | multi_image_stacking | top level | actionImage_List_Analyzer | 100 | - | - | processes/stacking-integration/image-list-analyzer.html
+color.actionLRGB_Combination | LRGB Combination | LRGB Combination | color | single image | actionLRGB_Combination | 100 | - | - | processes/color-composition/lrgb-combination.html
+color.actionNBRGB_Combination | NBRGB Combination | NBRGB Combination | color | single image | actionNBRGB_Combination | 100 | still image, channels 3 | - | processes/color-composition/nbrgb-combination.html
+color.actionNBColorMapper | NB Color Mapper | NB Color Mapper | color | single image | actionNBColorMapper | 100 | still image | - | processes/color-composition/nb-color-mapper.html
+color.actionNarrowbandPaletteComposer | Narrowband Palette Composer | Narrowband Palette Composer | color | top level | actionNarrowbandPaletteComposer | 100 | - | - | processes/color-composition/narrowband-palette-composer.html
+color.actionColorize | Colorize | Colorize | color | single image | actionColorize | 100 | - | - | processes/color-composition/colorize.html
+sensor_calibration.actionImage_Calibration | Image Calibration | Image Calibration | sensor_calibration | top level | actionImage_Calibration | 100 | - | - | processes/calibration/image-calibration.html
+multi_image_stacking.actionImage_Stacking | Image Stacking | Image Stacking | multi_image_stacking | top level | actionImage_Stacking | 100 | - | - | processes/stacking-integration/image-stacking.html
+multi_image_stacking.actionImage_Registration | Image Registration | Image Registration | multi_image_stacking | top level | actionImage_Registration | 100 | - | - | processes/registration-alignment/image-registration.html
+multi_image_stacking.actionImage_Integration | Image Integration | Image Integration | multi_image_stacking | top level | actionImage_Integration | 100 | - | - | processes/stacking-integration/image-integration.html
+multi_image_stacking.actionImage_Integration_Lite | Image Integration Lite | Image Integration Lite | multi_image_stacking | top level | actionImage_Integration_Lite | 100 | - | - | processes/stacking-integration/image-integration-lite.html
+color.actionLinear_Match | Linear Match | Linear Match | color | single image | actionLinear_Match | 100 | - | - | processes/color-calibration/linear-match.html
+transforms.actionPixel_Math_2 | Pixel Math | PixelMath | transforms | single image | actionPixel_Math_2 | 100 | - | - | processes/pixel-math/pixel-math.html
+sensor_calibration.actionBinarize | Binarize | Binarize | sensor_calibration | single image | actionBinarize | 100 | - | - | processes/masking/binarize.html

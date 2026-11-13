@@ -9,15 +9,22 @@
 #include "app/AfterNightApp.h"
 
 #include "AppTestSupport.h"
+#include "InventoryRecords.h"
 #include "app/AfterNightAppListener.h"
 #include "app/ApplicationSession.h"
 #include "app/FilePolicies.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ViewControlMode.h"
 #include "controls/settings/ExtensionManagerPage.h"
 #include "controls/settings/ProcessingLimits.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
+
+// The console's header names the logger's levels without including it.
+#include <AfterNightPlatform/Logging.h>
+
+#include "controls/LogViewerControl.h"
 
 #include <AfterNightEngine/IO/CodecFormat.h>
 #include <AfterNightEngine/IO/CodecRegistry.h>
@@ -27,8 +34,12 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QAction>
 #include <QFileInfo>
+#include <QString>
+#include <QStringList>
 #include <QThread>
+#include <QWidget>
 
 #include <gtest/gtest.h>
 
@@ -40,6 +51,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -372,4 +384,92 @@ TEST_F(ApplicationWindow, TheSingleWindowIsTheOneTheContextIsInstalledFor)
     EXPECT_EQ(AfterNightApp::getInstance(), s_window);
     EXPECT_EQ(AfterNightApp::instanceOrNull(), s_window);
     EXPECT_EQ(context().getMainWindow(), s_window);
+}
+
+// ---- The keys the application answers, held to the record beside this suite.
+
+namespace
+{
+
+// Closes what a view's keys opened over it - its tool windows are its own children - and restores it when a key
+// maximized it.
+void closeWhatTheKeysOpened(ImageViewControl& view)
+{
+    if (view.isMaximized())
+    {
+        view.switchMaximized();
+    }
+    for (QWidget* child : view.findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+    {
+        if (child->isWindow())
+        {
+            delete child;
+        }
+    }
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QCoreApplication::processEvents();
+}
+
+} // namespace
+
+// The key sequences the application answers are the ones the record holds: every shortcut an action or a shortcut
+// object of the window carries, those of the Session Console, and every key press a view takes for itself in each of
+// its modes - an image's view, a process's real-time preview, a list's preview. A shortcut added, removed or moved to
+// another key fails here until the record's entry says so.
+TEST_F(ApplicationWindow, ShortcutsMatchTheRecord)
+{
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::app::kShortcutInventoryPath),
+                                               an::tests::app::shortcutInventoryPreamble());
+
+    // The Session Console is made when it is first shown, so it is shown, and its shortcuts are read apart from the
+    // window's: the window's are then the same whether or not a person has opened the console.
+    QAction* const consoleEntry = s_window->findChild<QAction*>(QStringLiteral("actionLog_Viewer"));
+    ASSERT_NE(consoleEntry, nullptr);
+    if (!consoleEntry->isChecked())
+    {
+        consoleEntry->trigger();
+    }
+    LogViewerControl* console = nullptr;
+    for (QWidget* child : s_window->findChildren<QWidget*>())
+    {
+        // The console declares no meta-object of its own, so it is told by its type.
+        if (auto* found = dynamic_cast<LogViewerControl*>(child))
+        {
+            console = found;
+        }
+    }
+    ASSERT_NE(console, nullptr) << "the Session Console did not open among the window's children";
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kWindowShortcutsSection),
+                               an::tests::app::shortcutEntries(*s_window, QStringLiteral("the window"), console)));
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kConsoleShortcutsSection),
+                               an::tests::app::shortcutEntries(*console, QStringLiteral("the console"))));
+    consoleEntry->trigger();
+    QCoreApplication::processEvents();
+
+    // An image's view, made as the application makes one: its keys act on a view the window holds.
+    std::optional<an::ui::ImageDocument> document =
+        an::tests::app::filledDocument(session(), QStringLiteral("keys"), 0.25f);
+    ASSERT_TRUE(document.has_value());
+    ImageViewControl* const view =
+        context().getViewFactory()->createNewImageViewControlFromImage(nullptr, std::move(*document), nullptr, "keys");
+    ASSERT_NE(view, nullptr);
+    const QStringList standard = an::tests::app::viewShortcutEntries(*view);
+    closeWhatTheKeysOpened(*view);
+    closeView(view);
+    EXPECT_TRUE(record.matches(QStringLiteral("view standard"), standard));
+
+    // The two previews, made as a process and a list make theirs: with no image, so a key they take has nothing to
+    // act on.
+    const std::vector<std::pair<ViewControlMode, QString>> previews = {
+        {ViewControlMode::rt_preview, QStringLiteral("view rt_preview")},
+        {ViewControlMode::st_preview, QStringLiteral("view st_preview")},
+    };
+    for (const auto& [mode, section] : previews)
+    {
+        auto preview = std::make_unique<ImageViewControl>();
+        preview->initialize("keys", mode);
+        const QStringList taken = an::tests::app::viewShortcutEntries(*preview);
+        closeWhatTheKeysOpened(*preview);
+        EXPECT_TRUE(record.matches(section, taken));
+    }
 }

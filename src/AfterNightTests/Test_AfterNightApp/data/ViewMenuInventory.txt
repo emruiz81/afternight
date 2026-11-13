@@ -1,0 +1,30 @@
+# The menu a view of AfterNight 1.1 shows on a right click, entry for entry, four spaces a
+# level:
+#   menu | object name | title | the menu bar's    a menu the menu bar holds too: its entries
+#                                                  are those of ActionInventory.txt
+#   menu | object name | title                     a menu of the view's own, its entries under it
+#   action | object name                           an action of ActionInventory.txt
+#   entry | text                                   an entry of the view's own
+#   separator
+#
+# ApplicationMenu.ViewMenuTreeMatchesTheRecord in Test_AfterNightApp compares the running application with this record.
+# An entry is edited by the change that means to move it - a renamed action, a new menu
+# entry, a retired process; the record is not written again whole. A field is `-` when
+# empty; `\t` is a tab and `\|` a bar inside a text.
+
+[view menu]
+menu | menuActions | Actions | the menu bar's
+menu | menuProcess | Process | the menu bar's
+menu | menuConvert_Format | Convert Format | the menu bar's
+menu | menuExtract_Channel | Extract Channel | the menu bar's
+menu | menuGeometry | Fast Geometry | the menu bar's
+menu | menuInformation | Information | the menu bar's
+menu | menuMask | Mask | the menu bar's
+menu | menuSequence | Sequence | the menu bar's
+menu | menuView | View | the menu bar's
+menu | - | Current Window
+    entry | Group All Images
+    entry | Split All Images
+    entry | Fit All Images to Window
+separator
+action | actionShow_In_File_Browser

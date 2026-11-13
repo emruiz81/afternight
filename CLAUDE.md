@@ -321,7 +321,8 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   records it with `registerEditBeforePublishing` and shows it only when that returns true - Apply Stretch
   (`controls/AutostretchApply.h`) is the model; `registerShownState` is for a state a process already showed. Never
   write the shown image in place: other threads read it.
-- **No QSS.** `setStyleSheet()` is forbidden project-wide. No hardcoded colors/spacing/radii/fonts —
+- **No QSS.** `setStyleSheet()` is forbidden project-wide (`SourceGuards.NoStyleSheetsInSrc`). No hardcoded
+  colors/spacing/radii/fonts —
   resolve through `an::ui::tokens()`, and call it *inside* `paintEvent()` (never cache it in the
   constructor) so theme switches apply. Read `docs/dev/THEME_SYSTEM.md` before touching UI.
 - **Naming**: PascalCase is the convention for all new code — PascalCase types and enumerators,
@@ -368,7 +369,7 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
 - **Interface settings are a file, never the registry.** Product code reads and writes them through
   `an::ui::applicationSettings()` (`app/ApplicationStorage.h`), an INI file under the application's local data; a
   default `QSettings` or one named by organization and application is the native store - the registry on Windows -
-  which no test storage root redirects.
+  which no test storage root redirects. `SourceGuards.NoDefaultQSettingsInSrc` fails a `QSettings` made anywhere else.
 - **A new static, namespace-scope object or singleton in product code** needs an entry in
   `build/scripts/tools/consumer_state.txt` (`check_consumer_state.py`); in the engine, one in
   `check_process_state.py`'s table.
@@ -381,6 +382,10 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   `build/scripts/tools/dependencies.txt` whose marker is the copyright line, which `check_dependency_provenance.py`
   enforces; and the About dialog's licence credit, held by `Test_ControlsDialogs`. Licence and copyright text is not a
   planning reference. See AGENTS.md, "Credit for derived code".
+- **The interface's records are edited, never regenerated.** The tokens, actions, menus, shortcuts and process
+  registry are held to text records beside `Test_ThemeSystem` and `Test_AfterNightApp` (`data/*.txt`). A change that
+  means to move one edits its entry in the same diff; see "The interface's records" in
+  [docs/dev/guides/TESTING.md](docs/dev/guides/TESTING.md).
 - **TDD is mandatory** for new features (failing test first), and bug fixes need a regression test.
 
 ## Documentation

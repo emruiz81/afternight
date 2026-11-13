@@ -1,0 +1,101 @@
+# The key sequences AfterNight 1.1 answers.
+#
+# [window]: every shortcut an action or a shortcut object of the main window carries, sorted:
+#   key sequence | context | action or shortcut | its object name, or its text | its owner
+# [session console]: the same of the Session Console, which the window makes when it is first
+# shown and which is read apart, so [window] is the same whether or not it has been.
+#
+# [view standard], [view rt_preview], [view st_preview]: the key presses a view's own key
+# handling takes for itself in each mode of a view - an image's view, a process's real-time
+# preview, a list's preview - of every letter, digit and function key, Space and the editing
+# and navigation keys, alone and with Shift, Ctrl and Ctrl+Shift:
+#   key sequence | what the view says the key does, where one of its controls says so
+# A key is listed when the view takes the press, whether or not it has something to act on.
+# Undo and Redo, Ctrl+Z and Ctrl+Y, are the window's.
+#
+# ApplicationWindow.ShortcutsMatchTheRecord in Test_AfterNightApp compares the running application with this record.
+# An entry is edited by the change that means to move it - a renamed action, a new menu
+# entry, a retired process; the record is not written again whole. A field is `-` when
+# empty; `\t` is a tab and `\|` a bar inside a text.
+
+[window]
+Ctrl++ | window | action | actionZoom_In | the window
+Ctrl+, | window | action | actionSettings | the window
+Ctrl+- | window | action | actionZoom_Out | the window
+Ctrl+0 | window | action | actionZoom_100 | the window
+Ctrl+F | window | shortcut | - | mainDashboardRoot
+Ctrl+O | window | action | actionOpen | the window
+Ctrl+Shift+S | window | action | actionSave_as | the window
+Ctrl+Y | window | action | actionRedo | the window
+Ctrl+Z | window | action | actionUndo | the window
+F1 | application | action | actionUser_Guide | the window
+
+[session console]
+Ctrl+F | window | action | Search... | QToolBar
+Ctrl+S | window | action | Export visible session text | QToolBar
+
+[view standard]
+F11 | -
+Ctrl+H | Histogram (Ctrl+H)
+Ctrl+P | Solve the image astrometrically (Ctrl+P)
+Ctrl+1 | Equatorial Grid\tCtrl+1
+Ctrl+2 | Deep-Sky Annotations\tCtrl+2
+Ctrl+3 | Star Labels\tCtrl+3
+Ctrl+4 | Detected Stars\tCtrl+4
+Ctrl+5 | SIP Distortion Map\tCtrl+5
+Ctrl+Shift+A | Autostretch Settings (Ctrl+Shift+A)
+Ctrl+Shift+F | Fit To Window (Ctrl+Shift+F)
+Ctrl+Shift+H | FITS Header (Ctrl+Shift+H)
+Ctrl+Shift+L | Export a picture of the solved image with its objects, stars and coordinates named (Ctrl+Shift+L)
+Ctrl+Shift+M | Summary (Ctrl+Shift+M)
+Ctrl+Shift+P | Show astrometry solution details (Ctrl+Shift+P)
+Ctrl+Shift+T | Statistics (Ctrl+Shift+T)
+Ctrl+Shift+W | Toggle astrometry overlays on solved images (Ctrl+Shift+W)
+Ctrl+Shift+X | EXIF Viewer (Ctrl+Shift+X)
+Ctrl+Shift+Z | Image History (Ctrl+Shift+Z)
+
+[view rt_preview]
+F11 | -
+Space | Switch image (Space / Mouse Right-Click / Ctrl+Shift+O)
+Shift+Space | -
+Ctrl+H | -
+Ctrl+P | -
+Ctrl+1 | -
+Ctrl+2 | -
+Ctrl+3 | -
+Ctrl+4 | -
+Ctrl+5 | -
+Ctrl+Space | -
+Ctrl+Shift+A | -
+Ctrl+Shift+F | Fit To Window (Ctrl+Shift+F)
+Ctrl+Shift+H | -
+Ctrl+Shift+K | Take snapshot (Ctrl+Shift+K)
+Ctrl+Shift+L | -
+Ctrl+Shift+M | -
+Ctrl+Shift+O | Switch image (Space / Mouse Right-Click / Ctrl+Shift+O)
+Ctrl+Shift+P | -
+Ctrl+Shift+T | -
+Ctrl+Shift+W | -
+Ctrl+Shift+X | -
+Ctrl+Shift+Z | -
+Ctrl+Shift+Space | -
+
+[view st_preview]
+F11 | -
+Ctrl+H | -
+Ctrl+P | -
+Ctrl+1 | -
+Ctrl+2 | -
+Ctrl+3 | -
+Ctrl+4 | -
+Ctrl+5 | -
+Ctrl+Shift+A | Autostretch Settings (Ctrl+Shift+A)
+Ctrl+Shift+F | Fit To Window (Ctrl+Shift+F)
+Ctrl+Shift+H | -
+Ctrl+Shift+L | -
+Ctrl+Shift+M | -
+Ctrl+Shift+P | -
+Ctrl+Shift+T | -
+Ctrl+Shift+W | -
+Ctrl+Shift+X | -
+Ctrl+Shift+Z | -

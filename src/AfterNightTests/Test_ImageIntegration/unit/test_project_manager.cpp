@@ -7,12 +7,10 @@
 
 #include <QCoreApplication>
 #include <QDir>
-#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonObject>
 #include <QIODevice>
-#include <QRegularExpression>
 #include <QSettings>
 #include <QStringList>
 #include <QTemporaryDir>
@@ -41,36 +39,6 @@ QString readRepoSourceFile(const QString& relativePath)
                 {
                     return QString::fromUtf8(file.readAll());
                 }
-            }
-
-            if (!dir.cdUp())
-            {
-                break;
-            }
-        }
-    }
-
-    return {};
-}
-
-QString findRepoRoot()
-{
-    QStringList seeds = {QDir::currentPath()};
-    if (QCoreApplication::instance())
-    {
-        seeds.append(QCoreApplication::applicationDirPath());
-    }
-    seeds.append(QFileInfo(QString::fromUtf8(__FILE__)).absolutePath());
-
-    for (const QString& seed : seeds)
-    {
-        QDir dir(seed);
-        while (true)
-        {
-            if (QFileInfo::exists(dir.filePath(QStringLiteral("src"))) &&
-                QFileInfo::exists(dir.filePath(QStringLiteral("build"))))
-            {
-                return dir.absolutePath();
             }
 
             if (!dir.cdUp())
@@ -227,40 +195,4 @@ TEST(PersistenceSourceGuards, JsonPersistenceUsesAtomicSaveFiles)
     EXPECT_FALSE(archiver.contains(QStringLiteral("QFile logFile")));
 
     EXPECT_TRUE(imageIntegrationProcess.contains(QStringLiteral("QSaveFile f(file)")));
-}
-
-TEST(SourceGuards, NoRawStdMinMaxCallsInSrc)
-{
-    const QString repoRoot = findRepoRoot();
-    ASSERT_FALSE(repoRoot.isEmpty());
-
-    const QRegularExpression rawMinMax(QStringLiteral(R"(std::(?:max|min)(?:<[^>\r\n]+>)?\()"));
-    QStringList violations;
-
-    QDirIterator it(QDir(repoRoot).filePath(QStringLiteral("src")),
-                    {QStringLiteral("*.cpp"), QStringLiteral("*.h"), QStringLiteral("*.hpp"), QStringLiteral("*.cxx"),
-                     QStringLiteral("*.cc")},
-                    QDir::Files, QDirIterator::Subdirectories);
-    while (it.hasNext())
-    {
-        const QString path = it.next();
-        QFile file(path);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        {
-            continue;
-        }
-
-        const QString content = QString::fromUtf8(file.readAll());
-        const QRegularExpressionMatchIterator matches = rawMinMax.globalMatch(content);
-        if (matches.hasNext())
-        {
-            violations.append(QDir(repoRoot).relativeFilePath(path));
-            if (violations.size() >= 20)
-            {
-                break;
-            }
-        }
-    }
-
-    EXPECT_TRUE(violations.isEmpty()) << violations.join(QStringLiteral("\n")).toStdString();
 }

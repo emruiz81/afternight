@@ -84,6 +84,58 @@ the network blocked, and fails a load that would look or work wrong for a reader
 a suite that parses markup cannot give. It is run by hand when the report's document, style, script or charts
 change; `docs/dev/LOCAL_VALIDATION.md` has the commands and `docs/dev/IMAGE_INTEGRATION_REPORT.md` what each proves.
 
+## The interface's records
+
+What the interface is - its design tokens, its actions and menus, the keys it answers, the processes it registers -
+is recorded in five text files beside the suites that read them, and a case compares each with the running product:
+
+| Record | Holds | Held by |
+|---|---|---|
+| `Test_ThemeSystem/data/TokenBaseline.txt` | Every colour of every combination the interface settings can choose - two themes, four contrast profiles, five accent families, six surface tints, 240 in all - and the spacing, the radii and the type scale no choice changes | `TokenBaseline.ClassicValuesAreRecorded` |
+| `Test_AfterNightApp/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord` |
+| `Test_AfterNightApp/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord` |
+| `Test_AfterNightApp/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
+| `Test_AfterNightApp/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord` |
+
+The records exist so that a change which reorganises the interface's code - a part of the window moved to another
+library, the tokens resolved another way, the menus built from a table - proves that it changed nothing a person sees
+or presses: the case reads the live objects, so it does not care how they were made. A change that means to move
+something says so in the same diff, as an edited entry a reviewer reads: a renamed action, a new menu entry, a
+retired process.
+
+Each record is read from the running product - the tokens from the resolution, the actions and menus from the
+application's own main window, a view's keys by pressing them on a view - and holds nothing that follows the host: no
+geometry, no font but its size against the body font's, the material surfaces with the native backdrop off. Nor
+anything that follows what ran before the case: a menu whose entries are what a person did - the recent files, the
+favourite and the recent processes - is held by name alone, of the Extensions menu only its own actions, and the
+actions are read over one image that was never edited, because Undo, Redo and Maximize View are worded after the
+active image. `fixtures/BaselineRecord.h` is the reader: a record is sections of entries, a case compares one section
+in order, and the failure names the first entry that differs with what the record holds and what the product has.
+
+A record is made once. With `AFTERNIGHT_WRITE_BASELINE_RECORDS` naming a folder a case writes its section there
+instead of comparing - the only case in which it writes, and never beside the suite - and a person reads what was
+written before checking it in. From then on a record is edited by hand, entry by entry, by the change that means to
+move it. It is never written again whole: a record written from the product agrees with whatever the product does,
+a defect included, and the diff of a rewritten record hides the one entry that mattered among the ones that did not.
+
+## The source guards
+
+Three rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
+`Test_ImageIntegration` (`unit/SourceGuardsTest.cpp`); a change to any C or C++ file under `src/` runs them
+(`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
+
+| Case | Holds |
+|---|---|
+| `NoRawStdMinMaxCallsInSrc` | No source calls `std::min` or `std::max` by its bare name, which the Windows SDK's macros would expand |
+| `NoStyleSheetsInSrc` | The product sets and reads no stylesheet, names no stylesheet style and no `.qss` file, and the tree holds none: the look is painted from the design tokens |
+| `NoDefaultQSettingsInSrc` | The product makes no `QSettings` but the one `an::ui::applicationSettings()` returns: any other is the platform's native store, which no test storage root redirects |
+
+The last two read the product and not the test tree, whose cases read a widget's stylesheet to prove it empty and
+make settings files of their own in temporary folders; and they read code, not comments, so a comment may name what
+the code may not do. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
+and its one wrapper - and fails when a listed line is gone, so the list cannot outlive what it allowed. A guard is
+shown to fail on a violation planted in a scratch file before it is relied on.
+
 ## The fixture layers
 
 The product's suites build their inputs and hold their answers through three layers under

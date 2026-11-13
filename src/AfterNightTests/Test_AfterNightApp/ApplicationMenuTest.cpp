@@ -9,6 +9,7 @@
 // dialogs the action opens the way a person would.
 
 #include "ApplicationDriving.h"
+#include "InventoryRecords.h"
 #include "app/ProcessRegistry.h"
 #include "controls/AboutDialog.h"
 #include "controls/IAppContext.h"
@@ -54,6 +55,7 @@
 #include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
@@ -1129,4 +1131,72 @@ TEST_F(ApplicationMenu, EveryRegisteredProcessIsAnEntryOfTheWindowsMenus)
         recorded += (recorded.empty() ? "" : " ") + name;
     }
     RecordProperty("menuEntries", recorded);
+}
+
+// ---- What the window is, held to the records beside this suite.
+
+// Every action the window declares is the one the record holds, in the order the window declares them: its object
+// name, text, tool tip, shortcut and the shortcut's context, the icon it shows, whether it can be checked, and the
+// menus of the menu bar that hold it. An action renamed, reworded, given another key or icon, moved to another menu,
+// added or removed fails here until the record's entry says so.
+TEST_F(ApplicationMenu, ActionInventoryMatchesTheRecord)
+{
+    const an::ui::IIconProviderPtr icons = context().getIconProvider();
+    ASSERT_NE(icons, nullptr);
+    const an::tests::app::IconNames names(*icons);
+    ASSERT_GT(names.size(), 0) << "the application loaded no icon, so no action's icon can be named";
+    // A few actions follow the active image - Undo and Redo name the step they would take, Maximize View becomes
+    // Restore View - so the inventory is read over one image that has never been edited or maximized: what the
+    // actions are when a person has opened a first image.
+    ASSERT_NE(makeView(QStringLiteral("inventory")), nullptr);
+    an::ui::IActionStateManager* const state = context().getActionStateManager();
+    ASSERT_NE(state, nullptr);
+    state->updateActiveImageActions();
+    state->updateActiveImageHistory();
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::app::kActionInventoryPath),
+                                               an::tests::app::actionInventoryPreamble());
+
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kActionsSection),
+                               an::tests::app::actionInventoryEntries(*s_window, names)));
+}
+
+// The menu bar is the tree the record holds: every menu, entry and separator, in the order a person reads them. The
+// menus whose entries follow what a person did - the recent files, the favourite and the recent processes - are held
+// by name alone, and of the Extensions menu only its own actions, so the tree is the same whatever was opened,
+// launched or installed before it is read.
+TEST_F(ApplicationMenu, MenuBarTreeMatchesTheRecord)
+{
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::app::kActionInventoryPath),
+                                               an::tests::app::actionInventoryPreamble());
+
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kMenuBarSection),
+                               an::tests::app::menuBarTreeEntries(*s_window)));
+}
+
+// The menu a view shows on a right click is the tree the record holds, entry for entry: the menus it shares with the
+// menu bar by name, and its own entries under them.
+TEST_F(ApplicationMenu, ViewMenuTreeMatchesTheRecord)
+{
+    ImageViewControl* const view = makeView(QStringLiteral("made"));
+    ASSERT_NE(view, nullptr);
+
+    auto shown = std::make_shared<std::optional<QStringList>>();
+    answerWhenShown([shown](QWidget* widget) {
+        auto* menu = qobject_cast<QMenu*>(widget);
+        if (menu == nullptr)
+        {
+            return false;
+        }
+        *shown = an::tests::app::viewMenuTreeEntries(*menu, *s_window);
+        menu->close();
+        return true;
+    });
+    const QPoint at(4, 4);
+    QContextMenuEvent event(QContextMenuEvent::Mouse, at, view->mapToGlobal(at));
+    QCoreApplication::sendEvent(view, &event);
+
+    ASSERT_TRUE(shown->has_value()) << "the view showed no context menu";
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::app::kViewMenuInventoryPath),
+                                               an::tests::app::viewMenuInventoryPreamble());
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kViewMenuSection), **shown));
 }

@@ -1957,6 +1957,7 @@ sources Test_AfterNightApp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationSessionTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationTeardownTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationWindowTest.cpp
+    unit     src/AfterNightTests/Test_AfterNightApp/ProcessInventoryTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/test_about_dialog.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/test_extension_manager_page.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/test_extension_status_page.cpp
@@ -2142,7 +2143,9 @@ sources Test_AfterNightApp
     header   src/AfterNightProcesses/stdafx.hpp
     header   src/AfterNightTests/Test_AfterNightApp/AppTestSupport.h
     header   src/AfterNightTests/Test_AfterNightApp/ApplicationDriving.h
+    header   src/AfterNightTests/Test_AfterNightApp/InventoryRecords.h
     header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
     header   src/AfterNightTests/fixtures/common/FixtureDigest.h
@@ -2316,6 +2319,7 @@ sources Test_ExtensionHostNative
 # feature flags, the theme manager's cascade and the PixelMath palette, its cases linked against the Controls library.
 sources Test_ThemeSystem
     unit     src/AfterNightTests/Test_ThemeSystem/main.cpp
+    unit     src/AfterNightTests/Test_ThemeSystem/TokenBaselineTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/test_animation_utils.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/test_dark_mode_detection.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/test_design_tokens.cpp
@@ -2331,6 +2335,7 @@ sources Test_ThemeSystem
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     include  src/AfterNightTests
     include  src/AfterNightControls
@@ -4502,6 +4507,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_lite_process.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_image_integration_process.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_window_title_project.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/unit/SourceGuardsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_blink_comparator_exclusion_utils.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_confirmation_dialog_utils.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_constants.cpp
