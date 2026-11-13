@@ -264,6 +264,42 @@ def menu_paths(meta):
     return []
 
 
+_CLASS_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_-]*$')
+RUNTIMES_SHAPE = ('a list of {class, scripts}: the class of the elements a runtime draws, stated once, and its '
+                  'scripts in the order they load, each a `.js` file named by its path under the docs folder')
+
+
+@dataclass(frozen=True)
+class Runtime:
+    """Scripts a page loads only when its content has an element of the class `marker`."""
+
+    marker: str
+    scripts: tuple
+
+
+def _is_script_path(value):
+    return _is_text(value) and value.endswith('.js') and not value.startswith(('/', '.')) and '\\' not in value
+
+
+def page_runtimes(stated):
+    """(the runtimes `extra.guide_runtimes` of the configuration states, None), or (an empty list, what it must be)
+    when it is not stated as RUNTIMES_SHAPE says. A configuration that states none has none."""
+    if stated is None:
+        return [], None
+
+    def is_runtime(entry):
+        return (isinstance(entry, dict) and set(entry) == {'class', 'scripts'}
+                and isinstance(entry['class'], str) and _CLASS_NAME.match(entry['class']) is not None
+                and isinstance(entry['scripts'], list) and len(entry['scripts']) > 0
+                and all(_is_script_path(script) for script in entry['scripts']))
+
+    if not isinstance(stated, list) or not all(is_runtime(entry) for entry in stated):
+        return [], RUNTIMES_SHAPE
+    if len({entry['class'] for entry in stated}) != len(stated):
+        return [], RUNTIMES_SHAPE
+    return [Runtime(marker=entry['class'], scripts=tuple(entry['scripts'])) for entry in stated], None
+
+
 @dataclass(frozen=True)
 class Stage:
     id: str

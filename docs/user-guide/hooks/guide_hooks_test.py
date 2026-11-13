@@ -12,13 +12,17 @@ import json
 import logging
 import os
 import pathlib
+import re
 import shutil
+import struct
 import tempfile
 import unittest
 
 from mkdocs.commands.build import build
 from mkdocs.config import load_config
 from mkdocs.exceptions import Abort, PluginError
+
+import guide_model
 
 HOOKS = pathlib.Path(__file__).resolve().parent
 GUIDE = HOOKS.parent
@@ -99,6 +103,21 @@ class FixtureCase(unittest.TestCase):
 
     def site(self, relative):
         return (self.root / 'site' / relative).read_text(encoding='utf-8')
+
+    def capture(self):
+        handler = _Capture()
+        logger = logging.getLogger('mkdocs.plugins.guide')
+        logger.addHandler(handler)
+        self.addCleanup(logger.removeHandler, handler)
+        return handler
+
+    def assertBuildWarns(self, *fragments):
+        handler = self.capture()
+        with self.assertRaises(Abort):
+            self.build()
+        text = '\n'.join(handler.messages)
+        for fragment in fragments:
+            self.assertIn(fragment, text)
 
 
 class CleanBuildTests(FixtureCase):
@@ -335,21 +354,6 @@ class _Capture(logging.Handler):
 
 
 class WarningTests(FixtureCase):
-    def capture(self):
-        handler = _Capture()
-        logger = logging.getLogger('mkdocs.plugins.guide')
-        logger.addHandler(handler)
-        self.addCleanup(logger.removeHandler, handler)
-        return handler
-
-    def assertBuildWarns(self, *fragments):
-        handler = self.capture()
-        with self.assertRaises(Abort):
-            self.build()
-        text = '\n'.join(handler.messages)
-        for fragment in fragments:
-            self.assertIn(fragment, text)
-
     def test_an_unknown_stage_fails_the_strict_build_naming_the_page(self):
         self.page('processes/ht.md', PAGES['processes/ht.md'].replace('stage: stretch', 'stage: polish'))
         self.assertBuildWarns('processes/ht.md', "`stage` is 'polish'")
@@ -416,6 +420,115 @@ class WarningTests(FixtureCase):
         (self.root / 'data' / 'stages.yml').write_text('stages: []\n', encoding='utf-8')
         with self.assertRaises((PluginError, Abort)):
             self.build()
+
+    def test_a_logo_far_wider_than_the_header_draws_it_fails(self):
+        # Only the header of a PNG file is read: its signature and the size its IHDR chunk states.
+        (self.root / 'docs' / 'logo.png').write_bytes(
+            b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + b'IHDR' + struct.pack('>II', 512, 512) + b'\x08\x06\0\0\0')
+        self.assertBuildWarns('`theme.logo` (logo.png) is 512 px wide', 'within 128 px')
+
+
+FENCES = """\
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: an-mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+"""
+
+RUNTIMES = """\
+extra:
+  guide_runtimes:
+    - class: an-mermaid
+      scripts: [runtime/diagram.js, runtime/diagram-init.js]
+    - class: arithmatex
+      scripts: [runtime/math-config.js, runtime/math.js]
+"""
+
+DIAGRAM = '\n```mermaid\ngraph LR\n  A --> B\n```\n'
+
+
+class RuntimeTests(FixtureCase):
+    """The runtimes of `extra.guide_runtimes`: a page loads one only when its content has an element of its class."""
+
+    def setUp(self):
+        super().setUp()
+        self.configure(RUNTIMES)
+        for name in ('diagram', 'diagram-init', 'math-config', 'math'):
+            self.page('runtime/%s.js' % name, '// %s\n' % name)
+
+    def configure(self, runtimes):
+        config = CONFIG.format(theme=(GUIDE / 'theme').as_posix(), hooks=(HOOKS / 'guide_hooks.py').as_posix())
+        (self.root / 'mkdocs.yml').write_text(config.replace('  - pymdownx.superfences\n', FENCES) + runtimes,
+                                              encoding='utf-8')
+
+    def scripts(self, relative):
+        return [source for source in re.findall(r'<script src="([^"]*)"', self.site(relative)) if 'runtime/' in source]
+
+    def test_a_page_loads_a_runtime_only_when_its_content_uses_it(self):
+        self.page('processes/ht.md', PAGES['processes/ht.md'] + DIAGRAM)
+        self.page('reference/glossary.md', PAGES['reference/glossary.md'] + '\nInline $x^2$ and\n\n$$\ny = x\n$$\n')
+        self.page('reference/both.md', '---\nkind: reference\nsummary: Both.\n---\n# Both\n\n$$\ny = x\n$$\n' + DIAGRAM)
+        config = (self.root / 'mkdocs.yml').read_text(encoding='utf-8')
+        (self.root / 'mkdocs.yml').write_text(config.replace(
+            '      - Glossary: reference/glossary.md\n',
+            '      - Glossary: reference/glossary.md\n      - Both: reference/both.md\n'), encoding='utf-8')
+        self.build()
+        self.assertIn(' class="an-mermaid">', self.site('processes/ht.html'))
+        self.assertEqual(self.scripts('processes/ht.html'), ['../runtime/diagram.js', '../runtime/diagram-init.js'])
+        self.assertEqual(self.scripts('reference/glossary.html'), ['../runtime/math-config.js', '../runtime/math.js'])
+        self.assertEqual(self.scripts('reference/both.html'), ['../runtime/diagram.js', '../runtime/diagram-init.js',
+                                                               '../runtime/math-config.js', '../runtime/math.js'])
+        for plain in ('index.html', 'processes/index.html', '404.html'):
+            self.assertEqual(self.scripts(plain), [], plain)
+        # The runtimes come after the theme's own scripts, which they may rely on.
+        html = self.site('processes/ht.html')
+        self.assertLess(html.index('assets/guide/js/theme.js'), html.index('../runtime/diagram.js'))
+
+    def test_a_class_the_page_only_writes_about_loads_nothing(self):
+        self.page('reference/glossary.md', PAGES['reference/glossary.md'] + '\nThe class `an-mermaid` and the word '
+                  'arithmatex.\n\n```html\n<pre class="an-mermaid">x</pre>\n```\n')
+        self.build()
+        self.assertEqual(self.scripts('reference/glossary.html'), [])
+
+    def test_a_page_drawn_from_data_loads_no_runtime_for_a_body_it_does_not_show(self):
+        self.page('index.md', PAGES['index.md'] + DIAGRAM)
+        self.build()
+        self.assertNotIn('an-mermaid', self.site('index.html'))
+        self.assertEqual(self.scripts('index.html'), [])
+
+    def test_a_runtime_that_names_a_script_the_docs_do_not_have_fails(self):
+        (self.root / 'docs' / 'runtime' / 'math.js').unlink()
+        self.assertBuildWarns('`extra.guide_runtimes`: the runtime of `arithmatex` names runtime/math.js, which is no '
+                              'file of the docs folder')
+
+    def test_runtimes_that_are_not_stated_as_the_hooks_read_them_fail(self):
+        for runtimes in ('extra:\n  guide_runtimes:\n    - class: an-mermaid\n',
+                         'extra:\n  guide_runtimes:\n    - {class: an-mermaid, scripts: []}\n',
+                         'extra:\n  guide_runtimes:\n    - {class: an mermaid, scripts: [runtime/diagram.js]}\n',
+                         'extra:\n  guide_runtimes:\n    - {class: an-mermaid, scripts: [/runtime/diagram.js]}\n',
+                         'extra:\n  guide_runtimes:\n    - {class: a, scripts: [runtime/math.js]}\n'
+                         '    - {class: a, scripts: [runtime/diagram.js]}\n',
+                         'extra:\n  guide_runtimes: runtime/diagram.js\n'):
+            with self.subTest(runtimes=runtimes):
+                self.configure(runtimes)
+                self.assertBuildWarns('`extra.guide_runtimes` must be a list of {class, scripts}')
+
+
+class GuideConfigurationTests(unittest.TestCase):
+    """The guide's own configuration."""
+
+    def test_the_guide_brings_its_heavy_runtimes_by_page_and_none_with_every_page(self):
+        config = load_config(config_file=str(GUIDE / 'mkdocs.yml'))
+        self.assertEqual(list(config.extra_javascript), [])
+        runtimes, problem = guide_model.page_runtimes(config.extra.get('guide_runtimes'))
+        self.assertIsNone(problem)
+        self.assertEqual([runtime.marker for runtime in runtimes], ['an-mermaid', 'arithmatex'])
+        for runtime in runtimes:
+            for script in runtime.scripts:
+                self.assertTrue((pathlib.Path(config.docs_dir) / script).is_file(), script)
 
 
 if __name__ == '__main__':

@@ -18,10 +18,10 @@ installers.
 ## Other files
 
 `assets/images/interface/logo.png`
-:   **Source.** Derived from repository icon `icons/afternight_icon_512x512_blue.png`
+:   **Source.** A copy of repository icon `icons/afternight_icon_128x128_blue.png`
 :   **Licence.** Project asset, distributed with AfterNight under the repository license
-:   **Added** 2026-06-10. **SHA-256** `ccbecc37012f8bdb0a583bb7d76f9b34c0b6ec86785046623463bd3d0a8807f0`.
-:   **To update.** Regenerate from the matching repository icon when the application icon changes.
+:   **Added** 2026-06-10. **SHA-256** `5c585d19978c1bd3408fd2266e014107369caa569f128dcc63232f2ba3296b18`.
+:   **To update.** Copy the matching repository icon again when the application icon changes. Every page loads the logo and the header draws it 30 px wide, so it is the 128 px icon and not a larger one.
 
 `assets/images/interface/favicon.png`
 :   **Source.** Derived from repository icon `icons/afternight_icon_128x128_blue.png`

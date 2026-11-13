@@ -46,15 +46,24 @@ validation:
     anchors: warn
     unrecognized_links: warn
 
-# The theme links its own stylesheets and scripts; these are the runtimes the pages bring.
+# The theme links its own stylesheets and scripts, and no other loads with every page.
 extra_css: []
-extra_javascript:
-  # Keep documentation fully offline-capable for installer bundles.
-  - assets/javascripts/mermaid/mermaid.min.js
-  - assets/javascripts/mermaid/mermaid-init.js
-  # The configuration loads first: it points MathJax at its vendored fonts.
-  - assets/javascripts/mathjax/mathjax-config.js
-  - assets/javascripts/mathjax/tex-mml-chtml.js
+extra_javascript: []
+
+extra:
+  # The runtimes, which a page loads only when its content has an element of the class (hooks/guide_hooks.py).
+  # Mermaid is 1 MB to download and 3.5 MB to compile, and few pages have a diagram; MathJax is 0.3 MB and 1 MB, and
+  # many pages have no equation. Both are vendored, so a copy opened from disk needs no network.
+  guide_runtimes:
+    - class: an-mermaid
+      scripts:
+        - assets/javascripts/mermaid/mermaid.min.js
+        - assets/javascripts/mermaid/mermaid-init.js
+    - class: arithmatex
+      scripts:
+        # The configuration loads first: it points MathJax at its vendored fonts.
+        - assets/javascripts/mathjax/mathjax-config.js
+        - assets/javascripts/mathjax/tex-mml-chtml.js
 
 markdown_extensions:
   - abbr

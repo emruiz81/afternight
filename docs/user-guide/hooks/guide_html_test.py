@@ -75,6 +75,17 @@ class ScrollerTests(unittest.TestCase):
         self.assertIn('<div class="arithmatex" tabindex="0">', html)
         self.assertEqual(guide_html.focusable_scrollers(html), html)
 
+    def test_an_element_of_a_class_is_told_from_the_class_written_about(self):
+        html = render('Inline $x^2$.\n')
+        self.assertTrue(guide_html.has_class(html, 'arithmatex'))
+        self.assertFalse(guide_html.has_class(html, 'arith'))
+        self.assertTrue(guide_html.has_class('<pre id="a" class="wide an-mermaid dark">x</pre>', 'an-mermaid'))
+        self.assertFalse(guide_html.has_class('<pre class="an-mermaid-source">x</pre>', 'an-mermaid'))
+        self.assertFalse(guide_html.has_class('<pre data-class="an-mermaid">x</pre>', 'an-mermaid'))
+        written = render('The class `an-mermaid`, or class="an-mermaid".\n\n'
+                         '```html\n<pre class="an-mermaid">x</pre>\n```\n')
+        self.assertFalse(guide_html.has_class(written, 'an-mermaid'))
+
     def test_the_highlighters_line_anchors_leave_the_reading_and_tab_order(self):
         line = '<a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ls'
         html = guide_html.focusable_scrollers('<pre><code>%s</code></pre>' % line)

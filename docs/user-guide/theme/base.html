@@ -1,7 +1,8 @@
 {#- The frame every layout shares: the head, a skip link, the header, the stage stepper, the layout block and the
-    footer, then the guide's scripts and the site's extra scripts. The theme is set before the first paint by the
-    inline script, from the reader's stored choice or else the system's colour scheme. The guide's hooks put `guide`
-    (the data every page shares) and `gp` (this page's, none on the 404 page) in the context. -#}
+    footer, then the guide's scripts, the site's extra scripts and the scripts of the runtimes this page uses
+    (`gp.scripts`: a page without a diagram or an equation loads neither runtime). The theme is set before the first
+    paint by the inline script, from the reader's stored choice or else the system's colour scheme. The guide's hooks
+    put `guide` (the data every page shares) and `gp` (this page's, none on the 404 page) in the context. -#}
 <!doctype html>
 <html lang="{{ config.theme.locale|default('en') }}" data-theme="dark" data-base="{{ base_url }}"
       data-search-index="{{ 'search/search_index.js'|url }}" data-search-engine="{{ 'assets/guide/vendor/lunr-2.3.9.min.js'|url }}">
@@ -57,6 +58,9 @@
   <script src="{{ 'assets/guide/js/checklist.js'|url }}"></script>
   {%- for script in config.extra_javascript %}
   {{ script|script_tag }}
+  {%- endfor %}
+  {%- for path in (gp.scripts if gp else []) %}
+  <script src="{{ path|url }}"></script>
   {%- endfor %}
 </body>
 </html>

@@ -192,6 +192,23 @@ class SchemaTests(unittest.TestCase):
         self.assertEqual(model.menu_paths({'menu': ['A > B', 'C']}), ['A > B', 'C'])
         self.assertEqual(model.menu_paths({}), [])
 
+    def test_page_runtimes_are_a_class_and_its_scripts_in_order(self):
+        self.assertEqual(model.page_runtimes(None), ([], None))
+        self.assertEqual(model.page_runtimes([]), ([], None))
+        runtimes, problem = model.page_runtimes([{'class': 'an-mermaid', 'scripts': ['js/a.js', 'js/b.js']},
+                                                 {'class': 'arithmatex', 'scripts': ['js/c.js']}])
+        self.assertIsNone(problem)
+        self.assertEqual(runtimes, [model.Runtime('an-mermaid', ('js/a.js', 'js/b.js')),
+                                    model.Runtime('arithmatex', ('js/c.js',))])
+        for stated in ('js/a.js', [{'class': 'a'}], [{'class': 'a', 'scripts': []}],
+                       [{'class': 'a', 'scripts': 'a.js'}], [{'class': 'a b', 'scripts': ['a.js']}],
+                       [{'class': 'a', 'scripts': ['/a.js']}], [{'class': 'a', 'scripts': ['../a.js']}],
+                       [{'class': 'a', 'scripts': ['a.css']}],
+                       [{'class': 'a', 'scripts': ['a.js'], 'defer': True}],
+                       [{'class': 'a', 'scripts': ['a.js']}, {'class': 'a', 'scripts': ['b.js']}]):
+            with self.subTest(stated=stated):
+                self.assertEqual(model.page_runtimes(stated), ([], model.RUNTIMES_SHAPE))
+
     HERO = {'lede': 'The guide.', 'actions': [{'label': 'Start', 'page': 'start/first.md'}]}
 
     def test_the_home_page_states_its_hero_paths_and_popular_pages(self):

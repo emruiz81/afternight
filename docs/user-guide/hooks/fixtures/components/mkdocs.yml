@@ -4,7 +4,8 @@
 #   mkdocs build -f docs/user-guide/hooks/fixtures/components/mkdocs.yml -d <a folder outside the repository> --strict
 #
 # It uses the guide's theme, hooks and data in place (`extra.guide_root`), and the guide's Markdown extensions. It
-# loads neither MathJax nor Mermaid, whose runtimes live with the guide's own pages.
+# states no `extra.guide_runtimes`, so it loads neither MathJax nor Mermaid, whose runtimes live with the guide's own
+# pages.
 site_name: Component fixture
 site_description: Every page kind and component of the AfterNight guide's theme.
 docs_dir: docs
