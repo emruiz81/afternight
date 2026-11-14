@@ -538,6 +538,64 @@ TEST_P(XisfStepCodec, AStepOpensAsAnImageInAnyReaderOfTheFormat)
     EXPECT_NE(object->value().find("NGC 7000"), std::string::npos);
 }
 
+/// The text of an XISF file's header: what follows its signature, for the length the signature states.
+std::string xisfHeaderOf(const std::string& path)
+{
+    std::ifstream stream(std::filesystem::path(std::u8string(path.begin(), path.end())), std::ios::binary);
+    std::array<char, 16u> signature{};
+    stream.read(signature.data(), static_cast<std::streamsize>(signature.size()));
+    std::uint32_t length = 0u;
+    std::memcpy(&length, signature.data() + 8u, sizeof(length));
+    std::string header(length, '\0');
+    stream.read(header.data(), static_cast<std::streamsize>(header.size()));
+    return stream ? header : std::string();
+}
+
+TEST_P(XisfStepCodec, AStepsHeaderOpensWithoutTheXmlDeclarationAndTheComment)
+{
+    // What a virus scanner takes a file for markup by: with neither, it does not read a step's samples for tags.
+    StepImageRequest request;
+    request.type = an::SampleType::Float32;
+    request.maskPlanes = 1u;
+    request.metadata = everyTypedKind();
+    const std::shared_ptr<an::consumer::ImageAsset> image = makeStepImage(session(), request);
+    ASSERT_NE(image, nullptr);
+    ASSERT_TRUE(roundTrip(*image, "step").has_value());
+    const std::string header = xisfHeaderOf(stepPath("step"));
+    ASSERT_FALSE(header.empty());
+    const auto root = header.find('<');
+    ASSERT_NE(root, std::string::npos);
+    EXPECT_EQ(header.find_first_not_of(' '), root);
+    EXPECT_TRUE(header.substr(root).starts_with("<xisf "));
+    EXPECT_EQ(header.find("<?"), std::string::npos);
+    EXPECT_EQ(header.find("<!--"), std::string::npos);
+
+    // The same image saved as the application saves one opens as the specification says.
+    const std::string saved = stepPath("saved");
+    {
+        std::optional<an::consumer::OperationScope> scope = an::tests::viewer::admitted(session());
+        ASSERT_TRUE(scope.has_value());
+        an::Result<an::consumer::AssetReadLease> lease = image->read();
+        ASSERT_TRUE(lease.hasValue());
+        const an::OutputIntent intent = *an::OutputIntent::create({.sampleType = an::SampleType::Float32});
+        const an::Status written = lease->visit([&](const auto& typed) -> an::Status {
+            const an::Result<an::RawFrame> frame = an::borrowImageFrame(typed);
+            if (!frame.hasValue())
+            {
+                return frame.status();
+            }
+            an::OutputRequest output;
+            output.destinationPath = saved;
+            output.intent = &intent;
+            const an::Result<an::OutputReport> report =
+                an::writeImage(scope->engine(), scope->execution(), output, *frame, an::ImageMetadata{});
+            return report.hasValue() ? an::Status::success() : report.status();
+        });
+        ASSERT_TRUE(written.ok()) << written.message();
+    }
+    EXPECT_TRUE(xisfHeaderOf(saved).starts_with(R"(<?xml version="1.0" encoding="UTF-8"?>)"));
+}
+
 TEST_P(XisfStepCodec, AnImageOfTheFormatThatIsNoStepIsRefused)
 {
     // The same image written as the application saves one: a good file of the format, and not a step.

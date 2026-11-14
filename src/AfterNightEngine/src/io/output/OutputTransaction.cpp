@@ -115,6 +115,7 @@ public:
     std::optional<OutputIntent> intent;
     std::optional<ArtifactIdentity> identity;
     OutputDurability durability = OutputDurability::FlushBeforePublish;
+    OutputHeaderProlog headerProlog = OutputHeaderProlog::Specified;
     OutputByteSink* sink = nullptr;
     std::uint64_t bytesWritten = 0u;
     bool destinationExisted = false;
@@ -324,6 +325,8 @@ Result<OutputTransaction> OutputTransaction::begin(const EngineContext& engine, 
             return argumentFailure(kOperation, "the durability is not one this build knows", "durability");
         if (!isOutputReplacePolicy(request.replacePolicy))
             return argumentFailure(kOperation, "the replace policy is not one this build knows", "replacePolicy");
+        if (!isOutputHeaderProlog(request.headerProlog))
+            return argumentFailure(kOperation, "the header prolog is not one this build knows", "headerProlog");
         if (!isBoundaryPath(request.destinationPath))
             return argumentFailure(kOperation, "a destination path is nonempty bounded UTF-8 without NUL",
                                    "destinationPath");
@@ -360,6 +363,7 @@ Result<OutputTransaction> OutputTransaction::begin(const EngineContext& engine, 
         state->destination = std::string(request.destinationPath);
         state->format = format;
         state->durability = request.durability;
+        state->headerProlog = request.headerProlog;
         state->sink = request.byteSink;
         if (request.identity != nullptr)
             state->identity = *request.identity;
@@ -444,8 +448,10 @@ Status OutputTransaction::encode(const RawFrame& frame, const ImageMetadata& met
             outcome = reduced.status();
             return;
         }
-        const CodecEncodeRequest request{
-            .pendingPath = state.pending, .format = state.format, .intent = state.intent ? &*state.intent : nullptr};
+        const CodecEncodeRequest request{.pendingPath = state.pending,
+                                         .format = state.format,
+                                         .intent = state.intent ? &*state.intent : nullptr,
+                                         .headerProlog = state.headerProlog};
         Result<CodecEncodeReport> report =
             encodePreparedImage(*state.engine, *state.execution, request, frame, *reduced, state.reservedOutput.get());
         if (!report.hasValue())
@@ -495,8 +501,10 @@ Status OutputTransaction::reserve(const RawFrameDescriptor& descriptor, StorageA
             outcome = reduced.status();
             return;
         }
-        const CodecEncodeRequest request{
-            .pendingPath = state.pending, .format = state.format, .intent = state.intent ? &*state.intent : nullptr};
+        const CodecEncodeRequest request{.pendingPath = state.pending,
+                                         .format = state.format,
+                                         .intent = state.intent ? &*state.intent : nullptr,
+                                         .headerProlog = state.headerProlog};
         Result<std::unique_ptr<CodecReservedRows>> rows =
             reservePreparedImage(*state.engine, *state.execution, request, descriptor, arrangement, *reduced);
         if (!rows.hasValue())

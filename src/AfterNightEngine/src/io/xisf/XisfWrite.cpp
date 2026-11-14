@@ -12,7 +12,8 @@
 // in the form the intent states - its codec and level, byte shuffling, the size of the subblocks a reader decodes on
 // their own, a checksum - a compressed frame defaulting to shuffled samples, as PixInsight writes them, in subblocks
 // a region read takes one at a time. The unit goes to the transaction's pending file through a sink, which the
-// transaction alone publishes.
+// transaction alone publishes. A unit asked for with a blank header prolog is written the same way and then, in the
+// pending file while it is still open, loses the XML declaration and the comment its header opens with to spaces.
 //
 // A reserved image is the same unit with zeros where the samples go, written uncompressed by the library's reserved
 // image and then held open in its editor, which writes each band of rows the transaction hands it where it lies and,
@@ -46,6 +47,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -438,6 +440,79 @@ int libraryLevel(openxisf::codec codec, std::uint32_t level) noexcept
     return 1 + ((static_cast<int>(level) - lowest) * 99 * 2 + span) / (2 * span);
 }
 
+/// The most of a header that is read to find where its root element starts: the library writes the declaration and
+/// a comment of a few lines before it, some two hundred bytes.
+constexpr std::size_t kPrologSearchBytes = 4096u;
+
+/// Overwrites what a written unit's header holds before its root element with spaces, in the open pending file.
+///
+/// The library opens every header with the XML declaration and a comment naming itself. A virus scanner takes a
+/// file that opens so for markup and reads all of it for tags, which the samples of a floating image are dense in
+/// the two characters of; without them it does not. Spaces of the same count leave the header its length and every
+/// block its place, and white space before the root element of a document that declares nothing is well-formed XML,
+/// so the unit reads as it did. Done before the file is closed, because the scanner's pass starts when it is.
+///
+/// @param file the pending file, open for reading and writing, holding the whole unit.
+/// @return success; or `ErrorCode::Internal` when the header is not the one the library writes - too short, or with
+///         no root element after a prolog of declarations, comments and white space - or the file refuses the
+///         read or the write, in which case the unit must not be published.
+Status blankHeaderProlog(std::fstream& file)
+{
+    const auto unexpected = [](const char* what) {
+        return Status::failure(ErrorCode::Internal,
+                               {.message = what, .operation = "blank XISF header prolog", .domain = ErrorDomain::Io});
+    };
+    // The unit's first sixteen bytes are its signature, its header's length and four reserved bytes.
+    constexpr std::streamoff kHeaderAt = 16;
+    std::array<char, 4u> lengthBytes{};
+    file.seekg(8);
+    file.read(lengthBytes.data(), static_cast<std::streamsize>(lengthBytes.size()));
+    if (!file)
+        return unexpected("the written unit's header length could not be read back");
+    std::uint32_t length = 0u;
+    for (std::size_t index = 0u; index < lengthBytes.size(); ++index)
+        length |= static_cast<std::uint32_t>(static_cast<unsigned char>(lengthBytes[index])) << (8u * index);
+    std::string head((std::min)(static_cast<std::size_t>(length), kPrologSearchBytes), '\0');
+    file.seekg(kHeaderAt);
+    file.read(head.data(), static_cast<std::streamsize>(head.size()));
+    if (!file)
+        return unexpected("the written unit's header could not be read back");
+    // The prolog is declarations and processing instructions, comments and white space; the first tag that is
+    // neither is the root element.
+    std::size_t root = 0u;
+    while (root < head.size())
+    {
+        const std::string_view rest = std::string_view(head).substr(root);
+        if (rest.starts_with("<?"))
+        {
+            const auto end = rest.find("?>");
+            if (end == std::string_view::npos)
+                return unexpected("the written unit's header holds a declaration that does not end");
+            root += end + 2u;
+        }
+        else if (rest.starts_with("<!--"))
+        {
+            const auto end = rest.find("-->");
+            if (end == std::string_view::npos)
+                return unexpected("the written unit's header holds a comment that does not end");
+            root += end + 3u;
+        }
+        else if (rest.front() == ' ' || rest.front() == '\t' || rest.front() == '\r' || rest.front() == '\n')
+            ++root;
+        else
+            break;
+    }
+    if (root >= head.size() || !std::string_view(head).substr(root).starts_with("<xisf"))
+        return unexpected("the written unit's header has no root element where the library writes one");
+    const std::string blank(root, ' ');
+    file.seekp(kHeaderAt);
+    file.write(blank.data(), static_cast<std::streamsize>(blank.size()));
+    file.flush();
+    if (!file)
+        return unexpected("the written unit's header could not be rewritten");
+    return Status::success();
+}
+
 /// The image model of the unit, every structural fact restated from the image and what was declared beside it.
 openxisf::image_info outputImage(const CodecEncodeRequest& request, const RawFrameDescriptor& descriptor,
                                  StorageArrangement arrangement, const ImageMetadata& metadata,
@@ -711,7 +786,8 @@ Result<CodecEncodeReport> writeXisf(const EngineContext& engine, const Execution
             }
             openxisf::writer writer(std::move(options));
             writer.add_image(outputImage(request, descriptor, arrangement, metadata, *sampleFormat, *cards), payload);
-            std::ofstream output(pending, std::ios::binary | std::ios::trunc);
+            // Opened for reading as well, which a blank prolog needs to find what it blanks.
+            std::fstream output(pending, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
             if (!output.is_open())
                 return xisfFailure(ErrorCode::ExternalFailure, CodecFailure::DestinationUnavailable,
                                    "create XISF pending output", request.pendingPath,
@@ -721,6 +797,12 @@ Result<CodecEncodeReport> writeXisf(const EngineContext& engine, const Execution
             // of the blocks it lists are known, and no block is held in memory to wait for it.
             openxisf::ostream_sink sink(output);
             writer.save(sink);
+            if (request.headerProlog == OutputHeaderProlog::Blank)
+            {
+                output.flush();
+                if (Status blanked = blankHeaderProlog(output); blanked.failed())
+                    return blanked;
+            }
             output.close();
             if (output.fail())
                 return xisfFailure(ErrorCode::ExternalFailure, CodecFailure::ShortWrite, "write XISF output",

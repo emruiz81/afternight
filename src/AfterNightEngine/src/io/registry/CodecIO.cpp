@@ -557,6 +557,16 @@ Result<CodecEncodeReport> encodePreparedImage(const EngineContext& engine, const
                                 request.pendingPath);
         if (!frame.valid())
             return Status::failure(ErrorCode::InvalidArgument);
+        if (!isOutputHeaderProlog(request.headerProlog))
+            return Status::failure(ErrorCode::InvalidArgument,
+                                   {.message = "the header prolog is not one this build knows",
+                                    .operation = "encodeImage",
+                                    .domain = ErrorDomain::Io,
+                                    .context = {StatusContextField::ofText(ContextKey::Parameter, "headerProlog")}});
+        // Only XISF opens its header with markup, so only its adapter is ever asked for another opening.
+        if (request.headerProlog != OutputHeaderProlog::Specified && caps.format != CodecFormat::Xisf)
+            return codecFailure(ErrorCode::Unsupported, CodecFailure::UnsupportedRepresentation, caps.format,
+                                "encodeImage", request.pendingPath);
         if (const auto status = checkDescription(engine, caps, *frame.descriptor(), *frame.layout(), caps.encodeSamples,
                                                  caps.encodeLayouts);
             status.failed())
@@ -609,6 +619,10 @@ reservePreparedImage(const EngineContext& engine, const ExecutionContext& execut
         if (caps.encodeSamples == 0u || reserving == nullptr)
             return codecFailure(ErrorCode::Unsupported, CodecFailure::UnsupportedOperation, caps.format, "reserveImage",
                                 request.pendingPath);
+        // A reserved image's header is written again when its rows are complete, as its specification writes one.
+        if (request.headerProlog != OutputHeaderProlog::Specified)
+            return codecFailure(ErrorCode::Unsupported, CodecFailure::UnsupportedRepresentation, caps.format,
+                                "reserveImage", request.pendingPath);
         // The room is described as the tight layout of the arrangement stated, which is what the capability record
         // and the limits judge a frame's description by.
         const bool interleaved = arrangement == StorageArrangement::Interleaved;

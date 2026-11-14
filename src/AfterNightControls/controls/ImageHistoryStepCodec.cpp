@@ -795,6 +795,9 @@ private:
         request.identity = &identity;
         request.durability = an::OutputDurability::CloseOnly;
         request.replacePolicy = an::OutputReplacePolicy::ReplaceExisting;
+        // Without the declaration and the comment a header opens with, a virus scanner does not take the step for
+        // markup and read every sample of it for tags.
+        request.headerProlog = an::OutputHeaderProlog::Blank;
         const an::Result<an::OutputReport> report =
             an::writeImage(scope.engine(), scope.execution(), request, frame, metadata);
         return report.hasValue() ? an::Status::success() : report.status();

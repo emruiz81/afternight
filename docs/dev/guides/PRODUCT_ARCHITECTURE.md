@@ -342,16 +342,27 @@ them, uncompressed or under LZ4 or Zstandard, with the image's own cards beside 
   eight characters, text outside printable ASCII, a property name that is no identifier), because the encoder
   refuses the whole image for one such card; if it still refuses, the step is written with its record and identity
   alone.
+- **Why a step's header opens without the XML declaration.** The one departure from the XISF specification,
+  made for a history's steps and for nothing else the application writes. Windows' virus scanner takes a file for
+  markup when its first kibibytes read as text and hold an XML declaration or a comment, which is how the
+  specification opens every XISF header, and then reads the whole file for tags. The bytes of normalized 32-bit
+  floating samples are dense in `<` and `>` - the top byte of every sample from 0.0078 to 0.031 is the first, and
+  from 0.125 to 0.5 the second - so each uncompressed step cost the scanner 0.3 to 0.5 s of a processor when it was
+  closed, and a read of the step during that pass waited for its end. How the file is written or reopened has no
+  part in it: a copy of such a file is read the same way. The step codec therefore asks the engine for
+  `OutputHeaderProlog::Blank`: the XISF adapter writes the unit as specified and, in the pending file before it is
+  closed, overwrites the declaration and the comment with spaces, so the header keeps its length and every block
+  its place. Such a header is still well-formed XML; this application and PixInsight read the unit as any other.
+  An image the user saves, and every other XISF file, opens as the specification says
+  (`XisfStepCodec.AStepsHeaderOpensWithoutTheXmlDeclarationAndTheComment`).
 - **Why there is no FITS codec.** A record would travel in the header, and the engine's FITS writer takes a header
   of at most `kMaxCodecCards` eighty-byte records, about 400 KiB of record: the mask of an ordinary image exceeds
   it unless it compresses to almost nothing. FITS holds such data in an extension, which the engine's FITS adapter
   does not write.
 - **What it costs.** For a 60-megapixel Float32 image, measured beside the snapshot (`StepCodecCost.*`), an
-  uncompressed XISF step is written in about 1.1 times the snapshot's time, an LZ4 one in about 1.4 to 1.5 times
-  at three quarters of the size, and a Zstandard one in about twice at two thirds. An uncompressed step is read
-  as fast as a snapshot, an LZ4 one in about twice the time and a Zstandard one in about two and a half times.
-  The first read of an uncompressed XISF step written a moment before waits on Windows for the virus scanner's
-  pass over the new file, about half a second for 230 MiB; the compressed ones do not.
+  uncompressed XISF step is written and read in the snapshot's time, an LZ4 one is written in about 1.4 to 1.6
+  times and read in about 1.7 times at three quarters of the size, and a Zstandard one is written in about twice
+  and read in about 2.4 times at two thirds.
 - **Why its samples state no checksum.** A snapshot checks every section with a hash that costs next to nothing.
   XISF's own checksums are cryptographic: SHA-1 over the same image takes the write from about 105 ms to about
   305 ms under LZ4, and SHA-256 to about 510 ms. An XISF step's record is checked, being a snapshot; its samples

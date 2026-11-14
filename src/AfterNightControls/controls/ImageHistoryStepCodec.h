@@ -22,8 +22,14 @@
 /// the mask's bits; each compressed and written as text. A read takes the samples from the image and everything
 /// else from the record, and refuses a file without one.
 ///
-/// Three things about an XISF step are the format's, not the step's:
+/// Four things about an XISF step are the format's, not the step's:
 ///
+/// - Its header opens without the XML declaration and the comment the specification opens one with
+///   (`OutputHeaderProlog::Blank`): spaces stand where they were. A virus scanner takes a file that opens with
+///   them for markup and reads all of it for tags, which the bytes of normalized 32-bit floating samples are full
+///   of - half a second of a processor for every step, and a wait for a step read while it is at it. This is the
+///   one departure from the specification, made for a history's steps alone; this application and PixInsight read
+///   such a file as any other, and every other XISF file the application writes opens as the specification says.
 /// - The record travels in the image's cards, of which one image holds `kMaxCodecCards` of
 ///   `kMaxCodecCardTextBytes` each. A record longer than `kMaxXisfStepRecordTextBytes` - in practice a mask with no
 ///   pattern to compress, of an image of well over a hundred megapixels - is refused when it is written, with

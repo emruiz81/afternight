@@ -46,7 +46,10 @@
 /// file is opened. The adapter also writes a reserved image, which `OutputTransaction::reserve` asks
 /// for: the unit with zeros where the samples go, in an uncompressed block - so an intent that states a
 /// compression is refused - whose rows `OutputTransaction::writeRows` then fills in place, its checksum
-/// computed over the rows written at the commit.
+/// computed over the rows written at the commit. An encode that asks for `OutputHeaderProlog::Blank` writes the
+/// unit as specified and then, in the pending file and before it is closed, overwrites everything of the header
+/// before its root element - the XML declaration and the comment - with spaces: the header keeps its length and
+/// every block its place, and the unit reads as the one written as specified does.
 ///
 /// **Memory outside the budget.** The library keeps a model of the header beside its reader, bounded by
 /// `kMaxXisfHeaderBytes` and its own element and object limits, and a read with metadata loads the image's

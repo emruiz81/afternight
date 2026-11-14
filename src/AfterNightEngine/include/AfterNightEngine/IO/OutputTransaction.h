@@ -160,6 +160,10 @@ struct OutputRequest
     /// Something that sees the complete payload before publication, or null. Borrowed until
     /// `commit` returns.
     OutputByteSink* byteSink = nullptr;
+
+    /// How a header that is markup opens: as the container's specification writes it, or blank. Only an XISF
+    /// image encoded whole is written with a blank one; see `OutputHeaderProlog`.
+    OutputHeaderProlog headerProlog = OutputHeaderProlog::Specified;
 };
 
 /// What a committed transaction reports.
@@ -239,7 +243,7 @@ public:
     /// @return the transaction; `ErrorCode::NotInitialized` for an engine context or execution that
     ///         is not valid; `ErrorCode::IncompatibleArguments` when the execution belongs to another
     ///         context or an identity is stated without an intent; `ErrorCode::InvalidArgument` for a
-    ///         malformed path or an enumerator outside its enumeration, with
+    ///         malformed path or an enumerator outside its enumeration - the header prolog's included - with
     ///         `CodecFailure::UnknownFormat` for the format; `ErrorCode::LimitExceeded` when the
     ///         pending path would exceed the path bound or the cards the card bound;
     ///         `ErrorCode::Unsupported` with `CodecFailure::UnknownFormat` when no format is stated and
@@ -263,7 +267,8 @@ public:
     /// @param metadata the image's metadata, reduced for the destination before the encoder sees it.
     /// @return success; `ErrorCode::InvalidState` when the transaction holds nothing or has encoded
     ///         already; the execution's cancellation; or the failure reducing the metadata, or the
-    ///         codec facade's, reported - see `encodeImage` in `IO/CodecIO.h`.
+    ///         codec facade's, reported - see `encodeImage` in `IO/CodecIO.h` - among them
+    ///         `ErrorCode::Unsupported` for a blank header prolog asked of a container that is not XISF.
     [[nodiscard]] AFTERNIGHTENGINE_API Status encode(const RawFrame& frame, const ImageMetadata& metadata);
 
     /// Writes the container into the pending payload with room for an image's samples, which
@@ -287,7 +292,8 @@ public:
     ///         reserved already; `ErrorCode::Unsupported` with `CodecFailure::UnsupportedOperation` when
     ///         the destination's adapter writes no reserved image, or with
     ///         `CodecFailure::UnsupportedRepresentation` for a representation, an arrangement or an
-    ///         intent it cannot write in place; `ErrorCode::IncompatibleArguments` when the intent does
+    ///         intent it cannot write in place, or for a blank header prolog, which a reserved image is
+    ///         never written with; `ErrorCode::IncompatibleArguments` when the intent does
     ///         not state the descriptor's representation; `ErrorCode::LimitExceeded` for an image
     ///         larger than the engine context's limits; the execution's cancellation; or the adapter's
     ///         failure.

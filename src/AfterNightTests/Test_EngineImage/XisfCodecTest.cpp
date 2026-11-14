@@ -951,6 +951,90 @@ TEST_F(XisfCodecTest, AWrittenUnitNamesItsWriterOnlyAsTheUnitsCreator)
     EXPECT_EQ(header("stated.xisf").find("Instrument:Software"), std::string::npos);
 }
 
+TEST_F(XisfCodecTest, AUnitWrittenWithABlankPrologOpensAtItsRootElementAndReadsBackAsWritten)
+{
+    const auto header = [&](const char* name) {
+        const auto bytes = readBytes(path(name));
+        std::uint32_t length = 0u;
+        std::memcpy(&length, bytes.data() + 8u, sizeof(length));
+        return std::string(reinterpret_cast<const char*>(bytes.data()) + 16u, length);
+    };
+    const auto data = gradient<float>(64u, 48u, 1u);
+    auto source = frame<float>(data, 64u, 48u);
+    // One write under an execution of its own, which ends before the next operation of the case begins.
+    const auto write = [&](const std::string& destination, const an::OutputIntent& intent,
+                           an::OutputHeaderProlog prolog) -> an::Result<an::OutputReport> {
+        auto execution = an::ExecutionContext::create(engine, {});
+        if (!execution.hasValue())
+            return execution.status();
+        return an::writeImage(engine, *execution,
+                              {.destinationPath = destination, .intent = &intent, .headerProlog = prolog}, source, {});
+    };
+    for (const an::OutputCompression compression : {an::OutputCompression::None, an::OutputCompression::Lz4})
+    {
+        SCOPED_TRACE(an::outputCompressionName(compression));
+        auto intent = an::OutputIntent::create(
+            {.sampleType = an::SampleType::Float32,
+             .compression = compression,
+             .cards = {card(an::CodecNamespace::Fits, "OBJECT", "'M42'"),
+                       card(an::CodecNamespace::Xisf, "Observation:Note", "less < than > it seems", "String")}});
+        ASSERT_TRUE(intent.hasValue());
+        const std::string specifiedPath = path("specified.xisf");
+        const std::string blankPath = path("blank.xisf");
+        // As the specification writes a header: the XML declaration first, then a comment naming its writer.
+        ASSERT_TRUE(write(specifiedPath, *intent, an::OutputHeaderProlog::Specified).hasValue());
+        const std::string specified = header("specified.xisf");
+        EXPECT_TRUE(specified.starts_with(R"(<?xml version="1.0" encoding="UTF-8"?>)"));
+        EXPECT_NE(specified.find("<!--"), std::string::npos);
+        // With a blank prolog the header holds spaces up to its root element and nothing has moved.
+        const auto written = write(blankPath, *intent, an::OutputHeaderProlog::Blank);
+        ASSERT_TRUE(written.hasValue()) << written.status().message() << " / "
+                                        << written.status().rootCause().message();
+        const std::string blank = header("blank.xisf");
+        const auto root = blank.find('<');
+        ASSERT_NE(root, std::string::npos);
+        EXPECT_GT(root, 0u);
+        EXPECT_EQ(blank.find_first_not_of(' '), root);
+        EXPECT_TRUE(blank.substr(root).starts_with("<xisf "));
+        EXPECT_EQ(blank.find("<?"), std::string::npos);
+        EXPECT_EQ(blank.find("<!--"), std::string::npos);
+        EXPECT_EQ(specified.find("<xisf "), root);
+        EXPECT_EQ(readBytes(blankPath).size(), readBytes(specifiedPath).size());
+        EXPECT_EQ(written->bytesWritten, readBytes(blankPath).size());
+        // The unit reads as the one written as specified does: its samples, its keyword and its property, whose
+        // own text keeps its angle brackets.
+        auto decoded = decode("blank.xisf");
+        ASSERT_TRUE(decoded.hasValue()) << lastError;
+        EXPECT_EQ(values<float>(decoded->frame), data);
+        const auto* const object = decoded->metadata.codec().find(an::CodecNamespace::Fits, "OBJECT");
+        ASSERT_NE(object, nullptr);
+        EXPECT_EQ(object->value(), "'M42'");
+        const auto* const note = decoded->metadata.codec().find(an::CodecNamespace::Xisf, "Observation:Note");
+        ASSERT_NE(note, nullptr);
+        EXPECT_EQ(note->value(), "less < than > it seems");
+    }
+}
+
+TEST_F(XisfCodecTest, ABlankPrologIsRefusedForAReservedImageAndLeavesNothing)
+{
+    const auto data = gradient<float>(64u, 48u, 1u);
+    auto source = frame<float>(data, 64u, 48u);
+    auto intent = an::OutputIntent::create({.sampleType = an::SampleType::Float32});
+    ASSERT_TRUE(intent.hasValue());
+    auto execution = an::ExecutionContext::create(engine, {});
+    ASSERT_TRUE(execution.hasValue());
+    const std::string destination = path("reserved.xisf");
+    auto transaction = an::OutputTransaction::begin(
+        engine, *execution,
+        {.destinationPath = destination, .intent = &*intent, .headerProlog = an::OutputHeaderProlog::Blank});
+    ASSERT_TRUE(transaction.hasValue()) << transaction.status().message();
+    // A reserved image's header is written again when its rows are complete, as the specification writes one.
+    const an::Status reserved = transaction->reserve(*source.descriptor(), an::StorageArrangement::Planar, {});
+    EXPECT_EQ(reserved.code(), an::ErrorCode::Unsupported);
+    EXPECT_FALSE(transaction->valid());
+    EXPECT_TRUE(std::filesystem::is_empty(directory));
+}
+
 TEST_F(XisfCodecTest, CardsTheContainerCannotSpellAreRefusedBeforeAnythingIsWritten)
 {
     auto source = frame<std::uint16_t>({1, 2, 3}, 3u, 1u);

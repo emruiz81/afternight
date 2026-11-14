@@ -1,4 +1,4 @@
-version 1.6.2 3
+version 1.7.0 4
 joining 2
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API OpticalHints readOpticalHints(std::span<const CodecCard> cards) noexcept
 api engine Algorithms/Astrometry/AstrometryHints.h an [[nodiscard]] AFTERNIGHTENGINE_API PointingKeywords pointingCardKeywords(PointingCards cards) noexcept
@@ -1928,6 +1928,7 @@ enum engine Core/Version.h an::EngineCompatibility Compatible VersionMismatch Ab
 enum engine IO/AviSequence.h an::AviMosaicPolicy Refuse WriteSamplesAsMono
 enum engine IO/CodecError.h an::CodecFailure UnknownFormat Unavailable UnsupportedOperation UnsupportedRepresentation InvalidCapabilities DuplicateFormat DescriptorMismatch UnsafeLifetime ForeignAllocation InvalidMetadata MetadataUnreadable PayloadUnreadable CallbackFailure InvalidIdentity PendingConflict DestinationUnavailable ShortWrite FlushFailure PublishFailure ExistingDestination
 enum engine IO/CodecFormat.h an::CodecFormat Unknown Fits Xisf Raw Png Jpeg Tiff Dump
+enum engine IO/CodecFormat.h an::OutputHeaderProlog Specified Blank
 enum engine IO/CodecMetadataPolicy.h an::CardDisposition Written ForeignNamespace StructuralKeyword IdentityKeyword NotInAllowlist UnsupportedDestination
 enum engine IO/CodecMetadataProjection.h an::FrameType Unknown Light Dark Flat Bias
 enum engine IO/CodecRequests.h an::CodecProbeDisposition DecodeRequired PayloadValidatedWithoutDecode
@@ -2232,17 +2233,17 @@ header engine Core/ImageLayout.h 19a9142333de7498
 header engine Core/LibraryInfo.h 1bfecceb973c07f1
 header engine Core/Result.h e0327ad962e10e4b
 header engine Core/Status.h a843439f21221219
-header engine Core/Version.h 14aab003d44dd267
+header engine Core/Version.h 7bfa650906d18dde
 header engine IO/ArtifactIdentity.h 66c96b929d36b24e
 header engine IO/AviSequence.h 595917f483188e5e
 header engine IO/CodecCapabilities.h daadf4c45a2db525
 header engine IO/CodecError.h 848128438f856d71
-header engine IO/CodecFormat.h 4033c09fefb2375f
+header engine IO/CodecFormat.h b8568f4ce0c20b1c
 header engine IO/CodecIO.h 514a08edb4307adf
 header engine IO/CodecMetadataPolicy.h 2a45022e505af9ec
 header engine IO/CodecMetadataProjection.h 9bd2b3d64f590c12
 header engine IO/CodecRegistry.h 3b67c499d68d5934
-header engine IO/CodecRequests.h a723d554ba1952bf
+header engine IO/CodecRequests.h 88b21ee8691bebec
 header engine IO/CombinedMetadata.h ad72cb9edfbef51f
 header engine IO/DummySource.h d6644b14557dfb5d
 header engine IO/DumpCodec.h e447c3e1ca941ce4
@@ -2264,7 +2265,7 @@ header engine IO/ImageListSource.h f7246e673c267869
 header engine IO/ImageSnapshot.h f6bc39dc900fb076
 header engine IO/JpegCodec.h 3b2003b4db62a667
 header engine IO/ObservationCards.h 8e3cb5d90e7852ea
-header engine IO/OutputTransaction.h 9da0878a3b8c1a20
+header engine IO/OutputTransaction.h 8421b483f9806440
 header engine IO/PendingOutput.h ce052043493b0706
 header engine IO/PngCodec.h 5ca9775c8d95e475
 header engine IO/ProcessingStateCards.h ab316f063bcb6427
@@ -6088,6 +6089,7 @@ member engine IO/CodecRequests.h an::CodecEncodeReport#000 std::uint64_t bytesWr
 member engine IO/CodecRequests.h an::CodecEncodeRequest#000 std::string_view pendingPath
 member engine IO/CodecRequests.h an::CodecEncodeRequest#001 CodecFormat format = CodecFormat::Unknown
 member engine IO/CodecRequests.h an::CodecEncodeRequest#002 const OutputIntent* intent = nullptr
+member engine IO/CodecRequests.h an::CodecEncodeRequest#003 OutputHeaderProlog headerProlog = OutputHeaderProlog::Specified
 member engine IO/CodecRequests.h an::CodecImageInfo#000 RawFrameDescriptor descriptor
 member engine IO/CodecRequests.h an::CodecImageInfo#001 ImageLayout decodedLayout
 member engine IO/CodecRequests.h an::CodecImageInfo#002 std::uint64_t imageCount = 1u
@@ -6277,6 +6279,7 @@ member engine IO/OutputTransaction.h an::OutputRequest#003 const ArtifactIdentit
 member engine IO/OutputTransaction.h an::OutputRequest#004 OutputDurability durability = OutputDurability::FlushBeforePublish
 member engine IO/OutputTransaction.h an::OutputRequest#005 OutputReplacePolicy replacePolicy = OutputReplacePolicy::ReplaceExisting
 member engine IO/OutputTransaction.h an::OutputRequest#006 OutputByteSink* byteSink = nullptr
+member engine IO/OutputTransaction.h an::OutputRequest#007 OutputHeaderProlog headerProlog = OutputHeaderProlog::Specified
 member engine IO/OutputTransaction.h an::OutputTransaction#000 std::unique_ptr<OutputTransactionState> m_state
 member engine IO/ProcessingStateCards.h an::CalibrationPayloadReading#000 std::string document {}
 member engine IO/ProcessingStateCards.h an::CalibrationPayloadReading#001 CalibrationPayloadStatus status {}

@@ -324,7 +324,9 @@ private:
 ///         `ErrorCode::InvalidData` with `CodecFailure::DescriptorMismatch` for a layout that disagrees
 ///         with the frame's descriptor; `ErrorCode::LimitExceeded` for a frame beyond the engine
 ///         context's limits; `ErrorCode::Unsupported` with `CodecFailure::UnsupportedRepresentation`
-///         for a representation, arrangement or channel count the adapter does not encode; or
+///         for a representation, arrangement or channel count the adapter does not encode, or for a
+///         blank header prolog asked of a container other than XISF; `ErrorCode::InvalidArgument` for a
+///         header prolog outside its enumeration; or
 ///         `ErrorCode::IncompatibleArguments` with `CodecFailure::UnsupportedRepresentation` for an
 ///         intent whose sample type or byte order differs from the frame's, or that asks for
 ///         `OutputScaling::NormalizeFullRange`, a data-dependent normalization the caller applies

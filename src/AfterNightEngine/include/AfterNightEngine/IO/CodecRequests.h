@@ -113,6 +113,10 @@ struct CodecEncodeRequest
     /// that are not resident sample types included. An intent must already state the frame's sample
     /// type and byte order: the facade converts nothing and applies no data-dependent normalization.
     const OutputIntent* intent = nullptr;
+    /// How a header that is markup opens. Anything but `OutputHeaderProlog::Specified` is refused with
+    /// `ErrorCode::Unsupported` and `CodecFailure::UnsupportedRepresentation` by every adapter but XISF's, before
+    /// the adapter is called, and by a reservation.
+    OutputHeaderProlog headerProlog = OutputHeaderProlog::Specified;
 };
 
 /// What an encode wrote to its private pending path; it says nothing about a committed artifact.

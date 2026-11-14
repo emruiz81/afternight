@@ -48,6 +48,40 @@ inline constexpr std::uint32_t kCodecFormatCount = 7u;
     return static_cast<std::uint8_t>(format) <= static_cast<std::uint8_t>(CodecFormat::Dump);
 }
 
+/// How a container whose header is markup opens that header.
+///
+/// XISF is the one such container: its header is an XML document, which its specification opens with an XML
+/// declaration and a comment naming the writer. A virus scanner that takes a file for markup by that opening goes
+/// through the whole file for tags, and the bytes of normalized 32-bit floating samples are dense in the two
+/// characters a tag opens and closes with: Windows' scanner spends up to half a second of a processor on every
+/// such file when it is closed, and an open of the file during that pass waits for its end. A writer of many
+/// large files that are read again at once - an undo history's steps - asks for the header without that opening.
+enum class OutputHeaderProlog : std::uint8_t
+{
+    /// As the container's specification writes it. The default, and what every reader of the format expects.
+    Specified,
+
+    /// Left blank: the declaration and the comment are spaces, of the same length, so nothing else of the unit
+    /// moves. The header is still a well-formed XML document and this engine, and PixInsight, read the unit as
+    /// they read one written as specified; it departs from the XISF specification, which requires the declaration.
+    /// Only the XISF adapter writes it, and only for an image encoded whole: every other container, and a reserved
+    /// image, refuse it.
+    ///
+    /// Deliberately the last enumerator, so a membership test needs no table.
+    Blank
+};
+
+/// Whether a value is one of the prologs this build knows.
+///
+/// Thread-safe, allocation-free, and usable in a constant expression.
+///
+/// @param prolog the value to test.
+/// @return true when the value is one of the enumerators.
+[[nodiscard]] constexpr bool isOutputHeaderProlog(OutputHeaderProlog prolog) noexcept
+{
+    return static_cast<std::uint8_t>(prolog) <= static_cast<std::uint8_t>(OutputHeaderProlog::Blank);
+}
+
 /// The display name of a format, which says nothing about whether it can be read or written.
 ///
 /// Allocation-free and thread-safe.

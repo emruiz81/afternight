@@ -251,6 +251,34 @@ const an::CodecCard* findCard(const std::vector<an::CodecCard>& cards, std::stri
     return nullptr;
 }
 
+TEST(OutputTransactionTest, ABlankHeaderPrologIsRefusedForAContainerWhoseHeaderIsNoMarkup)
+{
+    // Only XISF opens its header with markup. Asked of any other container, a blank prolog is a request the
+    // container cannot honour, refused before its encoder is called, with nothing left behind.
+    const ScratchTree tree("prolog");
+    auto codec = std::make_shared<FileCodec>();
+    auto engine = makeEngine(codec);
+    auto execution = an::ExecutionContext::create(engine, {});
+    const auto frame = makeFrame(engine);
+    const auto intent = *an::OutputIntent::create({.sampleType = an::SampleType::UInt16});
+    const auto destination = tree.file("stack.fits");
+    const auto refused = an::writeImage(
+        engine, *execution,
+        {.destinationPath = destination, .intent = &intent, .headerProlog = an::OutputHeaderProlog::Blank}, frame, {});
+    ASSERT_FALSE(refused.hasValue());
+    EXPECT_EQ(refused.status().code(), an::ErrorCode::Unsupported);
+    EXPECT_EQ(codec->encodes.load(), 0u);
+    EXPECT_TRUE(tree.entries().empty());
+    // Stated as the specification's, which is what a request that says nothing asks for, it is written.
+    ASSERT_TRUE(
+        an::writeImage(
+            engine, *execution,
+            {.destinationPath = destination, .intent = &intent, .headerProlog = an::OutputHeaderProlog::Specified},
+            frame, {})
+            .hasValue());
+    EXPECT_EQ(codec->encodes.load(), 1u);
+}
+
 TEST(OutputTransactionTest, CommitsThroughAPendingSiblingAndPublishesTheCompletePayload)
 {
     const ScratchTree tree("commit");
@@ -392,6 +420,10 @@ TEST(OutputTransactionTest, MalformedRequestsAreRefusedBeforeAnythingIsReserved)
     an::OutputRequest badDurability{.destinationPath = badDurabilityPath};
     badDurability.durability = static_cast<an::OutputDurability>(9u);
     EXPECT_EQ(an::OutputTransaction::begin(engine, *execution, badDurability).status().code(),
+              an::ErrorCode::InvalidArgument);
+    an::OutputRequest badProlog{.destinationPath = badDurabilityPath};
+    badProlog.headerProlog = static_cast<an::OutputHeaderProlog>(9u);
+    EXPECT_EQ(an::OutputTransaction::begin(engine, *execution, badProlog).status().code(),
               an::ErrorCode::InvalidArgument);
     const std::string longPath = tree.file("x") + std::string(131072u, 'y') + ".fits";
     EXPECT_EQ(an::OutputTransaction::begin(engine, *execution, {.destinationPath = longPath}).status().code(),
