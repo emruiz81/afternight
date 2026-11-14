@@ -14,6 +14,8 @@ class QPushButton;
 namespace an::ui
 {
 
+class NightPictureLabel;
+
 class AFTERNIGHTCONTROLS_API DashboardIdentityBar : public QWidget
 {
     W_OBJECT(DashboardIdentityBar)
@@ -33,7 +35,7 @@ signals:
     void aboutRequested() W_SIGNAL(aboutRequested);
 
 private:
-    QLabel* m_AppIcon = nullptr;
+    NightPictureLabel* m_AppIcon = nullptr;
     QLabel* m_AppName = nullptr;
     QLabel* m_AppVersion = nullptr;
     QLabel* m_AppTagline = nullptr;

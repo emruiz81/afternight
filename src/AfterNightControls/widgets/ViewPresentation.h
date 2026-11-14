@@ -123,6 +123,11 @@ struct ViewPresentationSettings
     /// A region of the image, in its own pixels, to present instead of the whole of it; clipped to the image. Over a
     /// proxy it is presented from the proxy's pixels that cover it.
     std::optional<ViewRegion> region{};
+
+    /// Whether the bytes are shown in Night's form: the presentation's last stage maps every pixel of colour bytes to
+    /// its luma in red (`theme/NightImage.h`), on the thread that presents. Grey bytes, which a multiply reads, are
+    /// left as they are: the layer the multiply makes of them is mapped instead.
+    bool night = false;
 };
 
 /// The canonical text of every presentation decision, for a derived key's presentation policy.

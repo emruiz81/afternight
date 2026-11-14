@@ -58,6 +58,11 @@ inline constexpr auto INTERFACE_THEME_ACCENT_FAMILY = "interface/themeAccentFami
 inline constexpr auto INTERFACE_THEME_SURFACE_TINT_FAMILY = "interface/themeSurfaceTintFamily";
 inline constexpr auto INTERFACE_THEME_TINT_STRENGTH = "interface/themeTintStrength";
 inline constexpr auto INTERFACE_DENSITY = "interface/density";
+// The colour preset the accent, the tint and the strength were chosen as; read at start, it puts its three parts in
+// force. Absent, the parts stored are kept as they are.
+inline constexpr auto INTERFACE_THEME_PRESET = "interface/themePreset";
+// Whether the application starts in Night, which is otherwise off at every start and never kept.
+inline constexpr auto INTERFACE_START_IN_NIGHT = "interface/startInNight";
 inline constexpr auto INTERFACE_ZOOM_SENSITIVITY = "interface/zoomSensitivity";
 inline constexpr auto INTERFACE_ZOOM_REQUIRES_CTRL = "interface/zoomRequiresCtrl";
 inline constexpr auto INTERFACE_LOCK_LAYOUT_BY_DEFAULT = "interface/lockLayoutByDefault";

@@ -66,7 +66,11 @@
 |---|---|
 | `theme/AnDesignTokens.h/.cpp` | Token definitions, resolution pipeline, theme preference API |
 | `theme/StyleProfile.h` | The style profiles, `Classic` and `Observatory` (see [Profiles](#profiles)) |
-| `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)), and its sizes (see [Density](#density)) |
+| `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)), its sizes (see [Density](#density)) and Night's tones and rules (see [Night](#night)) |
+| `theme/NightImage.h/.cpp` | Night's form of a colour and of a picture: `nightColor`, `colorAsShown`, `nightImage` and its cache, `NightPicture` (see [Night](#night)) |
+| `theme/NightImageWidgets.h` | Every widget that paints a picture, and how it shows it under Night |
+| `widgets/NightPictureLabel.h/.cpp` | A label showing a picture in its Night form under Night |
+| `controls/settings/ThemePresetTile.h/.cpp` | A colour preset's tile on the Interface page (see [Presets](#presets)) |
 | `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
@@ -326,6 +330,67 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
   move an entry. The density setting is offered only under `Observatory`.
 - **A new widget sizes itself from `tokens().metrics`** in its `sizeHint()`, read there and never kept from a
   constructor, and is checked in both densities ([Checklist for New Controls](#checklist-for-new-controls)).
+
+### Presets
+
+A **colour preset** (`ThemePreset`) names an accent, a surface tint and a tint strength chosen together; the theme and
+the contrast profile stay the user's:
+
+| Preset | Setting | Accent | Tint | Strength |
+|---|---|---|---|---|
+| Slate Blue (the default) | `slate` | Blue | Neutral | Balanced |
+| Observatory | `observatory` | Amber | Ocean | Strong |
+| Deep Sea | `deepsea` | Teal | Ocean | Balanced |
+| Graphite | `graphite` | Amber | Neutral | Balanced |
+| Nebula | `nebula` | Rose | Amethyst | Balanced |
+| Aurora | `aurora` | Teal | Mint | Subtle |
+
+- **A preset is a name for its three parts.** `applyThemePreset()` puts them in force with one resolution;
+  `themePreset()` is the preset the parts in force make, `themePresetOf()` the one any three parts make, and a
+  combination no preset names is `Custom`. So a part changed by hand leaves the preset, and nothing has to remember that
+  it did: there is one source of truth, the parts.
+- **The setting `interface/themePreset`** is what the Interface page last saved. Read at start, a preset it names puts
+  its parts in force, so a preset whose parts change in a later version brings its users the new ones; `custom`, or no
+  setting at all, leaves the parts stored as they are. The settings of AfterNight 1.1 hold an accent and a tint and no
+  strength (Balanced): they are the preset they make, or `Custom`.
+- **The presets are the `Observatory` profile's.** Under `Classic` the page offers none and writes no preset, strength,
+  density or Night setting, so a 1.1 user's settings file stays as 1.1 wrote it.
+
+### Night
+
+**Night** keeps the eyes dark-adapted: everything on screen is red. `setNightMode()` sets it; `isNightMode()` says
+whether it is in force, which it is under `Observatory` alone (the `Classic` profile has no Night, as it has no strength
+or density). Night is never kept with the other choices: it is off at every start unless `interface/startInNight` asks
+to start in it. It is three things, and none of them is an effect laid over the window:
+
+- **The tokens' last step.** `ThemeChoices::night` makes the resolver resolve the dark theme whatever the preference,
+  with the tint off whatever the tint and its strength - a hue cannot be seen in red, and a tinted surface would leave
+  red text under its contrast - and then give Night's tones: the primary text white, the secondary and tertiary text
+  raised until they reach 3 : 1 against the second surface once in red (they may meet), the accent's fill its 300 step
+  under black text. Then every colour - every role, surface and material - is mapped by `nightColor()` to
+  `(Y, 0, 0)` with `Y = 0.299 R + 0.587 G + 0.114 B` on the 8-bit components, its alpha kept. Red carries a fifth of
+  white's luminance, so the rules are Night's own: the primary text 4.5 : 1 against surfaces 0 to 3, the secondary and
+  tertiary text and the text on the accent 3 : 1, the status colours 2 : 1 against surfaces 1 and 2 - which is why a
+  status never goes without its icon. `Night.*` (`Test_ThemeSystem`) holds every combination to them, and to having no
+  green or blue. The user's tint and strength are kept, and return when Night goes; `isDarkTheme()` answers dark while
+  it lasts.
+- **Every picture in its Night form, made off the GUI thread.** The viewer maps its presented bytes as the
+  presentation's last stage, on the worker that presents (`ViewPresentationSettings::night`); the mask layer is mapped
+  with it, once. Any other picture goes through `nightImage()` (`theme/NightImage.h`) - or a `NightPicture`, or a
+  `NightPictureLabel`, which hold one - which keeps the form per picture and makes it on the thread pool when the GUI
+  thread asks: the widget paints the picture's place empty until the form is kept, and is told to paint again then. A
+  picture is never mapped on the GUI thread; a colour no token holds - a user's choice, a fixed colour of a plot - is
+  drawn through `colorAsShown()`. Switching Night reaches a widget as a change of the application's palette
+  (`QEvent::PaletteChange`), which is where a widget that shows a picture asks for it again. The icon manager loads its
+  coloured icons in their Night form, as it tints the others.
+- **Where hue told things apart, shape does.** The histogram draws its curves in the plot's colours, which Night makes
+  red, and strokes them red solid, green dashed, blue dotted (`HistogramWidget::channelStroke`).
+
+**A widget that paints a picture is on the list.** `theme/NightImageWidgets.h` names every widget of Controls that
+draws an image or a pixmap, sets a label's pixmap or hands a picture to a `NightPicture`, and says how it shows the
+picture under Night: a presentation's Night stage, a Night picture, a picture its owner hands it already in Night's
+form, an icon of the icon manager, colours Night maps, or never (a file written, not shown).
+`NightImage.EveryWidgetThatPaintsAPictureIsOnTheList` fails a widget that paints a picture and is not listed.
 
 ### Accessing Tokens
 
@@ -1120,6 +1185,7 @@ Before submitting a new control or widget, verify:
 - [ ] **Surface tint tested** — card backgrounds reflect the active tint family (if applicable)
 - [ ] **Accent family tested** — accent-colored elements reflect the active accent (if applicable)
 - [ ] **Contrast profiles tested** — widget remains readable in High and Soft profiles
+- [ ] **Night tested** — under the Observatory profile with Night on, the widget paints no green or blue; a widget that paints a picture shows its Night form (`nightImage`, `NightPicture`, `NightPictureLabel`) and is on `theme/NightImageWidgets.h`, and a colour no token holds goes through `colorAsShown()`
 - [ ] **`PainterGuard` used** for all `QPainter::save()`/`restore()` cycles
 - [ ] **`QPainter::Antialiasing` enabled** for all rounded shapes
 

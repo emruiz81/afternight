@@ -292,6 +292,14 @@ state src/AfterNightControls/theme/AnDesignTokens.cpp g_styleProfile
     synchronization  an atomic, written before any widget exists and read by every resolution
     reason           The style profile the token resolution resolves under, which the started shell names.
 
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_nightMode
+    scope            anonymous namespace
+    category         theme-service
+    owner            the Interface page's Night switch and the start, which reads whether to start in Night
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Whether Night is set: the Observatory profile's resolution maps every colour to red while it is.
+
 state src/AfterNightControls/theme/AnDesignTokens.cpp g_nativeBackdropSupported
     scope            anonymous namespace
     category         theme-service
@@ -326,6 +334,15 @@ state src/AfterNightControls/theme/AnDesignTokens.cpp g_resolvedTokenSnapshotHis
     lifetime         the whole process
     synchronization  it is the lock
     reason           Orders publications of new snapshots.
+
+state src/AfterNightControls/theme/NightImage.cpp images
+    scope            nightImages
+    category         theme-service
+    owner            made at the first ask for a Night picture; left to the end of the process
+    lifetime         from the first ask for a Night picture to the end of the process
+    synchronization  its own mutex orders the kept forms and the waiters; the pass counters are atomics
+    reason           The Night forms of the pictures shown, made once each on the thread pool and kept while Night is,
+                     so a picture is never mapped on the GUI thread nor twice; Night switched off lets them go.
 
 state src/AfterNightControls/theme/AnProxyStyle.cpp g_installedStyle
     scope            anonymous namespace

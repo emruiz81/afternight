@@ -4,7 +4,9 @@
 #pragma once
 
 #include <QWidget>
+#include "AfterNightControlsExport.h"
 #include "ImageLensWidget.h"
+#include "theme/NightImage.h"
 
 #include <memory>
 
@@ -22,7 +24,7 @@ class PresentedImage;
 ///
 /// The lens magnifies what the preview shows - the presented bytes its owner hands it - and reads the values under the
 /// cursor from the image itself.
-class ImagePreviewWidget : public QWidget
+class AFTERNIGHTCONTROLS_API ImagePreviewWidget : public QWidget
 {
 public:
     ImagePreviewWidget(QWidget* parent);
@@ -63,6 +65,8 @@ private:
     QRect getScaledImageArea();
 
     QPixmap m_MainPixmap;
+    /// The pixmap as it is painted: under Night in its Night form, made off the GUI thread.
+    an::ui::NightPicture m_ShownPicture;
     bool m_DrawScaled = false;
 
     QColor m_BackgroundColor;
@@ -100,6 +104,8 @@ private:
     QRect getScaledImageArea();
 
     QPixmap m_MainPixmap;
+    /// The pixmap as it is painted: under Night in its Night form, made off the GUI thread.
+    an::ui::NightPicture m_ShownPicture;
     bool m_DrawScaled = false;
 
     QColor m_BackgroundColor;

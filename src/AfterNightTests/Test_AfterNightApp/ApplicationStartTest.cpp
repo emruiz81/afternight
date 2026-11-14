@@ -385,6 +385,103 @@ TEST(ApplicationStart, TheDensityIsReadFromTheSettingsStore)
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
 }
 
+// The colour preset the settings store names is put in force as the shell starts: its accent, tint and strength,
+// whatever the store holds of them.
+TEST(ApplicationStart, ThePresetIsReadFromTheSettingsStore)
+{
+    ASSERT_EQ(an::ui::themePreset(), an::ui::ThemePreset::SlateBlue);
+    an::ui::ApplicationSession session;
+    ApplicationCore core;
+    core.setApplicationSession(&session);
+    ShellRegistry registry;
+    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    core.openStores();
+    ASSERT_NE(core.globalSettingsStore(), nullptr);
+    const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_PRESET);
+    ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("nebula")));
+
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+
+    EXPECT_EQ(an::ui::themePreset(), an::ui::ThemePreset::Nebula);
+    EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Rose);
+    EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Amethyst);
+    EXPECT_EQ(an::ui::themeTintStrength(), an::ui::ThemeTintStrength::Balanced);
+
+    EXPECT_TRUE(core.globalSettingsStore()->remove(key));
+    an::ui::applyThemePreset(an::ui::ThemePreset::SlateBlue);
+    ASSERT_NE(started.shell, nullptr);
+    ASSERT_TRUE(started.shell->mainWindow()->close());
+    EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+}
+
+// The settings of an earlier version name no preset: the accent and the tint they hold are kept as they are, and the
+// preset is the one they make - here none, so Custom.
+TEST(ApplicationStart, AnEarlierVersionsAccentAndTintAreKept)
+{
+    an::ui::ApplicationSession session;
+    ApplicationCore core;
+    core.setApplicationSession(&session);
+    ShellRegistry registry;
+    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    core.openStores();
+    ASSERT_NE(core.globalSettingsStore(), nullptr);
+    const QString accent = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY);
+    const QString tint = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY);
+    ASSERT_TRUE(core.globalSettingsStore()->upsert(accent, QStringLiteral("amber")));
+    ASSERT_TRUE(core.globalSettingsStore()->upsert(tint, QStringLiteral("ocean")));
+
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+
+    EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Amber);
+    EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Ocean);
+    EXPECT_EQ(an::ui::themePreset(), an::ui::ThemePreset::Custom)
+        << "the Observatory preset's Strong strength is not an earlier version's";
+
+    EXPECT_TRUE(core.globalSettingsStore()->remove(accent));
+    EXPECT_TRUE(core.globalSettingsStore()->remove(tint));
+    an::ui::applyThemePreset(an::ui::ThemePreset::SlateBlue);
+    ASSERT_NE(started.shell, nullptr);
+    ASSERT_TRUE(started.shell->mainWindow()->close());
+    EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+}
+
+// Night is off at a start unless the settings store asks to start in it.
+TEST(ApplicationStart, NightIsSetAtStartOnlyWhenAskedFor)
+{
+    for (const bool asked : {false, true})
+    {
+        SCOPED_TRACE(asked ? "asked" : "not asked");
+        an::ui::ApplicationSession session;
+        ApplicationCore core;
+        core.setApplicationSession(&session);
+        ShellRegistry registry;
+        ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+        core.openStores();
+        ASSERT_NE(core.globalSettingsStore(), nullptr);
+        const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_START_IN_NIGHT);
+        if (asked)
+        {
+            ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("1")));
+        }
+
+        an::ui::StartedApplication started =
+            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+
+        EXPECT_EQ(an::ui::nightModeSet(), asked);
+
+        if (asked)
+        {
+            EXPECT_TRUE(core.globalSettingsStore()->remove(key));
+        }
+        an::ui::setNightMode(false);
+        ASSERT_NE(started.shell, nullptr);
+        ASSERT_TRUE(started.shell->mainWindow()->close());
+        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+    }
+}
+
 // With the developer switch the classic shell starts in the density the settings store names: a tool bar's buttons are
 // the density's control high, and the application's font is its body size. Changed and started again, it starts in the
 // other.

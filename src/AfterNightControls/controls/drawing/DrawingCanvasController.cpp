@@ -6,6 +6,7 @@
 
 #include "controls/drawing/ShapeEngine.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 
@@ -1379,7 +1380,7 @@ void DrawingCanvasController::drawSelectionHandles(QPainter& painter, const Shap
 
     const QColor accent = an::ui::tokens().colors.accentPrimary;
     painter.save();
-    painter.setPen(QPen(Qt::white, 1));
+    painter.setPen(QPen(an::ui::colorAsShown(QColor(Qt::white)), 1));
     painter.setBrush(accent);
     for (const QPointF& handle : ShapeEngine::handlePoints(shape))
     {
@@ -1402,8 +1403,9 @@ void DrawingCanvasController::rebuildOverlayCache() const
         return;
     }
 
-    const QColor overlayColor = primaryOverlayColor();
-    const QColor overlaySecondaryColor = secondaryOverlayColor();
+    // Under Night the overlay's colours are red, as everything on screen is.
+    const QColor overlayColor = an::ui::colorAsShown(primaryOverlayColor());
+    const QColor overlaySecondaryColor = an::ui::colorAsShown(secondaryOverlayColor());
     const QSize overlaySize(m_document->width(), m_document->height());
     const bool sameLook =
         m_cachedOverlay.size() == overlaySize && m_cachedOverlay.format() == QImage::Format_ARGB32_Premultiplied &&
@@ -1432,6 +1434,8 @@ void DrawingCanvasController::rebuildOverlayCache() const
         m_cachedOverlay.fill(Qt::transparent);
     }
 
+    // A grey is its own luma, so under Night it is that grey in red.
+    const bool night = an::ui::isNightMode();
     auto* overlayPixels = reinterpret_cast<QRgb*>(m_cachedOverlay.bits());
     const QRect dirtyRect = requiresFullRebuild ? fullRect : m_overlayDirty.intersected(fullRect);
     const int width = overlaySize.width();
@@ -1453,7 +1457,8 @@ void DrawingCanvasController::rebuildOverlayCache() const
             case MaskPreviewMode::Grayscale: {
                 const int alpha = static_cast<int>(std::lround(maskValue * 192.0f));
                 const int gray = static_cast<int>(std::lround(maskValue * 255.0f));
-                overlayPixels[index] = makePremultipliedPixel(QColor(gray, gray, gray), alpha);
+                overlayPixels[index] =
+                    makePremultipliedPixel(night ? QColor(gray, 0, 0) : QColor(gray, gray, gray), alpha);
                 break;
             }
             case MaskPreviewMode::Checkerboard: {

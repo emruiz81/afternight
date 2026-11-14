@@ -5,6 +5,7 @@
 #include "controls/DashboardIdentityBar.h"
 #include "controls/EngineVersionReport.h"
 #include "theme/AnDesignTokens.h"
+#include "widgets/NightPictureLabel.h"
 
 #include <QHBoxLayout>
 #include <QLabel>
@@ -29,7 +30,7 @@ DashboardIdentityBar::DashboardIdentityBar(QWidget* parent) : QWidget(parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(an::ui::tokens().spacing.sm);
 
-    m_AppIcon = new QLabel(this);
+    m_AppIcon = new NightPictureLabel(this);
     m_AppIcon->setObjectName(QStringLiteral("dashboardIdentityBarIcon"));
     QPixmap appPixmap(QStringLiteral(":/AfterNight/icons/PNG/afternight_icon_256x256_blue.png"));
     if (!appPixmap.isNull())
@@ -38,7 +39,7 @@ DashboardIdentityBar::DashboardIdentityBar(QWidget* parent) : QWidget(parent)
         const int iconSize = static_cast<int>(std::lround(40.0 * dpr));
         QPixmap scaledIcon = appPixmap.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         scaledIcon.setDevicePixelRatio(dpr);
-        m_AppIcon->setPixmap(scaledIcon);
+        m_AppIcon->setPicture(scaledIcon);
     }
     layout->addWidget(m_AppIcon, 0, Qt::AlignVCenter);
 

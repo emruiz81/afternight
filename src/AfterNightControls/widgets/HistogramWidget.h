@@ -52,6 +52,11 @@ class AFTERNIGHTCONTROLS_API HistogramWidget : public QWidget
 public:
     HistogramWidget(QWidget* parent);
 
+    /// The stroke a channel's curve is drawn with: solid for every channel by day; under Night, when every curve is
+    /// red, the red channel solid, the green dashed, the blue dotted and a fourth dash-dotted, so the shape tells them
+    /// apart where the hue did.
+    [[nodiscard]] static Qt::PenStyle channelStroke(std::size_t channel, bool night);
+
     // The resolution the owner counts at; setting it counts nothing.
     void setHistogramResolution(an::ui::HistogramResolution resolution);
     an::ui::HistogramResolution getHistogramResolution() const;

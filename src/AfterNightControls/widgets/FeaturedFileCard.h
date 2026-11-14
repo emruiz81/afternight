@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "AfterNightControlsExport.h"
+#include "theme/NightImage.h"
+
 #include <QIcon>
 #include <QPixmap>
 #include <QString>
@@ -18,7 +21,7 @@ class QPropertyAnimation;
 namespace an::ui
 {
 
-class FeaturedFileCard : public QWidget
+class AFTERNIGHTCONTROLS_API FeaturedFileCard : public QWidget
 {
     W_OBJECT(FeaturedFileCard)
 
@@ -45,11 +48,12 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 
 private:
+    /// The picture behind the card at its size, and a softened copy of it; each painted in Night's form under Night.
     struct BackgroundLayer
     {
         QSize size;
-        QPixmap cover;
-        QPixmap softened;
+        NightPicture cover;
+        NightPicture softened;
     };
 
     static BackgroundLayer buildBackgroundLayer(const QPixmap& sourcePixmap, const QSize& targetSize);

@@ -8,7 +8,10 @@
 #include "../GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
 #include "app/ThemeManager.h"
+#include "controls/settings/ThemePresetTile.h"
+#include "theme/AnDesignTokens.h"
 #include "theme/AnimationUtils.h"
+#include "widgets/FlowLayout.h"
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -18,12 +21,20 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QButtonGroup>
+#include <QPushButton>
 #include <QSignalBlocker>
 #include <QComboBox>
 #include <QSlider>
 #include <QCheckBox>
 #include <QLabel>
 #include <QStandardItemModel>
+#include <QCoreApplication>
+
+#include <array>
+#include <optional>
+#include <utility>
+#include <vector>
 
 W_OBJECT_IMPL(InterfaceSettingsPage)
 
@@ -38,6 +49,36 @@ namespace
     }
 
     return nullptr;
+}
+
+/// Sets a flag for its scope: the page is setting its own rows, which is no person's change.
+class Showing final
+{
+public:
+    explicit Showing(bool& flag) : m_flag(flag), m_was(std::exchange(flag, true)) {}
+    ~Showing()
+    {
+        m_flag = m_was;
+    }
+    Showing(const Showing&) = delete;
+    Showing& operator=(const Showing&) = delete;
+
+private:
+    bool& m_flag;
+    bool m_was;
+};
+
+/// The presets as the page shows them, in their order, with their names.
+std::array<std::pair<an::ui::ThemePreset, QString>, 7u> presetNames()
+{
+    using an::ui::ThemePreset;
+    return {{{ThemePreset::SlateBlue, QCoreApplication::translate("InterfaceSettingsPage", "Slate Blue")},
+             {ThemePreset::Observatory, QCoreApplication::translate("InterfaceSettingsPage", "Observatory")},
+             {ThemePreset::DeepSea, QCoreApplication::translate("InterfaceSettingsPage", "Deep Sea")},
+             {ThemePreset::Graphite, QCoreApplication::translate("InterfaceSettingsPage", "Graphite")},
+             {ThemePreset::Nebula, QCoreApplication::translate("InterfaceSettingsPage", "Nebula")},
+             {ThemePreset::Aurora, QCoreApplication::translate("InterfaceSettingsPage", "Aurora")},
+             {ThemePreset::Custom, QCoreApplication::translate("InterfaceSettingsPage", "Custom")}}};
 }
 
 } // anonymous namespace
@@ -69,7 +110,8 @@ QStringList InterfaceSettingsPage::searchKeywords() const
         tr("Amber"),         tr("Plum"),          tr("Appearance"),   tr("Animations"),   tr("Animate"),
         tr("Zoom"),          tr("Mouse"),         tr("Wheel"),        tr("Sensitivity"),  tr("Ctrl"),
         tr("Control"),       tr("File Browser"),  tr("Native"),       tr("System"),       tr("Layout"),
-        tr("Lock"),          tr("Window"),        tr("Size")};
+        tr("Lock"),          tr("Window"),        tr("Size"),         tr("Preset"),       tr("Night"),
+        tr("Red"),           tr("Density"),       tr("Compact"),      tr("Comfortable"),  tr("Tint Strength")};
 }
 
 void InterfaceSettingsPage::setupUi()
@@ -77,6 +119,10 @@ void InterfaceSettingsPage::setupUi()
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(16);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    // === The Observatory profile's rows: presets, tint strength, density, Night ===
+    setupObservatoryRows(this);
+    mainLayout->addWidget(m_ObservatoryGroup);
 
     // === Appearance Section ===
     auto* appearanceGroup = new QGroupBox(tr("Appearance"), this);
@@ -222,11 +268,231 @@ void InterfaceSettingsPage::setupUi()
     updateSensitivityLabel();
 }
 
+void InterfaceSettingsPage::setupObservatoryRows(QWidget* parent)
+{
+    const an::ui::SpacingTokens& spacing = an::ui::tokens().spacing;
+    m_ObservatoryGroup = new QGroupBox(tr("Colours and Size"), parent);
+    m_ObservatoryGroup->setObjectName(QStringLiteral("anInterfaceSettingsObservatoryGroup"));
+    auto* form = new QFormLayout(m_ObservatoryGroup);
+
+    // A tile per preset, and Custom, shown when the parts chosen are no preset's.
+    auto* tiles = new QWidget(m_ObservatoryGroup);
+    auto* flow = new FlowLayout(tiles, 0, spacing.sm, spacing.sm);
+    m_PresetButtons = new QButtonGroup(this);
+    m_PresetButtons->setExclusive(true);
+    const auto presets = presetNames();
+    for (std::size_t index = 0; index < presets.size(); ++index)
+    {
+        const auto& [preset, name] = presets[index];
+        auto* tile = new an::ui::ThemePresetTile(preset, name, tiles);
+        tile->setObjectName(QStringLiteral("anInterfaceSettingsPreset_%1").arg(an::ui::themePresetId(preset)));
+        m_PresetButtons->addButton(tile, static_cast<int>(preset));
+        flow->addWidget(tile);
+        m_PresetTiles[index] = tile;
+    }
+    m_PresetTiles[static_cast<std::size_t>(an::ui::ThemePreset::Custom)]->setVisible(false);
+    form->addRow(tr("Colour preset:"), tiles);
+
+    // A row of segments, one checkable button each, of which one is chosen.
+    const auto segments = [this](QButtonGroup*& group, const QString& prefix,
+                                 const std::vector<std::pair<int, std::pair<QString, QString>>>& items) {
+        auto* row = new QWidget(m_ObservatoryGroup);
+        auto* layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        group = new QButtonGroup(this);
+        group->setExclusive(true);
+        for (const auto& [id, names] : items)
+        {
+            auto* segment = new QPushButton(names.second, row);
+            segment->setObjectName(prefix + names.first);
+            segment->setCheckable(true);
+            group->addButton(segment, id);
+            layout->addWidget(segment);
+        }
+        layout->addStretch(1);
+        return row;
+    };
+    using an::ui::ThemeDensity;
+    using an::ui::ThemeTintStrength;
+    form->addRow(
+        tr("Tint strength:"),
+        segments(m_TintStrengthButtons, QStringLiteral("anInterfaceSettingsTintStrength_"),
+                 {{static_cast<int>(ThemeTintStrength::Off), {QStringLiteral("off"), tr("Off")}},
+                  {static_cast<int>(ThemeTintStrength::Subtle), {QStringLiteral("subtle"), tr("Subtle")}},
+                  {static_cast<int>(ThemeTintStrength::Balanced), {QStringLiteral("balanced"), tr("Balanced")}},
+                  {static_cast<int>(ThemeTintStrength::Strong), {QStringLiteral("strong"), tr("Strong")}}}));
+    form->addRow(
+        tr("Density:"),
+        segments(m_DensityButtons, QStringLiteral("anInterfaceSettingsDensity_"),
+                 {{static_cast<int>(ThemeDensity::Compact), {QStringLiteral("compact"), tr("Compact")}},
+                  {static_cast<int>(ThemeDensity::Comfortable), {QStringLiteral("comfortable"), tr("Comfortable")}}}));
+
+    m_NightSwitch = new QCheckBox(tr("Red light for dark adaptation"), m_ObservatoryGroup);
+    m_NightSwitch->setObjectName(QStringLiteral("anInterfaceSettingsNight"));
+    m_NightSwitch->setToolTip(tr("Shows everything in red, pictures included, so the eyes stay adapted to the dark. "
+                                 "It is not kept: AfterNight starts out of it unless asked to start in it."));
+    form->addRow(tr("Night:"), m_NightSwitch);
+    m_StartInNightCheck = new QCheckBox(tr("Start in Night"), m_ObservatoryGroup);
+    m_StartInNightCheck->setObjectName(QStringLiteral("anInterfaceSettingsStartInNight"));
+    form->addRow(QString(), m_StartInNightCheck);
+
+    // The Classic profile has neither presets, a strength, a density nor Night.
+    m_ObservatoryGroup->setVisible(previewsAtOnce());
+}
+
+bool InterfaceSettingsPage::previewsAtOnce() const
+{
+    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
+}
+
+an::ui::ThemeTintStrength InterfaceSettingsPage::chosenTintStrength() const
+{
+    const int id = m_TintStrengthButtons->checkedId();
+    return id < 0 ? an::ui::ThemeTintStrength::Balanced : static_cast<an::ui::ThemeTintStrength>(id);
+}
+
+an::ui::ThemeDensity InterfaceSettingsPage::chosenDensity() const
+{
+    const int id = m_DensityButtons->checkedId();
+    return id < 0 ? an::ui::ThemeDensity::Compact : static_cast<an::ui::ThemeDensity>(id);
+}
+
+an::ui::ThemePreset InterfaceSettingsPage::chosenPreset() const
+{
+    return an::ui::themePresetOf(
+        an::ui::resolveThemeAccentFamily(m_AccentFamilyCombo->currentData().toString()),
+        an::ui::resolveThemeSurfaceTintFamily(m_SurfaceTintFamilyCombo->currentData().toString()),
+        chosenTintStrength());
+}
+
+void InterfaceSettingsPage::showTintStrength(const an::ui::ThemeTintStrength strength)
+{
+    if (QAbstractButton* segment = m_TintStrengthButtons->button(static_cast<int>(strength)))
+    {
+        segment->setChecked(true);
+    }
+}
+
+void InterfaceSettingsPage::showDensity(const an::ui::ThemeDensity density)
+{
+    if (QAbstractButton* segment = m_DensityButtons->button(static_cast<int>(density)))
+    {
+        segment->setChecked(true);
+    }
+}
+
+void InterfaceSettingsPage::showPreset()
+{
+    const Showing showing(m_Showing);
+    const an::ui::ThemePreset preset = chosenPreset();
+    m_PresetTiles[static_cast<std::size_t>(an::ui::ThemePreset::Custom)]->setVisible(preset ==
+                                                                                     an::ui::ThemePreset::Custom);
+    if (QAbstractButton* tile = m_PresetButtons->button(static_cast<int>(preset)))
+    {
+        tile->setChecked(true);
+    }
+    for (an::ui::ThemePresetTile* tile : m_PresetTiles)
+    {
+        tile->update();
+    }
+}
+
+void InterfaceSettingsPage::choosePreset(const an::ui::ThemePreset preset)
+{
+    const std::optional<an::ui::ThemePresetParts> parts = an::ui::themePresetParts(preset);
+    if (!parts.has_value())
+    {
+        return;
+    }
+    const Showing showing(m_Showing);
+    const int accentIndex = m_AccentFamilyCombo->findData(an::ui::themeAccentFamilyId(parts->accent));
+    if (accentIndex >= 0)
+    {
+        m_AccentFamilyCombo->setCurrentIndex(accentIndex);
+    }
+    const int tintIndex = m_SurfaceTintFamilyCombo->findData(an::ui::themeSurfaceTintFamilyId(parts->tint));
+    if (tintIndex >= 0)
+    {
+        m_SurfaceTintFamilyCombo->setCurrentIndex(tintIndex);
+    }
+    showTintStrength(parts->strength);
+}
+
+void InterfaceSettingsPage::previewAppearance()
+{
+    if (!previewsAtOnce())
+    {
+        return;
+    }
+    an::ui::setThemeContrastProfile(
+        an::ui::resolveThemeContrastProfile(m_ContrastProfileCombo->currentData().toString()));
+    an::ui::setThemeAccentFamily(an::ui::resolveThemeAccentFamily(m_AccentFamilyCombo->currentData().toString()));
+    an::ui::setThemeSurfaceTintFamily(
+        an::ui::resolveThemeSurfaceTintFamily(m_SurfaceTintFamilyCombo->currentData().toString()));
+    an::ui::setThemeTintStrength(chosenTintStrength());
+    an::ui::setThemeDensity(chosenDensity());
+    an::ui::setNightMode(m_NightSwitch->isChecked());
+    if (auto* runtime = currentInterfaceSettingsRuntimeService())
+    {
+        runtime->applyTheme(m_ThemeCombo->currentData().toString());
+    }
+}
+
+void InterfaceSettingsPage::appearanceChanged()
+{
+    if (m_Showing)
+    {
+        return;
+    }
+    markAsModified();
+    showPreset();
+    previewAppearance();
+}
+
+void InterfaceSettingsPage::rememberInForce()
+{
+    m_InForce = InForce{
+        .contrast = an::ui::themeContrastProfile(),
+        .accent = an::ui::themeAccentFamily(),
+        .tint = an::ui::themeSurfaceTintFamily(),
+        .strength = an::ui::themeTintStrength(),
+        .density = an::ui::themeDensity(),
+        .night = an::ui::nightModeSet(),
+        .theme = m_Settings != nullptr
+                     ? m_Settings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME))
+                     : m_ThemeCombo->currentData().toString(),
+    };
+}
+
 void InterfaceSettingsPage::connectSignals()
 {
     trackChanges(m_ThemeCombo);
     trackChanges(m_ContrastProfileCombo);
     trackChanges(m_AccentFamilyCombo);
+
+    // Under the Observatory profile every appearance row acts at once; under the Classic one it acts when applied.
+    for (QComboBox* combo : {m_ThemeCombo, m_ContrastProfileCombo, m_AccentFamilyCombo, m_SurfaceTintFamilyCombo})
+    {
+        connect(combo, &QComboBox::currentIndexChanged, this, [this]() {
+            if (previewsAtOnce())
+            {
+                appearanceChanged();
+            }
+        });
+    }
+    connect(m_PresetButtons, &QButtonGroup::idClicked, this, [this](const int id) {
+        if (m_Showing)
+        {
+            return;
+        }
+        choosePreset(static_cast<an::ui::ThemePreset>(id));
+        appearanceChanged();
+    });
+    connect(m_TintStrengthButtons, &QButtonGroup::idClicked, this, [this](int) { appearanceChanged(); });
+    connect(m_DensityButtons, &QButtonGroup::idClicked, this, [this](int) { appearanceChanged(); });
+    connect(m_NightSwitch, &QCheckBox::toggled, this, [this](bool) { appearanceChanged(); });
+    trackChanges(m_StartInNightCheck);
 
     // OLED contrast is a dark-only concept. Disable the combo item when
     // the user explicitly selects the Light theme, and fall back to
@@ -283,9 +549,11 @@ void InterfaceSettingsPage::selectShell(const QString& id)
 void InterfaceSettingsPage::loadSettings()
 {
     auto blocker = blockSignalsDuringLoad();
+    const Showing showing(m_Showing);
 
     if (!m_Settings)
     {
+        rememberInForce();
         resetToDefaults();
         return;
     }
@@ -347,9 +615,21 @@ void InterfaceSettingsPage::loadSettings()
                                                  SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE ? "1" : "0");
     m_RememberWindowSizeCheck->setChecked(rememberSizeStr == "1");
 
+    // The Observatory profile's rows; Night is never stored, so the switch shows whether it is set.
+    showTintStrength(an::ui::resolveThemeTintStrength(m_Settings->select(
+        SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH))));
+    showDensity(an::ui::resolveThemeDensity(
+        m_Settings->select(SettingsKeys::INTERFACE_DENSITY, QString(SettingsDefaults::INTERFACE_DENSITY))));
+    m_StartInNightCheck->setChecked(m_Settings->select(SettingsKeys::INTERFACE_START_IN_NIGHT,
+                                                       SettingsDefaults::INTERFACE_START_IN_NIGHT ? "1" : "0") ==
+                                    QStringLiteral("1"));
+    m_NightSwitch->setChecked(an::ui::nightModeSet());
+    showPreset();
+
     updateSensitivityLabel();
     clearModified();
     syncOledAvailability();
+    rememberInForce();
 }
 
 void InterfaceSettingsPage::syncOledAvailability()
@@ -407,12 +687,27 @@ void InterfaceSettingsPage::saveSettings()
     QString newSurfaceTintFamily = m_SurfaceTintFamilyCombo->currentData().toString();
     upsertSetting(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY, newSurfaceTintFamily);
 
+    // The Observatory profile's rows, kept only where they are offered; Night itself is never kept.
+    if (previewsAtOnce())
+    {
+        upsertSetting(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, an::ui::themeTintStrengthId(chosenTintStrength()));
+        upsertSetting(SettingsKeys::INTERFACE_DENSITY, an::ui::themeDensityId(chosenDensity()));
+        upsertSetting(SettingsKeys::INTERFACE_THEME_PRESET, an::ui::themePresetId(chosenPreset()));
+        upsertSetting(SettingsKeys::INTERFACE_START_IN_NIGHT, m_StartInNightCheck->isChecked() ? "1" : "0");
+    }
+
     // Apply the theme at runtime only if the setting was persisted.
     if (allSaved)
     {
         an::ui::setThemeContrastProfile(an::ui::resolveThemeContrastProfile(newContrastProfile));
         an::ui::setThemeAccentFamily(an::ui::resolveThemeAccentFamily(newAccentFamily));
         an::ui::setThemeSurfaceTintFamily(an::ui::resolveThemeSurfaceTintFamily(newSurfaceTintFamily));
+        if (previewsAtOnce())
+        {
+            an::ui::setThemeTintStrength(chosenTintStrength());
+            an::ui::setThemeDensity(chosenDensity());
+            an::ui::setNightMode(m_NightSwitch->isChecked());
+        }
 
         if (auto* runtime = currentInterfaceSettingsRuntimeService())
         {
@@ -456,12 +751,34 @@ void InterfaceSettingsPage::saveSettings()
     if (allSaved)
     {
         clearModified();
+        rememberInForce();
     }
+}
+
+void InterfaceSettingsPage::discardChanges()
+{
+    // Under the Classic profile nothing was put in force before Apply, so there is nothing to put back.
+    if (!previewsAtOnce())
+    {
+        return;
+    }
+    an::ui::setThemeContrastProfile(m_InForce.contrast);
+    an::ui::setThemeAccentFamily(m_InForce.accent);
+    an::ui::setThemeSurfaceTintFamily(m_InForce.tint);
+    an::ui::setThemeTintStrength(m_InForce.strength);
+    an::ui::setThemeDensity(m_InForce.density);
+    an::ui::setNightMode(m_InForce.night);
+    if (auto* runtime = currentInterfaceSettingsRuntimeService())
+    {
+        runtime->applyTheme(m_InForce.theme);
+    }
+    loadSettings();
 }
 
 void InterfaceSettingsPage::resetToDefaults()
 {
     auto blocker = blockSignalsDuringLoad();
+    const Showing showing(m_Showing);
 
     // Theme
     int themeIndex = m_ThemeCombo->findData(QString(SettingsDefaults::INTERFACE_THEME));
@@ -494,8 +811,17 @@ void InterfaceSettingsPage::resetToDefaults()
     selectShell(QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL));
     m_RememberWindowSizeCheck->setChecked(SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE);
 
+    // The Observatory profile's rows; Night is no setting and is left as it is.
+    showTintStrength(an::ui::resolveThemeTintStrength(QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH)));
+    showDensity(an::ui::resolveThemeDensity(QString(SettingsDefaults::INTERFACE_DENSITY)));
+    m_StartInNightCheck->setChecked(SettingsDefaults::INTERFACE_START_IN_NIGHT);
+    m_NightSwitch->setChecked(an::ui::nightModeSet());
+    showPreset();
+
     updateSensitivityLabel();
     markAsModified();
+    // Under the Observatory profile the defaults are shown at once, as any change is.
+    previewAppearance();
 }
 
 ValidationResult InterfaceSettingsPage::validateSettings() const

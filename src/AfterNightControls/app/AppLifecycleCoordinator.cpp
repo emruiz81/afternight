@@ -83,6 +83,19 @@ void AppLifecycleCoordinator::initialize() const
                                                             QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH));
         setThemeTintStrength(resolveThemeTintStrength(tintStrength));
 
+        // A preset stored puts its three parts in force; with none - an earlier version's settings, or a hand-made
+        // combination - the parts stored stay as they are, and the preset is the one they make.
+        if (const std::optional<QString> preset = globalSettings->selectOptional(SettingsKeys::INTERFACE_THEME_PRESET);
+            preset.has_value())
+        {
+            applyThemePreset(resolveThemePreset(*preset));
+        }
+
+        // Night is off at every start unless the person asked to start in it.
+        const QString startInNight = globalSettings->select(SettingsKeys::INTERFACE_START_IN_NIGHT,
+                                                            SettingsDefaults::INTERFACE_START_IN_NIGHT ? "1" : "0");
+        setNightMode(startInNight == QStringLiteral("1"));
+
         const QString density =
             globalSettings->select(SettingsKeys::INTERFACE_DENSITY, QString(SettingsDefaults::INTERFACE_DENSITY));
         setThemeDensity(resolveThemeDensity(density));

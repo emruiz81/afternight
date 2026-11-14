@@ -8,6 +8,7 @@
 #include "widgets/ViewPresentation.h"
 
 #include "session/DisplayProxy.h"
+#include "theme/NightImage.h"
 
 #include <AfterNightEngine/Algorithms/Geometry/Geometry.h>
 #include <AfterNightEngine/Algorithms/Statistics/BasicStatistics.h>
@@ -718,6 +719,32 @@ template <typename SampleT> [[nodiscard]] double fractionOf(SampleT value) noexc
     return format == PresentedFormat::Bgra8Premultiplied ? 2u - channel : channel;
 }
 
+/// Maps presented colour bytes to Night's form where they lie; grey bytes cannot be red and are left as they are.
+void toNight(const PresentedImage& image)
+{
+    NightPixelOrder order = NightPixelOrder::Bgra;
+    switch (image.format())
+    {
+    case PresentedFormat::Bgra8Premultiplied:
+        order = NightPixelOrder::Bgra;
+        break;
+    case PresentedFormat::Rgba8:
+        order = NightPixelOrder::Rgba;
+        break;
+    case PresentedFormat::Rgb8:
+        order = NightPixelOrder::Rgb;
+        break;
+    case PresentedFormat::Grey8:
+    default:
+        return;
+    }
+    // The bytes were written by the presentation that holds them and are not shared before it returns them, so they
+    // are mapped where they lie rather than copied.
+    toNightInPlace(const_cast<std::uint8_t*>(image.data()), static_cast<int>(image.width()),
+                   static_cast<int>(image.height()), static_cast<std::ptrdiff_t>(image.layout().rowStrideBytes()),
+                   order);
+}
+
 /// Fills a view source from an image or from its display proxy, whole or narrowed to the part a region of the image
 /// covers, and says which part of the image the source covers.
 [[nodiscard]] an::Status describeShown(const an::EngineContext& engine, const an::ExecutionContext& execution,
@@ -804,6 +831,10 @@ std::string viewPresentationKey(const ViewPresentationSettings& settings)
     {
         text << ";region=" << settings.region->x << ',' << settings.region->y << ',' << settings.region->width << ','
              << settings.region->height;
+    }
+    if (settings.night)
+    {
+        text << ";night";
     }
     return text.str();
 }
@@ -893,6 +924,11 @@ presentForView(const an::EngineContext& engine, const an::ExecutionContext& exec
     {
         presented->factor = (std::max)(1u, settings.proxyFactor);
         presented->covered = covered;
+    }
+    if (settings.night)
+    {
+        // The last stage, on this thread: the bytes are this presentation's alone until it returns them.
+        toNight(*presented->image);
     }
     return presented;
 }

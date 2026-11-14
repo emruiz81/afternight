@@ -5,6 +5,8 @@
 #include "DashboardOnboardingPanel.h"
 #include "DashboardUtils.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
+#include "widgets/NightPictureLabel.h"
 
 #include <QEnterEvent>
 #include <QFrame>
@@ -437,12 +439,12 @@ struct an::ui::DashboardOnboardingPanel::Impl
 {
     qreal dpiScale = 1.0;
 
-    // Background images (pre-loaded)
-    QPixmap bgDark;
-    QPixmap bgLight;
+    // Background images (pre-loaded), shown in Night's form under Night
+    NightPicture bgDark;
+    NightPicture bgLight;
 
     // Logo
-    QLabel* logoLabel = nullptr;
+    NightPictureLabel* logoLabel = nullptr;
 
     // Text
     QLabel* titleLabel = nullptr;
@@ -482,8 +484,8 @@ an::ui::DashboardOnboardingPanel::DashboardOnboardingPanel(qreal dpiScale, QWidg
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 
     // Pre-load background images
-    m_impl->bgDark = QPixmap(QStringLiteral(":/AfterNight/icons/PNG/onboarding_bg_dark.png"));
-    m_impl->bgLight = QPixmap(QStringLiteral(":/AfterNight/icons/PNG/onboarding_bg_light.png"));
+    m_impl->bgDark.setPicture(QPixmap(QStringLiteral(":/AfterNight/icons/PNG/onboarding_bg_dark.png")));
+    m_impl->bgLight.setPicture(QPixmap(QStringLiteral(":/AfterNight/icons/PNG/onboarding_bg_light.png")));
 
     buildLayout();
 }
@@ -530,14 +532,15 @@ void an::ui::DashboardOnboardingPanel::resizeEvent(QResizeEvent* event)
 
 void an::ui::DashboardOnboardingPanel::buildLogoSection(QVBoxLayout* parent)
 {
-    m_impl->logoLabel = new QLabel(this);
+    m_impl->logoLabel = new NightPictureLabel(this);
     m_impl->logoLabel->setObjectName(QStringLiteral("dashboardOnboardingLogo"));
     // Enlarged logo (Option E) — 96px scaled
     const int logoSize = scaledPixels(m_impl->dpiScale, 96, 72);
     QPixmap logoPix(QStringLiteral(":/AfterNight/icons/PNG/afternight_icon_256x256_blue.png"));
     if (!logoPix.isNull())
     {
-        m_impl->logoLabel->setPixmap(logoPix.scaled(logoSize, logoSize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        m_impl->logoLabel->setPicture(
+            logoPix.scaled(logoSize, logoSize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
     m_impl->logoLabel->setAlignment(Qt::AlignCenter);
     m_impl->logoLabel->setFixedSize(logoSize, logoSize);
@@ -775,7 +778,9 @@ void an::ui::DashboardOnboardingPanel::paintShadow(QPainter& painter, const QRec
 void an::ui::DashboardOnboardingPanel::paintBackgroundImage(QPainter& painter, const QRectF& bounds) const
 {
     const bool dark = isDarkTheme();
-    const QPixmap& src = dark ? m_impl->bgDark : m_impl->bgLight;
+    // Under Night the picture's Night form, painted once it is made.
+    auto* const panel = const_cast<DashboardOnboardingPanel*>(this);
+    const QPixmap src = (dark ? m_impl->bgDark : m_impl->bgLight).shown(this, [panel]() { panel->update(); });
     if (src.isNull())
     {
         return;

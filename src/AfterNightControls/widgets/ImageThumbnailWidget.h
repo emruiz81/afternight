@@ -4,6 +4,7 @@
 #pragma once
 
 #include "AfterNightControlsExport.h"
+#include "theme/NightImage.h"
 
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QWidget>
@@ -51,6 +52,7 @@ public:
     ~ImageThumbnailWidget();
 
 protected:
+    void changeEvent(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
@@ -64,6 +66,8 @@ private:
     void refreshBackground();
 
     QPixmap m_Pixmap;
+    /// The thumbnail as it is painted: under Night in its Night form, made off the GUI thread.
+    an::ui::NightPicture m_ShownPicture;
 
     bool m_IsActive = false;
 

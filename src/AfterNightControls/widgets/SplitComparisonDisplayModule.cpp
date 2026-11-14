@@ -14,6 +14,7 @@
 
 #include "widgets/ImageViewWidget.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 #include "app/UiStyleTokens.h"
 #include "controls/ImageViewThemeColors.h"
 
@@ -234,6 +235,20 @@ void SplitComparisonDisplayModule::onDraw(QPainter& painter)
 
     painter.save();
     painter.setClipRect(clipRect);
+
+    if (an::ui::isNightMode())
+    {
+        // Under Night the overlay's Night form, made off the GUI thread: nothing until it is, and the view painted
+        // again then.
+        ImageViewWidget* const view = m_ViewWidget;
+        const QImage overlay = an::ui::nightImage(m_overlayImage, view, [view]() { view->update(); });
+        if (!overlay.isNull())
+        {
+            painter.drawImage(targetRect, overlay);
+        }
+        painter.restore();
+        return;
+    }
 
     const QPixmap& overlayPixmap = overlayPixmapForTarget(targetRect.size());
     if (!overlayPixmap.isNull() && overlayPixmap.size() == targetRect.size())

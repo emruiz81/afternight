@@ -287,6 +287,44 @@ inline QString themeDensityId(const ThemeDensity density)
     return density == ThemeDensity::Comfortable ? QStringLiteral("comfortable") : QStringLiteral("compact");
 }
 
+/// The setting's value for a colour preset.
+inline QString themePresetId(const ThemePreset preset)
+{
+    switch (preset)
+    {
+    case ThemePreset::SlateBlue:
+        return QStringLiteral("slate");
+    case ThemePreset::Observatory:
+        return QStringLiteral("observatory");
+    case ThemePreset::DeepSea:
+        return QStringLiteral("deepsea");
+    case ThemePreset::Graphite:
+        return QStringLiteral("graphite");
+    case ThemePreset::Nebula:
+        return QStringLiteral("nebula");
+    case ThemePreset::Aurora:
+        return QStringLiteral("aurora");
+    case ThemePreset::Custom:
+    default:
+        return QStringLiteral("custom");
+    }
+}
+
+/// The colour preset a setting names, in any case; anything else is Custom.
+inline ThemePreset resolveThemePreset(const QString& presetId)
+{
+    const QString normalizedPresetId = presetId.trimmed().toLower();
+    for (const ThemePreset preset : {ThemePreset::SlateBlue, ThemePreset::Observatory, ThemePreset::DeepSea,
+                                     ThemePreset::Graphite, ThemePreset::Nebula, ThemePreset::Aurora})
+    {
+        if (normalizedPresetId == themePresetId(preset))
+        {
+            return preset;
+        }
+    }
+    return ThemePreset::Custom;
+}
+
 inline std::pair<QColor, QColor> iconPaletteForTheme(const bool darkMode)
 {
     const auto& colors = darkMode ? resolvedDarkTokens().colors : resolvedLightTokens().colors;

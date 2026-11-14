@@ -4,6 +4,9 @@
 #include "stdafx.hpp"
 #include "IconManager.h"
 
+#include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
+
 #include <QtSvg/qsvgrenderer.h>
 #include <QtCore/QRegularExpression>
 
@@ -81,6 +84,12 @@ void IconManager::loadIcons(const QString& path)
             }
             m_LoadedIcons[entry.baseName()] = loadSvgFileAsIcon(entry.absoluteFilePath(), iconColor);
         }
+        else if (an::ui::isNightMode())
+        {
+            // A coloured icon is shown in Night's form, made where the icons are loaded, as the tinted ones are drawn.
+            m_LoadedIcons[entry.baseName()] =
+                QIcon(QPixmap::fromImage(an::ui::nightForm(QImage(entry.absoluteFilePath()))));
+        }
         else
         {
             m_LoadedIcons[entry.baseName()] = QIcon(entry.absoluteFilePath());
@@ -116,6 +125,20 @@ static void modifySvgColor(QString& svgData, const QColor& color)
 {
     if (svgData.contains("AN_UNPROCESS_COLORS"))
     {
+        // An icon in colours of its own keeps them, but under Night, where each is its Night form.
+        if (an::ui::isNightMode())
+        {
+            static const QRegularExpression colourRegex(QStringLiteral("#[0-9a-fA-F]{6}(?![0-9a-fA-F])"));
+            QString mapped;
+            qsizetype from = 0;
+            for (const QRegularExpressionMatch& match : colourRegex.globalMatch(svgData))
+            {
+                mapped += svgData.mid(from, match.capturedStart() - from);
+                mapped += an::ui::nightColor(QColor(match.captured())).name(QColor::HexRgb);
+                from = match.capturedEnd();
+            }
+            svgData = mapped + svgData.mid(from);
+        }
         return;
     }
 

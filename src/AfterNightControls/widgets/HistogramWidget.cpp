@@ -5,6 +5,7 @@
 #include "HistogramWidget.h"
 #include "app/GuiThreadInvoke.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 
 #include "HistogramOverlay.h"
 
@@ -192,10 +193,8 @@ QColor HistogramWidget::getGridColor() const
 
 QColor HistogramWidget::getBackgroundColor() const
 {
-    // Always use the dark background for the histogram plot area so that
-    // the bar colours (white for mono, red/green/blue for RGB) remain
-    // visible regardless of whether the application is in light or dark theme.
-    return an::ui::darkTokens().colors.bgPrimary;
+    // A plot is drawn in a well, dark in both themes, so that its curves keep their colours whatever the theme.
+    return an::ui::tokens().colors.bgWell;
 }
 
 QColor HistogramWidget::getGuideLineColor() const
@@ -490,6 +489,26 @@ void HistogramWidget::drawGrid(QPainter& painter)
     }
 }
 
+Qt::PenStyle HistogramWidget::channelStroke(const std::size_t channel, const bool night)
+{
+    if (!night)
+    {
+        return Qt::SolidLine;
+    }
+    // Where hue told the channels apart, the stroke does: red solid, green dashed, blue dotted.
+    switch (channel)
+    {
+    case 1u:
+        return Qt::DashLine;
+    case 2u:
+        return Qt::DotLine;
+    case 0u:
+        return Qt::SolidLine;
+    default:
+        return Qt::DashDotLine;
+    }
+}
+
 void HistogramWidget::drawHistogram(QPainter& painter)
 {
     if (!m_Histogram->isValid())
@@ -501,6 +520,9 @@ void HistogramWidget::drawHistogram(QPainter& painter)
     pen.setWidthF(1);
 
     const bool isMono = m_Histogram->channels.size() == 1;
+    // The curves' colours are the plot's; under Night they are all red, and each channel is told apart by its stroke.
+    const auto& plot = an::ui::tokens().colors;
+    const bool night = an::ui::isNightMode();
 
     // Enable additive blending for overlapping areas to avoid darkening
     QPainter::CompositionMode oldMode = painter.compositionMode();
@@ -523,21 +545,22 @@ void HistogramWidget::drawHistogram(QPainter& painter)
         QColor color;
         if (isMono)
         {
-            color = Qt::white;
+            color = plot.plotGray;
             pen.setColor(color);
         }
         else
         {
             if (i == 0)
-                color = Qt::red;
+                color = plot.plotRed;
             else if (i == 1)
-                color = Qt::green;
+                color = plot.plotGreen;
             else if (i == 2)
-                color = Qt::blue;
+                color = plot.plotBlue;
             else
-                color = Qt::yellow;
+                color = an::ui::colorAsShown(QColor(Qt::yellow));
             pen.setColor(color);
         }
+        pen.setStyle(channelStroke(isMono ? 0u : i, night));
 
         if (!isMono && (i >= m_DisplayChannels.size() || !m_DisplayChannels[i]))
         {
@@ -658,8 +681,11 @@ void HistogramWidget::drawHistogramChannelArea(QPainter& painter, const an::ui::
     painter.setPen(Qt::NoPen);
     painter.fillPath(path, brush);
 
-    // Stroke the curve to match the line rendering height exactly
-    painter.setPen(QPen(color, 1.0));
+    // Stroke the curve to match the line rendering height exactly, in the channel's stroke
+    QPen stroke = oldPen;
+    stroke.setColor(color);
+    stroke.setWidthF(1.0);
+    painter.setPen(stroke);
     if (!poly.isEmpty())
         painter.drawPolyline(poly.constData(), poly.size());
 
@@ -732,8 +758,11 @@ void HistogramWidget::drawPreparedHistogramArea(QPainter& painter, size_t channe
     painter.setPen(Qt::NoPen);
     painter.fillPath(path, brush);
 
-    // Stroke the curve to match the line rendering height exactly
-    painter.setPen(QPen(color, 1.0));
+    // Stroke the curve to match the line rendering height exactly, in the channel's stroke
+    QPen stroke = oldPen;
+    stroke.setColor(color);
+    stroke.setWidthF(1.0);
+    painter.setPen(stroke);
     if (!poly.isEmpty())
         painter.drawPolyline(poly.constData(), poly.size());
 
@@ -755,24 +784,25 @@ void HistogramWidget::drawGuideLine(QPainter& painter)
 
 void HistogramWidget::drawGradientArea(QPainter& painter)
 {
+    const auto& colors = an::ui::tokens().colors;
     QLinearGradient gradient(0, 0, m_GradientArea.width(), 0);
     gradient.setColorAt(0.0, Qt::black);
 
     if (m_DisplayChannels[0] && !m_DisplayChannels[1] && !m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::red);
+        gradient.setColorAt(1.0, colors.plotRed);
     }
     else if (!m_DisplayChannels[0] && m_DisplayChannels[1] && !m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::green);
+        gradient.setColorAt(1.0, colors.plotGreen);
     }
     else if (!m_DisplayChannels[0] && !m_DisplayChannels[1] && m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::blue);
+        gradient.setColorAt(1.0, colors.plotBlue);
     }
     else
     {
-        gradient.setColorAt(1.0, Qt::white);
+        gradient.setColorAt(1.0, colors.plotGray);
     }
 
     painter.fillRect(m_GradientArea, gradient);

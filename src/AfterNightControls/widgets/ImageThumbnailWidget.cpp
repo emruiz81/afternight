@@ -316,6 +316,7 @@ bool ImageThumbnailWidget::applyLoadedThumbnail(const QString& fileName, const Q
     }
 
     m_Pixmap = displayPixmap;
+    m_ShownPicture.setPicture(displayPixmap);
     m_OriginalFilePath = fileName;
     setProperty("recentFilePath", m_OriginalFilePath);
     setProperty("dashboardPinned", m_IsPinned);
@@ -411,7 +412,9 @@ void ImageThumbnailWidget::updateDisplayedPixmap()
         return;
     }
 
-    if (m_Pixmap.isNull())
+    // The thumbnail, or under Night its Night form; nothing while that is made, and this again once it is.
+    const QPixmap shown = m_ShownPicture.shown(this, [this]() { updateDisplayedPixmap(); });
+    if (shown.isNull())
     {
         m_MainImage->clear();
         return;
@@ -426,7 +429,7 @@ void ImageThumbnailWidget::updateDisplayedPixmap()
     targetSize.setWidth((std::max)(24, targetSize.width() - 2));
     targetSize.setHeight((std::max)(24, targetSize.height() - 2));
 
-    const QPixmap fittedPixmap = m_Pixmap.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    const QPixmap fittedPixmap = shown.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     m_MainImage->setPixmap(fittedPixmap);
     m_MainImage->setScaledContents(false);
     m_MainImage->setAlignment(Qt::AlignCenter);
@@ -691,6 +694,16 @@ void ImageThumbnailWidget::leaveEvent(QEvent* event)
     Q_UNUSED(event);
     m_IsActive = false;
     refreshBackground();
+}
+
+void ImageThumbnailWidget::changeEvent(QEvent* event)
+{
+    // Night switched on or off reaches the thumbnail as a change of the application's palette.
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
+    {
+        updateDisplayedPixmap();
+    }
+    QWidget::changeEvent(event);
 }
 
 void ImageThumbnailWidget::resizeEvent(QResizeEvent* event)

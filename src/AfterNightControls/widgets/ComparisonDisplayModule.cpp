@@ -7,6 +7,8 @@
 
 #include <QPainter>
 
+#include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 #include "widgets/ImageViewWidget.h"
 
 namespace an::ui
@@ -58,9 +60,18 @@ void ComparisonDisplayModule::onDraw(QPainter& painter)
         return;
     }
 
+    // Under Night the overlay's Night form, made off the GUI thread: nothing until it is, and the view painted again
+    // then.
+    ImageViewWidget* const view = m_ViewWidget;
+    const QImage overlay =
+        isNightMode() ? nightImage(m_overlayImage, view, [view]() { view->update(); }) : m_overlayImage;
+    if (overlay.isNull())
+    {
+        return;
+    }
     painter.save();
     painter.setOpacity(m_overlayOpacity);
-    painter.drawImage(targetRect, m_overlayImage);
+    painter.drawImage(targetRect, overlay);
     painter.restore();
 }
 

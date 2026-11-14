@@ -9,6 +9,7 @@
 
 #include "components/AnLayoutUtils.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 #include "theme/PainterGuard.h"
 
 #include <QAbstractButton>
@@ -1490,10 +1491,41 @@ void AnProxyStyle::drawControl(ControlElement element, const QStyleOption* optio
         return;
     }
 
+    case CE_SizeGrip: {
+        // The base style draws the grip's dots in a white and a black shade; under Night the white one would be the
+        // window's one hue, so the dots are drawn in the same pattern in the shades' Night forms.
+        if (!an::ui::isNightMode())
+        {
+            QProxyStyle::drawControl(element, option, painter, widget);
+            return;
+        }
+        const PainterGuard guard(painter);
+        const QColor light = colorAsShown(QColor(255, 255, 255, 90));
+        const QColor dark = colorAsShown(QColor(0, 0, 0, 60));
+        const bool rightToLeft = option->direction == Qt::RightToLeft;
+        const QPoint centre = option->rect.center();
+        const int step = 3;
+        const int reach = 6;
+        for (int i = -reach; i < 2 * reach; i += step)
+        {
+            for (int j = -reach; j < 2 * reach; j += step)
+            {
+                if ((!rightToLeft && 0 <= j + i) || (rightToLeft && 0 <= j - i))
+                {
+                    painter->fillRect(centre.x() + i, centre.y() + j, 2, 2, light);
+                    painter->fillRect(centre.x() + i, centre.y() + j, 1, 1, dark);
+                }
+            }
+        }
+        return;
+    }
+
     case CE_ToolBar: {
         // For card-tinted toolbars, bypass base-style gradients and draw a flat
-        // surface so the tone matches adjacent card backgrounds exactly.
-        if (widget && widget->property("anUseCardBackground").toBool())
+        // surface so the tone matches adjacent card backgrounds exactly. Under Night
+        // every bar is drawn so: the base style's bevel lays a white highlight over
+        // it, which would be the one hue on a red window.
+        if (widget && (widget->property("anUseCardBackground").toBool() || an::ui::isNightMode()))
         {
             const PainterGuard guard(painter);
             const QColor paletteBackground = option ? option->palette.color(QPalette::Window) : QColor();

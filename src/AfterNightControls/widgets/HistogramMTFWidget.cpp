@@ -301,7 +301,7 @@ void HistogramMTFWidget::drawTransferCurve(QPainter& painter)
 
     pen.setStyle(Qt::SolidLine);
     pen.setWidthF(1.0);
-    pen.setColor(Qt::white);
+    pen.setColor(an::ui::tokens().colors.plotGray);
 
     painter.setPen(pen);
 
@@ -338,15 +338,15 @@ void HistogramMTFWidget::drawRangeSelector(QPainter& painter)
     gradient.setColorAt(0.0, colors.bgPrimary);
     if (m_DisplayChannels[0] && !m_DisplayChannels[1] && !m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::red);
+        gradient.setColorAt(1.0, colors.plotRed);
     }
     else if (!m_DisplayChannels[0] && m_DisplayChannels[1] && !m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::green);
+        gradient.setColorAt(1.0, colors.plotGreen);
     }
     else if (!m_DisplayChannels[0] && !m_DisplayChannels[1] && m_DisplayChannels[2])
     {
-        gradient.setColorAt(1.0, Qt::blue);
+        gradient.setColorAt(1.0, colors.plotBlue);
     }
     else
     {

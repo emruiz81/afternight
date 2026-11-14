@@ -18,6 +18,7 @@
 #include "widgets/QuickZoomController.h"
 #include "widgets/ZoomManager.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/NightImage.h"
 #include "theme/PainterGuard.h"
 #include "controls/ImageViewThemeColors.h"
 
@@ -206,6 +207,8 @@ struct ImageViewWidget::Impl
     // such bytes are filed under the key the view's own request would make, so only `presentDocumentAgain` replaces
     // them before the document or the settings change.
     bool m_PaintsAdopted = false;
+    /// Whether the last presentation the view asked for was in Night's form.
+    bool m_PresentedNight = false;
 
     // The display proxies presentations were made from, kept by revision and factor so a zoom, a pan or a channel
     // change reduces nothing again.
@@ -316,6 +319,15 @@ void ImageViewWidget::changeEvent(QEvent* ev)
             m_impl->m_ImageLensWidget->update();
         }
         update();
+    }
+    // Night switched on or off changes the application's palette, which reaches the view as a change of its own: it is
+    // presented again, as a change of display mode is - the request names Night, so what is painted no longer answers
+    // it and a worker presents it anew. Any other change asks nothing.
+    if ((ev->type() == QEvent::PaletteChange || ev->type() == QEvent::ApplicationPaletteChange ||
+         ev->type() == QEvent::ThemeChange) &&
+        m_impl && m_image_view_control != nullptr && m_impl->m_PresentedNight != an::ui::isNightMode())
+    {
+        requestPresentation();
     }
 
     QWidget::changeEvent(ev);
@@ -1187,6 +1199,7 @@ std::optional<an::ui::ViewPresentationSettings> ImageViewWidget::framePresentati
     const an::ui::ViewDisplayGeometry geometry = displayGeometry();
     settings.proxyFactor = geometry.proxyFactor;
     settings.region = geometry.region;
+    settings.night = an::ui::isNightMode();
     return settings;
 }
 
@@ -1396,6 +1409,7 @@ void ImageViewWidget::requestPresentation()
     {
         return;
     }
+    m_impl->m_PresentedNight = an::ui::isNightMode();
     watchViewport();
     struct Requesting
     {
@@ -1451,6 +1465,8 @@ void ImageViewWidget::requestPresentation()
     const an::ui::ViewDisplayGeometry geometry = displayGeometry();
     job.settings.proxyFactor = geometry.proxyFactor;
     job.settings.region = geometry.region;
+    // Night is the presentation's last stage, on the worker that presents.
+    job.settings.night = m_impl->m_PresentedNight;
 
     // The mask shown over the image is presented with it, over the same part at the same reduction.
     std::vector<an::consumer::AssetRevision> maskRevisions;
@@ -1648,6 +1664,16 @@ void ImageViewWidget::requestPresentation()
                             // Premultiplied here, so the GUI thread paints the layer without converting it.
                             result->maskImage = an::ui::presentedQImage(*result->maskLayer)
                                                     .convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                            // Under Night the layer is red too: mapped here, unless it multiplies colour bytes the
+                            // presentation mapped already - the product of a mapped image is mapped, and mapping
+                            // twice would darken it.
+                            const bool multipliedMapped =
+                                shared->maskSettings.mode == an::MaskOverlayMode::Multiply &&
+                                result->outcome->image->format() != an::ui::PresentedFormat::Grey8;
+                            if (shared->settings.night && !multipliedMapped)
+                            {
+                                result->maskImage = an::ui::nightForm(result->maskImage);
+                            }
                         }
                     }
                     result->presentTime = elapsedSince(begun);
@@ -2298,7 +2324,9 @@ void ImageViewWidget::updateQuickZoomWidget(const QPoint& mousePos, const bool u
     const an::consumer::EngineSession* session = viewSession();
     std::shared_ptr<const an::ui::PresentedImage> lensBytes = shown;
     QRect lensRect = shownRect;
-    if (session != nullptr && !overridden)
+    // Under Night the lens magnifies what the view painted, which is in Night's form already: nothing is presented, or
+    // mapped, on this thread.
+    if (session != nullptr && !overridden && !an::ui::isNightMode())
     {
         // The lens magnifies the image's own pixels: the region under it presented now, linearly for the original and
         // otherwise through the view's stretch and the analysis the view painted with - never measured here. Without
@@ -2391,9 +2419,10 @@ void ImageViewWidget::updateQuickZoomWidget(const QPoint& mousePos, const bool u
     m_impl->m_ImageLensWidget->m_CurrentX = absolutePosX;
     m_impl->m_ImageLensWidget->m_CurrentY = absolutePosY;
 
-    // The values under the cursor: the image's own in linear mode and for the original, what is shown otherwise.
+    // The values under the cursor: the image's own in linear mode, for the original and under Night - whose bytes are
+    // all red - and what is shown otherwise.
     std::optional<an::ui::PixelReadout> readout;
-    if (useOriginalimg || m_impl->m_ViewMode == ImageViewMode::LINEAR_MODE)
+    if (useOriginalimg || m_impl->m_ViewMode == ImageViewMode::LINEAR_MODE || an::ui::isNightMode())
     {
         const std::shared_ptr<const an::consumer::ImageAsset> original =
             (useOriginalimg || m_impl->m_IsAlternateImageRenderEnabled) && m_image_view_control->hasAlternateImage()
@@ -2435,9 +2464,11 @@ void ImageViewWidget::updateQuickZoomWidget(const QPoint& mousePos, const bool u
         m_impl->m_MaskLayer)
     {
         const auto maskMade = std::chrono::steady_clock::now();
-        m_impl->m_ImageLensWidget->m_CurrentMaskPixmaps.push_back(
-            QPixmap::fromImage(an::ui::presentedQImage(m_impl->m_MaskLayer)
-                                   .copy(mapInto(region.cropRect, *m_impl->m_MaskLayer, m_impl->m_PresentedCover))));
+        // Under Night the layer the view paints, which is in Night's form; otherwise the layer's own bytes.
+        const QImage maskShown =
+            an::ui::isNightMode() ? m_impl->m_MaskImage : an::ui::presentedQImage(m_impl->m_MaskLayer);
+        m_impl->m_ImageLensWidget->m_CurrentMaskPixmaps.push_back(QPixmap::fromImage(
+            maskShown.copy(mapInto(region.cropRect, *m_impl->m_MaskLayer, m_impl->m_PresentedCover))));
         ++m_impl->m_Telemetry.pixmapsMade;
         m_impl->m_Telemetry.pixmapTime += std::chrono::steady_clock::now() - maskMade;
         if (ImageViewControl* maskView = m_image_view_control->getCurrentMask())

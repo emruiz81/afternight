@@ -69,6 +69,7 @@ void ImagePreviewWidget::setOwnerWidget(QWidget* owner)
 void ImagePreviewWidget::setPixmap(const QPixmap& pixmap, bool scaled)
 {
     m_MainPixmap = pixmap;
+    m_ShownPicture.setPicture(pixmap);
     m_DrawScaled = scaled;
     update();
 }
@@ -103,7 +104,9 @@ ImagePreviewWidget::~ImagePreviewWidget()
 
 void ImagePreviewWidget::changeEvent(QEvent* ev)
 {
-    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::ThemeChange)
+    // A new application palette - a theme or Night switched - reaches the preview as a change of its own palette.
+    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::PaletteChange ||
+        ev->type() == QEvent::ThemeChange)
     {
         m_BackgroundColor = an::ui::tokens().colors.bgPrimary;
         update();
@@ -124,11 +127,18 @@ void ImagePreviewWidget::paintEvent(QPaintEvent* evt)
 
     painter.fillRect(this->rect(), m_BackgroundColor);
 
+    // The pixmap, or under Night its Night form: nothing while that is made, and a paint again once it is.
+    const QPixmap shown = m_ShownPicture.shown(this, [this]() { update(); });
+    if (shown.isNull())
+    {
+        return;
+    }
+
     if (m_DrawScaled)
     {
         auto targetRect = getScaledImageArea();
 
-        painter.drawPixmap(targetRect, m_MainPixmap);
+        painter.drawPixmap(targetRect, shown);
     }
     else
     {
@@ -140,7 +150,7 @@ void ImagePreviewWidget::paintEvent(QPaintEvent* evt)
         int y = (widgetSize.height() - pixmapSize.height()) / 2;
 
         // Draw the pixmap centered and without scaling
-        painter.drawPixmap(x, y, m_MainPixmap);
+        painter.drawPixmap(x, y, shown);
     }
 }
 
@@ -235,8 +245,17 @@ void ImagePreviewWidget::updateQuickZoomWidget(const QPoint& mousePos)
         return;
     }
 
-    const QImage shown = an::ui::presentedQImage(m_Shown);
-    m_ImageLensWidget->m_CurrentPixmap = QPixmap::fromImage(shown.copy(region.cropRect));
+    if (an::ui::isNightMode())
+    {
+        // Under Night the lens magnifies the preview's Night form, once it is made.
+        const QPixmap night = m_ShownPicture.shown(this, [this]() { update(); });
+        m_ImageLensWidget->m_CurrentPixmap = night.isNull() ? QPixmap() : night.copy(region.cropRect);
+    }
+    else
+    {
+        const QImage shown = an::ui::presentedQImage(m_Shown);
+        m_ImageLensWidget->m_CurrentPixmap = QPixmap::fromImage(shown.copy(region.cropRect));
+    }
 
     if (auto* context = an::ui::appContext())
     {
@@ -349,12 +368,14 @@ NoImagePreviewWidget::NoImagePreviewWidget(QWidget* parent) : QWidget(parent)
     this->setAttribute(Qt::WA_DeleteOnClose);
 
     m_MainPixmap = loadNoImagePreviewPixmap();
+    m_ShownPicture.setPicture(m_MainPixmap);
     m_BackgroundColor = an::ui::tokens().colors.bgPrimary;
 }
 
 void NoImagePreviewWidget::setPixmap(const QPixmap& pixmap, bool scaled)
 {
     m_MainPixmap = pixmap;
+    m_ShownPicture.setPicture(pixmap);
     m_DrawScaled = scaled;
     update();
 }
@@ -372,7 +393,9 @@ QColor NoImagePreviewWidget::getBackgroundColor() const
 
 void NoImagePreviewWidget::changeEvent(QEvent* ev)
 {
-    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::ThemeChange)
+    // A new application palette - a theme or Night switched - reaches the preview as a change of its own palette.
+    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::PaletteChange ||
+        ev->type() == QEvent::ThemeChange)
     {
         m_BackgroundColor = an::ui::tokens().colors.bgPrimary;
         update();
@@ -393,11 +416,18 @@ void NoImagePreviewWidget::paintEvent(QPaintEvent* evt)
 
     painter.fillRect(this->rect(), m_BackgroundColor);
 
+    // The pixmap, or under Night its Night form: nothing while that is made, and a paint again once it is.
+    const QPixmap shown = m_ShownPicture.shown(this, [this]() { update(); });
+    if (shown.isNull())
+    {
+        return;
+    }
+
     if (m_DrawScaled)
     {
         auto targetRect = getScaledImageArea();
 
-        painter.drawPixmap(targetRect, m_MainPixmap);
+        painter.drawPixmap(targetRect, shown);
     }
     else
     {
@@ -409,7 +439,7 @@ void NoImagePreviewWidget::paintEvent(QPaintEvent* evt)
         int y = (widgetSize.height() - pixmapSize.height()) / 2;
 
         // Draw the pixmap centered and without scaling
-        painter.drawPixmap(x, y, m_MainPixmap);
+        painter.drawPixmap(x, y, shown);
     }
 }
 

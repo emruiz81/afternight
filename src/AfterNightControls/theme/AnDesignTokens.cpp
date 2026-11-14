@@ -5,6 +5,7 @@
 
 #include "theme/AnDesignTokens.h"
 
+#include "theme/NightImage.h"
 #include "theme/ObservatoryPalette.h"
 
 #include <QApplication>
@@ -1531,6 +1532,7 @@ std::atomic_int g_themeSurfaceTintFamily{static_cast<int>(an::ui::ThemeSurfaceTi
 std::atomic_int g_themeTintStrength{static_cast<int>(an::ui::ThemeTintStrength::Balanced)};
 std::atomic_int g_themeDensity{static_cast<int>(an::ui::ThemeDensity::Compact)};
 std::atomic_int g_styleProfile{static_cast<int>(an::ui::StyleProfile::Classic)};
+std::atomic_bool g_nightMode{false};
 std::atomic_bool g_nativeBackdropSupported{detectNativeBackdropSupport()};
 std::atomic<const ResolvedTokenSnapshot*> g_activeResolvedTokens{nullptr};
 std::vector<std::unique_ptr<ResolvedTokenSnapshot>> g_resolvedTokenSnapshotHistory;
@@ -1590,9 +1592,33 @@ an::ui::ThemeChoices activeChoices(const an::ui::ThemeVariant theme, const bool 
         .tintStrength = static_cast<an::ui::ThemeTintStrength>(g_themeTintStrength.load()),
         .profile = static_cast<an::ui::StyleProfile>(g_styleProfile.load()),
         .density = static_cast<an::ui::ThemeDensity>(g_themeDensity.load()),
+        .night = g_nightMode.load(),
         .nativeBackdrop = nativeBackdrop,
     };
 }
+
+/// Whether Night is in force: set, under the Observatory profile, the only one that has it.
+bool nightInForce()
+{
+    return g_nightMode.load() &&
+           static_cast<an::ui::StyleProfile>(g_styleProfile.load()) == an::ui::StyleProfile::Observatory;
+}
+
+/// The presets and their parts, in the order the Interface page shows them.
+constexpr std::array<std::pair<an::ui::ThemePreset, an::ui::ThemePresetParts>, 6u> kPresets{{
+    {an::ui::ThemePreset::SlateBlue,
+     {an::ui::ThemeAccentFamily::Blue, an::ui::ThemeSurfaceTintFamily::Neutral, an::ui::ThemeTintStrength::Balanced}},
+    {an::ui::ThemePreset::Observatory,
+     {an::ui::ThemeAccentFamily::Amber, an::ui::ThemeSurfaceTintFamily::Ocean, an::ui::ThemeTintStrength::Strong}},
+    {an::ui::ThemePreset::DeepSea,
+     {an::ui::ThemeAccentFamily::Teal, an::ui::ThemeSurfaceTintFamily::Ocean, an::ui::ThemeTintStrength::Balanced}},
+    {an::ui::ThemePreset::Graphite,
+     {an::ui::ThemeAccentFamily::Amber, an::ui::ThemeSurfaceTintFamily::Neutral, an::ui::ThemeTintStrength::Balanced}},
+    {an::ui::ThemePreset::Nebula,
+     {an::ui::ThemeAccentFamily::Rose, an::ui::ThemeSurfaceTintFamily::Amethyst, an::ui::ThemeTintStrength::Balanced}},
+    {an::ui::ThemePreset::Aurora,
+     {an::ui::ThemeAccentFamily::Teal, an::ui::ThemeSurfaceTintFamily::Mint, an::ui::ThemeTintStrength::Subtle}},
+}};
 
 /// Whether a widget exists in the process: a profile is fixed once one does.
 bool anyWidgetExists()
@@ -1620,16 +1646,31 @@ const DesignTokens& lightTokens()
 
 DesignTokens resolveDesignTokens(const ThemeChoices& choices)
 {
-    const bool dark = choices.theme == ThemeVariant::Dark;
-    const DesignTokens& base = dark ? darkTokens() : lightTokens();
     if (choices.profile == StyleProfile::Observatory)
     {
-        DesignTokens resolved = base;
-        resolveObservatoryColors(resolved, choices);
-        resolved.materials = resolvedMaterials(resolved, dark, choices.nativeBackdrop);
+        // Night resolves the dark theme whatever the preference, with the tint off whatever the tint and its
+        // strength: a hue cannot be seen in red, and a tinted surface would leave red text under its contrast.
+        ThemeChoices resolvedChoices = choices;
+        if (choices.night)
+        {
+            resolvedChoices.theme = ThemeVariant::Dark;
+            resolvedChoices.tint = ThemeSurfaceTintFamily::Neutral;
+            resolvedChoices.tintStrength = ThemeTintStrength::Off;
+        }
+        const bool observatoryDark = resolvedChoices.theme == ThemeVariant::Dark;
+        DesignTokens resolved = observatoryDark ? darkTokens() : lightTokens();
+        resolveObservatoryColors(resolved, resolvedChoices);
+        resolved.materials = resolvedMaterials(resolved, observatoryDark, choices.nativeBackdrop);
         resolveObservatorySizes(resolved, choices.density);
+        if (choices.night)
+        {
+            mapToNight(resolved);
+        }
         return resolved;
     }
+    // The Classic profile has no Night.
+    const bool dark = choices.theme == ThemeVariant::Dark;
+    const DesignTokens& base = dark ? darkTokens() : lightTokens();
     DesignTokens resolved =
         resolvedTokenSet(base, dark, choices.nativeBackdrop, choices.contrast, choices.accent, choices.tint);
     const QColor darkWindow = dark ? resolved.layers.surface0
@@ -1719,6 +1760,12 @@ void refreshTokens()
     default:
         g_isDarkTheme.store(detectDarkThemeFromApplication());
         break;
+    }
+    // Night is dark whatever the preference: both sets resolve its one dark set, and every widget that asks which
+    // theme it paints is told the dark one.
+    if (nightInForce())
+    {
+        g_isDarkTheme.store(true);
     }
 
     const bool nativeSupported = detectNativeBackdropSupport();
@@ -1854,6 +1901,70 @@ void setThemeDensity(const ThemeDensity density)
 ThemeDensity themeDensity()
 {
     return static_cast<ThemeDensity>(g_themeDensity.load());
+}
+
+std::optional<ThemePresetParts> themePresetParts(const ThemePreset preset)
+{
+    for (const auto& [named, parts] : kPresets)
+    {
+        if (named == preset)
+        {
+            return parts;
+        }
+    }
+    return std::nullopt;
+}
+
+ThemePreset themePresetOf(const ThemeAccentFamily accent, const ThemeSurfaceTintFamily tint,
+                          const ThemeTintStrength strength)
+{
+    const ThemePresetParts wanted{.accent = accent, .tint = tint, .strength = strength};
+    for (const auto& [preset, parts] : kPresets)
+    {
+        if (parts == wanted)
+        {
+            return preset;
+        }
+    }
+    return ThemePreset::Custom;
+}
+
+void applyThemePreset(const ThemePreset preset)
+{
+    const std::optional<ThemePresetParts> parts = themePresetParts(preset);
+    if (!parts.has_value())
+    {
+        return;
+    }
+    g_themeAccentFamily.store(static_cast<int>(parts->accent));
+    g_themeSurfaceTintFamily.store(static_cast<int>(parts->tint));
+    g_themeTintStrength.store(static_cast<int>(parts->strength));
+    refreshTokens();
+}
+
+ThemePreset themePreset()
+{
+    return themePresetOf(themeAccentFamily(), themeSurfaceTintFamily(), themeTintStrength());
+}
+
+void setNightMode(const bool night)
+{
+    g_nightMode.store(night);
+    if (!night)
+    {
+        clearNightImages();
+    }
+    refreshTokens();
+}
+
+bool nightModeSet()
+{
+    return g_nightMode.load();
+}
+
+bool isNightMode()
+{
+    return nightInForce();
 }
 
 bool setStyleProfile(const StyleProfile profile)

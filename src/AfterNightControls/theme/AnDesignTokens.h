@@ -9,6 +9,7 @@
 #include <QColor>
 #include <QFont>
 
+#include <optional>
 #include <string>
 
 namespace an::ui
@@ -78,6 +79,30 @@ enum class ThemeDensity
 {
     Compact,
     Comfortable
+};
+
+/// A colour preset: an accent, a surface tint and a tint strength chosen together under one name. The theme and the
+/// contrast profile stay the user's. A combination no preset names is `Custom`, so a part changed by hand leaves the
+/// preset; the preset in force is always the one the parts in force make.
+enum class ThemePreset
+{
+    SlateBlue, ///< Blue, Neutral, Balanced: the default.
+    Observatory, ///< Amber, Ocean, Strong.
+    DeepSea, ///< Teal, Ocean, Balanced.
+    Graphite, ///< Amber, Neutral, Balanced.
+    Nebula, ///< Rose, Amethyst, Balanced.
+    Aurora, ///< Teal, Mint, Subtle.
+    Custom ///< Any other combination.
+};
+
+/// The three parts a preset sets.
+struct ThemePresetParts
+{
+    ThemeAccentFamily accent = ThemeAccentFamily::Blue;
+    ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral;
+    ThemeTintStrength strength = ThemeTintStrength::Balanced;
+
+    [[nodiscard]] bool operator==(const ThemePresetParts&) const = default;
 };
 
 enum class SemanticColorRole
@@ -481,6 +506,9 @@ struct ThemeChoices
     ThemeTintStrength tintStrength = ThemeTintStrength::Balanced;
     StyleProfile profile = StyleProfile::Classic;
     ThemeDensity density = ThemeDensity::Compact;
+    /// Whether Night is on: under the Observatory profile the resolution's last step resolves the dark theme with the
+    /// tint off and maps every colour to its luma in red (`THEME_SYSTEM.md`, "Night"). The Classic profile ignores it.
+    bool night = false;
     /// Whether the material surfaces take the window system's backdrop (setMaterialBackdropMode()).
     bool nativeBackdrop = false;
 
@@ -488,8 +516,8 @@ struct ThemeChoices
 };
 
 /// Resolves the tokens of one combination in the pipeline's order - the base, the accent, the tint, the contrast
-/// profile, the text on the accent, the materials, the sizes and the type scale - under the combination's profile.
-/// Reads and writes no global state, so it may be called from any thread.
+/// profile, the text on the accent, the materials, the sizes and the type scale, and Night last - under the
+/// combination's profile. Reads and writes no global state, so it may be called from any thread.
 [[nodiscard]] AFTERNIGHTCONTROLS_API DesignTokens resolveDesignTokens(const ThemeChoices& choices);
 
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& tokens();
@@ -528,6 +556,32 @@ AFTERNIGHTCONTROLS_API void setThemeTintStrength(ThemeTintStrength strength);
 /// style refreshes its tokens (AnProxyStyle::refreshThemeTokens()), as a theme change does.
 AFTERNIGHTCONTROLS_API void setThemeDensity(ThemeDensity density);
 [[nodiscard]] AFTERNIGHTCONTROLS_API ThemeDensity themeDensity();
+
+/// The parts a preset sets; nothing for `Custom`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<ThemePresetParts> themePresetParts(ThemePreset preset);
+
+/// The preset an accent, a tint and a strength make: the one whose three parts they are, or `Custom`. The settings of
+/// an earlier version, which hold no strength, are read with the Balanced one.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ThemePreset themePresetOf(ThemeAccentFamily accent, ThemeSurfaceTintFamily tint,
+                                                               ThemeTintStrength strength);
+
+/// Puts a preset's three parts in force and resolves the tokens again, once; the theme and the contrast profile are
+/// left as they are. `Custom` names no parts and changes nothing.
+AFTERNIGHTCONTROLS_API void applyThemePreset(ThemePreset preset);
+
+/// The preset the accent, the tint and the strength in force make.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ThemePreset themePreset();
+
+/// Sets Night on or off and resolves the tokens again. Night is never kept with the other choices: it is off at every
+/// start unless the user asked to start in it. Switched off, it lets go of the Night pictures it kept.
+AFTERNIGHTCONTROLS_API void setNightMode(bool night);
+
+/// Whether Night is set, whatever the profile.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool nightModeSet();
+
+/// Whether Night is in force: set, and the Observatory profile in force. What a widget asks before it paints a picture,
+/// and what the viewer asks before it presents one.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool isNightMode();
 
 /// Puts a style profile in force and resolves the tokens again. The application sets the profile its shell names once,
 /// before its first widget: a widget is sized and painted under one profile for its life. Once a widget exists, a

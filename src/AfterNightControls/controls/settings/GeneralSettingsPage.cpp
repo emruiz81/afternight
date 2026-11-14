@@ -857,6 +857,24 @@ bool GeneralSettingsPage::stageImportedSettings(const QJsonObject& root)
             m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY,
                                           iface["themeSurfaceTintFamily"].toString());
         }
+        if (iface.contains("themeTintStrength"))
+        {
+            m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH,
+                                          iface["themeTintStrength"].toString());
+        }
+        if (iface.contains("density"))
+        {
+            m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_DENSITY, iface["density"].toString());
+        }
+        if (iface.contains("themePreset"))
+        {
+            m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_THEME_PRESET, iface["themePreset"].toString());
+        }
+        if (iface.contains("startInNight"))
+        {
+            m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_START_IN_NIGHT,
+                                          iface["startInNight"].toBool() ? "1" : "0");
+        }
         if (iface.contains("zoomSensitivity"))
         {
             m_PendingImportUpserts.insert(SettingsKeys::INTERFACE_ZOOM_SENSITIVITY,
@@ -1102,6 +1120,13 @@ QJsonObject GeneralSettingsPage::exportedSettings() const
         selectSetting(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY, SettingsDefaults::INTERFACE_THEME_ACCENT_FAMILY);
     iface["themeSurfaceTintFamily"] = selectSetting(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY,
                                                     SettingsDefaults::INTERFACE_THEME_SURFACE_TINT_FAMILY);
+    iface["themeTintStrength"] =
+        selectSetting(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH);
+    iface["density"] = selectSetting(SettingsKeys::INTERFACE_DENSITY, SettingsDefaults::INTERFACE_DENSITY);
+    iface["themePreset"] =
+        selectSetting(SettingsKeys::INTERFACE_THEME_PRESET, SettingsDefaults::INTERFACE_THEME_PRESET);
+    iface["startInNight"] =
+        selectBool(SettingsKeys::INTERFACE_START_IN_NIGHT, SettingsDefaults::INTERFACE_START_IN_NIGHT);
     iface["zoomSensitivity"] =
         selectInt(SettingsKeys::INTERFACE_ZOOM_SENSITIVITY, SettingsDefaults::INTERFACE_ZOOM_SENSITIVITY);
     iface["zoomRequiresCtrl"] =

@@ -27,9 +27,16 @@ namespace an::ui
 
 /// Fills every colour of `tokens` - the colour roles, the surface layers and the material surfaces - as the
 /// Observatory profile resolves `choices`, and leaves the spacing, the radii and the type scale as they are. The light
-/// theme with the OLED contrast profile resolves as Balanced, as it does under the Classic profile.
-/// resolveDesignTokens() is the way in; this is its Observatory half.
+/// theme with the OLED contrast profile resolves as Balanced, as it does under the Classic profile. With `night` set it
+/// gives Night's tones - the primary text white, the secondary and tertiary text raised until they reach 3 : 1 against
+/// surface 2 once in red, the accent's fill its 300 step under black text - for choices the caller has already made
+/// dark and untinted; mapToNight() maps them to red afterwards. resolveDesignTokens() is the way in; this is its
+/// Observatory half.
 AFTERNIGHTCONTROLS_API void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices);
+
+/// Night's last step: every colour of `tokens` - the roles, the surface layers, the material surfaces - becomes its
+/// luma in red (nightColor()).
+void mapToNight(DesignTokens& tokens);
 
 /// Fills the Observatory profile's sizes into `tokens`: the density's column of metrics, the radii, and the type scale,
 /// which is the interface font `tokens` holds as its body at the density's sizes, semibold for the headings, with
@@ -56,6 +63,10 @@ struct ContrastFailure
 /// and over white; the outline reaches 3 : 1 against surfaces 1 to 3 in the High contrast profile and 1.6 : 1 in the
 /// others; two adjacent surfaces differ, except surfaces 0 and 1 under OLED, which are both black; and the status
 /// colours reach 3 : 1 against surfaces 1 and 2. A translucent colour is laid over what it is drawn on first.
+///
+/// Under Night the rules are Night's: the primary text reaches 4.5 : 1 against surfaces 0 to 3; the secondary and
+/// tertiary text 3 : 1 against surfaces 0 to 2; the text on the accent 3 : 1 on it; the status colours 2 : 1 against
+/// surfaces 1 and 2; and no colour role keeps any green or blue.
 ///
 /// @param tokens  a token set resolveDesignTokens() made for `choices`.
 /// @param choices the combination it was made for: its contrast profile chooses the outline's rule.

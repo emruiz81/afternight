@@ -130,6 +130,11 @@ public:
     /// Should update UI and mark as modified if values changed.
     virtual void resetToDefaults() = 0;
 
+    /// Discards what the page shows and has not saved: called when the dialog is cancelled. A page that shows a change
+    /// at once - a theme previewed as it is chosen - puts back what was in force; the others need do nothing, since
+    /// they show the stored settings again when they are next loaded.
+    virtual void discardChanges() {}
+
     // ═══════════════════════════════════════════════════════════════════════
     // Validation
     // ═══════════════════════════════════════════════════════════════════════

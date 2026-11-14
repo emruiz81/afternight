@@ -5,6 +5,8 @@
 
 #include "theme/ObservatoryPalette.h"
 
+#include "theme/NightImage.h"
+
 #include <QFont>
 #include <QStringList>
 
@@ -353,6 +355,87 @@ QString named(const char* name, const QColor& color)
     return QStringLiteral("%1 %2").arg(QString::fromLatin1(name), color.name(QColor::HexRgb).toUpper());
 }
 
+// ---- Night.
+
+/// The ratio Night's secondary and tertiary text keep against the second surface, both in red.
+constexpr double kNightSecondaryRatio = 3.0;
+
+/// A text tone as Night shows it on `surface`: kept when its luma reaches the ratio against the surface's, both in red;
+/// otherwise the grey of the least luma that does, which Night shows as that luma in red.
+QColor raisedForNight(const QColor& tone, const QColor& surface)
+{
+    const QColor ground = an::ui::nightColor(surface);
+    const int own = an::ui::nightColor(tone).red();
+    int luma = own;
+    while (luma < 255 && an::ui::contrastRatio(QColor(luma, 0, 0), ground) + 1e-9 < kNightSecondaryRatio)
+    {
+        ++luma;
+    }
+    return luma == own ? tone : QColor(luma, luma, luma);
+}
+
+/// Calls `visit` with every colour role of a set, by its name.
+template <typename Colours, typename Visit> void forEachColourRole(Colours& c, const Visit& visit)
+{
+    visit("bgPrimary", c.bgPrimary);
+    visit("bgSurface", c.bgSurface);
+    visit("bgCard", c.bgCard);
+    visit("bgCardPrimary", c.bgCardPrimary);
+    visit("bgCardSecondary", c.bgCardSecondary);
+    visit("bgInput", c.bgInput);
+    visit("bgHover", c.bgHover);
+    visit("textPrimary", c.textPrimary);
+    visit("textSecondary", c.textSecondary);
+    visit("textTertiary", c.textTertiary);
+    visit("textAccent", c.textAccent);
+    visit("textOnAccent", c.textOnAccent);
+    visit("borderPrimary", c.borderPrimary);
+    visit("borderSubtle", c.borderSubtle);
+    visit("borderFocus", c.borderFocus);
+    visit("statusSuccess", c.statusSuccess);
+    visit("statusWarning", c.statusWarning);
+    visit("statusError", c.statusError);
+    visit("statusInfo", c.statusInfo);
+    visit("statusSuccessSoft", c.statusSuccessSoft);
+    visit("statusWarningSoft", c.statusWarningSoft);
+    visit("statusErrorSoft", c.statusErrorSoft);
+    visit("statusInfoSoft", c.statusInfoSoft);
+    visit("accentPrimary", c.accentPrimary);
+    visit("accentHover", c.accentHover);
+    visit("accentPressed", c.accentPressed);
+    visit("accentDisabled", c.accentDisabled);
+    visit("accentPinned", c.accentPinned);
+    visit("cardSurfaceTint", c.cardSurfaceTint);
+    visit("cardSurfaceBorderTint", c.cardSurfaceBorderTint);
+    visit("shadowOverlay", c.shadowOverlay);
+    visit("bgCanvas", c.bgCanvas);
+    visit("bgWell", c.bgWell);
+    visit("bgSnack", c.bgSnack);
+    visit("textOnSnack", c.textOnSnack);
+    visit("stateLayer", c.stateLayer);
+    visit("scrim", c.scrim);
+    visit("scrimSoft", c.scrimSoft);
+    visit("edge", c.edge);
+    visit("textOnImage", c.textOnImage);
+    visit("textOnImageSecondary", c.textOnImageSecondary);
+    visit("accentOnImage", c.accentOnImage);
+    visit("textOnAccentImage", c.textOnAccentImage);
+    visit("accentContainer", c.accentContainer);
+    visit("textOnAccentContainer", c.textOnAccentContainer);
+    visit("accentTrack", c.accentTrack);
+    visit("accentSoft", c.accentSoft);
+    visit("accentSofter", c.accentSofter);
+    visit("accentLine", c.accentLine);
+    visit("channelRed", c.channelRed);
+    visit("channelGreen", c.channelGreen);
+    visit("channelBlue", c.channelBlue);
+    visit("channelGray", c.channelGray);
+    visit("plotRed", c.plotRed);
+    visit("plotGreen", c.plotGreen);
+    visit("plotBlue", c.plotBlue);
+    visit("plotGray", c.plotGray);
+}
+
 /// The density's column of metrics.
 an::ui::MetricTokens densityMetrics(const an::ui::ThemeDensity density)
 {
@@ -481,8 +564,25 @@ void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices)
     const QColor lineColour = dark ? hex(0xFFFFFF) : hex(0x18181B);
     const QColor line = withTint(atPercent(lineColour, row.linePercent), lineShare);
     const QColor outline = withTint(atPercent(lineColour, row.outlinePercent), lineShare);
-    const AccentRoles accent = accentRoles(dark, choices.accent);
+    AccentRoles accent = accentRoles(dark, choices.accent);
     const AccentRamp ramp = accentRamp(choices.accent);
+
+    // Night's tones, before every colour is mapped to red: the primary text white, the secondary and tertiary text as
+    // light as the second surface needs them in red, and the accent's fill its lightest step under black text, so a
+    // filled control still reads.
+    QColor textPrimary = row.textPrimary;
+    QColor textSecondary = row.textSecondary;
+    QColor textTertiary = row.textTertiary;
+    if (choices.night)
+    {
+        textPrimary = hex(0xFFFFFF);
+        textSecondary = raisedForNight(textSecondary, surface[2]);
+        textTertiary = raisedForNight(textTertiary, surface[2]);
+        accent.primary = ramp.s300;
+        accent.hover = ramp.s300;
+        accent.pressed = ramp.s400;
+        accent.onAccent = hex(0x000000);
+    }
 
     ColorTokens& c = tokens.colors;
     c.bgPrimary = surface[0];
@@ -493,9 +593,9 @@ void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices)
     c.bgInput = surface[3];
     c.bgHover = surface[4];
 
-    c.textPrimary = row.textPrimary;
-    c.textSecondary = row.textSecondary;
-    c.textTertiary = row.textTertiary;
+    c.textPrimary = textPrimary;
+    c.textSecondary = textSecondary;
+    c.textTertiary = textTertiary;
     c.textAccent = accent.text;
     c.textOnAccent = accent.onAccent;
 
@@ -527,7 +627,7 @@ void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices)
     c.bgCanvas = withTint(oled ? hex(0x000000) : bases.canvas, surfaceShare);
     c.bgWell = withTint(oled ? hex(0x000000) : bases.well, surfaceShare);
     c.bgSnack = withTint(bases.snack, surfaceShare * kSnackTintSteps);
-    c.textOnSnack = bases.textOnSnack.isValid() ? bases.textOnSnack : row.textPrimary;
+    c.textOnSnack = bases.textOnSnack.isValid() ? bases.textOnSnack : textPrimary;
     c.stateLayer = bases.stateLayer;
     c.scrim = bases.scrim;
     c.scrimSoft = bases.scrimSoft;
@@ -539,7 +639,7 @@ void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices)
     // The container and the track mix the accent over the bare neutrals, not the tinted steps: a chosen item and a
     // slider read the same whatever the tint, and the container's text keeps its contrast under every tint.
     c.accentContainer = mixColors(accent.primary, bases.accentContainerShare, row.neutral[3]);
-    c.textOnAccentContainer = mixColors(accent.text, kOnContainerAccentShare, row.textPrimary);
+    c.textOnAccentContainer = mixColors(accent.text, kOnContainerAccentShare, textPrimary);
     c.accentTrack = mixColors(accent.primary, kTrackAccentShare, row.neutral[4]);
     c.accentSoft = atPercent(accent.primary, kSoftPercent);
     c.accentSofter = atPercent(accent.primary, kSofterPercent);
@@ -586,6 +686,38 @@ std::vector<ContrastFailure> observatoryContrastFailures(const DesignTokens& tok
         }
     };
 
+    if (choices.night)
+    {
+        // Red carries a fifth of white's luminance, so Night asks less of everything but the primary text, and a
+        // status colour never goes without its icon.
+        for (std::size_t i = 0; i < 4u; ++i)
+        {
+            require("textPrimary", c.textPrimary, kLayerNames[i], surface[i], 4.5);
+        }
+        for (std::size_t i = 0; i < 3u; ++i)
+        {
+            require("textSecondary", c.textSecondary, kLayerNames[i], surface[i], kNightSecondaryRatio);
+            require("textTertiary", c.textTertiary, kLayerNames[i], surface[i], kNightSecondaryRatio);
+        }
+        require("textOnAccent", c.textOnAccent, "accentPrimary", c.accentPrimary, kNightSecondaryRatio);
+        for (std::size_t i = 1; i < 3u; ++i)
+        {
+            require("statusSuccess", c.statusSuccess, kLayerNames[i], surface[i], 2.0);
+            require("statusWarning", c.statusWarning, kLayerNames[i], surface[i], 2.0);
+            require("statusError", c.statusError, kLayerNames[i], surface[i], 2.0);
+            require("statusInfo", c.statusInfo, kLayerNames[i], surface[i], 2.0);
+        }
+        // Everything is red: a colour that keeps any green or blue is named.
+        forEachColourRole(c, [&failures](const char* name, const QColor& colour) {
+            if (colour.isValid() && (colour.green() != 0 || colour.blue() != 0))
+            {
+                failures.push_back(
+                    ContrastFailure{QStringLiteral("%1 keeps a hue").arg(named(name, colour)), 0.0, 0.0});
+            }
+        });
+        return failures;
+    }
+
     for (std::size_t i = 0; i < 4u; ++i)
     {
         require("textPrimary", c.textPrimary, kLayerNames[i], surface[i], 4.5);
@@ -623,6 +755,17 @@ std::vector<ContrastFailure> observatoryContrastFailures(const DesignTokens& tok
         require("statusInfo", c.statusInfo, kLayerNames[i], surface[i], 3.0);
     }
     return failures;
+}
+
+void mapToNight(DesignTokens& tokens)
+{
+    forEachColourRole(tokens.colors, [](const char* /*name*/, QColor& colour) { colour = nightColor(colour); });
+    for (QColor* layer : {&tokens.layers.surface0, &tokens.layers.surface1, &tokens.layers.surface2,
+                          &tokens.layers.surface3, &tokens.layers.surface4, &tokens.materials.solidSurface,
+                          &tokens.materials.micaSurface, &tokens.materials.acrylicSurface})
+    {
+        *layer = nightColor(*layer);
+    }
 }
 
 void resolveObservatorySizes(DesignTokens& tokens, const ThemeDensity density)

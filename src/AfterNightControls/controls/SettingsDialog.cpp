@@ -352,6 +352,14 @@ void SettingsDialog::reject()
         {
             return;
         }
+        // What a page showed at once goes with its unsaved changes.
+        for (auto* page : m_Pages)
+        {
+            if (page->hasUnsavedChanges())
+            {
+                page->discardChanges();
+            }
+        }
     }
     QDialog::reject();
 }

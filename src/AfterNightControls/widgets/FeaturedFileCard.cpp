@@ -358,8 +358,11 @@ void FeaturedFileCard::paintEvent(QPaintEvent* /*event*/)
     painter.setClipPath(clipPath);
     painter.fillRect(bounds, tokenSet.colors.bgCardPrimary);
 
-    auto drawLayer = [&painter, bounds](const BackgroundLayer& layer, const qreal opacity) {
-        if (layer.cover.isNull() || opacity <= 0.0)
+    // Under Night each picture's Night form, painted once it is made.
+    const auto repaint = [this]() { update(); };
+    auto drawLayer = [this, &painter, bounds, &repaint](const BackgroundLayer& layer, const qreal opacity) {
+        const QPixmap cover = layer.cover.shown(this, repaint);
+        if (cover.isNull() || opacity <= 0.0)
         {
             return;
         }
@@ -367,11 +370,11 @@ void FeaturedFileCard::paintEvent(QPaintEvent* /*event*/)
         an::ui::PainterGuard painterGuard(&painter);
         painter.setOpacity(std::clamp(opacity, 0.0, 1.0));
         // Use bounds.topLeft() for positioning to respect shadow margins
-        painter.drawPixmap(bounds.topLeft(), layer.cover);
-        if (!layer.softened.isNull())
+        painter.drawPixmap(bounds.topLeft(), cover);
+        if (const QPixmap softened = layer.softened.shown(this, repaint); !softened.isNull())
         {
             painter.setOpacity(std::clamp(opacity * 0.30, 0.0, 1.0));
-            painter.drawPixmap(bounds.topLeft(), layer.softened);
+            painter.drawPixmap(bounds.topLeft(), softened);
         }
     };
 
@@ -452,7 +455,7 @@ FeaturedFileCard::BackgroundLayer FeaturedFileCard::buildBackgroundLayer(const Q
 
     const int offsetX = (std::max)(0, (expanded.width() - targetSize.width()) / 2);
     const int offsetY = (std::max)(0, (expanded.height() - targetSize.height()) / 2);
-    layer.cover = expanded.copy(offsetX, offsetY, targetSize.width(), targetSize.height());
+    layer.cover.setPicture(expanded.copy(offsetX, offsetY, targetSize.width(), targetSize.height()));
 
     // Build a low-res softened version: scale down to 64px wide (preserving
     // aspect ratio, clamped to min 24px height), then scale back up.  The
@@ -465,8 +468,8 @@ FeaturedFileCard::BackgroundLayer FeaturedFileCard::buildBackgroundLayer(const Q
                            std::lround(static_cast<double>(targetSize.height()) * static_cast<double>(blurredWidth) /
                                        static_cast<double>((std::max)(1, targetSize.width())))));
     const QPixmap small =
-        layer.cover.scaled(blurredWidth, blurredHeight, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    layer.softened = small.scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        layer.cover.picture().scaled(blurredWidth, blurredHeight, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    layer.softened.setPicture(small.scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
     return layer;
 }
 
