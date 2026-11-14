@@ -198,7 +198,7 @@ case the suites define. A capability with no case of a kind is an empty line, an
 
 ## The source guards
 
-Four rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
+Six rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
 `Test_ImageIntegration` (`Test_ImageIntegration/unit/SourceGuardsTest.cpp`); a change to any C or C++ file under
 `src/` runs them (`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
 
@@ -208,10 +208,14 @@ Four rules of the source tree are held by cases that read the sources themselves
 | `NoStyleSheetsInSrc` | The product sets and reads no stylesheet, names no stylesheet style and no `.qss` file, and the tree holds none: the look is painted from the design tokens |
 | `NoDefaultQSettingsInSrc` | The product makes no `QSettings` but the one `an::ui::applicationSettings()` returns: any other is the platform's native store, which no test storage root redirects |
 | `ShellsDoNotReachEachOther` | A shell is reached only by the application that composes it and the suites that drive it: no shell includes another's header, and neither the shell core, Controls, Processes nor a suite of theirs includes one |
+| `NoLookLiteralsInShellsAndComponents` | In the shell core and `components/`, no colour and no font size is written as a literal: no `QColor` made from numbers, a name or a string (as a temporary, a variable, `QColor::from...` or `qRgb`), no Qt colour constant but `Qt::transparent`, no `"#RRGGBB"` string, no point or pixel size set from a number |
+| `TokensAreNotCachedInConstructors` | In the shell core and `components/`, no constructor - its initializers, its body and a lambda made there - calls `tokens()` or the dark or light set: a part reads them where it paints, sizes itself or is polished |
 
 `NoStyleSheetsInSrc` and `NoDefaultQSettingsInSrc` read the product and not the test tree, whose cases read a widget's stylesheet to prove it empty and
 make settings files of their own in temporary folders; and they read code, not comments, so a comment may name what
-the code may not do. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
+the code may not do. The two look guards read the trees whose look is held to the tokens - the shell core and the
+reusable components - and not the theme's tree, where the look is decided, nor the classic shell, which is AfterNight
+1.1's interface kept as it was; a shell's tree joins their list when it is made. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
 and its one wrapper - and fails when a listed line is gone, so the list cannot outlive what it allowed. A guard is
 shown to fail on a violation planted in a scratch file before it is relied on.
 

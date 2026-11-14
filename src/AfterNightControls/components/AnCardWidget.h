@@ -41,6 +41,8 @@ protected:
 
 private:
     void updateHeaderVisibility();
+    // The fill a hover's animation has reached: the card's colour blended toward the hover colour by `progress`.
+    void applyHoverProgress(qreal progress);
     void startHoverAnimation(const QColor& targetBg);
 
     QLabel* m_headerLabel = nullptr;

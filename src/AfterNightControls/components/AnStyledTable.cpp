@@ -6,6 +6,7 @@
 #include "components/AnStyledTable.h"
 
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 
 #include <QAbstractItemView>
 #include <QHeaderView>
@@ -28,8 +29,7 @@ QColor resolvedSelectionTextColor(const QPalette& palette, const DesignTokens& t
         palette.color(QPalette::Base).isValid() ? palette.color(QPalette::Base) : palette.color(QPalette::Window);
     const QColor effectiveSelectionBg = an::ui::compositeOver(selectionFill, baseColor);
 
-    return an::ui::bestContrastTextColor(effectiveSelectionBg, tokenSet.colors.textOnAccent, QColor(255, 255, 255),
-                                         QColor(0, 0, 0), 4.5);
+    return an::ui::parts::contrastingTextColor(effectiveSelectionBg, tokenSet.colors.textOnAccent, 4.5);
 }
 
 } // namespace

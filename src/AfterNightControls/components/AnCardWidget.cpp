@@ -156,12 +156,8 @@ AnCardWidget::AnCardWidget(const QString& title, QWidget* parent) : QFrame(paren
     m_hoverAnimation = new QVariantAnimation(this);
     m_hoverAnimation->setDuration(AnimationUtils::duration(200));
     m_hoverAnimation->setEasingCurve(QEasingCurve::OutCubic);
-    connect(m_hoverAnimation, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
-        const qreal t = value.toReal();
-        const auto& tk = tokens();
-        m_currentBgColor = blendColors(tk.colors.bgCardPrimary, tk.colors.bgHover, t);
-        update();
-    });
+    connect(m_hoverAnimation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant& value) { applyHoverProgress(value.toReal()); });
 
     setAttribute(Qt::WA_Hover, true);
 
@@ -296,6 +292,13 @@ void AnCardWidget::updateHeaderVisibility()
     }
 
     m_headerLabel->setVisible(!m_headerLabel->text().isEmpty());
+}
+
+void AnCardWidget::applyHoverProgress(const qreal progress)
+{
+    const auto& tokenSet = tokens();
+    m_currentBgColor = blendColors(tokenSet.colors.bgCardPrimary, tokenSet.colors.bgHover, progress);
+    update();
 }
 
 void AnCardWidget::startHoverAnimation(const QColor& targetBg)
@@ -439,7 +442,9 @@ void AnCardWidget::paintEvent(QPaintEvent* /*event*/)
         const bool isDark = an::ui::styling::isDarkPalette(palette());
         const int shadowBlur = 4;
         const int shadowOffset = 2;
-        const QColor shadowColor = isDark ? QColor(0, 0, 0, 40) : QColor(0, 0, 0, 20);
+        // The shadow colour, which is black under the Classic profile, at 1.1's strength for the theme.
+        QColor shadowColor = tokenSet.colors.shadowOverlay;
+        shadowColor.setAlpha(isDark ? 40 : 20);
 
         QRectF shadowBounds = bounds.adjusted(shadowBlur, shadowBlur + shadowOffset, -shadowBlur, -shadowBlur);
         QPainterPath shadowPath;

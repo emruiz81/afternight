@@ -131,6 +131,16 @@
         <file>icons/SVG/global.svg</file>
         <file>icons/SVG/terminal.svg</file>
         <file>icons/SVG/extension.svg</file>
+        <file>icons/SVG/chevron_down.svg</file>
+        <file>icons/SVG/chevron_right.svg</file>
+        <file>icons/SVG/home.svg</file>
+        <file>icons/SVG/image.svg</file>
+        <file>icons/SVG/images.svg</file>
+        <file>icons/SVG/information.svg</file>
+        <file>icons/SVG/layers.svg</file>
+        <file>icons/SVG/moon.svg</file>
+        <file>icons/SVG/tune.svg</file>
+        <file>icons/SVG/window.svg</file>
         <file>data/deep_sky_catalog.csv</file>
         <file>data/bright_star_catalog.csv</file>
     </qresource>

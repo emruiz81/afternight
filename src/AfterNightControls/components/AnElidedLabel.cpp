@@ -37,9 +37,9 @@ QString withoutTrailingSpaces(QString text)
 
 /// The text as `lines` lines of `font`, `width` pixels wide, show it: each paragraph wrapped at word boundaries - a
 /// word too long for a line anywhere - and, on the last line, the rest of the text with its paragraphs run together,
-/// cut with an ellipsis when it does not fit.
+/// cut with an ellipsis where `mode` says when it does not fit.
 FittedText fitToLines(const QString& text, const QFont& font, const QPaintDevice* device, const int width,
-                      const int lines)
+                      const int lines, const Qt::TextElideMode mode)
 {
     if (text.isEmpty() || width <= 0)
     {
@@ -69,7 +69,7 @@ FittedText fitToLines(const QString& text, const QFont& font, const QPaintDevice
                 rest.push_back(paragraphs.at(next));
             }
             const QString remaining = withoutTrailingSpaces(rest.join(QLatin1Char(' ')));
-            const QString fitted = QFontMetrics(font, device).elidedText(remaining, Qt::ElideRight, width);
+            const QString fitted = QFontMetrics(font, device).elidedText(remaining, mode, width);
             layout.endLayout();
             shown.push_back(fitted);
             return FittedText{.text = shown.join(QLatin1Char('\n')), .elided = fitted != remaining};
@@ -101,6 +101,21 @@ void AnElidedLabel::setFullText(const QString& text)
 const QString& AnElidedLabel::fullText() const noexcept
 {
     return m_fullText;
+}
+
+void AnElidedLabel::setElideMode(const Qt::TextElideMode mode)
+{
+    if (m_elideMode == mode)
+    {
+        return;
+    }
+    m_elideMode = mode;
+    fitText();
+}
+
+Qt::TextElideMode AnElidedLabel::elideMode() const noexcept
+{
+    return m_elideMode;
 }
 
 int AnElidedLabel::lineCount() const noexcept
@@ -148,7 +163,7 @@ void AnElidedLabel::changeEvent(QEvent* event)
 void AnElidedLabel::fitText()
 {
     const int width = contentsRect().width() - 2 * margin() - (std::max)(indent(), 0);
-    const FittedText fitted = fitToLines(m_fullText, font(), this, width, m_lines);
+    const FittedText fitted = fitToLines(m_fullText, font(), this, width, m_lines, m_elideMode);
     m_elided = fitted.elided;
     setToolTip(m_elided ? m_fullText : QString());
     QLabel::setText(fitted.text);

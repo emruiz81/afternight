@@ -363,7 +363,9 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
 - **No QSS.** `setStyleSheet()` is forbidden project-wide (`SourceGuards.NoStyleSheetsInSrc`). No hardcoded
   colors/spacing/radii/fonts —
   resolve through `an::ui::tokens()`, and call it *inside* `paintEvent()` (never cache it in the
-  constructor) so theme switches apply. Read `docs/dev/THEME_SYSTEM.md` before touching UI.
+  constructor) so theme switches apply; in the shell core and `components/` the guards
+  `SourceGuards.NoLookLiteralsInShellsAndComponents` and `.TokensAreNotCachedInConstructors` hold both. Read
+  `docs/dev/THEME_SYSTEM.md` before touching UI.
 - **Naming**: PascalCase is the convention for all new code — PascalCase types and enumerators,
   camelCase methods/locals, `m_` members, `k`-prefixed constants, PascalCase files. Add no new snake_case public API
   anywhere. A library with its own `.clang-tidy` (the engine, its adapters, the platform and consumer runtime

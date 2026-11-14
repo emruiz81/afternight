@@ -396,7 +396,7 @@ All visual styling is governed by the **theme system** documented in `docs/dev/T
 - **No hardcoded colors, spacing, radii, or fonts.** Always resolve values through `an::ui::tokens()` (design tokens singleton).
 - Colors: `tokens().colors.*`, Spacing: `tokens().spacing.*`, Radii: `tokens().radius.*`, Fonts: `tokens().typography.*`.
 - Standard Qt widgets are styled via `AnProxyStyle` (`theme/AnProxyStyle.h/.cpp`); do not override their painting in widget code.
-- Custom/composite widgets use `paintEvent()` with design tokens — call `an::ui::tokens()` inside `paintEvent()` (never cache in constructor) so theme switches apply automatically.
+- Custom/composite widgets use `paintEvent()` with design tokens — call `an::ui::tokens()` inside `paintEvent()` (never cache in constructor) so theme switches apply automatically. In the shell core and `components/`, `SourceGuards.NoLookLiteralsInShellsAndComponents` fails a literal colour or font size and `SourceGuards.TokensAreNotCachedInConstructors` a `tokens()` call in a constructor; a part's fixed sizes that are no metric live in `theme/ComponentParts.h`.
 - Use `AnimationUtils::duration()` for every animation duration; never hardcode.
 - Use dynamic properties (`an` prefix + PascalCase, e.g. `anButtonVariant`, `anFrameRadius`) for visual variants instead of subclassing.
 - Reuse existing components from `src/AfterNightControls/components/` (`AnCardWidget`, `AnInfoBanner`, `AnCollapsibleSection`, etc.) before building new ones.

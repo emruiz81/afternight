@@ -4,12 +4,15 @@
 // The rules of the source tree no case of behaviour can hold, each read from the sources themselves: no bare
 // std::min or std::max, which the Windows SDK's macros would expand; no stylesheet, since the look is painted from the
 // design tokens; no QSettings but the product's own settings file, since any other is the native store, which no
-// test storage root redirects; and no shell reached from below it or from another shell. A guard fails naming the file
-// and the line, and says what to write instead.
+// test storage root redirects; no shell reached from below it or from another shell; and, in the shells and the
+// reusable components, no colour or font size written as a literal and no design token read in a constructor, where it
+// would be kept past a change of theme. A guard fails naming the file and the line, and says what to write instead.
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <optional>
+#include <utility>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -55,8 +58,9 @@ QString repositoryRoot()
 constexpr const char* kTestTree = "src/AfterNightTests/";
 
 // The source text with every comment blanked, its line breaks kept so a position still names its line. String and
-// character literals stay as they are: a name inside one is not a comment.
-QString withoutComments(const QString& source)
+// character literals stay as they are - a name inside one is not a comment - unless `blankLiterals` asks for what is
+// inside them blanked too, their quotes kept, so that a brace in a string is not counted as code.
+QString withoutComments(const QString& source, const bool blankLiterals = false)
 {
     enum class In
     {
@@ -144,6 +148,14 @@ QString withoutComments(const QString& source)
         case In::Character:
             if (character == QLatin1Char('\\'))
             {
+                if (blankLiterals)
+                {
+                    text[index] = QLatin1Char(' ');
+                    if (index + 1 < size && text[index + 1] != QLatin1Char('\n'))
+                    {
+                        text[index + 1] = QLatin1Char(' ');
+                    }
+                }
                 ++index;
             }
             else if (character == (state == In::String ? QLatin1Char('"') : QLatin1Char('\'')) ||
@@ -151,12 +163,20 @@ QString withoutComments(const QString& source)
             {
                 state = In::Code;
             }
+            else if (blankLiterals && character != QLatin1Char('\r'))
+            {
+                text[index] = QLatin1Char(' ');
+            }
             break;
         case In::RawString:
             if (text.mid(index, rawEnd.size()) == rawEnd)
             {
                 index += rawEnd.size() - 1;
                 state = In::Code;
+            }
+            else if (blankLiterals && character != QLatin1Char('\n') && character != QLatin1Char('\r'))
+            {
+                text[index] = QLatin1Char(' ');
             }
             break;
         }
@@ -227,6 +247,187 @@ QString described(const QList<Finding>& findings)
         lines.append(finding.described());
     }
     return lines.join(QLatin1Char('\n'));
+}
+
+// The trees whose look is held to the design tokens: the shell core, which every shell is built on, and the reusable
+// components. The theme's own tree is where the look is decided, and is not among them; the classic shell is the
+// interface of AfterNight 1.1, kept as it was until it leaves or stays whole.
+const QStringList& lookTrees()
+{
+    static const QStringList trees{QStringLiteral("src/AfterNightShellCore/"),
+                                   QStringLiteral("src/AfterNightControls/components/")};
+    return trees;
+}
+
+// A C or C++ source of a guarded tree: its path from the repository's root, its text, and its text without comments.
+struct GuardedSource
+{
+    QString file;
+    QString source;
+    QString code;
+};
+
+// Every C and C++ source under the trees, its line breaks made `\n`.
+QList<GuardedSource> sourcesUnder(const QString& root, const QStringList& trees)
+{
+    QList<GuardedSource> sources;
+    const QDir rootFolder(root);
+    for (const QString& tree : trees)
+    {
+        QDirIterator files(
+            rootFolder.filePath(tree),
+            {QStringLiteral("*.cpp"), QStringLiteral("*.h"), QStringLiteral("*.hpp"), QStringLiteral("*.inl")},
+            QDir::Files, QDirIterator::Subdirectories);
+        while (files.hasNext())
+        {
+            const QString path = files.next();
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly))
+            {
+                continue;
+            }
+            QString source = QString::fromUtf8(file.readAll());
+            source.remove(QLatin1Char('\r'));
+            sources.append(GuardedSource{rootFolder.relativeFilePath(path), source, withoutComments(source)});
+        }
+    }
+    return sources;
+}
+
+// The line of a position in a text, counted from one.
+int lineAt(const QString& text, const qsizetype position)
+{
+    return static_cast<int>(text.left(position).count(QLatin1Char('\n'))) + 1;
+}
+
+// The position of the bracket that closes the one at `open` - a parenthesis, a brace or an angle bracket - or -1.
+qsizetype closingBracket(const QString& code, const qsizetype open)
+{
+    const QChar opening = code[open];
+    const QChar closing = opening == QLatin1Char('(')   ? QLatin1Char(')')
+                          : opening == QLatin1Char('{') ? QLatin1Char('}')
+                          : opening == QLatin1Char('[') ? QLatin1Char(']')
+                                                        : QLatin1Char('>');
+    int depth = 0;
+    for (qsizetype index = open; index < code.size(); ++index)
+    {
+        if (code[index] == opening)
+        {
+            ++depth;
+        }
+        else if (code[index] == closing && --depth == 0)
+        {
+            return index;
+        }
+    }
+    return -1;
+}
+
+// The first position at or after `from` that is not a space.
+qsizetype skipSpaces(const QString& code, qsizetype from)
+{
+    while (from < code.size() && code[from].isSpace())
+    {
+        ++from;
+    }
+    return from;
+}
+
+// Where a constructor whose parameters open at `open` is defined: from the parameters' end to the end of its body,
+// the initializers included. Empty when the text there declares the constructor but does not define it, or is no
+// constructor at all.
+std::optional<std::pair<qsizetype, qsizetype>> constructorDefinition(const QString& code, const qsizetype open)
+{
+    const qsizetype parametersEnd = closingBracket(code, open);
+    if (parametersEnd < 0)
+    {
+        return std::nullopt;
+    }
+    qsizetype at = skipSpaces(code, parametersEnd + 1);
+    if (code.mid(at, 8) == QLatin1String("noexcept"))
+    {
+        at = skipSpaces(code, at + 8);
+        if (at < code.size() && code[at] == QLatin1Char('('))
+        {
+            at = skipSpaces(code, closingBracket(code, at) + 1);
+        }
+    }
+    if (at < code.size() && code[at] == QLatin1Char(':') && code.mid(at, 2) != QLatin1String("::"))
+    {
+        // The initializers: each a name, perhaps qualified or with template arguments, and its value in parentheses or
+        // braces, separated by commas, up to the brace that opens the body.
+        at = skipSpaces(code, at + 1);
+        while (at < code.size())
+        {
+            while (at < code.size() &&
+                   (code[at].isLetterOrNumber() || code[at] == QLatin1Char('_') || code[at] == QLatin1Char(':')))
+            {
+                ++at;
+            }
+            at = skipSpaces(code, at);
+            if (at < code.size() && code[at] == QLatin1Char('<'))
+            {
+                at = skipSpaces(code, closingBracket(code, at) + 1);
+            }
+            if (at >= code.size() || (code[at] != QLatin1Char('(') && code[at] != QLatin1Char('{')))
+            {
+                return std::nullopt;
+            }
+            const qsizetype valueEnd = closingBracket(code, at);
+            if (valueEnd < 0)
+            {
+                return std::nullopt;
+            }
+            at = skipSpaces(code, valueEnd + 1);
+            if (at < code.size() && code[at] == QLatin1Char(','))
+            {
+                at = skipSpaces(code, at + 1);
+                continue;
+            }
+            break;
+        }
+    }
+    if (at >= code.size() || code[at] != QLatin1Char('{'))
+    {
+        return std::nullopt; // a declaration, `= default`, `= delete`, or no constructor
+    }
+    const qsizetype bodyEnd = closingBracket(code, at);
+    if (bodyEnd < 0)
+    {
+        return std::nullopt;
+    }
+    return std::make_pair(parametersEnd, bodyEnd);
+}
+
+// Whether the text before a name at `position` lets it begin a declaration: the start of the file, the end of a
+// statement or a block, an access specifier's colon, or `explicit`, `inline` or `constexpr`.
+bool beginsADeclaration(const QString& code, const qsizetype position)
+{
+    qsizetype before = position - 1;
+    while (before >= 0 && code[before].isSpace())
+    {
+        --before;
+    }
+    if (before < 0)
+    {
+        return true;
+    }
+    const QChar last = code[before];
+    if (last == QLatin1Char(';') || last == QLatin1Char('{') || last == QLatin1Char('}'))
+    {
+        return true;
+    }
+    if (last == QLatin1Char(':'))
+    {
+        return before == 0 || code[before - 1] != QLatin1Char(':');
+    }
+    qsizetype wordStart = before;
+    while (wordStart > 0 && (code[wordStart - 1].isLetterOrNumber() || code[wordStart - 1] == QLatin1Char('_')))
+    {
+        --wordStart;
+    }
+    const QString word = code.mid(wordStart, before - wordStart + 1);
+    return word == QLatin1String("explicit") || word == QLatin1String("inline") || word == QLatin1String("constexpr");
 }
 
 } // namespace
@@ -443,5 +644,123 @@ TEST(SourceGuards, ShellsDoNotReachEachOther)
     EXPECT_TRUE(findings.isEmpty())
         << "a shell's header included from below it or from another shell; reach the application through the shell "
            "core's units and contract (core/IShell.h) instead:\n"
+        << described(findings).toStdString();
+}
+
+// In the shell core and the reusable components no colour and no font size is written as a literal: a colour comes
+// from the design tokens in force and a size from their metrics, so that a theme, a preset, Night or a density reaches
+// every part. The guard finds a QColor made from numbers, a name or a string, in any of the forms a source makes one -
+// a temporary, a variable, QColor::from..., qRgb - a Qt colour constant but Qt::transparent, a "#RRGGBB" string, and a
+// point or pixel size set from a number. A comment may name one. The theme's tree, where the look is decided, and the
+// test tree are not read.
+TEST(SourceGuards, NoLookLiteralsInShellsAndComponents)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty());
+
+    const QString literal = QStringLiteral(R"re((?:[-+]?[0-9.]|"|Qt::|QStringLiteral|QLatin1String|u"))re");
+    const QRegularExpression look(
+        QStringLiteral(R"(\bQColor\s*[({]\s*)") + literal + QStringLiteral(R"(|\bQColor\s+[A-Za-z_]\w*\s*[({]\s*)") +
+        literal + QStringLiteral(R"(|\bQColor::from\w+\s*\(\s*)") + literal +
+        QStringLiteral(R"(|\bqRgba?\s*\(\s*[0-9])") +
+        QStringLiteral(R"(|\bQt::(?:color0|color1|black|white|darkGray|gray|lightGray|red|green|blue|cyan|magenta|)"
+                       R"(yellow|darkRed|darkGreen|darkBlue|darkCyan|darkMagenta|darkYellow)\b)") +
+        QStringLiteral(R"re(|"#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})")re") +
+        QStringLiteral(R"(|\bset(?:PointSize|PointSizeF|PixelSize)\s*\(\s*[-+]?[0-9.])"));
+    ASSERT_TRUE(look.isValid()) << look.errorString().toStdString();
+
+    QList<Finding> findings;
+    const QList<GuardedSource> sources = sourcesUnder(root, lookTrees());
+    for (const GuardedSource& source : sources)
+    {
+        QRegularExpressionMatchIterator matches = look.globalMatch(source.code);
+        while (matches.hasNext())
+        {
+            const int line = lineAt(source.code, matches.next().capturedStart());
+            findings.append(
+                Finding{source.file, line, source.source.split(QLatin1Char('\n')).value(line - 1).trimmed()});
+        }
+    }
+
+    EXPECT_GT(sources.size(), 20) << "the guard read too few sources to have read its trees";
+    EXPECT_TRUE(findings.isEmpty())
+        << "a colour or a font size written as a literal in a shell or a component; read it from an::ui::tokens() - "
+           "its colours, its metrics and its type scale - where the part paints or sizes itself:\n"
+        << described(findings).toStdString();
+}
+
+// In the shell core and the reusable components no constructor reads the design tokens: a colour, a size or a font
+// taken there would be kept past a change of theme, preset, Night or density. A part reads them where it paints, in
+// sizeHint(), or where it is polished and told of a change of style. The guard finds a call of tokens() - or of the
+// dark or light set - in a constructor's initializers or body, a lambda made there included, in every constructor a
+// source of the trees defines, in a class or out of one.
+TEST(SourceGuards, TokensAreNotCachedInConstructors)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty());
+
+    const QRegularExpression className(
+        QStringLiteral(R"(\b(?:class|struct)\s+(?:[A-Z][A-Z0-9_]*_API\s+)?([A-Za-z_]\w*)\s*(?:final\s*)?[:{])"));
+    const QRegularExpression outOfClass(QStringLiteral(R"(\b([A-Za-z_]\w*)\s*::\s*\1\s*\()"));
+    const QRegularExpression tokensCall(
+        QStringLiteral(R"(\b(?:tokens|darkTokens|lightTokens|resolvedDarkTokens|resolvedLightTokens)\s*\(\s*\))"));
+
+    QList<Finding> findings;
+    int constructors = 0;
+    const QList<GuardedSource> sources = sourcesUnder(root, lookTrees());
+    for (const GuardedSource& source : sources)
+    {
+        // Braces and parentheses inside a string are not code.
+        const QString code = withoutComments(source.source, true);
+        // Where each constructor's parameters open: Name::Name( anywhere, and Name( where a declaration may begin, for
+        // every class the file declares.
+        QList<qsizetype> openings;
+        QRegularExpressionMatchIterator defined = outOfClass.globalMatch(code);
+        while (defined.hasNext())
+        {
+            const QRegularExpressionMatch match = defined.next();
+            openings.append(match.capturedEnd() - 1);
+        }
+        QRegularExpressionMatchIterator classes = className.globalMatch(code);
+        while (classes.hasNext())
+        {
+            const QString name = classes.next().captured(1);
+            const QRegularExpression inClass(QStringLiteral(R"((?<![\w:~.>])%1\s*\()").arg(name));
+            QRegularExpressionMatchIterator named = inClass.globalMatch(code);
+            while (named.hasNext())
+            {
+                const QRegularExpressionMatch match = named.next();
+                if (beginsADeclaration(code, match.capturedStart()))
+                {
+                    openings.append(match.capturedEnd() - 1);
+                }
+            }
+        }
+        std::sort(openings.begin(), openings.end());
+        openings.erase(std::unique(openings.begin(), openings.end()), openings.end());
+        for (const qsizetype open : openings)
+        {
+            const std::optional<std::pair<qsizetype, qsizetype>> definition = constructorDefinition(code, open);
+            if (!definition)
+            {
+                continue;
+            }
+            ++constructors;
+            const QString inside = code.mid(definition->first, definition->second - definition->first);
+            QRegularExpressionMatchIterator calls = tokensCall.globalMatch(inside);
+            while (calls.hasNext())
+            {
+                const int line = lineAt(code, definition->first + calls.next().capturedStart());
+                findings.append(
+                    Finding{source.file, line, source.source.split(QLatin1Char('\n')).value(line - 1).trimmed()});
+            }
+        }
+    }
+
+    EXPECT_GT(constructors, 20) << "the guard found too few constructors to have read its trees";
+    EXPECT_TRUE(findings.isEmpty())
+        << "the design tokens read in a constructor of a shell or a component; read them in paintEvent(), in "
+           "sizeHint(), or where the widget is polished or told of a change of style (QEvent::Polish, "
+           "QEvent::StyleChange):\n"
         << described(findings).toStdString();
 }

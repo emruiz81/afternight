@@ -11,6 +11,7 @@
 #include <QCoreApplication>
 #include <QFont>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QRect>
 #include <QSize>
 #include <QSizePolicy>
@@ -20,6 +21,7 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <cmath>
 
 #include "components/AnElidedLabel.h"
 
@@ -200,4 +202,60 @@ TEST(WidgetsComponentsAnElidedLabel, ALargerFontFitsTheTextAgainAndTakesTheHeigh
     EXPECT_TRUE(shown.label->isElided()) << "the text no longer fits the label's width";
     EXPECT_GE(shown.label->height(), QFontMetrics(larger).lineSpacing());
     EXPECT_GT(shown.label->height(), height);
+}
+
+// Elided in the middle, a name keeps its start and its end - a file's stem and its frame number, a filter and its
+// channel - and is given whole in the tooltip; at the width its whole text needs, measured exactly, it is shown whole
+// and has none. The ellipsis stands where the cut is.
+TEST(AnElidedLabel, MiddleElisionKeepsBothEnds)
+{
+    an::ui::AnElidedLabel label(1);
+    label.setAttribute(Qt::WA_DontShowOnScreen, true);
+    label.show();
+    EXPECT_EQ(label.elideMode(), Qt::ElideRight);
+    label.setElideMode(Qt::ElideMiddle);
+    EXPECT_EQ(label.elideMode(), Qt::ElideMiddle);
+    const QString name = QStringLiteral("stacked_3008x3004_Red_Caldwell_77");
+    label.setFullText(name);
+    const int whole = static_cast<int>(std::ceil(QFontMetricsF(label.font()).horizontalAdvance(name)));
+
+    label.resize(whole / 2, label.sizeHint().height());
+    ASSERT_TRUE(label.isElided());
+    const QString shown = label.text();
+    EXPECT_TRUE(shown.contains(QChar(0x2026))) << shown.toStdString();
+    EXPECT_TRUE(shown.startsWith(QStringLiteral("stac"))) << shown.toStdString();
+    EXPECT_TRUE(shown.endsWith(QStringLiteral("_77"))) << shown.toStdString();
+    EXPECT_FALSE(shown.contains(QLatin1Char('\n')));
+    EXPECT_EQ(label.toolTip(), name);
+
+    label.resize(whole + label.contentsMargins().left() + label.contentsMargins().right(), label.height());
+    EXPECT_FALSE(label.isElided());
+    EXPECT_EQ(label.text(), name);
+    EXPECT_TRUE(label.toolTip().isEmpty());
+}
+
+// A label of several lines elided in the middle wraps its first lines as it does elided at the right and cuts only its
+// last line in the middle, so the end of the text is the end of what it shows; going back to the right keeps the start
+// of the rest instead.
+TEST(AnElidedLabel, MiddleElisionCutsOnlyTheLastLine)
+{
+    an::ui::AnElidedLabel label(2);
+    label.setAttribute(Qt::WA_DontShowOnScreen, true);
+    label.show();
+    label.setElideMode(Qt::ElideMiddle);
+    const QString text = longText() + QStringLiteral(" the_end");
+    label.setFullText(text);
+    label.resize(label.fontMetrics().horizontalAdvance(QStringLiteral("word10 word11 word12")),
+                 label.sizeHint().height());
+    ASSERT_TRUE(label.isElided());
+    const QStringList lines = shownLines(label);
+    ASSERT_EQ(lines.size(), 2);
+    EXPECT_TRUE(lines.front().startsWith(QStringLiteral("word0"))) << lines.front().toStdString();
+    EXPECT_FALSE(lines.front().contains(QChar(0x2026)));
+    EXPECT_TRUE(lines.back().contains(QChar(0x2026)));
+    EXPECT_TRUE(lines.back().endsWith(QStringLiteral("the_end"))) << lines.back().toStdString();
+    EXPECT_EQ(label.toolTip(), text);
+
+    label.setElideMode(Qt::ElideRight);
+    EXPECT_TRUE(shownLines(label).back().endsWith(QChar(0x2026))) << shownLines(label).back().toStdString();
 }

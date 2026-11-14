@@ -21,9 +21,10 @@ namespace an::ui
 ///
 /// The text is plain and shown from the top, each of its paragraphs wrapped at word boundaries over the label's width
 /// and a word too long for a line broken anywhere. When more of it follows than the lines hold, the last line shows the
-/// rest of the text run together and cut with an ellipsis, and the whole text is the label's tooltip; a text that fits
-/// has none. The label is as tall as its lines in its font and asks for no more width than an ellipsis, so a long text
-/// never widens what holds it. It fits the text again when its width or its font changes.
+/// rest of the text run together and cut with an ellipsis - at its end, or in its middle so that a name keeps its start
+/// and its end - and the whole text is the label's tooltip; a text that fits has none. The label is as tall as its
+/// lines in its font and asks for no more width than an ellipsis, so a long text never widens what holds it. It fits
+/// the text again when its width or its font changes.
 ///
 /// `QLabel::text()` reads what is shown and `fullText()` what was set. The label sets its own `QLabel` text and
 /// tooltip: a caller sets the text through `setFullText`.
@@ -38,6 +39,13 @@ public:
 
     /// The text as it was set.
     [[nodiscard]] const QString& fullText() const noexcept;
+
+    /// Where the last line is cut when the text does not fit: `Qt::ElideRight` (the default) or `Qt::ElideMiddle`,
+    /// which keeps the end of the text. The text is fitted again at once.
+    void setElideMode(Qt::TextElideMode mode);
+
+    /// Where the last line is cut.
+    [[nodiscard]] Qt::TextElideMode elideMode() const noexcept;
 
     /// How many lines the label holds.
     [[nodiscard]] int lineCount() const noexcept;
@@ -60,6 +68,7 @@ private:
     void fitText();
 
     int m_lines = 1;
+    Qt::TextElideMode m_elideMode = Qt::ElideRight;
     QString m_fullText;
     bool m_elided = false;
 };

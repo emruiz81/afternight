@@ -1793,6 +1793,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/theme/AnDesignTokens.cpp
     unit     src/AfterNightControls/theme/AnProxyStyle.cpp
     unit     src/AfterNightControls/theme/AnProxyStyleObservatory.cpp
+    unit     src/AfterNightControls/theme/ComponentParts.cpp
     unit     src/AfterNightControls/theme/Elevation.cpp
     unit     src/AfterNightControls/theme/KddwProxyStyle.cpp
     unit     src/AfterNightControls/theme/NightImage.cpp
@@ -1917,6 +1918,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightControls/theme/Elevation.h
     header   src/AfterNightControls/theme/KddwProxyStyle.h
     header   src/AfterNightControls/theme/NightImage.h
@@ -2929,10 +2931,21 @@ sources Test_ThemeSystem
 # spinner, the structuring element, vector slope, lens, curves and histogram widgets, the quick zoom over an image the
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
+    unit     src/AfterNightTests/Test_Widgets/AnBreadcrumbTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnChipTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnKeyHintTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnLabeledFieldTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnSegmentedControlTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnSnackbarTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnStageListTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnSwitchTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnTagTest.cpp
     unit     src/AfterNightTests/Test_Widgets/ObservatoryComponentsTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NewTokensTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NightPicturesTest.cpp
     unit     src/AfterNightTests/Test_Widgets/main.cpp
+    unit     src/AfterNightTests/Test_Widgets/ShellIconsTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/SmallPartsNightTest.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_button_group.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_card_widget.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_collapsible_section.cpp
@@ -2957,6 +2970,19 @@ sources Test_Widgets
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
     header   src/AfterNightTests/Test_Widgets/theme_test_utils.h
+    header   src/AfterNightTests/Test_Widgets/RenderTestSupport.h
+    header   src/AfterNightControls/app/IconManager.h
+    header   src/AfterNightControls/components/AnBreadcrumb.h
+    header   src/AfterNightControls/components/AnChip.h
+    header   src/AfterNightControls/components/AnKeyHint.h
+    header   src/AfterNightControls/components/AnLabeledField.h
+    header   src/AfterNightControls/components/AnSegmentedControl.h
+    header   src/AfterNightControls/components/AnSnackbar.h
+    header   src/AfterNightControls/components/AnStageList.h
+    header   src/AfterNightControls/components/AnSwitch.h
+    header   src/AfterNightControls/components/AnTag.h
+    header   src/AfterNightControls/theme/ComponentParts.h
+    header   src/AfterNightControls/theme/Elevation.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/components/AnButtonGroup.h
@@ -3019,7 +3045,7 @@ sources Test_Widgets
     link     AfterNightControls
     link     AfterNightPlatform
     link     AfterNightConsumerRuntime
-    qt       core gui widgets
+    qt       core gui widgets testlib
 
 # The persistence suite, linked against the Controls library: the settings, process-settings, folder and thumbnail
 # repositories, the schema versions and the JSON serializer over an in-memory database.

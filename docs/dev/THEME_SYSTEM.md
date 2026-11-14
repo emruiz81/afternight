@@ -80,6 +80,7 @@
 | `controls/DockDropIndicators.h/.cpp` | The Observatory profile's drop indicators and band (`AN_DropIndicators`, `AN_DropBand`) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
 | `theme/PainterGuard.h` | `an::ui::PainterGuard`, the RAII `QPainter` save/restore guard |
+| `theme/ComponentParts.h/.cpp` | The small parts' fixed sizes and what they paint the same way (see [Small parts](#small-parts)) |
 | `components/AnLayoutUtils.h` | Layout spacing/margin normalization to design tokens |
 | `app/UiStyleTokens.h/.cpp` | Palette-based semantic color bridge utilities |
 | `app/IconManager.h/.cpp` | SVG icon loading with theme-aware colorization |
@@ -731,7 +732,7 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnButtonGroup` | Grouped exclusive/non-exclusive button set |
 | `AnCardWidget` | Elevated card with rounded corners, drop shadow, border tint |
 | `AnCollapsibleSection` | Expandable/collapsible section with smooth animation |
-| `AnElidedLabel` | Label of a set number of lines: wraps its text, cuts it with an ellipsis past the last line and puts the whole text in its tooltip, so what lies around it never moves |
+| `AnElidedLabel` | Label of a set number of lines: wraps its text, cuts it with an ellipsis past the last line - at its end, or in its middle (`setElideMode(Qt::ElideMiddle)`) so a name keeps its start and its end - and puts the whole text in its tooltip, so what lies around it never moves |
 | `AnInfoBanner` | Status-toned info/warning/error banner |
 | `AnInputField` | Labeled input with validation styling |
 | `AnProgressCard` | Card with embedded progress bar and status |
@@ -739,6 +740,15 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnSliderControl` | Labeled slider with value display |
 | `AnStatusBadge` | Colored status indicator chip |
 | `AnStyledTable` | Pre-themed `QTableWidget`: row selection, alternating rows, token palette and header font; `refreshTheme()` re-applies them |
+| `AnTag` | A short text on a fill of its tone, `metrics.tag` high, 4 px corners, the caption in semibold: neutral (`surface4`, `textSecondary`), the accent's container, the four status tones' soft shares - a warning outlined in its colour too. Static text to assistive technology |
+| `AnKeyHint` | The keys of a shortcut ("Ctrl K") in the monospace at the caption's size, `metrics.tag` - 2 high: raised (`surface2` in a hairline, `textSecondary`) or on a coloured part (an outline and keys in its palette's `WindowText`) |
+| `AnChip` | A pill button `metrics.chip` high with an outline, an optional icon and count; its toggle form, checked, is `accentContainer`. Space and Enter click it; a button (a check box when checkable) to assistive technology |
+| `AnSwitch` | A 32 x 18 track and a knob (10 px off, 14 px on with a check), an optional label, `metrics.controlXSmall` high; toggled by the pointer anywhere on it, Space and Enter; a check box to assistive technology |
+| `AnSegmentedControl` | Segments of equal width in one outline, the chosen one `accentContainer` with a check; `metrics.control`, `controlSmall` or `controlXSmall` high. One keyboard stop: Left, Right, Home, End move, Space and Enter choose; `currentIndexChanged`. Each segment a radio button to assistive technology |
+| `AnLabeledField` | A field with its label beside it (in a column as wide as asked) or above it, and an optional hint; the row at least `metrics.control` high. The label names the field to assistive technology, the hint describes it, a click on the label focuses it |
+| `AnBreadcrumb` | Where the user is: parts with a chevron between, the last `textPrimary` semibold; short of room the last part is elided in the middle first, then the others, and the whole path is the tooltip; `partActivated(index)` |
+| `AnSnackbar` | A transient message: a `bgSnack` bar `metrics.controlLarge` high on its elevation, an icon, a text, a mono detail and one action in `accentOnImage`. `present()` shows it for its lifetime (6 s), which pauses under the pointer; `actionTriggered`, `dismissed`. The clock is injectable for the suites |
+| `AnStageList` | Rows of a status mark (never colour alone: ring, accent, check, exclamation, cross), a title and a mono line, an optional progress bar, the marks joined by a line; the selected row `accentContainer`. Up, Down and a click select; `selectedStageChanged(id)`. A list to assistive technology |
 
 Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
 no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
@@ -748,6 +758,32 @@ colour's soft share with no border; an info banner is a note (its tone's soft sh
 `textPrimary`, padded by `metrics.pad` and `metrics.gap`); a progress card is a card holding a thin bar `metrics.gap`
 high; a styled table lies on the first surface with its selection the accent's soft share; the slider control's and
 the button group's parts lie `metrics.gap` apart. `Components.Observatory*` (`Test_Widgets`) renders each.
+
+The small parts from `AnTag` to `AnStageList` are made for the Observatory interface and know no shell: each takes its
+data through setters, emits what the user does, reads no setting and no model of the application, sizes itself from
+`tokens().metrics` in its `sizeHint()` and paints from `tokens()` in its `paintEvent()`. A part that holds child
+widgets lays them out with a Qt layout whose margins and spacing it marks `anKeepLayoutMargins` and
+`anKeepLayoutSpacing`, and sizes it from the tokens when it is polished or told of a change of style
+(`QEvent::Polish`, `QEvent::StyleChange`) - never in its constructor. Each has its cases in `Test_Widgets`
+(`AnTag.*` to `AnStageList.*`): its size in both densities, its states, what it emits, its keyboard, its accessible name
+and role, and a render case under dark, light and a tinted preset at both densities and four device pixel ratios
+(`Test_Widgets/RenderTestSupport.h`); `SmallParts.PaintNoGreenOrBlueAtNight` paints every part under Night, an icon of
+another colour handed to it.
+
+### Small parts
+
+`theme/ComponentParts.h` holds what the parts are made of beyond the tokens, so that no component writes a size of its
+own: the sizes that are no metric of a density (a tag's 4 px corners and padding, a switch's 32 x 18 track and its 10 and
+14 px knob, a chip's and a segment's padding, the snackbar's and the stage list's parts, the focus ring's 2 px, the
+state layer's 8 and 12 %, the disabled 38 %), and what every part paints the same way - `sizedFont` (a font of the type
+scale at a metric's size, set as points at 96 logical dots per inch), `textWidth` (a text's exact width rounded up, the
+room a part gives a text it may later elide), `paintStateLayer`, `paintFocusRing` (drawn at the part's edge, inside it,
+for keyboard focus only), `paintIcon` (an icon in one colour, the part's text's), the check, cross, exclamation and
+chevron glyphs (`paintIcon` is on `theme/NightImageWidgets.h`: it fills an icon's shape with a token, which Night
+maps), and `contrastingTextColor` (a preferred text colour, or white or black when it does not stand out). The
+shell's icons the rail, the top bar and the strips draw are SVG files in `icons/SVG/` tinted by `IconManager`: `home`,
+`images`, `layers`, `moon`, `window`, `chevron_right`, `chevron_down`, `tune`, `image` and `information`, stroked on a
+960 grid at the weight of the others (`ShellIcons.*` in `Test_Widgets`).
 
 All components use `paintEvent()` with design tokens for custom drawing, and standard Qt widgets (via proxy style) for embedded controls.
 
@@ -769,7 +805,11 @@ Reasons:
 
 ### 2. No Hardcoded Colors
 
-**Never write literal color values** (hex, RGB, or named constants) in widget code. Always reference design tokens:
+**Never write literal color values** (hex, RGB, or named constants) in widget code. Always reference design tokens.
+In the shell core and `components/`, `SourceGuards.NoLookLiteralsInShellsAndComponents` (`Test_ImageIntegration`) fails a
+`QColor` made from numbers, a name or a string, a Qt colour constant but `Qt::transparent`, a `"#RRGGBB"` string and a
+point or pixel size set from a number, and `SourceGuards.TokensAreNotCachedInConstructors` fails a `tokens()` call in a
+constructor there:
 
 ```cpp
 // ❌ WRONG
