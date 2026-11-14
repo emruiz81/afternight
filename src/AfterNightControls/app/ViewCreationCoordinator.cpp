@@ -65,6 +65,32 @@ void ensureDockManagerVisible(const an::ui::ViewCreationCoordinator::Dependencie
     dependencies.switchToDockManager();
 }
 
+/// Gives a view made in the standard mode its icon and its place: through the placement the coordinator was given, or
+/// docked beside its neighbour or on the right, and the dock area shown.
+void placeCreatedView(const an::ui::ViewCreationCoordinator::Dependencies& dependencies,
+                      ImageViewControl& imageViewControl, ImageViewControl* neighbour, const bool keepFocusedNeighbour,
+                      const bool fromSequence)
+{
+    auto* dockWidget = imageViewControl.getDockWidget();
+    if (dockWidget && dependencies.iconProvider)
+    {
+        dockWidget->setIcon(dependencies.iconProvider(an::ui::iconNameForCreatedView(fromSequence)));
+    }
+
+    if (dependencies.placeView)
+    {
+        dependencies.placeView(imageViewControl, neighbour, keepFocusedNeighbour);
+        return;
+    }
+
+    if (dockWidget)
+    {
+        an::ui::dockCreatedView(imageViewControl, neighbour,
+                                dependencies.dockMainWindow ? *dependencies.dockMainWindow : nullptr);
+        ensureDockManagerVisible(dependencies);
+    }
+}
+
 void scheduleImageFitAfterDockLayoutSettles(ImageViewControl* imageViewControl,
                                             const QPointer<ImageViewControl>& viewGuard)
 {
@@ -148,6 +174,25 @@ void propagateLineage(ImageViewControl* sourceControl, ImageViewControl* newCont
 namespace an::ui
 {
 
+void dockCreatedView(ImageViewControl& view, ImageViewControl* neighbour,
+                     KDDockWidgets::QtWidgets::MainWindow* dockMainWindow)
+{
+    auto* dockWidget = view.getDockWidget();
+    if (!dockWidget)
+    {
+        return;
+    }
+
+    if (neighbour && neighbour->getDockWidget())
+    {
+        neighbour->getDockWidget()->addDockWidgetAsTab(dockWidget);
+    }
+    else if (dockMainWindow)
+    {
+        dockMainWindow->addDockWidget(dockWidget, KDDockWidgets::Location_OnRight);
+    }
+}
+
 ViewCreationCoordinator::ViewCreationCoordinator(const Dependencies& dependencies) : m_dependencies(dependencies) {}
 
 ImageViewControl* ViewCreationCoordinator::createNewImageViewControl(const std::string& name, QWidget* parent,
@@ -204,8 +249,6 @@ ImageViewControl* ViewCreationCoordinator::createNewImageViewControlFromImage(
     const ViewControlMode mode, ImageViewControl* neighbour, const bool keepFocusedNeighbour,
     const bool pendingChanges) const
 {
-    (void)keepFocusedNeighbour;
-
     // A document no view is made for is left with the caller as it was handed in.
     if (!m_dependencies.imageViewControlManager || !document.valid() || !document.isOpen())
     {
@@ -231,24 +274,7 @@ ImageViewControl* ViewCreationCoordinator::createNewImageViewControlFromImage(
 
     if (mode == ViewControlMode::standard)
     {
-        if (auto* dockWidget = imageViewControl->getDockWidget())
-        {
-            if (m_dependencies.iconProvider)
-            {
-                dockWidget->setIcon(m_dependencies.iconProvider(iconNameForCreatedView(false)));
-            }
-
-            if (neighbour)
-            {
-                neighbour->getDockWidget()->addDockWidgetAsTab(dockWidget);
-            }
-            else if (m_dependencies.dockMainWindow && *m_dependencies.dockMainWindow)
-            {
-                (*m_dependencies.dockMainWindow)->addDockWidget(dockWidget, KDDockWidgets::Location_OnRight);
-            }
-
-            ensureDockManagerVisible(m_dependencies);
-        }
+        placeCreatedView(m_dependencies, *imageViewControl, neighbour, keepFocusedNeighbour, false);
     }
 
     std::string prefix;
@@ -291,8 +317,6 @@ ImageViewControl* ViewCreationCoordinator::createNewImageViewControlFromSequence
     const std::string& historyDesc, const ViewControlMode mode, ImageViewControl* neighbour,
     const bool keepFocusedNeighbour, const bool pendingChanges) const
 {
-    (void)keepFocusedNeighbour;
-
     // A document that states no sequence makes no view, and stays the caller's.
     if (!m_dependencies.imageViewControlManager || !document.valid() || !document.isOpen() ||
         !document.sequence().has_value())
@@ -318,24 +342,7 @@ ImageViewControl* ViewCreationCoordinator::createNewImageViewControlFromSequence
 
     if (mode == ViewControlMode::standard)
     {
-        if (auto* dockWidget = imageViewControl->getDockWidget())
-        {
-            if (m_dependencies.iconProvider)
-            {
-                dockWidget->setIcon(m_dependencies.iconProvider(iconNameForCreatedView(true)));
-            }
-
-            if (neighbour)
-            {
-                neighbour->getDockWidget()->addDockWidgetAsTab(dockWidget);
-            }
-            else if (m_dependencies.dockMainWindow && *m_dependencies.dockMainWindow)
-            {
-                (*m_dependencies.dockMainWindow)->addDockWidget(dockWidget, KDDockWidgets::Location_OnRight);
-            }
-
-            ensureDockManagerVisible(m_dependencies);
-        }
+        placeCreatedView(m_dependencies, *imageViewControl, neighbour, keepFocusedNeighbour, true);
     }
 
     imageViewControl->setWindowTitle(QString::fromUtf8(imageViewControl->getUniqueName()));

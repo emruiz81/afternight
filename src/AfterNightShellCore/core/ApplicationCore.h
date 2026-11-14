@@ -22,6 +22,7 @@
 
 class AfterNightEvent;
 class FolderTrackerPersistence;
+class IconManager;
 class GlobalSettingsPersistence;
 class ImageViewControl;
 class PersistenceDbExecutor;
@@ -58,11 +59,16 @@ namespace an::ui::shell
 {
 
 class AppEventBus;
+class DialogService;
 class FavoriteProcessesModel;
+class FileDialogService;
 class IApplicationEventTarget;
+class IShell;
 class OpenProcessRegistry;
+class ProcessLaunchService;
 class RecentFilesModel;
 class RecentProcessesModel;
+class ViewService;
 
 /// What the application is without a window: what a shell needs and none owns.
 ///
@@ -71,6 +77,9 @@ class RecentProcessesModel;
 /// the temporary and thumbnail folders; the application's listeners; the process windows that are open; the files and
 /// processes used last and the favourite processes. It receives the work a thread hands the GUI thread and runs it
 /// there against the target it was given.
+///
+/// It holds the services the application context answers with - the messages, the file dialogs, the views, the launch
+/// of processes - which answer what only a window can through the shell they are given (`setShell`).
 ///
 /// `main` makes it on the GUI thread before the window and hands it to the window, which wires its own units to what
 /// the core holds; the core outlives the window. It makes no widget.
@@ -159,6 +168,31 @@ public:
     [[nodiscard]] RecentFilesModel& recentFiles() noexcept;
     [[nodiscard]] RecentProcessesModel& recentProcesses() noexcept;
     [[nodiscard]] FavoriteProcessesModel& favoriteProcesses() noexcept;
+
+    // ---- The services
+
+    /// The messages, and where the settings are opened.
+    [[nodiscard]] DialogService& dialogService() noexcept;
+
+    /// The file dialogs and the folders they remember.
+    [[nodiscard]] FileDialogService& fileDialogService() noexcept;
+
+    /// The views, and what the shell is told of them.
+    [[nodiscard]] ViewService& viewService() noexcept;
+
+    /// The launch of the registry's processes, the extensions' included.
+    [[nodiscard]] ProcessLaunchService& processLaunch() noexcept;
+
+    /// The icons the application draws with, in the theme's colours.
+    [[nodiscard]] const std::shared_ptr<IconManager>& iconManager() const noexcept;
+
+    // ---- The shell
+
+    /// The shell the services answer through - where a view goes, what a dialog belongs to, what the status line
+    /// shows; null before one is made and after it goes. The shell must outlive what it was given, or be taken away
+    /// before it goes; the preparations of extension launches, whose windows belong to it, go when it changes.
+    void setShell(IShell* shell);
+    [[nodiscard]] IShell* shell() const noexcept;
 
     // ---- The GUI thread and the work handed to it
 

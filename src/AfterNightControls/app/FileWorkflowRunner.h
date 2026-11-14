@@ -27,6 +27,7 @@ class QWidget;
 namespace an::ui
 {
 
+class IViewFactory;
 class RawOpenPolicy;
 
 inline QString buildOpenProgressDescription(const std::string& fileName, size_t index, size_t totalFiles)
@@ -98,6 +99,9 @@ public:
 
         std::function<void(const QString&)> persistLastOpenDirectory;
         std::function<void()> switchToDockManager;
+
+        /// What makes the views an open shows; null, the application context's.
+        IViewFactory* viewFactory = nullptr;
 
         /// Records a file in the recent list with the image it showed, for its thumbnail.
         std::function<void(const std::string&, const std::shared_ptr<const an::consumer::ImageAsset>&)> addRecentFile;

@@ -8,6 +8,7 @@
 #include "app/FileDialogUtils.h"
 #include "app/FilePolicies.h"
 #include "app/FileWorkflowRunner.h"
+#include "app/MessageBoxes.h"
 #include "app/AfterNightAppUiBuilder.h"
 
 #include "controls/AutostretchApply.h"
@@ -212,50 +213,6 @@ an::Result<std::optional<an::consumer::AnyImage>> reduceForThumbnail(const an::c
     }
     return Reduced(an::consumer::AnyImage(std::move(*reduced)));
 }
-
-class ScopedTopLevelFlagRestorer
-{
-public:
-    explicit ScopedTopLevelFlagRestorer(Qt::WindowFlags clearFlag = Qt::WindowStaysOnTopHint) : m_clearFlag(clearFlag)
-    {
-        const auto topLevels = QApplication::topLevelWidgets();
-        for (QWidget* w : topLevels)
-        {
-            if (!w || !w->isVisible())
-            {
-                continue;
-            }
-
-            const Qt::WindowFlags flags = w->windowFlags();
-            if (flags & clearFlag)
-            {
-                m_originalFlags[w] = flags;
-                w->setWindowFlags(flags & ~clearFlag);
-                w->hide();
-                w->show();
-            }
-        }
-    }
-
-    ~ScopedTopLevelFlagRestorer()
-    {
-        for (auto it = m_originalFlags.begin(); it != m_originalFlags.end(); ++it)
-        {
-            QWidget* w = it.key();
-            const Qt::WindowFlags flags = it.value();
-            if (w)
-            {
-                w->setWindowFlags(flags);
-                w->hide();
-                w->show();
-            }
-        }
-    }
-
-private:
-    QMap<QWidget*, Qt::WindowFlags> m_originalFlags;
-    Qt::WindowFlags m_clearFlag;
-};
 
 template <typename SettingsT>
 static void initializeImageFileDialog(const std::string& defaultDir, const std::string& defaultFile,
@@ -554,6 +511,7 @@ FileWorkflowRunner::Dependencies FileManager::workflowDependencies() const
     const Dependencies deps = m_deps;
     workflow.persistLastOpenDirectory = [deps](const QString& path) { persistLastOpenDirectory(deps, path); };
     workflow.switchToDockManager = deps.switchToDockManager;
+    workflow.viewFactory = deps.viewFactory;
     // Every call below comes on the GUI thread from a run that ends when the signal context goes, as this manager does.
     workflow.addRecentFile = [this](const std::string& fileName,
                                     const std::shared_ptr<const an::consumer::ImageAsset>& image) {

@@ -60,13 +60,19 @@
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
 
+#include "app/MessageBoxes.h"
+
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
 #include "services/AppEventBus.h"
+#include "services/DialogService.h"
 #include "services/FavoriteProcessesModel.h"
+#include "services/FileDialogService.h"
 #include "services/OpenProcessRegistry.h"
+#include "services/ProcessLaunchService.h"
 #include "services/RecentFilesModel.h"
 #include "services/RecentProcessesModel.h"
+#include "views/ViewService.h"
 
 #include <AfterNightPlatform/Text.h>
 #include <AfterNightPlatform/Logging.h>
@@ -113,6 +119,10 @@
 
 namespace
 {
+
+using an::ui::ScopedTopLevelFlagRestorer;
+using an::ui::shell::hasCachedNativeParameterSchemas;
+using an::ui::shell::primeMissingNativeParameterSchemas;
 
 constexpr const char* kExtensionProcessMenuActionProperty = "anExtensionProcessMenuAction";
 constexpr const char* kExtensionFamilyMenuActionProperty = "anExtensionFamilyMenuAction";
@@ -430,64 +440,6 @@ void clearDiscoveredExtensionFamilyMenus(an::ui::app::AfterNightAppUiElements& u
     removeMenuActionsByProperty(ui.menuExtensions, kExtensionFamilyMenuActionProperty);
 }
 
-[[nodiscard]] QString extensionFamilyDisplayName(const an::ui::extensions::ExtensionManifest& manifest)
-{
-    if (!manifest.name.empty())
-    {
-        return QString::fromUtf8(manifest.name);
-    }
-    if (!manifest.id.empty())
-    {
-        return QString::fromUtf8(manifest.id);
-    }
-    return QCoreApplication::translate("AfterNightAppClass", "Extension");
-}
-
-struct ExtensionFamilyMenuEntry
-{
-    QString display_name;
-    std::string homepage_url;
-    std::string repository_url;
-    std::string support_url;
-};
-
-[[nodiscard]] std::vector<ExtensionFamilyMenuEntry>
-extensionFamilyMenuEntries(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
-{
-    std::map<std::string, ExtensionFamilyMenuEntry, std::less<>> entries_by_id;
-    for (const auto& result : discovered)
-    {
-        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
-        {
-            continue;
-        }
-
-        const auto& manifest = *result.manifest;
-        if (manifest.id.empty())
-        {
-            continue;
-        }
-
-        auto& entry = entries_by_id[manifest.id];
-        entry.display_name = extensionFamilyDisplayName(manifest);
-        entry.homepage_url = manifest.repository_metadata.homepage_url;
-        entry.repository_url = manifest.repository_metadata.repository_url;
-        entry.support_url = manifest.repository_metadata.support_url;
-    }
-
-    std::vector<ExtensionFamilyMenuEntry> entries;
-    entries.reserve(entries_by_id.size());
-    for (auto& item : entries_by_id)
-    {
-        entries.push_back(std::move(item.second));
-    }
-
-    std::sort(entries.begin(), entries.end(), [](const auto& lhs, const auto& rhs) {
-        return QString::compare(lhs.display_name, rhs.display_name, Qt::CaseInsensitive) < 0;
-    });
-    return entries;
-}
-
 void addExternalUrlAction(QMenu* menu, const QString& text, const std::string& url)
 {
     if (!menu || url.empty())
@@ -511,7 +463,8 @@ void appendDiscoveredExtensionFamilyMenus(AfterNightApp* app, an::ui::app::After
         return;
     }
 
-    const std::vector<ExtensionFamilyMenuEntry> entries = extensionFamilyMenuEntries(discovered);
+    const std::vector<an::ui::shell::ExtensionFamily> entries =
+        an::ui::shell::ProcessLaunchService::extensionFamilies(discovered);
     if (entries.empty())
     {
         return;
@@ -521,9 +474,9 @@ void appendDiscoveredExtensionFamilyMenus(AfterNightApp* app, an::ui::app::After
     separator->setProperty(kExtensionFamilyMenuActionProperty, true);
 
     QPointer<AfterNightApp> app_guard(app);
-    for (const ExtensionFamilyMenuEntry& entry : entries)
+    for (const an::ui::shell::ExtensionFamily& entry : entries)
     {
-        auto* family_menu = new QMenu(entry.display_name, ui.menuExtensions);
+        auto* family_menu = new QMenu(entry.displayName, ui.menuExtensions);
         QAction* family_action = ui.menuExtensions->addMenu(family_menu);
         family_action->setProperty(kExtensionFamilyMenuActionProperty, true);
 
@@ -536,109 +489,11 @@ void appendDiscoveredExtensionFamilyMenus(AfterNightApp* app, an::ui::app::After
         });
 
         addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Homepage"),
-                             entry.homepage_url);
+                             entry.homepageUrl);
         addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Repository"),
-                             entry.repository_url);
+                             entry.repositoryUrl);
         addExternalUrlAction(family_menu, QCoreApplication::translate("AfterNightAppClass", "Support"),
-                             entry.support_url);
-    }
-}
-
-an::ui::extensions::ExtensionDiscoveryOptions buildDefaultExtensionDiscoveryOptions(
-    const bool eager_settings_schema_inspection = true,
-    const an::ui::extensions::ExtensionOperationCancellationToken& cancellation_token = {})
-{
-    auto options = an::ui::extensions::default_extension_discovery_options();
-    options.context.eager_settings_schema_inspection = eager_settings_schema_inspection;
-    options.cancellation_token = cancellation_token;
-    return options;
-}
-
-[[nodiscard]] an::ui::process_registry::ProcessAvailability
-refreshedExtensionProcessAvailability(const an::ui::extensions::ExtensionLoadResult& result)
-{
-    using an::ui::extensions::ExtensionEnvironmentState;
-    using an::ui::extensions::ExtensionLoadStatus;
-    using an::ui::process_registry::ProcessAvailability;
-
-    if (result.status == ExtensionLoadStatus::Incompatible)
-    {
-        return ProcessAvailability::Incompatible;
-    }
-    if (!result.environment)
-    {
-        return ProcessAvailability::Unavailable;
-    }
-
-    switch (result.environment->state)
-    {
-    case ExtensionEnvironmentState::Ready:
-        return ProcessAvailability::Available;
-    case ExtensionEnvironmentState::Bootstrapping:
-        return ProcessAvailability::Bootstrapping;
-    case ExtensionEnvironmentState::Missing:
-        return ProcessAvailability::InstallNeeded;
-    case ExtensionEnvironmentState::Stale:
-    case ExtensionEnvironmentState::Failed:
-        return ProcessAvailability::RepairNeeded;
-    }
-
-    return ProcessAvailability::Unavailable;
-}
-
-[[nodiscard]] std::string refreshedExtensionAvailabilityReason(const an::ui::extensions::ExtensionLoadResult& result)
-{
-    using an::ui::extensions::ExtensionEnvironmentState;
-    using an::ui::extensions::ExtensionLoadStatus;
-
-    if (result.status == ExtensionLoadStatus::Ready && result.environment &&
-        result.environment->state == ExtensionEnvironmentState::Ready)
-    {
-        return {};
-    }
-
-    if (!result.diagnostic.empty())
-    {
-        return result.diagnostic;
-    }
-    if (result.environment && !result.environment->diagnostic.empty())
-    {
-        return result.environment->diagnostic;
-    }
-
-    return "Extension process launch is not wired into this build yet.";
-}
-
-void refreshRegisteredExtensionDescriptors(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
-{
-    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
-
-    for (const auto& result : discovered)
-    {
-        if (!result.manifest || result.status == an::ui::extensions::ExtensionLoadStatus::Invalid)
-        {
-            continue;
-        }
-
-        const auto availability = refreshedExtensionProcessAvailability(result);
-        const std::string availability_reason = refreshedExtensionAvailabilityReason(result);
-        for (const auto& process : result.manifest->processes)
-        {
-            auto* descriptor = registry.findMutable(process.id);
-            if (!descriptor)
-            {
-                continue;
-            }
-
-            descriptor->availability = availability;
-            descriptor->availability_reason = availability_reason;
-            descriptor->source_channel_filter = process.capabilities.source_channel_filter;
-            if (!descriptor->is_available())
-            {
-                descriptor->launch_single_image_checked = {};
-                descriptor->launch_top_level = {};
-            }
-        }
+                             entry.supportUrl);
     }
 }
 
@@ -842,64 +697,6 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
     }
 }
 
-[[nodiscard]] bool hasCachedNativeParameterSchemas(const an::ui::extensions::ExtensionLoadResult& result)
-{
-    if (!result.manifest)
-    {
-        return false;
-    }
-    if (result.manifest->sdk_backend != an::ui::extensions::ExtensionSdkBackend::Runtime)
-    {
-        return true;
-    }
-    if (!result.settings_schema ||
-        result.settings_schema->state != an::ui::extensions::ExtensionSettingsSchemaState::Ready)
-    {
-        return false;
-    }
-
-    return std::all_of(result.manifest->processes.begin(), result.manifest->processes.end(),
-                       [&result](const an::ui::extensions::ExtensionProcessManifest& process) {
-                           return result.settings_schema->process_params_schemas.contains(process.class_name);
-                       });
-}
-
-// Primes the startup caches of every ready package whose native parameter schemas are not cached - one whose
-// environment was just refreshed, taken over or provisioned has none for what it is now - and says whether any was.
-[[nodiscard]] bool
-primeMissingNativeParameterSchemas(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered,
-                                   const an::ui::extensions::ExtensionDiscoveryOptions& discoveryOptions)
-{
-    bool cachesUpdated = false;
-    for (const auto& result : discovered)
-    {
-        if (discoveryOptions.cancellation_token.isCancellationRequested())
-        {
-            return cachesUpdated;
-        }
-        if (result.status != an::ui::extensions::ExtensionLoadStatus::Ready || !result.environment ||
-            result.environment->state != an::ui::extensions::ExtensionEnvironmentState::Ready ||
-            hasCachedNativeParameterSchemas(result))
-        {
-            continue;
-        }
-
-        an::ui::extensions::ExtensionStartupCachePrimingOptions primingOptions;
-        primingOptions.context = discoveryOptions.context;
-        primingOptions.require_settings_schema = true;
-        primingOptions.cancellation_token = discoveryOptions.cancellation_token;
-        const auto primingResult = an::ui::extensions::prime_extension_startup_caches(result, primingOptions);
-        cachesUpdated = cachesUpdated || primingResult.success;
-        if (!primingResult.success && !discoveryOptions.cancellation_token.isCancellationRequested() &&
-            an::platform::isLoggingInitialized())
-        {
-            LOG_WARNING("Failed to refresh native parameter cache extension id='{}': {}",
-                        result.manifest ? result.manifest->id : std::string(), primingResult.diagnostic);
-        }
-    }
-    return cachesUpdated;
-}
-
 void cleanupUnusedExtensionEnvironmentsAtStartup(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered,
                                                  const an::ui::extensions::ExtensionDiscoveryOptions& discovery_options)
 {
@@ -953,7 +750,7 @@ void registerDiscoveredExtensions(AfterNightApp* app,
         return;
     }
 
-    const auto discovery_options = buildDefaultExtensionDiscoveryOptions(false, cancellation_token);
+    const auto discovery_options = an::ui::shell::defaultExtensionDiscoveryOptions(false, cancellation_token);
     const std::filesystem::path app_dir(QCoreApplication::applicationDirPath().toStdString());
     const bool automatic_environment_cleanup_enabled =
         !app->getGlobalSettingsPersistence() ||
@@ -1203,7 +1000,7 @@ void registerDiscoveredExtensions(AfterNightApp* app,
                     return;
                 }
 
-                refreshRegisteredExtensionDescriptors(refreshed_discovered);
+                an::ui::shell::ProcessLaunchService::refreshRegisteredExtensionDescriptors(refreshed_discovered);
                 bindDiscoveredExtensionLaunches(extensionLaunchCoordinator, app_dir, refreshed_discovered);
                 refreshDiscoveredExtensionActions(app_guard.data(), menuActionManager, refreshed_discovered);
                 cleanupMissingStoredProcessIdsOnNextRefresh = true;
@@ -1227,7 +1024,7 @@ void refreshInstalledExtensionMenus(AfterNightApp* app,
 
     an::ui::invalidateInstalledExtensionStatusCache(true);
 
-    const auto discovery_options = buildDefaultExtensionDiscoveryOptions(false, cancellation_token);
+    const auto discovery_options = an::ui::shell::defaultExtensionDiscoveryOptions(false, cancellation_token);
     const std::filesystem::path app_dir(QCoreApplication::applicationDirPath().toStdString());
     QPointer<AfterNightApp> app_guard(app);
     auto* ui_ptr = &ui;
@@ -1405,141 +1202,6 @@ void openWorkflowSequenceOutput(AfterNightApp* app, const an::consumer::EngineSe
     });
 }
 
-class ScopedTopLevelFlagRestorer
-{
-public:
-    ScopedTopLevelFlagRestorer(Qt::WindowFlags clearFlag = Qt::WindowStaysOnTopHint) : m_clearFlag(clearFlag)
-    {
-        const auto topLevels = QApplication::topLevelWidgets();
-        for (QWidget* w : topLevels)
-        {
-            if (!w || !w->isVisible())
-                continue;
-
-            Qt::WindowFlags flags = w->windowFlags();
-            if (flags & clearFlag)
-            {
-                m_originalFlags[w] = flags;
-                w->setWindowFlags(flags & ~clearFlag);
-                w->hide();
-                w->show(); // Apply new flags
-            }
-        }
-    }
-
-    ~ScopedTopLevelFlagRestorer()
-    {
-        for (auto it = m_originalFlags.begin(); it != m_originalFlags.end(); ++it)
-        {
-            QWidget* w = it.key();
-            Qt::WindowFlags flags = it.value();
-            if (w)
-            {
-                w->setWindowFlags(flags);
-                w->hide();
-                w->show(); // Restore original flags
-            }
-        }
-    }
-
-private:
-    QMap<QWidget*, Qt::WindowFlags> m_originalFlags;
-    Qt::WindowFlags m_clearFlag;
-};
-
-// What the application core's marshalled events ask of the window, on the GUI thread: the window answers them as it
-// answered its own events, until the services that answer them leave it.
-class WindowEventTarget final : public an::ui::shell::IApplicationEventTarget
-{
-public:
-    explicit WindowEventTarget(AfterNightApp& app) : m_app(app) {}
-
-    ImageViewControl* createNewImageViewControlFromImage(ImageViewControl* customViewControl,
-                                                         an::ui::ImageDocument&& document, QWidget* parent,
-                                                         const std::string& historyDesc, const ViewControlMode mode,
-                                                         ImageViewControl* neighbour, bool keepFocusedNeighbour,
-                                                         const bool pendingChanges) override
-    {
-        return m_app.createNewImageViewControlFromImage(customViewControl, std::move(document), parent, historyDesc,
-                                                        mode, neighbour, keepFocusedNeighbour, pendingChanges);
-    }
-
-    ImageViewControl* createNewImageViewControlFromSequence(ImageViewControl* customViewControl,
-                                                            an::ui::ImageDocument&& document, QWidget* parent,
-                                                            const bool autoDebayer, const std::string& historyDesc,
-                                                            const ViewControlMode mode, ImageViewControl* neighbour,
-                                                            bool keepFocusedNeighbour,
-                                                            const bool pendingChanges) override
-    {
-        return m_app.createNewImageViewControlFromSequence(customViewControl, std::move(document), parent, autoDebayer,
-                                                           historyDesc, mode, neighbour, keepFocusedNeighbour,
-                                                           pendingChanges);
-    }
-
-    void addImageViewControl(ImageViewControl* view) override
-    {
-        m_app.addImageViewControl(view);
-    }
-
-    void removeImageViewControl(ImageViewControl* view, bool deleteObject) override
-    {
-        m_app.removeImageViewControl(view, deleteObject);
-    }
-
-    void updateImageViewControlList() override
-    {
-        m_app.updateImageViewControlList();
-    }
-
-    void updateActiveImageActions() override
-    {
-        m_app.updateActiveImageActions();
-    }
-
-    void addRecentFile(const std::string& fileName,
-                       const std::shared_ptr<const an::consumer::ImageAsset>& image) override
-    {
-        m_app.addRecentFile(fileName, image);
-    }
-
-    void removeRecentFile(const std::string& fileName) override
-    {
-        m_app.removeRecentFile(fileName);
-    }
-
-    void notifyErrorMessage(QWidget* parent, const QString& title, const QString& text) override
-    {
-        m_app.notifyErrorMessage(parent, title, text);
-    }
-
-    void notifyWarnMessage(QWidget* parent, const QString& title, const QString& text) override
-    {
-        m_app.notifyWarnMessage(parent, title, text);
-    }
-
-    void notifyInfoMessage(QWidget* parent, const QString& title, const QString& text) override
-    {
-        m_app.notifyInfoMessage(parent, title, text);
-    }
-
-    void messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret) override
-    {
-        m_app.messageBoxYesNo(parent, title, text, warn, ret);
-    }
-
-    void setActiveImageViewControl(ImageViewControl* view) override
-    {
-        m_app.setActiveImageViewControl(view);
-    }
-
-    void reportEventFailure(const QString& title, const QString& text) override
-    {
-        m_app.notifyErrorMessage(&m_app, title, text);
-    }
-
-private:
-    AfterNightApp& m_app;
-};
 } // namespace
 
 struct AfterNightApp::Impl
@@ -1549,12 +1211,13 @@ struct AfterNightApp::Impl
     // The application without a window, which `main` made before this window and which outlives it.
     an::ui::shell::ApplicationCore& m_Core;
 
-    // What the core's marshalled events run against while this window lives.
-    std::unique_ptr<WindowEventTarget> m_EventTarget;
+    // What the core's marshalled events run against while this window lives: the core's services.
+    std::unique_ptr<an::ui::shell::ServiceEventTarget> m_EventTarget;
 
     an::ui::app::AfterNightAppUiElements ui;
 
-    std::unique_ptr<ImageViewControlManager> m_ImageViewControlManager = std::make_unique<ImageViewControlManager>();
+    // The application's list of views, the core's view service's.
+    ImageViewControlManager* m_ImageViewControlManager = nullptr;
     std::unique_ptr<an::ui::ProcessLauncher> m_ProcessLauncher;
     std::unique_ptr<an::ui::ChannelExtractor> m_ChannelExtractor;
     std::unique_ptr<an::ui::ThemeManager> m_ThemeManager;
@@ -1562,7 +1225,6 @@ struct AfterNightApp::Impl
     std::unique_ptr<an::ui::extensions::ExtensionHostLaunchCoordinator> m_ExtensionHostLaunchCoordinator;
     std::unique_ptr<an::ui::FileManager> m_FileManager;
     std::unique_ptr<an::ui::ViewControlCoordinator> m_ViewControlCoordinator;
-    std::unique_ptr<an::ui::ViewCreationCoordinator> m_ViewCreationCoordinator;
     std::unique_ptr<an::ui::ImageOperationsCoordinator> m_ImageOperationsCoordinator;
     std::unique_ptr<an::ui::MaskOverlayCoordinator> m_MaskOverlayCoordinator;
     std::unique_ptr<an::ui::DialogOrchestrationCoordinator> m_DialogOrchestrationCoordinator;
@@ -1583,22 +1245,8 @@ struct AfterNightApp::Impl
     std::unique_ptr<QTimer> m_ExtensionInstallRefreshTimer;
     an::ui::extensions::ExtensionOperationCancellationToken m_ExtensionBackgroundWorkCancellationToken;
 
-    /// The environments launches are preparing, each extension's until its work has returned.
-    std::unique_ptr<an::ui::extensions::ExtensionLaunchPreparations> m_ExtensionLaunchPreparations;
-
-    /// Stops every preparation a launch started, as the application's background work is stopped.
-    void cancelExtensionPreparations()
-    {
-        if (m_ExtensionLaunchPreparations)
-        {
-            m_ExtensionLaunchPreparations->cancelAll();
-        }
-    }
-
     std::atomic_bool m_IsLayoutLocked = false;
     bool m_UnlockLayoutWhenRestoring = false;
-
-    QRecursiveMutex m_ImageViewControlManagerLock;
 
     LogViewerControl* m_LogViewerControl = nullptr;
     // The console's destroyed handler, which reads this state: let go before the state goes, since the console is a
@@ -1623,7 +1271,9 @@ struct AfterNightApp::Impl
     int m_MaxThreadsForPreviewProcess = 0;
 };
 
-static_assert(sizeof(AfterNightApp) <= sizeof(QMainWindow) + sizeof(std::uintptr_t) * 2,
+// The window's state lives behind the pimpl; beside it the window holds only the tables of the three interfaces of the
+// shell contract it implements.
+static_assert(sizeof(AfterNightApp) <= sizeof(QMainWindow) + sizeof(std::uintptr_t) * 5,
               "AfterNightApp should stay thin: its state lives behind the pimpl.");
 
 AfterNightApp* AfterNightApp::m_Instance = nullptr;
@@ -1659,8 +1309,18 @@ void AfterNightApp::destroyInstance()
 AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     : QMainWindow(nullptr), m_impl(std::make_unique<Impl>(core))
 {
-    // The work threads hand the GUI thread runs against this window until it goes.
-    m_impl->m_EventTarget = std::make_unique<WindowEventTarget>(*this);
+    // The core's services answer through this window - where a view goes, what a dialog belongs to, what the status
+    // line shows - until it goes; the work the threads hand the GUI thread runs against the services meanwhile.
+    m_impl->m_ImageViewControlManager = &core.viewService().manager();
+    core.setShell(this);
+    an::ui::shell::ServiceEventTarget::Dependencies eventTargetDeps;
+    eventTargetDeps.updateActiveImageActions = [this]() { updateActiveImageActions(); };
+    eventTargetDeps.addRecentFile = [this](const std::string& fileName,
+                                           const std::shared_ptr<const an::consumer::ImageAsset>& image) {
+        addRecentFile(fileName, image);
+    };
+    eventTargetDeps.removeRecentFile = [this](const std::string& fileName) { removeRecentFile(fileName); };
+    m_impl->m_EventTarget = std::make_unique<an::ui::shell::ServiceEventTarget>(core, std::move(eventTargetDeps));
     core.setEventTarget(m_impl->m_EventTarget.get());
     // Install the process-global app context before constructing UI services so
     // any control created during startup observes a live context.
@@ -1671,7 +1331,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     setObjectName("afterNightMainWindow");
     setMinimumSize(an::ui::kMainWindowMinimumWidth, an::ui::kMainWindowMinimumHeight);
 
-    m_impl->m_IconManager = std::make_shared<IconManager>();
+    m_impl->m_IconManager = core.iconManager();
     m_impl->m_ProcessLauncher = std::make_unique<an::ui::ProcessLauncher>();
     m_impl->m_ChannelExtractor = std::make_unique<an::ui::ChannelExtractor>();
     an::ui::ThemeManager::Dependencies themeManagerDeps;
@@ -1693,7 +1353,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     themeManagerDeps.mainDashboard = &m_impl->m_MainDashboard;
     themeManagerDeps.toolbarLockLayout = &m_impl->m_ToolbarLockLayout;
     themeManagerDeps.isLayoutLocked = &m_impl->m_IsLayoutLocked;
-    themeManagerDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    themeManagerDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     themeManagerDeps.dockMainWindow = &m_impl->m_DockMainWindow;
     themeManagerDeps.forEachOpenProcess = [this](const std::function<void(TopLevelProcessBaseControl*)>& visit) {
         m_impl->m_Core.openProcesses().forEach(visit);
@@ -1707,21 +1367,6 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     // Create the image view channel combobox
     m_impl->m_ImageViewControlListComboBox = std::make_unique<QComboBox>();
     m_impl->m_ExtensionHostLaunchCoordinator = std::make_unique<an::ui::extensions::ExtensionHostLaunchCoordinator>();
-    m_impl->m_ExtensionLaunchPreparations = std::make_unique<an::ui::extensions::ExtensionLaunchPreparations>(
-        this,
-        [](const std::string& extensionId, const an::ui::extensions::ExtensionLaunchPreparations::Progress& progress,
-           const an::ui::extensions::ExtensionOperationCancellationToken& cancellation) {
-            return an::ui::extensions::prepareExtensionEnvironmentForLaunch(
-                extensionId, buildDefaultExtensionDiscoveryOptions(false), primeMissingNativeParameterSchemas, progress,
-                cancellation);
-        },
-        [appGuard = QPointer<AfterNightApp>(this)](const std::string& processId, const std::string& extensionId,
-                                                   an::ui::extensions::ExtensionLaunchPreparationOutcome outcome) {
-            if (appGuard)
-            {
-                appGuard->completePreparedExtensionLaunch(processId, extensionId, outcome);
-            }
-        });
     m_impl->m_ExtensionHostLaunchCoordinator->setManagedImageHooks(
         // An execute's result is an edit of the target view, recorded in its history before it is shown.
         [](ImageViewControl* control, an::consumer::ImageAsset&& image, const std::string& historyStepName,
@@ -2018,48 +1663,16 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     fileManagerDeps.switchToDockManager = [this]() { switchToDockManager(); };
     fileManagerDeps.thumbnailsDirPath = [this]() { return getThumbnailsDirPath(); };
     fileManagerDeps.updateImageViewControlList = [this]() { updateImageViewControlList(); };
+    // A file the person opens is shown in a view of theirs.
+    fileManagerDeps.viewFactory = &m_impl->m_Core.viewService().userViews();
     m_impl->m_FileManager = std::make_unique<an::ui::FileManager>(fileManagerDeps);
     an::ui::ViewControlCoordinator::Dependencies viewControlDeps;
-    viewControlDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
-    viewControlDeps.imageViewControlManagerLock = &m_impl->m_ImageViewControlManagerLock;
+    viewControlDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     viewControlDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
-    viewControlDeps.isTerminating = &m_impl->m_IsTerminating;
-    viewControlDeps.logViewerControl = &m_impl->m_LogViewerControl;
     viewControlDeps.mainDashboard = &m_impl->m_MainDashboard;
-    viewControlDeps.updateActiveImageActions = [this]() { updateActiveImageActions(); };
-    viewControlDeps.updateActiveImageHistory = [this]() { updateActiveImageHistory(); };
-    viewControlDeps.updateImageInfoInStatusBar = [this]() { updateImageInfoInStatusBar(); };
-    viewControlDeps.notifyActiveViewControlChanged = [this](ImageViewControl* view) {
-        notifyActiveViewControlChanged(view);
-    };
     viewControlDeps.switchToMainDashboard = [this]() { switchToMainDashboard(); };
-    viewControlDeps.notifyViewControlDestroyed = [this](const ImageViewControl* view) {
-        notifyViewControlDestroyed(view);
-    };
-    viewControlDeps.notifyViewControlRenamed = [this](const std::string& newName, const std::string& oldName,
-                                                      const ImageViewControl* view) {
-        notifyViewControlRenamed(newName, oldName, view);
-    };
     viewControlDeps.getDockWidgetsByViewControlMap = [this]() { return getDockWidgetsByViewControlMap(); };
     m_impl->m_ViewControlCoordinator = std::make_unique<an::ui::ViewControlCoordinator>(viewControlDeps);
-    an::ui::ViewCreationCoordinator::Dependencies viewCreationDeps;
-    viewCreationDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
-    viewCreationDeps.mainDashboardScrollArea = &m_impl->m_MainDashboardScrollArea;
-    viewCreationDeps.dockMainWindow = &m_impl->m_DockMainWindow;
-    viewCreationDeps.currentCentralWidget = [this]() -> QWidget* {
-        return m_impl->ui.centralWidget ? m_impl->ui.centralWidget->currentWidget() : nullptr;
-    };
-    viewCreationDeps.switchToDockManager = [this]() { switchToDockManager(); };
-    viewCreationDeps.iconProvider = [this](const std::string& iconName) {
-        return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
-    };
-    viewCreationDeps.updateActiveImageActions = [this]() { updateActiveImageActions(); };
-    viewCreationDeps.updateActiveImageHistory = [this]() { updateActiveImageHistory(); };
-    viewCreationDeps.updateImageInfoInStatusBar = [this]() { updateImageInfoInStatusBar(); };
-    viewCreationDeps.notifyViewControlCreated = [this](const ImageViewControl* view) {
-        notifyViewControlCreated(view);
-    };
-    m_impl->m_ViewCreationCoordinator = std::make_unique<an::ui::ViewCreationCoordinator>(viewCreationDeps);
     an::ui::ImageOperationsCoordinator::Dependencies imageOperationsDeps;
     imageOperationsDeps.activeViewControl = [this]() -> ImageViewControl* {
         return m_impl->m_ImageViewControlManager ? m_impl->m_ImageViewControlManager->getActiveImageViewControl()
@@ -2086,7 +1699,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     m_impl->m_ImageOperationsCoordinator = std::make_unique<an::ui::ImageOperationsCoordinator>(imageOperationsDeps);
     an::ui::MaskOverlayCoordinator::Dependencies maskOverlayDeps;
     maskOverlayDeps.ui = &m_impl->ui;
-    maskOverlayDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    maskOverlayDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     maskOverlayDeps.notifyErrorMessage = [this](const QString& title, const QString& text) {
         notifyErrorMessage(this, title, text);
     };
@@ -2170,7 +1783,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     m_impl->m_UiBootstrapCoordinator = std::make_unique<an::ui::UiBootstrapCoordinator>(uiBootstrapDeps);
     an::ui::ActionStateCoordinator::Dependencies actionStateDeps;
     actionStateDeps.ui = &m_impl->ui;
-    actionStateDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    actionStateDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     actionStateDeps.timerContext = this;
     actionStateDeps.isTerminating = &m_impl->m_IsTerminating;
     actionStateDeps.isMaximizedViewActive = [this]() { return isMaximizedViewActive(); };
@@ -2180,7 +1793,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     m_impl->m_ActionStateCoordinator = std::make_unique<an::ui::ActionStateCoordinator>(actionStateDeps);
     an::ui::WindowLayoutCoordinator::Dependencies windowLayoutDeps;
     windowLayoutDeps.ui = &m_impl->ui;
-    windowLayoutDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    windowLayoutDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     windowLayoutDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
     windowLayoutDeps.timerContext = this;
     windowLayoutDeps.mainDashboard = &m_impl->m_MainDashboard;
@@ -2204,7 +1817,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     an::ui::AppLifecycleCoordinator::Dependencies appLifecycleDeps;
     appLifecycleDeps.mainWindow = this;
     appLifecycleDeps.globalSettingsPersistence = [this]() { return m_impl->m_Core.globalSettingsStore(); };
-    appLifecycleDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
+    appLifecycleDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     appLifecycleDeps.isTerminating = &m_impl->m_IsTerminating;
     appLifecycleDeps.maxThreadsForBatchProcess = &m_impl->m_MaxThreadsForBatchProcess;
     appLifecycleDeps.maxThreadsForPreviewProcess = &m_impl->m_MaxThreadsForPreviewProcess;
@@ -2236,7 +1849,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     appLifecycleDeps.lockLayout = [this]() { lockLayout(); };
     appLifecycleDeps.cancelBackgroundWork = [this]() {
         m_impl->m_ExtensionBackgroundWorkCancellationToken.requestCancellation();
-        m_impl->cancelExtensionPreparations();
+        m_impl->m_Core.processLaunch().cancelPreparations();
     };
     appLifecycleDeps.notifyApplicationClose = [this]() { notifyApplicationClose(); };
     appLifecycleDeps.getNumOfOpenProcesses = [this]() { return getNumOfOpenProcesses(); };
@@ -2256,6 +1869,68 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
         return geometries;
     };
     m_impl->m_AppLifecycleCoordinator = std::make_unique<an::ui::AppLifecycleCoordinator>(appLifecycleDeps);
+
+    // What the core's services ask of this window that is not the shell's to answer: the actions' state, the extension
+    // sessions' views, the image selector, the context menu, the settings dialogs and the process menus.
+    an::ui::shell::ViewService::Hooks viewHooks;
+    viewHooks.updateActiveImageActions = [this]() { updateActiveImageActions(); };
+    viewHooks.updateActiveImageHistory = [this]() { updateActiveImageHistory(); };
+    viewHooks.refreshViewList = [this]() { updateImageViewControlList(); };
+    viewHooks.viewCreated = [this](const ImageViewControl* view) {
+        if (view && m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            const std::string viewName = view->getUniqueName();
+            m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlCreated(
+                view, viewName, viewName, view->getFileName(), an::ui::buildImageSelectorTooltip(view).toStdString());
+        }
+    };
+    viewHooks.viewDestroyed = [this](const ImageViewControl* view) {
+        if (view && m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlDestroyed(view, view->getUniqueName());
+        }
+    };
+    viewHooks.viewUpdated = [this](const ImageViewControl* view) {
+        if (m_impl->m_ViewControlCoordinator)
+        {
+            m_impl->m_ViewControlCoordinator->viewUpdated(view);
+        }
+        if (m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlUpdated(view);
+        }
+    };
+    viewHooks.viewRenamed = [this](const std::string& newName, const std::string& oldName,
+                                   const ImageViewControl* view) {
+        if (m_impl->m_ExtensionHostLaunchCoordinator)
+        {
+            m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlRenamed(
+                newName, oldName, view, view ? view->getFileName() : std::string(),
+                view ? an::ui::buildImageSelectorTooltip(view).toStdString() : std::string());
+        }
+    };
+    viewHooks.contextMenu = [this](ImageViewControl* view, QContextMenuEvent* event) {
+        createContextMenuForViewControl(view, event);
+    };
+    viewHooks.isTerminating = [this]() { return m_impl->m_IsTerminating; };
+    core.viewService().setHooks(std::move(viewHooks));
+
+    an::ui::shell::DialogService::Hooks dialogHooks;
+    dialogHooks.openSettingsAt = [this](const QString& pageName) { openSettingsAt(pageName); };
+    dialogHooks.openExtensionsAt = [this](const QString& pageName) { openSettingsAt(pageName); };
+    core.dialogService().setHooks(std::move(dialogHooks));
+
+    an::ui::shell::ProcessLaunchService::Hooks launchHooks;
+    launchHooks.recentProcessesChanged = [this]() { updateRecentProcessesMenuEntries(); };
+    launchHooks.extensionsPrepared = [this](const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered) {
+        const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
+        bindDiscoveredExtensionLaunches(m_impl->m_ExtensionHostLaunchCoordinator.get(), appDir, discovered);
+        refreshDiscoveredExtensionActions(this, m_impl->m_MenuActionManager.get(), discovered);
+        cleanupMissingStoredProcessIdsOnNextRefresh = true;
+        refreshStoredProcessMenus();
+        updateActiveImageActions();
+    };
+    core.processLaunch().setHooks(std::move(launchHooks));
 
     if (m_impl->m_UiBootstrapCoordinator)
     {
@@ -2623,10 +2298,7 @@ void AfterNightApp::initialize(an::ui::ApplicationSession& session)
 
 void AfterNightApp::setActiveImageViewControl(ImageViewControl* view)
 {
-    if (m_impl->m_ViewControlCoordinator)
-    {
-        m_impl->m_ViewControlCoordinator->setActiveImageViewControl(view);
-    }
+    m_impl->m_Core.viewService().setActiveImageViewControl(view);
 }
 
 void AfterNightApp::setActiveImageViewControlAsync(ImageViewControl* view, std::atomic_bool* finished)
@@ -2636,30 +2308,20 @@ void AfterNightApp::setActiveImageViewControlAsync(ImageViewControl* view, std::
 
 void AfterNightApp::setActiveImageViewControlByName(const std::string& name)
 {
-    if (m_impl->m_ViewControlCoordinator)
-    {
-        m_impl->m_ViewControlCoordinator->setActiveImageViewControlByName(
-            name, [this](ImageViewControl* view) { setActiveImageViewControl(view); });
-    }
+    m_impl->m_Core.viewService().setActiveViewByName(name);
 }
 
 void AfterNightApp::setActiveImageViewControlByNameAsync(const std::string& name, std::atomic_bool* finished)
 {
-    if (m_impl->m_ViewControlCoordinator)
+    if (ImageViewControl* const view = m_impl->m_ImageViewControlManager->getImageViewControlByName(name))
     {
-        m_impl->m_ViewControlCoordinator->setActiveImageViewControlByNameAsync(
-            name,
-            [this](ImageViewControl* view, std::atomic_bool* done) { setActiveImageViewControlAsync(view, done); },
-            finished);
+        setActiveImageViewControlAsync(view, finished);
     }
 }
 
 void AfterNightApp::addImageViewControl(ImageViewControl* view)
 {
-    if (m_impl->m_ViewControlCoordinator)
-    {
-        m_impl->m_ViewControlCoordinator->addImageViewControl(view);
-    }
+    m_impl->m_Core.viewService().addViewControl(view);
 }
 
 void AfterNightApp::addImageViewControlAsync(ImageViewControl* view)
@@ -2669,10 +2331,7 @@ void AfterNightApp::addImageViewControlAsync(ImageViewControl* view)
 
 void AfterNightApp::removeImageViewControl(ImageViewControl* view, bool deleteObject)
 {
-    if (m_impl->m_ViewControlCoordinator)
-    {
-        m_impl->m_ViewControlCoordinator->removeImageViewControl(view, deleteObject);
-    }
+    m_impl->m_Core.viewService().removeViewControl(view, deleteObject);
 }
 
 void AfterNightApp::removeImageViewControlAsync(ImageViewControl* view, bool deleteObject)
@@ -2682,10 +2341,7 @@ void AfterNightApp::removeImageViewControlAsync(ImageViewControl* view, bool del
 
 void AfterNightApp::renameImageViewControl(ImageViewControl* view)
 {
-    if (m_impl->m_ViewControlCoordinator)
-    {
-        m_impl->m_ViewControlCoordinator->renameImageViewControl(view);
-    }
+    m_impl->m_Core.viewService().renameViewControl(view);
 }
 
 void AfterNightApp::updateImageViewControlList()
@@ -2703,7 +2359,7 @@ void AfterNightApp::updateImageViewControlListAsync(std::atomic_bool* finished)
 
 ImageViewControlManager* AfterNightApp::getImageViewControlManager()
 {
-    return m_impl->m_ImageViewControlManager.get();
+    return m_impl->m_ImageViewControlManager;
 }
 
 an::ui::ProcessLauncher* AfterNightApp::processLauncher() const
@@ -2754,24 +2410,15 @@ void AfterNightApp::createContextMenuForViewControl(ImageViewControl* view, QCon
     }
 }
 
-ImageViewControl* AfterNightApp::createNewImageViewControl(const std::string& name, QWidget* parent,
-                                                           const ViewControlMode mode, const bool pendingChanges)
-{
-    return m_impl->m_ViewCreationCoordinator
-               ? m_impl->m_ViewCreationCoordinator->createNewImageViewControl(name, parent, mode, pendingChanges)
-               : nullptr;
-}
-
 ImageViewControl*
 AfterNightApp::createNewImageViewControlFromImage(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
                                                   QWidget* parent, const std::string& historyDesc,
                                                   const ViewControlMode mode, ImageViewControl* neighbour,
                                                   bool keepFocusedNeighbour, const bool pendingChanges)
 {
-    return m_impl->m_ViewCreationCoordinator ? m_impl->m_ViewCreationCoordinator->createNewImageViewControlFromImage(
-                                                   customViewControl, std::move(document), parent, historyDesc, mode,
-                                                   neighbour, keepFocusedNeighbour, pendingChanges)
-                                             : nullptr;
+    return m_impl->m_Core.viewService().createNewImageViewControlFromImage(customViewControl, std::move(document),
+                                                                           parent, historyDesc, mode, neighbour,
+                                                                           keepFocusedNeighbour, pendingChanges);
 }
 
 ImageViewControl* AfterNightApp::createNewImageViewControlFromSequence(
@@ -2779,10 +2426,9 @@ ImageViewControl* AfterNightApp::createNewImageViewControlFromSequence(
     const std::string& historyDesc, const ViewControlMode mode, ImageViewControl* neighbour, bool keepFocusedNeighbour,
     const bool pendingChanges)
 {
-    return m_impl->m_ViewCreationCoordinator ? m_impl->m_ViewCreationCoordinator->createNewImageViewControlFromSequence(
-                                                   customViewControl, std::move(document), parent, autoDebayer,
-                                                   historyDesc, mode, neighbour, keepFocusedNeighbour, pendingChanges)
-                                             : nullptr;
+    return m_impl->m_Core.viewService().createNewImageViewControlFromSequence(
+        customViewControl, std::move(document), parent, autoDebayer, historyDesc, mode, neighbour, keepFocusedNeighbour,
+        pendingChanges);
 }
 
 void AfterNightApp::createNewImageViewControlFromImageAsync(ImageViewControl* customViewControl,
@@ -2875,7 +2521,7 @@ AfterNightApp::~AfterNightApp()
     // destroyed handler, which reads that state, must not run then.
     disconnect(m_impl->m_LogViewerClosedConnection);
     m_impl->m_ExtensionBackgroundWorkCancellationToken.requestCancellation();
-    m_impl->cancelExtensionPreparations();
+    m_impl->m_Core.processLaunch().cancelPreparations();
     stopExtensionHostSessions();
 
     // The process windows go before the stores they read. A run's work calls its window's process body on a worker, so
@@ -2899,6 +2545,16 @@ AfterNightApp::~AfterNightApp()
     {
         an::ui::clearAppContext();
     }
+
+    // The services answer through this window no more: they are given no hooks into it and no shell, and the views
+    // still listed go with it - its children, deleted after this, find no context to leave the list through.
+    an::ui::shell::ViewService& views = m_impl->m_Core.viewService();
+    views.setHooks({});
+    views.clearTaskSubject();
+    views.manager().clear();
+    m_impl->m_Core.dialogService().setHooks({});
+    m_impl->m_Core.processLaunch().setHooks({});
+    m_impl->m_Core.setShell(nullptr);
     m_impl->m_Session = nullptr;
 }
 
@@ -3007,159 +2663,7 @@ void AfterNightApp::openDroppedFiles(const QStringList& files)
 
 bool AfterNightApp::tryLaunchRegistryProcessById(const std::string& processId)
 {
-    using namespace an::ui::process_registry;
-
-    const ProcessDescriptor* descriptor = ProcessRegistry::instance().find(processId);
-    if (!descriptor)
-    {
-        LOG_WARNING("Registry descriptor not found for id={}", processId);
-        return false;
-    }
-
-    const auto displayName = [&descriptor]() -> std::string {
-        if (!descriptor->display_name.empty())
-        {
-            return descriptor->display_name;
-        }
-        if (!descriptor->process_name.empty())
-        {
-            return descriptor->process_name;
-        }
-        if (!descriptor->action_object_name.empty())
-        {
-            return descriptor->action_object_name;
-        }
-        return descriptor->id;
-    }();
-
-    const auto availability = evaluateProcessAvailability(*descriptor);
-    if (!availability.ok())
-    {
-        // An extension whose environment is still to be installed, refreshed or repaired is prepared and then
-        // launched, rather than refused with what to do in the extension manager.
-        if (preparesBeforeLaunch(*descriptor))
-        {
-            m_impl->m_ExtensionLaunchPreparations->launch(processId, descriptor->extension_id, displayName);
-            return true;
-        }
-        notifyErrorMessage(this, QString::fromUtf8(availability.title.c_str()),
-                           QString::fromUtf8(availability.message.c_str()));
-        return false;
-    }
-
-    if (descriptor->launch_mode == ProcessLaunchMode::TopLevel)
-    {
-        if (!descriptor->launch_top_level)
-        {
-            LOG_WARNING("Registry descriptor id={} is missing a top-level launch handler", processId);
-            return false;
-        }
-
-        descriptor->launch_top_level();
-        recordRecentProcess(processId, displayName);
-        return true;
-    }
-
-    if (descriptor->launch_mode == ProcessLaunchMode::NonInteractive)
-    {
-        if (!descriptor->launch_non_interactive)
-        {
-            LOG_WARNING("Registry descriptor id={} is missing a non-interactive launch handler", processId);
-            return false;
-        }
-
-        descriptor->launch_non_interactive();
-        recordRecentProcess(processId, displayName);
-        return true;
-    }
-
-    if (!descriptor->launch_single_image && !descriptor->launch_single_image_checked)
-    {
-        LOG_WARNING("Registry descriptor id={} is missing a single-image launch handler", processId);
-        return false;
-    }
-
-    ImageViewControl* control =
-        m_impl->m_ImageViewControlManager ? m_impl->m_ImageViewControlManager->getActiveImageViewControl() : nullptr;
-
-    if (!control)
-    {
-        QString title = QString::fromUtf8(descriptor->process_name.c_str());
-        if (title.isEmpty())
-        {
-            title = QString::fromUtf8(descriptor->display_name.c_str());
-        }
-        if (title.isEmpty())
-        {
-            title = QStringLiteral("Process");
-        }
-
-        notifyErrorMessage(this, title, QStringLiteral("No selected image to process"));
-        return true;
-    }
-
-    // The guards read the view as the menu's action state and the launcher read it.
-    const LaunchGuardInput launchGuardInput = launchGuardInputFor(*descriptor, control);
-    const auto launchGuard = evaluateSingleImageLaunchGuards(*descriptor, launchGuardInput);
-    if (!launchGuard.ok())
-    {
-        notifyErrorMessage(this, QString::fromUtf8(launchGuard.title.c_str()),
-                           QString::fromUtf8(launchGuard.message.c_str()));
-        return false;
-    }
-
-    // Canonical duplicate/exclusive-access checks remain in ProcessLauncher,
-    // where real process metadata (static process name / exclusivity) is available.
-    if (descriptor->launch_single_image_checked)
-    {
-        std::string launch_error;
-        if (!descriptor->launch_single_image_checked(control, &launch_error))
-        {
-            notifyErrorMessage(this, QString::fromUtf8(displayName.c_str()), QString::fromUtf8(launch_error.c_str()));
-            return false;
-        }
-    }
-    else
-    {
-        descriptor->launch_single_image(control);
-    }
-    recordRecentProcess(processId, displayName);
-    return true;
-}
-
-void AfterNightApp::completePreparedExtensionLaunch(
-    const std::string& processId, const std::string& extensionId,
-    const an::ui::extensions::ExtensionLaunchPreparationOutcome& outcome)
-{
-    const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
-    refreshRegisteredExtensionDescriptors(outcome.discovered);
-    bindDiscoveredExtensionLaunches(m_impl->m_ExtensionHostLaunchCoordinator.get(), appDir, outcome.discovered);
-    refreshDiscoveredExtensionActions(this, m_impl->m_MenuActionManager.get(), outcome.discovered);
-    cleanupMissingStoredProcessIdsOnNextRefresh = true;
-    refreshStoredProcessMenus();
-    updateActiveImageActions();
-
-    const auto* descriptor = an::ui::process_registry::ProcessRegistry::instance().find(processId);
-    if (outcome.prepared && descriptor && descriptor->is_available())
-    {
-        tryLaunchRegistryProcessById(processId);
-        return;
-    }
-
-    // What still stands in the way is reported once, with where to deal with it, and not prepared again.
-    QString message = QString::fromStdString(!outcome.diagnostic.empty()
-                                                 ? outcome.diagnostic
-                                                 : (descriptor ? descriptor->availability_reason : std::string()));
-    if (message.isEmpty())
-    {
-        message = tr("The extension's environment could not be made ready.");
-    }
-    message +=
-        QStringLiteral("\n\n") + tr("Open Extensions > Manage Extensions... > Installed to install or repair it.");
-    notifyErrorMessage(this,
-                       QString::fromStdString(descriptor && !descriptor->display_name.empty() ? descriptor->display_name
-                                                                                              : extensionId),
-                       message);
+    return m_impl->m_Core.processLaunch().launch(processId);
 }
 
 void AfterNightApp::connectActions()
@@ -3367,29 +2871,22 @@ void AfterNightApp::setCustomImageActionEnabled(ImageViewControl* view, const Gl
 
 void AfterNightApp::updateImageInfoInStatusBar()
 {
-    m_impl->m_ImageInfoStatusBarWidget->updateImageInfo(m_impl->m_ImageViewControlManager->getActiveImageViewControl());
+    showImageInfo(m_impl->m_ImageViewControlManager->getActiveImageViewControl());
 }
 
 void AfterNightApp::updateImageZoomInfoInStatusBar()
 {
-    m_impl->m_ImageInfoStatusBarWidget->updateImageZoomInfo(
-        m_impl->m_ImageViewControlManager->getActiveImageViewControl());
+    showZoom(m_impl->m_ImageViewControlManager->getActiveImageViewControl());
 }
 
 void AfterNightApp::updateImageCelestialCoordsInStatusBar(const double ra_deg, const double dec_deg)
 {
-    if (m_impl->m_ImageInfoStatusBarWidget)
-    {
-        m_impl->m_ImageInfoStatusBarWidget->updateCelestialCoords(ra_deg, dec_deg);
-    }
+    showCelestialCoordinates(ra_deg, dec_deg);
 }
 
 void AfterNightApp::clearImageCelestialCoordsInStatusBar()
 {
-    if (m_impl->m_ImageInfoStatusBarWidget)
-    {
-        m_impl->m_ImageInfoStatusBarWidget->clearCelestialCoords();
-    }
+    clearCelestialCoordinates();
 }
 
 void AfterNightApp::subscribeListener(AfterNightAppListener* listener)
@@ -3402,65 +2899,9 @@ void AfterNightApp::unsubscribeListener(AfterNightAppListener* listener)
     m_impl->m_Core.eventBus().unsubscribe(listener);
 }
 
-void AfterNightApp::notifyViewControlCreated(const ImageViewControl* ctrl)
-{
-    if (ctrl && m_impl->m_ExtensionHostLaunchCoordinator)
-    {
-        const std::string view_name = ctrl->getUniqueName();
-        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlCreated(
-            ctrl, view_name, view_name, ctrl->getFileName(), an::ui::buildImageSelectorTooltip(ctrl).toStdString());
-    }
-
-    m_impl->m_Core.eventBus().notifyViewControlCreated(ctrl);
-}
-
-void AfterNightApp::notifyActiveViewControlChanged(ImageViewControl* ctrl)
-{
-    m_impl->m_Core.eventBus().notifyActiveViewControlChanged(ctrl);
-}
-
-void AfterNightApp::notifyViewControlDestroyed(const ImageViewControl* ctrl)
-{
-    if (ctrl && m_impl->m_ExtensionHostLaunchCoordinator)
-    {
-        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlDestroyed(ctrl, ctrl->getUniqueName());
-    }
-
-    m_impl->m_Core.eventBus().notifyViewControlDestroyed(ctrl);
-}
-
 void AfterNightApp::notifyViewControlUpdated(const ImageViewControl* ctrl)
 {
-    if (ctrl && m_impl->m_ImageViewControlListComboBox)
-    {
-        const QString viewName = QString::fromUtf8(ctrl->getUniqueName());
-        const int itemId = m_impl->m_ImageViewControlListComboBox->findText(viewName);
-        if (itemId >= 0)
-        {
-            m_impl->m_ImageViewControlListComboBox->setItemData(itemId, an::ui::buildImageSelectorTooltip(ctrl),
-                                                                Qt::ToolTipRole);
-        }
-    }
-
-    if (m_impl->m_ExtensionHostLaunchCoordinator)
-    {
-        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlUpdated(ctrl);
-    }
-
-    m_impl->m_Core.eventBus().notifyViewControlUpdated(ctrl);
-}
-
-void AfterNightApp::notifyViewControlRenamed(const std::string& newName, const std::string& oldName,
-                                             const ImageViewControl* ctrl)
-{
-    if (m_impl->m_ExtensionHostLaunchCoordinator)
-    {
-        m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlRenamed(
-            newName, oldName, ctrl, ctrl ? ctrl->getFileName() : std::string(),
-            ctrl ? an::ui::buildImageSelectorTooltip(ctrl).toStdString() : std::string());
-    }
-
-    m_impl->m_Core.eventBus().notifyViewControlRenamed(newName, oldName, ctrl);
+    m_impl->m_Core.viewService().notifyViewControlUpdated(ctrl);
 }
 
 void AfterNightApp::notifyProcessOpened(const std::string& processName, const ImageViewControl* targetCtrl)
@@ -3483,324 +2924,22 @@ void AfterNightApp::setLastOpenDirectoryAndPersist(const QString& path)
     m_impl->m_Core.setLastOpenDirectory(path);
 }
 
-// onlySequences: 0 = disabled, 1 = ser, 2 = image list (anseq), 3 = avi
-static void initializeImageFileDialog(const std::string& defaultDir, const std::string& defaultFile,
-                                      QFileDialog& dialog, QFileDialog::AcceptMode acceptMode, bool acceptSequences,
-                                      int onlySequences, bool acceptMultipleFiles)
-{
-    if (acceptMode == QFileDialog::AcceptOpen)
-    {
-        an::ui::dialogs::applyCompactOpenFilterPresentation(dialog);
-    }
-
-    if (defaultDir.empty())
-    {
-        const QStringList picturesLocations = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
-        dialog.setDirectory(picturesLocations.isEmpty() ? QDir::currentPath() : picturesLocations.last());
-    }
-    else
-    {
-        dialog.setDirectory(QString::fromUtf8(defaultDir));
-    }
-
-    dialog.setFileMode(acceptMultipleFiles ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
-
-    QStringList allSupportedPatterns;
-    QStringList nameFilters;
-
-    if (!onlySequences)
-    {
-        // Common formats
-        nameFilters.append("PNG files (*.png)");
-        nameFilters.append("JPEG files (*.jpg *.jpeg)");
-        nameFilters.append("TIFF files (*.tif *.tiff)");
-        nameFilters.append("FITS files (*.fit *.fits)");
-        nameFilters.append("XISF files (*.xisf)");
-
-        allSupportedPatterns << "*.png" << "*.jpg" << "*.jpeg" << "*.tif" << "*.tiff" << "*.fit" << "*.fits"
-                             << "*.xisf";
-
-        if (acceptMode != QFileDialog::AcceptSave)
-        {
-            // RAW formats
-            nameFilters.append("Canon RAW (*.crw *.cr2 *.cr3)");
-            nameFilters.append("Nikon RAW (*.nef)");
-            nameFilters.append("Sony RAW (*.arw *.sr2 *.srf)");
-            nameFilters.append("Adobe DNG (*.dng)");
-            nameFilters.append("Kodak RAW (*.dcr *.k25 *.kdc)");
-            nameFilters.append("Epson RAW (*.erf)");
-            nameFilters.append("Minolta RAW (*.mrw)");
-            nameFilters.append("Olympus RAW (*.orf)");
-            nameFilters.append("Pentax RAW (*.pef)");
-            nameFilters.append("Fuji RAW (*.raf)");
-            nameFilters.append("Panasonic RAW (*.raw)");
-            nameFilters.append("Sigma RAW (*.x3f)");
-
-            allSupportedPatterns << "*.crw" << "*.cr2" << "*.cr3" << "*.nef" << "*.dng" << "*.arw" << "*.sr2" << "*.srf"
-                                 << "*.dcr" << "*.k25" << "*.kdc" << "*.erf" << "*.mrw" << "*.orf" << "*.pef" << "*.raf"
-                                 << "*.raw" << "*.x3f";
-        }
-    }
-
-    if (acceptSequences)
-    {
-        // TODO: Replace this with a more generic way to handle sequences
-        // For example, we should be able to chose the destination sequence type (SER, AVI, MP4, Image list, etc.)
-        // from any source sequence. Maybe show a dialog to chose the codec
-        if (acceptMode == QFileDialog::AcceptSave)
-        {
-            if (onlySequences == 1)
-                nameFilters.append("SER sequence (*.ser)");
-            else if (onlySequences == 2)
-                nameFilters.append("AfterNight sequence (*.anseq)");
-            else if (onlySequences == 3)
-            {
-                // TODO: Show a selection dialog to chose the codec (RAW, H264, H265, etc.)
-                nameFilters.append("RAW AVI Sequence (*.avi)");
-                nameFilters.append("MP4 sequence (*.mp4)");
-            }
-        }
-        else
-        {
-            nameFilters.append("SER sequence (*.ser)");
-            nameFilters.append("AVI sequence (*.avi)");
-            nameFilters.append("MP4 sequence (*.mp4)");
-            nameFilters.append("MOV sequence (*.mov)");
-            nameFilters.append("MKV sequence (*.mkv)");
-            nameFilters.append("MPG sequence (*.mpg)");
-            nameFilters.append("WEBM sequence (*.webm)");
-            nameFilters.append("MPEG sequence (*.mpeg)");
-            nameFilters.append("AfterNight sequence (*.anseq)");
-        }
-
-        allSupportedPatterns << "*.ser" << "*.anseq" << "*.mp4" << "*.avi" << "*.mov" << "*.mkv" << "*.mpg" << "*.mpeg"
-                             << "*.webm";
-    }
-
-    const QString allSupportedFilter = an::ui::dialogs::supportedFormatsNameFilter(allSupportedPatterns);
-    nameFilters.prepend(allSupportedFilter);
-
-    dialog.setNameFilters(nameFilters);
-    dialog.selectNameFilter(allSupportedFilter);
-    dialog.setAcceptMode(acceptMode);
-
-    if (acceptMode == QFileDialog::AcceptSave)
-    {
-        if (onlySequences == 1)
-        {
-            dialog.setDefaultSuffix("ser");
-        }
-        else if (onlySequences == 2)
-        {
-            dialog.setDefaultSuffix("anseq");
-        }
-        else
-        {
-            // Get default save format from settings
-            QString defaultFormat = QString(SettingsDefaults::GENERAL_DEFAULT_SAVE_FORMAT);
-            auto* settings = AfterNightApp::getInstance()->getGlobalSettingsPersistence();
-            if (settings)
-            {
-                defaultFormat = settings->select(SettingsKeys::GENERAL_DEFAULT_SAVE_FORMAT,
-                                                 QString(SettingsDefaults::GENERAL_DEFAULT_SAVE_FORMAT));
-            }
-
-            // Map format setting to file suffix and filter selection
-            QString suffix = "tiff";
-            QString filterToSelect;
-
-            if (defaultFormat == "tiff")
-            {
-                suffix = "tiff";
-                filterToSelect = "TIFF files (*.tif *.tiff)";
-            }
-            else if (defaultFormat == "fits")
-            {
-                suffix = "fits";
-                filterToSelect = "FITS files (*.fit *.fits)";
-            }
-            else if (defaultFormat == "png")
-            {
-                suffix = "png";
-                filterToSelect = "PNG files (*.png)";
-            }
-            else if (defaultFormat == "xisf")
-            {
-                suffix = "xisf";
-                filterToSelect = "XISF files (*.xisf)";
-            }
-            else if (defaultFormat == "jpeg" || defaultFormat == "jpg")
-            {
-                suffix = "jpg";
-                filterToSelect = "JPEG files (*.jpg *.jpeg)";
-            }
-
-            dialog.setDefaultSuffix(suffix);
-
-            // Select the matching filter if found
-            if (!filterToSelect.isEmpty())
-            {
-                dialog.selectNameFilter(filterToSelect);
-            }
-        }
-
-        dialog.selectFile(QString::fromUtf8(defaultFile));
-    }
-}
-
 QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
                                                bool supportMultipleFiles)
 {
-    std::string folder = m_impl->m_Core.lastOpenDirectory();
-
-    if (!folderContext.isEmpty())
-    {
-        auto savedFolder = m_impl->m_Core.folderStore()->select(folderContext);
-
-        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
-        {
-            folder = savedFolder.toUtf8().toStdString();
-        }
-    }
-
-    QFileDialog dialog(parent, title);
-    initializeImageFileDialog(folder, std::string(), dialog, QFileDialog::AcceptOpen, false, 0, supportMultipleFiles);
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
-
-    {
-        ScopedTopLevelFlagRestorer _;
-
-        if (dialog.exec() == QDialog::Rejected)
-        {
-            return QStringList();
-        }
-    }
-
-    if (!folderContext.isEmpty())
-    {
-        auto dir = dialog.directory();
-
-        QString qtFolder = QString::fromUtf8(folder);
-        if (dir != qtFolder)
-        {
-            m_impl->m_Core.folderStore()->upsert(folderContext, dir.path());
-        }
-    }
-
-    return an::ui::dialogs::filterSupportedImageOpenPaths(dialog.selectedFiles());
+    return m_impl->m_Core.fileDialogService().selectImageFiles(parent, title, folderContext, supportMultipleFiles);
 }
 
 QStringList AfterNightApp::selectFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
                                           const QStringList& fileExtensions)
 {
-    std::string folder = m_impl->m_Core.lastOpenDirectory();
-
-    if (!folderContext.isEmpty())
-    {
-        auto savedFolder = m_impl->m_Core.folderStore()->select(folderContext);
-
-        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
-        {
-            folder = savedFolder.toUtf8().toStdString();
-        }
-    }
-
-    QFileDialog dialog(parent, title);
-    const QString initialFolder = QString::fromUtf8(folder);
-    if (!initialFolder.isEmpty() && QDir(initialFolder).exists())
-    {
-        dialog.setDirectoryUrl(QUrl::fromLocalFile(initialFolder));
-    }
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
-
-#ifdef WIN32
-    dialog.setFilter(QDir::Executable | QDir::Files);
-#endif
-
-    if (!fileExtensions.isEmpty())
-    {
-        dialog.setNameFilters(fileExtensions);
-    }
-
-    {
-        ScopedTopLevelFlagRestorer _;
-
-        dialog.setWindowFlags(dialog.windowFlags() | Qt::WindowStaysOnTopHint | Qt::Window);
-
-        if (dialog.exec() == QDialog::Rejected)
-        {
-            return QStringList();
-        }
-    }
-
-    if (!folderContext.isEmpty())
-    {
-        auto dir = dialog.directory();
-
-        QString qtFolder = QString::fromUtf8(folder);
-        if (dir != qtFolder)
-        {
-            m_impl->m_Core.folderStore()->upsert(folderContext, dir.path());
-        }
-    }
-
-    return dialog.selectedFiles();
+    return m_impl->m_Core.fileDialogService().selectFiles(parent, title, folderContext, fileExtensions);
 }
 
 QStringList AfterNightApp::saveFileDlg(QWidget* parent, const QString& title, const QString& defaultDir,
                                        const QString& folderContext, const QStringList& fileExtensions)
 {
-    QFileDialog dialog(parent, title);
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
-
-    auto defaultDirWstr = defaultDir.toUtf8().toStdString();
-
-    if (!defaultDirWstr.empty() && std::filesystem::exists(defaultDirWstr) &&
-        std::filesystem::is_directory(defaultDirWstr))
-    {
-        dialog.setDirectory(defaultDir);
-    }
-    else if (!folderContext.isEmpty())
-    {
-        auto savedFolder = AfterNightApp::getInstance()->getFolderTrackerPersistence()->select(folderContext);
-
-        if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
-        {
-            dialog.setDirectory(savedFolder);
-        }
-    }
-
-    dialog.setFilter(QDir::Executable | QDir::Files);
-
-    dialog.setAcceptMode(QFileDialog::AcceptSave);
-
-    if (!fileExtensions.isEmpty())
-    {
-        dialog.setNameFilters(fileExtensions);
-    }
-
-    {
-        ScopedTopLevelFlagRestorer _;
-
-        if (dialog.exec() == QDialog::Rejected)
-        {
-            return QStringList();
-        }
-    }
-
-    if (!folderContext.isEmpty())
-    {
-        m_impl->m_Core.folderStore()->upsert(folderContext, dialog.directory().path());
-    }
-
-    return dialog.selectedFiles();
-}
-
-QString AfterNightApp::getExistingDirectory(QWidget* parent, const QString& title, const QString& dir,
-                                            QFileDialog::Options options)
-{
-    ScopedTopLevelFlagRestorer _;
-    return an::ui::dialogs::getExistingDirectory(m_impl->m_Core.globalSettingsStore(), parent, title, dir, options);
+    return m_impl->m_Core.fileDialogService().saveFiles(parent, title, defaultDir, folderContext, fileExtensions);
 }
 
 void AfterNightApp::newSequence()
@@ -3977,14 +3116,6 @@ void AfterNightApp::setEnableImageActions(bool enable)
     }
 }
 
-void AfterNightApp::refreshTheme()
-{
-    if (m_impl->m_ThemeManager)
-    {
-        m_impl->m_ThemeManager->refreshTheme();
-    }
-}
-
 void AfterNightApp::loadIcons()
 {
     if (m_impl->m_ThemeManager)
@@ -4083,14 +3214,6 @@ void AfterNightApp::persistRecentProcessesToSettings()
 void AfterNightApp::enforceRecentProcessesLimit()
 {
     m_impl->m_Core.recentProcesses().enforceLimit();
-}
-
-void AfterNightApp::recordRecentProcess(const std::string& processId, const std::string& displayName)
-{
-    if (m_impl->m_Core.recentProcesses().record(processId, displayName))
-    {
-        updateRecentProcessesMenuEntries();
-    }
 }
 
 void AfterNightApp::updateRecentProcessesMenuEntries()
@@ -4453,10 +3576,7 @@ std::list<ImageViewControl*> AfterNightApp::getListOfMaximizedViewControls()
 
 void AfterNightApp::notifyErrorMessage(QWidget* parent, const QString& title, const QString& text)
 {
-    if (m_impl->m_DialogOrchestrationCoordinator)
-    {
-        m_impl->m_DialogOrchestrationCoordinator->notifyErrorMessage(parent, title, text);
-    }
+    m_impl->m_Core.dialogService().notifyErrorMessage(parent, title, text);
 }
 
 void AfterNightApp::notifyErrorMessageAsync(QWidget* parent, const QString& title, const QString& text)
@@ -4466,10 +3586,7 @@ void AfterNightApp::notifyErrorMessageAsync(QWidget* parent, const QString& titl
 
 void AfterNightApp::notifyWarnMessage(QWidget* parent, const QString& title, const QString& text)
 {
-    if (m_impl->m_DialogOrchestrationCoordinator)
-    {
-        m_impl->m_DialogOrchestrationCoordinator->notifyWarnMessage(parent, title, text);
-    }
+    m_impl->m_Core.dialogService().notifyWarnMessage(parent, title, text);
 }
 
 void AfterNightApp::notifyWarnMessageAsync(QWidget* parent, const QString& title, const QString& text)
@@ -4479,10 +3596,7 @@ void AfterNightApp::notifyWarnMessageAsync(QWidget* parent, const QString& title
 
 void AfterNightApp::notifyInfoMessage(QWidget* parent, const QString& title, const QString& text)
 {
-    if (m_impl->m_DialogOrchestrationCoordinator)
-    {
-        m_impl->m_DialogOrchestrationCoordinator->notifyInfoMessage(parent, title, text);
-    }
+    m_impl->m_Core.dialogService().notifyInfoMessage(parent, title, text);
 }
 
 void AfterNightApp::notifyInfoMessageAsync(QWidget* parent, const QString& title, const QString& text)
@@ -4492,10 +3606,7 @@ void AfterNightApp::notifyInfoMessageAsync(QWidget* parent, const QString& title
 
 void AfterNightApp::messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret)
 {
-    if (m_impl->m_DialogOrchestrationCoordinator)
-    {
-        m_impl->m_DialogOrchestrationCoordinator->messageBoxYesNo(parent, title, text, warn, ret);
-    }
+    m_impl->m_Core.dialogService().messageBoxYesNo(parent, title, text, warn, ret);
 }
 
 void AfterNightApp::messageBoxYesNoAsync(QWidget* parent, const QString& title, const QString& text, bool warn,
@@ -4610,18 +3721,12 @@ void AfterNightApp::saveWindowGeometry()
 
 void AfterNightApp::maximizeViewControl(ImageViewControl* ctrl)
 {
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->maximizeViewControl(ctrl);
-    }
+    m_impl->m_Core.viewService().maximizeViewControl(ctrl);
 }
 
 void AfterNightApp::restoreViewControl(ImageViewControl* ctrl)
 {
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->restoreViewControl(ctrl);
-    }
+    m_impl->m_Core.viewService().restoreViewControl(ctrl);
 }
 
 IconManagerSptr AfterNightApp::getIconManager()
@@ -4632,4 +3737,185 @@ IconManagerSptr AfterNightApp::getIconManager()
 std::set<std::string> AfterNightApp::getListOfTemporaryDirs()
 {
     return m_impl->m_Core.runtimeStorage().getListOfTemporaryDirs();
+}
+
+// ---- The shell
+
+void AfterNightApp::build() {}
+
+QWidget* AfterNightApp::mainWindow()
+{
+    return this;
+}
+
+an::ui::shell::IViewHost& AfterNightApp::viewHost()
+{
+    return *this;
+}
+
+an::ui::shell::IStatusDisplay& AfterNightApp::statusDisplay()
+{
+    return *this;
+}
+
+an::ui::IProcessPresenter* AfterNightApp::processPresenter()
+{
+    return nullptr;
+}
+
+void AfterNightApp::setSessionConsoleVisible(const bool visible)
+{
+    setLogViewerChecked(visible);
+    on_LogViewerClicked(visible);
+}
+
+bool AfterNightApp::isSessionConsoleVisible() const
+{
+    return m_impl->m_LogViewerControl != nullptr;
+}
+
+void AfterNightApp::refreshTheme()
+{
+    if (m_impl->m_ThemeManager)
+    {
+        m_impl->m_ThemeManager->refreshTheme();
+    }
+}
+
+void AfterNightApp::saveGeometry()
+{
+    saveWindowGeometry();
+}
+
+// ---- Where the views are
+
+void AfterNightApp::place(ImageViewControl& view, const an::ui::shell::ViewPlacement& placement)
+{
+    QWidget* const current = m_impl->ui.centralWidget ? m_impl->ui.centralWidget->currentWidget() : nullptr;
+    const bool onDashboard = current == m_impl->m_MainDashboardScrollArea;
+    const bool onDockArea = current == m_impl->m_DockMainWindow;
+    if (current && !onDashboard && !onDockArea && m_impl->m_WindowLayoutCoordinator)
+    {
+        // A view maximized on its page goes back to the dock area, which the new view joins.
+        for (ImageViewControl* maximized : m_impl->m_WindowLayoutCoordinator->getListOfMaximizedViewControls())
+        {
+            if (maximized != &view && !maximized->isInFloatingWindow())
+            {
+                maximized->switchMaximized();
+            }
+        }
+    }
+
+    an::ui::dockCreatedView(view, placement.neighbour, m_impl->m_DockMainWindow);
+    showViews();
+}
+
+void AfterNightApp::activate(ImageViewControl& view)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->viewActivated(&view);
+    }
+}
+
+void AfterNightApp::viewAdded(ImageViewControl& view, const an::ui::shell::ViewOrigin /*origin*/)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->viewAdded(&view);
+    }
+}
+
+void AfterNightApp::viewRemoved(ImageViewControl& view)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->viewRemoved(&view);
+    }
+}
+
+void AfterNightApp::viewRenamed(ImageViewControl& view, const std::string& previousName)
+{
+    if (m_impl->m_ViewControlCoordinator)
+    {
+        m_impl->m_ViewControlCoordinator->viewRenamed(&view, previousName);
+    }
+}
+
+void AfterNightApp::maximize(ImageViewControl& view)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->maximizeViewControl(&view);
+    }
+}
+
+void AfterNightApp::restore(ImageViewControl& view)
+{
+    if (m_impl->m_WindowLayoutCoordinator)
+    {
+        m_impl->m_WindowLayoutCoordinator->restoreViewControl(&view);
+    }
+}
+
+an::ui::shell::DockTarget AfterNightApp::dockTarget(const ImageViewControl* /*view*/)
+{
+    return an::ui::shell::DockTarget{.mainWindow = m_impl->m_DockMainWindow, .workspaceId = {}};
+}
+
+void AfterNightApp::showHome()
+{
+    // The Session Console is a dock of the dock area, which stays on screen while it is open.
+    if (m_impl->m_LogViewerControl == nullptr)
+    {
+        switchToMainDashboard();
+    }
+}
+
+void AfterNightApp::showViews()
+{
+    if (m_impl->m_DockMainWindow && m_impl->ui.centralWidget &&
+        m_impl->ui.centralWidget->currentWidget() != m_impl->m_DockMainWindow)
+    {
+        switchToDockManager();
+    }
+}
+
+// ---- The status line
+
+void AfterNightApp::showImageInfo(ImageViewControl* view)
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->updateImageInfo(view);
+    }
+}
+
+void AfterNightApp::showZoom(ImageViewControl* view)
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->updateImageZoomInfo(view);
+    }
+}
+
+void AfterNightApp::showCelestialCoordinates(const double raDegrees, const double decDegrees)
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->updateCelestialCoords(raDegrees, decDegrees);
+    }
+}
+
+void AfterNightApp::clearCelestialCoordinates()
+{
+    if (m_impl->m_ImageInfoStatusBarWidget)
+    {
+        m_impl->m_ImageInfoStatusBarWidget->clearCelestialCoords();
+    }
+}
+
+void AfterNightApp::clearImageInfo()
+{
+    showImageInfo(nullptr);
 }

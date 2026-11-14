@@ -1290,7 +1290,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationEvents.h`, `services/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1340,9 +1340,30 @@ when the window held it, and save it through the model. `main` makes the core on
 hands it to the window, which wires its coordinators to what the core holds; the window's members of the same names
 forward to it, and the core outlives the window.
 
+The core also holds the services the application context answers with, and each answers what only a window can
+through the shell it is given (`ApplicationCore::setShell`). `services/DialogService.h` shows the messages, each modal
+over the window of the widget that asked for it or, when none did, over the shell's window (`dialogParentFor`), and
+opens the settings where the shell says. `services/FileDialogService.h` opens the file dialogs over the same window,
+drawn by the system or by Qt as `interface/useSystemFileBrowser` says, in the folder their context remembers or the
+one opened last, and remembers under the context the folder the person chose from. `views/ViewService.h` holds the
+views' list and makes views through `ViewCreationCoordinator`, and tells the shell of each change through `IViewHost` -
+a view added, placed beside the neighbour it was made from, activated, removed (after it left the list), renamed (with
+the name it had), maximized and restored, and home once the last one goes - and shows the active view's state through
+`IStatusDisplay`. A view made through it as the context's `IViewFactory` is a process's (`ViewOrigin::Process`): the
+shell keeps its place on screen. The file workflows are handed `userViews()`, a factory whose views are the person's
+(`ViewOrigin::User`), and the shell is asked to show its views right after it hears of one. `subjectView()` is the
+view the image actions act on and `lookingView()` the one the looking actions act on: the active view, unless a shell
+showing a task names the task's target and canvas (`setTaskSubject`), until it clears them or one of them goes.
+`services/ProcessLaunchService.h` launches the registry's processes - one that acts on an image acts on the subject
+view - prepares an extension's environment before it launches the extension's process, and lists the extensions once
+each, by name (`extensionFamilies`). What a service needs that is neither the core's nor the shell's to give - the
+state of the actions, the image selector, the extension sessions' views, the settings dialogs, the process menus - it is
+handed as its `Hooks` by the window, which sets them as it is made and clears them, with the shell, as it goes.
+
 The core is also the receiver of the work a thread hands the GUI thread (`core/ApplicationEvents.h`): each of its
 `...Async` calls posts one event to the core and returns, never waiting, and the event runs once on the GUI thread
-against the core's `IApplicationEventTarget` - the window, until the services that answer those calls leave it. An
+against the core's `IApplicationEventTarget` - `ServiceEventTarget`, which answers through the view and dialog
+services and hands the window what is still its own (the actions' state, the recent files' thumbnails and menus). An
 event posted through the context's event bus by any library runs there too. The core being the receiver is what keeps
 an event from running after it: Qt lets go of a receiver's pending events when it goes. The window discards the events
 still pending and takes its target away as it goes, so nothing handed to it runs once it is gone; an event that throws
@@ -1351,14 +1372,21 @@ is reported to the target and logged, and the next one runs.
 `Test_ShellCore` compiles its cases and links the library, with no window: `ShellRegistry.*` and `ShellSelection.*`;
 `ApplicationCore.*` (the stores under the case's storage root, before any widget exists), `ApplicationEvents.*`
 (posted from a worker, run once on the GUI thread; none after the core or its target is gone), `AppEventBus.*`,
-`OpenProcessRegistry.*` and the three lists' cases.
+`OpenProcessRegistry.*` and the three lists' cases; and the services' cases over a shell that records what it is asked
+(`Test_ShellCore/ShellCoreViewSupport.h`): `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
+the system's or Qt's browser), `ViewService.*` (real views of a session the case opens: names, the active view, the
+order a removal is told in, a worker's request, who asked for a view, the subject and the looking view) and
+`ProcessLaunchService.*`.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/AfterNightApp.h`, `app/AfterNightAppContext.h`)
 
-A thin shell: `AfterNightApp` (a `QMainWindow`) composes coordinators that live in `AfterNightControls/app/`
-(`UiBootstrapCoordinator`, `ViewCreationCoordinator`, `WindowLayoutCoordinator`, `DialogOrchestrationCoordinator`,
-`PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and `AfterNightAppContext` implements the `IAppContext`
-service interfaces. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
+A thin shell: `AfterNightApp` (a `QMainWindow`) is the classic shell - it implements `IShell`, `IViewHost` and
+`IStatusDisplay` for the core's services: it docks a new view beside its neighbour or on the right of its dock area,
+lists the views in its image selector (`ViewControlCoordinator`, which keeps the selector and the docks' order and no
+longer the list), shows its dashboard as home and its dock area as the place of views, and fills its status bar. It
+composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, `WindowLayoutCoordinator`,
+`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and `AfterNightAppContext`
+implements the `IAppContext` service interfaces. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
 (`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's
 minimum version names the product - initializes the platform logger, owns one `ApplicationSession` and makes the
 `ApplicationCore` the window is made over (`AfterNightApp::createInstance`); `AfterNightApp::initialize` opens the

@@ -3,11 +3,18 @@
 
 #include "core/ApplicationCore.h"
 
+#include "core/IShell.h"
 #include "services/AppEventBus.h"
+#include "services/DialogService.h"
 #include "services/FavoriteProcessesModel.h"
+#include "services/FileDialogService.h"
+#include "services/ProcessLaunchService.h"
 #include "services/OpenProcessRegistry.h"
 #include "services/RecentFilesModel.h"
 #include "services/RecentProcessesModel.h"
+#include "views/ViewService.h"
+
+#include "app/IconManager.h"
 
 #include "app/PersistenceCoordinator.h"
 #include "app/RuntimeStorageCoordinator.h"
@@ -91,6 +98,13 @@ struct ApplicationCore::Impl
     FavoriteProcessesModel favoriteProcesses;
 
     IApplicationEventTarget* eventTarget = nullptr;
+    IShell* shell = nullptr;
+
+    std::shared_ptr<IconManager> iconManager = std::make_shared<IconManager>();
+    std::unique_ptr<DialogService> dialogs;
+    std::unique_ptr<FileDialogService> fileDialogs;
+    std::unique_ptr<ViewService> views;
+    std::unique_ptr<ProcessLaunchService> launches;
 };
 
 ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<Impl>())
@@ -124,11 +138,18 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     persistenceDeps.ensureTempDirCreated = [&impl]() { impl.runtimeStorage->ensureTempDirCreated(); };
     persistenceDeps.ensureThumbnailsDirCreated = [&impl]() { impl.runtimeStorage->ensureThumbnailsDirCreated(); };
     impl.persistence = std::make_unique<an::ui::PersistenceCoordinator>(persistenceDeps);
+
+    impl.dialogs = std::make_unique<DialogService>(*this);
+    impl.fileDialogs = std::make_unique<FileDialogService>(*this);
+    impl.views = std::make_unique<ViewService>(*this);
+    impl.launches = std::make_unique<ProcessLaunchService>(*this);
 }
 
 ApplicationCore::~ApplicationCore()
 {
     m_impl->eventTarget = nullptr;
+    m_impl->launches.reset();
+    m_impl->shell = nullptr;
     closeStores();
 }
 
@@ -279,6 +300,47 @@ RecentProcessesModel& ApplicationCore::recentProcesses() noexcept
 FavoriteProcessesModel& ApplicationCore::favoriteProcesses() noexcept
 {
     return m_impl->favoriteProcesses;
+}
+
+DialogService& ApplicationCore::dialogService() noexcept
+{
+    return *m_impl->dialogs;
+}
+
+FileDialogService& ApplicationCore::fileDialogService() noexcept
+{
+    return *m_impl->fileDialogs;
+}
+
+ViewService& ApplicationCore::viewService() noexcept
+{
+    return *m_impl->views;
+}
+
+ProcessLaunchService& ApplicationCore::processLaunch() noexcept
+{
+    return *m_impl->launches;
+}
+
+const std::shared_ptr<IconManager>& ApplicationCore::iconManager() const noexcept
+{
+    return m_impl->iconManager;
+}
+
+void ApplicationCore::setShell(IShell* shell)
+{
+    if (shell == m_impl->shell)
+    {
+        return;
+    }
+    // The preparations' windows belong to the shell's window.
+    m_impl->launches->releasePreparations();
+    m_impl->shell = shell;
+}
+
+IShell* ApplicationCore::shell() const noexcept
+{
+    return m_impl->shell;
 }
 
 std::thread::id ApplicationCore::guiThreadId() const noexcept

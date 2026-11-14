@@ -4,6 +4,7 @@
 #include "stdafx.hpp"
 
 #include "app/DialogOrchestrationCoordinator.h"
+#include "app/MessageBoxes.h"
 
 #include "controls/AboutDialog.h"
 #include "controls/MainDashboard.h"
@@ -62,117 +63,19 @@
 namespace
 {
 
+using an::ui::ScopedTopLevelFlagRestorer;
+using an::ui::showModernMessageBox;
+
+/// Says something over `parent`, as the application's notes are said.
+void showNotice(QWidget* parent, const QString& title, const QString& text)
+{
+    const ScopedTopLevelFlagRestorer restorer;
+    showModernMessageBox(parent, QMessageBox::Information, title, text, QMessageBox::Ok, QMessageBox::Ok);
+}
+
 // Give activation reconciliation time to populate the startup catalog so the
 // update check does not launch a duplicate cold discovery pass.
 constexpr int kExtensionStartupUpdateDelayMs = 3000;
-
-class ScopedTopLevelFlagRestorer
-{
-public:
-    explicit ScopedTopLevelFlagRestorer(const Qt::WindowFlags clearFlag = Qt::WindowStaysOnTopHint)
-        : m_clearFlag(clearFlag)
-    {
-        const auto topLevels = QApplication::topLevelWidgets();
-        for (QWidget* widget : topLevels)
-        {
-            if (!widget || !widget->isVisible())
-            {
-                continue;
-            }
-
-            const Qt::WindowFlags flags = widget->windowFlags();
-            if (flags & clearFlag)
-            {
-                m_originalFlags[widget] = flags;
-                widget->setWindowFlags(flags & ~clearFlag);
-                widget->hide();
-                widget->show();
-            }
-        }
-    }
-
-    ~ScopedTopLevelFlagRestorer()
-    {
-        for (auto it = m_originalFlags.begin(); it != m_originalFlags.end(); ++it)
-        {
-            QWidget* widget = it.key();
-            const Qt::WindowFlags flags = it.value();
-            if (widget)
-            {
-                widget->setWindowFlags(flags);
-                widget->hide();
-                widget->show();
-            }
-        }
-    }
-
-private:
-    QMap<QWidget*, Qt::WindowFlags> m_originalFlags;
-    Qt::WindowFlags m_clearFlag;
-};
-
-void applyMessageBoxButtonRole(QMessageBox& messageBox, const QMessageBox::StandardButton standardButton,
-                               const char* role)
-{
-    if (!role)
-    {
-        return;
-    }
-
-    if (auto* button = messageBox.button(standardButton))
-    {
-        button->setProperty("anProcessButtonRole", QString::fromUtf8(role));
-    }
-}
-
-void applyModernMessageBoxButtonRoles(QMessageBox& messageBox)
-{
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Ok, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Yes, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::YesToAll, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Save, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::SaveAll, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Open, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Apply, "primary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Retry, "primary");
-
-    applyMessageBoxButtonRole(messageBox, QMessageBox::No, "secondary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::NoToAll, "secondary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Cancel, "secondary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Close, "secondary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Ignore, "secondary");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Help, "secondary");
-
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Reset, "neutral");
-
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Discard, "danger");
-    applyMessageBoxButtonRole(messageBox, QMessageBox::Abort, "danger");
-}
-
-QMessageBox::StandardButton
-showModernMessageBox(QWidget* parent, const QMessageBox::Icon icon, const QString& title, const QString& text,
-                     const QMessageBox::StandardButtons buttons = QMessageBox::Ok,
-                     const QMessageBox::StandardButton defaultButton = QMessageBox::NoButton)
-{
-    QMessageBox messageBox(parent);
-    messageBox.setObjectName(QStringLiteral("anMessageBox"));
-    messageBox.setProperty("anDialogVariant", QStringLiteral("messageBox"));
-    messageBox.setIcon(icon);
-    messageBox.setWindowTitle(title);
-    messageBox.setText(text);
-    messageBox.setStandardButtons(buttons);
-    messageBox.setWindowModality(parent ? Qt::WindowModal : Qt::ApplicationModal);
-    messageBox.setTextInteractionFlags(Qt::TextSelectableByMouse);
-
-    if (defaultButton != QMessageBox::NoButton)
-    {
-        messageBox.setDefaultButton(defaultButton);
-    }
-
-    applyModernMessageBoxButtonRoles(messageBox);
-
-    return static_cast<QMessageBox::StandardButton>(messageBox.exec());
-}
 
 [[nodiscard]] QString extensionDialogTitle()
 {
@@ -758,9 +661,9 @@ void DialogOrchestrationCoordinator::openHelp() const
         LOG_WARNING("AfterNight bundled user guide was not found or could not be opened. Online fallback is disabled "
                     "by {}. Checked candidates: {}",
                     kAfterNightDisableOnlineUserGuideEnv, candidates.join(QStringLiteral("; ")).toStdString());
-        notifyInfoMessage(m_dependencies.mainWindow, QObject::tr("Help"),
-                          QObject::tr("The offline AfterNight User Guide could not be opened, and online fallback is "
-                                      "disabled by policy."));
+        showNotice(m_dependencies.mainWindow, QObject::tr("Help"),
+                   QObject::tr("The offline AfterNight User Guide could not be opened, and online fallback is "
+                               "disabled by policy."));
         return;
     }
 
@@ -771,8 +674,8 @@ void DialogOrchestrationCoordinator::openHelp() const
 
     LOG_WARNING("Failed to open AfterNight user guide locally or online at '{}'. Checked candidates: {}",
                 onlineUrl->toString().toStdString(), candidates.join(QStringLiteral("; ")).toStdString());
-    notifyInfoMessage(m_dependencies.mainWindow, QObject::tr("Help"),
-                      QObject::tr("The AfterNight User Guide could not be opened locally or online."));
+    showNotice(m_dependencies.mainWindow, QObject::tr("Help"),
+               QObject::tr("The AfterNight User Guide could not be opened locally or online."));
 }
 
 void DialogOrchestrationCoordinator::openSettings() const
@@ -1033,44 +936,6 @@ void DialogOrchestrationCoordinator::systemInformation() const
     ScopedTopLevelFlagRestorer _;
     SystemInformationDialog dialog(m_dependencies.mainWindow);
     dialog.exec();
-}
-
-void DialogOrchestrationCoordinator::notifyErrorMessage(QWidget* parent, const QString& title,
-                                                        const QString& text) const
-{
-    ScopedTopLevelFlagRestorer _;
-    QWidget* dialogParent = resolveDialogParent(m_dependencies.mainWindow, parent);
-    showModernMessageBox(dialogParent, QMessageBox::Critical, title, text, QMessageBox::Ok, QMessageBox::Ok);
-}
-
-void DialogOrchestrationCoordinator::notifyWarnMessage(QWidget* parent, const QString& title, const QString& text) const
-{
-    ScopedTopLevelFlagRestorer _;
-    QWidget* dialogParent = resolveDialogParent(m_dependencies.mainWindow, parent);
-    showModernMessageBox(dialogParent, QMessageBox::Warning, title, text, QMessageBox::Ok, QMessageBox::Ok);
-}
-
-void DialogOrchestrationCoordinator::notifyInfoMessage(QWidget* parent, const QString& title, const QString& text) const
-{
-    ScopedTopLevelFlagRestorer _;
-    QWidget* dialogParent = resolveDialogParent(m_dependencies.mainWindow, parent);
-    showModernMessageBox(dialogParent, QMessageBox::Information, title, text, QMessageBox::Ok, QMessageBox::Ok);
-}
-
-void DialogOrchestrationCoordinator::messageBoxYesNo(QWidget* parent, const QString& title, const QString& text,
-                                                     const bool warn, int* ret) const
-{
-    ScopedTopLevelFlagRestorer _;
-    QWidget* dialogParent = resolveDialogParent(m_dependencies.mainWindow, parent);
-
-    const auto icon = warn ? QMessageBox::Warning : QMessageBox::Question;
-    const auto result =
-        showModernMessageBox(dialogParent, icon, title, text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-
-    if (ret)
-    {
-        *ret = static_cast<int>(result);
-    }
 }
 
 void DialogOrchestrationCoordinator::openMessageBoxYesNo(QWidget* parent, const QString& title, const QString& text,

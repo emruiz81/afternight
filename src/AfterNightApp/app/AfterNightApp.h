@@ -24,6 +24,8 @@
 #include "app/GuiThreadInvoke.h"
 #include "app/IconManager.h"
 
+#include "core/IShell.h"
+
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Core/Status.h>
 
@@ -59,11 +61,6 @@ class ImageAsset;
 namespace an::ui::app
 {
 class AfterNightAppUiElements;
-}
-
-namespace an::ui::extensions
-{
-struct ExtensionLaunchPreparationOutcome;
 }
 
 class AfterNightAppListener;
@@ -117,7 +114,13 @@ namespace an::ui::shell
 class ApplicationCore;
 }
 
-class AfterNightApp : public QMainWindow
+/// The classic window: the main window of menus, a toolbar and a status bar over the dashboard, the dock area and the
+/// page of a maximized view. It is the classic shell - what only a window can answer for the application core's
+/// services: where a view goes, what the status line shows, whether the Session Console is on screen.
+class AfterNightApp : public QMainWindow,
+                      public an::ui::shell::IShell,
+                      public an::ui::shell::IViewHost,
+                      public an::ui::shell::IStatusDisplay
 {
 public:
     /// Makes the main window over the application core `main` made, which outlives it; called once.
@@ -159,10 +162,6 @@ public:
 
     void createContextMenuForViewControl(ImageViewControl* view, QContextMenuEvent* event);
 
-    // Called only in the main thread
-    [[nodiscard]] ImageViewControl* createNewImageViewControl(const std::string& name, QWidget* parent = nullptr,
-                                                              const ViewControlMode mode = ViewControlMode::standard,
-                                                              const bool pendingChanges = true);
     // The view factory, on the GUI thread: a view made takes the document, and a document no view is made for is
     // left with the caller as it was handed in.
     [[nodiscard]] ImageViewControl* createNewImageViewControlFromImage(
@@ -206,14 +205,7 @@ public:
     void subscribeListener(AfterNightAppListener* listener);
     void unsubscribeListener(AfterNightAppListener* listener);
 
-    void notifyViewControlCreated(const ImageViewControl* ctrl);
-    void notifyActiveViewControlChanged(ImageViewControl* ctrl);
-
-    void notifyViewControlDestroyed(const ImageViewControl* ctrl);
-
     void notifyViewControlUpdated(const ImageViewControl* ctrl);
-
-    void notifyViewControlRenamed(const std::string& newName, const std::string& oldName, const ImageViewControl* ctrl);
 
     void notifyProcessOpened(const std::string& processName, const ImageViewControl* targetCtrl);
 
@@ -233,9 +225,6 @@ public:
     // folderContext (if any). folderContext is updated if provided, even if defaultDir was provided
     QStringList saveFileDlg(QWidget* parent, const QString& title, const QString& defaultDir,
                             const QString& folderContext, const QStringList& fileExtensions);
-
-    QString getExistingDirectory(QWidget* parent, const QString& title = QString(), const QString& dir = QString(),
-                                 QFileDialog::Options options = QFileDialog::ShowDirsOnly);
 
     void notifyErrorMessage(QWidget* parent, const QString& title, const QString& text);
     void notifyErrorMessageAsync(QWidget* parent, const QString& title, const QString& text);
@@ -278,7 +267,7 @@ public:
     void refreshAllZoomSettings();
 
     /// Show the main window, restoring saved geometry if the setting is enabled
-    void showWithSavedGeometry();
+    void showWithSavedGeometry() override;
 
     void maximizeViewControl(ImageViewControl* ctrl);
 
@@ -364,7 +353,49 @@ public:
     [[nodiscard]] an::Result<an::OutputIntent> buildOutputIntent(const an::ImageDescriptor& source,
                                                                  an::CodecFormat container) const;
 
-    [[nodiscard]] bool isMaximizedViewActive() const;
+    [[nodiscard]] bool isMaximizedViewActive() const override;
+
+    // ---- The shell
+
+    /// The window is built when it is made: nothing is left to build.
+    void build() override;
+    [[nodiscard]] QWidget* mainWindow() override;
+    [[nodiscard]] an::ui::shell::IViewHost& viewHost() override;
+    [[nodiscard]] an::ui::shell::IStatusDisplay& statusDisplay() override;
+    /// Null: every process is a window of its own.
+    [[nodiscard]] an::ui::IProcessPresenter* processPresenter() override;
+    void setSessionConsoleVisible(bool visible) override;
+    [[nodiscard]] bool isSessionConsoleVisible() const override;
+    void refreshTheme() override;
+    void saveGeometry() override;
+
+    // ---- Where the views are
+
+    /// Docks a new view beside its neighbour, or on the right of the dock area; a view maximized on its page goes back
+    /// to the dock area first, and the dock area is shown in place of the dashboard.
+    void place(ImageViewControl& view, const an::ui::shell::ViewPlacement& placement) override;
+    /// Selects the view in the image selector and brings its dock forward.
+    void activate(ImageViewControl& view) override;
+    /// Lists the view in the image selector.
+    void viewAdded(ImageViewControl& view, an::ui::shell::ViewOrigin origin) override;
+    void viewRemoved(ImageViewControl& view) override;
+    void viewRenamed(ImageViewControl& view, const std::string& previousName) override;
+    void maximize(ImageViewControl& view) override;
+    void restore(ImageViewControl& view) override;
+    /// The one dock area the window has.
+    [[nodiscard]] an::ui::shell::DockTarget dockTarget(const ImageViewControl* view = nullptr) override;
+    /// Shows the dashboard, unless the Session Console holds the dock area.
+    void showHome() override;
+    /// Shows the dock area.
+    void showViews() override;
+
+    // ---- The status line
+
+    void showImageInfo(ImageViewControl* view) override;
+    void showZoom(ImageViewControl* view) override;
+    void showCelestialCoordinates(double raDegrees, double decDegrees) override;
+    void clearCelestialCoordinates() override;
+    void clearImageInfo() override;
 
     [[nodiscard]] an::ui::ProcessLauncher* processLauncher() const;
     [[nodiscard]] an::ui::ChannelExtractor* channelExtractor() const;
@@ -406,16 +437,6 @@ private:
 
     bool tryLaunchRegistryProcessById(const std::string& processId);
 
-    /// Completes the launch of a process whose extension's environment a launch prepared: the registry, the launches
-    /// and the menus take what the packages are now, and the process is launched when its environment was made ready,
-    /// or what still stands in the way reported once, with where to deal with it.
-    ///
-    /// @param processId the descriptor that was launched.
-    /// @param extensionId the extension the descriptor belongs to.
-    /// @param outcome what the preparation came to.
-    void completePreparedExtensionLaunch(const std::string& processId, const std::string& extensionId,
-                                         const an::ui::extensions::ExtensionLaunchPreparationOutcome& outcome);
-
     void initializePersistence();
 
     void persistLastOpenDir();
@@ -425,7 +446,6 @@ private:
     void enforceRecentProcessesLimit();
     void loadRecentProcessesFromSettings();
     void persistRecentProcessesToSettings();
-    void recordRecentProcess(const std::string& processId, const std::string& displayName);
     void updateRecentProcessesMenuEntries();
     void clearRecentProcessesList();
     void loadFavoriteProcessesFromSettings();
@@ -444,8 +464,6 @@ private:
     void toogleLayout();
 
     void setEnableImageActions(bool enable);
-
-    void refreshTheme();
 
     void loadIcons();
 

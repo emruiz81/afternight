@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 
 class ImageViewControl;
 class QWidget;
@@ -70,7 +71,8 @@ public:
     virtual void activate(ImageViewControl& view) = 0;
     virtual void viewAdded(ImageViewControl& view, ViewOrigin origin) = 0;
     virtual void viewRemoved(ImageViewControl& view) = 0;
-    virtual void viewRenamed(ImageViewControl& view) = 0;
+    /// The view is listed under a new name; `previousName` is the one it was listed under.
+    virtual void viewRenamed(ImageViewControl& view, const std::string& previousName) = 0;
     virtual void maximize(ImageViewControl& view) = 0;
     virtual void restore(ImageViewControl& view) = 0;
     [[nodiscard]] virtual bool isMaximizedViewActive() const = 0;

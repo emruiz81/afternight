@@ -45,6 +45,7 @@ class AfterNightAppUiElements;
 namespace an::ui
 {
 
+class IViewFactory;
 class RawOpenPolicy;
 
 inline QString resolveSequenceSaveSuffix(const int sequenceType, const QString& sourcePath,
@@ -188,6 +189,9 @@ public:
         std::function<void(const QString&)> persistLastOpenDirectory;
         std::function<QString()> thumbnailsDirPath;
         std::function<void()> switchToDockManager;
+
+        /// What makes the views a file opened is shown in; null, the application context's.
+        IViewFactory* viewFactory = nullptr;
         std::function<void()> updateImageViewControlList;
 
         /// How many files the recent list keeps; empty, twenty.

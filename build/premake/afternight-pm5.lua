@@ -1690,7 +1690,8 @@ workspace "AfterNight"
                     "../../src/AfterNightShellCore/stdafx.*"
                 },
                 ["core"] = { "../../src/AfterNightShellCore/core/**.*" },
-                ["services"] = { "../../src/AfterNightShellCore/services/**.*" }
+                ["services"] = { "../../src/AfterNightShellCore/services/**.*" },
+                ["views"] = { "../../src/AfterNightShellCore/views/**.*" }
                }
 
         pchheader "stdafx.hpp"

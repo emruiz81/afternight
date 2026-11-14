@@ -344,8 +344,8 @@ TEST_F(ApplicationWindow, AListenerHearsOfViewsThroughItsContextUntilItGoes)
         ASSERT_TRUE(document.has_value());
         view = context().getViewFactory()->createNewImageViewControlFromImage(nullptr, std::move(*document), nullptr);
         ASSERT_NE(view, nullptr);
-        const std::string oldName = view->getUniqueName();
-        s_window->notifyViewControlRenamed(oldName + "-renamed", oldName, view);
+        // Renamed as the application renames a view: it takes its new name and the context's views list it under it.
+        view->setUniqueName(view->getUniqueName() + "-renamed");
 
         EXPECT_EQ(transient.created, 1);
         EXPECT_EQ(transient.renamed, 1);

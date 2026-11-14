@@ -5,7 +5,6 @@
 
 #include "AfterNightControlsExport.h"
 
-#include <atomic>
 #include <functional>
 #include <map>
 #include <string>
@@ -15,10 +14,8 @@
 
 class ImageViewControl;
 class ImageViewControlManager;
-class LogViewerControl;
 class MainDashboard;
 class QComboBox;
-class QRecursiveMutex;
 
 namespace KDDockWidgets::QtWidgets
 {
@@ -72,42 +69,41 @@ inline void syncActiveImageSelectorSelection(QComboBox* imageViewControlListComb
     imageViewControlListComboBox->blockSignals(signalsWereBlocked);
 }
 
+/// The classic window's half of its views: the image selector that lists them, and how it brings the active one
+/// forward among the docks. The views' list is the application's; the window is told of each change to it and shows it.
 class AFTERNIGHTCONTROLS_API ViewControlCoordinator
 {
 public:
     struct Dependencies
     {
+        /// The application's list of views, read here and never changed.
         ImageViewControlManager* imageViewControlManager = nullptr;
-        QRecursiveMutex* imageViewControlManagerLock = nullptr;
         QComboBox* imageViewControlListComboBox = nullptr;
-        bool* isTerminating = nullptr;
-        LogViewerControl** logViewerControl = nullptr;
         MainDashboard** mainDashboard = nullptr;
 
-        std::function<void()> updateActiveImageActions;
-        std::function<void()> updateActiveImageHistory;
-        std::function<void()> updateImageInfoInStatusBar;
-        std::function<void(ImageViewControl*)> notifyActiveViewControlChanged;
         std::function<void()> switchToMainDashboard;
-        std::function<void(const ImageViewControl*)> notifyViewControlDestroyed;
-        std::function<void(const std::string&, const std::string&, const ImageViewControl*)> notifyViewControlRenamed;
         std::function<std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*>()>
             getDockWidgetsByViewControlMap;
     };
 
     explicit ViewControlCoordinator(const Dependencies& dependencies);
 
-    void setActiveImageViewControl(ImageViewControl* view) const;
-    void setActiveImageViewControlByName(const std::string& name,
-                                         const std::function<void(ImageViewControl*)>& setActiveImageViewControl) const;
-    void setActiveImageViewControlByNameAsync(
-        const std::string& name,
-        const std::function<void(ImageViewControl*, std::atomic_bool*)>& setActiveImageViewControlAsync,
-        std::atomic_bool* finished) const;
+    /// Selects the view in the selector, brings its dock forward and marks its tab group the active one.
+    void viewActivated(ImageViewControl* view) const;
 
-    void addImageViewControl(ImageViewControl* view) const;
-    void removeImageViewControl(ImageViewControl* view, bool deleteObject) const;
-    void renameImageViewControl(ImageViewControl* view) const;
+    /// Lists a view that joined the application's list, and selects it.
+    void viewAdded(ImageViewControl* view) const;
+
+    /// Takes a view that left the application's list off the selector; the selector is disabled once it lists none.
+    void viewRemoved(ImageViewControl* view) const;
+
+    /// Lists a renamed view under its new name.
+    void viewRenamed(ImageViewControl* view, const std::string& previousName) const;
+
+    /// Restates a view's tooltip after it changed.
+    void viewUpdated(const ImageViewControl* view) const;
+
+    /// Lists the application's views again, and shows the dashboard when there are none and none is shown.
     void updateImageViewControlList() const;
 
 private:

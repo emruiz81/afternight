@@ -276,17 +276,18 @@ The application without a window, `namespace an::ui::shell`: what every shell (a
 `core/ShellSelection` the one it makes (`--shell=<id>`, then `AFTERNIGHT_SHELL`, then the setting `interface/shell`,
 then the default). `core/ApplicationCore` is what the application holds that is not a window - the persistence stores
 (`openStores()` makes no widget), the folder last opened, the temporary and thumbnail folders, `services/` (the
-listeners, the open process windows, the recent files and processes, the favourites) - and the receiver of the work
-threads hand the GUI thread (`core/ApplicationEvents.h`); `main` makes it before the window and hands it to the
-window. It sits above Processes and below the application; Controls and Processes never include it, it
+listeners, the open process windows, the recent files and processes, the favourites; `DialogService`,
+`FileDialogService`, `ProcessLaunchService`), `views/ViewService` (the views and what the shell is told of them) -
+and the receiver of the work threads hand the GUI thread (`core/ApplicationEvents.h`); `main` makes it before the
+window and hands it to the window, which is the shell its services answer through (`setShell`). It sits above Processes and below the application; Controls and Processes never include it, it
 never includes the application or a host, and no extension host links it (`check_consumer_layering.py`,
 `check_build_graph.py`). A case about one of its classes lives in `Test_ShellCore`.
 
 ### AfterNightApp (`src/AfterNightApp/`)
 
-Thin shell: `AfterNightApp` (QMainWindow) composes coordinators that live in
-`AfterNightControls/app/` (`UiBootstrapCoordinator`, `ViewCreationCoordinator`,
-`WindowLayoutCoordinator`, `DialogOrchestrationCoordinator`, `PersistenceCoordinator`,
+Thin shell: `AfterNightApp` (QMainWindow) is the classic shell - it implements `IShell`, `IViewHost` and
+`IStatusDisplay` for the shell core's services - and composes coordinators that live in `AfterNightControls/app/`
+(`UiBootstrapCoordinator`, `WindowLayoutCoordinator`, `DialogOrchestrationCoordinator`, `PersistenceCoordinator`,
 `AppLifecycleCoordinator`, …), and `AfterNightAppContext` implements the `IAppContext` service
 interfaces. Put new logic in a coordinator or service, not in `AfterNightApp.cpp`. `ApplicationSession` is the engine
 session `main.cpp` owns, and `shutDownApplication` the order the application shuts down in.

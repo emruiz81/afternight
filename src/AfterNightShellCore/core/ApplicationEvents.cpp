@@ -9,6 +9,8 @@
 #include "core/ApplicationEvents.h"
 
 #include "core/ApplicationCore.h"
+#include "services/DialogService.h"
+#include "views/ViewService.h"
 
 #include "app/AfterNightEvent.h"
 #include "session/ImageDocument.h"
@@ -514,6 +516,102 @@ void ApplicationCore::setActiveImageViewControlAsync(ImageViewControl* view, std
 void ApplicationCore::runCustomCodeAsync(const std::function<void()>& func)
 {
     postEvent(new RunCustomCodeEvent(func, nullptr));
+}
+
+ServiceEventTarget::ServiceEventTarget(ApplicationCore& core, Dependencies dependencies)
+    : m_core(core), m_dependencies(std::move(dependencies))
+{
+}
+
+ImageViewControl* ServiceEventTarget::createNewImageViewControlFromImage(
+    ImageViewControl* customViewControl, an::ui::ImageDocument&& document, QWidget* parent,
+    const std::string& historyDesc, const ViewControlMode mode, ImageViewControl* neighbour,
+    const bool keepFocusedNeighbour, const bool pendingChanges)
+{
+    return m_core.viewService().createNewImageViewControlFromImage(customViewControl, std::move(document), parent,
+                                                                   historyDesc, mode, neighbour, keepFocusedNeighbour,
+                                                                   pendingChanges);
+}
+
+ImageViewControl* ServiceEventTarget::createNewImageViewControlFromSequence(
+    ImageViewControl* customViewControl, an::ui::ImageDocument&& document, QWidget* parent, const bool autoDebayer,
+    const std::string& historyDesc, const ViewControlMode mode, ImageViewControl* neighbour,
+    const bool keepFocusedNeighbour, const bool pendingChanges)
+{
+    return m_core.viewService().createNewImageViewControlFromSequence(customViewControl, std::move(document), parent,
+                                                                      autoDebayer, historyDesc, mode, neighbour,
+                                                                      keepFocusedNeighbour, pendingChanges);
+}
+
+void ServiceEventTarget::addImageViewControl(ImageViewControl* view)
+{
+    m_core.viewService().addViewControl(view);
+}
+
+void ServiceEventTarget::removeImageViewControl(ImageViewControl* view, const bool deleteObject)
+{
+    m_core.viewService().removeViewControl(view, deleteObject);
+}
+
+void ServiceEventTarget::updateImageViewControlList()
+{
+    m_core.viewService().refreshViewList();
+}
+
+void ServiceEventTarget::updateActiveImageActions()
+{
+    if (m_dependencies.updateActiveImageActions)
+    {
+        m_dependencies.updateActiveImageActions();
+    }
+}
+
+void ServiceEventTarget::addRecentFile(const std::string& fileName,
+                                       const std::shared_ptr<const an::consumer::ImageAsset>& image)
+{
+    if (m_dependencies.addRecentFile)
+    {
+        m_dependencies.addRecentFile(fileName, image);
+    }
+}
+
+void ServiceEventTarget::removeRecentFile(const std::string& fileName)
+{
+    if (m_dependencies.removeRecentFile)
+    {
+        m_dependencies.removeRecentFile(fileName);
+    }
+}
+
+void ServiceEventTarget::notifyErrorMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    m_core.dialogService().notifyErrorMessage(parent, title, text);
+}
+
+void ServiceEventTarget::notifyWarnMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    m_core.dialogService().notifyWarnMessage(parent, title, text);
+}
+
+void ServiceEventTarget::notifyInfoMessage(QWidget* parent, const QString& title, const QString& text)
+{
+    m_core.dialogService().notifyInfoMessage(parent, title, text);
+}
+
+void ServiceEventTarget::messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, const bool warn,
+                                         int* ret)
+{
+    m_core.dialogService().messageBoxYesNo(parent, title, text, warn, ret);
+}
+
+void ServiceEventTarget::setActiveImageViewControl(ImageViewControl* view)
+{
+    m_core.viewService().setActiveImageViewControl(view);
+}
+
+void ServiceEventTarget::reportEventFailure(const QString& title, const QString& text)
+{
+    m_core.dialogService().notifyErrorMessage(nullptr, title, text);
 }
 
 } // namespace an::ui::shell

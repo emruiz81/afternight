@@ -1578,14 +1578,23 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/AppEventBusTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationEventsTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/DialogServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/FavoriteProcessesModelTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/FileDialogServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/OpenProcessRegistryTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ProcessLaunchServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentFilesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellSelectionTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ViewServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
     header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
+    header   src/AfterNightTests/Test_ShellCore/ShellCoreViewSupport.h
+    header   src/AfterNightShellCore/services/DialogService.h
+    header   src/AfterNightShellCore/services/FileDialogService.h
+    header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/views/ViewService.h
     header   src/AfterNightShellCore/AfterNightShellCoreExport.h
     header   src/AfterNightShellCore/core/IShell.h
     header   src/AfterNightShellCore/core/ShellRegistry.h
@@ -1626,6 +1635,25 @@ sources Test_ShellCore
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
+    header   src/AfterNightControls/app/ExtensionManager.h
+    header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
+    header   src/AfterNightControls/controls/DockableControl.h
+    header   src/AfterNightControls/controls/ImageViewControl.h
+    header   src/AfterNightControls/controls/ImageViewControlListener.h
+    header   src/AfterNightControls/controls/ImageViewScrollArea.h
+    header   src/AfterNightControls/controls/ImageViewThemeColors.h
+    header   src/AfterNightControls/session/DerivedResultKey.h
+    header   src/AfterNightControls/session/IEngineSessionProvider.h
+    header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
+    header   src/AfterNightControls/widgets/ImageChannelViewMode.h
+    header   src/AfterNightControls/widgets/ImageViewWidget.h
+    header   src/AfterNightControls/widgets/ImageViewWidgetDisplayModule.h
+    header   src/AfterNightControls/widgets/MaskRenderer.h
+    header   src/AfterNightControls/widgets/PresentationBridge.h
+    header   src/AfterNightControls/widgets/ViewPresentation.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -1636,6 +1664,7 @@ sources Test_ShellCore
     link     AfterNightControls
     link     AfterNightPlatform
     link     AfterNightConsumerRuntime
+    external kddockwidgets
     qt       core gui widgets
 
 # The Controls seams, class engine: the one Controls suite that compiles Controls sources rather than linking the
@@ -2267,6 +2296,12 @@ sources Test_AfterNightApp
     header   src/AfterNightShellCore/services/OpenProcessRegistry.h
     header   src/AfterNightShellCore/services/RecentFilesModel.h
     header   src/AfterNightShellCore/services/RecentProcessesModel.h
+    header   src/AfterNightControls/app/MessageBoxes.h
+    header   src/AfterNightShellCore/core/IShell.h
+    header   src/AfterNightShellCore/services/DialogService.h
+    header   src/AfterNightShellCore/services/FileDialogService.h
+    header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/views/ViewService.h
     include  src/AfterNightTests
     include  src/AfterNightApp
     include  src/AfterNightProcesses

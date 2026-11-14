@@ -203,6 +203,12 @@ void viewMade(const std::shared_ptr<OpenRun>& run, const QString& path, ImageVie
     continueOpen(run);
 }
 
+/// What makes the views of an open: the factory it was handed, or the application context's.
+IViewFactory* viewFactoryOf(const OpenRun& run)
+{
+    return run.dependencies.viewFactory != nullptr ? run.dependencies.viewFactory : process_utils::currentViewFactory();
+}
+
 /// Shows a still image in a new view, on the GUI thread.
 void showImage(const std::shared_ptr<OpenRun>& run, const QString& path, an::consumer::ImageAsset&& asset)
 {
@@ -215,7 +221,7 @@ void showImage(const std::shared_ptr<OpenRun>& run, const QString& path, an::con
         continueOpen(run);
         return;
     }
-    auto* factory = process_utils::currentViewFactory();
+    auto* factory = viewFactoryOf(*run);
     ImageViewControl* view = factory != nullptr ? factory->createNewImageViewControlFromImage(
                                                       nullptr, std::move(*document), nullptr,
                                                       "Image loaded from file '" + path.toUtf8().toStdString() + "'",
@@ -235,7 +241,7 @@ void showImage(const std::shared_ptr<OpenRun>& run, const QString& path, an::con
 void showSequence(const std::shared_ptr<OpenRun>& run, const QString& path, ImageDocument&& document,
                   const bool autoDebayer)
 {
-    auto* factory = process_utils::currentViewFactory();
+    auto* factory = viewFactoryOf(*run);
     ImageViewControl* view = factory != nullptr ? factory->createNewImageViewControlFromSequence(
                                                       nullptr, std::move(document), nullptr, autoDebayer,
                                                       "Sequence loaded from file '" + path.toUtf8().toStdString() + "'",

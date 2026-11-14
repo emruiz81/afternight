@@ -255,10 +255,6 @@ public:
     void checkExtensionUpdatesOnStartup() const;
     void systemInformation() const;
 
-    void notifyErrorMessage(QWidget* parent, const QString& title, const QString& text) const;
-    void notifyWarnMessage(QWidget* parent, const QString& title, const QString& text) const;
-    void notifyInfoMessage(QWidget* parent, const QString& title, const QString& text) const;
-    void messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret) const;
     void openMessageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn,
                              std::function<void(int result)> onFinished) const;
 
