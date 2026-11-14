@@ -277,15 +277,15 @@ shows a process another way - inside another window, beside a view - is built on
   processes that show a histogram under their controls take 524 to 534 px, set by the one row of the histogram's
   toolbar; twenty take 360 px or less; Curves Transformation takes 374 px, set by its curve editor's 350 px.
 - **A process brings key sequences of its own.** Image Integration's menus carry seventeen as window shortcuts
-  (`Ctrl+O`, `Ctrl+Shift+O`, `Del`, `Ctrl+Shift+Del`, `Ctrl+G`, `Ctrl+I`, `Ctrl+E`, `Ctrl+Enter`, `Ctrl+1` to
+  (`Ctrl+O`, `Ctrl+Shift+O`, `Delete`, `Ctrl+Shift+Delete`, `Ctrl+G`, `Ctrl+I`, `Ctrl+E`, `Ctrl+Enter`, `Ctrl+1` to
   `Ctrl+8`, `Shift+F1`), with `F5` and four more on its tabs' tables; Mask Drawing carries eight on itself and its
   children. No other process defines one; every process closes on Escape, read in `keyPressEvent`. In a window of
   its own a process meets no other window's shortcuts. Put inside a window that holds the same sequence, neither
   runs: Qt reports two window shortcuts that match as ambiguous and triggers nothing, wherever the focus is.
   Narrowing the process's shortcuts to its widget and children leaves the pair ambiguous while the focus is inside
-  the process; accepting the `ShortcutOverride` alone makes the key reach the focused widget, which does nothing
+  the process; accepting Qt's shortcut-override event alone makes the key reach the focused widget, which does nothing
   with it. What works is all three together: the sequences taken off the process's actions and shortcuts, the
-  process widget accepting the `ShortcutOverride` of a sequence it holds, and the action triggered from the key
+  process widget accepting the shortcut-override event of a sequence it holds, and the action triggered from the key
   press that follows. A text field inside the process still keeps the keys it edits with, because it accepts their
   override before the process sees it.
 - **`Ctrl+Enter` is the keypad's Enter.** A key sequence written `Ctrl+Enter` is `Qt::Key_Enter`, the keypad's key;

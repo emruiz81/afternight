@@ -173,8 +173,8 @@ a defect included, and the diff of a rewritten record hides the one entry that m
 ## The source guards
 
 Three rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
-`Test_ImageIntegration` (`unit/SourceGuardsTest.cpp`); a change to any C or C++ file under `src/` runs them
-(`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
+`Test_ImageIntegration` (`Test_ImageIntegration/unit/SourceGuardsTest.cpp`); a change to any C or C++ file under
+`src/` runs them (`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
 
 | Case | Holds |
 |---|---|
