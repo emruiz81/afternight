@@ -11,6 +11,7 @@
 #include "theme/AnDesignTokens.h"
 #include "theme/Elevation.h"
 #include "theme/NightImage.h"
+#include "theme/ObservatoryDock.h"
 #include "theme/PainterGuard.h"
 
 #include <QAbstractButton>
@@ -548,6 +549,9 @@ std::optional<int> observatoryPixelMetric(const QStyle::PixelMetric metric, cons
         return kObservatoryToolTipPadding;
     case QStyle::PM_ScrollBarSliderMin:
         return kObservatoryScrollHandleMinimum;
+    case QStyle::PM_TabCloseIndicatorWidth:
+    case QStyle::PM_TabCloseIndicatorHeight:
+        return an::ui::kObservatoryDockTabClose;
     default:
         return std::nullopt;
     }

@@ -5,6 +5,7 @@
 
 #include "app/ApplicationStart.h"
 
+#include "controls/KDDockWidgetsHelper.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
 #include "core/ShellRegistry.h"
@@ -38,6 +39,8 @@ StartedApplication startApplication(an::ui::shell::ApplicationCore& core, const 
     {
         installStyle(started.choice.styleProfile);
     }
+    // The dock library takes its separator only while no dock widget exists: the profile's, before the shell makes one.
+    an::ui::applyDockDecorationsProfile();
 
     started.shell = started.choice.descriptor->create(core);
     started.shell->build();

@@ -597,9 +597,15 @@ it, with the settings dialog's cases.
 
 Docking is KDDockWidgets. The decorations declare the configuration they are drawn for beside them - the flags of
 `kDockLibraryFlags`, `kDraggedDockWindowOpacity`, `kDockWidgetMinimumSide` - and `AN_ViewFactory` makes them: `AN_TabBar`,
-`AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow`, painted from the design tokens. The library's configuration
-and its three hooks are process-wide state, which the shell core's `DockHooks` alone sets ("The shell core");
-`KddwProxyStyle` is installed on each dock main window. The decorations and the style carry `AFTERNIGHTCONTROLS_API`: a
+`AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator`, and under the Observatory profile the drop
+indicators and band (`controls/DockDropIndicators.h`), painted from the design tokens ("The dock decorations" in
+`docs/dev/THEME_SYSTEM.md` says how under each profile). The library's configuration and its three hooks are
+process-wide state, which the shell core's `DockHooks` alone sets ("The shell core"); the separator depends on the style
+profile, which is chosen after the core is made, so `startApplication` gives it (`applyDockDecorationsProfile()`) once
+the profile is in force and before the shell makes a dock area - the library takes it only while no dock widget exists.
+A tab can carry an adornment after its name, an icon with a tooltip that runs what it is given when clicked and can
+lock the tab's buttons (`an::ui::setTabAdornment`); the decorations draw it and the shell decides what it stands for.
+`KddwProxyStyle` is installed on each dock main window, and under the Observatory profile on each tab strip. The decorations and the style carry `AFTERNIGHTCONTROLS_API`: a
 window outside the library makes its dock areas from them, and the docking suite configures its process from the same
 declaration and makes its own factory from `AN_ViewFactory` as such a window would.
 

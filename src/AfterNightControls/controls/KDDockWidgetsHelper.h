@@ -5,10 +5,13 @@
 
 #include "AfterNightControlsExport.h"
 
+#include "theme/ObservatoryDock.h"
+
 #include <kddockwidgets/qtwidgets/views/TabBar.h>
 #include <kddockwidgets/qtwidgets/views/TitleBar.h>
 #include <kddockwidgets/qtwidgets/views/Group.h>
 #include <kddockwidgets/qtwidgets/views/FloatingWindow.h>
+#include <kddockwidgets/qtwidgets/views/Separator.h>
 #include <kddockwidgets/qtwidgets/ViewFactory.h>
 #include <kddockwidgets/qtwidgets/View.h>
 #include <kddockwidgets/qtwidgets/Stack.h>
@@ -29,10 +32,47 @@
 #include <kddockwidgets/KDDockWidgets.h>
 
 #include <array>
+#include <functional>
 
 class QEvent;
 class QMouseEvent;
 class QPaintEvent;
+
+namespace KDDockWidgets::QtWidgets
+{
+class DockWidget;
+}
+
+namespace an::ui
+{
+
+/// What a tab shows after its view's name under the Observatory profile: an icon in a small tonal square, with its own
+/// tooltip, that runs `activated` when it is clicked; `locked` disables the tab's close button and, while the tab is
+/// current, the strip's buttons. Under the Classic profile an adornment is kept and neither drawn nor acted on.
+struct TabAdornment
+{
+    QString iconKey; ///< The icon, by the name the application's icon provider knows it by.
+    QString toolTip;
+    bool locked = false;
+    std::function<void()> activated;
+};
+
+/// Sets the adornment of a dock widget's tab, replacing the one it had.
+AFTERNIGHTCONTROLS_API void setTabAdornment(KDDockWidgets::QtWidgets::DockWidget* dockWidget, TabAdornment adornment);
+
+/// Takes a dock widget's adornment away; nothing when it has none.
+AFTERNIGHTCONTROLS_API void clearTabAdornment(KDDockWidgets::QtWidgets::DockWidget* dockWidget);
+
+/// The adornment of a dock widget's tab, or null.
+[[nodiscard]] AFTERNIGHTCONTROLS_API const TabAdornment*
+tabAdornment(const KDDockWidgets::QtWidgets::DockWidget* dockWidget);
+
+/// Gives the dock library the separator of the style profile in force: its own under the Classic profile, two pixels
+/// under the Observatory profile. The library takes it only while no dock widget or main window exists, so the
+/// application gives it once the profile is set and before the shell makes a window.
+AFTERNIGHTCONTROLS_API void applyDockDecorationsProfile();
+
+} // namespace an::ui
 
 /// The dock library's flags the decorations are drawn for: the tabs always shown, reordered, closed and switched from
 /// their strip, the title bar hidden while the tabs show and focusable, and a floating window under the platform's own
@@ -63,6 +103,9 @@ class AN_DockButton : public QAbstractButton
 public:
     explicit AN_DockButton(KDDockWidgets::TitleBarButtonType type, QWidget* parent = nullptr);
 
+    /// The button that lists a strip's tabs, under the Observatory profile.
+    [[nodiscard]] static AN_DockButton* makeTabList(QWidget* parent);
+
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
@@ -75,9 +118,14 @@ protected:
 private:
     KDDockWidgets::TitleBarButtonType m_type;
     bool m_hovered = false;
+    bool m_tabList = false;
 };
 
-class AFTERNIGHTCONTROLS_API AN_TabBar : public KDDockWidgets::QtWidgets::TabBar
+/// A group's tab strip. Under the Observatory profile the dock style draws it (`theme/KddwProxyStyle.h`): its tabs are
+/// sized from the tokens, a floating image window's strip is the smaller one, a name too long is elided in the middle
+/// and never cut under twelve characters, the whole name is the tooltip, and a tab's adornment is drawn and clicked.
+class AFTERNIGHTCONTROLS_API AN_TabBar : public KDDockWidgets::QtWidgets::TabBar,
+                                         public an::ui::ObservatoryDockTabSource
 {
     W_OBJECT(AN_TabBar) // Replaces Q_OBJECT
 
@@ -89,12 +137,35 @@ public:
     void setForceUnselected(bool enabled);
     bool isForceUnselected() const;
 
+    /// What the tab at an index shows: its name without the mark of unsaved changes, that mark, its icon, its
+    /// adornment.
+    [[nodiscard]] an::ui::ObservatoryDockTab observatoryDockTab(int index) const override;
+
+    /// Where a tab's adornment lies under the Observatory profile; empty when it has none or the profile is Classic.
+    [[nodiscard]] QRect adornmentRect(int index) const;
+
+    /// The tooltip at a place under the Observatory profile: an adornment's own, or the whole name of the tab there and
+    /// the image's summary after it; nothing past the tabs.
+    [[nodiscard]] QString toolTipAt(QPoint position) const;
+
+    /// Lays the tabs out again: a tab's parts, the density or the strip's height changed.
+    void refreshTabs();
+
 protected:
     QSize tabSizeHint(int index) const override;
+    QSize minimumTabSizeHint(int index) const override;
     void paintEvent(QPaintEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     bool event(QEvent* event) override;
+
+private:
+    /// Whether the strip stands in a floating window: its height is then the smaller strip's.
+    [[nodiscard]] bool inFloatingWindow() const;
+
+    /// The tab whose adornment was pressed, until the release.
+    int m_pressedAdornment = -1;
 };
 
 class AFTERNIGHTCONTROLS_API AN_TitleBar : public KDDockWidgets::QtWidgets::TitleBar
@@ -104,8 +175,11 @@ class AFTERNIGHTCONTROLS_API AN_TitleBar : public KDDockWidgets::QtWidgets::Titl
 public:
     explicit AN_TitleBar(KDDockWidgets::Core::TitleBar* controller, KDDockWidgets::Core::View* parent = nullptr);
 
+    QSize sizeHint() const override;
+
 protected:
     bool event(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
 };
 
@@ -118,10 +192,24 @@ public:
     void styleCornerButtons();
     void applyThemeColors();
 
+    /// Under the Observatory profile, disables a locked tab's close button and, while the current tab is locked, the
+    /// strip's buttons; enables what no lock holds.
+    void applyTabLocks();
+
 protected:
     void init() override;
+    bool event(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+
+private:
+    /// The Observatory profile's strip: the buttons' size and place for the strip's height, their tooltips, the list
+    /// of the tabs shown with more than one.
+    void applyObservatoryStrip();
+    void showTabList();
+
+    AN_DockButton* m_tabList = nullptr;
 };
 
 /// Token-aware group frame — replaces hardcoded border colors in KDDockWidgets::QtWidgets::Group.
@@ -142,7 +230,24 @@ public:
                                Qt::WindowFlags windowFlags = {});
 
 protected:
+    bool event(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
+};
+
+/// The line between two groups. Under the Classic profile the library draws it; under the Observatory profile it is
+/// the dock area's ground, the accent's line while the pointer is over it.
+class AFTERNIGHTCONTROLS_API AN_Separator : public KDDockWidgets::QtWidgets::Separator
+{
+public:
+    explicit AN_Separator(KDDockWidgets::Core::Separator* controller, KDDockWidgets::Core::View* parent = nullptr);
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void enterEvent(QEnterEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+
+private:
+    bool m_hovered = false;
 };
 
 class AFTERNIGHTCONTROLS_API AN_ViewFactory : public KDDockWidgets::QtWidgets::ViewFactory
@@ -161,6 +266,15 @@ public:
     KDDockWidgets::Core::View* createFloatingWindow(KDDockWidgets::Core::FloatingWindow* controller,
                                                     KDDockWidgets::Core::MainWindow* parent = nullptr,
                                                     Qt::WindowFlags windowFlags = {}) const override;
+    KDDockWidgets::Core::View* createSeparator(KDDockWidgets::Core::Separator* controller,
+                                               KDDockWidgets::Core::View* parent = nullptr) const override;
+
+    /// Under the Observatory profile, the product's indicator window and band (`controls/DockDropIndicators.h`); the
+    /// library's under the Classic profile.
+    KDDockWidgets::Core::ClassicIndicatorWindowViewInterface*
+    createClassicIndicatorWindow(KDDockWidgets::Core::ClassicDropIndicatorOverlay* indicators,
+                                 KDDockWidgets::Core::View* parent) const override;
+    KDDockWidgets::Core::View* createRubberBand(KDDockWidgets::Core::View* parent) const override;
 
     /// Return token-tinted SVG icons instead of KDDW's bundled PNGs.
     QIcon iconForButtonType(KDDockWidgets::TitleBarButtonType type, qreal dpr) const override;

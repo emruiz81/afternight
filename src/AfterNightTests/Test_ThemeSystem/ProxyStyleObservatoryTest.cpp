@@ -720,6 +720,40 @@ TEST(ProxyStyleObservatory, TabsAreUnderlinedWhenSelected)
     });
 }
 
+// A tab's close button is sixteen pixels: a cross in the tertiary text at rest, in the primary text over the state
+// colour when hovered, and the whole at 38 % opacity when disabled.
+TEST(ProxyStyleObservatory, TabCloseButtonIsACrossOverTheStateColour)
+{
+    forEachLook([](ObservatoryStyleScope& scope, const DesignTokens& t) {
+        const ColorTokens& c = t.colors;
+        const QColor bg = panel(t);
+        EXPECT_EQ(scope.style()->pixelMetric(QStyle::PM_TabCloseIndicatorWidth), 16);
+        EXPECT_EQ(scope.style()->pixelMetric(QStyle::PM_TabCloseIndicatorHeight), 16);
+        QWidget host;
+        const auto paintClose = [&](const QStyle::State state, const qreal ratio) {
+            QStyleOption option;
+            option.initFrom(&host);
+            option.rect = QRect(0, 0, 16, 16);
+            option.state = state;
+            return RenderedPicture(QSize(16, 16), ratio, bg, [&](QPainter& p) {
+                scope.style()->drawPrimitive(QStyle::PE_IndicatorTabClose, &option, &p, &host);
+            });
+        };
+        for (const qreal ratio : kRenderRatios)
+        {
+            const RenderedPicture rest = paintClose(QStyle::State_Enabled, ratio);
+            expectColour(rest.at(8.0, 8.0), c.textTertiary, "the cross", 40);
+            expectColour(rest.at(1.5, 8.0), bg, "no ground at rest");
+            const RenderedPicture hovered = paintClose(QStyle::State_Enabled | QStyle::State_MouseOver, ratio);
+            expectColour(hovered.at(8.0, 8.0), c.textPrimary, "the cross under the pointer", 40);
+            expectColour(hovered.at(1.5, 8.0), layered(c.stateLayer, kHover, bg), "the state colour");
+        }
+        const RenderedPicture enabled = paintClose(QStyle::State_Enabled, 1.0);
+        const RenderedPicture disabled = paintClose(QStyle::State_None, 1.0);
+        expectColour(disabled.at(8.0, 8.0), layered(enabled.at(8.0, 8.0), kDisabled, bg), "a disabled cross", 4);
+    });
+}
+
 // A group box is a card - the second surface with the cards' radius and no border - and a flat one is a hairline over
 // the window. Its title is semibold in the secondary text.
 TEST(ProxyStyleObservatory, GroupBoxIsACardAndAFlatOneAHairline)

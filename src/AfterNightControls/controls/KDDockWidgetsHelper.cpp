@@ -4,18 +4,24 @@
 #include "stdafx.hpp"
 #include "KDDockWidgetsHelper.h"
 #include "common.h"
+#include "controls/DockDropIndicators.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/KddwProxyStyle.h"
+#include "theme/ObservatoryDock.h"
 
 #include <QMouseEvent>
 #include <QHelpEvent>
 #include <QApplication>
 #include <QAbstractButton>
+#include <QBoxLayout>
+#include <QMenu>
 #include <QToolButton>
 #include <QPalette>
 #include <kddockwidgets/Config.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
+#include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/core/MainWindow.h>
 #include <QPainter>
@@ -28,6 +34,156 @@
 #include <QVector>
 
 #include <verdigris/wobjectimpl.h>
+
+namespace
+{
+
+/// The dock library's own separator: what it lays groups apart by unless told otherwise, and the Classic profile's.
+constexpr int kLibraryDockSeparator = 5;
+
+/// What follows a view's name in its title while its image has unsaved changes.
+constexpr QStringView kUnsavedMark = u" *";
+
+/// Whether a widget stands in a floating window of the dock library: its strip is then the smaller one, and its float
+/// button docks.
+bool inFloatingWindowOf(const QWidget* widget)
+{
+    return widget != nullptr && dynamic_cast<const AN_FloatingWindow*>(widget->QWidget::window()) != nullptr;
+}
+
+/// The dock widget of the tab at an index of a strip, or null.
+KDDockWidgets::QtWidgets::DockWidget* dockWidgetViewAt(KDDockWidgets::Core::TabBar* tabBar, const int index)
+{
+    if (tabBar == nullptr || index < 0)
+    {
+        return nullptr;
+    }
+    auto* dockWidget = tabBar->dockWidgetAt(index);
+    return dockWidget != nullptr ? dynamic_cast<KDDockWidgets::QtWidgets::DockWidget*>(dockWidget->view()) : nullptr;
+}
+
+QIcon iconFromContext(const QString& iconName);
+
+/// What a button of the strip or of a title bar shows under the Observatory profile.
+an::ui::ObservatoryDockGlyph observatoryGlyph(const KDDockWidgets::TitleBarButtonType type, const bool tabList,
+                                              const QWidget* button)
+{
+    using an::ui::ObservatoryDockGlyph;
+    using KDDockWidgets::TitleBarButtonType;
+    if (tabList)
+    {
+        return ObservatoryDockGlyph::TabList;
+    }
+    switch (type)
+    {
+    case TitleBarButtonType::Close:
+        return ObservatoryDockGlyph::Close;
+    case TitleBarButtonType::Float:
+    case TitleBarButtonType::Normal:
+        return inFloatingWindowOf(button) ? ObservatoryDockGlyph::Dock : ObservatoryDockGlyph::Float;
+    case TitleBarButtonType::Maximize:
+        return ObservatoryDockGlyph::Maximize;
+    case TitleBarButtonType::Minimize:
+        return ObservatoryDockGlyph::Minimize;
+    default:
+        return ObservatoryDockGlyph::Pin;
+    }
+}
+
+/// The adornment a dock widget keeps, as a child the widget deletes with itself.
+class TabAdornmentHolder final : public QObject
+{
+public:
+    explicit TabAdornmentHolder(QObject* parent) : QObject(parent)
+    {
+        setObjectName(QStringLiteral("anTabAdornment"));
+    }
+
+    an::ui::TabAdornment adornment;
+};
+
+TabAdornmentHolder* adornmentHolderOf(const KDDockWidgets::QtWidgets::DockWidget* dockWidget)
+{
+    if (dockWidget == nullptr)
+    {
+        return nullptr;
+    }
+    return dynamic_cast<TabAdornmentHolder*>(
+        dockWidget->findChild<QObject*>(QStringLiteral("anTabAdornment"), Qt::FindDirectChildrenOnly));
+}
+
+/// The strip a dock widget's tab is in: lays it out again and applies its locks, after an adornment changed.
+void refreshStripOf(KDDockWidgets::QtWidgets::DockWidget* dockWidget)
+{
+    for (QWidget* current = dockWidget != nullptr ? dockWidget->parentWidget() : nullptr; current != nullptr;
+         current = current->parentWidget())
+    {
+        if (auto* stack = dynamic_cast<AN_Stack*>(current))
+        {
+            if (auto* tabBar = dynamic_cast<AN_TabBar*>(stack->tabBar()))
+            {
+                tabBar->refreshTabs();
+            }
+            stack->applyTabLocks();
+            return;
+        }
+    }
+}
+
+} // namespace
+
+namespace an::ui
+{
+
+void setTabAdornment(KDDockWidgets::QtWidgets::DockWidget* dockWidget, TabAdornment adornment)
+{
+    if (dockWidget == nullptr)
+    {
+        return;
+    }
+    TabAdornmentHolder* holder = adornmentHolderOf(dockWidget);
+    if (holder == nullptr)
+    {
+        holder = new TabAdornmentHolder(dockWidget);
+    }
+    holder->adornment = std::move(adornment);
+    refreshStripOf(dockWidget);
+}
+
+void clearTabAdornment(KDDockWidgets::QtWidgets::DockWidget* dockWidget)
+{
+    TabAdornmentHolder* holder = adornmentHolderOf(dockWidget);
+    if (holder == nullptr)
+    {
+        return;
+    }
+    delete holder;
+    refreshStripOf(dockWidget);
+}
+
+const TabAdornment* tabAdornment(const KDDockWidgets::QtWidgets::DockWidget* dockWidget)
+{
+    const TabAdornmentHolder* holder = adornmentHolderOf(dockWidget);
+    return holder != nullptr ? &holder->adornment : nullptr;
+}
+
+void applyDockDecorationsProfile()
+{
+    const int thickness = observatoryDockDecorations() ? kObservatoryDockSeparator : kLibraryDockSeparator;
+    KDDockWidgets::Config& config = KDDockWidgets::Config::self();
+    if (config.separatorThickness() == thickness)
+    {
+        return;
+    }
+    if (!KDDockWidgets::DockRegistry::self()->isEmpty(/*excludeBeingDeleted=*/true))
+    {
+        LOG_WARNING("The dock library kept its separator: dock widgets or main windows already exist");
+        return;
+    }
+    config.setSeparatorThickness(thickness);
+}
+
+} // namespace an::ui
 
 // ════════════════════════════════════════════════════════════════════════════
 // AN_DockButton — Visual-Studio-style flat button
@@ -42,8 +198,20 @@ AN_DockButton::AN_DockButton(KDDockWidgets::TitleBarButtonType type, QWidget* pa
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
+AN_DockButton* AN_DockButton::makeTabList(QWidget* parent)
+{
+    auto* button = new AN_DockButton(KDDockWidgets::TitleBarButtonType::Normal, parent);
+    button->m_tabList = true;
+    button->setObjectName(QStringLiteral("anDockTabList"));
+    return button;
+}
+
 QSize AN_DockButton::sizeHint() const
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        return {an::ui::observatoryDockButtonSide(), an::ui::observatoryDockButtonSide()};
+    }
     // VS-style: compact square. Scale with logical DPI.
     const qreal scale = logicalDpiX() / 96.0;
     const int side = qRound(16 * scale);
@@ -96,6 +264,13 @@ bool AN_DockButton::event(QEvent* ev)
 
 void AN_DockButton::paintEvent(QPaintEvent* /*event*/)
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        QPainter painter(this);
+        an::ui::paintObservatoryDockButton(painter, rect(), observatoryGlyph(m_type, m_tabList, this), m_hovered,
+                                           isDown(), isEnabled());
+        return;
+    }
     using KDDockWidgets::TitleBarButtonType;
     const auto& c = an::ui::tokens().colors;
     const bool pressed = isDown();
@@ -279,10 +454,108 @@ AN_TabBar::AN_TabBar(KDDockWidgets::Core::TabBar* controller, KDDockWidgets::Cor
     setIconSize(QSize(12, 12));
     setDrawBase(false);
     applyThemeColors();
+    if (an::ui::observatoryDockDecorations())
+    {
+        // The library gives its strips a style of its own; the dock style draws them under this profile and keeps the
+        // library's reason for its own (no animation of the tabs).
+        auto* style = new an::ui::KddwProxyStyle();
+        style->setParent(this);
+        setStyle(style);
+    }
+}
+
+an::ui::ObservatoryDockTab AN_TabBar::observatoryDockTab(int index) const
+{
+    an::ui::ObservatoryDockTab tab;
+    QString title = tabText(index);
+    if (title.endsWith(kUnsavedMark))
+    {
+        tab.modified = true;
+        title.chop(kUnsavedMark.size());
+    }
+    tab.name = title;
+    tab.closable = tabsClosable();
+
+    KDDockWidgets::Core::DockWidget* dockWidget = tabBar() != nullptr ? tabBar()->dockWidgetAt(index) : nullptr;
+    tab.icon = tabIcon(index);
+    if (tab.icon.isNull())
+    {
+        if (ImageViewControl* view = getImageViewControl(dockWidget))
+        {
+            tab.icon = iconFromContext(view->document().sequence().has_value() ? QStringLiteral("film")
+                                                                               : QStringLiteral("picture"));
+        }
+    }
+    if (const an::ui::TabAdornment* adornment = an::ui::tabAdornment(dockWidgetViewAt(tabBar(), index)))
+    {
+        tab.adorned = true;
+        tab.adornmentIcon = iconFromContext(adornment->iconKey);
+    }
+    return tab;
+}
+
+QRect AN_TabBar::adornmentRect(int index) const
+{
+    if (!an::ui::observatoryDockDecorations() || index < 0 || index >= count())
+    {
+        return {};
+    }
+    const an::ui::ObservatoryDockTab tab = observatoryDockTab(index);
+    return tab.adorned ? an::ui::observatoryDockTabParts(tabRect(index), tab).adornment : QRect();
+}
+
+QString AN_TabBar::toolTipAt(QPoint position) const
+{
+    const int index = an::ui::observatoryDockDecorations() ? tabAt(position) : -1;
+    if (index < 0)
+    {
+        return {};
+    }
+    if (adornmentRect(index).contains(position))
+    {
+        if (const an::ui::TabAdornment* adornment = an::ui::tabAdornment(dockWidgetViewAt(tabBar(), index)))
+        {
+            return adornment->toolTip;
+        }
+    }
+    QString text = observatoryDockTab(index).name;
+    if (const QString summary = buildImageSummaryTooltip(tabBar()->dockWidgetAt(index)); !summary.isEmpty())
+    {
+        text += QStringLiteral("\n\n") + summary;
+    }
+    return text;
+}
+
+void AN_TabBar::refreshTabs()
+{
+    // Setting the elision again is what makes the strip measure its tabs anew.
+    setElideMode(elideMode());
+    updateGeometry();
+    update();
+}
+
+bool AN_TabBar::inFloatingWindow() const
+{
+    return inFloatingWindowOf(this);
+}
+
+QSize AN_TabBar::minimumTabSizeHint(int index) const
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), true),
+                an::ui::observatoryDockStripHeight(inFloatingWindow())};
+    }
+    return KDDockWidgets::QtWidgets::TabBar::minimumTabSizeHint(index);
 }
 
 QSize AN_TabBar::tabSizeHint(int index) const
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), false),
+                an::ui::observatoryDockStripHeight(inFloatingWindow())};
+    }
     QSize hint = KDDockWidgets::QtWidgets::TabBar::tabSizeHint(index);
 
     const auto& spacing = an::ui::tokens().spacing;
@@ -301,6 +574,10 @@ QSize AN_TabBar::tabSizeHint(int index) const
 
 void AN_TabBar::applyThemeColors()
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        refreshTabs();
+    }
     // All tab shape/color drawing is handled by KddwProxyStyle / AnProxyStyle.
     // We only need to set palette colors so the tab label text renders correctly,
     // and configure close button icons per theme.
@@ -335,6 +612,12 @@ bool AN_TabBar::isForceUnselected() const
 
 void AN_TabBar::paintEvent(QPaintEvent* event)
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        // The tabs, through the dock style; the strip's ground is the stack's.
+        KDDockWidgets::QtWidgets::TabBar::paintEvent(event);
+        return;
+    }
     // Let the base QTabBar do all its normal painting through the style system.
     KDDockWidgets::QtWidgets::TabBar::paintEvent(event);
 
@@ -371,6 +654,14 @@ void AN_TabBar::mouseDoubleClickEvent(QMouseEvent* event)
 
 void AN_TabBar::mousePressEvent(QMouseEvent* event)
 {
+    if (const int index = tabAt(event->pos());
+        event->button() == Qt::LeftButton && index >= 0 && adornmentRect(index).contains(event->pos()))
+    {
+        // A press on an adornment is the adornment's: it neither selects nor drags the tab.
+        m_pressedAdornment = index;
+        event->accept();
+        return;
+    }
     // Core DockWidget from the controller (preferred, no extra includes required)
     KDDockWidgets::Core::DockWidget* dwCore = nullptr;
     if (auto* coreTabBar = this->tabBar()) // controller
@@ -390,8 +681,51 @@ void AN_TabBar::mousePressEvent(QMouseEvent* event)
     KDDockWidgets::QtWidgets::TabBar::mousePressEvent(event);
 }
 
+void AN_TabBar::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (m_pressedAdornment >= 0)
+    {
+        const int index = m_pressedAdornment;
+        m_pressedAdornment = -1;
+        event->accept();
+        if (!adornmentRect(index).contains(event->pos()))
+        {
+            return;
+        }
+        if (const an::ui::TabAdornment* adornment = an::ui::tabAdornment(dockWidgetViewAt(tabBar(), index));
+            adornment != nullptr && adornment->activated)
+        {
+            // A copy: what it runs may take the tab, and the adornment with it, away.
+            const std::function<void()> activated = adornment->activated;
+            activated();
+        }
+        return;
+    }
+    KDDockWidgets::QtWidgets::TabBar::mouseReleaseEvent(event);
+}
+
 bool AN_TabBar::event(QEvent* event)
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        if (event->type() == QEvent::Show)
+        {
+            // Shown again after its group moved between a floating window and a dock area: its height may differ.
+            refreshTabs();
+        }
+        else if (event->type() == QEvent::ToolTip)
+        {
+            auto* helpEvent = static_cast<QHelpEvent*>(event);
+            if (const QString text = toolTipAt(helpEvent->pos()); !text.isEmpty())
+            {
+                QToolTip::showText(helpEvent->globalPos(), text, this);
+                return true;
+            }
+            QToolTip::hideText();
+            event->ignore();
+            return true;
+        }
+    }
     if (event->type() == QEvent::ToolTip)
     {
         auto* helpEvent = static_cast<QHelpEvent*>(event);
@@ -458,6 +792,29 @@ AN_TitleBar::AN_TitleBar(KDDockWidgets::Core::TitleBar* controller, KDDockWidget
 {
     // setObjectName("DockTitleBar");
     //  DO NOT touch buttons here - they are created in init()
+}
+
+QSize AN_TitleBar::sizeHint() const
+{
+    QSize hint = KDDockWidgets::QtWidgets::TitleBar::sizeHint();
+    if (an::ui::observatoryDockDecorations())
+    {
+        // A title bar heads a floating window: it is the smaller strip.
+        hint.setHeight(an::ui::observatoryDockStripHeight(true));
+    }
+    return hint;
+}
+
+void AN_TitleBar::paintEvent(QPaintEvent* event)
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        QPainter painter(this);
+        const QRect title = rect().adjusted(iconRect().isEmpty() ? 0 : iconRect().right(), 0, -buttonAreaWidth(), 0);
+        an::ui::paintObservatoryDockTitleBar(painter, rect(), titleBar()->title(), title);
+        return;
+    }
+    KDDockWidgets::QtWidgets::TitleBar::paintEvent(event);
 }
 
 bool AN_TitleBar::event(QEvent* event)
@@ -603,6 +960,144 @@ void AN_Stack::init()
             }
         });
     }
+
+    if (an::ui::observatoryDockDecorations())
+    {
+        // The list of the strip's tabs, before its other buttons.
+        if (auto* corner = cornerWidget(Qt::TopRightCorner))
+        {
+            m_tabList = AN_DockButton::makeTabList(corner);
+            if (auto* layout = qobject_cast<QBoxLayout*>(corner->layout()))
+            {
+                layout->insertWidget(0, m_tabList, 0, Qt::AlignVCenter);
+            }
+            connect(m_tabList, &QAbstractButton::clicked, this, [this]() { showTabList(); });
+        }
+        // After the library's own answers to a change of tabs, which enable the strip's buttons.
+        if (auto* strip = qobject_cast<KDDockWidgets::QtWidgets::TabBar*>(tabBar()))
+        {
+            connect(strip, &KDDockWidgets::QtWidgets::TabBar::countChanged, this,
+                    [this]() { applyObservatoryStrip(); });
+        }
+        connect(this, &QTabWidget::currentChanged, this, [this](int) { applyTabLocks(); });
+        applyObservatoryStrip();
+    }
+}
+
+bool AN_Stack::event(QEvent* event)
+{
+    if (an::ui::observatoryDockDecorations() && event->type() == QEvent::Show)
+    {
+        // Shown again after its group moved between a floating window and a dock area: its strip's height may differ.
+        applyObservatoryStrip();
+    }
+    return KDDockWidgets::QtWidgets::Stack::event(event);
+}
+
+void AN_Stack::paintEvent(QPaintEvent* event)
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        // The strip's ground under the tabs and the buttons; the pages below lie on the group's.
+        if (const QTabBar* strip = tabBar(); strip != nullptr && strip->isVisible())
+        {
+            QPainter painter(this);
+            an::ui::paintObservatoryDockStrip(painter, QRect(0, strip->y(), width(), strip->height()));
+        }
+        return;
+    }
+    KDDockWidgets::QtWidgets::Stack::paintEvent(event);
+}
+
+void AN_Stack::applyObservatoryStrip()
+{
+    if (!an::ui::observatoryDockDecorations())
+    {
+        return;
+    }
+    const bool floating = inFloatingWindowOf(this);
+    if (auto* corner = cornerWidget(Qt::TopRightCorner); corner != nullptr && corner->layout() != nullptr)
+    {
+        // The tab widget gives its corner the strip's height less its tabs' base.
+        const int cornerHeight = an::ui::observatoryDockStripHeight(floating) -
+                                 style()->pixelMetric(QStyle::PM_TabBarBaseHeight, nullptr, this);
+        corner->layout()->setContentsMargins(an::ui::observatoryDockCornerMargins(cornerHeight));
+        corner->layout()->setSpacing(0);
+        for (auto* button : corner->findChildren<QAbstractButton*>(Qt::FindDirectChildrenOnly))
+        {
+            button->updateGeometry();
+        }
+        corner->updateGeometry();
+    }
+    if (auto* floatButton = button(KDDockWidgets::TitleBarButtonType::Float))
+    {
+        floatButton->setToolTip(floating ? QObject::tr("Dock") : QObject::tr("Float / Detach"));
+    }
+    if (m_tabList != nullptr)
+    {
+        m_tabList->setToolTip(QObject::tr("Tab List"));
+        m_tabList->setVisible(count() > 1);
+    }
+    applyTabLocks();
+    updateGeometry();
+    update();
+}
+
+void AN_Stack::applyTabLocks()
+{
+    if (!an::ui::observatoryDockDecorations() || stack() == nullptr)
+    {
+        return;
+    }
+    QTabBar* strip = tabBar();
+    const auto closeSide = static_cast<QTabBar::ButtonPosition>(
+        strip->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, strip));
+    bool currentLocked = false;
+    for (int index = 0; index < strip->count(); ++index)
+    {
+        const an::ui::TabAdornment* adornment = an::ui::tabAdornment(dockWidgetViewAt(stack()->tabBar(), index));
+        const bool locked = adornment != nullptr && adornment->locked;
+        if (QWidget* close = strip->tabButton(index, closeSide))
+        {
+            close->setEnabled(!locked);
+        }
+        if (index == strip->currentIndex())
+        {
+            currentLocked = locked;
+        }
+    }
+    if (auto* floatButton = button(KDDockWidgets::TitleBarButtonType::Float))
+    {
+        floatButton->setEnabled(!currentLocked);
+    }
+    if (auto* closeButton = button(KDDockWidgets::TitleBarButtonType::Close))
+    {
+        const bool closable = stack()->group() == nullptr || !stack()->group()->anyNonClosable();
+        closeButton->setEnabled(!currentLocked && closable);
+    }
+}
+
+void AN_Stack::showTabList()
+{
+    if (m_tabList == nullptr)
+    {
+        return;
+    }
+    auto* menu = new QMenu(this);
+    menu->setObjectName(QStringLiteral("anDockTabListMenu"));
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    for (int index = 0; index < count(); ++index)
+    {
+        QAction* action = menu->addAction(tabText(index));
+        action->setEnabled(index != currentIndex());
+        connect(action, &QAction::triggered, this, [this, index]() {
+            if (index < count())
+            {
+                setCurrentIndex(index);
+            }
+        });
+    }
+    menu->popup(m_tabList->mapToGlobal(QPoint(0, m_tabList->height())));
 }
 
 void AN_Stack::applyThemeColors()
@@ -615,6 +1110,7 @@ void AN_Stack::applyThemeColors()
     pal.setColor(QPalette::Mid, c.borderSubtle); // border
     setPalette(pal);
     update();
+    applyObservatoryStrip();
 }
 
 namespace
@@ -658,6 +1154,7 @@ void AN_Stack::styleCornerButtons()
     {
         floatBtn->setToolTip(QObject::tr("Float / Detach"));
     }
+    applyObservatoryStrip();
 }
 
 void AN_Stack::mouseDoubleClickEvent(QMouseEvent* event)
@@ -715,6 +1212,16 @@ AN_Group::AN_Group(KDDockWidgets::Core::Group* controller, QWidget* parent)
 
 void AN_Group::paintEvent(QPaintEvent*)
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        // A docked group's ground; a floating window paints its own.
+        if (!m_group->isFloating())
+        {
+            QPainter painter(this);
+            an::ui::paintObservatoryDockPane(painter, QWidget::rect());
+        }
+        return;
+    }
     if (m_group->isFloating())
         return; // floating windows have their own border painting
 
@@ -755,8 +1262,24 @@ AN_FloatingWindow::AN_FloatingWindow(KDDockWidgets::Core::FloatingWindow* contro
 {
 }
 
+bool AN_FloatingWindow::event(QEvent* event)
+{
+    if (an::ui::observatoryDockDecorations() && event->type() == QEvent::ActivationChange)
+    {
+        // The frame is the accent while the window is active.
+        update();
+    }
+    return KDDockWidgets::QtWidgets::FloatingWindow::event(event);
+}
+
 void AN_FloatingWindow::paintEvent(QPaintEvent*)
 {
+    if (an::ui::observatoryDockDecorations())
+    {
+        QPainter painter(this);
+        an::ui::paintObservatoryDockFrame(painter, QWidget::rect(), isActiveWindow());
+        return;
+    }
     const auto& c = an::ui::tokens().colors;
 
     QPainter p(this);
@@ -771,6 +1294,38 @@ void AN_FloatingWindow::paintEvent(QPaintEvent*)
     const qreal halfPen = pen.widthF() / 2.0;
     const QRectF rectf = rect();
     p.drawRect(rectf.adjusted(halfPen, halfPen, -halfPen, -halfPen));
+}
+
+// ---------------- AN_Separator ----------------
+
+AN_Separator::AN_Separator(KDDockWidgets::Core::Separator* controller, KDDockWidgets::Core::View* parent)
+    : KDDockWidgets::QtWidgets::Separator(controller, parent)
+{
+}
+
+void AN_Separator::paintEvent(QPaintEvent* event)
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        QPainter painter(this);
+        an::ui::paintObservatoryDockSeparator(painter, QWidget::rect(), m_hovered);
+        return;
+    }
+    KDDockWidgets::QtWidgets::Separator::paintEvent(event);
+}
+
+void AN_Separator::enterEvent(QEnterEvent* event)
+{
+    m_hovered = true;
+    update();
+    KDDockWidgets::QtWidgets::Separator::enterEvent(event);
+}
+
+void AN_Separator::leaveEvent(QEvent* event)
+{
+    m_hovered = false;
+    update();
+    KDDockWidgets::QtWidgets::Separator::leaveEvent(event);
 }
 
 // ---------------- Factory ----------------
@@ -866,4 +1421,30 @@ KDDockWidgets::Core::View* AN_ViewFactory::createFloatingWindow(KDDockWidgets::C
     auto* mainwindow =
         qobject_cast<QMainWindow*>(KDDockWidgets::QtCommon::View_qt::asQWidget(parent ? parent->view() : nullptr));
     return new AN_FloatingWindow(controller, mainwindow, windowFlags);
+}
+
+KDDockWidgets::Core::View* AN_ViewFactory::createSeparator(KDDockWidgets::Core::Separator* controller,
+                                                           KDDockWidgets::Core::View* parent) const
+{
+    return new AN_Separator(controller, parent);
+}
+
+KDDockWidgets::Core::ClassicIndicatorWindowViewInterface*
+AN_ViewFactory::createClassicIndicatorWindow(KDDockWidgets::Core::ClassicDropIndicatorOverlay* indicators,
+                                             KDDockWidgets::Core::View* parent) const
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        return new AN_DropIndicators(indicators);
+    }
+    return KDDockWidgets::QtWidgets::ViewFactory::createClassicIndicatorWindow(indicators, parent);
+}
+
+KDDockWidgets::Core::View* AN_ViewFactory::createRubberBand(KDDockWidgets::Core::View* parent) const
+{
+    if (an::ui::observatoryDockDecorations())
+    {
+        return new AN_DropBand(KDDockWidgets::QtCommon::View_qt::asQWidget(parent));
+    }
+    return KDDockWidgets::QtWidgets::ViewFactory::createRubberBand(parent);
 }

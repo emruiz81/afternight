@@ -1560,27 +1560,37 @@ sources Test_ControlsDialogs
 
 # The docking suite, class engine: the dock library held to the behaviour the interface is built on, driven
 # through its installed interface as the application drives it, with the application's view factory, dock
-# decorations and dock style. Its cases link the Controls library and compile nothing of it.
+# decorations and dock style, and the decorations' look under each style profile. Its cases link the Controls
+# library and compile nothing of it.
 sources Test_ControlsDocking
     unit     src/AfterNightTests/Test_ControlsDocking/AffinitiesTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/DecorationsTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/DockingTestSupport.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/DropIndicatorsTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/FloatingWindowTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/HiddenWorkspaceTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/HooksTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/LayoutBlobTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/PerWindowStyleTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/ProgrammaticDragTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/SeveralMainWindowsTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDocking/TabStripTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/WorkspaceWindowTest.cpp
     unit     src/AfterNightTests/Test_ControlsDocking/main.cpp
     header   src/AfterNightTests/Test_ControlsDocking/DockingTestSupport.h
+    header   src/AfterNightTests/Test_ControlsDocking/ObservatoryDockingSupport.h
     header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/controls/DockDropIndicators.h
     header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/KddwProxyStyle.h
+    header   src/AfterNightControls/theme/ObservatoryDock.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/PaintRecorder.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  3rdparty/src
@@ -1679,6 +1689,7 @@ sources Test_ShellCore
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/IEngineSessionProvider.h
+    header   src/AfterNightControls/theme/ObservatoryDock.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -1743,6 +1754,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/controls/AutostretchApply.cpp
     unit     src/AfterNightControls/controls/AutostretchSettingsControl.cpp
     unit     src/AfterNightControls/controls/ComparisonImageGenerator.cpp
+    unit     src/AfterNightControls/controls/DockDropIndicators.cpp
     unit     src/AfterNightControls/controls/DockableControl.cpp
     unit     src/AfterNightControls/controls/IAppContext.cpp
     unit     src/AfterNightControls/controls/ImageHistogramControl.cpp
@@ -1779,7 +1791,12 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/session/ImageDocument.cpp
     unit     src/AfterNightControls/session/ImageReads.cpp
     unit     src/AfterNightControls/theme/AnDesignTokens.cpp
+    unit     src/AfterNightControls/theme/AnProxyStyle.cpp
+    unit     src/AfterNightControls/theme/AnProxyStyleObservatory.cpp
+    unit     src/AfterNightControls/theme/Elevation.cpp
+    unit     src/AfterNightControls/theme/KddwProxyStyle.cpp
     unit     src/AfterNightControls/theme/NightImage.cpp
+    unit     src/AfterNightControls/theme/ObservatoryDock.cpp
     unit     src/AfterNightControls/theme/ObservatoryPalette.cpp
     unit     src/AfterNightControls/widgets/ComparisonDisplayModule.cpp
     unit     src/AfterNightControls/widgets/ComparisonViewWidget.cpp
@@ -1837,6 +1854,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/CalibrationPreviewUtils.h
     header   src/AfterNightControls/controls/ComparisonImageGenerator.h
+    header   src/AfterNightControls/controls/DockDropIndicators.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
@@ -1897,8 +1915,12 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/session/ImageReads.h
     header   src/AfterNightControls/stdafx.hpp
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/theme/Elevation.h
+    header   src/AfterNightControls/theme/KddwProxyStyle.h
     header   src/AfterNightControls/theme/NightImage.h
+    header   src/AfterNightControls/theme/ObservatoryDock.h
     header   src/AfterNightControls/theme/ObservatoryPalette.h
     header   src/AfterNightControls/theme/PainterGuard.h
     header   src/AfterNightControls/theme/StyleProfile.h
@@ -2309,6 +2331,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/ObservatoryDock.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
@@ -2619,6 +2642,7 @@ sources Test_ShellParity
     header   src/AfterNightControls/controls/ImageViewFiles.h
     header   src/AfterNightControls/controls/ImageViewScrollArea.h
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
+    header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
     header   src/AfterNightControls/controls/KeyValueRepository.h
     header   src/AfterNightControls/controls/NewSequenceControl.h
     header   src/AfterNightControls/controls/NewSequenceControlUiBuilder.h
@@ -2641,6 +2665,7 @@ sources Test_ShellParity
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/ObservatoryDock.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h

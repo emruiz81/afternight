@@ -14,6 +14,7 @@
 
 #include "theme/AnDesignTokens.h"
 #include "theme/Elevation.h"
+#include "theme/ObservatoryDock.h"
 #include "theme/PainterGuard.h"
 
 #include <QAbstractItemView>
@@ -751,6 +752,11 @@ bool AnProxyStyle::drawObservatoryPrimitive(PrimitiveElement element, const QSty
     {
     case PE_PanelButtonCommand:
         drawButtonBevel(painter, option, widget, t);
+        break;
+
+    case PE_IndicatorTabClose:
+        // A tab's close button, the dock strips' and every other: a cross over the state colour.
+        an::ui::paintObservatoryDockTabClose(*painter, option->rect, hovered(option), pressed(option), enabled(option));
         break;
 
     case PE_PanelButtonTool: {

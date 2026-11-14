@@ -23,6 +23,7 @@
 #include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
+#include "theme/ObservatoryDock.h"
 
 #include <QAction>
 #include <QApplication>
@@ -38,6 +39,10 @@
 #include <QWidget>
 
 #include <gtest/gtest.h>
+
+#include <kddockwidgets/Config.h>
+
+#include <utility>
 
 #include <memory>
 #include <tuple>
@@ -267,6 +272,32 @@ TEST(ApplicationStart, TheDeveloperSwitchStylesTheShellUnderTheProfileItNames)
                                 QStringLiteral("classic built")}))
         << log.join(QStringLiteral(", ")).toStdString();
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+}
+
+// The dock library is given the separator of the profile the shell starts under, once the profile is in force and
+// before the shell is made: two pixels under the Observatory profile, the library's own under the Classic one.
+TEST(ApplicationStart, TheDockLibraryTakesTheSeparatorOfTheProfile)
+{
+    const an::ui::testing::ScopedStyleProfile classicAfterwards(an::ui::StyleProfile::Classic);
+    const int librarySeparator = KDDockWidgets::Config::self().separatorThickness();
+    for (const auto& [shell, expected] : {std::pair{QStringLiteral("second"), an::ui::kObservatoryDockSeparator},
+                                          std::pair{QStringLiteral("classic"), 5}})
+    {
+        SCOPED_TRACE(shell.toStdString());
+        QStringList log;
+        const ShellRegistry registry = recordingShells(log);
+        an::ui::ApplicationSession session;
+        ApplicationCore core;
+        core.setApplicationSession(&session);
+
+        an::ui::StartedApplication started = an::ui::startApplication(
+            core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=") + shell}, QProcessEnvironment(),
+            [](const an::ui::StyleProfile profile) { an::ui::testing::forceStyleProfile(profile); });
+
+        EXPECT_EQ(KDDockWidgets::Config::self().separatorThickness(), expected);
+        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+    }
+    EXPECT_EQ(KDDockWidgets::Config::self().separatorThickness(), librarySeparator);
 }
 
 // With the developer switch the classic shell starts under the Observatory profile and paints in its colours: the style

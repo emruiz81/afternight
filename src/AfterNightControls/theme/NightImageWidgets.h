@@ -50,7 +50,7 @@ struct NightImageWidget
 };
 
 /// The widgets that paint a picture, by source.
-inline constexpr std::array<NightImageWidget, 21u> kNightImageWidgets{{
+inline constexpr std::array<NightImageWidget, 22u> kNightImageWidgets{{
     {"ImageViewWidget", "widgets/ImageViewWidget.cpp", NightImageUse::Presentation,
      "The image's presentation, a preview's frames and the mask layer, mapped on the worker that presents them; under "
      "Night the lens magnifies what is painted and reads the image's own values."},
@@ -91,6 +91,8 @@ inline constexpr std::array<NightImageWidget, 21u> kNightImageWidgets{{
      "A filled button's icon, painted in the button's text colour under the Observatory profile."},
     {"Elevation", "theme/Elevation.cpp", NightImageUse::Colours,
      "A raised part's shadow, rendered in the shadow's colour and let go when the theme changes."},
+    {"paintObservatoryDockTab", "theme/ObservatoryDock.cpp", NightImageUse::Icon,
+     "A dock tab's icon and its adornment's, tinted in the tokens' colours under the Observatory profile."},
     {"AnnotationPicture", "controls/annotation/AnnotationPicture.cpp", NightImageUse::NeverShown,
      "The annotated picture, written to a file."},
 }};

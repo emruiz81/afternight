@@ -361,6 +361,15 @@ state src/AfterNightControls/theme/AnProxyStyleObservatory.cpp g_observatoryPain
     reason           Counts the elements the Observatory profile's painters draw, so the suites prove the Classic
                      profile draws through its own code alone; the application never reads it.
 
+state src/AfterNightControls/theme/ObservatoryDock.cpp g_observatoryDockPaints
+    scope            anonymous namespace
+    category         theme-service
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  an atomic counter, added to by whichever thread paints
+    reason           Counts the dock parts the Observatory profile's painters draw, so the suites prove the Classic
+                     profile draws the dock decorations through their own code alone; the application never reads it.
+
 state src/AfterNightControls/theme/Elevation.cpp images
     scope            shadowImages
     category         theme-service

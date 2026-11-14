@@ -11,7 +11,7 @@
 1. [Architecture Overview](#architecture-overview)
 2. [Design Tokens (`AnDesignTokens`)](#design-tokens-andesigntokens)
 3. [Proxy Style (`AnProxyStyle`)](#proxy-style-anproxystyle)
-4. [KDDockWidgets Style (`KddwProxyStyle`)](#kddockwidgets-style-kddwproxystyle)
+4. [The dock decorations (`KddwProxyStyle`, the `AN_*` views)](#the-dock-decorations-kddwproxystyle-the-an_-views)
 5. [Layout Utilities (`AnLayoutUtils`)](#layout-utilities-anlayoututils)
 6. [Animation Utilities (`AnimationUtils`)](#animation-utilities-animationutils)
 7. [Icon Management (`IconManager`)](#icon-management-iconmanager)
@@ -75,6 +75,9 @@
 | `theme/AnProxyStyleObservatory.cpp` | The proxy style's drawing under the Observatory profile (see [The Observatory look](#the-observatory-look)) |
 | `theme/Elevation.h/.cpp` | A raised part's shadow and edge line: the kept nine-patch images (see [Elevation](#elevation)) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
+| `theme/ObservatoryDock.h/.cpp` | The dock decorations' sizes, layout and painters under the Observatory profile (see [The dock decorations](#the-dock-decorations-kddwproxystyle-the-an_-views)) |
+| `controls/KDDockWidgetsHelper.h/.cpp` | The dock decorations (`AN_TabBar`, `AN_Stack`, `AN_TitleBar`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator`, `AN_DockButton`), the view factory, a tab's adornment |
+| `controls/DockDropIndicators.h/.cpp` | The Observatory profile's drop indicators and band (`AN_DropIndicators`, `AN_DropBand`) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
 | `theme/PainterGuard.h` | `an::ui::PainterGuard`, the RAII `QPainter` save/restore guard |
 | `components/AnLayoutUtils.h` | Layout spacing/margin normalization to design tokens |
@@ -567,9 +570,12 @@ bool isChecked(const QStyleOption* opt);   // State_On
 
 ---
 
-## KDDockWidgets Style (`KddwProxyStyle`)
+## The dock decorations (`KddwProxyStyle`, the `AN_*` views)
 
-A secondary `QProxyStyle` installed specifically on the KDDockWidgets main window. It intercepts paint calls for KDDW-specific widgets (title bars, dock tabs, separators, group frames, title-bar buttons) and renders them with design tokens.
+The dock library's parts are the product's own classes, which `AN_ViewFactory` makes (`controls/KDDockWidgetsHelper.h`):
+`AN_TabBar` (a group's tab strip), `AN_Stack` (the group's tab widget, and the buttons at the strip's right),
+`AN_TitleBar`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator` (the line between two groups) and `AN_DockButton`.
+`KddwProxyStyle` is a secondary `QProxyStyle`, installed on each dock main window:
 
 ```cpp
 auto* kddwStyle = an::ui::installKddwProxyStyle(dockMainWindow);
@@ -577,7 +583,56 @@ auto* kddwStyle = an::ui::installKddwProxyStyle(dockMainWindow);
 kddwStyle->refreshThemeTokens();
 ```
 
-It uses `isKddwWidget()` ancestry checks to determine whether a widget belongs to the KDDW subsystem, and delegates everything else to the base proxy chain.
+A style set on a widget is that widget's alone - Qt hands it to no child - so what `KddwProxyStyle` gives the parts inside
+a dock area is the palette it sets on the main window; the parts are drawn by their own paint events and by the
+application's style, and the library gives its tab strips a style of its own (one that turns their animation off).
+
+**Under the Classic profile** every part paints through the code it had in 1.1: the tab strips are drawn by the library's
+style with an accent bar laid over the current tab, the separator by the application's style, the indicators by the
+library's window of pictures, and the library keeps its own separator of five pixels.
+`Decorations.ClassicUnchanged` (`Test_ControlsDocking`) paints a dock area with tabs, a separator, a floating window, the
+indicators and the band under that profile and expects no Observatory painter of the decorations
+(`an::ui::testing::observatoryDockPaints()`) or of the style (`observatoryPaints()`) to have run.
+
+**Under the Observatory profile** each part hands over to the Observatory painters (`theme/ObservatoryDock.h`) in one
+line at the top of its paint event, as the proxy style does ([The Observatory look](#the-observatory-look)):
+
+- **A tab strip** is `metrics.strip` high (34 / 40), the first surface with a `borderSubtle` hairline under it, which the
+  stack paints across the group's width. `AN_TabBar` takes a `KddwProxyStyle` as its style in place of the library's -
+  the style keeps the library's rule (no tab animation) - so that what the library paints itself, the tabs and the
+  picture of a tab dragged along its strip, is drawn in the profile's look; the strip tells the style what each tab
+  shows (`ObservatoryDockTabSource`). A tab is its icon (14 px, the tertiary text), its name in the small text, semibold,
+  the secondary text, a star in `textAccent` when the image has unsaved changes (its title ends in ` *`), its adornment
+  and its close button (16 px, a cross in the tertiary text, drawn by the application's style for every tab of the
+  application). The current tab's name is the primary text and a three-pixel bar with rounded top corners stands under
+  it, ten pixels in from each end: the accent in the active view's group, the tertiary text in the others
+  (`forceUnselected`). A name too long is elided in the middle and a tab is never cut under twelve characters; the tab's
+  tooltip is the whole name, the image's summary after it.
+- **The strip's buttons** - the tab list (shown with more than one tab; its menu makes a tab current), Float / Detach
+  (Dock, in a floating window) and Close Tab Group - are quiet `metrics.controlSmall` squares centred above the
+  hairline, their glyph the secondary text.
+- **A tab's adornment**, set by `an::ui::setTabAdornment(dockWidget, {iconKey, toolTip, locked, activated})`, is an icon in
+  an 18 px square of `accentContainer` after the name, with its own tooltip; a click on it runs `activated` and neither
+  selects nor drags the tab. `locked` disables the tab's close button and, while the tab is current, the strip's buttons:
+  a disabled button is painted whole at 38 %, its glyph one path so that where its strokes cross is no brighter. Under the
+  Classic profile an adornment is kept and neither drawn nor acted on.
+- **A floating image window** is the first surface inside a one-pixel frame, `borderPrimary`, the accent while the
+  window is active, and its strip is the smaller one (`metrics.strip` less four: 30 / 36); docked again, its strip is the
+  density's. The library's title bar, where the platform shows it instead of its own, is that smaller strip with the
+  title in the primary text.
+- **Groups** lie two pixels apart: `applyDockDecorationsProfile()` gives the library the profile's separator when the
+  application starts (the library takes it only while no dock widget exists), and the separator is the dock area's
+  ground (`surface0`), `accentLine` under the pointer. A docked group's ground is the first surface.
+- **The drop indicators** are the product's window (`AN_DropIndicators`, `controls/DockDropIndicators.h`), which the
+  factory makes in place of the library's: a cross of five 32 px targets over the group under the cursor, 36 px apart,
+  and four at the dock area's edges, 12 px in. A target is a raised square of the third surface with a `borderPrimary`
+  outline whose half it stands for is filled with `accentLine` - the accent itself while the cursor is over it. The band
+  over the place the view would take (`AN_DropBand`) is `accentSoft` inside a two-pixel accent border; how much room the
+  view would take is the library's to say.
+
+`TabStrip.*`, `FloatingWindow.*`, `DockArea.*` and `DropIndicators.*` (`Test_ControlsDocking`) hold these in dark, light
+and a tinted preset, at both densities. Every colour is a token read as the part paints; a density change reaches a strip
+that exists through the theme's refresh (`applyThemeColors()` lays the tabs out again and places the buttons).
 
 ---
 
@@ -993,7 +1048,7 @@ The proxy style uses dynamic properties to differentiate visual variants without
 | `anTabMinWidth` | integer | Minimum tab width |
 | `anTabMinHeight` | integer | Minimum tab height |
 | `anTabAccentLinePosition` | `"top"` | Place accent line on top instead of bottom |
-| `forceUnselected` | `true` | Visually de-select all tabs (KDDW) |
+| `forceUnselected` | `true` | Visually de-select all tabs (KDDW); under the Observatory profile the current tab keeps a bar in the tertiary text: its group is not the active view's |
 
 ### Toolbar Properties
 

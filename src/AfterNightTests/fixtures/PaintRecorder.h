@@ -13,6 +13,7 @@
 #include <QPaintDevice>
 #include <QPaintEngine>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
 #include <QPixmap>
 #include <QRectF>
@@ -121,6 +122,12 @@ private:
             }
         }
         void drawPixmap(const QRectF&, const QPixmap&, const QRectF&) override {}
+        // Lines, rectangles and shapes are drawn as paths or polygons, and draw nothing here. One of the polygon
+        // functions must be given: the engine's two defaults call each other, so a line would recurse until the stack
+        // is gone.
+        using QPaintEngine::drawPolygon;
+        void drawPath(const QPainterPath&) override {}
+        void drawPolygon(const QPointF*, int, PolygonDrawMode) override {}
         void drawTextItem(const QPointF&, const QTextItem& textItem) override
         {
             m_texts.push_back(RecordedText{textItem.text(), m_pen.color(), textItem.font(), m_opacity});

@@ -7,6 +7,7 @@
 
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
+#include "theme/ObservatoryDock.h"
 #include "theme/PainterGuard.h"
 
 #include <QApplication>
@@ -174,6 +175,10 @@ void KddwProxyStyle::setupDockPalette(QPalette& palette) const
 void KddwProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
                                    const QWidget* widget) const
 {
+    if (observatoryDockDecorations() && drawObservatoryPrimitive(element, option, widget))
+    {
+        return;
+    }
     switch (element)
     {
     case PE_PanelButtonTool:
@@ -252,6 +257,10 @@ void KddwProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption*
 void KddwProxyStyle::drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
                                  const QWidget* widget) const
 {
+    if (observatoryDockDecorations() && drawObservatoryControl(element, option, painter, widget))
+    {
+        return;
+    }
     switch (element)
     {
     case CE_DockWidgetTitle:
@@ -306,6 +315,11 @@ void KddwProxyStyle::drawComplexControl(ComplexControl control, const QStyleOpti
 
 int KddwProxyStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const
 {
+    if (const std::optional<int> answer =
+            observatoryDockDecorations() ? observatoryPixelMetric(metric, widget) : std::nullopt)
+    {
+        return *answer;
+    }
     switch (metric)
     {
     case PM_DockWidgetTitleBarButtonMargin:
@@ -372,6 +386,186 @@ QSize KddwProxyStyle::sizeFromContents(ContentsType type, const QStyleOption* op
 
     default:
         return QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
+    }
+}
+
+QRect KddwProxyStyle::subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const
+{
+    if (const std::optional<QRect> answer =
+            observatoryDockDecorations() ? observatorySubElementRect(element, option, widget) : std::nullopt)
+    {
+        return *answer;
+    }
+    return QProxyStyle::subElementRect(element, option, widget);
+}
+
+int KddwProxyStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget* widget,
+                              QStyleHintReturn* returnData) const
+{
+    if (const std::optional<int> answer =
+            observatoryDockDecorations() ? observatoryStyleHint(hint, widget) : std::nullopt)
+    {
+        return *answer;
+    }
+    return QProxyStyle::styleHint(hint, option, widget, returnData);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// The Observatory profile: a dock tab strip
+// ════════════════════════════════════════════════════════════════════════════
+
+namespace
+{
+
+/// The tab strip the style paints, when it tells what its tabs show.
+const ObservatoryDockTabSource* tabSourceOf(const QWidget* widget)
+{
+    return dynamic_cast<const ObservatoryDockTabSource*>(widget);
+}
+
+/// The index of the tab an option is for: the one it names, or the strip's tab with its rectangle.
+int tabIndexOf(const QStyleOptionTab& tab, const QWidget* widget)
+{
+    if (tab.tabIndex >= 0)
+    {
+        return tab.tabIndex;
+    }
+    if (const auto* strip = qobject_cast<const QTabBar*>(widget))
+    {
+        for (int index = 0; index < strip->count(); ++index)
+        {
+            if (strip->tabRect(index) == tab.rect)
+            {
+                return index;
+            }
+        }
+    }
+    return -1;
+}
+
+} // namespace
+
+bool KddwProxyStyle::drawObservatoryPrimitive(PrimitiveElement element, const QStyleOption* /*option*/,
+                                              const QWidget* widget) const
+{
+    if (tabSourceOf(widget) == nullptr)
+    {
+        return false;
+    }
+    switch (element)
+    {
+    case PE_FrameTabBarBase:
+    case PE_IndicatorTabTear:
+    case PE_IndicatorTabTearRight:
+        // The strip's ground and hairline are its stack's; a cut tab shows no tear.
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool KddwProxyStyle::drawObservatoryControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+                                            const QWidget* widget) const
+{
+    const ObservatoryDockTabSource* source = tabSourceOf(widget);
+    const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+    if (source == nullptr || tab == nullptr)
+    {
+        return false;
+    }
+    switch (element)
+    {
+    case CE_TabBarTab: {
+        const int index = tabIndexOf(*tab, widget);
+        if (index < 0)
+        {
+            return true;
+        }
+        ObservatoryDockTabState state;
+        state.enabled = (tab->state & State_Enabled) != 0;
+        state.current = (tab->state & State_Selected) != 0;
+        state.hovered = state.enabled && (tab->state & State_MouseOver) != 0;
+        state.activeGroup = !widget->property("forceUnselected").toBool();
+        paintObservatoryDockTab(*painter, tab->rect, source->observatoryDockTab(index), state);
+        return true;
+    }
+    case CE_TabBarTabShape:
+    case CE_TabBarTabLabel:
+        // Drawn whole as the tab.
+        return true;
+    default:
+        return false;
+    }
+}
+
+std::optional<int> KddwProxyStyle::observatoryPixelMetric(PixelMetric metric, const QWidget* widget) const
+{
+    if (tabSourceOf(widget) == nullptr)
+    {
+        return std::nullopt;
+    }
+    switch (metric)
+    {
+    case PM_TabBarTabOverlap:
+    case PM_TabBarTabShiftHorizontal:
+    case PM_TabBarTabShiftVertical:
+    case PM_TabBarBaseOverlap:
+    case PM_TabBarBaseHeight:
+        // Tabs side by side, none raised over another, no base under them.
+        return 0;
+    default:
+        return std::nullopt;
+    }
+}
+
+std::optional<QRect> KddwProxyStyle::observatorySubElementRect(SubElement element, const QStyleOption* option,
+                                                               const QWidget* widget) const
+{
+    const ObservatoryDockTabSource* source = tabSourceOf(widget);
+    const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+    if (source == nullptr || tab == nullptr)
+    {
+        return std::nullopt;
+    }
+    const int index = tabIndexOf(*tab, widget);
+    if (index < 0)
+    {
+        return std::nullopt;
+    }
+    const ObservatoryDockTabParts parts = observatoryDockTabParts(tab->rect, source->observatoryDockTab(index));
+    switch (element)
+    {
+    case SE_TabBarTabRightButton:
+        return parts.close;
+    case SE_TabBarTabLeftButton:
+        return QRect();
+    case SE_TabBarTabText:
+        return parts.name;
+    default:
+        return std::nullopt;
+    }
+}
+
+std::optional<int> KddwProxyStyle::observatoryStyleHint(StyleHint hint, const QWidget* widget) const
+{
+    if (tabSourceOf(widget) == nullptr)
+    {
+        return std::nullopt;
+    }
+    switch (hint)
+    {
+    case SH_Widget_Animation_Duration:
+        // The dock library sets a style of its own on its strips for this: a tab removed while an animation runs would
+        // be painted after it is gone.
+        return 0;
+    case SH_TabBar_CloseButtonPosition:
+        return static_cast<int>(QTabBar::RightSide);
+    case SH_TabBar_Alignment:
+        return static_cast<int>(Qt::AlignLeft);
+    case SH_TabBar_ElideMode:
+        return static_cast<int>(Qt::ElideMiddle);
+    default:
+        return std::nullopt;
     }
 }
 

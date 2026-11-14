@@ -6,6 +6,9 @@
 #include "AfterNightControlsExport.h"
 
 #include <QProxyStyle>
+#include <QRect>
+
+#include <optional>
 
 namespace an::ui
 {
@@ -36,6 +39,13 @@ struct DesignTokens;
 ///   // ... on theme change:
 ///   kddwStyle->refreshThemeTokens();
 /// @endcode
+///
+/// Under the Observatory profile it is also the style of each tab strip of the dock library (`AN_TabBar` sets it, in
+/// place of the library's own), so that what the library paints itself - the tabs, and the picture of a tab dragged
+/// along its strip - is drawn in that look: the strip tells it what each tab shows (`ObservatoryDockTabSource`), and
+/// it places the tab's close button and keeps the library's rule that tabs are not animated. Each override hands a tab
+/// strip's element to the Observatory code in one line at its top; what that code leaves falls through to the Classic
+/// code, which is otherwise untouched.
 class AFTERNIGHTCONTROLS_API KddwProxyStyle : public QProxyStyle
 {
 public:
@@ -63,6 +73,12 @@ public:
     [[nodiscard]] QSize sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& contentsSize,
                                          const QWidget* widget = nullptr) const override;
 
+    [[nodiscard]] QRect subElementRect(SubElement element, const QStyleOption* option,
+                                       const QWidget* widget = nullptr) const override;
+
+    [[nodiscard]] int styleHint(StyleHint hint, const QStyleOption* option = nullptr, const QWidget* widget = nullptr,
+                                QStyleHintReturn* returnData = nullptr) const override;
+
     // ── Polish / Unpolish ───────────────────────────────────────
     void polish(QWidget* widget) override;
     void polish(QPalette& palette) override;
@@ -72,6 +88,17 @@ public:
     void refreshThemeTokens();
 
 private:
+    // The Observatory profile's drawing of a dock tab strip. Each answers whether it decided the element; what it
+    // leaves is the Classic code's.
+    [[nodiscard]] bool drawObservatoryPrimitive(PrimitiveElement element, const QStyleOption* option,
+                                                const QWidget* widget) const;
+    [[nodiscard]] bool drawObservatoryControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+                                              const QWidget* widget) const;
+    [[nodiscard]] std::optional<int> observatoryPixelMetric(PixelMetric metric, const QWidget* widget) const;
+    [[nodiscard]] std::optional<QRect> observatorySubElementRect(SubElement element, const QStyleOption* option,
+                                                                 const QWidget* widget) const;
+    [[nodiscard]] std::optional<int> observatoryStyleHint(StyleHint hint, const QWidget* widget) const;
+
     void drawDockTitleBar(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawDockSeparator(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawDockTabShape(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
