@@ -16,21 +16,6 @@ TEST(AfterNightAppWindowGeometrySuite, MainWindowMinimumSizeTargets720pLayouts)
     EXPECT_EQ(an::ui::kMainWindowMinimumHeight, 720);
 }
 
-TEST(AfterNightAppWindowGeometrySuite, ClampRestoredWindowSizeHonorsMainWindowMinimums)
-{
-    const QSize clamped = an::ui::clampRestoredWindowSize(QSize(640, 480));
-
-    EXPECT_EQ(clamped.width(), an::ui::kMainWindowMinimumWidth);
-    EXPECT_EQ(clamped.height(), an::ui::kMainWindowMinimumHeight);
-}
-
-TEST(AfterNightAppWindowGeometrySuite, ClampRestoredWindowSizePreservesLargerSizes)
-{
-    const QSize original(1536, 864);
-
-    EXPECT_EQ(an::ui::clampRestoredWindowSize(original), original);
-}
-
 TEST(AfterNightAppLifecycleCloseSuite, PrepareForCloseStopsOpenProcessesAfterConfirmation)
 {
     ImageViewControlManager image_view_control_manager;

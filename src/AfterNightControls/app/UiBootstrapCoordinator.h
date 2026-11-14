@@ -9,7 +9,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <array>
 #include <vector>
 
 #include <QString>
@@ -46,29 +45,6 @@ inline bool isUiBootstrapOrderValid(const std::vector<std::string>& steps)
 }
 
 inline constexpr size_t kMainDashboardDelegateBindingCount = 11;
-
-enum class RequiredDockConfigFlag
-{
-    HideTitleBarWhenTabsVisible,
-    AlwaysShowTabs,
-    AllowReorderTabs,
-    TabsHaveCloseButton,
-    ShowButtonsOnTabBarIfTitleBarHidden,
-    AllowSwitchingTabsViaMenu,
-    NativeTitleBar,
-    TitleBarIsFocusable,
-};
-
-inline constexpr std::array<RequiredDockConfigFlag, 8> kRequiredDockConfigFlags = {
-    RequiredDockConfigFlag::HideTitleBarWhenTabsVisible,
-    RequiredDockConfigFlag::AlwaysShowTabs,
-    RequiredDockConfigFlag::AllowReorderTabs,
-    RequiredDockConfigFlag::TabsHaveCloseButton,
-    RequiredDockConfigFlag::ShowButtonsOnTabBarIfTitleBarHidden,
-    RequiredDockConfigFlag::AllowSwitchingTabsViaMenu,
-    RequiredDockConfigFlag::NativeTitleBar,
-    RequiredDockConfigFlag::TitleBarIsFocusable,
-};
 
 class AFTERNIGHTCONTROLS_API UiBootstrapCoordinator
 {

@@ -30,12 +30,16 @@
 #include "controls/annotation/AnnotateImageControl.h"
 #include "controls/settings/SettingsKeys.h"
 #include "session/ImageDocument.h"
+#include "views/DockHooks.h"
 #include "widgets/MaskRenderer.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 #include <AfterNightEngine/IO/CodecFormat.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/OutputIntent.h>
+
+#include <kddockwidgets/DockWidget.h>
+#include <kddockwidgets/core/Group.h>
 
 #include <QAction>
 #include <QApplication>
@@ -44,6 +48,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDropEvent>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
@@ -55,11 +60,13 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPointer>
 #include <QPushButton>
 #include <QSet>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QThread>
 #include <QTimer>
 
@@ -489,6 +496,114 @@ TEST_F(ApplicationMenu, FitImagesToWindowFitsEveryView)
 
     EXPECT_FLOAT_EQ(first->getCurrentZoom(), firstFitted);
     EXPECT_FLOAT_EQ(second->getCurrentZoom(), secondFitted);
+}
+
+// Group All Images gathers every view into the dock area as one tab group, and the active view stays active.
+TEST_F(ApplicationMenu, GroupAllImagesMakesOneTabGroup)
+{
+    ImageViewControl* const first = makeView(QStringLiteral("first"));
+    ImageViewControl* const second = makeView(QStringLiteral("second"));
+    ASSERT_NE(second, nullptr);
+    invoke("actionSplit_All_Images");
+    QCoreApplication::processEvents();
+    ASSERT_NE(first->getDockWidget()->group(), second->getDockWidget()->group());
+
+    invoke("actionGroup_All_Images");
+    QCoreApplication::processEvents();
+
+    EXPECT_EQ(first->getDockWidget()->group(), second->getDockWidget()->group());
+    EXPECT_EQ(activeView(), second);
+}
+
+// Split All Images gives each view a pane of its own in the dock area, and the active view stays active.
+TEST_F(ApplicationMenu, SplitAllImagesGivesEachViewAPaneOfItsOwn)
+{
+    ImageViewControl* const first = makeView(QStringLiteral("first"));
+    ImageViewControl* const second = makeView(QStringLiteral("second"));
+    ImageViewControl* const third = makeView(QStringLiteral("third"));
+    ASSERT_NE(third, nullptr);
+    invoke("actionGroup_All_Images");
+    QCoreApplication::processEvents();
+    ASSERT_EQ(first->getDockWidget()->group(), third->getDockWidget()->group());
+
+    invoke("actionSplit_All_Images");
+    QCoreApplication::processEvents();
+
+    EXPECT_NE(first->getDockWidget()->group(), second->getDockWidget()->group());
+    EXPECT_NE(second->getDockWidget()->group(), third->getDockWidget()->group());
+    EXPECT_NE(first->getDockWidget()->group(), third->getDockWidget()->group());
+    EXPECT_EQ(activeView(), third);
+}
+
+// Lock Layout refuses every drag - a floating window's too - and every drop indicator, and offers Unlock Layout in its
+// place; Unlock Layout lifts both, as the layout lock always did.
+TEST_F(ApplicationMenu, LockLayoutRefusesEveryDragUntilUnlocked)
+{
+    using an::ui::shell::DockDrag;
+    using an::ui::shell::DockHooks;
+    ImageViewControl* const view = makeView(QStringLiteral("locked"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_TRUE(menuAction("actionLock_Layout")->isEnabled());
+    ASSERT_TRUE(DockHooks::allowsDrag(DockDrag{.mainWindow = s_window->getDockMainWindow()}));
+
+    invoke("actionLock_Layout");
+
+    EXPECT_FALSE(DockHooks::allowsDrag(DockDrag{.mainWindow = s_window->getDockMainWindow()}));
+    EXPECT_FALSE(DockHooks::allowsDrag(DockDrag{.mainWindow = nullptr}));
+    EXPECT_TRUE(DockHooks::dropIndicatorsInhibited());
+    EXPECT_FALSE(menuAction("actionLock_Layout")->isEnabled());
+    EXPECT_TRUE(menuAction("actionUnlock_Layout")->isEnabled());
+
+    invoke("actionUnlock_Layout");
+
+    EXPECT_TRUE(DockHooks::allowsDrag(DockDrag{.mainWindow = s_window->getDockMainWindow()}));
+    EXPECT_TRUE(DockHooks::allowsDrag(DockDrag{.mainWindow = nullptr}));
+    EXPECT_FALSE(DockHooks::dropIndicatorsInhibited());
+    EXPECT_TRUE(menuAction("actionLock_Layout")->isEnabled());
+    EXPECT_FALSE(menuAction("actionUnlock_Layout")->isEnabled());
+}
+
+// An image dropped on the window is taken and opens in a view of its own; a drag of a file AfterNight cannot open is
+// not taken.
+TEST_F(ApplicationMenu, ADroppedImageOpensInAViewOfItsOwn)
+{
+    const QString notes = filePath(QStringLiteral("notes.txt"));
+    QMimeData unsupported;
+    unsupported.setUrls({QUrl::fromLocalFile(notes)});
+    QDragEnterEvent refused(QPoint(20, 20), Qt::CopyAction, &unsupported, Qt::LeftButton, Qt::NoModifier);
+    refused.ignore();
+    QCoreApplication::sendEvent(s_window, &refused);
+    EXPECT_FALSE(refused.isAccepted());
+
+    const QString path = filePath(QStringLiteral("dropped.fits"));
+    writeFile(path, an::CodecFormat::Fits, 0.5f);
+    const std::vector<ImageViewControl*> before = views();
+    QMimeData data;
+    data.setUrls({QUrl::fromLocalFile(path)});
+    QDragEnterEvent enter(QPoint(20, 20), Qt::CopyAction, &data, Qt::LeftButton, Qt::NoModifier);
+    enter.ignore();
+    QCoreApplication::sendEvent(s_window, &enter);
+    EXPECT_TRUE(enter.isAccepted());
+    QDropEvent drop(QPointF(20, 20), Qt::CopyAction, &data, Qt::LeftButton, Qt::NoModifier);
+    drop.ignore();
+    QCoreApplication::sendEvent(s_window, &drop);
+    EXPECT_TRUE(drop.isAccepted());
+
+    ImageViewControl* opened = nullptr;
+    EXPECT_TRUE(processEventsUntil(
+        [&]() {
+            for (ImageViewControl* view : views())
+            {
+                if (std::find(before.begin(), before.end(), view) == before.end() && view->hasImage() &&
+                    QDir::cleanPath(view->document().names().sourcePath) == QDir::cleanPath(path))
+                {
+                    opened = view;
+                }
+            }
+            return opened != nullptr;
+        },
+        20000))
+        << path.toStdString() << " was not shown in a view of its own";
 }
 
 // ---- The image menu: the tool windows over the active view.

@@ -536,6 +536,17 @@ state src/AfterNightProcesses/processes/ImageIntegration/widgets/FrameQualityDas
     synchronization  GUI thread
     reason           Keeps the user's sort order when the dashboard is rebuilt.
 
+state src/AfterNightShellCore/views/DockHooks.cpp state
+    scope            dispatcher
+    category         ui-state
+    owner            the first call to DockHooks, which the application's core makes as it is made; each subscription
+                     joins it and leaves it as the subscription goes
+    lifetime         from first use to process exit
+    synchronization  GUI thread: the dock library asks its hooks there, and subscriptions are made and dropped there
+    reason           The dock library's three hooks are plain functions, one each for the whole process, that capture
+                     nothing: the dispatcher installed as them finds its subscribers, and what the drag it last allowed
+                     named, here. It also keeps that the library was configured, which the library takes only once.
+
 # ---- Identity.
 
 state src/AfterNightProcesses/processes/ImageIntegration/core/DatabaseUtils.h counter

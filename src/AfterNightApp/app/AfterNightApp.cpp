@@ -64,6 +64,7 @@
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionStateCoordinator.h"
 #include "actions/ProcessMenuModel.h"
+#include "actions/ViewMenuBuilder.h"
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
@@ -72,10 +73,13 @@
 #include "services/ExtensionService.h"
 #include "services/FavoriteProcessesModel.h"
 #include "services/FileDialogService.h"
+#include "services/FileDropHandler.h"
 #include "services/OpenProcessRegistry.h"
 #include "services/ProcessLaunchService.h"
 #include "services/RecentFilesModel.h"
 #include "services/RecentProcessesModel.h"
+#include "services/WindowGeometryStore.h"
+#include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
 #include <AfterNightPlatform/Text.h>
@@ -185,7 +189,6 @@ struct AfterNightApp::Impl
     // What makes this window's process menus again when the core's process menus change.
     std::size_t m_ProcessMenusSubscription = 0;
 
-    std::atomic_bool m_IsLayoutLocked = false;
     bool m_UnlockLayoutWhenRestoring = false;
 
     LogViewerControl* m_LogViewerControl = nullptr;
@@ -303,7 +306,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     themeManagerDeps.setActionIcons = [this]() { setActionIcons(); };
     themeManagerDeps.mainDashboard = &m_impl->m_MainDashboard;
     themeManagerDeps.toolbarLockLayout = &m_impl->m_ToolbarLockLayout;
-    themeManagerDeps.isLayoutLocked = &m_impl->m_IsLayoutLocked;
+    themeManagerDeps.isLayoutLocked = [this]() { return layoutIsLocked(); };
     themeManagerDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     themeManagerDeps.dockMainWindow = &m_impl->m_DockMainWindow;
     themeManagerDeps.forEachOpenProcess = [this](const std::function<void(TopLevelProcessBaseControl*)>& visit) {
@@ -561,6 +564,10 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     windowLayoutDeps.lockLayout = [this]() { lockLayout(); };
     windowLayoutDeps.unlockLayout = [this]() { unlockLayout(); };
     windowLayoutDeps.layoutIsLocked = [this]() { return layoutIsLocked(); };
+    windowLayoutDeps.viewsSharingTheWindowOf = [this](ImageViewControl& view) {
+        return an::ui::shell::DockLayoutOperations::viewsSharingTheWindowOf(
+            view, m_impl->m_Core.viewService().getListOfViewControls());
+    };
     m_impl->m_WindowLayoutCoordinator = std::make_unique<an::ui::WindowLayoutCoordinator>(windowLayoutDeps);
     an::ui::AppLifecycleCoordinator::Dependencies appLifecycleDeps;
     appLifecycleDeps.mainWindow = this;
@@ -602,16 +609,11 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     appLifecycleDeps.messageBoxYesNo = [this](QWidget* parent, const QString& title, const QString& text,
                                               const bool warn,
                                               int* ret) { messageBoxYesNo(parent, title, text, warn, ret); };
-    appLifecycleDeps.availableScreenGeometries = []() {
-        QList<QRect> geometries;
-        for (QScreen* screen : QGuiApplication::screens())
-        {
-            if (screen)
-            {
-                geometries.push_back(screen->availableGeometry());
-            }
-        }
-        return geometries;
+    appLifecycleDeps.showWindowWhereItWas = [this](QWidget& window) {
+        an::ui::shell::WindowGeometryStore(m_impl->m_Core).show(window);
+    };
+    appLifecycleDeps.keepWindowPlace = [this](const QWidget& window) {
+        an::ui::shell::WindowGeometryStore(m_impl->m_Core).save(window);
     };
     m_impl->m_AppLifecycleCoordinator = std::make_unique<an::ui::AppLifecycleCoordinator>(appLifecycleDeps);
 
@@ -635,6 +637,9 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     dialogHooks.openSettingsAt = [this](const QString& pageName) { openSettingsAt(pageName); };
     dialogHooks.openExtensionsAt = [this](const QString& pageName) { openSettingsAt(pageName); };
     core.dialogService().setHooks(std::move(dialogHooks));
+
+    // Files dropped on this window are opened by its file manager.
+    core.fileDrops().setHooks({.openFiles = [this](const QStringList& files) { openDroppedFiles(files); }});
 
     an::ui::shell::ExtensionService::Hooks extensionHooks;
     extensionHooks.askYesNo = [this](const QString& title, const QString& text, const bool warn,
@@ -776,10 +781,17 @@ an::ui::DialogOrchestrationCoordinator* AfterNightApp::dialogOrchestration() con
 
 void AfterNightApp::createContextMenuForViewControl(ImageViewControl* view, QContextMenuEvent* event)
 {
-    if (m_impl->m_WindowLayoutCoordinator)
+    if (view == nullptr || event == nullptr)
     {
-        m_impl->m_WindowLayoutCoordinator->createContextMenuForViewControl(view, event);
+        return;
     }
+
+    // The view's menu is the shell core's, over the menus of this window's menu bar.
+    QMenu menu(view);
+    an::ui::shell::ViewMenuBuilder(m_impl->m_Core).buildViewMenu(menu, *view, [this](std::string_view menuId) {
+        return m_impl->m_MenusByName.value(QString::fromLatin1(menuId.data(), static_cast<qsizetype>(menuId.size())));
+    });
+    menu.exec(event->globalPos());
 }
 
 ImageViewControl*
@@ -914,6 +926,7 @@ AfterNightApp::~AfterNightApp()
     views.clearTaskSubject();
     views.manager().clear();
     m_impl->m_Core.dialogService().setHooks({});
+    m_impl->m_Core.fileDrops().setHooks({});
     m_impl->m_Core.extensions().setHooks({});
     m_impl->m_Core.actionState().setHooks({});
     m_impl->m_Core.processMenus().setHooks({});
@@ -976,49 +989,18 @@ void AfterNightApp::contextMenuEvent(QContextMenuEvent* contextMenuEvent)
 
 void AfterNightApp::dragEnterEvent(QDragEnterEvent* evt)
 {
-    auto urls = evt->mimeData()->urls();
-
-    bool atLeastOneSupported = false;
-    for (auto& url : urls)
+    if (evt != nullptr && evt->mimeData() != nullptr && an::ui::shell::FileDropHandler::takes(*evt->mimeData()))
     {
-        auto path = url.toLocalFile();
-        if (an::ui::isLikelySupportedImagePath(path))
-        {
-            atLeastOneSupported = true;
-            break;
-        }
-    }
-
-    if (atLeastOneSupported)
         evt->acceptProposedAction();
+    }
 }
 
 void AfterNightApp::dropEvent(QDropEvent* evt)
 {
-    if (!evt || !evt->mimeData())
+    if (evt != nullptr && evt->mimeData() != nullptr && m_impl->m_Core.fileDrops().drop(*evt->mimeData()))
     {
-        return;
+        evt->acceptProposedAction();
     }
-
-    auto urls = evt->mimeData()->urls();
-    QStringList files;
-
-    for (auto& url : urls)
-    {
-        auto path = url.toLocalFile();
-        if (!path.isEmpty())
-        {
-            files.append(path);
-        }
-    }
-
-    if (files.isEmpty())
-    {
-        return;
-    }
-
-    openDroppedFiles(files);
-    evt->acceptProposedAction();
 }
 
 void AfterNightApp::openDroppedFiles(const QStringList& files)
@@ -1336,30 +1318,18 @@ void AfterNightApp::on_LogViewerClicked(bool checked)
 
 void AfterNightApp::lockLayout()
 {
-    m_impl->ui.actionUnlock_Layout->setEnabled(true);
-    m_impl->ui.actionLock_Layout->setEnabled(false);
+    // The lock is the core's, on this window's one dock area: the whole layout, as it always was. The toolbar's button
+    // is this window's.
+    m_impl->m_Core.dockLayout().lock(dockTarget());
     m_impl->m_ToolbarLockLayout->setIcon(m_impl->m_IconManager->getIcon("unlock"));
     m_impl->m_ToolbarLockLayout->setToolTip("Unlock layout");
-
-    KDDockWidgets::Config::self().setDropIndicatorsInhibited(true);
-
-    KDDockWidgets::Config::self().setDragAboutToStartFunc(
-        [](KDDockWidgets::Core::Draggable* draggable) -> bool { return false; });
-
-    m_impl->m_IsLayoutLocked = true;
 }
 
 void AfterNightApp::unlockLayout()
 {
-    m_impl->ui.actionLock_Layout->setEnabled(true);
-    m_impl->ui.actionUnlock_Layout->setEnabled(false);
+    m_impl->m_Core.dockLayout().unlock(dockTarget());
     m_impl->m_ToolbarLockLayout->setIcon(m_impl->m_IconManager->getIcon("lock"));
     m_impl->m_ToolbarLockLayout->setToolTip("Lock layout");
-
-    KDDockWidgets::Config::self().setDragAboutToStartFunc(nullptr);
-    KDDockWidgets::Config::self().setDropIndicatorsInhibited(false);
-
-    m_impl->m_IsLayoutLocked = false;
 }
 
 void AfterNightApp::toogleLayout()
@@ -1376,7 +1346,8 @@ void AfterNightApp::toogleLayout()
 
 bool AfterNightApp::layoutIsLocked() const
 {
-    return m_impl->m_IsLayoutLocked;
+    return m_impl->m_Core.dockLayout().isLocked(
+        an::ui::shell::DockTarget{.mainWindow = m_impl->m_DockMainWindow, .workspaceId = {}});
 }
 
 void AfterNightApp::about()
@@ -1703,44 +1674,14 @@ void AfterNightApp::createAuxToolBars()
     }
 }
 
-void AfterNightApp::splitAllImages(ImageViewControl* currentViewControl)
-{
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->splitAllImages(currentViewControl);
-    }
-}
-
-void AfterNightApp::groupAllImages(ImageViewControl* currentViewControl)
-{
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->groupAllImages(currentViewControl);
-    }
-}
-
-void AfterNightApp::fitAllImagesToWindow(ImageViewControl* currentViewControl)
-{
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->fitAllImagesToWindow(currentViewControl);
-    }
-}
-
 void AfterNightApp::splitAllImages()
 {
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->splitAllImages();
-    }
+    m_impl->m_Core.dockLayout().splitAllEqually(dockTarget());
 }
 
 void AfterNightApp::groupAllImages()
 {
-    if (m_impl->m_WindowLayoutCoordinator)
-    {
-        m_impl->m_WindowLayoutCoordinator->groupAllImages();
-    }
+    m_impl->m_Core.dockLayout().groupAll(dockTarget());
 }
 
 bool AfterNightApp::viewControlInAMaximizedContainer(ImageViewControl* control)
@@ -1750,43 +1691,10 @@ bool AfterNightApp::viewControlInAMaximizedContainer(ImageViewControl* control)
                : false;
 }
 
-ImageViewControl* AfterNightApp::getviewControlInAMaximizedContainer(ImageViewControl* control)
-{
-    return m_impl->m_WindowLayoutCoordinator
-               ? m_impl->m_WindowLayoutCoordinator->getViewControlInAMaximizedContainer(control)
-               : nullptr;
-}
-
-std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*> AfterNightApp::getViewControlsByDockWidgetMap()
-{
-    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getViewControlsByDockWidgetMap()
-                                             : std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*>();
-}
-
 std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*> AfterNightApp::getDockWidgetsByViewControlMap()
 {
     return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getDockWidgetsByViewControlMap()
                                              : std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*>();
-}
-
-std::list<ImageViewControl*> AfterNightApp::getListOfViewControls()
-{
-    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getListOfViewControls()
-                                             : std::list<ImageViewControl*>();
-}
-
-std::list<ImageViewControl*>
-AfterNightApp::getListOfViewControlsSharingTheSameWindow(ImageViewControl* currentViewControl)
-{
-    return m_impl->m_WindowLayoutCoordinator
-               ? m_impl->m_WindowLayoutCoordinator->getListOfViewControlsSharingTheSameWindow(currentViewControl)
-               : std::list<ImageViewControl*>();
-}
-
-std::list<ImageViewControl*> AfterNightApp::getListOfMaximizedViewControls()
-{
-    return m_impl->m_WindowLayoutCoordinator ? m_impl->m_WindowLayoutCoordinator->getListOfMaximizedViewControls()
-                                             : std::list<ImageViewControl*>();
 }
 
 void AfterNightApp::notifyErrorMessage(QWidget* parent, const QString& title, const QString& text)

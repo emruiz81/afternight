@@ -8,9 +8,6 @@
 #include <cstddef>
 #include <functional>
 
-#include <QList>
-#include <QRect>
-#include <QSize>
 #include <QString>
 #include <QtGlobal>
 
@@ -70,24 +67,6 @@ inline int computePreviewThreadBudget(const unsigned int hardwareConcurrency)
     return threads;
 }
 
-inline QSize clampRestoredWindowSize(const QSize& size)
-{
-    return QSize(qMax(size.width(), kMainWindowMinimumWidth), qMax(size.height(), kMainWindowMinimumHeight));
-}
-
-inline bool intersectsAnyScreen(const QRect& windowRect, const QList<QRect>& screenGeometries)
-{
-    for (const QRect& screenGeometry : screenGeometries)
-    {
-        if (screenGeometry.intersects(windowRect))
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 class AFTERNIGHTCONTROLS_API AppLifecycleCoordinator
 {
 public:
@@ -122,7 +101,10 @@ public:
         std::function<size_t()> getNumOfOpenProcesses;
         std::function<void()> closeOpenProcesses;
         std::function<void(QWidget*, const QString&, const QString&, bool, int*)> messageBoxYesNo;
-        std::function<QList<QRect>()> availableScreenGeometries;
+        /// Shows the window where it was, or maximized: the shell core's WindowGeometryStore.
+        std::function<void(QWidget&)> showWindowWhereItWas;
+        /// Keeps where the window is for the next run: the shell core's WindowGeometryStore.
+        std::function<void(const QWidget&)> keepWindowPlace;
     };
 
     explicit AppLifecycleCoordinator(const Dependencies& dependencies);

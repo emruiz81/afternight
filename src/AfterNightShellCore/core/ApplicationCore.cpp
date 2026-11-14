@@ -13,10 +13,13 @@
 #include "services/ExtensionService.h"
 #include "services/FavoriteProcessesModel.h"
 #include "services/FileDialogService.h"
+#include "services/FileDropHandler.h"
 #include "services/ProcessLaunchService.h"
 #include "services/OpenProcessRegistry.h"
 #include "services/RecentFilesModel.h"
 #include "services/RecentProcessesModel.h"
+#include "views/DockHooks.h"
+#include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
 #include "app/IconManager.h"
@@ -113,6 +116,8 @@ struct ApplicationCore::Impl
     std::unique_ptr<ActionBindings> bindings;
     std::unique_ptr<ActionStateCoordinator> actionState;
     std::unique_ptr<ProcessMenuModel> processMenus;
+    std::unique_ptr<DockLayoutOperations> dockLayout;
+    FileDropHandler fileDrops;
     std::unique_ptr<DialogService> dialogs;
     std::unique_ptr<FileDialogService> fileDialogs;
     std::unique_ptr<ViewService> views;
@@ -122,6 +127,10 @@ struct ApplicationCore::Impl
 
 ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<Impl>())
 {
+    // The dock library takes its configuration only before the first dock widget or main window exists: it is given
+    // here, before any shell makes one.
+    DockHooks::configure();
+
     Impl& impl = *m_impl;
     impl.recentProcesses.setSettings(&impl.settings);
     impl.favoriteProcesses.setSettings(&impl.settings);
@@ -161,6 +170,7 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     // gives its targets.
     impl.catalogue = std::make_unique<ActionCatalogue>(*this);
     impl.bindings = std::make_unique<ActionBindings>(*impl.catalogue, *this);
+    impl.dockLayout = std::make_unique<DockLayoutOperations>(*this);
 
     ActionStateCoordinator::Dependencies stateDeps;
     stateDeps.actions = impl.catalogue->lookup();
@@ -407,6 +417,16 @@ ActionStateCoordinator& ApplicationCore::actionState() noexcept
 ProcessMenuModel& ApplicationCore::processMenus() noexcept
 {
     return *m_impl->processMenus;
+}
+
+DockLayoutOperations& ApplicationCore::dockLayout() noexcept
+{
+    return *m_impl->dockLayout;
+}
+
+FileDropHandler& ApplicationCore::fileDrops() noexcept
+{
+    return m_impl->fileDrops;
 }
 
 void ApplicationCore::setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept

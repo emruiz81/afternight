@@ -593,14 +593,15 @@ every tool window, the astrometry and plate-solve windows once per view. The Pix
 `pixelMathVocabulary()`, the engine's function tables and the syntax's operators. `Test_ControlsDialogs` holds all of
 it, with the settings dialog's cases.
 
-### The dock area (`app/UiBootstrapCoordinator.h`, `controls/KDDockWidgetsHelper.h`, `theme/KddwProxyStyle.h`)
+### The dock area (`controls/KDDockWidgetsHelper.h`, `theme/KddwProxyStyle.h`)
 
-Docking is KDDockWidgets, configured once for the process by `UiBootstrapCoordinator::initializeDockManager`: the flags
-`kRequiredDockConfigFlags` names, the dragged window's opacity, the smallest dock widget, and `AN_ViewFactory`, which
-makes the decorations - `AN_TabBar`, `AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow` - that paint from the
-design tokens. `KddwProxyStyle` is installed on the dock main window. The decorations and the style carry
-`AFTERNIGHTCONTROLS_API`: a window outside the library makes its dock areas from them, and the docking suite makes
-its own factory from `AN_ViewFactory` as such a window would.
+Docking is KDDockWidgets. The decorations declare the configuration they are drawn for beside them - the flags of
+`kDockLibraryFlags`, `kDraggedDockWindowOpacity`, `kDockWidgetMinimumSide` - and `AN_ViewFactory` makes them: `AN_TabBar`,
+`AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow`, painted from the design tokens. The library's configuration
+and its three hooks are process-wide state, which the shell core's `DockHooks` alone sets ("The shell core");
+`KddwProxyStyle` is installed on each dock main window. The decorations and the style carry `AFTERNIGHTCONTROLS_API`: a
+window outside the library makes its dock areas from them, and the docking suite configures its process from the same
+declaration and makes its own factory from `AN_ViewFactory` as such a window would.
 
 What the interface asks of the library is held by `Test_ControlsDocking`, as cases against the library itself, because
 none of it is the library's documented promise and each fact decides how a window with several dock areas is built:
@@ -1290,7 +1291,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`, `actions/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/`, `actions/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1382,7 +1383,28 @@ of that id follows. `ProcessMenuModel` holds what the process menus list beyond 
 recent processes, and each extension's processes, bound to their descriptors, in the menu of their category, and
 each extension once in the Extensions menu - and says what changed; a shell makes its menus from it on demand.
 `MenuTree` declares the menu bar as data, entry for entry the classic window's, and builds a menu bar or one menu of it
-over the catalogue: a shell that builds its own menus builds them from it.
+over the catalogue: a shell that builds its own menus builds them from it. `ViewMenuBuilder` builds the menu a view
+shows on a right click, entry for entry the classic window's - the menus it shares with the menu bar, which the shell
+names by their ids, Current Window and Show In File Browser - and the menu of a view's tab, which makes its view the
+active one so the catalogue's file actions act on it.
+
+The arrangement of the views is the core's too (`views/`). The dock library keeps its configuration and three hooks -
+a question before a drag starts, one before a drop indicator shows, a call when a drag ends - for the whole process,
+each hook a plain function that captures nothing. `DockHooks` is the one unit that sets them: the core configures the
+library as it is made (`DockHooks::configure`, once for the process, from the decorations' declaration: the library
+takes its flags and its minimum only before the first dock widget or main window exists, so no shell has made one yet),
+and the dispatcher installed as the three hooks answers for any number of subscribers - a drag or an indicator allowed
+when every subscriber allows it, the end of a drag told to each with the main window and the dock widget the drag that
+ended named, which the library does not say. `DockLayoutOperations` acts on a dock area the shell names (`DockTarget`)
+or on the window a view is in: it gathers the views into one tab group, splits them into a grid of equal shares, fits
+them to their windows, and locks the arrangement. A lock is a subscriber: it refuses a drag out of the locked main window
+and an indicator into it, and nothing of another; the lock of a shell's only dock area (a target with no workspace) is
+the whole layout's, as the classic window's lock always was - a floating window's drag refused too, and the indicators
+inhibited, which the decorations read to keep a double click from floating or docking a view. The lock offers Unlock
+Layout in place of Lock Layout. `services/WindowGeometryStore` keeps where the main window was in the interface
+settings and shows it there - when the person asked for it, at the saved place if that place is on a screen there is
+now, never smaller than the window's minimum, and maximized otherwise - and `services/FileDropHandler` takes a drag
+carrying an image or a sequence and hands every local file a drop carries to the opener the shell names.
 
 `ApplicationContext` (`core/ApplicationContext.h`) is the application's side of `IAppContext`, made over the core and
 a shell, and naming no window: the settings, the process settings, the temporary files, the folders remembered, the
@@ -1418,6 +1440,9 @@ read the record of the actions and the menu bar, `ActionBindings.EveryProcessAct
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and
 `ProcessMenuModel.*` the categories, the lists and an extension's processes and family. A suite below the shell core that
 builds the classic window's menus builds them over the actions the record holds (`fixtures/RecordedActions.h`).
+`DockHooksTest.*` asks the library's own hooks about real main windows and dock widgets; `DockLayoutOperationsTest.*`
+groups, splits, fits and locks real views in a main window the case makes; `ViewMenuBuilderTest.EqualsTheRecordedTree`
+reads the record of the view's menu; `WindowGeometryStoreTest.*` and `FileDropHandlerTest.*` need no window.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/ApplicationStart.h`, `app/AfterNightApp.h`)
 
@@ -1425,9 +1450,13 @@ A thin shell: `AfterNightApp` (a `QMainWindow`) is the classic shell - it implem
 `IStatusDisplay` for the core's services: it docks a new view beside its neighbour or on the right of its dock area,
 lists the views in its image selector (`ViewControlCoordinator`, which keeps the selector and the docks' order and no
 longer the list), shows its dashboard as home and its dock area as the place of views, and fills its status bar. It
-composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, `WindowLayoutCoordinator`,
-`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and installs the shell
-core's `ApplicationContext` over the core and itself. It hosts the core's actions while it lives, its builder making its
+composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, which builds its three pages -
+the dashboard, the dock area, the maximized view - into its central widget; `WindowLayoutCoordinator`, its dock tool bar,
+the switch between dashboard and dock area and the maximized view; `DialogOrchestrationCoordinator`,
+`PersistenceCoordinator`, `AppLifecycleCoordinator`, …), each handed what it needs of the shell core through its
+`Dependencies`, and installs the shell core's `ApplicationContext` over the core and itself. Its lock, group, split and
+fit, the view's menu, its saved place and the files dropped on it are the core's (`DockLayoutOperations`,
+`ViewMenuBuilder`, `WindowGeometryStore`, `FileDropHandler`) over its one dock area. It hosts the core's actions while it lives, its builder making its
 menus and its tool bar of them, gives the action bindings their targets, and makes its process menus from the core's
 process menu model whenever it changes. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
 (`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's

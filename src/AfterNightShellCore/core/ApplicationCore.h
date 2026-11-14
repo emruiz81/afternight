@@ -64,9 +64,11 @@ class ActionCatalogue;
 class ActionStateCoordinator;
 class AppEventBus;
 class DialogService;
+class DockLayoutOperations;
 class ExtensionService;
 class FavoriteProcessesModel;
 class FileDialogService;
+class FileDropHandler;
 class IApplicationEventTarget;
 class IShell;
 class OpenProcessRegistry;
@@ -209,6 +211,15 @@ public:
 
     /// The process menus as data: the favourite and recent processes, and what the extensions add.
     [[nodiscard]] ProcessMenuModel& processMenus() noexcept;
+
+    // ---- The arrangement of the views
+
+    /// Group, split and fit the views, and lock their arrangement, on a dock area the shell names. The dock library is
+    /// configured, once for the process, as the core is made (`DockHooks`): before any shell makes a main window.
+    [[nodiscard]] DockLayoutOperations& dockLayout() noexcept;
+
+    /// What a drop of files on the shell's window opens.
+    [[nodiscard]] FileDropHandler& fileDrops() noexcept;
 
     // ---- The session
 

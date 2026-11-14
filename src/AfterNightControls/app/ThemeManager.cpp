@@ -222,7 +222,7 @@ void ThemeManager::refreshCascade() const
 
     if (m_deps.toolbarLockLayout && *m_deps.toolbarLockLayout && m_deps.iconProvider)
     {
-        if (m_deps.isLayoutLocked && m_deps.isLayoutLocked->load())
+        if (m_deps.isLayoutLocked && m_deps.isLayoutLocked())
         {
             (*m_deps.toolbarLockLayout)->setIcon(m_deps.iconProvider("unlock"));
         }

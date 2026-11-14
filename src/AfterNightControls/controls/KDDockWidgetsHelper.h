@@ -25,11 +25,35 @@
 #include <QMap>
 #include <QAbstractButton>
 
+#include <kddockwidgets/Config.h>
 #include <kddockwidgets/KDDockWidgets.h>
+
+#include <array>
 
 class QEvent;
 class QMouseEvent;
 class QPaintEvent;
+
+/// The dock library's flags the decorations are drawn for: the tabs always shown, reordered, closed and switched from
+/// their strip, the title bar hidden while the tabs show and focusable, and a floating window under the platform's own
+/// title bar. The shell core's `DockHooks` sets them for the process before the first main window is made, with
+/// `kDraggedDockWindowOpacity`, `kDockWidgetMinimumSide` and `AN_ViewFactory`; the docking suite sets the same.
+inline constexpr std::array<KDDockWidgets::Config::Flag, 8> kDockLibraryFlags = {
+    KDDockWidgets::Config::Flag_HideTitleBarWhenTabsVisible,
+    KDDockWidgets::Config::Flag_AlwaysShowTabs,
+    KDDockWidgets::Config::Flag_AllowReorderTabs,
+    KDDockWidgets::Config::Flag_TabsHaveCloseButton,
+    KDDockWidgets::Config::Flag_ShowButtonsOnTabBarIfTitleBarHidden,
+    KDDockWidgets::Config::Flag_AllowSwitchingTabsViaMenu,
+    KDDockWidgets::Config::Flag_NativeTitleBar,
+    KDDockWidgets::Config::Flag_TitleBarIsFocusable,
+};
+
+/// The opacity of a window while it is dragged.
+inline constexpr double kDraggedDockWindowOpacity = 0.7;
+
+/// The smallest side a dock widget is given, in pixels.
+inline constexpr int kDockWidgetMinimumSide = 100;
 
 /// Visual-Studio-style flat button for KDDW tab bar corners and title bars.
 /// Draws close (×) or float (⧉) glyphs programmatically — no icons, no QToolButton chrome.

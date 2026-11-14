@@ -13,15 +13,11 @@
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/ExtensionManager.h"
 #include "app/MaskOverlayCoordinator.h"
-#include "app/UiBootstrapCoordinator.h"
 #include "app/ViewControlCoordinator.h"
 #include "app/WindowLayoutCoordinator.h"
 
 #include <QComboBox>
 #include <QDir>
-#include <QList>
-#include <QRect>
-#include <QSize>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -268,28 +264,6 @@ TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_Not
     EXPECT_EQ(an::ui::resolveDialogParent(mainWindow, otherParent), otherParent);
 }
 
-// The dock manager is configured with the eight flags the views need, in the order they are applied.
-TEST(UiBootstrapCoordinatorComponent, UiBootstrapCoordinator_AppliesRequiredDockConfigFlags)
-{
-    using an::ui::RequiredDockConfigFlag;
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags.size(), 8u);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[0], RequiredDockConfigFlag::HideTitleBarWhenTabsVisible);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[1], RequiredDockConfigFlag::AlwaysShowTabs);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[2], RequiredDockConfigFlag::AllowReorderTabs);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[3], RequiredDockConfigFlag::TabsHaveCloseButton);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[4], RequiredDockConfigFlag::ShowButtonsOnTabBarIfTitleBarHidden);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[5], RequiredDockConfigFlag::AllowSwitchingTabsViaMenu);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[6], RequiredDockConfigFlag::NativeTitleBar);
-    EXPECT_EQ(an::ui::kRequiredDockConfigFlags[7], RequiredDockConfigFlag::TitleBarIsFocusable);
-}
-
-// The window layout actions are off while a view is maximized.
-TEST(WindowLayoutCoordinatorComponent, WindowLayoutCoordinator_DisablesWindowActionsWhenMaximized)
-{
-    EXPECT_TRUE(an::ui::shouldDisableWindowLayoutActions(true));
-    EXPECT_FALSE(an::ui::shouldDisableWindowLayoutActions(false));
-}
-
 // A maximized view's action offers to restore it.
 TEST(WindowLayoutCoordinatorComponent, WindowLayoutCoordinator_UsesRestorePresentationWhenMaximized)
 {
@@ -334,19 +308,3 @@ TEST(AppLifecycleCoordinatorComponent, AppLifecycleCoordinator_ComputesThreadBud
     EXPECT_EQ(an::ui::computePreviewThreadBudget(4), 3);
 }
 
-// A restored main window is never smaller than its minimum size.
-TEST(AppLifecycleCoordinatorComponent, AppLifecycleCoordinator_ClampsRestoredWindowSize)
-{
-    const QSize clamped = an::ui::clampRestoredWindowSize(QSize(640, 480));
-    EXPECT_EQ(clamped.width(), an::ui::kMainWindowMinimumWidth);
-    EXPECT_EQ(clamped.height(), an::ui::kMainWindowMinimumHeight);
-}
-
-// A restored main window is placed where it was only if that place is on one of the screens there are now.
-TEST(AppLifecycleCoordinatorComponent, AppLifecycleCoordinator_DetectsVisibleGeometryAcrossScreens)
-{
-    const QList<QRect> screens = {QRect(0, 0, 1920, 1080), QRect(1920, 0, 1920, 1080)};
-    EXPECT_TRUE(an::ui::intersectsAnyScreen(QRect(100, 100, 900, 700), screens));
-    EXPECT_TRUE(an::ui::intersectsAnyScreen(QRect(2500, 100, 900, 700), screens));
-    EXPECT_FALSE(an::ui::intersectsAnyScreen(QRect(-5000, -5000, 200, 200), screens));
-}

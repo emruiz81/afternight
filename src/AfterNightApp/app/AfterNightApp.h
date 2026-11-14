@@ -458,28 +458,14 @@ private:
 
     void createAuxToolBars();
 
-    void splitAllImages(ImageViewControl* currentViewControl);
-
-    void groupAllImages(ImageViewControl* currentViewControl);
-
-    void fitAllImagesToWindow(ImageViewControl* currentViewControl);
-
+    // Every view into the dock area as one tab group, or in a grid of equal shares: the core's DockLayoutOperations.
     void splitAllImages();
-
     void groupAllImages();
 
     bool viewControlInAMaximizedContainer(ImageViewControl* control);
 
-    ImageViewControl* getviewControlInAMaximizedContainer(ImageViewControl* control);
-
     // Only for ImageViewControl objects, not DockableControl (not including LoggerViewControl for example)
-    std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*> getViewControlsByDockWidgetMap();
     std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*> getDockWidgetsByViewControlMap();
-
-    std::list<ImageViewControl*> getListOfMaximizedViewControls();
-    std::list<ImageViewControl*> getListOfViewControls();
-
-    std::list<ImageViewControl*> getListOfViewControlsSharingTheSameWindow(ImageViewControl* currentViewControl);
 
     std::set<std::string> getListOfTemporaryDirs();
 

@@ -8,7 +8,6 @@
 #include "app/AfterNightAppUiBuilder.h"
 
 #include "widgets/ImageInfoStatusBarWidget.h"
-#include "controls/KDDockWidgetsHelper.h"
 #include "controls/MainDashboard.h"
 #include "theme/KddwProxyStyle.h"
 
@@ -19,49 +18,10 @@
 #include <QToolButton>
 #include <QWidget>
 
-#include <kddockwidgets/Config.h>
 #include <kddockwidgets/MainWindow.h>
 
 namespace an::ui
 {
-
-namespace
-{
-KDDockWidgets::Config::Flags applyRequiredDockConfigFlags(KDDockWidgets::Config::Flags flags)
-{
-    for (const auto requiredFlag : kRequiredDockConfigFlags)
-    {
-        switch (requiredFlag)
-        {
-        case RequiredDockConfigFlag::HideTitleBarWhenTabsVisible:
-            flags |= KDDockWidgets::Config::Flag_HideTitleBarWhenTabsVisible;
-            break;
-        case RequiredDockConfigFlag::AlwaysShowTabs:
-            flags |= KDDockWidgets::Config::Flag_AlwaysShowTabs;
-            break;
-        case RequiredDockConfigFlag::AllowReorderTabs:
-            flags |= KDDockWidgets::Config::Flag_AllowReorderTabs;
-            break;
-        case RequiredDockConfigFlag::TabsHaveCloseButton:
-            flags |= KDDockWidgets::Config::Flag_TabsHaveCloseButton;
-            break;
-        case RequiredDockConfigFlag::ShowButtonsOnTabBarIfTitleBarHidden:
-            flags |= KDDockWidgets::Config::Flag_ShowButtonsOnTabBarIfTitleBarHidden;
-            break;
-        case RequiredDockConfigFlag::AllowSwitchingTabsViaMenu:
-            flags |= KDDockWidgets::Config::Flag_AllowSwitchingTabsViaMenu;
-            break;
-        case RequiredDockConfigFlag::NativeTitleBar:
-            flags |= KDDockWidgets::Config::Flag_NativeTitleBar;
-            break;
-        case RequiredDockConfigFlag::TitleBarIsFocusable:
-            flags |= KDDockWidgets::Config::Flag_TitleBarIsFocusable;
-            break;
-        }
-    }
-    return flags;
-}
-} // namespace
 
 UiBootstrapCoordinator::UiBootstrapCoordinator(const Dependencies& dependencies) : m_dependencies(dependencies) {}
 
@@ -224,17 +184,9 @@ void UiBootstrapCoordinator::initializeDockManager() const
         return;
     }
 
-    KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
+    // The dock library was configured as the application's core was made (the shell core's DockHooks).
     KDDockWidgets::MainWindowOptions options = {};
     const Qt::WindowFlags winflags = Qt::WindowFlags();
-
-    auto flags = KDDockWidgets::Config::self().flags();
-    flags = applyRequiredDockConfigFlags(flags);
-    KDDockWidgets::Config::self().setFlags(flags);
-
-    KDDockWidgets::Config::self().setDraggedWindowOpacity(0.7);
-    KDDockWidgets::Config::self().setAbsoluteWidgetMinSize(QSize(100, 100));
-    KDDockWidgets::Config::self().setViewFactory(new AN_ViewFactory);
 
     *m_dependencies.dockMainWindow =
         new KDDockWidgets::QtWidgets::MainWindow("AfterNightApp", options, m_dependencies.mainWindow, winflags);

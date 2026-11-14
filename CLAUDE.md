@@ -280,7 +280,10 @@ listeners, the open process windows, the recent files and processes, the favouri
 `FileDialogService`, `ProcessLaunchService`, `ExtensionService` - the installed extensions and their host sessions),
 `views/ViewService` (the views and what the shell is told of them), `actions/` (`ActionCatalogue`, the 186 actions by
 the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBindings`, what they do;
-`ActionStateCoordinator`; `ProcessMenuModel`; `MenuTree`, the menu bar as data) - and the receiver of the work threads
+`ActionStateCoordinator`; `ProcessMenuModel`; `MenuTree`, the menu bar as data; `ViewMenuBuilder`, the view's and the
+tab's menus), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
+`views/DockLayoutOperations` (group, split, fit, lock), `services/WindowGeometryStore` and `services/FileDropHandler` -
+and the receiver of the work threads
 hand the GUI thread (`core/ApplicationEvents.h`); a unit of Controls is handed the actions as an `ActionLookup`
 (`app/ActionLookup.h`) and never names the catalogue; `main` makes it before the
 window and hands it to the window, which is the shell its services answer through (`setShell`). It sits above Processes and below the application; Controls and Processes never include it, it

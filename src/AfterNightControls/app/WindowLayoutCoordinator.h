@@ -23,7 +23,6 @@ class ImageViewControl;
 class ImageViewControlManager;
 class MainDashboard;
 class QComboBox;
-class QContextMenuEvent;
 class QObject;
 class QScrollArea;
 class QToolBar;
@@ -37,11 +36,6 @@ class MainWindow;
 
 namespace an::ui
 {
-
-inline bool shouldDisableWindowLayoutActions(const bool viewIsMaximized)
-{
-    return viewIsMaximized;
-}
 
 inline std::pair<std::string, QString> maximizeActionPresentation(const bool maximized)
 {
@@ -77,23 +71,17 @@ public:
         std::function<void()> lockLayout;
         std::function<void()> unlockLayout;
         std::function<bool()> layoutIsLocked;
+        /// The listed views that share the window a view is in, the view among them: the shell core's
+        /// DockLayoutOperations::viewsSharingTheWindowOf over the core's list.
+        std::function<std::list<ImageViewControl*>(ImageViewControl&)> viewsSharingTheWindowOf;
     };
 
     explicit WindowLayoutCoordinator(const Dependencies& dependencies);
-
-    void createContextMenuForViewControl(ImageViewControl* view, QContextMenuEvent* event) const;
 
     void switchToMainDashboard() const;
     void switchToDockManager() const;
 
     void createAuxToolBars() const;
-
-    void splitAllImages(ImageViewControl* currentViewControl) const;
-    void groupAllImages(ImageViewControl* currentViewControl) const;
-    void fitAllImagesToWindow(ImageViewControl* currentViewControl) const;
-
-    void splitAllImages() const;
-    void groupAllImages() const;
 
     bool viewControlInAMaximizedContainer(ImageViewControl* control) const;
     ImageViewControl* getViewControlInAMaximizedContainer(ImageViewControl* control) const;

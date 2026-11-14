@@ -3,8 +3,6 @@
 
 #include "DockingTestSupport.h"
 
-#include "app/UiBootstrapCoordinator.h"
-
 #include <QApplication>
 #include <QCursor>
 #include <QMouseEvent>
@@ -51,41 +49,6 @@ constexpr std::array<DropLocation, 9> kIndicatorLocations = {
 
 bool g_replaceIndicators = false;
 
-Config::Flags applicationDockFlags(Config::Flags flags)
-{
-    for (const auto required : an::ui::kRequiredDockConfigFlags)
-    {
-        switch (required)
-        {
-        case an::ui::RequiredDockConfigFlag::HideTitleBarWhenTabsVisible:
-            flags |= Config::Flag_HideTitleBarWhenTabsVisible;
-            break;
-        case an::ui::RequiredDockConfigFlag::AlwaysShowTabs:
-            flags |= Config::Flag_AlwaysShowTabs;
-            break;
-        case an::ui::RequiredDockConfigFlag::AllowReorderTabs:
-            flags |= Config::Flag_AllowReorderTabs;
-            break;
-        case an::ui::RequiredDockConfigFlag::TabsHaveCloseButton:
-            flags |= Config::Flag_TabsHaveCloseButton;
-            break;
-        case an::ui::RequiredDockConfigFlag::ShowButtonsOnTabBarIfTitleBarHidden:
-            flags |= Config::Flag_ShowButtonsOnTabBarIfTitleBarHidden;
-            break;
-        case an::ui::RequiredDockConfigFlag::AllowSwitchingTabsViaMenu:
-            flags |= Config::Flag_AllowSwitchingTabsViaMenu;
-            break;
-        case an::ui::RequiredDockConfigFlag::NativeTitleBar:
-            flags |= Config::Flag_NativeTitleBar;
-            break;
-        case an::ui::RequiredDockConfigFlag::TitleBarIsFocusable:
-            flags |= Config::Flag_TitleBarIsFocusable;
-            break;
-        }
-    }
-    return flags;
-}
-
 } // namespace
 
 /// The band the suite's factory makes in place of the library's.
@@ -104,10 +67,17 @@ void configureDockLibrary()
     }
     configured = true;
 
+    // The configuration the application's shell core sets (its DockHooks), from the decorations' own declaration,
+    // with the suite's factory in place of the decorations'.
     KDDockWidgets::initFrontend(KDDockWidgets::FrontendType::QtWidgets);
-    Config::self().setFlags(applicationDockFlags(Config::self().flags()));
-    Config::self().setDraggedWindowOpacity(0.7);
-    Config::self().setAbsoluteWidgetMinSize(QSize(100, 100));
+    Config::Flags flags = Config::self().flags();
+    for (const Config::Flag flag : kDockLibraryFlags)
+    {
+        flags |= flag;
+    }
+    Config::self().setFlags(flags);
+    Config::self().setDraggedWindowOpacity(kDraggedDockWindowOpacity);
+    Config::self().setAbsoluteWidgetMinSize(QSize(kDockWidgetMinimumSide, kDockWidgetMinimumSide));
     Config::self().setViewFactory(new ProbeViewFactory);
 }
 

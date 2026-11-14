@@ -1556,7 +1556,6 @@ sources Test_ControlsDocking
     unit     src/AfterNightTests/Test_ControlsDocking/main.cpp
     header   src/AfterNightTests/Test_ControlsDocking/DockingTestSupport.h
     header   src/AfterNightControls/AfterNightControlsExport.h
-    header   src/AfterNightControls/app/UiBootstrapCoordinator.h
     header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
@@ -1583,8 +1582,11 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationEventsTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/DialogServiceTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/DockHooksTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/DockLayoutOperationsTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/FavoriteProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/FileDialogServiceTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/FileDropHandlerTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/MenuTreeTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/OpenProcessRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProcessLaunchServiceTest.cpp
@@ -1593,7 +1595,9 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellSelectionTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ViewMenuBuilderTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ViewServiceTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/WindowGeometryStoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
     header   src/AfterNightTests/Test_ShellCore/ShellCoreRecords.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
@@ -1695,6 +1699,12 @@ sources Test_ShellCore
     header   src/AfterNightShellCore/actions/MenuTree.h
     header   src/AfterNightShellCore/actions/ProcessMenuModel.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
+    header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
+    header   src/AfterNightShellCore/actions/ViewMenuBuilder.h
+    header   src/AfterNightShellCore/services/FileDropHandler.h
+    header   src/AfterNightShellCore/services/WindowGeometryStore.h
+    header   src/AfterNightShellCore/views/DockHooks.h
+    header   src/AfterNightShellCore/views/DockLayoutOperations.h
 sources Test_ControlsSeams
     unit     src/AfterNightTests/Test_ControlsSeams/DrawingCloseTest.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/StatisticsCloseTest.cpp
@@ -2354,6 +2364,11 @@ sources Test_AfterNightApp
     header   src/AfterNightShellCore/services/ExtensionService.h
     header   src/AfterNightTests/fixtures/RecordedActions.h
     header   src/AfterNightShellCore/actions/MenuTree.h
+    header   src/AfterNightShellCore/actions/ViewMenuBuilder.h
+    header   src/AfterNightShellCore/services/FileDropHandler.h
+    header   src/AfterNightShellCore/services/WindowGeometryStore.h
+    header   src/AfterNightShellCore/views/DockLayoutOperations.h
+    header   src/AfterNightShellCore/views/DockHooks.h
 sources Test_ExtensionHostNative
     unit     src/AfterNightTests/Test_ExtensionHostNative/main.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/HostImageDescriptionTest.cpp
@@ -5116,7 +5131,6 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/app/SequenceOutputCleanup.h
     header   src/AfterNightControls/app/SessionConsoleBridge.h
     header   src/AfterNightControls/app/SharedBufferManager.h
-    header   src/AfterNightControls/app/UiBootstrapCoordinator.h
     header   src/AfterNightControls/app/ViewControlCoordinator.h
     header   src/AfterNightControls/app/WindowLayoutCoordinator.h
     header   src/AfterNightControls/components/AnButtonGroup.h

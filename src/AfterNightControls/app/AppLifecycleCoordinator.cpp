@@ -13,13 +13,9 @@
 #include "app/ThemeManager.h"
 #include "theme/AnimationUtils.h"
 
-#include <QGuiApplication>
 #include <QMainWindow>
 #include <QMessageBox>
-#include <QScreen>
 #include <QTimer>
-
-#include <AfterNightPlatform/Logging.h>
 
 #include <thread>
 
@@ -279,116 +275,41 @@ void AppLifecycleCoordinator::showWithSavedGeometry() const
         return;
     }
 
-    GlobalSettingsPersistence* globalSettings =
-        m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
-
-    const auto scheduleStartupThemeReapply = [this, globalSettings]() {
-        if (!globalSettings || !m_dependencies.applyTheme || !m_dependencies.mainWindow)
-        {
-            return;
-        }
-
-        const QString persistedTheme =
-            globalSettings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME));
-
-        const auto reapplyTheme = [applyTheme = m_dependencies.applyTheme, persistedTheme]() {
-            applyTheme(persistedTheme);
-        };
-
-        // Apply once after entering the event loop so widgets created during
-        // startup pick up the persisted theme without a later visible reapply.
-        QTimer::singleShot(0, m_dependencies.mainWindow, reapplyTheme);
-    };
-
-    bool shouldRestoreGeometry = false;
-    if (globalSettings)
+    // Where the window was is the shell core's WindowGeometryStore: at its place when that place is on a screen there
+    // is now, maximized otherwise.
+    if (m_dependencies.showWindowWhereItWas)
     {
-        const QString rememberSizeStr = globalSettings->select(
-            SettingsKeys::INTERFACE_REMEMBER_WINDOW_SIZE, SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE ? "1" : "0");
-        shouldRestoreGeometry = (rememberSizeStr == "1");
+        m_dependencies.showWindowWhereItWas(*m_dependencies.mainWindow);
+    }
+    else
+    {
+        m_dependencies.mainWindow->showMaximized();
     }
 
-    if (shouldRestoreGeometry && globalSettings)
-    {
-        const QString widthStr = globalSettings->select(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_WIDTH, "");
-        const QString heightStr = globalSettings->select(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_HEIGHT, "");
-
-        if (!widthStr.isEmpty() && !heightStr.isEmpty())
-        {
-            const QString maximizedStr = globalSettings->select(SettingsKeys::INTERFACE_WINDOW_MAXIMIZED, "1");
-
-            if (maximizedStr == "1")
-            {
-                m_dependencies.mainWindow->showMaximized();
-                scheduleStartupThemeReapply();
-                return;
-            }
-
-            const QString xStr = globalSettings->select(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_X, "100");
-            const QString yStr = globalSettings->select(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_Y, "100");
-
-            const int x = xStr.toInt();
-            const int y = yStr.toInt();
-            const QSize clampedSize = clampRestoredWindowSize(QSize(widthStr.toInt(), heightStr.toInt()));
-            const QRect windowRect(QPoint(x, y), clampedSize);
-
-            QList<QRect> screenGeometries;
-            if (m_dependencies.availableScreenGeometries)
-            {
-                screenGeometries = m_dependencies.availableScreenGeometries();
-            }
-            else
-            {
-                for (QScreen* screen : QGuiApplication::screens())
-                {
-                    if (screen)
-                    {
-                        screenGeometries.push_back(screen->availableGeometry());
-                    }
-                }
-            }
-
-            if (intersectsAnyScreen(windowRect, screenGeometries))
-            {
-                m_dependencies.mainWindow->setGeometry(windowRect);
-                m_dependencies.mainWindow->showNormal();
-            }
-            else
-            {
-                m_dependencies.mainWindow->showMaximized();
-            }
-
-            scheduleStartupThemeReapply();
-            return;
-        }
-    }
-
-    m_dependencies.mainWindow->showMaximized();
-    scheduleStartupThemeReapply();
-}
-
-void AppLifecycleCoordinator::saveWindowGeometry() const
-{
     GlobalSettingsPersistence* globalSettings =
         m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
-
-    if (!m_dependencies.mainWindow || !globalSettings)
+    if (!globalSettings || !m_dependencies.applyTheme)
     {
         return;
     }
 
-    const bool maximized = m_dependencies.mainWindow->isMaximized();
-    globalSettings->upsert(SettingsKeys::INTERFACE_WINDOW_MAXIMIZED, maximized ? "1" : "0");
+    const QString persistedTheme =
+        globalSettings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME));
+    const auto reapplyTheme = [applyTheme = m_dependencies.applyTheme, persistedTheme]() {
+        applyTheme(persistedTheme);
+    };
 
-    const QRect normalRect = m_dependencies.mainWindow->normalGeometry();
+    // Apply once after entering the event loop so widgets created during
+    // startup pick up the persisted theme without a later visible reapply.
+    QTimer::singleShot(0, m_dependencies.mainWindow, reapplyTheme);
+}
 
-    globalSettings->upsert(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_X, QString::number(normalRect.x()));
-    globalSettings->upsert(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_Y, QString::number(normalRect.y()));
-    globalSettings->upsert(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_WIDTH, QString::number(normalRect.width()));
-    globalSettings->upsert(SettingsKeys::INTERFACE_WINDOW_GEOMETRY_HEIGHT, QString::number(normalRect.height()));
-
-    LOG_DEBUG("Saved window geometry: {}x{} at ({},{}) maximized={}", normalRect.width(), normalRect.height(),
-              normalRect.x(), normalRect.y(), maximized);
+void AppLifecycleCoordinator::saveWindowGeometry() const
+{
+    if (m_dependencies.mainWindow && m_dependencies.keepWindowPlace)
+    {
+        m_dependencies.keepWindowPlace(*m_dependencies.mainWindow);
+    }
 }
 
 bool AppLifecycleCoordinator::shouldCleanTempFilesOnStartup() const

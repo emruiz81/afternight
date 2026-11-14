@@ -270,7 +270,7 @@ public:
         // Cascade dependencies
         MainDashboard** mainDashboard = nullptr;
         QToolButton** toolbarLockLayout = nullptr;
-        std::atomic_bool* isLayoutLocked = nullptr;
+        std::function<bool()> isLayoutLocked;
         ImageViewControlManager* imageViewControlManager = nullptr;
         KDDockWidgets::QtWidgets::MainWindow** dockMainWindow = nullptr;
         /// Visits each open process window, under the lock of whatever holds them; the visit may not open or close
