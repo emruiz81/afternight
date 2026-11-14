@@ -1281,7 +1281,7 @@ workspace "AfterNight"
     -- AfterNightControls: Shared library containing the process control framework,
     -- reusable UI widgets, and app services under src/AfterNightControls.
     -- Concrete process shells and implementations live in AfterNightProcesses.
-    -- The executable shell (main.cpp, AfterNightApp, and AfterNightAppContext)
+    -- The executable shell (main.cpp, AfterNightApp, the session and the start-up order)
     -- stays in src/AfterNightApp.
     project "AfterNightControls"
 
@@ -1836,10 +1836,10 @@ workspace "AfterNight"
                 "../../src/AfterNightApp/AfterNightAppResources.rc",
                 "../../src/AfterNightApp/app/AfterNightApp.h",
                 "../../src/AfterNightApp/app/AfterNightApp.cpp",
-                "../../src/AfterNightApp/app/AfterNightAppContext.h",
-                "../../src/AfterNightApp/app/AfterNightAppContext.cpp",
                 "../../src/AfterNightApp/app/ApplicationSession.h",
-                "../../src/AfterNightApp/app/ApplicationSession.cpp"
+                "../../src/AfterNightApp/app/ApplicationSession.cpp",
+                "../../src/AfterNightApp/app/ApplicationStart.h",
+                "../../src/AfterNightApp/app/ApplicationStart.cpp"
             }
 
         filter { "system:linux" }
@@ -1847,17 +1847,17 @@ workspace "AfterNight"
                 "../../src/AfterNightApp/main.cpp",
                 "../../src/AfterNightApp/app/AfterNightApp.h",
                 "../../src/AfterNightApp/app/AfterNightApp.cpp",
-                "../../src/AfterNightApp/app/AfterNightAppContext.h",
-                "../../src/AfterNightApp/app/AfterNightAppContext.cpp",
                 "../../src/AfterNightApp/app/ApplicationSession.h",
-                "../../src/AfterNightApp/app/ApplicationSession.cpp"
+                "../../src/AfterNightApp/app/ApplicationSession.cpp",
+                "../../src/AfterNightApp/app/ApplicationStart.h",
+                "../../src/AfterNightApp/app/ApplicationStart.cpp"
             }
 
         filter {}
 
         ------------- Virtual folders (app shell only) -------------
         vpaths {
-                ["app"] = { "../../src/AfterNightApp/app/AfterNightApp.*", "../../src/AfterNightApp/app/AfterNightAppContext.*", "../../src/AfterNightApp/app/ApplicationSession.*" },
+                ["app"] = { "../../src/AfterNightApp/app/AfterNightApp.*", "../../src/AfterNightApp/app/ApplicationSession.*", "../../src/AfterNightApp/app/ApplicationStart.*" },
                 ["base"] = { "../../src/AfterNightApp/main.cpp", "../../src/AfterNightApp/AfterNightAppResources.rc", "../../src/AfterNightApp/AfterNightApp.ico" }
                }
 

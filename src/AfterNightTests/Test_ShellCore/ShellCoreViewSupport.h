@@ -23,6 +23,8 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QSet>
+#include <QStringList>
 #include <QString>
 #include <QThreadPool>
 #include <QTimer>
@@ -311,6 +313,30 @@ inline void settle()
 {
     QThreadPool::globalInstance()->waitForDone();
     QCoreApplication::processEvents();
+}
+
+/// The widgets that exist now and are not among `before`, by class and name, once every deletion asked for has been
+/// carried out: what a case left behind.
+[[nodiscard]] inline QStringList widgetsLeftSince(const QSet<QWidget*>& before)
+{
+    settle();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QStringList left;
+    for (QWidget* widget : QApplication::allWidgets())
+    {
+        if (!before.contains(widget))
+        {
+            left << QString::fromLatin1(widget->metaObject()->className()) + QLatin1Char('/') + widget->objectName();
+        }
+    }
+    return left;
+}
+
+/// The widgets that exist now.
+[[nodiscard]] inline QSet<QWidget*> widgetsNow()
+{
+    const QWidgetList widgets = QApplication::allWidgets();
+    return QSet<QWidget*>(widgets.cbegin(), widgets.cend());
 }
 
 /// The top-level window of type `WindowT` on screen now, the most recent one first; null when there is none.

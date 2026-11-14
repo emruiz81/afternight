@@ -4,7 +4,6 @@
 #include "stdafx.hpp"
 #include "common.h"
 #include "app/AfterNightApp.h"
-#include "app/AfterNightAppContext.h"
 #include "app/ApplicationSession.h"
 #include "app/AfterNightAppUiBuilder.h"
 #include "app/ModernizationFeatureFlags.h"
@@ -62,6 +61,7 @@
 
 #include "app/MessageBoxes.h"
 
+#include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
 #include "services/AppEventBus.h"
@@ -1232,7 +1232,7 @@ struct AfterNightApp::Impl
     std::unique_ptr<an::ui::ActionStateCoordinator> m_ActionStateCoordinator;
     std::unique_ptr<an::ui::WindowLayoutCoordinator> m_WindowLayoutCoordinator;
     std::unique_ptr<an::ui::AppLifecycleCoordinator> m_AppLifecycleCoordinator;
-    std::unique_ptr<an::ui::AfterNightAppContext> m_AppContext;
+    std::unique_ptr<an::ui::shell::ApplicationContext> m_AppContext;
 
     // The session the caller of `initialize` owns and lends; it outlives this window.
     an::ui::ApplicationSession* m_Session = nullptr;
@@ -1323,8 +1323,17 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     m_impl->m_EventTarget = std::make_unique<an::ui::shell::ServiceEventTarget>(core, std::move(eventTargetDeps));
     core.setEventTarget(m_impl->m_EventTarget.get());
     // Install the process-global app context before constructing UI services so
-    // any control created during startup observes a live context.
-    m_impl->m_AppContext = std::make_unique<an::ui::AfterNightAppContext>(this);
+    // any control created during startup observes a live context. It is the core's and this shell's; what is still
+    // this window's is handed to it.
+    an::ui::shell::ApplicationContext::Dependencies contextDeps;
+    contextDeps.applyTheme = [this](const QString& themeId) { applyTheme(themeId); };
+    contextDeps.openRecentSingleFile = [this](const QString& filePath) { openRecentSingleFile(filePath); };
+    contextDeps.openDroppedFiles = [this](const QStringList& files) { openDroppedFiles(files); };
+    contextDeps.setCustomImageActionEnabled = [this](ImageViewControl* view, const GlobalViewControlActions action,
+                                                     const bool enable) {
+        setCustomImageActionEnabled(view, action, enable);
+    };
+    m_impl->m_AppContext = std::make_unique<an::ui::shell::ApplicationContext>(core, *this, std::move(contextDeps));
     an::ui::setAppContext(m_impl->m_AppContext.get());
 
     m_impl->ui = an::ui::app::buildAfterNightAppUi(this);
@@ -2555,6 +2564,7 @@ AfterNightApp::~AfterNightApp()
     m_impl->m_Core.dialogService().setHooks({});
     m_impl->m_Core.processLaunch().setHooks({});
     m_impl->m_Core.setShell(nullptr);
+    m_impl->m_Core.setEngineSessionProvider(nullptr);
     m_impl->m_Session = nullptr;
 }
 
@@ -2697,24 +2707,25 @@ void AfterNightApp::initializePersistence()
         notifyInfoMessageAsync(this, tr("Settings"), notice);
     }
 
-    if (m_impl->m_Session == nullptr || m_impl->m_Session->isOpen())
+    if (m_impl->m_Session != nullptr && !m_impl->m_Session->isOpen())
     {
-        return;
+        GlobalSettingsPersistence* const settings = m_impl->m_Core.globalSettingsStore();
+        const an::ui::ProcessingLimits limits =
+            settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
+                return settings->select(key, fallback);
+            })
+                                : an::ui::ProcessingLimits{};
+        const an::Status opened = m_impl->m_Session->open(limits);
+        if (opened.failed())
+        {
+            const std::string message = fmt::format("The engine session cannot be opened: {}", opened.message());
+            LOG_ERROR(message);
+            throw std::runtime_error(message);
+        }
     }
 
-    GlobalSettingsPersistence* const settings = m_impl->m_Core.globalSettingsStore();
-    const an::ui::ProcessingLimits limits =
-        settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
-            return settings->select(key, fallback);
-        })
-                            : an::ui::ProcessingLimits{};
-    const an::Status opened = m_impl->m_Session->open(limits);
-    if (opened.failed())
-    {
-        const std::string message = fmt::format("The engine session cannot be opened: {}", opened.message());
-        LOG_ERROR(message);
-        throw std::runtime_error(message);
-    }
+    // The core lends the session the context hands out once it is open.
+    m_impl->m_Core.setEngineSessionProvider(engineSessionProvider());
 }
 
 void AfterNightApp::persistLastOpenDir()

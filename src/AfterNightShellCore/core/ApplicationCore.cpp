@@ -99,6 +99,7 @@ struct ApplicationCore::Impl
 
     IApplicationEventTarget* eventTarget = nullptr;
     IShell* shell = nullptr;
+    an::ui::IEngineSessionProvider* session = nullptr;
 
     std::shared_ptr<IconManager> iconManager = std::make_shared<IconManager>();
     std::unique_ptr<DialogService> dialogs;
@@ -325,6 +326,16 @@ ProcessLaunchService& ApplicationCore::processLaunch() noexcept
 const std::shared_ptr<IconManager>& ApplicationCore::iconManager() const noexcept
 {
     return m_impl->iconManager;
+}
+
+void ApplicationCore::setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept
+{
+    m_impl->session = provider;
+}
+
+an::ui::IEngineSessionProvider* ApplicationCore::engineSessionProvider() const noexcept
+{
+    return m_impl->session;
 }
 
 void ApplicationCore::setShell(IShell* shell)

@@ -5,6 +5,7 @@
 
 #include "app/AfterNightApp.h"
 #include "app/ApplicationSession.h"
+#include "app/ApplicationStart.h"
 #include "app/ModernizationFeatureFlags.h"
 #include "app/SessionConsoleBridge.h"
 #include "core/ApplicationCore.h"
@@ -168,13 +169,6 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
 #endif
 
-    // Install the high-performance QProxyStyle theme before any widgets are created.
-    // This replaces the QSS-based theming with direct C++ paint calls using AnDesignTokens.
-    if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
-    {
-        an::ui::installAnProxyStyle();
-    }
-
     try
     {
         if (isAppAlreadyRunning())
@@ -229,8 +223,15 @@ int main(int argc, char* argv[])
         // before the window, which is handed it, and goes once the window and the session have gone.
         auto core = std::make_unique<an::ui::shell::ApplicationCore>();
 
-        AfterNightApp* mainWin = AfterNightApp::createInstance(*core);
-        mainWin->initialize(session);
+        // The stores open first - they make no widget - then the style is installed, before the first widget, and the
+        // window is made last. A store or a session that cannot be opened ends the start with its error.
+        AfterNightApp* mainWin = an::ui::startApplication(*core, session, []() {
+            // The QProxyStyle theme paints the standard widgets with direct C++ calls using AnDesignTokens.
+            if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
+            {
+                an::ui::installAnProxyStyle();
+            }
+        });
 
         mainWin->showWithSavedGeometry();
 

@@ -81,7 +81,7 @@ The other frames resolve from the module the layering puts them in:
 - **Controls** - the viewer, the history, the process framework, the session bridge and the application's coordinators, such as `ImageViewControl`, `ImageProcessControl` and `an::ui::applyProcessChannelScope` - is `libAfterNightControls.so`.
 - **Processes** - every process window, its helpers and the ImageIntegration workflow, such as `GaussianBlurProcess` and `process_utils::blurGaussian` - is `libAfterNightProcesses.so`.
 - **The runtime backend** - the `_afternight_runtime` bindings the full host runs - is `liban_extension_runtime_backend.so`.
-- **The main window and its context** (`AfterNightApp`, `AfterNightAppContext`, `ApplicationSession`) are the `AfterNight` executable's own; the full host's `main.cpp`, context and native window are `AfterNightExtensionHost`'s.
+- **The main window and its context** (`AfterNightApp`, `ApplicationSession`) are the `AfterNight` executable's own, and the context it installs (`ApplicationContext`) is `AfterNightShellCore`'s; the full host's `main.cpp`, context and native window are `AfterNightExtensionHost`'s.
 
 ### Windows (MSVC)
 

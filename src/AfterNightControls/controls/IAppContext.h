@@ -52,6 +52,7 @@ class IEngineSessionProvider;
 class ImageDocument;
 class IInterfaceSettingsRuntimeService;
 class IPathMemoryService;
+class IProcessPresenter;
 class IFileDialogService;
 class IViewRegistry;
 class IAppEventBus;
@@ -430,14 +431,21 @@ public:
     /// The top-level application widget, used as default parent for dialogs
     /// and process windows.
     [[nodiscard]] virtual QWidget* getMainWindow() = 0;
+
+    /// What shows a process as a page of the main window rather than a window of its own; null where every process
+    /// is a window, which is so unless a context says otherwise.
+    [[nodiscard]] virtual IProcessPresenter* getProcessPresenter()
+    {
+        return nullptr;
+    }
 };
 
 } // namespace an::ui
 
 // ---------------------------------------------------------------------------
 // Process-global accessor — set once per process at startup.
-// AfterNightApp sets it to AfterNightAppContext; the extension host will
-// set it to ExtensionAppContext.
+// The application sets it to the shell core's ApplicationContext; the
+// extension host sets it to ExtensionAppContext.
 // ---------------------------------------------------------------------------
 
 namespace an::ui

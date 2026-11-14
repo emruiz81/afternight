@@ -10,10 +10,9 @@
 #include "ShellCoreTestSupport.h"
 #include "ShellCoreViewSupport.h"
 
+#include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
-#include "services/DialogService.h"
-#include "services/FileDialogService.h"
 #include "views/ViewService.h"
 
 #include "controls/IAppContext.h"
@@ -45,163 +44,34 @@ using an::tests::shellcore::SessionProvider;
 using an::ui::shell::ApplicationCore;
 using an::ui::shell::ViewService;
 
-/// Icons a view asks for by name, all empty.
-class NoIcons final : public an::ui::IIconProvider
-{
-public:
-    [[nodiscard]] QIcon getIcon(const QString& /*icon*/) override
-    {
-        return {};
-    }
-    [[nodiscard]] QPixmap loadSvgFileAsPixmap(const QString& /*fileName*/, const QSize size,
-                                              const QColor /*color*/) override
-    {
-        return QPixmap(size);
-    }
-    [[nodiscard]] QColor getColorNormal() const override
-    {
-        return Qt::white;
-    }
-    [[nodiscard]] QColor getColorDisabled() const override
-    {
-        return Qt::gray;
-    }
-};
-
-/// The context a view is made under in these cases: the core's services and stores, a session, and no actions or
-/// status line to update.
-class ViewCaseContext final : public an::ui::IAppContext,
-                              public an::ui::IStatusBarService,
-                              public an::ui::IActionStateManager
-{
-public:
-    ViewCaseContext(ApplicationCore& core, an::ui::IEngineSessionProvider& session) : m_core(core), m_session(session)
-    {
-    }
-
-    [[nodiscard]] an::ui::IIconProviderPtr getIconProvider() override
-    {
-        return m_icons;
-    }
-    [[nodiscard]] an::ui::IDialogService* getDialogService() override
-    {
-        return &m_core.dialogService();
-    }
-    [[nodiscard]] an::ui::IGlobalSettingsProvider* getGlobalSettings() override
-    {
-        return m_core.globalSettings();
-    }
-    [[nodiscard]] an::ui::IInterfaceSettingsRuntimeService* getInterfaceSettingsRuntimeService() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IProcessSettingsProvider* getProcessSettings() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::ITempFileService* getTempFileService() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IPathMemoryService* getPathMemoryService() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IFileDialogService* getFileDialogService() override
-    {
-        return &m_core.fileDialogService();
-    }
-    [[nodiscard]] an::ui::IViewFactory* getViewFactory() override
-    {
-        return &m_core.viewService();
-    }
-    [[nodiscard]] an::ui::IViewRegistry* getViewRegistry() override
-    {
-        return &m_core.viewService();
-    }
-    [[nodiscard]] an::ui::IAppEventBus* getAppEventBus() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IProcessRegistry* getProcessRegistry() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IOutputIntentProvider* getOutputIntentProvider() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IRecentFilesService* getRecentFilesService() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IThumbnailPathProvider* getThumbnailPathProvider() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] an::ui::IViewControlManager* getViewControlManager() override
-    {
-        return &m_core.viewService();
-    }
-    [[nodiscard]] an::ui::IStatusBarService* getStatusBarService() override
-    {
-        return this;
-    }
-    [[nodiscard]] an::ui::IActionStateManager* getActionStateManager() override
-    {
-        return this;
-    }
-    [[nodiscard]] an::ui::IEngineSessionProvider* getEngineSessionProvider() override
-    {
-        return &m_session;
-    }
-    [[nodiscard]] an::ui::IRawOpenPolicyService* getRawOpenPolicyService() override
-    {
-        return nullptr;
-    }
-    [[nodiscard]] QWidget* getMainWindow() override
-    {
-        return nullptr;
-    }
-
-    void updateImageInfoInStatusBar() override {}
-    void updateImageZoomInfoInStatusBar() override {}
-    void updateImageCelestialCoordsInStatusBar(double /*raDegrees*/, double /*decDegrees*/) override {}
-    void clearImageCelestialCoordsInStatusBar() override {}
-
-    void setCustomImageActionEnabled(ImageViewControl* /*view*/, GlobalViewControlActions /*action*/,
-                                     bool /*enable*/) override
-    {
-    }
-    void updateActiveImageActions() override {}
-    void updateActiveImageHistory() override {}
-
-private:
-    ApplicationCore& m_core;
-    an::ui::IEngineSessionProvider& m_session;
-    std::shared_ptr<NoIcons> m_icons = std::make_shared<NoIcons>();
-};
-
 class ViewServiceTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
+        m_widgetsBefore = an::tests::shellcore::widgetsNow();
         ASSERT_TRUE(m_root.isValid());
         m_session = an::tests::shellcore::openSession();
         ASSERT_NE(m_session, nullptr);
         m_core.openStores();
         m_core.setShell(&m_shell);
+        m_core.setEngineSessionProvider(m_session.get());
         m_target = std::make_unique<an::ui::shell::ServiceEventTarget>(
             m_core, an::ui::shell::ServiceEventTarget::Dependencies{});
         m_core.setEventTarget(m_target.get());
-        m_context = std::make_unique<ViewCaseContext>(m_core, *m_session);
+        m_context = std::make_unique<an::ui::shell::ApplicationContext>(m_core, m_shell);
         an::ui::clearAppContext();
         an::ui::setAppContext(m_context.get());
     }
 
     void TearDown() override
     {
+        // A standard view is made in a dock widget that holds it; the case deletes the docks it made, and so their
+        // views.
+        for (const QPointer<QWidget>& dock : m_docks)
+        {
+            delete dock.data();
+        }
         for (const QPointer<ImageViewControl>& view : m_views)
         {
             delete view.data();
@@ -210,8 +80,12 @@ protected:
         m_core.discardPendingEvents();
         m_core.setEventTarget(nullptr);
         an::ui::clearAppContext();
+        m_core.setEngineSessionProvider(nullptr);
         m_core.setShell(nullptr);
         m_core.closeStores();
+        const QStringList left = an::tests::shellcore::widgetsLeftSince(m_widgetsBefore);
+        EXPECT_TRUE(left.isEmpty()) << "the case left widgets behind: "
+                                    << left.join(QStringLiteral(", ")).toStdString();
     }
 
     /// A view a process makes of a new document named `name`, beside `neighbour` when given; the case deletes it.
@@ -245,6 +119,10 @@ protected:
     {
         EXPECT_NE(view, nullptr);
         m_views.emplace_back(view);
+        if (view != nullptr)
+        {
+            m_docks.emplace_back(view->getDockWidget());
+        }
         return view;
     }
 
@@ -265,8 +143,10 @@ protected:
     RecordingShell m_shell;
     ApplicationCore m_core;
     std::unique_ptr<an::ui::shell::ServiceEventTarget> m_target;
-    std::unique_ptr<ViewCaseContext> m_context;
+    std::unique_ptr<an::ui::shell::ApplicationContext> m_context;
     std::vector<QPointer<ImageViewControl>> m_views;
+    std::vector<QPointer<QWidget>> m_docks;
+    QSet<QWidget*> m_widgetsBefore;
 };
 
 TEST_F(ViewServiceTest, EachViewHasANameOfItsOwn)

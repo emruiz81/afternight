@@ -1290,7 +1290,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1360,6 +1360,16 @@ each, by name (`extensionFamilies`). What a service needs that is neither the co
 state of the actions, the image selector, the extension sessions' views, the settings dialogs, the process menus - it is
 handed as its `Hooks` by the window, which sets them as it is made and clears them, with the shell, as it goes.
 
+`ApplicationContext` (`core/ApplicationContext.h`) is the application's side of `IAppContext`, made over the core and
+a shell, and naming no window: the settings, the process settings, the temporary files, the folders remembered, the
+thumbnails, the output intents, the RAW policy and the session (`ApplicationCore::setEngineSessionProvider`) are the
+core's; the messages and the file dialogs are its `DialogService` and `FileDialogService`; the listeners, the recent
+files and the open process windows its `AppEventBus`, `RecentFilesModel` and `OpenProcessRegistry`; the view factory,
+registry and manager its `ViewService`; the status line is the shell's `IStatusDisplay`, and the default parent and the
+process presenter (`IAppContext::getProcessPresenter`, null where every process is a window) are the shell's. What is
+still a window's - the theme it applies, the recent and dropped files it opens, an image action's own state - reaches it
+through the `Dependencies` the context is handed.
+
 The core is also the receiver of the work a thread hands the GUI thread (`core/ApplicationEvents.h`): each of its
 `...Async` calls posts one event to the core and returns, never waiting, and the event runs once on the GUI thread
 against the core's `IApplicationEventTarget` - `ServiceEventTarget`, which answers through the view and dialog
@@ -1373,28 +1383,31 @@ is reported to the target and logged, and the next one runs.
 `ApplicationCore.*` (the stores under the case's storage root, before any widget exists), `ApplicationEvents.*`
 (posted from a worker, run once on the GUI thread; none after the core or its target is gone), `AppEventBus.*`,
 `OpenProcessRegistry.*` and the three lists' cases; and the services' cases over a shell that records what it is asked
-(`Test_ShellCore/ShellCoreViewSupport.h`): `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
+(`Test_ShellCore/ShellCoreViewSupport.h`): `ApplicationContext.*` (who answers each service, the shell's window, a view
+placed and maximized, the status line, home), `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
 the system's or Qt's browser), `ViewService.*` (real views of a session the case opens: names, the active view, the
 order a removal is told in, a worker's request, who asked for a view, the subject and the looking view) and
 `ProcessLaunchService.*`.
 
-### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/AfterNightApp.h`, `app/AfterNightAppContext.h`)
+### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/ApplicationStart.h`, `app/AfterNightApp.h`)
 
 A thin shell: `AfterNightApp` (a `QMainWindow`) is the classic shell - it implements `IShell`, `IViewHost` and
 `IStatusDisplay` for the core's services: it docks a new view beside its neighbour or on the right of its dock area,
 lists the views in its image selector (`ViewControlCoordinator`, which keeps the selector and the docks' order and no
 longer the list), shows its dashboard as home and its dock area as the place of views, and fills its status bar. It
 composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, `WindowLayoutCoordinator`,
-`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and `AfterNightAppContext`
-implements the `IAppContext` service interfaces. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
+`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and installs the shell
+core's `ApplicationContext` over the core and itself. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
 (`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's
 minimum version names the product - initializes the platform logger, owns one `ApplicationSession` and makes the
-`ApplicationCore` the window is made over (`AfterNightApp::createInstance`); `AfterNightApp::initialize` opens the
-core's stores, then the session, once the settings store has been read, from the processing limits stored there
+`ApplicationCore` the window is made over, and starts them in one order (`startApplication`): the core's stores first -
+they make no widget, and a shell is chosen from one of them - then the style, before the first widget exists, then the
+window (`AfterNightApp::createInstance`); `AfterNightApp::initialize` opens the session, once the settings store has
+been read, from the processing limits stored there
 (`applicationSessionSettings`: `sessionSettingsForLimits` with the product's codecs), before anything reads an image.
 The session opens there because the limits it is opened from are in the settings store the window has the core open:
 opening it in `main` would mean reading that store twice, or opening with defaults and replacing a session the window
-may already lend. `AfterNightAppContext` lends that session (`IEngineSessionProvider`), the persistence
+may already lend. The core lends that session (`IEngineSessionProvider`) once it is open, and the persistence
 coordinator's RAW policy (`IRawOpenPolicyService`) and output intents (`IOutputIntentProvider`). The view factory and
 the events that carry an image move an `ImageDocument`; an event whose document no view takes closes it, and no entry
 point makes a worker wait for the GUI thread. The extension seam's hooks land a result as an edit the history records,

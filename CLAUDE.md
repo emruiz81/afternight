@@ -288,8 +288,9 @@ never includes the application or a host, and no extension host links it (`check
 Thin shell: `AfterNightApp` (QMainWindow) is the classic shell - it implements `IShell`, `IViewHost` and
 `IStatusDisplay` for the shell core's services - and composes coordinators that live in `AfterNightControls/app/`
 (`UiBootstrapCoordinator`, `WindowLayoutCoordinator`, `DialogOrchestrationCoordinator`, `PersistenceCoordinator`,
-`AppLifecycleCoordinator`, …), and `AfterNightAppContext` implements the `IAppContext` service
-interfaces. Put new logic in a coordinator or service, not in `AfterNightApp.cpp`. `ApplicationSession` is the engine
+`AppLifecycleCoordinator`, …), and installs the shell core's `ApplicationContext` (the `IAppContext` service
+interfaces over the core and the shell). `app/ApplicationStart` is the order `main` starts in: the stores, the style,
+the window. Put new logic in a coordinator or service, not in `AfterNightApp.cpp`. `ApplicationSession` is the engine
 session `main.cpp` owns, and `shutDownApplication` the order the application shuts down in.
 
 ### The extension hosts and the runtime backend

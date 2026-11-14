@@ -1576,6 +1576,7 @@ sources Test_ControlsDocking
 # either; one starts the executable again, to hold the choice to the arguments it is handed.
 sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/AppEventBusTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ApplicationContextTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationEventsTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/DialogServiceTest.cpp
@@ -1592,6 +1593,7 @@ sources Test_ShellCore
     header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreViewSupport.h
     header   src/AfterNightShellCore/services/DialogService.h
+    header   src/AfterNightShellCore/core/ApplicationContext.h
     header   src/AfterNightShellCore/services/FileDialogService.h
     header   src/AfterNightShellCore/services/ProcessLaunchService.h
     header   src/AfterNightShellCore/views/ViewService.h
@@ -2087,6 +2089,7 @@ sources Test_MainDashboard
 # suites.
 sources Test_AfterNightApp
     unit     src/AfterNightTests/Test_AfterNightApp/main.cpp
+    unit     src/AfterNightTests/Test_AfterNightApp/ApplicationStartTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationMenuTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ProductSmokeTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationSessionTest.cpp
@@ -2108,15 +2111,15 @@ sources Test_AfterNightApp
     unit     src/AfterNightTests/Test_AfterNightApp/test_window_geometry.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
     unit     src/AfterNightApp/app/AfterNightApp.cpp
-    unit     src/AfterNightApp/app/AfterNightAppContext.cpp
     unit     src/AfterNightApp/app/ApplicationSession.cpp
+    unit     src/AfterNightApp/app/ApplicationStart.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureDigest.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/RawPolicyCases.cpp
     header   src/AfterNightApp/app/AfterNightApp.h
-    header   src/AfterNightApp/app/AfterNightAppContext.h
     header   src/AfterNightApp/app/ApplicationSession.h
+    header   src/AfterNightApp/app/ApplicationStart.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -2289,6 +2292,7 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
     header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/core/ApplicationContext.h
     header   src/AfterNightShellCore/core/ApplicationCore.h
     header   src/AfterNightShellCore/core/ApplicationEvents.h
     header   src/AfterNightShellCore/services/AppEventBus.h

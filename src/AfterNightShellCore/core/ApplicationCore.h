@@ -47,6 +47,7 @@ class ImageAsset;
 
 namespace an::ui
 {
+class IEngineSessionProvider;
 class IGlobalSettingsProvider;
 class ImageDocument;
 class PersistenceCoordinator;
@@ -185,6 +186,13 @@ public:
 
     /// The icons the application draws with, in the theme's colours.
     [[nodiscard]] const std::shared_ptr<IconManager>& iconManager() const noexcept;
+
+    // ---- The session
+
+    /// The engine session the application opened, which the core lends the context; null until one is open. The
+    /// session is the caller's and must outlive what it lent, or be taken back first.
+    void setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept;
+    [[nodiscard]] an::ui::IEngineSessionProvider* engineSessionProvider() const noexcept;
 
     // ---- The shell
 
