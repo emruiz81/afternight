@@ -51,7 +51,9 @@
 #include <gtest/gtest.h>
 
 #include <functional>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -1013,6 +1015,43 @@ TEST(ProxyStyleObservatory, MenuBarItemsLayerTheStateColour)
 // A tooltip is a raised surface too: the fourth surface with a hairline and the small parts' radius, in the small text,
 // its window translucent with room for its shadow. A tooltip is a label shown as a tooltip window, which is what the
 // tooltip Qt shows is.
+// A raised part that is a window of its own - a menu, a tooltip - is translucent so that its shadow can lie in its
+// margin. Windows composes a window's alpha only when the window says it is frameless, which a popup and a tooltip do
+// not say by their type, so the margin would show black; and the system's own shadow would lie under the part's. Under
+// the profile both are frameless and cast no system shadow, still a popup and a tooltip; under Classic they keep their
+// flags.
+TEST(ProxyStyleObservatory, RaisedWindowsAreFramelessAndCastNoSystemShadow)
+{
+    const auto raisedWindows = []() {
+        auto menu = std::make_unique<QMenu>();
+        menu->addAction(QStringLiteral("Open"));
+        auto tip = std::make_unique<QLabel>(QStringLiteral("Background level"), nullptr, Qt::ToolTip);
+        menu->ensurePolished();
+        tip->ensurePolished();
+        return std::pair{std::move(menu), std::move(tip)};
+    };
+    forEachLook([&raisedWindows](ObservatoryStyleScope&, const DesignTokens&) {
+        const auto [menu, tip] = raisedWindows();
+        for (QWidget* window : {static_cast<QWidget*>(menu.get()), static_cast<QWidget*>(tip.get())})
+        {
+            SCOPED_TRACE(window->metaObject()->className());
+            EXPECT_TRUE(window->testAttribute(Qt::WA_TranslucentBackground));
+            EXPECT_TRUE(window->windowFlags().testFlag(Qt::FramelessWindowHint));
+            EXPECT_TRUE(window->windowFlags().testFlag(Qt::NoDropShadowWindowHint));
+        }
+        EXPECT_EQ(menu->windowType(), Qt::Popup);
+        EXPECT_EQ(tip->windowType(), Qt::ToolTip);
+    });
+
+    const ObservatoryStyleScope classic(observatoryLooks()[0], an::ui::StyleProfile::Classic);
+    const auto [menu, tip] = raisedWindows();
+    for (QWidget* window : {static_cast<QWidget*>(menu.get()), static_cast<QWidget*>(tip.get())})
+    {
+        EXPECT_FALSE(window->windowFlags().testFlag(Qt::FramelessWindowHint));
+        EXPECT_FALSE(window->windowFlags().testFlag(Qt::NoDropShadowWindowHint));
+    }
+}
+
 TEST(ProxyStyleObservatory, ToolTipIsTheFourthSurface)
 {
     forEachLook([](ObservatoryStyleScope& scope, const DesignTokens& t) {

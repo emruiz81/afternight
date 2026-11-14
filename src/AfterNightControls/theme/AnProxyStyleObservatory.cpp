@@ -1895,7 +1895,14 @@ void AnProxyStyle::polishObservatory(QWidget* widget)
                      (qobject_cast<QLabel*>(widget) != nullptr && widget->windowType() == Qt::ToolTip);
     if (menu || tip)
     {
-        // A raised window keeps the room its shadow is drawn in, from a translucent background.
+        // A raised window keeps the room its shadow is drawn in, from a translucent background. Windows composes a
+        // window's alpha only for one that says it is frameless, which a popup or a tooltip does not say by its type -
+        // its margin would show black - and the system's own shadow would lie under the part's: the window says both.
+        constexpr Qt::WindowFlags kRaisedFlags = Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint;
+        if ((widget->windowFlags() & kRaisedFlags) != kRaisedFlags)
+        {
+            widget->setWindowFlags(widget->windowFlags() | kRaisedFlags);
+        }
         widget->setAttribute(Qt::WA_TranslucentBackground, true);
         widget->setContentsMargins(elevationWindowMargins());
     }
