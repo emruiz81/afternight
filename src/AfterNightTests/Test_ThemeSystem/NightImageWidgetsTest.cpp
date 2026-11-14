@@ -20,6 +20,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 namespace
 {
 
@@ -147,4 +149,44 @@ TEST(NightImage, EveryWidgetThatPaintsAPictureIsOnTheList)
     EXPECT_TRUE(unlisted.isEmpty())
         << "these paint a picture and are not on theme/NightImageWidgets.h, which says how each shows it under Night: "
         << unlisted.join(QStringLiteral(", ")).toStdString();
+}
+
+// Qt hands a widget a new application palette - Night switched on, a theme changed - as a change of its own palette,
+// QEvent::PaletteChange: QEvent::ApplicationPaletteChange never reaches a widget's changeEvent. A widget that listens
+// for the application's palette to refresh what it paints listens for its own too, or it keeps the colours of the theme
+// that went: a histogram's clipping overlay kept a green and a blue under Night.
+TEST(NightImage, AWidgetThatListensForTheApplicationsPaletteHearsItsOwn)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty()) << "the repository's sources were not found";
+    QStringList deaf;
+    for (const char* library : {"src/AfterNightControls", "src/AfterNightProcesses"})
+    {
+        QDirIterator sources(QDir(root).filePath(QString::fromLatin1(library)),
+                             {QStringLiteral("*.cpp"), QStringLiteral("*.h")}, QDir::Files,
+                             QDirIterator::Subdirectories);
+        while (sources.hasNext())
+        {
+            const QString path = sources.next();
+            const QStringList lines = readSource(path).split(QLatin1Char('\n'));
+            for (int i = 0; i < lines.size(); ++i)
+            {
+                if (!lines[i].contains(QStringLiteral("QEvent::ApplicationPaletteChange")))
+                {
+                    continue;
+                }
+                // The condition that names it, which may run over the line before and the one after.
+                const QString condition = lines.mid((std::max)(0, i - 1), 3).join(QLatin1Char(' '));
+                static const QRegularExpression own(QStringLiteral("QEvent::PaletteChange\\b"));
+                if (!own.match(condition).hasMatch())
+                {
+                    deaf.append(QDir(root).relativeFilePath(path) + QLatin1Char(':') + QString::number(i + 1));
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(deaf.isEmpty())
+        << "these listen for the application's palette and not for their own, which is how a new "
+           "one reaches them: "
+        << deaf.join(QStringLiteral(", ")).toStdString();
 }

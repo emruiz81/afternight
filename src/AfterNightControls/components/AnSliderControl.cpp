@@ -167,8 +167,13 @@ void AnSliderControl::refreshTheme()
     if (auto* rootLayout = qobject_cast<QVBoxLayout*>(layout()))
     {
         rootLayout->setSpacing(tokenSet.spacing.xs);
+        if (QLayoutItem* row = rootLayout->itemAt(1); row != nullptr && row->layout() != nullptr)
+        {
+            // The slider and its value a panel's gap apart under the Observatory profile.
+            row->layout()->setSpacing(styleProfile() == StyleProfile::Observatory ? tokenSet.metrics.gap
+                                                                                  : tokenSet.spacing.sm);
+        }
     }
-
     m_label->setFont(tokenSet.typography.caption);
     m_spinBox->setFont(tokenSet.typography.body);
 

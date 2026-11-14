@@ -17,6 +17,8 @@ namespace an::ui
 namespace
 {
 
+/// How much of the state colour an alternate row takes under the Observatory profile.
+constexpr float kAlternateShare = 0.04f;
 QColor resolvedSelectionTextColor(const QPalette& palette, const DesignTokens& tokenSet)
 {
     QColor selectionFill = tokenSet.colors.accentPrimary;
@@ -48,6 +50,32 @@ void AnStyledTable::refreshTheme()
 {
     refreshTokens();
     const auto& tokenSet = tokens();
+
+    if (styleProfile() == StyleProfile::Observatory)
+    {
+        // The rows on the first surface, every other one a breath lighter; the selection the accent's soft share under
+        // the primary text; the header the third surface in the secondary text, in the style's small capitals.
+        QPalette pal = palette();
+        pal.setColor(QPalette::Base, tokenSet.layers.surface1);
+        QColor alternate = tokenSet.colors.stateLayer;
+        alternate.setAlphaF(kAlternateShare);
+        pal.setColor(QPalette::AlternateBase, compositeOver(alternate, tokenSet.layers.surface1));
+        pal.setColor(QPalette::Text, tokenSet.colors.textPrimary);
+        pal.setColor(QPalette::Highlight, tokenSet.colors.accentSoft);
+        pal.setColor(QPalette::HighlightedText, tokenSet.colors.textPrimary);
+        setPalette(pal);
+        if (QHeaderView* header = horizontalHeader())
+        {
+            QPalette headerPal = header->palette();
+            headerPal.setColor(QPalette::Window, tokenSet.layers.surface3);
+            headerPal.setColor(QPalette::WindowText, tokenSet.colors.textSecondary);
+            header->setPalette(headerPal);
+        }
+        style()->unpolish(this);
+        style()->polish(this);
+        update();
+        return;
+    }
 
     // Table colors via palette
     QPalette pal = palette();

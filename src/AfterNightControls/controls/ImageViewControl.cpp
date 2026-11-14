@@ -1446,7 +1446,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     {
         m_impl->m_ViewControlTextOverlay = new ViewControlTextOverlay();
         m_impl->m_ViewControlTextOverlay->move(15, 15);
-        m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", an::ui::imageViewOverlayAutostretchColor(darkMode));
+        m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", ViewOverlayTone::Preview);
         m_impl->m_ViewControlTextOverlay->setEnabled(false);
 
         m_impl->m_imageViewModeComboBox = new QComboBox();
@@ -1652,7 +1652,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     {
         m_impl->m_ViewControlTextOverlay = new ViewControlTextOverlay();
         m_impl->m_ViewControlTextOverlay->move(15, 15);
-        m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", an::ui::imageViewOverlayAutostretchColor(darkMode));
+        m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", ViewOverlayTone::Preview);
         m_impl->m_ViewControlTextOverlay->setEnabled(false);
 
         m_impl->m_chkCalibrationPreview = new QCheckBox(tr("Calibrated"));
@@ -4512,31 +4512,29 @@ void ImageViewControl::setRTPreviewShowOriginalLabel(bool val)
 {
     if (m_impl->m_ViewControlMode == ViewControlMode::rt_preview)
     {
-        const bool darkMode = resolveDarkMode(palette());
-        const QColor originalColor = an::ui::imageViewOverlayOriginalColor(darkMode);
-        const QColor previewColor = an::ui::imageViewOverlayAutostretchColor(darkMode);
         m_impl->m_RTPreviewShowOriginalLabelEnabled = val;
 
         if (val)
         {
             if (!m_impl->m_AlternateRTPreviewLabel2.isEmpty())
             {
-                m_impl->m_ViewControlTextOverlay->setText(m_impl->m_AlternateRTPreviewLabel2, originalColor);
+                m_impl->m_ViewControlTextOverlay->setText(m_impl->m_AlternateRTPreviewLabel2,
+                                                          ViewOverlayTone::Original);
             }
             else
             {
-                m_impl->m_ViewControlTextOverlay->setText(RT_PREVIEW_SHOW_ORIGINAL_LABEL, originalColor);
+                m_impl->m_ViewControlTextOverlay->setText(RT_PREVIEW_SHOW_ORIGINAL_LABEL, ViewOverlayTone::Original);
             }
         }
         else
         {
             if (!m_impl->m_AlternateRTPreviewLabel1.isEmpty())
             {
-                m_impl->m_ViewControlTextOverlay->setText(m_impl->m_AlternateRTPreviewLabel1, previewColor);
+                m_impl->m_ViewControlTextOverlay->setText(m_impl->m_AlternateRTPreviewLabel1, ViewOverlayTone::Preview);
             }
             else
             {
-                m_impl->m_ViewControlTextOverlay->setText(RT_PREVIEW_SHOW_PREVIEW_LABEL, previewColor);
+                m_impl->m_ViewControlTextOverlay->setText(RT_PREVIEW_SHOW_PREVIEW_LABEL, ViewOverlayTone::Preview);
             }
         }
 
@@ -4592,8 +4590,7 @@ void ImageViewControl::updateAutostretchBannerText()
         return;
     }
 
-    const bool darkMode = resolveDarkMode(palette());
-    m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", an::ui::imageViewOverlayAutostretchColor(darkMode));
+    m_impl->m_ViewControlTextOverlay->setText("AUTOSTRETCH", ViewOverlayTone::Preview);
     m_impl->layoutStaticPreviewStatsOverlay();
 }
 
@@ -6079,10 +6076,10 @@ ViewControlTextOverlay::ViewControlTextOverlay(QWidget* parent, Qt::WindowFlags 
     this->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
-void ViewControlTextOverlay::setText(const QString& text, const QColor& color)
+void ViewControlTextOverlay::setText(const QString& text, const ViewOverlayTone tone)
 {
     m_Text = text;
-    m_Color = color;
+    m_Tone = tone;
 
     const QFont bannerFont = an::ui::tokens().typography.heading1;
     QFontMetrics metrics(bannerFont);
@@ -6095,17 +6092,23 @@ void ViewControlTextOverlay::setText(const QString& text, const QColor& color)
     update();
 }
 
+QColor ViewControlTextOverlay::textColour() const
+{
+    const bool darkMode = an::ui::isDarkTheme();
+    return m_Tone == ViewOverlayTone::Original ? an::ui::imageViewOverlayOriginalColor(darkMode)
+                                               : an::ui::imageViewOverlayAutostretchColor(darkMode);
+}
+
 void ViewControlTextOverlay::paintEvent(QPaintEvent* ev)
 {
     QWidget::paintEvent(ev);
 
     QPainter painter(this);
-    const bool darkMode = an::ui::styling::isDarkPalette(palette());
-    painter.fillRect(rect(), an::ui::imageViewOverlayBackdropColor(darkMode));
+    painter.fillRect(rect(), an::ui::imageViewOverlayBackdropColor(an::ui::isDarkTheme()));
 
     QPen pen = painter.pen();
 
-    pen.setColor(m_Color);
+    pen.setColor(textColour());
     pen.setWidth(3);
     painter.setPen(pen);
 

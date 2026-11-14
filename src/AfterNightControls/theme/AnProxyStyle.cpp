@@ -9,6 +9,7 @@
 
 #include "components/AnLayoutUtils.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/Elevation.h"
 #include "theme/NightImage.h"
 #include "theme/PainterGuard.h"
 
@@ -21,6 +22,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDockWidget>
+#include <QFontMetrics>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -499,6 +501,22 @@ constexpr int kObservatoryBorder = 1;
 /// The narrowest a spin box is, as under the Classic profile: room for a decimal value.
 constexpr int kMinimumSpinBoxWidth = 70;
 
+/// A slider's handle: the knob's halo fits it, along and across.
+constexpr int kObservatorySliderHandle = 22;
+
+/// A menu's panel line, and the room between it and the items.
+constexpr int kObservatoryMenuPanel = 1;
+constexpr int kObservatoryMenuMargin = 4;
+
+/// A tooltip's text from its surface's edge, past its line.
+constexpr int kObservatoryToolTipPadding = 5;
+
+/// The shortest a scroll bar's handle is.
+constexpr int kObservatoryScrollHandleMinimum = 24;
+
+/// What a menu item keeps beside its text that the base style's width does not hold: its padding and gaps.
+constexpr int kObservatoryMenuItemRoom = 8;
+
 bool observatoryProfile()
 {
     return an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
@@ -515,9 +533,50 @@ std::optional<int> observatoryPixelMetric(const QStyle::PixelMetric metric, cons
     case QStyle::PM_HeaderDefaultSectionSizeVertical:
         // A table's rows: the vertical header's sections are the rows.
         return metrics.rowTable;
+    case QStyle::PM_SliderThickness:
+    case QStyle::PM_SliderLength:
+    case QStyle::PM_SliderControlThickness:
+        return kObservatorySliderHandle;
+    case QStyle::PM_MenuPanelWidth:
+        return kObservatoryMenuPanel;
+    case QStyle::PM_MenuHMargin:
+    case QStyle::PM_MenuVMargin:
+        return kObservatoryMenuMargin;
+    case QStyle::PM_MenuBarPanelWidth:
+        return 0;
+    case QStyle::PM_ToolTipLabelFrameWidth:
+        return kObservatoryToolTipPadding;
+    case QStyle::PM_ScrollBarSliderMin:
+        return kObservatoryScrollHandleMinimum;
     default:
         return std::nullopt;
     }
+}
+
+/// How much wider a text is in another font than in the one a widget measured it in: the room a semibold button or
+/// tab, a header in small capitals or a shortcut in the monospace needs past what the widget asked for.
+int widerBy(const QString& text, const QFont& painted, const QFont& measured)
+{
+    if (text.isEmpty())
+    {
+        return 0;
+    }
+    QString plain = text;
+    plain.remove(QLatin1Char('&'));
+    return (std::max)(0,
+                      QFontMetrics(painted).horizontalAdvance(plain) - QFontMetrics(measured).horizontalAdvance(plain));
+}
+
+/// The font a widget measured its contents in.
+QFont measuredFont(const QWidget* widget)
+{
+    return widget != nullptr ? widget->font() : QApplication::font();
+}
+
+QFont semibold(QFont font)
+{
+    font.setWeight(QFont::DemiBold);
+    return font;
 }
 
 /// Whether the Observatory profile sizes a control of this type from its tokens.
@@ -574,7 +633,10 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
         const bool hasText = button != nullptr && !button->text.isEmpty();
         const int height = (std::max)(m.control, contents.height() + 2 * inset);
         const int padding = hasText ? kObservatoryButtonPadding + kObservatoryBorder : inset;
-        return QSize((std::max)(height, contents.width() + 2 * padding), height);
+        // The text is painted semibold; the button measured it at its own weight.
+        const QFont font = measuredFont(widget);
+        const int text = hasText ? widerBy(button->text, semibold(font), font) : 0;
+        return QSize((std::max)(height, contents.width() + text + 2 * padding), height);
     }
     case QStyle::CT_ToolButton:
         // An icon button is a control square; text beside or under the icon widens or heightens it.
@@ -600,15 +662,27 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
         const int iconExtent = tab != nullptr ? (std::max)(tab->iconSize.width(), tab->iconSize.height()) : 0;
         const int across = (std::max)(compact ? m.controlSmall : m.strip, iconExtent + 2 * tokens.spacing.xs);
         const int minimumLength = intPropertyOrDefault(widget, "anTabMinWidth", 0);
+        // A tab's text is painted semibold; the tab bar measured it at its own weight.
+        const QFont font = measuredFont(widget);
+        const int text = tab != nullptr ? widerBy(tab->text, semibold(font), font) : 0;
         if (verticalTab(option))
         {
-            return QSize(across, (std::max)(base.height(), minimumLength));
+            return QSize(across, (std::max)(base.height() + text, minimumLength));
         }
-        return QSize((std::max)(base.width(), minimumLength), across);
+        return QSize((std::max)(base.width() + text, minimumLength), across);
     }
-    case QStyle::CT_HeaderSection:
+    case QStyle::CT_HeaderSection: {
+        // A table's header: its label is painted in small capitals of the caption, which the header did not measure.
+        const auto* header = qstyleoption_cast<const QStyleOptionHeader*>(option);
+        QFont caps = tokens.typography.caption;
+        caps.setWeight(QFont::DemiBold);
+        caps.setCapitalization(QFont::AllUppercase);
+        caps.setLetterSpacing(QFont::PercentageSpacing, 108.0);
+        const int text = header != nullptr ? widerBy(header->text, caps, measuredFont(widget)) : 0;
+        return QSize(base.width() + text, (std::max)(base.height(), m.rowTable));
+    }
     case QStyle::CT_ItemViewItem:
-        // A table's header and a row of a table, a list or a tree.
+        // A row of a table, a list or a tree.
         return QSize(base.width(), (std::max)(base.height(), m.rowTable));
     case QStyle::CT_MenuItem: {
         const auto* item = qstyleoption_cast<const QStyleOptionMenuItem*>(option);
@@ -616,7 +690,19 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
         {
             return base;
         }
-        return QSize(base.width(), (std::max)(base.height(), m.rowDense));
+        // A shortcut is painted in the monospace at the caption's size; the menu measured it in its own font.
+        int shortcut = 0;
+        if (item != nullptr)
+        {
+            const qsizetype tab = item->text.indexOf(QLatin1Char('\t'));
+            if (tab >= 0)
+            {
+                QFont mono = tokens.typography.monospace;
+                mono.setPointSizeF(m.fontCaption * 72.0 / 96.0);
+                shortcut = widerBy(item->text.mid(tab + 1), mono, item->font);
+            }
+        }
+        return QSize(base.width() + shortcut + kObservatoryMenuItemRoom, (std::max)(base.height(), m.rowDense));
     }
     default:
         return base;
@@ -644,6 +730,8 @@ void AnProxyStyle::refreshThemeTokens()
     const DesignTokens* const previous = m_tokens;
     refreshTokens();
     m_tokens = &tokens();
+    // The shadows were rendered in the colours of the theme that goes.
+    dropElevationImages();
     // A density moves the sizes this style answers and the type scale; under the Classic profile neither ever moves.
     const bool sizesChanged =
         previous != nullptr && (previous->metrics != m_tokens->metrics || previous->typography != m_tokens->typography);
@@ -848,7 +936,10 @@ void AnProxyStyle::polish(QWidget* widget)
 
     if (QLayout* rootLayout = widget->layout())
     {
-        normalizeLayoutSpacingToTokens(rootLayout, m_tokens->spacing);
+        // Under the Observatory profile a layout set to the density's gap or padding keeps it.
+        const KeptSpacings kept =
+            observatoryProfile() ? KeptSpacings{m_tokens->metrics.gap, m_tokens->metrics.pad} : KeptSpacings{};
+        normalizeLayoutSpacingToTokens(rootLayout, m_tokens->spacing, kept);
 
         if (qobject_cast<QDialog*>(widget))
         {
@@ -864,6 +955,11 @@ void AnProxyStyle::polish(QWidget* widget)
                 }
             }
         }
+    }
+
+    if (observatoryProfile())
+    {
+        polishObservatory(widget);
     }
 }
 
@@ -996,6 +1092,14 @@ int AnProxyStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, co
 int AnProxyStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget* widget,
                             QStyleHintReturn* returnData) const
 {
+    if (observatoryProfile())
+    {
+        if (const std::optional<int> answer = observatoryStyleHint(hint, option, widget))
+        {
+            return *answer;
+        }
+    }
+
     switch (hint)
     {
     case SH_ToolTip_WakeUpDelay:
@@ -1024,6 +1128,11 @@ int AnProxyStyle::styleHint(StyleHint hint, const QStyleOption* option, const QW
 void AnProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
                                  const QWidget* widget) const
 {
+    if (observatoryProfile() && drawObservatoryPrimitive(element, option, painter, widget))
+    {
+        return;
+    }
+
     switch (element)
     {
     case PE_PanelLineEdit:
@@ -1351,6 +1460,11 @@ void AnProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* o
 void AnProxyStyle::drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
                                const QWidget* widget) const
 {
+    if (observatoryProfile() && drawObservatoryControl(element, option, painter, widget))
+    {
+        return;
+    }
+
     switch (element)
     {
     case CE_PushButtonBevel:
@@ -1654,6 +1768,11 @@ void AnProxyStyle::drawControl(ControlElement element, const QStyleOption* optio
 void AnProxyStyle::drawComplexControl(ComplexControl control, const QStyleOptionComplex* option, QPainter* painter,
                                       const QWidget* widget) const
 {
+    if (observatoryProfile() && drawObservatoryComplexControl(control, option, painter, widget))
+    {
+        return;
+    }
+
     switch (control)
     {
     case CC_ComboBox:
@@ -1813,6 +1932,14 @@ QSize AnProxyStyle::sizeFromContents(ContentsType type, const QStyleOption* opti
 QRect AnProxyStyle::subControlRect(ComplexControl control, const QStyleOptionComplex* option, SubControl subControl,
                                    const QWidget* widget) const
 {
+    if (observatoryProfile())
+    {
+        if (const std::optional<QRect> rect = observatorySubControlRect(control, option, subControl, widget))
+        {
+            return *rect;
+        }
+    }
+
     if (control == CC_SpinBox)
     {
         const QRect r = option->rect;

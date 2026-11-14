@@ -72,6 +72,8 @@
 | `widgets/NightPictureLabel.h/.cpp` | A label showing a picture in its Night form under Night |
 | `controls/settings/ThemePresetTile.h/.cpp` | A colour preset's tile on the Interface page (see [Presets](#presets)) |
 | `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
+| `theme/AnProxyStyleObservatory.cpp` | The proxy style's drawing under the Observatory profile (see [The Observatory look](#the-observatory-look)) |
+| `theme/Elevation.h/.cpp` | A raised part's shadow and edge line: the kept nine-patch images (see [Elevation](#elevation)) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
 | `theme/PainterGuard.h` | `an::ui::PainterGuard`, the RAII `QPainter` save/restore guard |
@@ -381,7 +383,11 @@ to start in it. It is three things, and none of them is an effect laid over the 
   thread asks: the widget paints the picture's place empty until the form is kept, and is told to paint again then. A
   picture is never mapped on the GUI thread; a colour no token holds - a user's choice, a fixed colour of a plot - is
   drawn through `colorAsShown()`. Switching Night reaches a widget as a change of the application's palette
-  (`QEvent::PaletteChange`), which is where a widget that shows a picture asks for it again. The icon manager loads its
+  (`QEvent::PaletteChange`), which is where a widget that shows a picture asks for it again. Qt never hands a widget
+  `QEvent::ApplicationPaletteChange`: a widget that refreshes what it paints when the theme changes listens for its own
+  `PaletteChange`, which `NightImage.AWidgetThatListensForTheApplicationsPaletteHearsItsOwn` holds across Controls and
+  Processes. A widget that shows a colour it was given keeps what the colour means and resolves it when it paints - a
+  view's banner keeps its `ViewOverlayTone` - so Night switched on later reaches it. The icon manager loads its
   coloured icons in their Night form, as it tints the others.
 - **Where hue told things apart, shape does.** The histogram draws its curves in the plot's colours, which Night makes
   red, and strokes them red solid, green dashed, blue dotted (`HistogramWidget::channelStroke`).
@@ -456,6 +462,82 @@ unless `AN_UI_TOKENS_ENABLED` is set false.
 | `standardIcon()` | Maps Qt standard pixmaps to themed SVG icons from `IconManager` |
 | `polish()` | Sets `WA_Hover` on interactive widgets, applies palette colors to `QLabel`, configures `QDialogButtonBox` roles/icons, normalizes layout spacing to tokens, promotes process-shell frames |
 
+### The Observatory look
+
+Under the `Observatory` profile the proxy style draws the standard widgets in the profile's look. The Classic code is not
+touched: each of `drawPrimitive()`, `drawControl()` and `drawComplexControl()` hands an element to the Observatory
+painters (`theme/AnProxyStyleObservatory.cpp`) in one line at its top, and what they do not draw falls through to the
+Classic code; `subControlRect()`, `styleHint()` and `polish()` do the same for the geometry, the hints and the windows
+they decide. Under `Classic` none of it runs: `ProxyStyleDispatch.ClassicRunsNoObservatoryPainter` (`Test_ThemeSystem`)
+counts the Observatory painters' calls (`an::ui::testing::observatoryPaints()`) while every kind of widget paints under
+`Classic`, and expects none.
+
+Every colour is a token read when the element paints, so the look follows a theme, a preset, a density and Night without
+a widget's help. The rules, which `ProxyStyleObservatory.*` holds in dark, light and a tinted preset, at both densities
+and at four device pixel ratios:
+
+- **A control** is its fill, its outline and its text from the colour tokens, its corners `radius.md` (8). Hovered it
+  lays `stateLayer` over its fill at 8 %, pressed at 12 %. Disabled, the whole control - fill, outline, text, icon - is
+  painted at 38 % opacity in its own colours; a control whose parts overlap paints each part once, so the 38 % is the
+  control's.
+- **The focus ring** - two pixels of `borderFocus` at the control's edge - is drawn only for focus that came from the
+  keyboard (`State_KeyboardFocusChange`), on a button, a tool button, a check box's or a radio button's text, a tab and a
+  slider's knob. A field shows its focus as a two-pixel `borderFocus` border whatever brought it there: its caret is in
+  it.
+- **Buttons** have five roles, named by the variant properties ([Button Properties](#button-properties)): primary
+  (`accentPrimary` under `textOnAccent`, hovering and pressing in `accentHover` and `accentPressed`), tonal
+  (`accentContainer` under `textOnAccentContainer`), outlined (no fill, a one-pixel `borderPrimary` outline; the default),
+  quiet (neither; its text `textAccent`) and destructive (`statusError` under the better contrasted of `textOnAccent`,
+  `textPrimary` and `bgPrimary`). A checked outlined or quiet button is tonal. Their text is semibold, which their width
+  allows for. A filled button's icon is painted in its text's colour. A tool button is quiet until hovered and tonal
+  when checked, unless it is quiet itself (a section's toggle, whose arrow says whether it is open).
+- **Fields** - a line edit with a frame, a combo box, a spin box - are `bgInput` (the third surface) with a one-pixel
+  `borderPrimary` outline; a read-only line edit has no fill and a `borderSubtle` outline. A combo box's arrow has a
+  column of 28 pixels inside the field and its text starts past the border and 10 of padding; a spin box's buttons have
+  a column of 20 inside the border, the hovered one the state colour. A combo box that opens a list answers the pointer
+  as a button does.
+- **Check boxes and radio buttons** are 16 pixels: unchecked, a two-pixel `textSecondary` border (`textPrimary`
+  hovered) with a radius of 4, or a ring; checked, filled with the accent under a `textOnAccent` mark, or an accent ring
+  round an accent dot of 8.
+- **A slider** is a four-pixel `accentTrack` track filled with the accent up to a 14-pixel accent knob; hovered or
+  dragged, an `accentSoft` halo lies round the knob, which is why its handle is 22 pixels.
+- **A progress bar** is the accent's track filled with the accent, or with the status colour its `anUsageTone` names over
+  that colour's soft share. Without its text it is a four-pixel track across its middle; with it, its text is
+  `textPrimary` over the track and `textOnAccent` over the fill.
+- **Tabs** are text, semibold: the selected one `textPrimary` over a three-pixel accent bar, ten pixels in from each
+  end, on the side that meets the pages (`anTabAccentLinePosition` = `top` moves it); the others `textSecondary`, the
+  state colour when hovered. A tab bar's base and a tab widget's pane are a `borderSubtle` hairline where the tabs meet
+  the pages: no frame.
+- **A group box** is a card - `bgCard`, `radius.lg`, no border - under a semibold `textSecondary` title; a flat one is a
+  hairline over the window.
+- **Item views.** A selected row is `accentSoft` laid over the view's base, opaque, with a three-pixel accent bar at the
+  row's start; its text stays `textPrimary`. A hovered row lays the state colour. A header is `bgInput` with a hairline
+  under it, its labels the caption in small capitals of `textSecondary`, which its width allows for; a grid line is a
+  hairline; an item view's frame a square hairline.
+- **A scroll bar** has no arrows: its groove is its whole length and lies over the content with no fill; its handle is
+  `textTertiary` at 40 %, 70 % hovered or dragged.
+- **Menus and tooltips** are raised parts ([Elevation](#elevation)): a menu `bgInput` with a hairline and `radius.md`,
+  its items `rowDense` high with `radius.sm` corners, the one under the pointer `accentContainer` under its text, a
+  shortcut in the monospace at the caption's size in `textTertiary`, a separator a hairline; a tooltip `surface4` with a
+  hairline and `radius.sm` in the small text. A combo box's list lies on the menu's surface.
+- **Bars and frames.** A menu bar, a tool bar and a status bar are flat - `solidSurface` (a tool bar asking for
+  `anUseCardBackground`, `bgCard`) - with a hairline toward the window; a splitter's handle is a hairline, `accentLine`
+  hovered, a process splitter's a grip. The process windows' card (`anProcessShellCard`) is `bgCard` with no border, and
+  their banner and a context message are a note: their tone's soft share with a three-pixel bar of the tone at its
+  start.
+
+### Elevation
+
+A raised part - a menu, a tooltip, and the palette, the transient message and the popovers the shells add - stands off
+what is under it by a one-pixel line of `edge` under its bottom edge and a shadow of `shadowOverlay` ten pixels down
+whose edge fades over 28 pixels (`theme/Elevation.h`). Nothing behind it is blurred and no gradient is drawn: the shadow
+is a nine-patch image, rendered once per corner radius, device pixel ratio and colour, kept, and drawn round the part as
+nine images; `AnProxyStyle::refreshThemeTokens()` lets the kept images go, and the next part renders its shadow in the
+new colour. A raised part that is a window of its own keeps the room its shadow needs from a translucent background
+(`elevationWindowMargins()`: half the spread at the sides, less the offset above, more below); a menu so made is moved
+by that room when it is shown, so its surface - not its window - is where it was placed. `paintElevation()` draws both
+under a part that then paints its surface over them. `Elevation.*` (`Test_ThemeSystem`) holds it.
+
 ### PainterGuard Pattern
 
 All drawing methods use `an::ui::PainterGuard` (`theme/PainterGuard.h`). It calls `QPainter::save()` when
@@ -514,7 +596,7 @@ Maps hardcoded spacing values to the nearest design token:
 ```
 
 ### `normalizeLayoutSpacingToTokens(QLayout*, SpacingTokens)`
-Recursively walks a layout tree and normalizes all spacing and margins to design tokens. **Called automatically by `AnProxyStyle::polish()`** on every widget's root layout.
+Recursively walks a layout tree and normalizes all spacing and margins to design tokens. **Called automatically by `AnProxyStyle::polish()`** on every widget's root layout. Under the Observatory profile the polish keeps the density's gap and a panel's padding (`KeptSpacings`): a layout a widget sizes from `metrics.gap` or `metrics.pad` - 10 and 14 in the Comfortable density - is not moved to the nearest spacing token.
 
 Layouts can opt out with dynamic properties:
 - `anKeepLayoutSpacing` — skip spacing normalization
@@ -602,6 +684,15 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnSliderControl` | Labeled slider with value display |
 | `AnStatusBadge` | Colored status indicator chip |
 | `AnStyledTable` | Pre-themed `QTableWidget`: row selection, alternating rows, token palette and header font; `refreshTheme()` re-applies them |
+
+Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
+no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
+a `metrics.sectionHeader` header whose title is the caption in small capitals of `textSecondary`; a section header's
+description is the small text and its action a quiet button; a status badge is a tag - `metrics.tag` high, its status
+colour's soft share with no border; an info banner is a note (its tone's soft share, a bar of the tone, the message in
+`textPrimary`, padded by `metrics.pad` and `metrics.gap`); a progress card is a card holding a thin bar `metrics.gap`
+high; a styled table lies on the first surface with its selection the accent's soft share; the slider control's and
+the button group's parts lie `metrics.gap` apart. `Components.Observatory*` (`Test_Widgets`) renders each.
 
 All components use `paintEvent()` with design tokens for custom drawing, and standard Qt widgets (via proxy style) for embedded controls.
 
@@ -865,8 +956,8 @@ The proxy style uses dynamic properties to differentiate visual variants without
 | Property | Values | Effect |
 |---|---|---|
 | `buttonVariant` | `"primary"` | Accent-colored button |
-| `anButtonVariant` | `"primary"` | Same as above (preferred prefix) |
-| `anProcessButtonRole` | `"primary"`, `"secondary"`, `"neutral"`, `"danger"` | Dialog/process button roles (set automatically on `QDialogButtonBox`) |
+| `anButtonVariant` | `"primary"`; under the Observatory profile also `"tonal"`, `"outlined"`, `"quiet"`, `"destructive"` | Same as above (preferred prefix); the Observatory profile's five roles ([The Observatory look](#the-observatory-look)), outlined being a button with none; on a tool button, `"quiet"` keeps it unfilled when checked |
+| `anProcessButtonRole` | `"primary"`, `"secondary"`, `"neutral"`, `"danger"` | Dialog/process button roles (set automatically on `QDialogButtonBox`); under the Observatory profile primary, outlined, quiet and destructive |
 
 ### Frame / Card Properties
 

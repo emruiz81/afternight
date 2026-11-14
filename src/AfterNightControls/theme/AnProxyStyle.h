@@ -6,6 +6,10 @@
 #include "AfterNightControlsExport.h"
 
 #include <QProxyStyle>
+#include <QRect>
+
+#include <cstdint>
+#include <optional>
 
 namespace an::ui
 {
@@ -79,7 +83,32 @@ public:
     /// Call after changing AnDesignTokens theme to refresh the style.
     void refreshThemeTokens();
 
+protected:
+    /// Under the Observatory profile, keeps a menu's surface where the menu is placed: the window holds the margin its
+    /// shadow is drawn in, and is moved by that margin when it is shown.
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
+    // The Observatory profile's drawing (AnProxyStyleObservatory.cpp). Each of the three draw calls hands an element
+    // to these first under that profile; each answers whether it drew the element, and what it leaves is drawn by the
+    // Classic code below. Under the Classic profile none of them runs.
+    [[nodiscard]] bool drawObservatoryPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
+                                                const QWidget* widget) const;
+    [[nodiscard]] bool drawObservatoryControl(ControlElement element, const QStyleOption* option, QPainter* painter,
+                                              const QWidget* widget) const;
+    [[nodiscard]] bool drawObservatoryComplexControl(ComplexControl control, const QStyleOptionComplex* option,
+                                                     QPainter* painter, const QWidget* widget) const;
+    /// The Observatory profile's geometry of a sub-control its painters decide; nothing for the Classic answer.
+    [[nodiscard]] std::optional<QRect> observatorySubControlRect(ComplexControl control,
+                                                                 const QStyleOptionComplex* option,
+                                                                 SubControl subControl, const QWidget* widget) const;
+    /// The Observatory profile's answer to a style hint its painters decide; nothing for the Classic answer.
+    [[nodiscard]] std::optional<int> observatoryStyleHint(StyleHint hint, const QStyleOption* option,
+                                                          const QWidget* widget) const;
+    /// What the Observatory profile sets on a widget when it is polished: the translucent window and the margin a
+    /// menu's or a tooltip's shadow is drawn in, a tooltip's font.
+    void polishObservatory(QWidget* widget);
+
     // Helpers for drawing specific widget types
     void drawGroupBox(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawPushButton(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
@@ -119,5 +148,12 @@ AFTERNIGHTCONTROLS_API AnProxyStyle* installAnProxyStyle();
 /// make installedAnProxyStyle() track the plugin-created instance.
 /// The caller is responsible for having already called QApplication::setStyle().
 AFTERNIGHTCONTROLS_API void registerInstalledAnProxyStyle(AnProxyStyle* style);
+
+namespace testing
+{
+/// How many elements the Observatory profile's painters have drawn since the process started. For the suites, which
+/// prove the Classic profile draws through its own code alone; the application never reads it.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::uint64_t observatoryPaints();
+} // namespace testing
 
 } // namespace an::ui

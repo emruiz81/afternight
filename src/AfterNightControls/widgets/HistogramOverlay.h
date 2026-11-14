@@ -145,7 +145,8 @@ protected:
 
     void changeEvent(QEvent* event) override
     {
-        if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::ThemeChange)
+        if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange ||
+            event->type() == QEvent::ThemeChange)
             update();
 
         QWidget::changeEvent(event);

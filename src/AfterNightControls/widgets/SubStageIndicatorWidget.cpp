@@ -353,7 +353,8 @@ QColor SubStageIndicatorWidget::stateColor(SubStageState state) const
 
 void SubStageIndicatorWidget::changeEvent(QEvent* ev)
 {
-    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::ThemeChange)
+    if (ev->type() == QEvent::PaletteChange || ev->type() == QEvent::ApplicationPaletteChange ||
+        ev->type() == QEvent::ThemeChange)
         update();
     QFrame::changeEvent(ev);
 }

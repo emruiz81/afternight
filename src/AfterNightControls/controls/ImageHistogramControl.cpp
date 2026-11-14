@@ -239,7 +239,8 @@ void ImageHistogramControl::done(int r)
 
 void ImageHistogramControl::changeEvent(QEvent* event)
 {
-    if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::ThemeChange)
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange ||
+        event->type() == QEvent::ThemeChange)
     {
         refreshIcons();
     }

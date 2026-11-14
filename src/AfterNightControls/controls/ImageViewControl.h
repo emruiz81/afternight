@@ -91,18 +91,30 @@ enum class ImageUpdateKind : uint8_t
 const QString NO_IMAGE_STR = "<--NO IMAGE-->";
 
 // Class for drawing text over the view control ignoring the scroll area
+/// What a view's banner names, which decides its colour: the preview's look, or the original image.
+enum class ViewOverlayTone
+{
+    Preview,
+    Original
+};
+
 class AFTERNIGHTCONTROLS_API ViewControlTextOverlay : public QWidget
 {
 public:
     ViewControlTextOverlay(QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags());
 
-    void setText(const QString& text, const QColor& color);
+    /// Shows a text in a tone. The banner keeps the tone, not a colour: it takes the tone's colour from the tokens in
+    /// force when it paints, so a theme or Night changed after the text was set reaches it.
+    void setText(const QString& text, ViewOverlayTone tone);
+
+    /// The colour the banner paints its text in now.
+    [[nodiscard]] QColor textColour() const;
 
 private:
     void paintEvent(QPaintEvent* ev) override;
 
     QString m_Text;
-    QColor m_Color;
+    ViewOverlayTone m_Tone = ViewOverlayTone::Preview;
 };
 
 class AFTERNIGHTCONTROLS_API CustomToolBar : public QToolBar

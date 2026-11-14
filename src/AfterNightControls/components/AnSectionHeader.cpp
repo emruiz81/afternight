@@ -140,8 +140,20 @@ void AnSectionHeader::refreshTheme()
     }
 
     m_titleLabel->setFont(tokenSet.typography.heading2);
-    m_descriptionLabel->setFont(tokenSet.typography.body);
-    m_actionButton->setFont(tokenSet.typography.caption);
+    if (styleProfile() == StyleProfile::Observatory)
+    {
+        // The description in the small text; the action a quiet button in the accent's text, at the body's size.
+        QFont small = tokenSet.typography.body;
+        small.setPointSizeF(tokenSet.metrics.fontSmall * 72.0 / 96.0);
+        m_descriptionLabel->setFont(small);
+        m_actionButton->setFont(tokenSet.typography.body);
+        m_actionButton->setProperty("anButtonVariant", QStringLiteral("quiet"));
+    }
+    else
+    {
+        m_descriptionLabel->setFont(tokenSet.typography.body);
+        m_actionButton->setFont(tokenSet.typography.caption);
+    }
 
     // Label colors via palette
     QPalette titlePal = m_titleLabel->palette();

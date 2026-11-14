@@ -85,7 +85,10 @@ public:
     }
     [[nodiscard]] QPixmap loadSvgFileAsPixmap(const QString&, QSize size, QColor) override
     {
-        return QPixmap(size);
+        // An empty picture of the size asked for: a pixmap made and not filled holds whatever memory it was given.
+        QPixmap pixmap(size);
+        pixmap.fill(Qt::transparent);
+        return pixmap;
     }
     [[nodiscard]] QColor getColorNormal() const override
     {

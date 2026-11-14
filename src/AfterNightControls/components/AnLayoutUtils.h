@@ -46,8 +46,21 @@ inline void reparentLayoutWidgets(QLayout* layout, QWidget* parent)
 }
 
 /// Maps common hardcoded spacing values to the nearest design token value.
-[[nodiscard]] inline int normalizeSpacingValueToTokens(const int value, const SpacingTokens& spacing)
+/// Sizes a layout keeps whatever the spacing tokens are: under the Observatory profile, the density's gap and a panel's
+/// padding, which a widget sized from the metric tokens sets. -1 keeps nothing.
+struct KeptSpacings
 {
+    int gap = -1;
+    int pad = -1;
+};
+
+[[nodiscard]] inline int normalizeSpacingValueToTokens(const int value, const SpacingTokens& spacing,
+                                                       const KeptSpacings kept = {})
+{
+    if (value >= 0 && (value == kept.gap || value == kept.pad))
+    {
+        return value;
+    }
     if (value <= 0)
     {
         return value;
@@ -84,16 +97,17 @@ inline void reparentLayoutWidgets(QLayout* layout, QWidget* parent)
     }
 }
 
-[[nodiscard]] inline QMargins normalizeMarginsToTokens(const QMargins& margins, const SpacingTokens& spacing)
+[[nodiscard]] inline QMargins normalizeMarginsToTokens(const QMargins& margins, const SpacingTokens& spacing,
+                                                       const KeptSpacings kept = {})
 {
-    return QMargins(normalizeSpacingValueToTokens(margins.left(), spacing),
-                    normalizeSpacingValueToTokens(margins.top(), spacing),
-                    normalizeSpacingValueToTokens(margins.right(), spacing),
-                    normalizeSpacingValueToTokens(margins.bottom(), spacing));
+    return QMargins(normalizeSpacingValueToTokens(margins.left(), spacing, kept),
+                    normalizeSpacingValueToTokens(margins.top(), spacing, kept),
+                    normalizeSpacingValueToTokens(margins.right(), spacing, kept),
+                    normalizeSpacingValueToTokens(margins.bottom(), spacing, kept));
 }
 
 /// Recursively normalizes layout spacing/margins to design token spacing values.
-inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens& spacing)
+inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens& spacing, const KeptSpacings kept = {})
 {
     if (!layout)
     {
@@ -108,7 +122,7 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
     {
         if (const int currentSpacing = layout->spacing(); currentSpacing >= 0)
         {
-            const int normalizedSpacing = normalizeSpacingValueToTokens(currentSpacing, spacing);
+            const int normalizedSpacing = normalizeSpacingValueToTokens(currentSpacing, spacing, kept);
             if (normalizedSpacing != currentSpacing)
             {
                 layout->setSpacing(normalizedSpacing);
@@ -119,7 +133,7 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
         {
             if (const int currentHorizontal = gridLayout->horizontalSpacing(); currentHorizontal >= 0)
             {
-                const int normalizedHorizontal = normalizeSpacingValueToTokens(currentHorizontal, spacing);
+                const int normalizedHorizontal = normalizeSpacingValueToTokens(currentHorizontal, spacing, kept);
                 if (normalizedHorizontal != currentHorizontal)
                 {
                     gridLayout->setHorizontalSpacing(normalizedHorizontal);
@@ -128,7 +142,7 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
 
             if (const int currentVertical = gridLayout->verticalSpacing(); currentVertical >= 0)
             {
-                const int normalizedVertical = normalizeSpacingValueToTokens(currentVertical, spacing);
+                const int normalizedVertical = normalizeSpacingValueToTokens(currentVertical, spacing, kept);
                 if (normalizedVertical != currentVertical)
                 {
                     gridLayout->setVerticalSpacing(normalizedVertical);
@@ -140,7 +154,7 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
     if (!keepMargins)
     {
         const QMargins currentMargins = layout->contentsMargins();
-        const QMargins normalizedMargins = normalizeMarginsToTokens(currentMargins, spacing);
+        const QMargins normalizedMargins = normalizeMarginsToTokens(currentMargins, spacing, kept);
         if (normalizedMargins != currentMargins)
         {
             layout->setContentsMargins(normalizedMargins);
@@ -153,7 +167,7 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
         {
             if (QLayout* childLayout = item->layout())
             {
-                normalizeLayoutSpacingToTokens(childLayout, spacing);
+                normalizeLayoutSpacingToTokens(childLayout, spacing, kept);
             }
         }
     }

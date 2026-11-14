@@ -311,7 +311,8 @@ bool ImageViewWidget::event(QEvent* ev)
 
 void ImageViewWidget::changeEvent(QEvent* ev)
 {
-    if (ev->type() == QEvent::ApplicationPaletteChange || ev->type() == QEvent::ThemeChange)
+    if (ev->type() == QEvent::PaletteChange || ev->type() == QEvent::ApplicationPaletteChange ||
+        ev->type() == QEvent::ThemeChange)
     {
         applyThemePalette();
         if (m_impl && m_impl->m_ImageLensWidget)

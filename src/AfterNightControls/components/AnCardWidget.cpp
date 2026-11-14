@@ -233,9 +233,13 @@ void AnCardWidget::refreshTheme()
 
     refreshTokens();
     const auto& tokenSet = tokens();
+    const bool observatory = styleProfile() == StyleProfile::Observatory;
     const bool compact = property("anCardCompact").toBool();
-    const int outerMargin = compact ? tokenSet.spacing.sm : tokenSet.spacing.lg;
-    const int outerSpacing = compact ? tokenSet.spacing.xs : tokenSet.spacing.sm;
+    // Under the Observatory profile a card is padded as a panel is, by the density.
+    const int outerMargin = observatory ? (compact ? tokenSet.metrics.gap : tokenSet.metrics.pad)
+                                        : (compact ? tokenSet.spacing.sm : tokenSet.spacing.lg);
+    const int outerSpacing = observatory ? (compact ? tokenSet.spacing.xs : tokenSet.metrics.gap)
+                                         : (compact ? tokenSet.spacing.xs : tokenSet.spacing.sm);
     const int bodyMargin = property("anCardBodyPadded").toBool() ? tokenSet.spacing.sm : 0;
 
     if (auto* rootLayout = qobject_cast<QVBoxLayout*>(layout()))
@@ -254,7 +258,7 @@ void AnCardWidget::refreshTheme()
 
     // Use palette-based styling instead of QSS — AnProxyStyle handles the painting.
     QPalette headerPal = m_headerLabel->palette();
-    headerPal.setColor(QPalette::WindowText, tokenSet.colors.textAccent);
+    headerPal.setColor(QPalette::WindowText, observatory ? tokenSet.colors.textPrimary : tokenSet.colors.textAccent);
     headerPal.setColor(QPalette::Disabled, QPalette::WindowText, tokenSet.colors.textTertiary);
     headerPal.setColor(QPalette::Disabled, QPalette::Text, tokenSet.colors.textTertiary);
     headerPal.setColor(QPalette::Disabled, QPalette::PlaceholderText, tokenSet.colors.textTertiary);
@@ -334,7 +338,8 @@ void AnCardWidget::enterEvent(QEnterEvent* event)
 {
     QFrame::enterEvent(event);
 
-    if (!isEnabled())
+    // Under the Observatory profile a card is a surface, not a control: it does not answer the pointer.
+    if (!isEnabled() || styleProfile() == StyleProfile::Observatory)
     {
         return;
     }
@@ -352,6 +357,11 @@ void AnCardWidget::enterEvent(QEnterEvent* event)
 void AnCardWidget::leaveEvent(QEvent* event)
 {
     QFrame::leaveEvent(event);
+
+    if (styleProfile() == StyleProfile::Observatory)
+    {
+        return;
+    }
 
     if (!AnimationUtils::animationsEnabled())
     {
@@ -378,6 +388,15 @@ void AnCardWidget::paintEvent(QPaintEvent* /*event*/)
 
     const int r = property("anCardRadius").toInt();
     const int radius = r > 0 ? r : tokenSet.radius.lg;
+
+    if (styleProfile() == StyleProfile::Observatory)
+    {
+        // A tonal container: the second surface over the whole card, its title inside it, no border and no shadow.
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(tokenSet.colors.bgCard);
+        painter.drawRoundedRect(QRectF(rect()), tokenSet.radius.lg, tokenSet.radius.lg);
+        return;
+    }
 
     const bool enabled = isEnabled();
     const QColor rawBg = enabled ? (m_currentBgColor.isValid() ? m_currentBgColor : tokenSet.colors.bgCardPrimary)

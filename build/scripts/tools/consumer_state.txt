@@ -352,6 +352,25 @@ state src/AfterNightControls/theme/AnProxyStyle.cpp g_installedStyle
     synchronization  GUI thread: styles are created, installed and destroyed there
     reason           Controls that paint outside the style's own calls reach the installed style.
 
+state src/AfterNightControls/theme/AnProxyStyleObservatory.cpp g_observatoryPaints
+    scope            anonymous namespace
+    category         theme-service
+    owner            static initialization
+    lifetime         the whole process
+    synchronization  an atomic counter, added to by whichever thread paints
+    reason           Counts the elements the Observatory profile's painters draw, so the suites prove the Classic
+                     profile draws through its own code alone; the application never reads it.
+
+state src/AfterNightControls/theme/Elevation.cpp images
+    scope            shadowImages
+    category         theme-service
+    owner            made at the first ask for a raised part's shadow; left to the end of the process
+    lifetime         from the first shadow painted to the end of the process
+    synchronization  its own mutex orders the kept images; the render counter is an atomic
+    reason           A raised part's shadow is a nine-patch rendered once per corner radius, device pixel ratio and
+                     colour and kept, so a menu or a tooltip of any size draws nine images and blurs nothing; a theme
+                     change lets them go.
+
 state src/AfterNightControls/theme/KddwProxyStyle.cpp g_installedKddwStyle
     scope            anonymous namespace
     category         theme-service

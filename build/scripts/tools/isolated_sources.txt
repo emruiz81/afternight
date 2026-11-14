@@ -2080,6 +2080,8 @@ sources Test_ImageViewControl
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightTests/fixtures/ScopedNightMode.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -2850,6 +2852,8 @@ sources Test_ExtensionHostNative
 # The theme suite, switched with the Controls suites: the design tokens, the proxy style, the animation helpers, the
 # feature flags, the theme manager's cascade and the PixelMath palette, its cases linked against the Controls library.
 sources Test_ThemeSystem
+    unit     src/AfterNightTests/Test_ThemeSystem/ProxyStyleObservatoryTest.cpp
+    unit     src/AfterNightTests/Test_ThemeSystem/ElevationTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/ClassicMetricsTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/DensityTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/NightImageTest.cpp
@@ -2885,6 +2889,9 @@ sources Test_ThemeSystem
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightControls/theme/Elevation.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/PaintRecorder.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  3rdparty/src
@@ -2897,6 +2904,7 @@ sources Test_ThemeSystem
 # spinner, the structuring element, vector slope, lens, curves and histogram widgets, the quick zoom over an image the
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
+    unit     src/AfterNightTests/Test_Widgets/ObservatoryComponentsTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NewTokensTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NightPicturesTest.cpp
     unit     src/AfterNightTests/Test_Widgets/main.cpp
@@ -2975,6 +2983,9 @@ sources Test_Widgets
     header   src/AfterNightControls/widgets/NightPictureLabel.h
     header   src/AfterNightTests/fixtures/ScopedNightMode.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/PaintRecorder.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -3223,6 +3234,7 @@ sources Test_ProcessesShared
 # suite links, launched through the library's registry and entry points, over the fixture layer the recorded behavior
 # expectations start from.
 sources Test_ProcessesPointwise
+    unit     src/AfterNightTests/Test_ProcessesPointwise/PointwiseObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/main.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/PointwiseProcesses.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/PointwiseRecordTest.cpp
@@ -3326,6 +3338,10 @@ sources Test_ProcessesPointwise
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -3848,6 +3864,7 @@ sources Test_ProcessesChannels
     qt       core gui widgets
 
 sources Test_ProcessesGeometry
+    unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/main.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryTestSupport.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryRecordTest.cpp
@@ -3960,6 +3977,10 @@ sources Test_ProcessesGeometry
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -3977,6 +3998,7 @@ sources Test_ProcessesGeometry
 # the support they share, run against the processes library, which the suite links, launched through the library's
 # registry and entry points, with the channel actions' suite's support for its scenes, sequences and waits.
 sources Test_ProcessesColorTools
+    unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/main.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsCasesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsRecordTest.cpp
@@ -4079,6 +4101,10 @@ sources Test_ProcessesColorTools
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls

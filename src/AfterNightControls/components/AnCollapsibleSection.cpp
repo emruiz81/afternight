@@ -279,23 +279,57 @@ void AnCollapsibleSection::refreshTheme()
 
     refreshTokens();
     const auto& tokenSet = tokens();
+    const bool observatory = styleProfile() == StyleProfile::Observatory;
 
     if (auto* rootLayout = qobject_cast<QVBoxLayout*>(layout()))
     {
-        // Match AnCardWidget's shadow inset so both components align visually
-        // when placed in the same parent layout.
-        constexpr int shadowInset = 4;
-        rootLayout->setContentsMargins(shadowInset, shadowInset, shadowInset, shadowInset);
-        rootLayout->setSpacing(tokenSet.spacing.xs);
+        if (observatory)
+        {
+            // A section is a hairline over its header: nothing around it.
+            rootLayout->setContentsMargins(0, 0, 0, 0);
+            rootLayout->setSpacing(0);
+        }
+        else
+        {
+            // Match AnCardWidget's shadow inset so both components align visually
+            // when placed in the same parent layout.
+            constexpr int shadowInset = 4;
+            rootLayout->setContentsMargins(shadowInset, shadowInset, shadowInset, shadowInset);
+            rootLayout->setSpacing(tokenSet.spacing.xs);
+        }
     }
 
-    m_toggleButton->setFont(tokenSet.typography.heading3);
+    if (observatory)
+    {
+        // The header's title in small capitals of the caption, semibold, a little spaced; a section header high; quiet,
+        // since its arrow says whether it is open.
+        QFont title = tokenSet.typography.caption;
+        title.setWeight(QFont::DemiBold);
+        title.setCapitalization(QFont::AllUppercase);
+        title.setLetterSpacing(QFont::PercentageSpacing, 108.0);
+        m_toggleButton->setFont(title);
+        m_toggleButton->setMinimumHeight(tokenSet.metrics.sectionHeader);
+        m_toggleButton->setProperty("anButtonVariant", QStringLiteral("quiet"));
+    }
+    else
+    {
+        m_toggleButton->setFont(tokenSet.typography.heading3);
+    }
+
     if (QLayout* content = m_contentWidget->layout())
     {
-        content->setContentsMargins(tokenSet.spacing.sm, tokenSet.spacing.xs, tokenSet.spacing.sm, tokenSet.spacing.sm);
-        content->setSpacing(tokenSet.spacing.sm);
+        if (observatory)
+        {
+            content->setContentsMargins(0, 0, 0, tokenSet.metrics.pad);
+            content->setSpacing(tokenSet.metrics.gap);
+        }
+        else
+        {
+            content->setContentsMargins(tokenSet.spacing.sm, tokenSet.spacing.xs, tokenSet.spacing.sm,
+                                        tokenSet.spacing.sm);
+            content->setSpacing(tokenSet.spacing.sm);
+        }
     }
-
     // Store card visual parameters
     m_bgColor = tokenSet.colors.bgCardPrimary;
     m_borderColor = tokenSet.colors.borderPrimary;
@@ -303,7 +337,7 @@ void AnCollapsibleSection::refreshTheme()
 
     // Toggle button text color via palette
     QPalette togglePal = m_toggleButton->palette();
-    togglePal.setColor(QPalette::ButtonText, tokenSet.colors.textPrimary);
+    togglePal.setColor(QPalette::ButtonText, observatory ? tokenSet.colors.textSecondary : tokenSet.colors.textPrimary);
     togglePal.setColor(QPalette::Disabled, QPalette::ButtonText, tokenSet.colors.textTertiary);
     togglePal.setColor(QPalette::Disabled, QPalette::WindowText, tokenSet.colors.textTertiary);
     togglePal.setColor(QPalette::Disabled, QPalette::Text, tokenSet.colors.textTertiary);
@@ -391,6 +425,12 @@ void AnCollapsibleSection::paintEvent(QPaintEvent* /*event*/)
     painter.setRenderHint(QPainter::Antialiasing, true);
 
     const auto& tokenSet = tokens();
+    if (styleProfile() == StyleProfile::Observatory)
+    {
+        // A hairline over the section; no card.
+        painter.fillRect(QRectF(0.0, 0.0, width(), 1.0), tokenSet.colors.borderSubtle);
+        return;
+    }
     const bool enabled = isEnabled();
     const QColor bg =
         enabled ? (m_bgColor.isValid() ? m_bgColor : tokenSet.colors.bgCardPrimary) : tokenSet.colors.bgSurface;

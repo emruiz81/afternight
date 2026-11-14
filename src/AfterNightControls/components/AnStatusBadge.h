@@ -30,6 +30,10 @@ public:
 
     void refreshTheme();
 
+    /// A tag high under the Observatory profile.
+    [[nodiscard]] QSize sizeHint() const override;
+    [[nodiscard]] QSize minimumSizeHint() const override;
+
 protected:
     void paintEvent(QPaintEvent* event) override;
 

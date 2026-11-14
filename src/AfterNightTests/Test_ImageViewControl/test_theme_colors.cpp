@@ -9,7 +9,10 @@
 #include <cmath>
 
 #include "app/UiStyleTokens.h"
+#include "controls/ImageViewControl.h"
 #include "controls/ImageViewThemeColors.h"
+#include "fixtures/ScopedNightMode.h"
+#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
 namespace
@@ -131,4 +134,27 @@ TEST(ImageViewControlThemeColors, CardSurfaceTintMatchesToolbarAndCardBlendFormu
 
     EXPECT_EQ(an::ui::imageViewCardSurfaceTintColor(true), expectedSurfaceColor(an::ui::resolvedDarkTokens(), true));
     EXPECT_EQ(an::ui::imageViewCardSurfaceTintColor(false), expectedSurfaceColor(an::ui::resolvedLightTokens(), false));
+}
+
+// A view's banner keeps the tone it names - the preview's look or the original image - and takes its colour from the
+// tokens when it paints, so Night switched on after its text was set shows it in Night's form, not in the colour of the
+// theme that went.
+TEST(ImageViewControlThemeColors, TheBannerTakesItsColourWhenItPaints)
+{
+    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
+    ViewControlTextOverlay banner;
+    banner.setText(QStringLiteral("AUTOSTRETCH"), ViewOverlayTone::Preview);
+    EXPECT_EQ(banner.textColour(), an::ui::imageViewOverlayAutostretchColor(an::ui::isDarkTheme()));
+    {
+        const an::ui::testing::ScopedNightMode night(true);
+        ASSERT_TRUE(an::ui::isNightMode());
+        const QColor shown = banner.textColour();
+        EXPECT_EQ(shown.green(), 0) << "the banner keeps a hue under Night";
+        EXPECT_EQ(shown.blue(), 0) << "the banner keeps a hue under Night";
+        EXPECT_GT(shown.red(), 0);
+        banner.setText(QStringLiteral("ORIGINAL"), ViewOverlayTone::Original);
+        EXPECT_EQ(banner.textColour(), an::ui::imageViewOverlayOriginalColor(true));
+    }
+    EXPECT_EQ(banner.textColour(), an::ui::imageViewOverlayOriginalColor(an::ui::isDarkTheme()))
+        << "with Night off the banner has its colour again";
 }

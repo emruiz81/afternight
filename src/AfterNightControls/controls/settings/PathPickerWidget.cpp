@@ -322,7 +322,8 @@ void PathPickerWidget::changeEvent(QEvent* event)
         return;
     }
 
-    if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::ThemeChange)
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange ||
+        event->type() == QEvent::ThemeChange)
     {
         refreshBrowseIcon();
     }
