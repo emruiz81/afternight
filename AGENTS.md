@@ -667,6 +667,7 @@ mkdocs build -f docs/user-guide/mkdocs.yml --strict
 - Release installer jobs require the docs artifact (`/DREQUIRE_DOCS` on Windows, `REQUIRE_DOCS_SITE=1` on Linux)
 - Manual/non-release installer builds bundle docs only when `docs/user-guide/site/` already exists
 - GitHub Pages deployment is opt-in (`deploy_pages: true`), not automatic during release packaging
+- `.github/workflows/docs-publish.yml` (`Publish User Guide`, dispatched from `main` only) publishes the guide at `main`'s head without a release, for corrections to the guide; it states the latest release's version unless the dispatch names another in `guide_version`
 
 ### In-app help
 - `Help -> User Guide` opens bundled offline docs first from the installed app's docs location
