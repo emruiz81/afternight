@@ -69,8 +69,10 @@ AfterNight's; and the Lite host and the protocol library, which the licensing bo
 do not reach the platform library either.
 
 A tenth holds the product's own libraries to their order: `AfterNightControls` reaches neither
-`AfterNightProcesses` nor the application or the full host, and `AfterNightProcesses` reaches neither of those
-two. A library that reached upward could not be built or tested without the target above it.
+`AfterNightProcesses`, `AfterNightShellCore`, the application nor the full host; `AfterNightProcesses` reaches none
+of the last three; and `AfterNightShellCore` neither the application nor the full host. A library that reached
+upward could not be built or tested without the target above it. No extension host reaches a shell library, which
+only the application composes.
 
 An eleventh holds every inspected tree to the target registry, `build/scripts/tools/consumer_targets.txt`, which
 states per target whether it reaches the engine, what it links and what it may compile: every generated project is
@@ -131,6 +133,7 @@ EXPECTED_MAIN_PROJECTS = (
     'AfterNightExtensionRuntimeBackend',
     'AfterNightPlatform',
     'AfterNightProcesses',
+    'AfterNightShellCore',
     'AfterNightStylePlugin',
 )
 
@@ -152,6 +155,7 @@ EXPECTED_TEST_PROJECTS = (
     'Test_Persistence',
     'Test_Platform',
     'Test_ProcessFramework',
+    'Test_ShellCore',
     'Test_EngineConsumerProbes',
     'Test_EngineCalibration',
     'Test_EngineCore',
@@ -223,13 +227,21 @@ RUNTIME_BACKEND_SUITE = 'Test_ExtensionRuntimeBackend'
 RUNTIME_BACKEND_SOURCE_DIR = ('src', 'afternightextensionruntimebackend')
 RUNTIME_BACKEND_SUITE_SOURCE_DIRS = (('src', 'afternighttests', 'test_extensionruntimebackend'),)
 
-# The product's two Qt libraries and the targets above each. Controls is the reusable layer Processes is built on,
-# and the application and the full host compose both, so a library that reached upward would make its own
-# consumer a dependency: it could no longer be built or tested before the target above it.
+# The product's Qt libraries and the targets above each. Controls is the reusable layer Processes is built on, the
+# shell core - the application without a window, which every shell is built on - is built on both, and the
+# application and the full host compose them, so a library that reached upward would make its own consumer a
+# dependency: it could no longer be built or tested before the target above it.
 PRODUCT_LAYERS = (
-    ('AfterNightControls', ('AfterNightProcesses', 'AfterNightApp', 'AfterNightExtensionHost')),
-    ('AfterNightProcesses', ('AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightControls', ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightProcesses', ('AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightShellCore', ('AfterNightApp', 'AfterNightExtensionHost')),
 )
+
+# The shell libraries, which only the application composes. An extension host shows a process's window in a process
+# of its own and has no main window to put a shell in, so a host that reached a shell library would carry the
+# application's window code into every extension's process.
+SHELL_LIBRARIES = ('AfterNightShellCore',)
+SHELL_FREE_PROJECTS = ('AfterNightExtensionHost', 'AfterNightExtensionHostLite')
 
 # The optional adapters, and the one suite each is allowed to be linked by. An adapter exists so a
 # consumer that wants the library it adapts can ask for it, which means the interesting property is
@@ -1073,6 +1085,26 @@ def check_product_layers(workspace):
     return problems
 
 
+def check_shell_free_hosts(workspace):
+    """No extension host reaches a shell library: by its link line, its include directories or its sources."""
+    problems = []
+    for name in SHELL_FREE_PROJECTS:
+        target = workspace.targets.get(name)
+        if target is None:
+            continue
+        for library in SHELL_LIBRARIES:
+            if links_project(target, library):
+                problems.append('%s: %s links %s; an extension host links no shell library'
+                                % (workspace.label, name, library))
+            for directory in target.include_dirs:
+                if references_directory(directory, ('src', library.lower())):
+                    problems.append('%s: %s includes %s from the %s tree' % (workspace.label, name, directory, library))
+            for source in target.sources:
+                if references_directory(source, ('src', library.lower())):
+                    problems.append('%s: %s compiles %s from the %s tree' % (workspace.label, name, source, library))
+    return problems
+
+
 def check_precompiled_headers(workspace):
     """Nothing on this engine's side of the workspace compiles through a header it did not include.
 
@@ -1547,6 +1579,7 @@ def check_tree(label, workspaces):
         problems.extend(check_command_line_tool_isolation(workspace))
         problems.extend(check_runtime_backend_isolation(workspace))
         problems.extend(check_product_layers(workspace))
+        problems.extend(check_shell_free_hosts(workspace))
         problems.extend(check_precompiled_headers(workspace))
         problems.extend(check_optional_adapters(workspace))
         problems.extend(check_optional_backends(workspace))

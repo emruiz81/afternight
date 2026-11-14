@@ -1,0 +1,119 @@
+# Identifier naming for AfterNightShellCore, scoped to this tree.
+#
+# The repository's PascalCase family applies to this library from its first line, so the table is a check
+# here rather than a convention a reviewer enforces. It is the engine's table, unchanged, as the platform
+# library, the consumer runtime and the command-line tool carry it.
+#
+# The scope is this directory: the Controls and processes libraries it includes keep the names they were
+# written with, which the repository's naming convention governs by review, so their headers are not judged
+# here.
+#
+# Only the naming check is enabled.
+
+Checks: '-*,readability-identifier-naming'
+
+# Any diagnostic fails. A naming check that reports and continues is a report, not a rule.
+WarningsAsErrors: '*'
+
+# Headers are analysed when they belong to this library and skipped otherwise, so a standard-library
+# or external header included along the way is never judged by this table.
+HeaderFilterRegex: 'AfterNightShellCore'
+
+CheckOptions:
+  # Namespaces are lowercase: `an`, and any subject namespace below it.
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.InlineNamespaceCase
+    value: lower_case
+
+  # Types are PascalCase, enumerators included. `SampleType::Float32`, not `SampleType::FLOAT32`.
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ScopedEnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypedefCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConceptCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeTemplateParameterCase
+    value: CamelCase
+
+  # Functions and methods are camelCase.
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+
+  # Locals and parameters are camelCase, whether or not they are const.
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstantParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterPackCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.LocalVariableCase
+    value: camelBack
+  - key: readability-identifier-naming.LocalConstantCase
+    value: camelBack
+  - key: readability-identifier-naming.LocalPointerCase
+    value: camelBack
+  - key: readability-identifier-naming.LocalConstantPointerCase
+    value: camelBack
+
+  # Data members are camelCase. Non-public ones carry `m_`; a public member of a plain value struct
+  # does not, because there is no member-versus-local ambiguity to resolve at its use sites.
+  - key: readability-identifier-naming.MemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PublicMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstantMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ProtectedMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.ClassMemberCase
+    value: camelBack
+
+  # Compile-time constants are `k` + PascalCase, at every scope. A constant local to a function is
+  # still a compile-time constant, so it is spelled the same way as one at namespace scope.
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: k
+  - key: readability-identifier-naming.GlobalConstantPointerCase
+    value: CamelCase
+  - key: readability-identifier-naming.GlobalConstantPointerPrefix
+    value: k
+  - key: readability-identifier-naming.StaticConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.StaticConstantPrefix
+    value: k
+  - key: readability-identifier-naming.ClassConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassConstantPrefix
+    value: k
+
+  # Macros are UPPER_SNAKE: the export decoration.
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE

@@ -242,6 +242,7 @@ FOREIGN_COMPONENTS = (
     'AfterNightExtensionHostLite',
     'AfterNightExtensionProtocol',
     'AfterNightProcesses',
+    'AfterNightShellCore',
 )
 
 

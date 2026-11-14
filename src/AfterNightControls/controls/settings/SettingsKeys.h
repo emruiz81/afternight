@@ -77,6 +77,8 @@ inline constexpr auto INTERFACE_RECENT_PROCESS_IDS = "interface/recentProcessIds
 inline constexpr auto INTERFACE_FAVORITE_PROCESS_IDS = "interface/favoriteProcessIds";
 inline constexpr auto INTERFACE_ANIMATIONS_ENABLED = "interface/animationsEnabled";
 inline constexpr auto INTERFACE_USE_SYSTEM_FILE_BROWSER = "interface/useSystemFileBrowser";
+// The shell the application starts with, by its id; read at start, so a change takes effect at the next one.
+inline constexpr auto INTERFACE_SHELL = "interface/shell";
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

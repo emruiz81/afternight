@@ -1569,6 +1569,45 @@ sources Test_ControlsDocking
     external kddockwidgets
     qt       core gui widgets
 
+# The shell core's suite, class engine: the application without a window - the choice of a shell among those registered,
+# from the command line, the environment, the setting or the default, and the contract a shell implements. Its cases link
+# the shell core and the Controls library and compile nothing of either; one starts the executable again, to hold the
+# choice to the arguments it is handed.
+sources Test_ShellCore
+    unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ShellSelectionTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/main.cpp
+    header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
+    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/core/IShell.h
+    header   src/AfterNightShellCore/core/ShellRegistry.h
+    header   src/AfterNightShellCore/core/ShellSelection.h
+    header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/controls/GlobalViewControlActions.h
+    header   src/AfterNightControls/controls/IAppContext.h
+    header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/settings/SettingsDefaults.h
+    header   src/AfterNightControls/controls/settings/SettingsKeys.h
+    header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
+    header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
+    header   src/AfterNightTests/fixtures/harness/TestHarness.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/CrashHandler.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/FileSystem.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    include  src/AfterNightTests
+    include  src/AfterNightShellCore
+    include  src/AfterNightControls
+    include  src/AfterNightPlatform/include
+    include  3rdparty/src
+    link     AfterNightShellCore
+    link     AfterNightControls
+    link     AfterNightPlatform
+    link     AfterNightConsumerRuntime
+    qt       core gui widgets
+
 # The Controls seams, class engine: the one Controls suite that compiles Controls sources rather than linking the
 # library, because its cases need the classes they exercise compiled into the executable. The close-during-work cases of
 # the view, the histogram and statistics windows and the drawing canvas run under the freed-memory quarantine, which
@@ -2469,6 +2508,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/main.cpp
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_json_serializer.cpp
     unit     src/AfterNightTests/Test_Persistence/test_persistence_repository.cpp
     unit     src/AfterNightTests/Test_Persistence/test_schema_versioning.cpp

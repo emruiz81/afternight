@@ -102,10 +102,33 @@ class ConsumerStateTest(unittest.TestCase):
         self.entries.append(('src/AfterNightApp/app/Session.cpp', 'gSession', 'application-seat', 'GUI thread'))
         self.write_register()
         problems = state.check(self.root)
-        self.assertTrue(any('gServices: application-seat state may only live in the application or its context '
-                            'locator' in p for p in problems), problems)
+        self.assertTrue(any('gServices: application-seat state may only live in the application, its context '
+                            "locator or the shell core's core" in p for p in problems), problems)
         self.assertTrue(any('gSession: application-seat state holds an engine image' in p for p in problems), problems)
         self.assertFalse(any('gWindow' in p or 'g_app_context' in p for p in problems), problems)
+
+    def test_the_shell_core_is_read(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/services/Cache.cpp', 'static QHash<int, int> gCache;\n')
+        problems = state.check(self.root)
+        self.assertTrue(any('src/AfterNightShellCore/services/Cache.cpp:1: gCache has process lifetime' in p
+                            for p in problems), problems)
+
+    def test_the_shell_core_is_a_qt_layer(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/actions/Order.cpp', 'static int gOrder = 0;\n')
+        self.entries.append(('src/AfterNightShellCore/actions/Order.cpp', 'gOrder', 'ui-state', 'GUI thread'))
+        self.write_register()
+        self.assertEqual(state.check(self.root), [])
+
+    def test_an_application_seat_may_live_in_the_shell_cores_core(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/core/Seat.cpp', 'static Core* gCore = nullptr;\n')
+        write(self.root, 'src/AfterNightShellCore/services/Seat.cpp', 'static Bus* gBus = nullptr;\n')
+        self.entries.append(('src/AfterNightShellCore/core/Seat.cpp', 'gCore', 'application-seat', 'GUI thread'))
+        self.entries.append(('src/AfterNightShellCore/services/Seat.cpp', 'gBus', 'application-seat', 'GUI thread'))
+        self.write_register()
+        problems = state.check(self.root)
+        self.assertTrue(any('gBus: application-seat state may only live in the application, its context locator or '
+                            "the shell core's core" in p for p in problems), problems)
+        self.assertFalse(any('gCore' in p for p in problems), problems)
 
     def test_platform_services_live_only_in_the_platform_library(self) -> None:
         write(self.root, 'src/AfterNightPlatform/src/Logging.cpp', 'std::shared_ptr<int> gLogger;\n')

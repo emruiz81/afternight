@@ -5,9 +5,11 @@
 
 A lower library that included a header of the library built on top of it would need the higher one to compile,
 so a source of a product library includes no header of a product target above it - `AfterNightControls` none of
-`AfterNightProcesses`, the application or the full host, and `AfterNightProcesses` none of the last two. An
-include is resolved the way the compiler searches - beside the including file, then the library's own root, then
-the roots below it - so a path that both libraries hold is the including library's own.
+`AfterNightProcesses`, `AfterNightShellCore`, the application or the full host; `AfterNightProcesses` none of the
+last three; and `AfterNightShellCore`, the application without a window that every shell is built on, none of the
+application or the full host. An include is resolved the way the compiler searches - beside the including file,
+then the library's own root, then the roots below it - so a path that two libraries hold is the including
+library's own.
 
 `check_build_graph.py` holds the generated projects to the same order.
 
@@ -37,9 +39,11 @@ PLATFORM_INCLUDE = 'src/AfterNightPlatform/include'
 # Each product library held to the layer order: its source root, the roots below it that its includes may
 # resolve into besides its own and the platform library's, and the targets above it.
 LAYERS = (
-    ('AfterNightControls', 'src/AfterNightControls', (), ('AfterNightProcesses', 'AfterNightApp',
+    ('AfterNightControls', 'src/AfterNightControls', (), ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightApp',
                                                           'AfterNightExtensionHost')),
     ('AfterNightProcesses', 'src/AfterNightProcesses', ('src/AfterNightControls',),
+     ('AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightShellCore', 'src/AfterNightShellCore', ('src/AfterNightProcesses', 'src/AfterNightControls'),
      ('AfterNightApp', 'AfterNightExtensionHost')),
 )
 

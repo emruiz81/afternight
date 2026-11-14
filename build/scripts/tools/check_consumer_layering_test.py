@@ -35,6 +35,7 @@ class LayeringCase(unittest.TestCase):
         write(self.root, 'src/AfterNightPlatform/include/AfterNightPlatform/Logging.h', '#pragma once\n')
         write(self.root, 'src/AfterNightControls/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
         write(self.root, 'src/AfterNightProcesses/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
+        write(self.root, 'src/AfterNightShellCore/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
 
     def run_check(self) -> tuple[int, str]:
         stream = io.StringIO()
@@ -56,7 +57,7 @@ class CleanTreeTests(LayeringCase):
     def test_a_clean_tree_passes(self) -> None:
         code, output = self.run_check()
         self.assertEqual(code, 0, output)
-        self.assertIn('read 2 layered library sources', output)
+        self.assertIn('read 3 layered library sources', output)
 
 
 class LayerTests(LayeringCase):
@@ -106,6 +107,47 @@ class LayerTests(LayeringCase):
         self.assertEqual(code, 0, output)
 
 
+class ShellCoreLayerTests(LayeringCase):
+    """The shell core sits above Controls and Processes and below the application and the full host."""
+
+    def test_controls_including_a_shell_core_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/core/ShellRegistry.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightControls/app/ThemeManager.cpp', '#include "core/ShellRegistry.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightControls/app/ThemeManager.cpp:1 includes core/ShellRegistry.h from '
+                      'AfterNightShellCore', output)
+
+    def test_processes_including_a_shell_core_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/core/IShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightProcesses/app/ProcessLauncher.cpp', '\n#include "core/IShell.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightProcesses/app/ProcessLauncher.cpp:2 includes core/IShell.h from '
+                      'AfterNightShellCore', output)
+
+    def test_shell_core_including_an_application_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightApp/app/AfterNightApp.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp', '#include "app/AfterNightApp.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellCore/core/ShellSelection.cpp:1 includes app/AfterNightApp.h from '
+                      'AfterNightApp', output)
+
+    def test_shell_core_including_a_full_host_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightExtensionHost/ExtensionAppContext.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp', '#include "ExtensionAppContext.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('includes ExtensionAppContext.h from AfterNightExtensionHost', output)
+
+    def test_shell_core_including_processes_and_controls_headers_passes(self) -> None:
+        write(self.root, 'src/AfterNightControls/controls/IAppContext.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp',
+              '#include "controls/IAppContext.h"\n#include "app/ProcessRegistryBuiltins.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
 
 
 if __name__ == '__main__':

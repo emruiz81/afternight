@@ -170,7 +170,7 @@ PATH_BASES = ('', 'src/AfterNightEngine/include/AfterNightEngine', 'src/AfterNig
               'src/AfterNightConsumerRuntime/include',
               'src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime', 'src/AfterNightCLI',
               'src/AfterNightControls', 'src/AfterNightProcesses', 'src/AfterNightProcesses/processes',
-              'src/AfterNightProcesses/processes/ImageIntegration', 'src/AfterNightApp',
+              'src/AfterNightProcesses/processes/ImageIntegration', 'src/AfterNightShellCore', 'src/AfterNightApp',
               'src/AfterNightExtensionHost', 'src/AfterNightExtensionRuntimeBackend',
               'build/scripts/tools', 'build/scripts/msvc', 'build/scripts/linux', 'build/scripts',
               'build/premake', 'build/doxygen', 'docs/dev', GUIDES_DIR,

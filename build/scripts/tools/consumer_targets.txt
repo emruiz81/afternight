@@ -198,13 +198,25 @@ target AfterNightProcesses
                  entry points, the pipeline manifest and the precompiled header's unit. It runs its G'MIC processes
                  through the G'MIC adapter.
 
+target AfterNightShellCore
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    sources      src/AfterNightShellCore
+    ship         product
+    note         The application without a window: what every shell needs and none owns - the choice of a shell and
+                 the contract a shell implements. Built on the processes and Controls libraries; only the application
+                 links it, never an extension host.
+
 target AfterNightApp
     workspace    main
     kind         windowed
     output       AfterNight
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
     sources      src/AfterNightApp
     ship         product
     note         It owns the process's one engine session. Its main window, context and session are compiled by its
@@ -613,6 +625,19 @@ target Test_ControlsDocking
                  stack, affinities, one saved layout for all of them, the three process-wide hooks, a drag started by
                  code - and the application's dock decorations and dock style over it. Its cases are compiled from its
                  explicit list and linked against the Controls library.
+
+target Test_ShellCore
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightShellCore
+    sources      @Test_ShellCore
+    fixture      none
+    runner       product
+    note         The shell core's suite: the application without a window - the choice of a shell among those
+                 registered and the contract a shell implements - its cases compiled from its explicit list and linked
+                 against the shell core and the Controls library, compiling nothing of either.
 
 target Test_ProcessesShared
     workspace    tests

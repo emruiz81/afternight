@@ -135,7 +135,8 @@ expected_tests=(Test_AfterNightApp Test_AfterNightCLI Test_ConsumerFaults Test_C
     Test_ProcessesChannels Test_ProcessesColorTools Test_ProcessesCombinations Test_ProcessesExternalTools
     Test_ProcessesGeometry Test_ProcessesMasks Test_ProcessesPhotometric Test_ProcessesPixelMath
     Test_ProcessesPointwise Test_ProcessesShared Test_ProcessesSpatial Test_ProcessesStarProfilers
-    Test_ProcessesStretching Test_ProcessesWorkflowTools Test_SystemInformationPanel Test_ThemeSystem Test_Widgets)
+    Test_ProcessesStretching Test_ProcessesWorkflowTools Test_ShellCore Test_SystemInformationPanel Test_ThemeSystem
+    Test_Widgets)
 for expected in "${expected_tests[@]}"; do
     if [[ ! -x "$expected$test_suffix" ]]; then
         echo "Missing expected test executable: $expected$test_suffix" >&2

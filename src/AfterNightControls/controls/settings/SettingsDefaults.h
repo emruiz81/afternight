@@ -74,6 +74,7 @@ inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = true;
 #else
 inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = false;
 #endif
+inline constexpr auto INTERFACE_SHELL = "classic";
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

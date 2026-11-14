@@ -189,7 +189,8 @@ AfterNightConsumerRuntime (shared lib, an::consumer) <- Engine + Platform: sessi
 AfterNightExtensionProtocol (shared lib)             <- engine-free, Apache-2.0 boundary
 AfterNightControls (shared lib, an::ui)              <- ConsumerRuntime + Engine + Platform + Protocol + Qt + KDDockWidgets
 AfterNightProcesses (shared lib, an::ui::processes)  <- Controls + ConsumerRuntime + Engine + GmicAdapter + Platform + Protocol
-AfterNightApp (exe)                                  <- Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightShellCore (shared lib, an::ui::shell)      <- Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightApp (exe)                                  <- ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
 ```
 
 `AfterNightCLI` links ConsumerRuntime, the engine and Platform. `AfterNightExtensionHost` links the processes and
@@ -268,6 +269,15 @@ model/workflow helpers and should be reused by Lite. Every generated image goes 
 a payload: read `docs/dev/IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md` before touching artifact validation or output
 writing.
 
+### AfterNightShellCore (`src/AfterNightShellCore/`)
+
+The application without a window, `namespace an::ui::shell`: what every shell (a main window) needs and none owns.
+`core/IShell.h` is the contract a shell implements, `core/ShellRegistry` the shells a run can make and
+`core/ShellSelection` the one it makes (`--shell=<id>`, then `AFTERNIGHT_SHELL`, then the setting `interface/shell`,
+then the default). It sits above Processes and below the application; Controls and Processes never include it, it
+never includes the application or a host, and no extension host links it (`check_consumer_layering.py`,
+`check_build_graph.py`). A case about one of its classes lives in `Test_ShellCore`.
+
 ### AfterNightApp (`src/AfterNightApp/`)
 
 Thin shell: `AfterNightApp` (QMainWindow) composes coordinators that live in
@@ -328,9 +338,9 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
 - **Naming**: PascalCase is the convention for all new code — PascalCase types and enumerators,
   camelCase methods/locals, `m_` members, `k`-prefixed constants, PascalCase files. Add no new snake_case public API
   anywhere. A library with its own `.clang-tidy` (the engine, its adapters, the platform and consumer runtime
-  libraries, the CLI, Controls' `session/`) enforces the table. New framework/control classes go in `namespace an::ui`,
-  new process UI builders in `namespace an::ui::processes`. The engine lives in `namespace an`. Do not
-  retro-namespace existing classes.
+  libraries, the CLI, the shell core, Controls' `session/`) enforces the table. New framework/control classes go in
+  `namespace an::ui`, new process UI builders in `namespace an::ui::processes`, the shell core's classes in
+  `namespace an::ui::shell`. The engine lives in `namespace an`. Do not retro-namespace existing classes.
 - **No planning-artifact references in code.** No reference to a unit of *work* under `src/` or in
   the Premake files — comments and test failure messages included. That covers work-unit IDs of any
   shape (`Task 1.3`, `Phase 2`, `Step 3 of the redesign`, `Milestone 2`, `Iteration 5`, `Sprint 14`,

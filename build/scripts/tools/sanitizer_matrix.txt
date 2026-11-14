@@ -238,6 +238,7 @@ run address suite.consumer.processesSpatial Test_ProcessesSpatial whole
 run address suite.consumer.processesStarProfilers Test_ProcessesStarProfilers whole
 run address suite.consumer.processesStretching Test_ProcessesStretching whole
 run address suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools whole
+run address suite.consumer.shellCore Test_ShellCore whole
 run address suite.consumer.systemInformationPanel Test_SystemInformationPanel whole
 run address suite.consumer.themeSystem Test_ThemeSystem whole
 run address suite.consumer.widgets Test_Widgets whole
@@ -293,6 +294,7 @@ run leak suite.consumer.processesSpatial Test_ProcessesSpatial whole
 run leak suite.consumer.processesStarProfilers Test_ProcessesStarProfilers whole
 run leak suite.consumer.processesStretching Test_ProcessesStretching whole
 run leak suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools whole
+run leak suite.consumer.shellCore Test_ShellCore whole
 run leak suite.consumer.systemInformationPanel Test_SystemInformationPanel whole
 run leak suite.consumer.themeSystem Test_ThemeSystem whole
 run leak suite.consumer.widgets Test_Widgets whole
@@ -348,6 +350,7 @@ run thread suite.consumer.processesSpatial Test_ProcessesSpatial skip=Its concur
 run thread suite.consumer.processesStarProfilers Test_ProcessesStarProfilers skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.processesStretching Test_ProcessesStretching skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.processesWorkflowTools Test_ProcessesWorkflowTools skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.shellCore Test_ShellCore skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.systemInformationPanel Test_SystemInformationPanel skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.themeSystem Test_ThemeSystem skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.widgets Test_Widgets skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.

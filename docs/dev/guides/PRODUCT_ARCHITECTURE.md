@@ -1,7 +1,8 @@
 # The product on the engine
 
 How the product - the platform and consumer runtime libraries, the command-line tool, Controls, Processes, the
-ImageIntegration workflow, the application and the extension hosts - uses `AfterNightEngine`, area by area: where
+ImageIntegration workflow, the shell core, the application and the extension hosts - uses `AfterNightEngine`, area by
+area: where
 each area's code is, what it asks of the engine, which suite holds it and why it is built the way it is. `AGENTS.md`
 states the rules every area keeps ("The product on the engine"); the other guides in this directory describe the engine
 itself.
@@ -1288,6 +1289,43 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 ("Performance and parallelism").
 
 ## The application and the extension hosts
+
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`)
+
+`AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
+shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
+models, the actions and the services it shows belong here, so that a shell stays thin and one can be replaced, or
+another added beside it, without the application's behaviour moving with it. The library sits above Processes and
+Controls and below the application: `check_consumer_layering.py` refuses an include of it from Controls or Processes
+and an include of the application or the full host from it, `check_build_graph.py` holds the generated projects to
+the same order and refuses it on an extension host's link line - a host shows a process's window in a process of its
+own and has no main window to put a shell in - and `check_include_layers.py` keeps the engine from naming it. It
+ships with the product (`ship product`); the application links it.
+
+`core/IShell.h` is the contract a shell implements: `IShell` (build the window, show it at its saved geometry, save
+the geometry, the Session Console's visibility, a theme change), `IViewHost` (where a new view goes, by `ViewOrigin`:
+a view the user asked for takes the user to it, one a process made leaves the place on screen to the shell),
+`IStatusDisplay`, and `ShellDescriptor`, what the application knows of a shell before it makes one - its id, its
+display name and the function that makes it. The contract names the views, the dock library's main window and the
+process presenter by declaration only, so a unit that includes it reaches no widget header through it.
+
+`ShellRegistry` holds the descriptors of the shells one run can make, in the order they were registered; the
+application owns one as a local object, never a global. An id is a lowercase word (`classic`, `observatory`),
+matched as it is written, because it is typed on a command line and stored in a setting; a second descriptor under
+an id, an id of another shape and a descriptor that cannot make its shell are refused. A descriptor the registry
+hands out stays where it is while more are registered.
+
+`ShellSelection::resolve` chooses the one shell a run makes: the first of `--shell=<id>`, the environment variable
+`AFTERNIGHT_SHELL`, the setting `interface/shell` (default `classic`) and the default that names a registered shell.
+A source that names no registered shell, and an option with no value, is passed over with a warning in the log and
+in the returned `ShellChoice`: a mistyped option never stops the application from starting. The value is joined to
+the option (`--shell=observatory`), so the argument after a bare `--shell` - a file to open, perhaps - is never taken
+for a shell. The arguments are the ones `main` received, handed in by the caller: on Windows the application gives
+`QApplication` an argument list of its own, so `QCoreApplication::arguments()` is not what the user typed and is never
+read. The setting is read from the global settings store, so the stores must be open before a shell is chosen, and a
+change to it takes effect at the next start.
+
+`Test_ShellCore` compiles its cases and links the library, with no window: `ShellRegistry.*` and `ShellSelection.*`.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/AfterNightApp.h`, `app/AfterNightAppContext.h`)
 

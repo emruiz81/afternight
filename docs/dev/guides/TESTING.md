@@ -57,8 +57,8 @@ for the engine's fault harness over the product's paths, `Test_AfterNightCLI`, t
 interface subtrees mirroring the production structure - `Test_ProcessFramework`, `Test_ExtensionHostNative`,
 `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, `Test_Widgets`, `Test_ImageViewControl`,
 `Test_ImageProcessControl`, `Test_ImageRTPreviewControl`, `Test_MainDashboard`, `Test_MaskDrawing`,
-`Test_SystemInformationPanel` and `Test_AfterNightApp`, and the fixture executables `Test_FixtureNeutral` and
-`Test_FixtureEngine`. The fuzz targets `Fuzz_Engine*` and `Fuzz_Consumer*` are run by the fuzz campaign below.
+`Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window, and `Test_AfterNightApp`, and
+the fixture executables `Test_FixtureNeutral` and `Test_FixtureEngine`. The fuzz targets `Fuzz_Engine*` and `Fuzz_Consumer*` are run by the fuzz campaign below.
 `build/scripts/tools/consumer_targets.txt` is the list that is authoritative.
 
 The test projects are generated with the product's by `01-create_project_files` and built by the `09a`/`09b` scripts
@@ -76,6 +76,13 @@ configuration of `build/scripts/tools/sanitizer_matrix.txt`, run or skipped with
 files owns a temporary root, sets `AFTERNIGHT_TEST_STORAGE_ROOT` before it constructs a `QApplication`, resolves its
 paths through `app/ApplicationStorage.h` and removes the root on success and failure alike, as the isolation policy
 in `AGENTS.md` requires.
+
+`Test_ShellCore` holds the shell core ("The shell core" in [the product guide](PRODUCT_ARCHITECTURE.md)) with no
+window: a case about a class of that library lives there, never in a suite of Controls or Processes, which cannot link
+a library above them. The choice of a shell is held to the arguments it is handed by starting the executable again
+with `--shell=observatory` on its own command line: the copy runs the one disabled case,
+`ShellSelection.DISABLED_OwnCommandLineIsNotRead`, which finds the option in `QCoreApplication::arguments()` and not
+in the shell chosen.
 
 `Test_ControlsDocking` holds the dock library to what the interface is built on ("The dock area" in
 [the product guide](PRODUCT_ARCHITECTURE.md) lists it) and drives the library the way a user does, because the

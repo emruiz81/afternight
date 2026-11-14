@@ -948,6 +948,78 @@ class ProductLayerTests(VisualStudioTreeCase):
         self.assertEqual(code, 0, output)
 
 
+SHELL_CORE_INCLUDE = os.path.join('..', '..', 'src', 'AfterNightShellCore')
+
+
+class ShellCoreLayerTests(VisualStudioTreeCase):
+    """The shell core sits above Controls and Processes and below the application; no extension host reaches it."""
+
+    def test_the_shell_core_is_generated(self):
+        self.assertIn('AfterNightShellCore', graph.EXPECTED_MAIN_PROJECTS)
+        self.assertIn('Test_ShellCore', graph.EXPECTED_TEST_PROJECTS)
+
+    def test_controls_including_the_shell_core_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightControls': {'includes': CONTROLS_INCLUDE + ';' + SHELL_CORE_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightControls includes %s from the AfterNightShellCore tree' % SHELL_CORE_INCLUDE, output)
+
+    def test_processes_linking_the_shell_core_fails(self):
+        self.build_tree(main_overrides={'AfterNightProcesses': {
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib'}},
+                        main_dependencies={'AfterNightProcesses.vcxproj': ['AfterNightShellCore.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightProcesses links AfterNightShellCore', output)
+        self.assertIn('AfterNightProcesses builds after AfterNightShellCore', output)
+
+    def test_the_shell_core_including_the_application_tree_fails(self):
+        application = os.path.join('..', '..', 'src', 'AfterNightApp')
+        self.build_tree(main_overrides={'AfterNightShellCore': {'includes': SHELL_CORE_INCLUDE + ';' + application}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellCore includes %s from the AfterNightApp tree' % application, output)
+
+    def test_the_shell_core_linking_the_full_host_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellCore': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightExtensionHost.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellCore links AfterNightExtensionHost', output)
+
+    def test_the_shell_core_reaching_processes_and_controls_passes(self):
+        self.build_tree(main_overrides={'AfterNightShellCore': {
+                            'includes': SHELL_CORE_INCLUDE + ';' + PROCESSES_INCLUDE + ';' + CONTROLS_INCLUDE,
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightProcesses.lib;AfterNightControls.lib'}},
+                        main_dependencies={'AfterNightShellCore.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightProcesses.vcxproj', 'AfterNightControls.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+    def test_the_full_host_linking_the_shell_core_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHost': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHost links AfterNightShellCore; an extension host links no shell library',
+                      output)
+
+    def test_the_full_host_including_the_shell_core_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHost': {'includes': SHELL_CORE_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHost includes %s from the AfterNightShellCore tree' % SHELL_CORE_INCLUDE,
+                      output)
+
+    def test_the_application_linking_the_shell_core_passes(self):
+        self.build_tree(main_overrides={'AfterNightApp': {
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib;AfterNightProcesses.lib'}},
+                        main_dependencies={'AfterNightApp.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellCore.vcxproj', 'AfterNightProcesses.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+
 OPENCL_SDK_INCLUDE = os.path.join('..', '..', 'vcpkg', 'installed', 'x64-windows-opencl', 'include')
 GPU_BACKEND = 'AfterNightEngineOpenClBackend'
 GPU_BACKEND_SUITE = 'Test_EngineOpenClBackend'
@@ -1429,6 +1501,19 @@ class TargetRegistryTests(VisualStudioTreeCase):
         code, output = self.run_check()
         self.assertEqual(code, 1, output)
         self.assertIn('vs2026-msvc: AfterNightApp is generated and consumer_targets.txt does not declare it', output)
+
+    def test_the_shell_core_without_its_record_fails(self):
+        self.build_tree()
+        registry = os.path.join(self.root, 'build', 'scripts', 'tools', 'consumer_targets.txt')
+        os.makedirs(os.path.dirname(registry), exist_ok=True)
+        with open(registry, 'w') as handle:
+            handle.write('# a registry that declares no shell core\n')
+        os.utime(registry, (1000, 1000))
+        code, output = self.run_check()
+        self.assertEqual(code, 1, output)
+        self.assertIn('vs2026-msvc: AfterNightShellCore is generated and consumer_targets.txt does not declare it',
+                      output)
+        self.assertIn('vs2026-msvc: Test_ShellCore is generated and consumer_targets.txt does not declare it', output)
 
 
 class NoGeneratedTreeTests(unittest.TestCase):

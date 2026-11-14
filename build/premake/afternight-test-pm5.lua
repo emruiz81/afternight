@@ -321,6 +321,14 @@ end
             linux_debug = { "-lAfterNightProcesses_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
             dependson = { "AfterNightProcesses" }
         },
+        -- The shell core: a suite that links it compiles its own cases against the library's binary. It links the
+        -- processes and Controls libraries, so GNU ld needs the docking framework's directory for the same reason.
+        AfterNightShellCore = {
+            windows_release = { "AfterNightShellCore.lib" }, windows_debug = { "AfterNightShellCore_d.lib" },
+            linux_release = { "-lAfterNightShellCore", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            linux_debug = { "-lAfterNightShellCore_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            dependson = { "AfterNightShellCore" }
+        },
         -- The optional G'MIC adapter, which the processes that run a G'MIC command reach; built with or without the
         -- library, as AFTERNIGHT_GMIC says.
         AfterNightEngineGmicAdapter = {
@@ -736,6 +744,10 @@ end
     addIsolatedTestProject { name = "Test_Persistence" }
     addIsolatedTestProject { name = "Test_Widgets" }
     addIsolatedTestProject { name = "Test_ThemeSystem" }
+
+    -- The shell core's suite: the application without a window, its cases linked against the shell core and the
+    -- Controls library.
+    addIsolatedTestProject { name = "Test_ShellCore" }
 
     -- The application's suite: its main window, context and session compiled from the application's sources and
     -- linked against the processes and Controls libraries, beside the cases over the settings pages, dialogs and

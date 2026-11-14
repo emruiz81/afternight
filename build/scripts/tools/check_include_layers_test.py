@@ -189,6 +189,10 @@ class PrefixAndForeignTests(EngineTreeCase):
                           '#include <AfterNightControls/theme/AnDesignTokens.h>\n')
         self.assertRejected('belongs to AfterNightControls')
 
+    def test_the_shell_core_is_another_first_party_component(self):
+        self.private_file('core/Version.cpp', '#include <AfterNightShellCore/core/ShellRegistry.h>\n')
+        self.assertRejected('belongs to AfterNightShellCore')
+
     def test_a_relative_include_that_leaves_the_tree_is_refused(self):
         self.private_file('core/Version.cpp', '#include "../../AfterNightControls/theme/AnDesignTokens.h"\n')
         self.assertRejected('leaves the engine tree')

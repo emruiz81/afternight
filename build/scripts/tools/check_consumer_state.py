@@ -33,9 +33,10 @@ concurrent access to it is ordered, and why it exists. The categories, and where
   only category besides `pending-rehome` allowed to hold an engine session.
 - `application-seat`: the application's main window and the context the Qt layers reach the
   application's services through (`appContext()`), each set once on the GUI thread when the
-  application or an extension host starts and cleared before it shuts down. Only the application and
-  Controls' context locator hold one, and it holds no engine image, context or session: the session the
-  context lends is owned by the application or the runtime backend.
+  application or an extension host starts and cleared before it shuts down. Only the application,
+  Controls' context locator and the `core/` directory of the shell core - the application without a
+  window, which composes the context - hold one, and it holds no engine image, context or session: the
+  session the context lends is owned by the application or the runtime backend.
 - `theme-service`: the design tokens and installed styles the Qt framework requires process-wide.
   Only the theme directory holds them.
 - `ui-registration`: a registry or lookup table built once and read afterwards - the process
@@ -86,6 +87,7 @@ SCANNED_TREES = (
     'src/AfterNightConsumerRuntime',
     'src/AfterNightControls',
     'src/AfterNightProcesses',
+    'src/AfterNightShellCore',
     'src/AfterNightApp',
     'src/AfterNightCLI',
     'src/AfterNightExtensionHost',
@@ -108,12 +110,14 @@ PENDING_REHOME = 'pending-rehome'
 CATEGORIES = (PLATFORM_SERVICE, MODULE_SEAT, APPLICATION_SEAT, THEME_SERVICE, UI_REGISTRATION, UI_STATE, IDENTITY,
               CONSTANT, PENDING_REHOME)
 
-QT_LAYERS = ('src/AfterNightControls/', 'src/AfterNightProcesses/', 'src/AfterNightApp/', 'src/AfterNightExtensionHost/')
+QT_LAYERS = ('src/AfterNightControls/', 'src/AfterNightProcesses/', 'src/AfterNightShellCore/', 'src/AfterNightApp/',
+             'src/AfterNightExtensionHost/')
 LOCATIONS = {
     PLATFORM_SERVICE: ('src/AfterNightPlatform/',),
     MODULE_SEAT: ('src/AfterNightExtensionRuntimeBackend/', 'src/AfterNightExtensionHost/',
                   'src/AfterNightExtensionHostLite/', 'src/AfterNightCLI/'),
-    APPLICATION_SEAT: ('src/AfterNightApp/', 'src/AfterNightControls/controls/IAppContext.cpp'),
+    APPLICATION_SEAT: ('src/AfterNightApp/', 'src/AfterNightControls/controls/IAppContext.cpp',
+                       'src/AfterNightShellCore/core/'),
     THEME_SERVICE: ('src/AfterNightControls/theme/',),
     UI_REGISTRATION: QT_LAYERS,
     UI_STATE: QT_LAYERS,
@@ -121,7 +125,7 @@ LOCATIONS = {
 LOCATION_REASONS = {
     PLATFORM_SERVICE: 'the platform library',
     MODULE_SEAT: 'the runtime backend, an extension host or the command-line tool',
-    APPLICATION_SEAT: 'the application or its context locator',
+    APPLICATION_SEAT: "the application, its context locator or the shell core's core",
     THEME_SERVICE: 'the theme directory',
     UI_REGISTRATION: 'a Qt layer',
     UI_STATE: 'a Qt layer',
