@@ -207,8 +207,6 @@ public:
     {
         EXPECT_TRUE(m_directory.isValid());
         EXPECT_TRUE(m_thumbnails.initializeTable());
-        m_localData = m_directory.filePath(QStringLiteral("data"));
-        QDir().mkpath(m_localData);
         QDir().mkpath(thumbnailsDirectory());
     }
 
@@ -232,7 +230,6 @@ public:
             deps.signalContext = &m_context;
             deps.recentFiles = &recentFiles;
             deps.lastOpenDirectory = &lastOpenDirectory;
-            deps.localDataPath = &m_localData;
             deps.thumbnailPersistence = &m_thumbnails;
             deps.thumbnailsDirPath = [this]() { return thumbnailsDirectory(); };
             deps.reloadRecentFilesThumbnails = [this]() { ++thumbnailReloads; };
@@ -291,7 +288,6 @@ public:
 
 private:
     QTemporaryDir m_directory;
-    QString m_localData;
     QObject m_context;
     PersistenceDbExecutor m_executor;
     ThumbnailPersistence m_thumbnails;

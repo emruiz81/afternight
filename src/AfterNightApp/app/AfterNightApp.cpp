@@ -32,7 +32,6 @@
 #include "app/ActionStateCoordinator.h"
 #include "app/WindowLayoutCoordinator.h"
 #include "app/AppLifecycleCoordinator.h"
-#include "app/PersistenceCoordinator.h"
 #include "app/ExtensionCommon.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
@@ -47,7 +46,6 @@
 #include "controls/FolderTrackerPersistence.h"
 #include "controls/ProcessSettingsPersistence.h"
 #include "controls/GlobalSettingsPersistence.h"
-#include "controls/PersistenceDbExecutor.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "widgets/ImageInfoStatusBarWidget.h"
 #include "controls/ExportSequenceControl.h"
@@ -61,6 +59,14 @@
 #include "controls/DashboardUtils.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
+
+#include "core/ApplicationCore.h"
+#include "core/ApplicationEvents.h"
+#include "services/AppEventBus.h"
+#include "services/FavoriteProcessesModel.h"
+#include "services/OpenProcessRegistry.h"
+#include "services/RecentFilesModel.h"
+#include "services/RecentProcessesModel.h"
 
 #include <AfterNightPlatform/Text.h>
 #include <AfterNightPlatform/Logging.h>
@@ -108,9 +114,6 @@
 namespace
 {
 
-// Default limit for recent files if setting not available
-constexpr size_t DEFAULT_RECENT_FILES_LIMIT = 20;
-constexpr size_t DEFAULT_RECENT_PROCESSES_LIMIT = 10;
 constexpr const char* kExtensionProcessMenuActionProperty = "anExtensionProcessMenuAction";
 constexpr const char* kExtensionFamilyMenuActionProperty = "anExtensionFamilyMenuAction";
 bool cleanupMissingStoredProcessIdsOnNextRefresh = false;
@@ -1402,291 +1405,6 @@ void openWorkflowSequenceOutput(AfterNightApp* app, const an::consumer::EngineSe
     });
 }
 
-// Makes a view of an image document on the GUI thread. The document travels in the event, so the thread that made it
-// never waits for the GUI thread; when no view is made, the event closes it.
-class CreateNewImageViewControlFromImageEvent : public AfterNightEvent
-{
-public:
-    CreateNewImageViewControlFromImageEvent(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
-                                            QWidget* parent, const std::string& historyDesc, const ViewControlMode mode,
-                                            ImageViewControl* neighbour, bool keepFocusedNeighbour,
-                                            const bool pendingChanges, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_CustomViewControl(customViewControl), m_Document(std::move(document)),
-          m_Parent(parent), m_HistoryDesc(historyDesc), m_Mode(mode), m_Neighbour(neighbour),
-          m_KeepFocusedNeighbour(keepFocusedNeighbour), m_PendingChanges(pendingChanges)
-    {
-    }
-
-private:
-    void runImpl() override
-    {
-        ImageViewControl* const created = AfterNightApp::getInstance()->createNewImageViewControlFromImage(
-            m_CustomViewControl, std::move(m_Document), m_Parent.data(), m_HistoryDesc, m_Mode, m_Neighbour,
-            m_KeepFocusedNeighbour, m_PendingChanges);
-        if (!created && m_Document.valid())
-        {
-            m_Document.close();
-        }
-    }
-
-    ImageViewControl* m_CustomViewControl;
-    an::ui::ImageDocument m_Document;
-    QPointer<QWidget> m_Parent;
-    std::string m_HistoryDesc;
-    ViewControlMode m_Mode;
-    ImageViewControl* m_Neighbour;
-    bool m_KeepFocusedNeighbour;
-    bool m_PendingChanges;
-};
-
-// Makes a view of a sequence document on the GUI thread, as the image event does.
-class CreateNewImageViewControlFromSequenceEvent : public AfterNightEvent
-{
-public:
-    CreateNewImageViewControlFromSequenceEvent(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,
-                                               QWidget* parent, const bool autoDebayer, const std::string& historyDesc,
-                                               const ViewControlMode mode, ImageViewControl* neighbour,
-                                               bool keepFocusedNeighbour, const bool pendingChanges,
-                                               std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_CustomViewControl(customViewControl), m_Document(std::move(document)),
-          m_Parent(parent), m_AutoDebayer(autoDebayer), m_HistoryDesc(historyDesc), m_Mode(mode),
-          m_Neighbour(neighbour), m_KeepFocusedNeighbour(keepFocusedNeighbour), m_PendingChanges(pendingChanges)
-    {
-    }
-
-private:
-    void runImpl() override
-    {
-        ImageViewControl* const created = AfterNightApp::getInstance()->createNewImageViewControlFromSequence(
-            m_CustomViewControl, std::move(m_Document), m_Parent.data(), m_AutoDebayer, m_HistoryDesc, m_Mode,
-            m_Neighbour, m_KeepFocusedNeighbour, m_PendingChanges);
-        if (!created && m_Document.valid())
-        {
-            m_Document.close();
-        }
-    }
-
-    ImageViewControl* m_CustomViewControl;
-    an::ui::ImageDocument m_Document;
-    QPointer<QWidget> m_Parent;
-    bool m_AutoDebayer;
-    std::string m_HistoryDesc;
-    ViewControlMode m_Mode;
-    ImageViewControl* m_Neighbour;
-    bool m_KeepFocusedNeighbour;
-    bool m_PendingChanges;
-};
-
-class AddImageViewControlAsyncEvent : public AfterNightEvent
-{
-public:
-    AddImageViewControlAsyncEvent(ImageViewControl* control, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_ViewControl(control)
-    {
-    }
-
-    ImageViewControl* m_ViewControl;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->addImageViewControl(m_ViewControl);
-    }
-};
-
-class RemoveImageViewControlAsyncEvent : public AfterNightEvent
-{
-public:
-    RemoveImageViewControlAsyncEvent(ImageViewControl* control, bool deleteObject, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_ViewControl(control), m_DeleteObject(deleteObject)
-    {
-    }
-
-    ImageViewControl* m_ViewControl;
-    bool m_DeleteObject;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->removeImageViewControl(m_ViewControl, m_DeleteObject);
-    }
-};
-
-class UpdateImageViewControlListEvent : public AfterNightEvent
-{
-public:
-    UpdateImageViewControlListEvent(std::atomic_bool* finished) : AfterNightEvent(finished) {}
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->updateImageViewControlList();
-    }
-};
-
-class UpdateActiveImageActionsEvent : public AfterNightEvent
-{
-public:
-    UpdateActiveImageActionsEvent(std::atomic_bool* finished) : AfterNightEvent(finished) {}
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->updateActiveImageActions();
-    }
-};
-
-class AddRecentFileEvent : public AfterNightEvent
-{
-public:
-    AddRecentFileEvent(const std::string& fileName, std::shared_ptr<const an::consumer::ImageAsset> image,
-                       std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_FileName(fileName), m_Image(std::move(image))
-    {
-    }
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->addRecentFile(m_FileName, m_Image);
-    }
-
-    std::string m_FileName;
-    std::shared_ptr<const an::consumer::ImageAsset> m_Image;
-};
-
-class RemoveRecentFileEvent : public AfterNightEvent
-{
-public:
-    RemoveRecentFileEvent(const std::string& fileName, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_FileName(fileName)
-    {
-    }
-
-    std::string m_FileName;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->removeRecentFile(m_FileName);
-    }
-};
-
-class NotifyErrorMessageEvent : public AfterNightEvent
-{
-public:
-    NotifyErrorMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
-    {
-    }
-
-    QPointer<QWidget> m_Parent;
-    QString m_Title;
-    QString m_Text;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->notifyErrorMessage(m_Parent.data(), m_Title, m_Text);
-    }
-};
-
-class NotifyWarnMessageEvent : public AfterNightEvent
-{
-public:
-    NotifyWarnMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
-    {
-    }
-
-    QPointer<QWidget> m_Parent;
-    QString m_Title;
-    QString m_Text;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->notifyWarnMessage(m_Parent.data(), m_Title, m_Text);
-    }
-};
-
-class NotifyInfoMessageEvent : public AfterNightEvent
-{
-public:
-    NotifyInfoMessageEvent(QWidget* parent, const QString& title, const QString& text, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text)
-    {
-    }
-
-    QPointer<QWidget> m_Parent;
-    QString m_Title;
-    QString m_Text;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->notifyInfoMessage(m_Parent.data(), m_Title, m_Text);
-    }
-};
-
-class MessageBoxYesNoEvent : public AfterNightEvent
-{
-public:
-    MessageBoxYesNoEvent(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret,
-                         std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Parent(parent), m_Title(title), m_Text(text), m_Warn(warn), m_Ret(ret)
-    {
-    }
-
-    QPointer<QWidget> m_Parent;
-    QString m_Title;
-    QString m_Text;
-
-    bool m_Warn;
-
-    int* m_Ret;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->messageBoxYesNo(m_Parent.data(), m_Title, m_Text, m_Warn, m_Ret);
-    }
-};
-
-class SetActiveViewControlEvent : public AfterNightEvent
-{
-public:
-    SetActiveViewControlEvent(ImageViewControl* control, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Control(control)
-    {
-    }
-
-    ImageViewControl* m_Control;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->setActiveImageViewControl(m_Control);
-    }
-};
-
-class RunCustomCodeEvent : public AfterNightEvent
-{
-public:
-    RunCustomCodeEvent(const std::function<void()>& func, std::atomic_bool* finished)
-        : AfterNightEvent(finished), m_Func(func)
-    {
-    }
-
-    std::function<void()> m_Func;
-
-private:
-    void runImpl() override
-    {
-        AfterNightApp::getInstance()->runCustomCode(m_Func);
-    }
-};
-
 class ScopedTopLevelFlagRestorer
 {
 public:
@@ -1728,10 +1446,112 @@ private:
     QMap<QWidget*, Qt::WindowFlags> m_originalFlags;
     Qt::WindowFlags m_clearFlag;
 };
+
+// What the application core's marshalled events ask of the window, on the GUI thread: the window answers them as it
+// answered its own events, until the services that answer them leave it.
+class WindowEventTarget final : public an::ui::shell::IApplicationEventTarget
+{
+public:
+    explicit WindowEventTarget(AfterNightApp& app) : m_app(app) {}
+
+    ImageViewControl* createNewImageViewControlFromImage(ImageViewControl* customViewControl,
+                                                         an::ui::ImageDocument&& document, QWidget* parent,
+                                                         const std::string& historyDesc, const ViewControlMode mode,
+                                                         ImageViewControl* neighbour, bool keepFocusedNeighbour,
+                                                         const bool pendingChanges) override
+    {
+        return m_app.createNewImageViewControlFromImage(customViewControl, std::move(document), parent, historyDesc,
+                                                        mode, neighbour, keepFocusedNeighbour, pendingChanges);
+    }
+
+    ImageViewControl* createNewImageViewControlFromSequence(ImageViewControl* customViewControl,
+                                                            an::ui::ImageDocument&& document, QWidget* parent,
+                                                            const bool autoDebayer, const std::string& historyDesc,
+                                                            const ViewControlMode mode, ImageViewControl* neighbour,
+                                                            bool keepFocusedNeighbour,
+                                                            const bool pendingChanges) override
+    {
+        return m_app.createNewImageViewControlFromSequence(customViewControl, std::move(document), parent, autoDebayer,
+                                                           historyDesc, mode, neighbour, keepFocusedNeighbour,
+                                                           pendingChanges);
+    }
+
+    void addImageViewControl(ImageViewControl* view) override
+    {
+        m_app.addImageViewControl(view);
+    }
+
+    void removeImageViewControl(ImageViewControl* view, bool deleteObject) override
+    {
+        m_app.removeImageViewControl(view, deleteObject);
+    }
+
+    void updateImageViewControlList() override
+    {
+        m_app.updateImageViewControlList();
+    }
+
+    void updateActiveImageActions() override
+    {
+        m_app.updateActiveImageActions();
+    }
+
+    void addRecentFile(const std::string& fileName,
+                       const std::shared_ptr<const an::consumer::ImageAsset>& image) override
+    {
+        m_app.addRecentFile(fileName, image);
+    }
+
+    void removeRecentFile(const std::string& fileName) override
+    {
+        m_app.removeRecentFile(fileName);
+    }
+
+    void notifyErrorMessage(QWidget* parent, const QString& title, const QString& text) override
+    {
+        m_app.notifyErrorMessage(parent, title, text);
+    }
+
+    void notifyWarnMessage(QWidget* parent, const QString& title, const QString& text) override
+    {
+        m_app.notifyWarnMessage(parent, title, text);
+    }
+
+    void notifyInfoMessage(QWidget* parent, const QString& title, const QString& text) override
+    {
+        m_app.notifyInfoMessage(parent, title, text);
+    }
+
+    void messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret) override
+    {
+        m_app.messageBoxYesNo(parent, title, text, warn, ret);
+    }
+
+    void setActiveImageViewControl(ImageViewControl* view) override
+    {
+        m_app.setActiveImageViewControl(view);
+    }
+
+    void reportEventFailure(const QString& title, const QString& text) override
+    {
+        m_app.notifyErrorMessage(&m_app, title, text);
+    }
+
+private:
+    AfterNightApp& m_app;
+};
 } // namespace
 
 struct AfterNightApp::Impl
 {
+    explicit Impl(an::ui::shell::ApplicationCore& core) : m_Core(core) {}
+
+    // The application without a window, which `main` made before this window and which outlives it.
+    an::ui::shell::ApplicationCore& m_Core;
+
+    // What the core's marshalled events run against while this window lives.
+    std::unique_ptr<WindowEventTarget> m_EventTarget;
+
     an::ui::app::AfterNightAppUiElements ui;
 
     std::unique_ptr<ImageViewControlManager> m_ImageViewControlManager = std::make_unique<ImageViewControlManager>();
@@ -1746,12 +1566,10 @@ struct AfterNightApp::Impl
     std::unique_ptr<an::ui::ImageOperationsCoordinator> m_ImageOperationsCoordinator;
     std::unique_ptr<an::ui::MaskOverlayCoordinator> m_MaskOverlayCoordinator;
     std::unique_ptr<an::ui::DialogOrchestrationCoordinator> m_DialogOrchestrationCoordinator;
-    std::unique_ptr<an::ui::RuntimeStorageCoordinator> m_RuntimeStorageCoordinator;
     std::unique_ptr<an::ui::UiBootstrapCoordinator> m_UiBootstrapCoordinator;
     std::unique_ptr<an::ui::ActionStateCoordinator> m_ActionStateCoordinator;
     std::unique_ptr<an::ui::WindowLayoutCoordinator> m_WindowLayoutCoordinator;
     std::unique_ptr<an::ui::AppLifecycleCoordinator> m_AppLifecycleCoordinator;
-    std::unique_ptr<an::ui::PersistenceCoordinator> m_PersistenceCoordinator;
     std::unique_ptr<an::ui::AfterNightAppContext> m_AppContext;
 
     // The session the caller of `initialize` owns and lends; it outlives this window.
@@ -1777,23 +1595,10 @@ struct AfterNightApp::Impl
         }
     }
 
-    std::mutex m_OpenProcessesMutex;
-    std::set<TopLevelProcessBaseControl*> m_OpenProcesses;
-
     std::atomic_bool m_IsLayoutLocked = false;
     bool m_UnlockLayoutWhenRestoring = false;
 
     QRecursiveMutex m_ImageViewControlManagerLock;
-
-    QString m_LocalDataPath;
-
-    std::deque<std::string> m_RecentFiles;
-    std::deque<an::ui::RecentProcessEntryData> m_RecentProcesses;
-    std::set<std::string> m_FavoriteProcessIds;
-
-    std::string m_LastOpenDirectory;
-
-    std::set<AfterNightAppListener*> m_listeners;
 
     LogViewerControl* m_LogViewerControl = nullptr;
     // The console's destroyed handler, which reads this state: let go before the state goes, since the console is a
@@ -1814,29 +1619,26 @@ struct AfterNightApp::Impl
 
     bool m_IsTerminating = false;
 
-    std::thread::id m_MainThreadId;
-
     int m_MaxThreadsForBatchProcess = 0;
     int m_MaxThreadsForPreviewProcess = 0;
-
-    std::unique_ptr<PersistenceDbExecutor> m_DBExecutor;
-    std::unique_ptr<ThumbnailPersistence> m_ThumbnailPersistence;
-    std::unique_ptr<FolderTrackerPersistence> m_FolderTrackerPersistence;
-    std::unique_ptr<ProcessSettingsPersistence> m_ProcessSettingsPersistence;
-    std::unique_ptr<GlobalSettingsPersistence> m_GlobalSettingsPersistence;
 };
 
 static_assert(sizeof(AfterNightApp) <= sizeof(QMainWindow) + sizeof(std::uintptr_t) * 2,
               "AfterNightApp should stay thin: its state lives behind the pimpl.");
 
 AfterNightApp* AfterNightApp::m_Instance = nullptr;
-AfterNightApp* AfterNightApp::getInstance()
+AfterNightApp* AfterNightApp::createInstance(an::ui::shell::ApplicationCore& core)
 {
     if (!m_Instance)
     {
-        m_Instance = new AfterNightApp();
+        m_Instance = new AfterNightApp(core);
     }
 
+    return m_Instance;
+}
+
+AfterNightApp* AfterNightApp::getInstance()
+{
     return m_Instance;
 }
 
@@ -1854,9 +1656,12 @@ void AfterNightApp::destroyInstance()
     }
 }
 
-AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<Impl>())
+AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
+    : QMainWindow(nullptr), m_impl(std::make_unique<Impl>(core))
 {
-    m_impl->m_MainThreadId = std::this_thread::get_id();
+    // The work threads hand the GUI thread runs against this window until it goes.
+    m_impl->m_EventTarget = std::make_unique<WindowEventTarget>(*this);
+    core.setEventTarget(m_impl->m_EventTarget.get());
     // Install the process-global app context before constructing UI services so
     // any control created during startup observes a live context.
     m_impl->m_AppContext = std::make_unique<an::ui::AfterNightAppContext>(this);
@@ -1890,8 +1695,9 @@ AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<I
     themeManagerDeps.isLayoutLocked = &m_impl->m_IsLayoutLocked;
     themeManagerDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
     themeManagerDeps.dockMainWindow = &m_impl->m_DockMainWindow;
-    themeManagerDeps.openProcessesMutex = &m_impl->m_OpenProcessesMutex;
-    themeManagerDeps.openProcesses = &m_impl->m_OpenProcesses;
+    themeManagerDeps.forEachOpenProcess = [this](const std::function<void(TopLevelProcessBaseControl*)>& visit) {
+        m_impl->m_Core.openProcesses().forEach(visit);
+    };
     themeManagerDeps.mainWindow = this;
     themeManagerDeps.iconProvider = [this](const std::string& iconName) {
         return m_impl->m_IconManager ? m_impl->m_IconManager->getIcon(QString::fromUtf8(iconName)) : QIcon();
@@ -2191,9 +1997,10 @@ AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<I
     an::ui::FileManager::Dependencies fileManagerDeps;
     fileManagerDeps.signalContext = this;
     fileManagerDeps.ui = &m_impl->ui;
-    fileManagerDeps.recentFiles = &m_impl->m_RecentFiles;
-    fileManagerDeps.lastOpenDirectory = &m_impl->m_LastOpenDirectory;
-    fileManagerDeps.localDataPath = &m_impl->m_LocalDataPath;
+    fileManagerDeps.recentFiles = &m_impl->m_Core.recentFiles().entriesForEdit();
+    fileManagerDeps.lastOpenDirectory = &m_impl->m_Core.lastOpenDirectoryForEdit();
+    fileManagerDeps.recentFilesLimit = [this]() { return m_impl->m_Core.recentFiles().limit(); };
+    fileManagerDeps.saveRecentFiles = [this]() { m_impl->m_Core.recentFiles().save(); };
     fileManagerDeps.reloadRecentFilesThumbnails = [this]() {
         if (m_impl->m_MainDashboard)
         {
@@ -2288,8 +2095,8 @@ AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<I
     dialogDeps.mainWindow = this;
     dialogDeps.darkMode = &m_impl->m_DarkMode;
     dialogDeps.extensionBackgroundWorkCancellationToken = m_impl->m_ExtensionBackgroundWorkCancellationToken;
-    dialogDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
-    dialogDeps.recentFiles = &m_impl->m_RecentFiles;
+    dialogDeps.globalSettingsPersistence = [this]() { return m_impl->m_Core.globalSettingsStore(); };
+    dialogDeps.recentFiles = &m_impl->m_Core.recentFiles().entriesForEdit();
     dialogDeps.mainDashboard = &m_impl->m_MainDashboard;
     dialogDeps.getRecentFilesLimit = [this]() { return getRecentFilesLimit(); };
     dialogDeps.iconProvider = [this](const std::string& iconName) {
@@ -2315,11 +2122,6 @@ AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<I
         }
     };
     m_impl->m_DialogOrchestrationCoordinator = std::make_unique<an::ui::DialogOrchestrationCoordinator>(dialogDeps);
-    an::ui::RuntimeStorageCoordinator::Dependencies runtimeStorageDeps;
-    runtimeStorageDeps.localDataPath = &m_impl->m_LocalDataPath;
-    runtimeStorageDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
-    runtimeStorageDeps.createUuidToken = []() { return QUuid::createUuid().toString().toUtf8().toStdString(); };
-    m_impl->m_RuntimeStorageCoordinator = std::make_unique<an::ui::RuntimeStorageCoordinator>(runtimeStorageDeps);
     an::ui::UiBootstrapCoordinator::Dependencies uiBootstrapDeps;
     uiBootstrapDeps.ui = &m_impl->ui;
     uiBootstrapDeps.mainWindow = this;
@@ -2399,35 +2201,9 @@ AfterNightApp::AfterNightApp() : QMainWindow(nullptr), m_impl(std::make_unique<I
     windowLayoutDeps.unlockLayout = [this]() { unlockLayout(); };
     windowLayoutDeps.layoutIsLocked = [this]() { return layoutIsLocked(); };
     m_impl->m_WindowLayoutCoordinator = std::make_unique<an::ui::WindowLayoutCoordinator>(windowLayoutDeps);
-    an::ui::PersistenceCoordinator::Dependencies persistenceDeps;
-    persistenceDeps.localDataPath = &m_impl->m_LocalDataPath;
-    persistenceDeps.lastOpenDirectory = &m_impl->m_LastOpenDirectory;
-    persistenceDeps.dbExecutor = &m_impl->m_DBExecutor;
-    persistenceDeps.thumbnailPersistence = &m_impl->m_ThumbnailPersistence;
-    persistenceDeps.folderTrackerPersistence = &m_impl->m_FolderTrackerPersistence;
-    persistenceDeps.processSettingsPersistence = &m_impl->m_ProcessSettingsPersistence;
-    persistenceDeps.globalSettingsPersistence = &m_impl->m_GlobalSettingsPersistence;
-    persistenceDeps.setFileManagerPersistenceDependencies =
-        [this](ThumbnailPersistence* thumbnailPersistence, FolderTrackerPersistence* folderTrackerPersistence,
-               GlobalSettingsPersistence* globalSettingsPersistence) {
-            if (m_impl->m_FileManager)
-            {
-                m_impl->m_FileManager->setPersistenceDependencies(thumbnailPersistence, folderTrackerPersistence,
-                                                                  globalSettingsPersistence);
-            }
-        };
-    persistenceDeps.loadRecentFilesFromDisk = [this]() {
-        if (m_impl->m_FileManager)
-        {
-            m_impl->m_FileManager->loadRecentFilesFromDisk();
-        }
-    };
-    persistenceDeps.ensureTempDirCreated = [this]() { ensureTempDirCreated(); };
-    persistenceDeps.ensureThumbnailsDirCreated = [this]() { ensureThumbnailsDirCreated(); };
-    m_impl->m_PersistenceCoordinator = std::make_unique<an::ui::PersistenceCoordinator>(persistenceDeps);
     an::ui::AppLifecycleCoordinator::Dependencies appLifecycleDeps;
     appLifecycleDeps.mainWindow = this;
-    appLifecycleDeps.globalSettingsPersistence = [this]() { return m_impl->m_GlobalSettingsPersistence.get(); };
+    appLifecycleDeps.globalSettingsPersistence = [this]() { return m_impl->m_Core.globalSettingsStore(); };
     appLifecycleDeps.imageViewControlManager = m_impl->m_ImageViewControlManager.get();
     appLifecycleDeps.isTerminating = &m_impl->m_IsTerminating;
     appLifecycleDeps.maxThreadsForBatchProcess = &m_impl->m_MaxThreadsForBatchProcess;
@@ -2593,7 +2369,7 @@ void AfterNightApp::initialize(an::ui::ApplicationSession& session)
         };
 
         m_impl->m_ExtensionHostLaunchCoordinator->configureSdkService(
-            m_impl->m_GlobalSettingsPersistence.get(),
+            m_impl->m_Core.globalSettingsStore(),
             [this]() -> std::vector<an::ui::extensions::ExtensionViewState> {
                 std::vector<an::ui::extensions::ExtensionViewState> view_states;
                 if (!m_impl->m_ImageViewControlManager)
@@ -2855,8 +2631,7 @@ void AfterNightApp::setActiveImageViewControl(ImageViewControl* view)
 
 void AfterNightApp::setActiveImageViewControlAsync(ImageViewControl* view, std::atomic_bool* finished)
 {
-    auto evt = new SetActiveViewControlEvent(view, finished);
-    evt->schedule();
+    m_impl->m_Core.setActiveImageViewControlAsync(view, finished);
 }
 
 void AfterNightApp::setActiveImageViewControlByName(const std::string& name)
@@ -2889,8 +2664,7 @@ void AfterNightApp::addImageViewControl(ImageViewControl* view)
 
 void AfterNightApp::addImageViewControlAsync(ImageViewControl* view)
 {
-    auto evt = new AddImageViewControlAsyncEvent(view, nullptr);
-    evt->schedule();
+    m_impl->m_Core.addImageViewControlAsync(view);
 }
 
 void AfterNightApp::removeImageViewControl(ImageViewControl* view, bool deleteObject)
@@ -2903,8 +2677,7 @@ void AfterNightApp::removeImageViewControl(ImageViewControl* view, bool deleteOb
 
 void AfterNightApp::removeImageViewControlAsync(ImageViewControl* view, bool deleteObject)
 {
-    auto evt = new RemoveImageViewControlAsyncEvent(view, deleteObject, nullptr);
-    evt->schedule();
+    m_impl->m_Core.removeImageViewControlAsync(view, deleteObject);
 }
 
 void AfterNightApp::renameImageViewControl(ImageViewControl* view)
@@ -2925,8 +2698,7 @@ void AfterNightApp::updateImageViewControlList()
 
 void AfterNightApp::updateImageViewControlListAsync(std::atomic_bool* finished)
 {
-    auto evt = new UpdateImageViewControlListEvent(finished);
-    evt->schedule();
+    m_impl->m_Core.updateImageViewControlListAsync(finished);
 }
 
 ImageViewControlManager* AfterNightApp::getImageViewControlManager()
@@ -3019,10 +2791,9 @@ void AfterNightApp::createNewImageViewControlFromImageAsync(ImageViewControl* cu
                                                             ImageViewControl* neighbour, bool keepFocusedNeighbour,
                                                             const bool pendingChanges, std::atomic_bool* finished)
 {
-    auto evt =
-        new CreateNewImageViewControlFromImageEvent(customViewControl, std::move(document), parent, historyDesc, mode,
-                                                    neighbour, keepFocusedNeighbour, pendingChanges, finished);
-    evt->schedule();
+    m_impl->m_Core.createNewImageViewControlFromImageAsync(customViewControl, std::move(document), parent, historyDesc,
+                                                           mode, neighbour, keepFocusedNeighbour, pendingChanges,
+                                                           finished);
 }
 
 void AfterNightApp::createNewImageViewControlFromSequenceAsync(ImageViewControl* customViewControl,
@@ -3032,24 +2803,19 @@ void AfterNightApp::createNewImageViewControlFromSequenceAsync(ImageViewControl*
                                                                bool keepFocusedNeighbour, const bool pendingChanges,
                                                                std::atomic_bool* finished)
 {
-    auto evt = new CreateNewImageViewControlFromSequenceEvent(customViewControl, std::move(document), parent,
+    m_impl->m_Core.createNewImageViewControlFromSequenceAsync(customViewControl, std::move(document), parent,
                                                               autoDebayer, historyDesc, mode, neighbour,
                                                               keepFocusedNeighbour, pendingChanges, finished);
-    evt->schedule();
 }
 
 void AfterNightApp::registerProcessInstance(TopLevelProcessBaseControl* process)
 {
-    // Process windows set Qt::WA_DeleteOnClose in their constructors; Qt deletes them
-    // when closed. m_OpenProcesses holds raw (non-owning) tracking pointers only.
-    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
-    m_impl->m_OpenProcesses.insert(process);
+    m_impl->m_Core.openProcesses().add(process);
 }
 
 void AfterNightApp::unregisterProcessInstance(TopLevelProcessBaseControl* process)
 {
-    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
-    m_impl->m_OpenProcesses.erase(process);
+    m_impl->m_Core.openProcesses().remove(process);
 }
 
 size_t AfterNightApp::getNumOfOpenProcesses()
@@ -3057,8 +2823,7 @@ size_t AfterNightApp::getNumOfOpenProcesses()
     const size_t extensionProcessCount =
         m_impl->m_ExtensionHostLaunchCoordinator ? m_impl->m_ExtensionHostLaunchCoordinator->activeSessionCount() : 0;
 
-    std::lock_guard lock(m_impl->m_OpenProcessesMutex);
-    return m_impl->m_OpenProcesses.size() + extensionProcessCount;
+    return m_impl->m_Core.openProcesses().size() + extensionProcessCount;
 }
 
 void AfterNightApp::stopExtensionHostSessions()
@@ -3080,23 +2845,22 @@ KDDockWidgets::QtWidgets::MainWindow* AfterNightApp::getDockMainWindow()
 
 ThumbnailPersistence* AfterNightApp::getThumbnailPersistence()
 {
-    return m_impl->m_ThumbnailPersistence.get();
+    return m_impl->m_Core.thumbnailStore();
 }
 
 FolderTrackerPersistence* AfterNightApp::getFolderTrackerPersistence()
 {
-    return m_impl->m_FolderTrackerPersistence.get();
+    return m_impl->m_Core.folderStore();
 }
 
 ProcessSettingsPersistence* AfterNightApp::getProcessSettingsPersistence()
 {
-    return m_impl->m_ProcessSettingsPersistence.get();
-    ;
+    return m_impl->m_Core.processSettingsStore();
 }
 
 GlobalSettingsPersistence* AfterNightApp::getGlobalSettingsPersistence()
 {
-    return m_impl->m_GlobalSettingsPersistence.get();
+    return m_impl->m_Core.globalSettingsStore();
 }
 
 bool AfterNightApp::isMaximizedViewActive() const
@@ -3118,22 +2882,16 @@ AfterNightApp::~AfterNightApp()
     // no window is deleted under its work: each stops what it still runs, the thread pool is drained while every window
     // is still there, only then are they deleted, and the work their going leaves on the pool - a window's read of its
     // settings among it - is drained in turn, while the settings stores are still there.
-    std::vector<QPointer<TopLevelProcessBaseControl>> openProcesses;
-    {
-        const std::lock_guard lock(m_impl->m_OpenProcessesMutex);
-        openProcesses.assign(m_impl->m_OpenProcesses.begin(), m_impl->m_OpenProcesses.end());
-    }
+    const std::vector<TopLevelProcessBaseControl*> open = m_impl->m_Core.openProcesses().snapshot();
+    std::vector<QPointer<TopLevelProcessBaseControl>> openProcesses(open.begin(), open.end());
     an::ui::destroyProcessWindowsAtExit(openProcesses);
 
-    // Ensure right order
-    m_impl->m_FolderTrackerPersistence.reset();
-    m_impl->m_ThumbnailPersistence.reset();
-    m_impl->m_ProcessSettingsPersistence.reset();
-    m_impl->m_GlobalSettingsPersistence.reset();
-    // Shut down the DB executors after all persistence objects that depend on them.
-    if (m_impl->m_DBExecutor)
-        m_impl->m_DBExecutor->shutdown();
-    m_impl->m_DBExecutor.reset();
+    // The stores go after the windows that read them, in their order.
+    m_impl->m_Core.closeStores();
+
+    // The work handed to this window and not run yet goes with it, and nothing handed over later asks anything of it.
+    m_impl->m_Core.discardPendingEvents();
+    m_impl->m_Core.setEventTarget(nullptr);
 
     // The context goes with this window, and the windows destroyed after it - its children - must find none rather
     // than one on its way out.
@@ -3244,25 +3002,6 @@ void AfterNightApp::openDroppedFiles(const QStringList& files)
     if (m_impl->m_FileManager)
     {
         m_impl->m_FileManager->openDroppedFiles(files);
-    }
-}
-
-void AfterNightApp::customEvent(QEvent* ev)
-{
-    if (ev->type() == AfterNightEvent::getEventType())
-    {
-        ev->accept();
-        auto customEvent = static_cast<AfterNightEvent*>(ev);
-
-        try
-        {
-            customEvent->run();
-        }
-        catch (std::exception& e)
-        {
-            std::string msg = fmt::format("Exception running async operation: {}", e.what());
-            notifyErrorMessage(this, "Async Operation Error", QString::fromStdString(msg));
-        }
     }
 }
 
@@ -3442,14 +3181,16 @@ void AfterNightApp::setActionIcons()
 
 void AfterNightApp::initializePersistence()
 {
-    if (m_impl->m_PersistenceCoordinator)
+    m_impl->m_Core.openStores();
+    if (m_impl->m_FileManager)
     {
-        m_impl->m_PersistenceCoordinator->initializePersistence();
-        // A settings database of another format was set aside: the person is told where, once the window is up.
-        if (const QString notice = m_impl->m_PersistenceCoordinator->settingsStoreNotice(); !notice.isEmpty())
-        {
-            notifyInfoMessageAsync(this, tr("Settings"), notice);
-        }
+        m_impl->m_FileManager->setPersistenceDependencies(m_impl->m_Core.thumbnailStore(), m_impl->m_Core.folderStore(),
+                                                          m_impl->m_Core.globalSettingsStore());
+    }
+    // A settings database of another format was set aside: the person is told where, once the window is up.
+    if (const QString notice = m_impl->m_Core.settingsStoreNotice(); !notice.isEmpty())
+    {
+        notifyInfoMessageAsync(this, tr("Settings"), notice);
     }
 
     if (m_impl->m_Session == nullptr || m_impl->m_Session->isOpen())
@@ -3457,7 +3198,7 @@ void AfterNightApp::initializePersistence()
         return;
     }
 
-    GlobalSettingsPersistence* const settings = m_impl->m_GlobalSettingsPersistence.get();
+    GlobalSettingsPersistence* const settings = m_impl->m_Core.globalSettingsStore();
     const an::ui::ProcessingLimits limits =
         settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
             return settings->select(key, fallback);
@@ -3474,46 +3215,28 @@ void AfterNightApp::initializePersistence()
 
 void AfterNightApp::persistLastOpenDir()
 {
-    if (m_impl->m_PersistenceCoordinator)
-    {
-        m_impl->m_PersistenceCoordinator->persistLastOpenDir();
-    }
+    m_impl->m_Core.persistLastOpenDirectory();
 }
 
 void AfterNightApp::persistRecentFiles()
 {
-    if (m_impl->m_FileManager)
-    {
-        m_impl->m_FileManager->persistRecentFiles();
-    }
+    m_impl->m_Core.recentFiles().save();
 }
 
 std::shared_ptr<const an::ui::RawOpenPolicy> AfterNightApp::rawOpenPolicy() const
 {
-    return m_impl->m_PersistenceCoordinator && m_impl->m_GlobalSettingsPersistence
-               ? m_impl->m_PersistenceCoordinator->rawOpenPolicy()
-               : nullptr;
+    return m_impl->m_Core.rawOpenPolicy();
 }
 
 an::Status AfterNightApp::setRawOpenSettings(const an::ui::RawOpenSettings& settings)
 {
-    if (!m_impl->m_PersistenceCoordinator || !m_impl->m_GlobalSettingsPersistence)
-    {
-        return an::Status::failure(an::ErrorCode::NotInitialized,
-                                   "the RAW settings cannot be stored before the settings store is open");
-    }
-    return m_impl->m_PersistenceCoordinator->setRawOpenSettings(settings);
+    return m_impl->m_Core.setRawOpenSettings(settings);
 }
 
 an::Result<an::OutputIntent> AfterNightApp::buildOutputIntent(const an::ImageDescriptor& source,
                                                               const an::CodecFormat container) const
 {
-    if (!m_impl->m_PersistenceCoordinator || !m_impl->m_GlobalSettingsPersistence)
-    {
-        return an::Status::failure(an::ErrorCode::NotInitialized,
-                                   "the export settings cannot be read before the settings store is open");
-    }
-    return m_impl->m_PersistenceCoordinator->buildOutputIntent(source, container);
+    return m_impl->m_Core.buildOutputIntent(source, container);
 }
 
 void AfterNightApp::addRecentFile(const std::string& fileName,
@@ -3529,8 +3252,7 @@ void AfterNightApp::addRecentFileAsync(const std::string& fileName,
                                        std::shared_ptr<const an::consumer::ImageAsset> image,
                                        std::atomic_bool* finished)
 {
-    auto evt = new AddRecentFileEvent(fileName, std::move(image), finished);
-    evt->schedule();
+    m_impl->m_Core.addRecentFileAsync(fileName, std::move(image), finished);
 }
 
 void AfterNightApp::removeRecentFile(const std::string& fileName)
@@ -3543,8 +3265,7 @@ void AfterNightApp::removeRecentFile(const std::string& fileName)
 
 void AfterNightApp::removeRecentFileAsync(const std::string& fileName, std::atomic_bool* finished)
 {
-    auto evt = new RemoveRecentFileEvent(fileName, finished);
-    evt->schedule();
+    m_impl->m_Core.removeRecentFileAsync(fileName, finished);
 }
 
 void AfterNightApp::setLogViewerChecked(bool checked)
@@ -3566,18 +3287,17 @@ void AfterNightApp::onLogViewerClosed()
 
 std::thread::id AfterNightApp::getMainThreadId() const
 {
-    return m_impl->m_MainThreadId;
+    return m_impl->m_Core.guiThreadId();
 }
 
 bool AfterNightApp::isMainThread() const
 {
-    return std::this_thread::get_id() == m_impl->m_MainThreadId;
+    return m_impl->m_Core.isGuiThread();
 }
 
 bool AfterNightApp::isTempFile(const std::string& fileName)
 {
-    return an::platform::startsWith(fileName, getTempDirPath().toUtf8().toStdString(),
-                                    an::platform::CaseSensitivity::Insensitive);
+    return m_impl->m_Core.isTempFile(fileName);
 }
 
 void AfterNightApp::loadSettings()
@@ -3598,8 +3318,7 @@ void AfterNightApp::updateActiveImageActions()
 
 void AfterNightApp::updateActiveImageActionsAsync()
 {
-    UpdateActiveImageActionsEvent* evt = new UpdateActiveImageActionsEvent(nullptr);
-    evt->schedule();
+    m_impl->m_Core.updateActiveImageActionsAsync();
 }
 
 void AfterNightApp::updateActiveImageHistory()
@@ -3675,12 +3394,12 @@ void AfterNightApp::clearImageCelestialCoordsInStatusBar()
 
 void AfterNightApp::subscribeListener(AfterNightAppListener* listener)
 {
-    m_impl->m_listeners.insert(listener);
+    m_impl->m_Core.eventBus().subscribe(listener);
 }
 
 void AfterNightApp::unsubscribeListener(AfterNightAppListener* listener)
 {
-    m_impl->m_listeners.erase(listener);
+    m_impl->m_Core.eventBus().unsubscribe(listener);
 }
 
 void AfterNightApp::notifyViewControlCreated(const ImageViewControl* ctrl)
@@ -3692,18 +3411,12 @@ void AfterNightApp::notifyViewControlCreated(const ImageViewControl* ctrl)
             ctrl, view_name, view_name, ctrl->getFileName(), an::ui::buildImageSelectorTooltip(ctrl).toStdString());
     }
 
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onViewControlCreated(ctrl);
-    }
+    m_impl->m_Core.eventBus().notifyViewControlCreated(ctrl);
 }
 
 void AfterNightApp::notifyActiveViewControlChanged(ImageViewControl* ctrl)
 {
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onActiveViewControlChanged(ctrl);
-    }
+    m_impl->m_Core.eventBus().notifyActiveViewControlChanged(ctrl);
 }
 
 void AfterNightApp::notifyViewControlDestroyed(const ImageViewControl* ctrl)
@@ -3713,10 +3426,7 @@ void AfterNightApp::notifyViewControlDestroyed(const ImageViewControl* ctrl)
         m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlDestroyed(ctrl, ctrl->getUniqueName());
     }
 
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onViewControlDestroyed(ctrl);
-    }
+    m_impl->m_Core.eventBus().notifyViewControlDestroyed(ctrl);
 }
 
 void AfterNightApp::notifyViewControlUpdated(const ImageViewControl* ctrl)
@@ -3737,10 +3447,7 @@ void AfterNightApp::notifyViewControlUpdated(const ImageViewControl* ctrl)
         m_impl->m_ExtensionHostLaunchCoordinator->handleViewControlUpdated(ctrl);
     }
 
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onViewControlUpdated(ctrl);
-    }
+    m_impl->m_Core.eventBus().notifyViewControlUpdated(ctrl);
 }
 
 void AfterNightApp::notifyViewControlRenamed(const std::string& newName, const std::string& oldName,
@@ -3753,40 +3460,27 @@ void AfterNightApp::notifyViewControlRenamed(const std::string& newName, const s
             ctrl ? an::ui::buildImageSelectorTooltip(ctrl).toStdString() : std::string());
     }
 
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onViewControlRenamed(newName, oldName, ctrl);
-    }
+    m_impl->m_Core.eventBus().notifyViewControlRenamed(newName, oldName, ctrl);
 }
 
 void AfterNightApp::notifyProcessOpened(const std::string& processName, const ImageViewControl* targetCtrl)
 {
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onProcessOpened(processName, targetCtrl);
-    }
+    m_impl->m_Core.eventBus().notifyProcessOpened(processName, targetCtrl);
 }
 
 void AfterNightApp::notifyProcessExecuted(const std::string& processName, const ImageViewControl* targetCtrl)
 {
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onProcessExecuted(processName, targetCtrl);
-    }
+    m_impl->m_Core.eventBus().notifyProcessExecuted(processName, targetCtrl);
 }
 
 void AfterNightApp::notifyApplicationClose()
 {
-    for (auto& listener : m_impl->m_listeners)
-    {
-        listener->onApplicationClose();
-    }
+    m_impl->m_Core.eventBus().notifyApplicationClose();
 }
 
 void AfterNightApp::setLastOpenDirectoryAndPersist(const QString& path)
 {
-    m_impl->m_LastOpenDirectory = path.toUtf8().toStdString();
-    persistLastOpenDir();
+    m_impl->m_Core.setLastOpenDirectory(path);
 }
 
 // onlySequences: 0 = disabled, 1 = ser, 2 = image list (anseq), 3 = avi
@@ -3957,11 +3651,11 @@ static void initializeImageFileDialog(const std::string& defaultDir, const std::
 QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
                                                bool supportMultipleFiles)
 {
-    std::string folder = m_impl->m_LastOpenDirectory;
+    std::string folder = m_impl->m_Core.lastOpenDirectory();
 
     if (!folderContext.isEmpty())
     {
-        auto savedFolder = m_impl->m_FolderTrackerPersistence->select(folderContext);
+        auto savedFolder = m_impl->m_Core.folderStore()->select(folderContext);
 
         if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
         {
@@ -3971,7 +3665,7 @@ QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& t
 
     QFileDialog dialog(parent, title);
     initializeImageFileDialog(folder, std::string(), dialog, QFileDialog::AcceptOpen, false, 0, supportMultipleFiles);
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
 
     {
         ScopedTopLevelFlagRestorer _;
@@ -3989,7 +3683,7 @@ QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& t
         QString qtFolder = QString::fromUtf8(folder);
         if (dir != qtFolder)
         {
-            m_impl->m_FolderTrackerPersistence->upsert(folderContext, dir.path());
+            m_impl->m_Core.folderStore()->upsert(folderContext, dir.path());
         }
     }
 
@@ -3999,11 +3693,11 @@ QStringList AfterNightApp::selectImageFilesDlg(QWidget* parent, const QString& t
 QStringList AfterNightApp::selectFilesDlg(QWidget* parent, const QString& title, const QString& folderContext,
                                           const QStringList& fileExtensions)
 {
-    std::string folder = m_impl->m_LastOpenDirectory;
+    std::string folder = m_impl->m_Core.lastOpenDirectory();
 
     if (!folderContext.isEmpty())
     {
-        auto savedFolder = m_impl->m_FolderTrackerPersistence->select(folderContext);
+        auto savedFolder = m_impl->m_Core.folderStore()->select(folderContext);
 
         if (!savedFolder.isEmpty() && QDir(savedFolder).exists())
         {
@@ -4017,7 +3711,7 @@ QStringList AfterNightApp::selectFilesDlg(QWidget* parent, const QString& title,
     {
         dialog.setDirectoryUrl(QUrl::fromLocalFile(initialFolder));
     }
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
 
 #ifdef WIN32
     dialog.setFilter(QDir::Executable | QDir::Files);
@@ -4046,7 +3740,7 @@ QStringList AfterNightApp::selectFilesDlg(QWidget* parent, const QString& title,
         QString qtFolder = QString::fromUtf8(folder);
         if (dir != qtFolder)
         {
-            m_impl->m_FolderTrackerPersistence->upsert(folderContext, dir.path());
+            m_impl->m_Core.folderStore()->upsert(folderContext, dir.path());
         }
     }
 
@@ -4057,7 +3751,7 @@ QStringList AfterNightApp::saveFileDlg(QWidget* parent, const QString& title, co
                                        const QString& folderContext, const QStringList& fileExtensions)
 {
     QFileDialog dialog(parent, title);
-    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_GlobalSettingsPersistence.get());
+    an::ui::dialogs::applyDialogBackendPreference(dialog, m_impl->m_Core.globalSettingsStore());
 
     auto defaultDirWstr = defaultDir.toUtf8().toStdString();
 
@@ -4096,7 +3790,7 @@ QStringList AfterNightApp::saveFileDlg(QWidget* parent, const QString& title, co
 
     if (!folderContext.isEmpty())
     {
-        m_impl->m_FolderTrackerPersistence->upsert(folderContext, dialog.directory().path());
+        m_impl->m_Core.folderStore()->upsert(folderContext, dialog.directory().path());
     }
 
     return dialog.selectedFiles();
@@ -4106,8 +3800,7 @@ QString AfterNightApp::getExistingDirectory(QWidget* parent, const QString& titl
                                             QFileDialog::Options options)
 {
     ScopedTopLevelFlagRestorer _;
-    return an::ui::dialogs::getExistingDirectory(m_impl->m_GlobalSettingsPersistence.get(), parent, title, dir,
-                                                 options);
+    return an::ui::dialogs::getExistingDirectory(m_impl->m_Core.globalSettingsStore(), parent, title, dir, options);
 }
 
 void AfterNightApp::newSequence()
@@ -4273,7 +3966,7 @@ void AfterNightApp::systemInformation()
 
 void AfterNightApp::postAfterNightEvent(AfterNightEvent* evt, int priority)
 {
-    QApplication::postEvent(this, evt, priority);
+    m_impl->m_Core.postEvent(evt, priority);
 }
 
 void AfterNightApp::setEnableImageActions(bool enable)
@@ -4342,7 +4035,7 @@ void AfterNightApp::switchToDockManager()
 
 std::deque<std::string> AfterNightApp::getRecentFilesList() const
 {
-    return m_impl->m_RecentFiles;
+    return m_impl->m_Core.recentFiles().entries();
 }
 
 void AfterNightApp::refreshStoredProcessMenus()
@@ -4353,9 +4046,7 @@ void AfterNightApp::refreshStoredProcessMenus()
     loadRecentProcessesFromSettings();
     if (cleanupMissingProcessIds)
     {
-        an::ui::pruneMissingRecentProcessEntries(m_impl->m_RecentProcesses, [](const std::string& processId) {
-            return an::ui::process_registry::ProcessRegistry::instance().find(processId);
-        });
+        (void)m_impl->m_Core.recentProcesses().pruneMissing();
     }
     enforceRecentProcessesLimit();
     persistRecentProcessesToSettings();
@@ -4364,97 +4055,42 @@ void AfterNightApp::refreshStoredProcessMenus()
     loadFavoriteProcessesFromSettings();
     if (cleanupMissingProcessIds)
     {
-        std::set<std::string> validFavoriteIds;
-        an::ui::buildFavoriteProcessEntries(
-            m_impl->m_FavoriteProcessIds,
-            [](const std::string& processId) {
-                return an::ui::process_registry::ProcessRegistry::instance().find(processId);
-            },
-            &validFavoriteIds);
-        if (validFavoriteIds != m_impl->m_FavoriteProcessIds)
-        {
-            m_impl->m_FavoriteProcessIds = validFavoriteIds;
-            persistFavoriteProcessesToSettings();
-        }
+        (void)m_impl->m_Core.favoriteProcesses().pruneMissing();
     }
     updateFavoriteProcessesMenuEntries();
 }
 
 size_t AfterNightApp::getRecentFilesLimit() const
 {
-    return m_impl->m_FileManager ? m_impl->m_FileManager->getRecentFilesLimit() : DEFAULT_RECENT_FILES_LIMIT;
+    return m_impl->m_Core.recentFiles().limit();
 }
 
 size_t AfterNightApp::getRecentProcessesLimit() const
 {
-    if (m_impl->m_GlobalSettingsPersistence)
-    {
-        const QString limitStr = m_impl->m_GlobalSettingsPersistence->select(
-            SettingsKeys::GENERAL_RECENT_PROCESSES_LIMIT, QString::number(DEFAULT_RECENT_PROCESSES_LIMIT));
-        bool ok = false;
-        const int limit = limitStr.toInt(&ok);
-        if (ok && limit > 0)
-        {
-            return static_cast<size_t>(limit);
-        }
-    }
-
-    return DEFAULT_RECENT_PROCESSES_LIMIT;
+    return m_impl->m_Core.recentProcesses().limit();
 }
 
 void AfterNightApp::loadRecentProcessesFromSettings()
 {
-    if (!m_impl->m_GlobalSettingsPersistence)
-    {
-        m_impl->m_RecentProcesses.clear();
-        return;
-    }
-
-    const QString serializedIds = m_impl->m_GlobalSettingsPersistence->select(
-        SettingsKeys::INTERFACE_RECENT_PROCESS_IDS, QString(SettingsDefaults::INTERFACE_RECENT_PROCESS_IDS));
-    const std::vector<std::string> processIds = an::ui::deserializeOrderedProcessIdList(serializedIds);
-    m_impl->m_RecentProcesses = an::ui::buildRecentProcessEntries(processIds, [](const std::string& processId) {
-        return an::ui::process_registry::ProcessRegistry::instance().find(processId);
-    });
+    m_impl->m_Core.recentProcesses().load();
 }
 
 void AfterNightApp::persistRecentProcessesToSettings()
 {
-    if (!m_impl->m_GlobalSettingsPersistence)
-    {
-        return;
-    }
-
-    std::vector<std::string> processIds;
-    processIds.reserve(m_impl->m_RecentProcesses.size());
-    for (const auto& recentProcess : m_impl->m_RecentProcesses)
-    {
-        if (!recentProcess.id.empty())
-        {
-            processIds.push_back(recentProcess.id);
-        }
-    }
-
-    m_impl->m_GlobalSettingsPersistence->upsert(SettingsKeys::INTERFACE_RECENT_PROCESS_IDS,
-                                                an::ui::serializeOrderedProcessIdList(processIds));
+    m_impl->m_Core.recentProcesses().save();
 }
 
 void AfterNightApp::enforceRecentProcessesLimit()
 {
-    an::ui::enforceRecentProcessLimit(m_impl->m_RecentProcesses, getRecentProcessesLimit());
+    m_impl->m_Core.recentProcesses().enforceLimit();
 }
 
 void AfterNightApp::recordRecentProcess(const std::string& processId, const std::string& displayName)
 {
-    const bool changed =
-        an::ui::updateRecentProcessList(m_impl->m_RecentProcesses, processId, displayName, getRecentProcessesLimit());
-    if (!changed)
+    if (m_impl->m_Core.recentProcesses().record(processId, displayName))
     {
-        return;
+        updateRecentProcessesMenuEntries();
     }
-
-    persistRecentProcessesToSettings();
-    updateRecentProcessesMenuEntries();
 }
 
 void AfterNightApp::updateRecentProcessesMenuEntries()
@@ -4467,7 +4103,7 @@ void AfterNightApp::updateRecentProcessesMenuEntries()
     enforceRecentProcessesLimit();
     m_impl->ui.menuRecent_Processes->clear();
 
-    if (m_impl->m_RecentProcesses.empty())
+    if (m_impl->m_Core.recentProcesses().entries().empty())
     {
         m_impl->ui.menuRecent_Processes->setEnabled(false);
         return;
@@ -4475,7 +4111,7 @@ void AfterNightApp::updateRecentProcessesMenuEntries()
 
     m_impl->ui.menuRecent_Processes->setEnabled(true);
 
-    for (const auto& recentProcess : m_impl->m_RecentProcesses)
+    for (const auto& recentProcess : m_impl->m_Core.recentProcesses().entries())
     {
         const std::string processId = recentProcess.id;
         QString actionText = QString::fromUtf8(recentProcess.displayName);
@@ -4512,7 +4148,7 @@ void AfterNightApp::updateRecentProcessesMenuEntries()
 void AfterNightApp::clearRecentProcessesList()
 {
     loadRecentProcessesFromSettings();
-    if (m_impl->m_RecentProcesses.empty())
+    if (m_impl->m_Core.recentProcesses().entries().empty())
     {
         persistRecentProcessesToSettings();
         updateRecentProcessesMenuEntries();
@@ -4532,33 +4168,18 @@ void AfterNightApp::clearRecentProcessesList()
         return;
     }
 
-    m_impl->m_RecentProcesses.clear();
-    persistRecentProcessesToSettings();
+    m_impl->m_Core.recentProcesses().clear();
     updateRecentProcessesMenuEntries();
 }
 
 void AfterNightApp::loadFavoriteProcessesFromSettings()
 {
-    m_impl->m_FavoriteProcessIds.clear();
-    if (!m_impl->m_GlobalSettingsPersistence)
-    {
-        return;
-    }
-
-    const QString serializedIds = m_impl->m_GlobalSettingsPersistence->select(
-        SettingsKeys::INTERFACE_FAVORITE_PROCESS_IDS, QString(SettingsDefaults::INTERFACE_FAVORITE_PROCESS_IDS));
-    m_impl->m_FavoriteProcessIds = an::ui::deserializeProcessIdSet(serializedIds);
+    m_impl->m_Core.favoriteProcesses().load();
 }
 
 void AfterNightApp::persistFavoriteProcessesToSettings()
 {
-    if (!m_impl->m_GlobalSettingsPersistence)
-    {
-        return;
-    }
-
-    m_impl->m_GlobalSettingsPersistence->upsert(SettingsKeys::INTERFACE_FAVORITE_PROCESS_IDS,
-                                                an::ui::serializeProcessIdSet(m_impl->m_FavoriteProcessIds));
+    m_impl->m_Core.favoriteProcesses().save();
 }
 
 void AfterNightApp::updateFavoriteProcessesMenuEntries()
@@ -4571,10 +4192,7 @@ void AfterNightApp::updateFavoriteProcessesMenuEntries()
     loadFavoriteProcessesFromSettings();
     m_impl->ui.menuFavorite_Processes->clear();
 
-    const std::vector<std::pair<QString, std::string>> favoriteEntries =
-        an::ui::buildFavoriteProcessEntries(m_impl->m_FavoriteProcessIds, [](const std::string& processId) {
-            return an::ui::process_registry::ProcessRegistry::instance().find(processId);
-        });
+    const std::vector<std::pair<QString, std::string>> favoriteEntries = m_impl->m_Core.favoriteProcesses().entries();
 
     for (const auto& favoriteEntry : favoriteEntries)
     {
@@ -4654,8 +4272,8 @@ void AfterNightApp::openManageFavoriteProcessesDialog()
         item->setData(Qt::UserRole, QString::fromUtf8(processId));
         item->setToolTip(QString::fromUtf8(processId));
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setCheckState(m_impl->m_FavoriteProcessIds.contains(processId) ? Qt::CheckState::Checked
-                                                                             : Qt::CheckState::Unchecked);
+        item->setCheckState(m_impl->m_Core.favoriteProcesses().ids().contains(processId) ? Qt::CheckState::Checked
+                                                                                         : Qt::CheckState::Unchecked);
     }
 
     connect(searchInput, &QLineEdit::textChanged, &dialog, [processList](const QString& text) {
@@ -4701,15 +4319,14 @@ void AfterNightApp::openManageFavoriteProcessesDialog()
         }
     }
 
-    m_impl->m_FavoriteProcessIds = std::move(selectedFavoriteIds);
-    persistFavoriteProcessesToSettings();
+    m_impl->m_Core.favoriteProcesses().setIds(std::move(selectedFavoriteIds));
     updateFavoriteProcessesMenuEntries();
 }
 
 void AfterNightApp::clearFavoriteProcessesList()
 {
     loadFavoriteProcessesFromSettings();
-    if (m_impl->m_FavoriteProcessIds.empty())
+    if (m_impl->m_Core.favoriteProcesses().ids().empty())
     {
         updateFavoriteProcessesMenuEntries();
         return;
@@ -4728,8 +4345,7 @@ void AfterNightApp::clearFavoriteProcessesList()
         return;
     }
 
-    m_impl->m_FavoriteProcessIds.clear();
-    persistFavoriteProcessesToSettings();
+    m_impl->m_Core.favoriteProcesses().clear();
     updateFavoriteProcessesMenuEntries();
 }
 
@@ -4845,8 +4461,7 @@ void AfterNightApp::notifyErrorMessage(QWidget* parent, const QString& title, co
 
 void AfterNightApp::notifyErrorMessageAsync(QWidget* parent, const QString& title, const QString& text)
 {
-    auto evt = new NotifyErrorMessageEvent(parent, title, text, nullptr);
-    evt->schedule();
+    m_impl->m_Core.notifyErrorMessageAsync(parent, title, text);
 }
 
 void AfterNightApp::notifyWarnMessage(QWidget* parent, const QString& title, const QString& text)
@@ -4859,8 +4474,7 @@ void AfterNightApp::notifyWarnMessage(QWidget* parent, const QString& title, con
 
 void AfterNightApp::notifyWarnMessageAsync(QWidget* parent, const QString& title, const QString& text)
 {
-    auto evt = new NotifyWarnMessageEvent(parent, title, text, nullptr);
-    evt->schedule();
+    m_impl->m_Core.notifyWarnMessageAsync(parent, title, text);
 }
 
 void AfterNightApp::notifyInfoMessage(QWidget* parent, const QString& title, const QString& text)
@@ -4873,8 +4487,7 @@ void AfterNightApp::notifyInfoMessage(QWidget* parent, const QString& title, con
 
 void AfterNightApp::notifyInfoMessageAsync(QWidget* parent, const QString& title, const QString& text)
 {
-    auto evt = new NotifyInfoMessageEvent(parent, title, text, nullptr);
-    evt->schedule();
+    m_impl->m_Core.notifyInfoMessageAsync(parent, title, text);
 }
 
 void AfterNightApp::messageBoxYesNo(QWidget* parent, const QString& title, const QString& text, bool warn, int* ret)
@@ -4888,9 +4501,7 @@ void AfterNightApp::messageBoxYesNo(QWidget* parent, const QString& title, const
 void AfterNightApp::messageBoxYesNoAsync(QWidget* parent, const QString& title, const QString& text, bool warn,
                                          int* ret, std::atomic_bool* finished)
 {
-    *finished = false;
-    auto evt = new MessageBoxYesNoEvent(parent, title, text, warn, ret, finished);
-    evt->schedule();
+    m_impl->m_Core.messageBoxYesNoAsync(parent, title, text, warn, ret, finished);
 }
 
 void AfterNightApp::runCustomCode(const std::function<void()>& func)
@@ -4903,66 +4514,47 @@ void AfterNightApp::runCustomCode(const std::function<void()>& func)
 
 void AfterNightApp::runCustomCodeAsync(const std::function<void()>& func)
 {
-    RunCustomCodeEvent* evt = new RunCustomCodeEvent(func, nullptr);
-    evt->schedule();
+    m_impl->m_Core.runCustomCodeAsync(func);
 }
 
 void AfterNightApp::cleanTemporaryFiles()
 {
-    if (m_impl->m_RuntimeStorageCoordinator)
-    {
-        m_impl->m_RuntimeStorageCoordinator->cleanTemporaryFiles();
-    }
+    m_impl->m_Core.runtimeStorage().cleanTemporaryFiles();
 }
 
 void AfterNightApp::cleanTemporaryFilesAsync()
 {
-    if (m_impl->m_RuntimeStorageCoordinator)
-    {
-        m_impl->m_RuntimeStorageCoordinator->cleanTemporaryFilesAsync();
-    }
+    m_impl->m_Core.runtimeStorage().cleanTemporaryFilesAsync();
 }
 
 void AfterNightApp::cleanStaleScratchRootsAsync()
 {
-    if (m_impl->m_RuntimeStorageCoordinator)
-    {
-        m_impl->m_RuntimeStorageCoordinator->cleanStaleScratchRootsAsync();
-    }
+    m_impl->m_Core.runtimeStorage().cleanStaleScratchRootsAsync();
 }
 
 void AfterNightApp::ensureTempDirCreated()
 {
-    if (m_impl->m_RuntimeStorageCoordinator)
-    {
-        m_impl->m_RuntimeStorageCoordinator->ensureTempDirCreated();
-    }
+    m_impl->m_Core.runtimeStorage().ensureTempDirCreated();
 }
 
 QString AfterNightApp::getTempDirPath() const
 {
-    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getTempDirPath() : QString();
+    return m_impl->m_Core.runtimeStorage().getTempDirPath();
 }
 
 void AfterNightApp::ensureThumbnailsDirCreated()
 {
-    if (m_impl->m_RuntimeStorageCoordinator)
-    {
-        m_impl->m_RuntimeStorageCoordinator->ensureThumbnailsDirCreated();
-    }
+    m_impl->m_Core.runtimeStorage().ensureThumbnailsDirCreated();
 }
 
 QString AfterNightApp::getThumbnailsDirPath() const
 {
-    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getThumbnailsDirPath()
-                                               : QString();
+    return m_impl->m_Core.runtimeStorage().getThumbnailsDirPath();
 }
 
 std::string AfterNightApp::createTempFilePathForNewSequence(const an::SequenceFormat format) const
 {
-    return m_impl->m_RuntimeStorageCoordinator
-               ? m_impl->m_RuntimeStorageCoordinator->createTempFilePathForNewSequence(format)
-               : std::string();
+    return m_impl->m_Core.runtimeStorage().createTempFilePathForNewSequence(format);
 }
 
 bool AfterNightApp::isDarkMode() const
@@ -5039,6 +4631,5 @@ IconManagerSptr AfterNightApp::getIconManager()
 
 std::set<std::string> AfterNightApp::getListOfTemporaryDirs()
 {
-    return m_impl->m_RuntimeStorageCoordinator ? m_impl->m_RuntimeStorageCoordinator->getListOfTemporaryDirs()
-                                               : std::set<std::string>();
+    return m_impl->m_Core.runtimeStorage().getListOfTemporaryDirs();
 }

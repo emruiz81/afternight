@@ -112,9 +112,18 @@ namespace an::ui::extensions
 class ExtensionHostLaunchCoordinator;
 }
 
+namespace an::ui::shell
+{
+class ApplicationCore;
+}
+
 class AfterNightApp : public QMainWindow
 {
 public:
+    /// Makes the main window over the application core `main` made, which outlives it; called once.
+    [[nodiscard]] static AfterNightApp* createInstance(an::ui::shell::ApplicationCore& core);
+
+    /// The main window `createInstance` made; null before.
     [[nodiscard]] static AfterNightApp* getInstance();
 
     [[nodiscard]] static AfterNightApp* instanceOrNull() noexcept;
@@ -379,7 +388,7 @@ private:
     void on_LogViewerClicked(bool checked);
 
 private:
-    AfterNightApp();
+    explicit AfterNightApp(an::ui::shell::ApplicationCore& core);
 
     static AfterNightApp* m_Instance;
 
@@ -390,8 +399,6 @@ private:
     void dragEnterEvent(QDragEnterEvent* event) override;
 
     void dropEvent(QDropEvent* event) override;
-
-    void customEvent(QEvent* event) override;
 
     void connectActions();
 

@@ -9,6 +9,7 @@
 #include "AppTestSupport.h"
 #include "Test_ControlsSeams/FreedMemoryQuarantine.h"
 #include "app/ApplicationSession.h"
+#include "core/ApplicationCore.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/settings/SettingsKeys.h"
@@ -43,7 +44,8 @@ TEST(ApplicationTeardown, TheWindowTakesItsContextDownAndTheSessionShutsDownClea
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
-    AfterNightApp* const window = AfterNightApp::getInstance();
+    an::ui::shell::ApplicationCore core;
+    AfterNightApp* const window = AfterNightApp::createInstance(core);
     window->initialize(session);
     ASSERT_TRUE(session.isOpen());
     an::ui::IAppContext* const context = an::ui::appContext();
@@ -84,7 +86,8 @@ TEST(ApplicationTeardown, QuittingWithTheSessionConsoleOpenReadsNothingOfTheWind
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
-    AfterNightApp* const window = AfterNightApp::getInstance();
+    an::ui::shell::ApplicationCore core;
+    AfterNightApp* const window = AfterNightApp::createInstance(core);
     window->initialize(session);
     ASSERT_TRUE(session.isOpen());
     auto* const console = window->findChild<QAction*>(QStringLiteral("actionLog_Viewer"));
@@ -119,7 +122,8 @@ TEST(ApplicationTeardown, ASettingsReadStillWaitingOnThePoolWhenTheApplicationCl
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
-    AfterNightApp* const window = AfterNightApp::getInstance();
+    an::ui::shell::ApplicationCore core;
+    AfterNightApp* const window = AfterNightApp::createInstance(core);
     window->initialize(session);
     ASSERT_TRUE(session.isOpen());
     an::ui::IAppContext* const context = an::ui::appContext();

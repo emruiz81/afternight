@@ -274,7 +274,11 @@ writing.
 The application without a window, `namespace an::ui::shell`: what every shell (a main window) needs and none owns.
 `core/IShell.h` is the contract a shell implements, `core/ShellRegistry` the shells a run can make and
 `core/ShellSelection` the one it makes (`--shell=<id>`, then `AFTERNIGHT_SHELL`, then the setting `interface/shell`,
-then the default). It sits above Processes and below the application; Controls and Processes never include it, it
+then the default). `core/ApplicationCore` is what the application holds that is not a window - the persistence stores
+(`openStores()` makes no widget), the folder last opened, the temporary and thumbnail folders, `services/` (the
+listeners, the open process windows, the recent files and processes, the favourites) - and the receiver of the work
+threads hand the GUI thread (`core/ApplicationEvents.h`); `main` makes it before the window and hands it to the
+window. It sits above Processes and below the application; Controls and Processes never include it, it
 never includes the application or a host, and no extension host links it (`check_consumer_layering.py`,
 `check_build_graph.py`). A case about one of its classes lives in `Test_ShellCore`.
 

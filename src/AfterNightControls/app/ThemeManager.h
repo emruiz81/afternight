@@ -273,8 +273,9 @@ public:
         std::atomic_bool* isLayoutLocked = nullptr;
         ImageViewControlManager* imageViewControlManager = nullptr;
         KDDockWidgets::QtWidgets::MainWindow** dockMainWindow = nullptr;
-        std::mutex* openProcessesMutex = nullptr;
-        std::set<TopLevelProcessBaseControl*>* openProcesses = nullptr;
+        /// Visits each open process window, under the lock of whatever holds them; the visit may not open or close
+        /// one.
+        std::function<void(const std::function<void(TopLevelProcessBaseControl*)>&)> forEachOpenProcess;
         QWidget* mainWindow = nullptr;
         std::function<QIcon(const std::string&)> iconProvider;
     };

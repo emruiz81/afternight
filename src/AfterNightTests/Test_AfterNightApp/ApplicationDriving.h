@@ -11,6 +11,7 @@
 
 #include "AppTestSupport.h"
 #include "app/ApplicationSession.h"
+#include "core/ApplicationCore.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
@@ -352,7 +353,8 @@ protected:
     {
         s_files = std::make_unique<QTemporaryDir>();
         s_session = std::make_unique<an::ui::ApplicationSession>();
-        s_window = AfterNightApp::getInstance();
+        s_core = std::make_unique<an::ui::shell::ApplicationCore>();
+        s_window = AfterNightApp::createInstance(*s_core);
         s_window->initialize(*s_session);
         // The application's own file dialog, which a case can answer, rather than the system's.
         an::ui::IGlobalSettingsProvider* const settings = an::ui::appContext()->getGlobalSettings();
@@ -365,6 +367,7 @@ protected:
     {
         const an::Status shut = an::ui::shutDownApplication(*s_session, []() { AfterNightApp::destroyInstance(); });
         EXPECT_TRUE(shut.ok()) << "the session did not shut down cleanly after the window went: " << shut.message();
+        s_core.reset();
         s_session.reset();
         s_window = nullptr;
         s_files.reset();
@@ -597,6 +600,7 @@ protected:
 
     static inline std::unique_ptr<QTemporaryDir> s_files;
     static inline std::unique_ptr<an::ui::ApplicationSession> s_session;
+    static inline std::unique_ptr<an::ui::shell::ApplicationCore> s_core;
     static inline AfterNightApp* s_window = nullptr;
 };
 

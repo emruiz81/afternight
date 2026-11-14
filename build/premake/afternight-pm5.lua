@@ -1689,7 +1689,8 @@ workspace "AfterNight"
                     "../../src/AfterNightShellCore/AfterNightShellCoreExport.h",
                     "../../src/AfterNightShellCore/stdafx.*"
                 },
-                ["core"] = { "../../src/AfterNightShellCore/core/**.*" }
+                ["core"] = { "../../src/AfterNightShellCore/core/**.*" },
+                ["services"] = { "../../src/AfterNightShellCore/services/**.*" }
                }
 
         pchheader "stdafx.hpp"
@@ -1819,12 +1820,12 @@ workspace "AfterNight"
 
         ------------- Source code (app shell only — controls/processes are in shared libraries) -------------
         filter { "system:linux" }
-            includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightApp", "../../src/AfterNightProcesses", "../../src/AfterNightProcesses/app", "../../src/AfterNightControls", "../../src/AfterNightControls/app", "../../src/AfterNightExtensionProtocol", "../../3rdparty/src", "../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-linux/include", "../../vcpkg/installed/x64-linux-release/include" }
+            includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightApp", "../../src/AfterNightProcesses", "../../src/AfterNightProcesses/app", "../../src/AfterNightControls", "../../src/AfterNightControls/app", "../../src/AfterNightShellCore", "../../src/AfterNightExtensionProtocol", "../../3rdparty/src", "../../kddockwidgets/build-clang-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-linux/include", "../../vcpkg/installed/x64-linux-release/include" }
             -- The engine's contraction policy: the application compiles the engine's public headers.
             buildoptions { "-ffp-contract=off" }
 
         filter {"action:vs*"}
-            includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightApp", "../../src/AfterNightProcesses", "../../src/AfterNightProcesses/app", "../../src/AfterNightControls", "../../src/AfterNightControls/app", "../../src/AfterNightExtensionProtocol", "../../3rdparty/src", "../../kddockwidgets/build-msvc-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-windows/include", "../../vcpkg/installed/x64-windows-release/include" }
+            includedirs { "../../src/AfterNightConsumerRuntime/include", "../../src/AfterNightEngine/include", "../../src/AfterNightPlatform/include", "../../src/AfterNightApp", "../../src/AfterNightProcesses", "../../src/AfterNightProcesses/app", "../../src/AfterNightControls", "../../src/AfterNightControls/app", "../../src/AfterNightShellCore", "../../src/AfterNightExtensionProtocol", "../../3rdparty/src", "../../kddockwidgets/build-msvc-install/include/kddockwidgets-qt6", "../../vcpkg/installed/x64-windows/include", "../../vcpkg/installed/x64-windows-release/include" }
             buildoptions { "/Zc:__cplusplus", "/utf-8", "/FS" }
 
         filter { "system:windows" }

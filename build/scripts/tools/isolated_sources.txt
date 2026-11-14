@@ -1570,10 +1570,18 @@ sources Test_ControlsDocking
     qt       core gui widgets
 
 # The shell core's suite, class engine: the application without a window - the choice of a shell among those registered,
-# from the command line, the environment, the setting or the default, and the contract a shell implements. Its cases link
-# the shell core and the Controls library and compile nothing of either; one starts the executable again, to hold the
-# choice to the arguments it is handed.
+# from the command line, the environment, the setting or the default, and the contract a shell implements; the core with
+# its stores, opened under the case's storage root, and the work it hands the GUI thread; its listeners, open process
+# windows and recent and favourite lists. Its cases link the shell core and the Controls library and compile nothing of
+# either; one starts the executable again, to hold the choice to the arguments it is handed.
 sources Test_ShellCore
+    unit     src/AfterNightTests/Test_ShellCore/AppEventBusTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ApplicationEventsTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/FavoriteProcessesModelTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/OpenProcessRegistryTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/RecentFilesModelTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellSelectionTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
@@ -1597,10 +1605,32 @@ sources Test_ShellCore
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightShellCore/core/ApplicationCore.h
+    header   src/AfterNightShellCore/core/ApplicationEvents.h
+    header   src/AfterNightShellCore/services/AppEventBus.h
+    header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
+    header   src/AfterNightShellCore/services/OpenProcessRegistry.h
+    header   src/AfterNightShellCore/services/RecentFilesModel.h
+    header   src/AfterNightShellCore/services/RecentProcessesModel.h
+    header   src/AfterNightControls/app/AfterNightAppListener.h
+    header   src/AfterNightControls/app/AfterNightEvent.h
+    header   src/AfterNightControls/app/ProcessMenuState.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/app/RuntimeStorageCoordinator.h
+    header   src/AfterNightControls/controls/FolderTrackerPersistence.h
+    header   src/AfterNightControls/controls/GlobalSettingsPersistence.h
+    header   src/AfterNightControls/controls/KeyValueRepository.h
+    header   src/AfterNightControls/controls/PersistenceBaseRepository.h
+    header   src/AfterNightControls/controls/ProcessSettingsPersistence.h
+    header   src/AfterNightControls/controls/ThumbnailPersistence.h
+    header   src/AfterNightControls/session/ImageDocument.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
+    include  src/AfterNightConsumerRuntime/include
     include  3rdparty/src
     link     AfterNightShellCore
     link     AfterNightControls
@@ -2229,14 +2259,24 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
+    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/core/ApplicationCore.h
+    header   src/AfterNightShellCore/core/ApplicationEvents.h
+    header   src/AfterNightShellCore/services/AppEventBus.h
+    header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
+    header   src/AfterNightShellCore/services/OpenProcessRegistry.h
+    header   src/AfterNightShellCore/services/RecentFilesModel.h
+    header   src/AfterNightShellCore/services/RecentProcessesModel.h
     include  src/AfterNightTests
     include  src/AfterNightApp
     include  src/AfterNightProcesses
     include  src/AfterNightControls
+    include  src/AfterNightShellCore
     include  src/AfterNightPlatform/include
     include  src/AfterNightConsumerRuntime/include
     include  src/AfterNightExtensionProtocol
     include  3rdparty/src
+    link     AfterNightShellCore
     link     AfterNightControls
     link     AfterNightProcesses
     link     AfterNightExtensionProtocol

@@ -257,13 +257,9 @@ void ThemeManager::refreshCascade() const
         }
     }
 
-    if (m_deps.openProcessesMutex && m_deps.openProcesses)
+    if (m_deps.forEachOpenProcess)
     {
-        std::lock_guard<std::mutex> lock(*m_deps.openProcessesMutex);
-        for (auto* process : *m_deps.openProcesses)
-        {
-            process->refreshTheme();
-        }
+        m_deps.forEachOpenProcess([](TopLevelProcessBaseControl* process) { process->refreshTheme(); });
     }
 
     if (m_deps.mainWindow)

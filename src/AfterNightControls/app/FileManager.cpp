@@ -758,101 +758,14 @@ void FileManager::saveViewToFile(ImageViewControl& view, const QString& path) co
 
 size_t FileManager::getRecentFilesLimit() const
 {
-    if (m_deps.globalSettingsPersistence)
-    {
-        const QString limitStr = m_deps.globalSettingsPersistence->select(SettingsKeys::GENERAL_RECENT_FILES_LIMIT,
-                                                                          QString::number(DEFAULT_RECENT_FILES_LIMIT));
-        bool ok = false;
-        const int limit = limitStr.toInt(&ok);
-        if (ok && limit > 0)
-        {
-            return static_cast<size_t>(limit);
-        }
-    }
-
-    return DEFAULT_RECENT_FILES_LIMIT;
+    return m_deps.recentFilesLimit ? m_deps.recentFilesLimit() : DEFAULT_RECENT_FILES_LIMIT;
 }
 
 void FileManager::persistRecentFiles() const
 {
-    if (!m_deps.localDataPath || !m_deps.recentFiles)
+    if (m_deps.saveRecentFiles)
     {
-        return;
-    }
-
-    QFile file(*m_deps.localDataPath + "/recent_files");
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
-    {
-        return;
-    }
-
-    QTextStream out(&file);
-    out.setEncoding(QStringConverter::Utf8);
-    out.setGenerateByteOrderMark(false);
-
-    for (const auto& item : *m_deps.recentFiles)
-    {
-        out << QString::fromUtf8(item);
-        out << '\n';
-    }
-
-    file.close();
-}
-
-void FileManager::loadRecentFilesFromDisk() const
-{
-    if (!m_deps.localDataPath || !m_deps.recentFiles)
-    {
-        return;
-    }
-
-    QFile file(*m_deps.localDataPath + "/recent_files");
-    bool recentFilesSanitized = false;
-
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-        QTextStream in(&file);
-        in.setEncoding(QStringConverter::Utf8);
-
-        const size_t recentFilesLimit = getRecentFilesLimit();
-        QString line = in.readLine();
-        while (!line.isNull())
-        {
-            const QString normalizedPath = DashboardUtils::normalizeRecentFilePath(line);
-            recentFilesSanitized = recentFilesSanitized || (normalizedPath != line);
-
-            if (!normalizedPath.isEmpty())
-            {
-                const std::string normalizedPathStd = normalizedPath.toUtf8().toStdString();
-                const auto duplicateIt =
-                    std::find(m_deps.recentFiles->begin(), m_deps.recentFiles->end(), normalizedPathStd);
-                if (duplicateIt == m_deps.recentFiles->end())
-                {
-                    m_deps.recentFiles->push_back(normalizedPathStd);
-                    if (m_deps.recentFiles->size() >= recentFilesLimit)
-                    {
-                        break;
-                    }
-                }
-                else
-                {
-                    recentFilesSanitized = true;
-                }
-            }
-            else
-            {
-                recentFilesSanitized = true;
-            }
-
-            line = in.readLine();
-        }
-
-        file.close();
-    }
-
-    if (recentFilesSanitized)
-    {
-        persistRecentFiles();
+        m_deps.saveRecentFiles();
     }
 }
 

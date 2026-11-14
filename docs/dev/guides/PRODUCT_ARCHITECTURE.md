@@ -1290,7 +1290,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationEvents.h`, `services/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1325,7 +1325,33 @@ for a shell. The arguments are the ones `main` received, handed in by the caller
 read. The setting is read from the global settings store, so the stores must be open before a shell is chosen, and a
 change to it takes effect at the next start.
 
-`Test_ShellCore` compiles its cases and links the library, with no window: `ShellRegistry.*` and `ShellSelection.*`.
+`ApplicationCore` (`core/ApplicationCore.h`) is what the application holds that is not a window. It owns the
+persistence stores - the settings database, its executor and the stores kept in it - and opens them in `openStores()`,
+which makes no widget, so that a shell can be chosen from the setting before the style it asks for is set; it reads
+what lives there as they open: the folder last opened, the RAW policy (`rawOpenPolicy`, `buildOutputIntent`), the recent
+files; and it makes the run's temporary and thumbnail folders (`runtimeStorage()`). It holds the application's
+listeners (`services/AppEventBus.h`), told in the order they subscribed - a listener that goes while another is told,
+as a window closed by what it was told does, is not told after it went - the process windows that are open
+(`services/OpenProcessRegistry.h`, used from any thread), and the lists the menus are built from, each with its storage
+and its limit: `RecentFilesModel` (the file `recent_files` in the data folder, `general/recentFilesLimit`),
+`RecentProcessesModel` (`interface/recentProcessIds`, `general/recentProcessesLimit`) and `FavoriteProcessesModel`
+(`interface/favoriteProcessIds`). The file workflows still edit the recent files through the list itself, as they did
+when the window held it, and save it through the model. `main` makes the core on the GUI thread before the window and
+hands it to the window, which wires its coordinators to what the core holds; the window's members of the same names
+forward to it, and the core outlives the window.
+
+The core is also the receiver of the work a thread hands the GUI thread (`core/ApplicationEvents.h`): each of its
+`...Async` calls posts one event to the core and returns, never waiting, and the event runs once on the GUI thread
+against the core's `IApplicationEventTarget` - the window, until the services that answer those calls leave it. An
+event posted through the context's event bus by any library runs there too. The core being the receiver is what keeps
+an event from running after it: Qt lets go of a receiver's pending events when it goes. The window discards the events
+still pending and takes its target away as it goes, so nothing handed to it runs once it is gone; an event that throws
+is reported to the target and logged, and the next one runs.
+
+`Test_ShellCore` compiles its cases and links the library, with no window: `ShellRegistry.*` and `ShellSelection.*`;
+`ApplicationCore.*` (the stores under the case's storage root, before any widget exists), `ApplicationEvents.*`
+(posted from a worker, run once on the GUI thread; none after the core or its target is gone), `AppEventBus.*`,
+`OpenProcessRegistry.*` and the three lists' cases.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/AfterNightApp.h`, `app/AfterNightAppContext.h`)
 
@@ -1334,12 +1360,13 @@ A thin shell: `AfterNightApp` (a `QMainWindow`) composes coordinators that live 
 `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and `AfterNightAppContext` implements the `IAppContext`
 service interfaces. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
 (`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's
-minimum version names the product - initializes the platform logger and owns one `ApplicationSession`;
-`AfterNightApp::initialize` opens it once the settings store has been read, from the processing limits stored there
+minimum version names the product - initializes the platform logger, owns one `ApplicationSession` and makes the
+`ApplicationCore` the window is made over (`AfterNightApp::createInstance`); `AfterNightApp::initialize` opens the
+core's stores, then the session, once the settings store has been read, from the processing limits stored there
 (`applicationSessionSettings`: `sessionSettingsForLimits` with the product's codecs), before anything reads an image.
-The session opens there because the limits it is opened from are in the settings store the window opens: opening it
-in `main` would mean reading that store twice, or opening with defaults and replacing a session the window may already
-lend. `AfterNightAppContext` lends that session (`IEngineSessionProvider`), the persistence
+The session opens there because the limits it is opened from are in the settings store the window has the core open:
+opening it in `main` would mean reading that store twice, or opening with defaults and replacing a session the window
+may already lend. `AfterNightAppContext` lends that session (`IEngineSessionProvider`), the persistence
 coordinator's RAW policy (`IRawOpenPolicyService`) and output intents (`IOutputIntentProvider`). The view factory and
 the events that carry an image move an `ImageDocument`; an event whose document no view takes closes it, and no entry
 point makes a worker wait for the GUI thread. The extension seam's hooks land a result as an edit the history records,

@@ -264,7 +264,7 @@ target Test_AfterNightApp
     kind         console
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
     sources      @Test_AfterNightApp
     fixture      adapter
     runner       product

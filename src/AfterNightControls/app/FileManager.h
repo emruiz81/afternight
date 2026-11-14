@@ -182,7 +182,6 @@ public:
         an::ui::app::AfterNightAppUiElements* ui = nullptr;
         std::deque<std::string>* recentFiles = nullptr;
         std::string* lastOpenDirectory = nullptr;
-        QString* localDataPath = nullptr;
         ThumbnailPersistence* thumbnailPersistence = nullptr;
         FolderTrackerPersistence* folderTrackerPersistence = nullptr;
         GlobalSettingsPersistence* globalSettingsPersistence = nullptr;
@@ -190,6 +189,12 @@ public:
         std::function<QString()> thumbnailsDirPath;
         std::function<void()> switchToDockManager;
         std::function<void()> updateImageViewControlList;
+
+        /// How many files the recent list keeps; empty, twenty.
+        std::function<size_t()> recentFilesLimit;
+
+        /// Writes the recent list where it is kept, after a change; empty, the list is kept in memory only.
+        std::function<void()> saveRecentFiles;
 
         /// The dashboard reloads the recent files' thumbnails.
         std::function<void()> reloadRecentFilesThumbnails;
@@ -233,7 +238,6 @@ public:
 
     size_t getRecentFilesLimit() const;
     void persistRecentFiles() const;
-    void loadRecentFilesFromDisk() const;
     void updateRecentFilesMenuEntries() const;
 
     void addRecentFile(const std::string& fileName, const std::shared_ptr<const an::consumer::ImageAsset>& image) const;

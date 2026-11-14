@@ -7,6 +7,7 @@
 #include "app/ApplicationSession.h"
 #include "app/ModernizationFeatureFlags.h"
 #include "app/SessionConsoleBridge.h"
+#include "core/ApplicationCore.h"
 #include "theme/AnProxyStyle.h"
 
 #include <AfterNightEngine/Core/Version.h>
@@ -17,6 +18,7 @@
 
 #include <filesystem>
 #include <cstdio>
+#include <memory>
 
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -223,7 +225,11 @@ int main(int argc, char* argv[])
         // the processing limits stored there, before anything reads an image; it outlives the window.
         an::ui::ApplicationSession session;
 
-        AfterNightApp* mainWin = AfterNightApp::getInstance();
+        // The application without a window: the stores, the lists and the work handed to the GUI thread. It is made
+        // before the window, which is handed it, and goes once the window and the session have gone.
+        auto core = std::make_unique<an::ui::shell::ApplicationCore>();
+
+        AfterNightApp* mainWin = AfterNightApp::createInstance(*core);
         mainWin->initialize(session);
 
         mainWin->showWithSavedGeometry();
@@ -260,6 +266,7 @@ int main(int argc, char* argv[])
         // Admission closes first; the window, its views and its context go while the session is still open; the
         // session is shut down last, before the logger and the crash handler.
         (void)an::ui::shutDownApplication(session, []() { AfterNightApp::destroyInstance(); });
+        core.reset();
 
         an::platform::shutdownLogging();
 

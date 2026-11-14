@@ -12,6 +12,7 @@
 #include "InventoryRecords.h"
 #include "app/AfterNightAppListener.h"
 #include "app/ApplicationSession.h"
+#include "core/ApplicationCore.h"
 #include "app/FilePolicies.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -119,7 +120,8 @@ protected:
     static void SetUpTestSuite()
     {
         s_session = std::make_unique<an::ui::ApplicationSession>();
-        s_window = AfterNightApp::getInstance();
+        s_core = std::make_unique<an::ui::shell::ApplicationCore>();
+        s_window = AfterNightApp::createInstance(*s_core);
         s_window->initialize(*s_session);
     }
 
@@ -129,6 +131,7 @@ protected:
         EXPECT_EQ(AfterNightApp::instanceOrNull(), nullptr);
         EXPECT_EQ(an::ui::appContext(), nullptr) << "the window left its context installed after it went";
         EXPECT_TRUE(shut.ok()) << "the session did not shut down cleanly after the window went: " << shut.message();
+        s_core.reset();
         s_session.reset();
         s_window = nullptr;
     }
@@ -157,6 +160,7 @@ protected:
     }
 
     static inline std::unique_ptr<an::ui::ApplicationSession> s_session;
+    static inline std::unique_ptr<an::ui::shell::ApplicationCore> s_core;
     static inline AfterNightApp* s_window = nullptr;
 };
 

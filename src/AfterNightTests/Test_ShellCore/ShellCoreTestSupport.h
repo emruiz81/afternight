@@ -4,18 +4,26 @@
 #pragma once
 
 /// @file
-/// What the shell core's cases share: a settings store held in memory, and descriptors of shells that are never made.
+/// What the shell core's cases share: a settings store held in memory, descriptors of shells that are never made, the
+/// processes a case's registry holds, and a storage root of the case's own.
 
+#include "app/ProcessMenuState.h"
+#include "app/ProcessRegistry.h"
 #include "controls/IAppContext.h"
 #include "core/IShell.h"
 #include "core/ShellRegistry.h"
 
+#include <QByteArray>
 #include <QHash>
 #include <QString>
+#include <QtGlobal>
 
 #include <initializer_list>
+#include <map>
 #include <memory>
 #include <optional>
+#include <string>
+#include <utility>
 
 namespace an::tests::shellcore
 {
@@ -69,5 +77,74 @@ private:
     }
     return registry;
 }
+
+/// The processes a case's registry holds, by id, each under the name it is shown by; a case adds and takes them away
+/// as extensions come and go. `lookup()` finds them as the process registry's `find` does.
+class ProcessCatalogue
+{
+public:
+    ProcessCatalogue(std::initializer_list<std::pair<const char*, const char*>> processes)
+    {
+        for (const auto& [id, name] : processes)
+        {
+            add(id, name);
+        }
+    }
+
+    void add(const std::string& id, const std::string& name)
+    {
+        an::ui::process_registry::ProcessDescriptor descriptor;
+        descriptor.id = id;
+        descriptor.display_name = name;
+        m_descriptors[id] = std::move(descriptor);
+    }
+
+    void remove(const std::string& id)
+    {
+        m_descriptors.erase(id);
+    }
+
+    [[nodiscard]] an::ui::ProcessDescriptorLookup lookup() const
+    {
+        return [this](const std::string& id) -> const an::ui::process_registry::ProcessDescriptor* {
+            const auto found = m_descriptors.find(id);
+            return found == m_descriptors.end() ? nullptr : &found->second;
+        };
+    }
+
+private:
+    std::map<std::string, an::ui::process_registry::ProcessDescriptor> m_descriptors;
+};
+
+/// Points `AFTERNIGHT_TEST_STORAGE_ROOT` at a folder of the case's own for its life, and restores what the suite set.
+class ScopedStorageRoot
+{
+public:
+    explicit ScopedStorageRoot(const QString& root)
+        : m_previous(qgetenv(kVariable)), m_hadPrevious(qEnvironmentVariableIsSet(kVariable))
+    {
+        qputenv(kVariable, root.toUtf8());
+    }
+
+    ~ScopedStorageRoot()
+    {
+        if (m_hadPrevious)
+        {
+            qputenv(kVariable, m_previous);
+        }
+        else
+        {
+            qunsetenv(kVariable);
+        }
+    }
+
+    ScopedStorageRoot(const ScopedStorageRoot&) = delete;
+    ScopedStorageRoot& operator=(const ScopedStorageRoot&) = delete;
+
+private:
+    static constexpr const char* kVariable = "AFTERNIGHT_TEST_STORAGE_ROOT";
+    QByteArray m_previous;
+    bool m_hadPrevious = false;
+};
 
 } // namespace an::tests::shellcore
