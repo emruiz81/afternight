@@ -18,12 +18,14 @@
 #include "theme/PainterGuard.h"
 
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 
 namespace
 {
@@ -231,6 +233,14 @@ QFontMetrics tabMetrics()
     return QFontMetrics(an::ui::observatoryDockTabFont());
 }
 
+// The room a text needs in the tab font: its exact advance, rounded up. `QFontMetrics::horizontalAdvance` rounds to the
+// nearest pixel while `elidedText` compares the text's exact width with the room it is given, so where advances are
+// fractional (FreeType without hinting) a name that rounded down would be elided in a room built from its own width.
+int tabTextWidth(const QString& text)
+{
+    return static_cast<int>(std::ceil(QFontMetricsF(an::ui::observatoryDockTabFont()).horizontalAdvance(text)));
+}
+
 } // anonymous namespace
 
 namespace an::ui
@@ -273,7 +283,7 @@ QFont observatoryDockTabFont()
 int observatoryDockTabWidth(const ObservatoryDockTab& tab, const bool minimum)
 {
     const QFontMetrics metrics = tabMetrics();
-    int name = metrics.horizontalAdvance(tab.name);
+    int name = tabTextWidth(tab.name);
     if (minimum)
     {
         name = (std::min)(name, metrics.averageCharWidth() * kNameFloor);
@@ -285,7 +295,7 @@ int observatoryDockTabWidth(const ObservatoryDockTab& tab, const bool minimum)
     }
     if (tab.modified)
     {
-        width += metrics.horizontalAdvance(QString::fromUtf16(kUnsavedStar));
+        width += tabTextWidth(QString::fromUtf16(kUnsavedStar));
     }
     if (tab.adorned)
     {
@@ -330,7 +340,7 @@ ObservatoryDockTabParts observatoryDockTabParts(const QRect& rect, const Observa
     }
     if (tab.modified)
     {
-        const int star = tabMetrics().horizontalAdvance(QString::fromUtf16(kUnsavedStar));
+        const int star = tabTextWidth(QString::fromUtf16(kUnsavedStar));
         parts.star = QRect(right - star, top, star, height);
         right -= star;
     }

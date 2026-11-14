@@ -243,13 +243,16 @@ TEST_F(Hooks, TheEndOfADragIsToldAfterAFloatingWindowsDragAndAfterATabs)
     EXPECT_EQ(g_hooks.dragsEnded, 1);
     EXPECT_EQ(g_hooks.cursorAtTheEnd, QPoint(610, 620));
 
-    // A tab, pulled out and released over nothing.
+    // A tab, pulled out and released over nothing: below the workspace and clear of the window released first, which
+    // stands where it was floated when the system moves a window by its title bar and where it was released when the
+    // library moves it.
+    const QPoint overNothing(140, 660);
     auto pulled = SimulatedDrag::ofTab(tab);
-    pulled.moveTo(QPoint(640, 660));
+    pulled.moveTo(overNothing);
     pulled.release();
 
     EXPECT_EQ(g_hooks.dragsEnded, 2);
-    EXPECT_EQ(g_hooks.cursorAtTheEnd, QPoint(640, 660));
+    EXPECT_EQ(g_hooks.cursorAtTheEnd, overNothing);
     EXPECT_EQ(g_hooks.dockedAtTheEnd, QStringList({QStringLiteral("docked")}))
         << "when the end is told, the tab has already left its workspace";
 

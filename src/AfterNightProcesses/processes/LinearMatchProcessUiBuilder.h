@@ -187,6 +187,19 @@ public:
 
         retranslateUi(LinearMatchProcess);
 
+        // The labels share one column: 110 px, or the widest text's width where the font in force is wider than the one
+        // the column was drawn for, so that no name is cut by a pixel or two.
+        int labelColumn = 110;
+        for (const QLabel* name : {label, label_2, label_3, label_4})
+        {
+            labelColumn = (std::max)(labelColumn, name->sizeHint().width());
+        }
+        for (QLabel* name : {label, label_2, label_3, label_4})
+        {
+            name->setMinimumWidth(labelColumn);
+            name->setMaximumWidth(labelColumn);
+        }
+
         QMetaObject::connectSlotsByName(LinearMatchProcess);
     } // setupUi
 

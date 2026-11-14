@@ -287,6 +287,13 @@ inline void expectObservatoryWindowsHold(const std::vector<std::string>& descrip
                     process->refreshTheme();
                 }
                 pumpQuietly();
+                // A focused text field paints its caret as the inverse of the pixel under it, whatever the style
+                // lays there: under Night that is a hue, and it is the text layout's, not a primitive of the style.
+                // A platform that activates its windows (offscreen) shows it; one that does not (minimal) never did.
+                if (QWidget* const focused = window->focusWidget())
+                {
+                    focused->clearFocus();
+                }
                 const ColouredPixels coloured = colouredPixels(*window, window->grab().toImage());
                 EXPECT_EQ(coloured.pixels, 0) << "the window keeps a hue under Night at "
                                               << coloured.where.join(QStringLiteral("; ")).toStdString();

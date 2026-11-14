@@ -193,7 +193,9 @@ public:
     }
     void showCelestialCoordinates(const double raDegrees, const double decDegrees) override
     {
-        record("coordinates " + std::to_string(raDegrees) + " " + std::to_string(decDegrees));
+        // Written the same under any locale: `std::to_string` follows the host's decimal separator.
+        const auto degrees = [](const double value) { return QString::number(value, 'f', 6).toStdString(); };
+        record("coordinates " + degrees(raDegrees) + " " + degrees(decDegrees));
     }
     void clearCelestialCoordinates() override
     {

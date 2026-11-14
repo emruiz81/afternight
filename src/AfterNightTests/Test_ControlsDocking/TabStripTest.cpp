@@ -188,6 +188,40 @@ TEST_F(TabStrip, ObservatoryStarIsTheAccentText)
     }
 }
 
+// A tab is as wide as its name needs: in the room its own width leaves its name, the name is shown whole, with or
+// without the star. Where a host's text advances are fractional the width counted for a name can round down by up to
+// half a pixel, and the elision compares the name's exact width with the room.
+TEST_F(TabStrip, ATabGivesItsWholeNameTheRoomItNeeds)
+{
+    const QStringList names = {QStringLiteral("M 42"),          QStringLiteral("M 31"),
+                               QStringLiteral("M 101"),         QStringLiteral("NGC 7000"),
+                               QStringLiteral("IC 1396"),       QStringLiteral("Orion"),
+                               QStringLiteral("Veil Nebula"),   QStringLiteral("Ha-OIII"),
+                               QStringLiteral("Light_001.fit"), QStringLiteral("Flat"),
+                               QStringLiteral("Dark 300s"),     QStringLiteral("WWW"),
+                               QStringLiteral("iii"),           QStringLiteral("Jupiter"),
+                               QStringLiteral("Mosaic 2x2"),    QStringLiteral("a")};
+    for (const ObservatoryLook& look : observatoryLooks())
+    {
+        SCOPED_TRACE(look.name);
+        setLook(look);
+        for (const QString& name : names)
+        {
+            for (const bool modified : {false, true})
+            {
+                an::ui::ObservatoryDockTab tab;
+                tab.name = name;
+                tab.modified = modified;
+                const QRect rect(0, 0, an::ui::observatoryDockTabWidth(tab, false),
+                                 an::ui::observatoryDockStripHeight(false));
+                const an::ui::ObservatoryDockTabParts parts = an::ui::observatoryDockTabParts(rect, tab);
+                EXPECT_EQ(an::ui::observatoryDockTabText(name, parts.name.width()), name)
+                    << "the room of " << name.toStdString() << " is " << parts.name.width() << " px";
+            }
+        }
+    }
+}
+
 // A name too long for its tab is elided in the middle - both of its ends stay - and a tab is never cut under twelve
 // characters; the tab's tooltip is the whole name.
 TEST_F(TabStrip, ElidesInTheMiddleAndKeepsTheFullNameAsTooltip)
