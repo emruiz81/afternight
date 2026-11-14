@@ -5,6 +5,9 @@
 
 #include "theme/ObservatoryPalette.h"
 
+#include <QFont>
+#include <QStringList>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -350,6 +353,83 @@ QString named(const char* name, const QColor& color)
     return QStringLiteral("%1 %2").arg(QString::fromLatin1(name), color.name(QColor::HexRgb).toUpper());
 }
 
+/// The density's column of metrics.
+an::ui::MetricTokens densityMetrics(const an::ui::ThemeDensity density)
+{
+    if (density != an::ui::ThemeDensity::Comfortable)
+    {
+        return an::ui::MetricTokens{.fontBody = 13,
+                                    .fontSmall = 12,
+                                    .fontCaption = 11,
+                                    .control = 32,
+                                    .controlSmall = 28,
+                                    .controlXSmall = 24,
+                                    .controlLarge = 40,
+                                    .rowTable = 30,
+                                    .rowDense = 28,
+                                    .rowKeyValue = 24,
+                                    .rowSettings = 38,
+                                    .rowPalette = 30,
+                                    .barTop = 44,
+                                    .strip = 34,
+                                    .statusLine = 26,
+                                    .rail = 44,
+                                    .pad = 12,
+                                    .gap = 8,
+                                    .sectionHeader = 32,
+                                    .chip = 24,
+                                    .tag = 20,
+                                    .floatingToolbar = 40,
+                                    .scrollBar = 8};
+    }
+    return an::ui::MetricTokens{.fontBody = 14,
+                                .fontSmall = 13,
+                                .fontCaption = 12,
+                                .control = 36,
+                                .controlSmall = 32,
+                                .controlXSmall = 26,
+                                .controlLarge = 44,
+                                .rowTable = 36,
+                                .rowDense = 32,
+                                .rowKeyValue = 28,
+                                .rowSettings = 42,
+                                .rowPalette = 34,
+                                .barTop = 48,
+                                .strip = 40,
+                                .statusLine = 28,
+                                .rail = 44,
+                                .pad = 14,
+                                .gap = 10,
+                                .sectionHeader = 36,
+                                .chip = 26,
+                                .tag = 22,
+                                .floatingToolbar = 44,
+                                .scrollBar = 8};
+}
+
+/// The radii: small parts 6, controls 8, cards and popups 12, sheets 16. A pill is half its height, which no radius
+/// states.
+constexpr an::ui::RadiusTokens kRadius{.none = 0, .sm = 6, .md = 8, .lg = 12, .xl = 16};
+
+/// The first two headings' sizes, the same in both densities; the third is the body's size.
+constexpr int kHeading1Pixels = 24;
+constexpr int kHeading2Pixels = 17;
+
+/// The monospace families, in the order they are looked for; the platform's monospace after them.
+constexpr std::array<const char*, 3u> kMonospaceFamilies{"Cascadia Mono", "Cascadia Code", "Consolas"};
+
+/// The logical dots per inch Qt 6 presents to an application on every screen, which a point size is laid out at.
+constexpr double kLogicalDotsPerInch = 96.0;
+
+/// `font` at `pixels` logical pixels and `weight`. The size is set as points, so that code that makes a font from
+/// another by its point size keeps working; at the logical dots per inch Qt presents, the two are the same size.
+QFont sized(QFont font, const int pixels, const QFont::Weight weight)
+{
+    font.setPointSizeF(pixels * 72.0 / kLogicalDotsPerInch);
+    font.setWeight(weight);
+    return font;
+}
+
 } // namespace
 
 namespace an::ui
@@ -543,6 +623,33 @@ std::vector<ContrastFailure> observatoryContrastFailures(const DesignTokens& tok
         require("statusInfo", c.statusInfo, kLayerNames[i], surface[i], 3.0);
     }
     return failures;
+}
+
+void resolveObservatorySizes(DesignTokens& tokens, const ThemeDensity density)
+{
+    tokens.metrics = densityMetrics(density);
+    tokens.radius = kRadius;
+
+    // The interface font is the platform's, the one the base set's body is; every figure in it is tabular.
+    QFont interfaceFont = tokens.typography.body;
+    interfaceFont.setFeature(QFont::Tag("tnum"), 1);
+    const MetricTokens& m = tokens.metrics;
+    TypographyTokens& type = tokens.typography;
+    type.body = sized(interfaceFont, m.fontBody, QFont::Normal);
+    type.caption = sized(interfaceFont, m.fontCaption, QFont::Normal);
+    type.heading1 = sized(interfaceFont, kHeading1Pixels, QFont::DemiBold);
+    type.heading2 = sized(interfaceFont, kHeading2Pixels, QFont::DemiBold);
+    type.heading3 = sized(interfaceFont, m.fontBody, QFont::DemiBold);
+
+    QFont monospace = interfaceFont;
+    QStringList families;
+    for (const char* family : kMonospaceFamilies)
+    {
+        families.append(QString::fromLatin1(family));
+    }
+    monospace.setFamilies(families);
+    monospace.setStyleHint(QFont::Monospace);
+    type.monospace = sized(monospace, m.fontBody, QFont::Normal);
 }
 
 } // namespace an::ui

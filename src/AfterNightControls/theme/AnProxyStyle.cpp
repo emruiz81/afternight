@@ -46,7 +46,11 @@
 #include <QToolTip>
 #include <QTreeView>
 
+#include <QPointer>
+
 #include <algorithm>
+#include <optional>
+#include <vector>
 
 namespace
 {
@@ -481,6 +485,143 @@ QIcon iconFromManager(const QString& iconName)
     return QIcon();
 }
 
+// ── The Observatory profile's sizes ────────────────────────────────────────
+//
+// Under the Observatory profile the style answers the sizes of the standard widgets from the metric tokens of the
+// density in force: a control's height, a tab strip's, a row's, a menu item's, a scroll bar's thickness. Every other
+// answer, and every answer under the Classic profile, is the Classic one.
+
+/// A button's padding at each side of its text, and a control's border.
+constexpr int kObservatoryButtonPadding = 14;
+constexpr int kObservatoryBorder = 1;
+
+/// The narrowest a spin box is, as under the Classic profile: room for a decimal value.
+constexpr int kMinimumSpinBoxWidth = 70;
+
+bool observatoryProfile()
+{
+    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
+}
+
+/// The pixel metrics the Observatory profile answers from its tokens; nothing for the ones it leaves to the Classic
+/// answer.
+std::optional<int> observatoryPixelMetric(const QStyle::PixelMetric metric, const an::ui::MetricTokens& metrics)
+{
+    switch (metric)
+    {
+    case QStyle::PM_ScrollBarExtent:
+        return metrics.scrollBar;
+    case QStyle::PM_HeaderDefaultSectionSizeVertical:
+        // A table's rows: the vertical header's sections are the rows.
+        return metrics.rowTable;
+    default:
+        return std::nullopt;
+    }
+}
+
+/// Whether the Observatory profile sizes a control of this type from its tokens.
+bool observatorySizes(const QStyle::ContentsType type)
+{
+    switch (type)
+    {
+    case QStyle::CT_PushButton:
+    case QStyle::CT_ToolButton:
+    case QStyle::CT_LineEdit:
+    case QStyle::CT_ComboBox:
+    case QStyle::CT_SpinBox:
+    case QStyle::CT_TabBarTab:
+    case QStyle::CT_HeaderSection:
+    case QStyle::CT_ItemViewItem:
+    case QStyle::CT_MenuItem:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool verticalTab(const QStyleOption* option)
+{
+    const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+    if (tab == nullptr)
+    {
+        return false;
+    }
+    switch (tab->shape)
+    {
+    case QTabBar::RoundedWest:
+    case QTabBar::RoundedEast:
+    case QTabBar::TriangularWest:
+    case QTabBar::TriangularEast:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// The size the Observatory profile gives a control of a type observatorySizes() names, from its contents and from the
+/// base style's answer for them. A control is never smaller than its contents need: a large icon or font grows it.
+QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleOption* option, const QSize& contents,
+                                  const QSize& base, const an::ui::DesignTokens& tokens, const QWidget* widget)
+{
+    const an::ui::MetricTokens& m = tokens.metrics;
+    const int inset = tokens.spacing.xs + kObservatoryBorder;
+    switch (type)
+    {
+    case QStyle::CT_PushButton: {
+        // A control high, its text padded at both sides; an icon button, with no text, is a square.
+        const auto* button = qstyleoption_cast<const QStyleOptionButton*>(option);
+        const bool hasText = button != nullptr && !button->text.isEmpty();
+        const int height = (std::max)(m.control, contents.height() + 2 * inset);
+        const int padding = hasText ? kObservatoryButtonPadding + kObservatoryBorder : inset;
+        return QSize((std::max)(height, contents.width() + 2 * padding), height);
+    }
+    case QStyle::CT_ToolButton:
+        // An icon button is a control square; text beside or under the icon widens or heightens it.
+        return QSize((std::max)(m.control, contents.width() + 2 * inset),
+                     (std::max)(m.control, contents.height() + 2 * inset));
+    case QStyle::CT_LineEdit: {
+        // A field is a control high. A line edit with no frame is a spin box's or a combo box's text, sized by them.
+        const auto* frame = qstyleoption_cast<const QStyleOptionFrame*>(option);
+        if (frame == nullptr || frame->lineWidth <= 0)
+        {
+            return base;
+        }
+        return QSize(base.width(), (std::max)(base.height(), m.control));
+    }
+    case QStyle::CT_ComboBox:
+        return QSize(base.width(), (std::max)(base.height(), m.control));
+    case QStyle::CT_SpinBox:
+        return QSize((std::max)(base.width(), kMinimumSpinBoxWidth), (std::max)(base.height(), m.control));
+    case QStyle::CT_TabBarTab: {
+        // A tab fills its strip; a compact tab bar's tabs, inside a panel, are a small control high.
+        const auto* tab = qstyleoption_cast<const QStyleOptionTab*>(option);
+        const bool compact = widget != nullptr && widget->property("anTabCompact").toBool();
+        const int iconExtent = tab != nullptr ? (std::max)(tab->iconSize.width(), tab->iconSize.height()) : 0;
+        const int across = (std::max)(compact ? m.controlSmall : m.strip, iconExtent + 2 * tokens.spacing.xs);
+        const int minimumLength = intPropertyOrDefault(widget, "anTabMinWidth", 0);
+        if (verticalTab(option))
+        {
+            return QSize(across, (std::max)(base.height(), minimumLength));
+        }
+        return QSize((std::max)(base.width(), minimumLength), across);
+    }
+    case QStyle::CT_HeaderSection:
+    case QStyle::CT_ItemViewItem:
+        // A table's header and a row of a table, a list or a tree.
+        return QSize(base.width(), (std::max)(base.height(), m.rowTable));
+    case QStyle::CT_MenuItem: {
+        const auto* item = qstyleoption_cast<const QStyleOptionMenuItem*>(option);
+        if (item != nullptr && item->menuItemType == QStyleOptionMenuItem::Separator)
+        {
+            return base;
+        }
+        return QSize(base.width(), (std::max)(base.height(), m.rowDense));
+    }
+    default:
+        return base;
+    }
+}
+
 } // anonymous namespace
 
 namespace an::ui
@@ -499,8 +640,12 @@ AnProxyStyle::~AnProxyStyle() = default;
 
 void AnProxyStyle::refreshThemeTokens()
 {
+    const DesignTokens* const previous = m_tokens;
     refreshTokens();
     m_tokens = &tokens();
+    // A density moves the sizes this style answers and the type scale; under the Classic profile neither ever moves.
+    const bool sizesChanged =
+        previous != nullptr && (previous->metrics != m_tokens->metrics || previous->typography != m_tokens->typography);
 
     // Update the application palette to reflect the new token colours.
     // Without this, widgets that rely on palette() (QLabel, QGroupBox title,
@@ -511,12 +656,37 @@ void AnProxyStyle::refreshThemeTokens()
         QPalette pal = app->palette();
         setupPalette(pal);
         app->setPalette(pal);
+        if (sizesChanged)
+        {
+            app->setFont(m_tokens->typography.body);
+        }
 
         // Force re-polish all widgets in the application
         for (auto* widget : app->allWidgets())
         {
             polish(widget);
             widget->update();
+        }
+
+        if (sizesChanged)
+        {
+            // Every widget is told its style changed, as Qt tells it when a style is set: it drops the size hint it
+            // keeps and asks its layout to run again, so a shown window takes the new sizes. The new font tells only
+            // the widgets that take the application's; a widget given a font of its own, and what it holds, hears of
+            // the change this way alone. A window's own updateGeometry() would not do: it has no layout above it.
+            std::vector<QPointer<QWidget>> widgets;
+            for (QWidget* widget : QApplication::allWidgets())
+            {
+                widgets.emplace_back(widget);
+            }
+            for (const QPointer<QWidget>& widget : widgets)
+            {
+                if (!widget.isNull())
+                {
+                    QEvent styleChange(QEvent::StyleChange);
+                    QCoreApplication::sendEvent(widget.data(), &styleChange);
+                }
+            }
         }
     }
 }
@@ -761,6 +931,14 @@ void AnProxyStyle::setupPalette(QPalette& palette) const
 
 int AnProxyStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const
 {
+    if (observatoryProfile())
+    {
+        if (const std::optional<int> answer = observatoryPixelMetric(metric, m_tokens->metrics))
+        {
+            return *answer;
+        }
+    }
+
     switch (metric)
     {
     case PM_ButtonMargin:
@@ -1520,6 +1698,13 @@ void AnProxyStyle::drawComplexControl(ComplexControl control, const QStyleOption
 QSize AnProxyStyle::sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& contentsSize,
                                      const QWidget* widget) const
 {
+    if (observatoryProfile() && observatorySizes(type))
+    {
+        return observatorySizeFromContents(type, option, contentsSize,
+                                           QProxyStyle::sizeFromContents(type, option, contentsSize, widget), *m_tokens,
+                                           widget);
+    }
+
     switch (type)
     {
     case CT_PushButton: {

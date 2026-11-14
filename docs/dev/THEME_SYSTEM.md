@@ -49,6 +49,7 @@
     │              AnDesignTokens (singleton)              │
     │  ColorTokens · SpacingTokens · RadiusTokens         │
     │  LayerTokens · MaterialTokens · TypographyTokens    │
+    │  MetricTokens                                       │
     └─────────────────────────────────────────────────────┘
 ```
 
@@ -56,8 +57,8 @@
 
 - **No QSS.** Ever. See [Absolute Rules](#absolute-rules--what-is-forbidden).
 - Every visual aspect is controlled by either `AnProxyStyle` (C++ `QProxyStyle` overrides) or custom `paintEvent()` implementations.
-- All colors, spacings, radii, and fonts are resolved through the `AnDesignTokens` singleton — never hardcoded.
-- The system supports dark/light themes, multiple accent families, contrast profiles, and surface tints — all switchable at runtime.
+- All colors, spacings, radii, fonts and control sizes are resolved through the `AnDesignTokens` singleton — never hardcoded.
+- The system supports dark/light themes, multiple accent families, contrast profiles, surface tints and, under the Observatory profile, two densities — all switchable at runtime.
 
 ### File Map
 
@@ -65,7 +66,7 @@
 |---|---|
 | `theme/AnDesignTokens.h/.cpp` | Token definitions, resolution pipeline, theme preference API |
 | `theme/StyleProfile.h` | The style profiles, `Classic` and `Observatory` (see [Profiles](#profiles)) |
-| `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)) |
+| `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)), and its sizes (see [Density](#density)) |
 | `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
@@ -125,6 +126,9 @@ struct RadiusTokens {
 };
 ```
 
+These are the `Classic` profile's radii. The `Observatory` profile's are `sm` 6 (small parts: tooltips, palette rows),
+`md` 8 (controls), `lg` 12 (cards and popups), `xl` 16 (sheets); a pill is half its height.
+
 #### LayerTokens
 Five elevation layers derived from background colors:
 ```
@@ -153,11 +157,21 @@ struct TypographyTokens {
 };
 ```
 
+These are the `Classic` profile's fonts. The `Observatory` profile sizes its type scale by the density
+([Density](#density)).
+
+#### MetricTokens
+The sizes of the interface in logical pixels: what a control, a row and a bar are high, the font sizes, a panel's
+padding and gaps, a scroll bar's thickness (`fontBody`, `fontSmall`, `fontCaption`, `control`, `controlSmall`,
+`controlXSmall`, `controlLarge`, `rowTable`, `rowDense`, `rowKeyValue`, `rowSettings`, `rowPalette`, `barTop`, `strip`,
+`statusLine`, `rail`, `pad`, `gap`, `sectionHeader`, `chip`, `tag`, `floatingToolbar`, `scrollBar`). Under the
+`Observatory` profile they are the density's column; under `Classic`, 1.1's sizes. See [Density](#density).
+
 ### Token Resolution Pipeline
 
 Tokens go through a multi-stage resolution before becoming active. The resolution of one combination is a pure function,
 `resolveDesignTokens(const ThemeChoices&)`: its inputs are a struct - the theme, the contrast profile, the accent family,
-the surface tint, the tint strength, the style profile and whether the native backdrop is used - and it reads and writes
+the surface tint, the tint strength, the style profile, the density and whether the native backdrop is used - and it reads and writes
 no global, so a test resolves any combination without touching the application's state. `refreshTokens()` builds the
 choices in force for each theme, resolves both and publishes them. Under the `Classic` profile the stages are these:
 
@@ -188,7 +202,8 @@ Publish Snapshot (lock-free atomic pointer swap)
 
 Under the `Observatory` profile the base, accent, tint and contrast stages are replaced by the tables and derivations of
 `theme/ObservatoryPalette.cpp` ([The surface ladder](#the-surface-ladder)); the materials and the publication are the
-same, and the debug-build validation runs the profile's own rules.
+same, and the debug-build validation runs the profile's own rules. After the materials the profile's sizes are filled in:
+the density's metrics, the radii and the type scale ([Density](#density)).
 
 ### Profiles
 
@@ -259,6 +274,59 @@ component rounded to the nearest 8-bit value.
   2. `ObservatoryValidation.EveryCombinationMeetsTheContrastRules` enumerates every combination a user can choose; a
   combination that fails is a test failure. Where one fails, a table value moves, never the rule.
 
+### Density
+
+The `Observatory` profile lays the interface out at one of two **densities**: `ThemeDensity {Compact, Comfortable}`,
+`setThemeDensity()`, stored as `interface/density` (`compact`, `comfortable`; default `compact`) and read at start with the
+other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`), in logical pixels:
+
+| Metric | Compact | Comfortable |
+|---|---|---|
+| `fontBody`, `fontSmall`, `fontCaption` | 13, 12, 11 | 14, 13, 12 |
+| `control`, `controlSmall`, `controlXSmall`, `controlLarge` | 32, 28, 24, 40 | 36, 32, 26, 44 |
+| `rowTable`, `rowDense`, `rowKeyValue`, `rowSettings`, `rowPalette` | 30, 28, 24, 38, 30 | 36, 32, 28, 42, 34 |
+| `barTop` | 44 | 48 |
+| `strip` (a tab strip, the history strip, a task's header) | 34 | 40 |
+| `statusLine` | 26 | 28 |
+| `rail` | 44 | 44 |
+| `pad`, `gap` | 12, 8 | 14, 10 |
+| `sectionHeader` | 32 | 36 |
+| `chip`, `tag` | 24, 20 | 26, 22 |
+| `floatingToolbar` | 40 | 44 |
+| `scrollBar` | 8 | 8 |
+
+- **The proxy style answers sizes from them.** Under `Observatory`, `AnProxyStyle` makes a push button, a field (a
+  line edit with a frame), a combo box and a spin box `control` high, a button's text padded 14 at each side; a tool
+  button and a push button with no text a `control` square; a tab `strip` high, or `controlSmall` in a tab bar with
+  `anTabCompact` (a panel's tabs); a row of a table, a list or a tree, and a table's header, `rowTable` high (the
+  vertical header's default section size included); a menu's item, and so a combo box's popup row, `rowDense` high;
+  a scroll bar `scrollBar` thick. A control is never smaller than its contents need: a large icon grows it. A line
+  edit with no frame is a spin box's or a combo box's text and keeps its own size. Every other answer is the
+  `Classic` one; the drawing is not the density's.
+- **The type scale follows the density.** The body and the third heading are `fontBody`, the caption `fontCaption`,
+  the first two headings 24 and 17 in both, every heading semibold; the font is the platform's interface font, the one
+  the `Classic` body is, with tabular figures; the monospace is the first of Cascadia Mono, Cascadia Code and Consolas
+  the platform has, or its own monospace, at `fontBody`. Sizes are set as points at the 96 logical dots per inch Qt 6
+  presents to an application, which is the same size, so that code that makes a font from another by its point size
+  keeps working. The application's font is the body.
+- **A density changed while windows are shown sizes them again.** `AnProxyStyle::refreshThemeTokens()` - which
+  `ThemeManager::applyTheme()` calls - compares the sizes and the type scale it held with the new ones; when they
+  moved, it makes the body the application's font and sends every widget the `StyleChange` event Qt sends when a style
+  is set: a widget drops the size hint it keeps (a button, a combo box, a spin box, a tab bar, a header) and asks its
+  layout to run again, and a shown window grows to hold its controls. The new font reaches only the widgets that take
+  the application's; a widget given a font of its own, and what it holds, hears of the density through the style change
+  alone. A top-level widget's `updateGeometry()` would do nothing: a window has no layout above it to ask. Under
+  `Classic` the sizes never move, so none of it runs.
+- **`Classic` keeps 1.1's sizes and ignores the density.** Its `metrics` are 1.1's where 1.1 has a size for the role -
+  `control` 24, the least its style makes a field, a combo box, a spin box or a button, `scrollBar` 12, the font sizes
+  of its type scale (`fontSmall` is its caption's) - and the Compact column where it has none, so a widget made for the
+  `Observatory` profile is sized as designed if it is shown under `Classic`. The proxy style's `Classic` answers read
+  none of them: `Density.ClassicMetricsAreUnchanged` holds them, under either density, to a record taken before the
+  metrics existed (`src/AfterNightTests/Test_ThemeSystem/data/ClassicMetrics.txt`), edited by the change that means to
+  move an entry. The density setting is offered only under `Observatory`.
+- **A new widget sizes itself from `tokens().metrics`** in its `sizeHint()`, read there and never kept from a
+  constructor, and is checked in both densities ([Checklist for New Controls](#checklist-for-new-controls)).
+
 ### Accessing Tokens
 
 ```cpp
@@ -315,10 +383,10 @@ unless `AN_UI_TOKENS_ENABLED` is set false.
 | `drawPrimitive()` | `PE_PanelLineEdit`, `PE_IndicatorCheckBox`, `PE_IndicatorRadioButton`, `PE_PanelItemViewItem`, `PE_PanelTipLabel`, `PE_FrameGroupBox`, `PE_Frame` (cards, banners, context messages, item views, generic `anFrameRadius` frames), `PE_FrameTabWidget`, `PE_FrameMenu`, `PE_PanelMenu`, `PE_PanelMenuBar`, `PE_PanelStatusBar`, `PE_PanelToolBar`, `PE_IndicatorToolBarSeparator`, `PE_PanelButtonCommand`, `PE_PanelButtonTool`, `PE_IndicatorTabClose` |
 | `drawControl()` | `CE_PushButtonBevel`, `CE_PushButtonLabel`, `CE_TabBarTabShape`, `CE_TabBarTabLabel`, `CE_ProgressBar*`, `CE_HeaderSection`, `CE_HeaderLabel`, `CE_MenuItem`, `CE_MenuBarItem`, `CE_MenuBarEmptyArea`, `CE_ComboBoxLabel`, `CE_ToolButtonLabel`, `CE_Splitter`, `CE_DockWidgetTitle`, `CE_ItemViewItem` |
 | `drawComplexControl()` | `CC_ComboBox`, `CC_SpinBox`, `CC_Slider`, `CC_ScrollBar`, `CC_GroupBox` |
-| `sizeFromContents()` | `CT_PushButton`, `CT_LineEdit`, `CT_ComboBox`, `CT_SpinBox`, `CT_TabBarTab` |
+| `sizeFromContents()` | `CT_PushButton`, `CT_LineEdit`, `CT_ComboBox`, `CT_SpinBox`, `CT_TabBarTab`; under the Observatory profile also `CT_ToolButton`, `CT_HeaderSection`, `CT_ItemViewItem`, `CT_MenuItem`, all from the metric tokens ([Density](#density)) |
 | `subControlRect()` | `CC_SpinBox`, `CC_ComboBox`, `CC_GroupBox` |
 | `subElementRect()` | `SE_LineEditContents` |
-| `pixelMetric()` | Margins, frame widths, scroll bar extent, slider dimensions, layout spacing, toolbar metrics, splitter width, indicator sizes |
+| `pixelMetric()` | Margins, frame widths, scroll bar extent, slider dimensions, layout spacing, toolbar metrics, splitter width, indicator sizes; under the Observatory profile the scroll bar extent and a table's row height from the metric tokens |
 | `styleHint()` | Tooltip delay, etch-disabled-text, item-view decoration |
 | `standardIcon()` | Maps Qt standard pixmaps to themed SVG icons from `IconManager` |
 | `polish()` | Sets `WA_Hover` on interactive widgets, applies palette colors to `QLabel`, configures `QDialogButtonBox` roles/icons, normalizes layout spacing to tokens, promotes process-shell frames |
@@ -823,7 +891,8 @@ Settings applies contrast/accent/tint (set*()) and the theme
 ThemeManager::applyTheme(themeId)              (app/ThemeManager.cpp)
   ├─ setThemePreference(...) → refreshTokens() → publishResolvedTokenSnapshot()
   ├─ installedAnProxyStyle()->refreshThemeTokens()
-  │     refreshTokens(); re-reads tokens(); app palette via setupPalette(); polish()+update() every widget
+  │     refreshTokens(); re-reads tokens(); app palette via setupPalette(); polish()+update() every widget;
+  │     when the sizes or the type scale moved (a density): the body as the app font, StyleChange to every widget
   ├─ installedKddwProxyStyle()->refreshThemeTokens()
   │     re-reads tokens(); dock-window palette; polish()+update() its children
   ├─ clears the KDDW view factory's icon cache
@@ -831,7 +900,7 @@ ThemeManager::applyTheme(themeId)              (app/ThemeManager.cpp)
   └─ refreshCascade(): dashboard, image views, dock tabs/stacks, open processes; native backdrop
 ```
 
-The same flow applies for accent family, contrast profile, and surface tint changes. Each `set*()` function calls `refreshTokens()` internally.
+The same flow applies for accent family, contrast profile, surface tint, tint strength and density changes. Each `set*()` function calls `refreshTokens()` internally.
 
 ### Environment Variable
 
@@ -944,6 +1013,9 @@ widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 | `lg` (12px) | Process shell cards, elevated panels |
 | `xl` (14px) | Large overlay panels, prominent floating UI |
 
+Under the Observatory profile: `sm` 6 for tooltips, palette rows and other small parts, `md` 8 for controls, `lg` 12
+for cards and popups, `xl` 16 for sheets.
+
 ### Typography Usage Guide
 
 | Token | When to Use |
@@ -1034,6 +1106,8 @@ Before submitting a new control or widget, verify:
 - [ ] **All colors from `an::ui::tokens().colors`** — no hardcoded hex/RGB values
 - [ ] **All spacing from `an::ui::tokens().spacing`** — no hardcoded pixel values (except for sub-pixel antialiasing adjustments like `0.5`)
 - [ ] **All radii from `an::ui::tokens().radius`**
+- [ ] **All control, row and bar sizes from `an::ui::tokens().metrics`**, read in `sizeHint()` — never kept from a constructor
+- [ ] **Both densities tested** — under the Observatory profile, Compact and Comfortable each size the widget from their metrics
 - [ ] **All fonts from `an::ui::tokens().typography`** — no `QFont` constructed with literal family/size
 - [ ] **Animations gated through `AnimationUtils::duration()`**
 - [ ] **Disabled state handled** — uses `textTertiary`, `bgSurface`, `borderSubtle`

@@ -72,6 +72,14 @@ enum class ThemeTintStrength
     Strong
 };
 
+/// How dense the Observatory profile lays the interface out: Compact (the default) or Comfortable, a column of the
+/// metric tokens each. The Classic profile has AfterNight 1.1's sizes and ignores it.
+enum class ThemeDensity
+{
+    Compact,
+    Comfortable
+};
+
 enum class SemanticColorRole
 {
     SurfaceWindow,
@@ -415,6 +423,39 @@ struct TypographyTokens
     [[nodiscard]] bool operator==(const TypographyTokens&) const = default;
 };
 
+/// The sizes of the interface, in logical pixels: what a control, a row and a bar are high, the font sizes, a panel's
+/// padding and gaps. Under the Observatory profile they are the density's column (the defaults below are Compact's);
+/// under the Classic profile they are AfterNight 1.1's where 1.1 has a size for the role and Compact's where it has
+/// none. The proxy style sizes the standard widgets from them, and a widget sizes itself from them in its sizeHint().
+struct MetricTokens
+{
+    int fontBody = 13; ///< The body text.
+    int fontSmall = 12; ///< Secondary text: a status line, a tab's name, a key and its value.
+    int fontCaption = 11; ///< A caption, a chip's text, a table's header.
+    int control = 32; ///< A button, a field, a combo box, a spin box, an icon button (a square).
+    int controlSmall = 28; ///< A small button; a tab inside a panel.
+    int controlXSmall = 24; ///< An icon button in a strip.
+    int controlLarge = 40; ///< A large button.
+    int rowTable = 30; ///< A row of a table, a list or a tree, and a table's header.
+    int rowDense = 28; ///< A menu's item; a row of a dense list.
+    int rowKeyValue = 24; ///< A row of keys and values.
+    int rowSettings = 38; ///< A row of a settings page.
+    int rowPalette = 30; ///< A row of the command palette.
+    int barTop = 44; ///< The top bar.
+    int strip = 34; ///< A tab strip, the history strip, a task's header.
+    int statusLine = 26; ///< The status line.
+    int rail = 44; ///< The rail's width.
+    int pad = 12; ///< A panel's padding.
+    int gap = 8; ///< The gap between a panel's parts.
+    int sectionHeader = 32; ///< A section's header.
+    int chip = 24; ///< A chip.
+    int tag = 20; ///< A tag.
+    int floatingToolbar = 40; ///< A tool bar floating over an image.
+    int scrollBar = 8; ///< A scroll bar's thickness; the same in both densities.
+
+    [[nodiscard]] bool operator==(const MetricTokens&) const = default;
+};
+
 struct DesignTokens
 {
     ColorTokens colors;
@@ -423,6 +464,7 @@ struct DesignTokens
     LayerTokens layers;
     MaterialTokens materials;
     TypographyTokens typography;
+    MetricTokens metrics;
 
     [[nodiscard]] bool operator==(const DesignTokens&) const = default;
 };
@@ -438,6 +480,7 @@ struct ThemeChoices
     ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral;
     ThemeTintStrength tintStrength = ThemeTintStrength::Balanced;
     StyleProfile profile = StyleProfile::Classic;
+    ThemeDensity density = ThemeDensity::Compact;
     /// Whether the material surfaces take the window system's backdrop (setMaterialBackdropMode()).
     bool nativeBackdrop = false;
 
@@ -445,8 +488,8 @@ struct ThemeChoices
 };
 
 /// Resolves the tokens of one combination in the pipeline's order - the base, the accent, the tint, the contrast
-/// profile, the text on the accent, the materials - under the combination's profile. Reads and writes no global
-/// state, so it may be called from any thread.
+/// profile, the text on the accent, the materials, the sizes and the type scale - under the combination's profile.
+/// Reads and writes no global state, so it may be called from any thread.
 [[nodiscard]] AFTERNIGHTCONTROLS_API DesignTokens resolveDesignTokens(const ThemeChoices& choices);
 
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& tokens();
@@ -480,6 +523,11 @@ AFTERNIGHTCONTROLS_API void setThemeSurfaceTintFamily(ThemeSurfaceTintFamily fam
 [[nodiscard]] AFTERNIGHTCONTROLS_API ThemeSurfaceTintFamily themeSurfaceTintFamily();
 AFTERNIGHTCONTROLS_API void setThemeTintStrength(ThemeTintStrength strength);
 [[nodiscard]] AFTERNIGHTCONTROLS_API ThemeTintStrength themeTintStrength();
+
+/// Puts a density in force and resolves the tokens again. A window shown at the time is sized again when the proxy
+/// style refreshes its tokens (AnProxyStyle::refreshThemeTokens()), as a theme change does.
+AFTERNIGHTCONTROLS_API void setThemeDensity(ThemeDensity density);
+[[nodiscard]] AFTERNIGHTCONTROLS_API ThemeDensity themeDensity();
 
 /// Puts a style profile in force and resolves the tokens again. The application sets the profile its shell names once,
 /// before its first widget: a widget is sized and painted under one profile for its life. Once a widget exists, a

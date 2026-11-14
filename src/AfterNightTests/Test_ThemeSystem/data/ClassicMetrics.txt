@@ -1,0 +1,81 @@
+# What the proxy style answers under the Classic profile: the pixel metrics it answers itself and
+# the ones the Observatory profile answers, which Classic leaves to the base style; the sizes it
+# gives the controls a density sizes, from their contents; the sub-controls of the spin box and
+# the combo box.
+#
+# An entry is what is asked, the case - the widget asked about or the contents given - and the
+# answer. A size that follows the font is stated against the font, which is the host's.
+#
+# Density.ClassicMetricsAreUnchanged in Test_ThemeSystem compares the running style with this
+# record under each density. An entry is edited by the change that means to move its value; the
+# record is not written again whole.
+
+[pixel metrics]
+PM_ButtonMargin | no widget | 8
+PM_SpinBoxFrameWidth | no widget | 2
+PM_DefaultFrameWidth | no widget | 1
+PM_ScrollBarExtent | no widget | 12
+PM_ScrollBarSliderMin | no widget | 26
+PM_SliderLength | no widget | 14
+PM_SliderThickness | no widget | 18
+PM_TabBarTabHSpace | no widget | 32
+PM_TabBarTabVSpace | no widget | 16
+PM_LayoutHorizontalSpacing | no widget | 8
+PM_LayoutVerticalSpacing | no widget | 8
+PM_LayoutLeftMargin | no widget | 12
+PM_LayoutTopMargin | no widget | 12
+PM_LayoutRightMargin | no widget | 12
+PM_LayoutBottomMargin | no widget | 12
+PM_ToolBarIconSize | no widget | 20
+PM_ToolBarFrameWidth | no widget | 0
+PM_ToolBarHandleExtent | no widget | 0
+PM_SplitterWidth | no widget | 2
+PM_IndicatorWidth | no widget | 18
+PM_IndicatorHeight | no widget | 18
+PM_ExclusiveIndicatorWidth | no widget | 18
+PM_ExclusiveIndicatorHeight | no widget | 18
+PM_HeaderDefaultSectionSizeVertical | no widget | 30
+PM_HeaderDefaultSectionSizeHorizontal | no widget | 100
+PM_HeaderMargin | no widget | 2
+PM_MenuHMargin | no widget | 0
+PM_MenuVMargin | no widget | 0
+PM_TabBarTabVSpace | a compact tab bar | 12
+PM_SplitterWidth | a process splitter | 8
+PM_SplitterWidth | a widget in a process splitter | 8
+
+[sizes from contents]
+CT_PushButton | text, contents 10x10 | 80x24
+CT_PushButton | text in a dialog button box, contents 10x10 | 90x32
+CT_PushButton | no text, contents 10x10 | 70x24
+CT_ToolButton | contents 10x10 | 18x17
+CT_LineEdit | contents 10x10 | 12x24
+CT_ComboBox | contents 10x10 | 38x24
+CT_SpinBox | contents 10x10 | 70x24
+CT_TabBarTab | a tab bar, contents 10x10 | 10x10
+CT_TabBarTab | a process tab bar, contents 10x10 | 170x18
+CT_TabBarTab | a dialog tab bar, contents 10x10 | 170x22
+CT_PushButton | text, contents 200x40 | 216x50
+CT_PushButton | text in a dialog button box, contents 200x40 | 216x50
+CT_PushButton | no text, contents 200x40 | 216x50
+CT_ToolButton | contents 200x40 | 208x47
+CT_LineEdit | contents 200x40 | 202x46
+CT_ComboBox | contents 200x40 | 228x46
+CT_SpinBox | contents 200x40 | 236x41
+CT_TabBarTab | a tab bar, contents 200x40 | 200x40
+CT_TabBarTab | a process tab bar, contents 200x40 | 200x34
+CT_TabBarTab | a dialog tab bar, contents 200x40 | 200x40
+CT_ItemViewItem | a 16x16 decoration | 22x18
+CT_ScrollBar | horizontal, contents 50x12 | 50x12
+CT_ScrollBar | vertical, contents 12x50 | 12x50
+CT_HeaderSection | the text Name | the text's width plus 4, its height plus 4
+CT_MenuItem | the text Open, contents 300 wide and the font's height | 351 wide, the font's height plus 8
+
+[sub-controls]
+SC_SpinBoxUp | a spin box of 120x24 | 100,0 20x12
+SC_SpinBoxDown | a spin box of 120x24 | 100,12 20x12
+SC_SpinBoxEditField | a spin box of 120x24 | 8,0 92x24
+SC_SpinBoxFrame | a spin box of 120x24 | 0,0 120x24
+SC_ComboBoxArrow | a combo box of 160x24 | 136,0 24x24
+SC_ComboBoxEditField | a combo box of 160x24 | 8,0 128x24
+SC_ComboBoxFrame | a combo box of 160x24 | 0,0 160x24
+SC_ComboBoxListBoxPopup | a combo box of 160x24 | 0,0 160x24

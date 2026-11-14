@@ -276,6 +276,14 @@ state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeTintStrength
     synchronization  an atomic
     reason           How much of the surface tint the Observatory profile's resolution blends in.
 
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeDensity
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           The density the Observatory profile's resolution sizes the interface by.
+
 state src/AfterNightControls/theme/AnDesignTokens.cpp g_styleProfile
     scope            anonymous namespace
     category         theme-service

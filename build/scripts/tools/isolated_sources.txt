@@ -2829,6 +2829,8 @@ sources Test_ExtensionHostNative
 # The theme suite, switched with the Controls suites: the design tokens, the proxy style, the animation helpers, the
 # feature flags, the theme manager's cascade and the PixelMath palette, its cases linked against the Controls library.
 sources Test_ThemeSystem
+    unit     src/AfterNightTests/Test_ThemeSystem/ClassicMetricsTest.cpp
+    unit     src/AfterNightTests/Test_ThemeSystem/DensityTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/ObservatoryTokensTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/StyleProfileTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/main.cpp
@@ -2953,6 +2955,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/main.cpp
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_density_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_tint_strength_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_json_serializer.cpp

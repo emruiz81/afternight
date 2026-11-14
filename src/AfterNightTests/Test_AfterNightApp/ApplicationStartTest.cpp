@@ -24,18 +24,23 @@
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 
+#include <QAction>
 #include <QApplication>
+#include <QFont>
 #include <QImage>
 #include <QPalette>
 #include <QPixmap>
 #include <QProcessEnvironment>
 #include <QString>
 #include <QStringList>
+#include <QToolBar>
+#include <QToolButton>
 #include <QWidget>
 
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <tuple>
 #include <utility>
 
 namespace
@@ -348,6 +353,111 @@ TEST(ApplicationStart, TheTintStrengthIsReadFromTheSettingsStore)
     ASSERT_NE(started.shell, nullptr);
     ASSERT_TRUE(started.shell->mainWindow()->close());
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+}
+
+// The density is read from the settings store with the rest of the theme as the shell starts; the Classic profile keeps
+// it for when it is asked for and sizes nothing by it.
+TEST(ApplicationStart, TheDensityIsReadFromTheSettingsStore)
+{
+    ASSERT_EQ(an::ui::themeDensity(), an::ui::ThemeDensity::Compact);
+    an::ui::ApplicationSession session;
+    ApplicationCore core;
+    core.setApplicationSession(&session);
+    ShellRegistry registry;
+    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    core.openStores();
+    ASSERT_NE(core.globalSettingsStore(), nullptr);
+    const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
+    ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("comfortable")));
+    const an::ui::MetricTokens classicMetrics = an::ui::tokens().metrics;
+
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+
+    EXPECT_EQ(an::ui::themeDensity(), an::ui::ThemeDensity::Comfortable);
+    EXPECT_TRUE(an::ui::tokens().metrics == classicMetrics) << "the Classic profile sized something by the density";
+
+    // The setting and the density are taken back before the stores close with the application.
+    EXPECT_TRUE(core.globalSettingsStore()->remove(key));
+    an::ui::setThemeDensity(an::ui::ThemeDensity::Compact);
+    ASSERT_NE(started.shell, nullptr);
+    ASSERT_TRUE(started.shell->mainWindow()->close());
+    EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+}
+
+// With the developer switch the classic shell starts in the density the settings store names: a tool bar's buttons are
+// the density's control high, and the application's font is its body size. Changed and started again, it starts in the
+// other.
+TEST(ApplicationStart, TheDeveloperSwitchStartsTheClassicShellInEitherDensity)
+{
+    const an::ui::testing::ScopedStyleProfile classicAfterwards(an::ui::StyleProfile::Classic);
+    const QPalette paletteBefore = QApplication::palette();
+    const QFont fontBefore = QApplication::font();
+    QProcessEnvironment environment;
+    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
+                       QStringLiteral("observatory"));
+
+    for (const auto& [setting, control, bodyPixels] :
+         {std::tuple{QStringLiteral("comfortable"), 36, 14}, std::tuple{QStringLiteral("compact"), 32, 13}})
+    {
+        SCOPED_TRACE(setting.toStdString());
+        an::ui::ApplicationSession session;
+        ApplicationCore core;
+        core.setApplicationSession(&session);
+        ShellRegistry registry;
+        ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+        core.openStores();
+        ASSERT_NE(core.globalSettingsStore(), nullptr);
+        const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
+        ASSERT_TRUE(core.globalSettingsStore()->upsert(key, setting));
+
+        an::ui::StartedApplication started = an::ui::startApplication(
+            core, registry, {QStringLiteral("AfterNight")}, environment, [](const an::ui::StyleProfile profile) {
+                // The application's step, but for the widgets earlier cases of this process
+                // made.
+                an::ui::testing::forceStyleProfile(profile);
+                (void)an::ui::installAnProxyStyle();
+            });
+
+        ASSERT_NE(started.shell, nullptr);
+        QWidget* const window = started.shell->mainWindow();
+        ASSERT_NE(window, nullptr);
+        EXPECT_EQ(an::ui::tokens().metrics.control, control);
+        const QFont font = QApplication::font();
+        EXPECT_EQ(qRound(font.pointSizeF() * 96.0 / 72.0), bodyPixels);
+        QToolButton* toolButton = nullptr;
+        for (QToolBar* const toolBar : window->findChildren<QToolBar*>())
+        {
+            for (QAction* const action : toolBar->actions())
+            {
+                if (auto* const button = qobject_cast<QToolButton*>(toolBar->widgetForAction(action));
+                    button != nullptr && !action->icon().isNull())
+                {
+                    toolButton = button;
+                    break;
+                }
+            }
+            if (toolButton != nullptr)
+            {
+                break;
+            }
+        }
+        ASSERT_NE(toolButton, nullptr) << "the classic window has no tool bar button";
+        EXPECT_EQ(toolButton->sizeHint().height(), control);
+
+        EXPECT_TRUE(core.globalSettingsStore()->remove(key));
+        an::ui::setThemeDensity(an::ui::ThemeDensity::Compact);
+        ASSERT_TRUE(window->close());
+        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+
+        // The process's style, palette and font as they were: the proxy style goes with the style it replaced.
+        QApplication* const application = qobject_cast<QApplication*>(QCoreApplication::instance());
+        ASSERT_NE(application, nullptr);
+        an::tests::fixtures::applyFusionStyle(*application);
+        an::ui::registerInstalledAnProxyStyle(nullptr);
+        QApplication::setPalette(paletteBefore);
+        QApplication::setFont(fontBefore);
+    }
 }
 
 // With nothing on the command line or in the environment, the shell the settings store names is the one made.

@@ -163,6 +163,11 @@ const char* styleProfileLabel(const an::ui::StyleProfile profile)
     return profile == an::ui::StyleProfile::Observatory ? "observatory" : "classic";
 }
 
+const char* densityLabel(const an::ui::ThemeDensity density)
+{
+    return density == an::ui::ThemeDensity::Comfortable ? "comfortable" : "compact";
+}
+
 const char* tintStrengthLabel(const an::ui::ThemeTintStrength strength)
 {
     switch (strength)
@@ -443,6 +448,33 @@ void appendTypographyTokensDump(std::string& report, const an::ui::TypographyTok
     appendFont("typography.monospace", typography.monospace);
 }
 
+void appendMetricTokensDump(std::string& report, const an::ui::MetricTokens& metrics)
+{
+    appendIntDumpLine(report, "metrics.fontBody", metrics.fontBody);
+    appendIntDumpLine(report, "metrics.fontSmall", metrics.fontSmall);
+    appendIntDumpLine(report, "metrics.fontCaption", metrics.fontCaption);
+    appendIntDumpLine(report, "metrics.control", metrics.control);
+    appendIntDumpLine(report, "metrics.controlSmall", metrics.controlSmall);
+    appendIntDumpLine(report, "metrics.controlXSmall", metrics.controlXSmall);
+    appendIntDumpLine(report, "metrics.controlLarge", metrics.controlLarge);
+    appendIntDumpLine(report, "metrics.rowTable", metrics.rowTable);
+    appendIntDumpLine(report, "metrics.rowDense", metrics.rowDense);
+    appendIntDumpLine(report, "metrics.rowKeyValue", metrics.rowKeyValue);
+    appendIntDumpLine(report, "metrics.rowSettings", metrics.rowSettings);
+    appendIntDumpLine(report, "metrics.rowPalette", metrics.rowPalette);
+    appendIntDumpLine(report, "metrics.barTop", metrics.barTop);
+    appendIntDumpLine(report, "metrics.strip", metrics.strip);
+    appendIntDumpLine(report, "metrics.statusLine", metrics.statusLine);
+    appendIntDumpLine(report, "metrics.rail", metrics.rail);
+    appendIntDumpLine(report, "metrics.pad", metrics.pad);
+    appendIntDumpLine(report, "metrics.gap", metrics.gap);
+    appendIntDumpLine(report, "metrics.sectionHeader", metrics.sectionHeader);
+    appendIntDumpLine(report, "metrics.chip", metrics.chip);
+    appendIntDumpLine(report, "metrics.tag", metrics.tag);
+    appendIntDumpLine(report, "metrics.floatingToolbar", metrics.floatingToolbar);
+    appendIntDumpLine(report, "metrics.scrollBar", metrics.scrollBar);
+}
+
 void appendDesignTokenDumpSection(std::string& report, const char* sectionName, const an::ui::DesignTokens& tokenSet)
 {
     report += fmt::format("[{}]\n", sectionName);
@@ -452,6 +484,7 @@ void appendDesignTokenDumpSection(std::string& report, const char* sectionName, 
     appendSpacingTokensDump(report, tokenSet.spacing);
     appendRadiusTokensDump(report, tokenSet.radius);
     appendTypographyTokensDump(report, tokenSet.typography);
+    appendMetricTokensDump(report, tokenSet.metrics);
 }
 
 void appendColorDiffLine(std::string& report, const char* name, const QColor& darkColor, const QColor& lightColor,
@@ -581,12 +614,12 @@ std::string buildResolvedTokenDumpReport(const an::ui::DesignTokens& darkTokenSe
                                          const an::ui::ThemeChoices& choices)
 {
     std::string report;
-    report +=
-        fmt::format("Resolved theme tokens report [active={}, profile={}, contrast={}, accent={}, surfaceTint={}, "
-                    "tintStrength={}]\n",
-                    themeVariantLabel(darkThemeActive), styleProfileLabel(choices.profile),
-                    contrastProfileLabel(choices.contrast), accentFamilyLabel(choices.accent),
-                    surfaceTintFamilyLabel(choices.tint), tintStrengthLabel(choices.tintStrength));
+    report += fmt::format(
+        "Resolved theme tokens report [active={}, profile={}, contrast={}, accent={}, surfaceTint={}, "
+        "tintStrength={}, density={}]\n",
+        themeVariantLabel(darkThemeActive), styleProfileLabel(choices.profile), contrastProfileLabel(choices.contrast),
+        accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint),
+        tintStrengthLabel(choices.tintStrength), densityLabel(choices.density));
     appendDesignTokenDumpSection(report, "dark.resolved", darkTokenSet);
     appendDesignTokenDumpSection(report, "light.resolved", lightTokenSet);
     report += buildResolvedTokenDiffReport(darkTokenSet, lightTokenSet);
@@ -1087,6 +1120,33 @@ an::ui::TypographyTokens createTypographyTokens()
     return typography;
 }
 
+/// A font's size in logical pixels: the pixel size it states, or its point size at the 96 logical dots per inch Qt 6
+/// presents to an application.
+int logicalPixels(const QFont& font)
+{
+    if (font.pixelSize() > 0)
+    {
+        return font.pixelSize();
+    }
+    return static_cast<int>(std::lround(font.pointSizeF() * 96.0 / 72.0));
+}
+
+/// The sizes AfterNight 1.1 has, where it has one for a role: the height its style gives a field, a combo box, a spin
+/// box and a button at least, the thickness of its scroll bars, the sizes of its type scale (it has two: the body and
+/// the caption, which is also its small text). A role 1.1 has no size for keeps the Compact density's, so that a widget
+/// made for the Observatory profile is sized as it was designed if it is shown under Classic. No Classic painter reads
+/// them: the proxy style's Classic answers are its own (Density.ClassicMetricsAreUnchanged holds them).
+an::ui::MetricTokens classicMetrics(const an::ui::TypographyTokens& typography)
+{
+    an::ui::MetricTokens metrics;
+    metrics.control = 24;
+    metrics.scrollBar = 12;
+    metrics.fontBody = logicalPixels(typography.body);
+    metrics.fontSmall = logicalPixels(typography.caption);
+    metrics.fontCaption = logicalPixels(typography.caption);
+    return metrics;
+}
+
 an::ui::DesignTokens createDarkTokens()
 {
     an::ui::DesignTokens tokenSet;
@@ -1139,6 +1199,7 @@ an::ui::DesignTokens createDarkTokens()
     refreshLayerAndMaterialMappings(tokenSet);
 
     tokenSet.typography = createTypographyTokens();
+    tokenSet.metrics = classicMetrics(tokenSet.typography);
 
     return tokenSet;
 }
@@ -1202,6 +1263,7 @@ an::ui::DesignTokens createLightTokens()
     tokenSet.materials.acrylicSurface = tokenSet.colors.bgCard;
 
     tokenSet.typography = createTypographyTokens();
+    tokenSet.metrics = classicMetrics(tokenSet.typography);
 
     return tokenSet;
 }
@@ -1467,6 +1529,7 @@ std::atomic_int g_themeContrastProfile{static_cast<int>(an::ui::ThemeContrastPro
 std::atomic_int g_themeAccentFamily{static_cast<int>(an::ui::ThemeAccentFamily::Blue)};
 std::atomic_int g_themeSurfaceTintFamily{static_cast<int>(an::ui::ThemeSurfaceTintFamily::Neutral)};
 std::atomic_int g_themeTintStrength{static_cast<int>(an::ui::ThemeTintStrength::Balanced)};
+std::atomic_int g_themeDensity{static_cast<int>(an::ui::ThemeDensity::Compact)};
 std::atomic_int g_styleProfile{static_cast<int>(an::ui::StyleProfile::Classic)};
 std::atomic_bool g_nativeBackdropSupported{detectNativeBackdropSupport()};
 std::atomic<const ResolvedTokenSnapshot*> g_activeResolvedTokens{nullptr};
@@ -1526,6 +1589,7 @@ an::ui::ThemeChoices activeChoices(const an::ui::ThemeVariant theme, const bool 
         .tint = static_cast<an::ui::ThemeSurfaceTintFamily>(g_themeSurfaceTintFamily.load()),
         .tintStrength = static_cast<an::ui::ThemeTintStrength>(g_themeTintStrength.load()),
         .profile = static_cast<an::ui::StyleProfile>(g_styleProfile.load()),
+        .density = static_cast<an::ui::ThemeDensity>(g_themeDensity.load()),
         .nativeBackdrop = nativeBackdrop,
     };
 }
@@ -1563,6 +1627,7 @@ DesignTokens resolveDesignTokens(const ThemeChoices& choices)
         DesignTokens resolved = base;
         resolveObservatoryColors(resolved, choices);
         resolved.materials = resolvedMaterials(resolved, dark, choices.nativeBackdrop);
+        resolveObservatorySizes(resolved, choices.density);
         return resolved;
     }
     DesignTokens resolved =
@@ -1778,6 +1843,17 @@ void setThemeTintStrength(const ThemeTintStrength strength)
 ThemeTintStrength themeTintStrength()
 {
     return static_cast<ThemeTintStrength>(g_themeTintStrength.load());
+}
+
+void setThemeDensity(const ThemeDensity density)
+{
+    g_themeDensity.store(static_cast<int>(density));
+    refreshTokens();
+}
+
+ThemeDensity themeDensity()
+{
+    return static_cast<ThemeDensity>(g_themeDensity.load());
 }
 
 bool setStyleProfile(const StyleProfile profile)

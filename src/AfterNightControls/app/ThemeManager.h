@@ -270,6 +270,23 @@ inline QString themeTintStrengthId(const ThemeTintStrength strength)
     }
 }
 
+/// The density a setting names: `compact` or `comfortable`, in any case; anything else is Compact.
+inline ThemeDensity resolveThemeDensity(const QString& densityId)
+{
+    if (densityId.trimmed().toLower() == QStringLiteral("comfortable"))
+    {
+        return ThemeDensity::Comfortable;
+    }
+
+    return ThemeDensity::Compact;
+}
+
+/// The setting's value for a density.
+inline QString themeDensityId(const ThemeDensity density)
+{
+    return density == ThemeDensity::Comfortable ? QStringLiteral("comfortable") : QStringLiteral("compact");
+}
+
 inline std::pair<QColor, QColor> iconPaletteForTheme(const bool darkMode)
 {
     const auto& colors = darkMode ? resolvedDarkTokens().colors : resolvedLightTokens().colors;

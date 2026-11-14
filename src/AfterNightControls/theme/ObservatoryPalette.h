@@ -7,8 +7,8 @@
 /// The Observatory profile's colours: the tables they are made from - the neutral bases and the text of each theme and
 /// contrast profile, the tint hues and how much of each is kept before it is blended, the tint strengths, the accent
 /// families, the status and channel colours - the derivations that make a token set from them, and the contrast rules
-/// every combination a user can choose is held to. `THEME_SYSTEM.md`, "Profiles" and "The surface ladder", says why
-/// each is what it is.
+/// every combination a user can choose is held to. And its sizes: the metrics of each density, the radii and the type
+/// scale. `THEME_SYSTEM.md`, "Profiles", "The surface ladder" and "Density", says why each is what it is.
 
 #include "AfterNightControlsExport.h"
 #include "theme/AnDesignTokens.h"
@@ -30,6 +30,14 @@ namespace an::ui
 /// theme with the OLED contrast profile resolves as Balanced, as it does under the Classic profile.
 /// resolveDesignTokens() is the way in; this is its Observatory half.
 AFTERNIGHTCONTROLS_API void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices);
+
+/// Fills the Observatory profile's sizes into `tokens`: the density's column of metrics, the radii, and the type scale,
+/// which is the interface font `tokens` holds as its body at the density's sizes, semibold for the headings, with
+/// tabular figures; the monospace is the first of Cascadia Mono, Cascadia Code and Consolas the platform has, or its
+/// own.
+/// Sizes are set as points at the 96 logical dots per inch Qt presents, so that code that makes a font from another by
+/// its point size keeps working. resolveDesignTokens() is the way in; this is its Observatory half for the sizes.
+void resolveObservatorySizes(DesignTokens& tokens, ThemeDensity density);
 
 /// A contrast rule a resolved token set misses: which pair, and by how much.
 struct ContrastFailure

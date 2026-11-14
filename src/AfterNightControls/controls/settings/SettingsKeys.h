@@ -57,6 +57,7 @@ inline constexpr auto INTERFACE_THEME_CONTRAST_PROFILE = "interface/themeContras
 inline constexpr auto INTERFACE_THEME_ACCENT_FAMILY = "interface/themeAccentFamily";
 inline constexpr auto INTERFACE_THEME_SURFACE_TINT_FAMILY = "interface/themeSurfaceTintFamily";
 inline constexpr auto INTERFACE_THEME_TINT_STRENGTH = "interface/themeTintStrength";
+inline constexpr auto INTERFACE_DENSITY = "interface/density";
 inline constexpr auto INTERFACE_ZOOM_SENSITIVITY = "interface/zoomSensitivity";
 inline constexpr auto INTERFACE_ZOOM_REQUIRES_CTRL = "interface/zoomRequiresCtrl";
 inline constexpr auto INTERFACE_LOCK_LAYOUT_BY_DEFAULT = "interface/lockLayoutByDefault";

@@ -83,6 +83,10 @@ void AppLifecycleCoordinator::initialize() const
                                                             QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH));
         setThemeTintStrength(resolveThemeTintStrength(tintStrength));
 
+        const QString density =
+            globalSettings->select(SettingsKeys::INTERFACE_DENSITY, QString(SettingsDefaults::INTERFACE_DENSITY));
+        setThemeDensity(resolveThemeDensity(density));
+
         const QString theme =
             globalSettings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME));
         m_dependencies.applyTheme(theme);
