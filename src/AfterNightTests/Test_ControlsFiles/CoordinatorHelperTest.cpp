@@ -9,7 +9,6 @@
 
 #include "Test_ControlsFiles/FilesTestContext.h"
 
-#include "app/ActionStateCoordinator.h"
 #include "app/FileManager.h"
 #include "app/FilePolicies.h"
 #include "app/FileWorkflowRunner.h"
@@ -204,19 +203,6 @@ TEST(RuntimeStorageCoordinatorComponent, RuntimeStorageCoordinator_StaleScratch_
 
     // Clock skew or a future timestamp must never be read as "very old".
     EXPECT_FALSE(an::ui::isStaleScratchEntry(-48h, 24h));
-}
-
-TEST(ActionStateCoordinatorComponent, ActionStateCoordinator_DisablesWhenNoActiveImageData)
-{
-    EXPECT_TRUE(an::ui::shouldDisableImageActions(false, false));
-    EXPECT_TRUE(an::ui::shouldDisableImageActions(true, false));
-    EXPECT_FALSE(an::ui::shouldDisableImageActions(true, true));
-}
-
-TEST(ActionStateCoordinatorComponent, ActionStateCoordinator_TogglesMaskRenderingState)
-{
-    EXPECT_TRUE(an::ui::shouldEnableMaskRenderingMenu(true));
-    EXPECT_FALSE(an::ui::shouldEnableMaskRenderingMenu(false));
 }
 
 TEST(PersistenceCoordinatorDecomposition, SkipsUNCPathsWhenPersistingLastDirectory)

@@ -210,7 +210,7 @@ ProcessDescriptor makeDescriptor(const char* category, const char* actionObjectN
     descriptor.action_object_name = actionObjectName ? actionObjectName : "actionUnknown";
     descriptor.id = buildProcessId(descriptor.category, descriptor.action_object_name);
 
-    // Names are hydrated from QAction text during MenuActionManager wiring.
+    // Names are hydrated from QAction text when the application binds its actions to the registry.
     descriptor.display_name = descriptor.action_object_name;
     descriptor.process_name = descriptor.display_name;
     descriptor.launch_mode = launchMode;

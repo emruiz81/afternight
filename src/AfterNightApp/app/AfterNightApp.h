@@ -98,16 +98,10 @@ class MaskOverlayCoordinator;
 class DialogOrchestrationCoordinator;
 class RuntimeStorageCoordinator;
 class UiBootstrapCoordinator;
-class ActionStateCoordinator;
 class WindowLayoutCoordinator;
 class AppLifecycleCoordinator;
 class PersistenceCoordinator;
 } // namespace an::ui
-
-namespace an::ui::extensions
-{
-class ExtensionHostLaunchCoordinator;
-}
 
 namespace an::ui::shell
 {
@@ -405,14 +399,12 @@ public:
 
 private:
     friend class an::ui::ThemeManager;
-    friend class an::ui::MenuActionManager;
     friend class an::ui::FileManager;
 
     [[nodiscard]] an::ui::FileManager* fileManager() const;
     [[nodiscard]] an::ui::MaskOverlayCoordinator* maskOverlay() const;
     [[nodiscard]] an::ui::WindowLayoutCoordinator* windowLayout() const;
     [[nodiscard]] an::ui::DialogOrchestrationCoordinator* dialogOrchestration() const;
-    [[nodiscard]] an::ui::ActionStateCoordinator* actionState() const;
 
     void on_imageViewControlListComboBox_currentTextChanged(const QString& text);
 
@@ -442,15 +434,12 @@ private:
     void persistLastOpenDir();
 
     void persistRecentFiles();
-    [[nodiscard]] size_t getRecentProcessesLimit() const;
-    void enforceRecentProcessesLimit();
-    void loadRecentProcessesFromSettings();
-    void persistRecentProcessesToSettings();
     void updateRecentProcessesMenuEntries();
     void clearRecentProcessesList();
-    void loadFavoriteProcessesFromSettings();
-    void persistFavoriteProcessesToSettings();
     void updateFavoriteProcessesMenuEntries();
+    /// The extensions' processes in the category menus and their families in the Extensions menu, as the core's process
+    /// menus hold them.
+    void updateExtensionMenuEntries();
     void openManageFavoriteProcessesDialog();
     void clearFavoriteProcessesList();
 

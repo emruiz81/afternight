@@ -16,8 +16,10 @@
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 #include <AfterNightEngine/Core/ImageExtent.h>
+#include <AfterNightEngine/IO/SequenceDescriptor.h>
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
+#include <AfterNightEngine/Image/SampleTraits.h>
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -240,6 +242,66 @@ private:
         return nullptr;
     }
     return std::make_unique<SessionProvider>(std::move(*session));
+}
+
+/// A new document of the session around an image of 8 x 4 samples of one value - of the sample type `SampleT`, single
+/// channel or RGB - shown under `name`, and stated a frame of a sequence of `sequence` when one is given; nothing when
+/// it cannot be made.
+template <typename SampleT>
+[[nodiscard]] std::optional<an::ui::ImageDocument>
+documentOf(const an::consumer::EngineSession& session, const QString& name, const bool rgb = false,
+           const std::optional<an::SequenceFormat> sequence = std::nullopt)
+{
+    an::Result<an::consumer::SessionHold> hold = session.hold();
+    if (!hold.hasValue())
+    {
+        return std::nullopt;
+    }
+    const std::optional<an::ImageExtent> extent =
+        an::ImageExtent::create(8u, 4u, rgb ? 3u : 1u, hold->engine().limits());
+    if (!extent.has_value())
+    {
+        return std::nullopt;
+    }
+    const std::optional<an::ImageDescriptor> descriptor = an::ImageDescriptor::create(
+        an::ImageDescriptorRequest{.extent = *extent,
+                                   .sampleType = an::kSampleTypeOf<SampleT>,
+                                   .channelSchema = rgb ? an::ChannelSchema::Rgb : an::ChannelSchema::Mono,
+                                   .colorSpace = an::ColorSpace::Unspecified,
+                                   .numericDomain = an::NumericDomain::NormalizedLinear,
+                                   .cfa = an::CfaDescriptor{},
+                                   .coordinateOrigin = an::CoordinateOrigin::TopLeft,
+                                   .pixelAspectRatio = 1.0});
+    if (!descriptor.has_value())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::Image<SampleT>> image = an::Image<SampleT>::createFilled(
+        hold->engine(), *descriptor, an::StorageArrangement::Planar, static_cast<SampleT>(1));
+    if (!image.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::consumer::ImageAsset> asset =
+        an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage(std::move(*image)));
+    if (!asset.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::Result<an::ui::ImageDocument> document =
+        an::ui::ImageDocument::create(std::move(*asset), an::ui::DocumentNames{.displayName = name, .sourcePath = {}});
+    if (!document.hasValue())
+    {
+        return std::nullopt;
+    }
+    if (sequence.has_value())
+    {
+        an::ui::DocumentSequence stated;
+        stated.descriptor.format = *sequence;
+        stated.descriptor.frameCount = 2u;
+        document->setSequence(stated);
+    }
+    return std::move(*document);
 }
 
 /// A new document of the session around a single-channel Float32 image of 8 x 4 samples of one value, shown under

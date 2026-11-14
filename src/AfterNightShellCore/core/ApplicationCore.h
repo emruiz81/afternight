@@ -59,14 +59,19 @@ struct RawOpenSettings;
 namespace an::ui::shell
 {
 
+class ActionBindings;
+class ActionCatalogue;
+class ActionStateCoordinator;
 class AppEventBus;
 class DialogService;
+class ExtensionService;
 class FavoriteProcessesModel;
 class FileDialogService;
 class IApplicationEventTarget;
 class IShell;
 class OpenProcessRegistry;
 class ProcessLaunchService;
+class ProcessMenuModel;
 class RecentFilesModel;
 class RecentProcessesModel;
 class ViewService;
@@ -80,7 +85,8 @@ class ViewService;
 /// there against the target it was given.
 ///
 /// It holds the services the application context answers with - the messages, the file dialogs, the views, the launch
-/// of processes - which answer what only a window can through the shell they are given (`setShell`).
+/// of processes, the installed extensions - which answer what only a window can through the shell they are given
+/// (`setShell`); and the application's actions, what they do, which of them are offered and the process menus' data.
 ///
 /// `main` makes it on the GUI thread before the window and hands it to the window, which wires its own units to what
 /// the core holds; the core outlives the window. It makes no widget.
@@ -184,8 +190,25 @@ public:
     /// The launch of the registry's processes, the extensions' included.
     [[nodiscard]] ProcessLaunchService& processLaunch() noexcept;
 
+    /// The installed extensions and the host sessions their processes run in.
+    [[nodiscard]] ExtensionService& extensions() noexcept;
+
     /// The icons the application draws with, in the theme's colours.
     [[nodiscard]] const std::shared_ptr<IconManager>& iconManager() const noexcept;
+
+    // ---- The actions
+
+    /// The application's actions, children of the core unless a shell's window hosts them.
+    [[nodiscard]] ActionCatalogue& actions() noexcept;
+
+    /// What the actions do: they are connected once the shell's targets are given (`ActionBindings::setTargets`).
+    [[nodiscard]] ActionBindings& actionBindings() noexcept;
+
+    /// Which actions are offered, from the image the image actions act on.
+    [[nodiscard]] ActionStateCoordinator& actionState() noexcept;
+
+    /// The process menus as data: the favourite and recent processes, and what the extensions add.
+    [[nodiscard]] ProcessMenuModel& processMenus() noexcept;
 
     // ---- The session
 

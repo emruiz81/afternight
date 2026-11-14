@@ -896,8 +896,6 @@ sources Test_ControlsFiles
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
     header   src/AfterNightControls/AfterNightControlsExport.h
-    header   src/AfterNightControls/app/ActionStateCoordinator.h
-    header   src/AfterNightControls/app/AfterNightAppUiBuilder.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/FileDialogUtils.h
     header   src/AfterNightControls/app/FileManager.h
@@ -1234,7 +1232,6 @@ sources Test_MaskDrawing
     header   src/AfterNightControls/app/AfterNightAppUiBuilder.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/IconManager.h
-    header   src/AfterNightControls/app/MenuActionManager.h
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
@@ -1305,6 +1302,9 @@ sources Test_MaskDrawing
 # companions the file workflows, the process framework and the history reach, the player of a sequence view, and the New
 # Sequence and Export Sequence windows, over the fixture layer their oracles start from. Its cases link the Controls
 # library and compile nothing of it.
+    header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
+    header   src/AfterNightTests/fixtures/RecordedActions.h
 sources Test_ControlsSequences
     unit     src/AfterNightTests/Test_ControlsSequences/main.cpp
     unit     src/AfterNightTests/Test_ControlsSequences/SequenceContainersTest.cpp
@@ -1575,6 +1575,9 @@ sources Test_ControlsDocking
 # windows and recent and favourite lists. Its cases link the shell core and the Controls library and compile nothing of
 # either; one starts the executable again, to hold the choice to the arguments it is handed.
 sources Test_ShellCore
+    unit     src/AfterNightTests/Test_ShellCore/ActionBindingsTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ActionCatalogueTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ActionStateTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/AppEventBusTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationContextTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
@@ -1582,14 +1585,17 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/DialogServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/FavoriteProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/FileDialogServiceTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/MenuTreeTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/OpenProcessRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProcessLaunchServiceTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ProcessMenuModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentFilesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellSelectionTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ViewServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
+    header   src/AfterNightTests/Test_ShellCore/ShellCoreRecords.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreViewSupport.h
     header   src/AfterNightShellCore/services/DialogService.h
@@ -1676,6 +1682,19 @@ sources Test_ShellCore
 # case that observes what the view tells its companions does it through the stand-ins its companion seam is implemented
 # by here. It compiles the statistics windows' and the drawing tools' closures over the viewer's, each stand-in
 # replacing a companion whose real unit the list does not compile. Every other Controls case links the library.
+    header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightControls/app/IconManager.h
+    header   src/AfterNightControls/app/ImageOperationsCoordinator.h
+    header   src/AfterNightControls/app/MaskOverlayCoordinator.h
+    header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ImageViewControlManager.h
+    header   src/AfterNightShellCore/actions/ActionBindings.h
+    header   src/AfterNightShellCore/actions/ActionCatalogue.h
+    header   src/AfterNightShellCore/actions/ActionIds.h
+    header   src/AfterNightShellCore/actions/ActionStateCoordinator.h
+    header   src/AfterNightShellCore/actions/MenuTree.h
+    header   src/AfterNightShellCore/actions/ProcessMenuModel.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
 sources Test_ControlsSeams
     unit     src/AfterNightTests/Test_ControlsSeams/DrawingCloseTest.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/StatisticsCloseTest.cpp
@@ -2127,7 +2146,6 @@ sources Test_AfterNightApp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/SexagesimalFormatter.h
-    header   src/AfterNightControls/app/ActionStateCoordinator.h
     header   src/AfterNightControls/app/AfterNightAppListener.h
     header   src/AfterNightControls/app/AfterNightAppUiBuilder.h
     header   src/AfterNightControls/app/AfterNightEvent.h
@@ -2328,6 +2346,14 @@ sources Test_AfterNightApp
 # The full extension host's native suite: its application context, its native process window and the session it borrows
 # from the runtime backend, compiled from the host's sources and linked against the processes and Controls libraries. It
 # loads the deployed runtime backend module and starts the bundled interpreter as the host does.
+    header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightShellCore/actions/ActionBindings.h
+    header   src/AfterNightShellCore/actions/ActionCatalogue.h
+    header   src/AfterNightShellCore/actions/ActionStateCoordinator.h
+    header   src/AfterNightShellCore/actions/ProcessMenuModel.h
+    header   src/AfterNightShellCore/services/ExtensionService.h
+    header   src/AfterNightTests/fixtures/RecordedActions.h
+    header   src/AfterNightShellCore/actions/MenuTree.h
 sources Test_ExtensionHostNative
     unit     src/AfterNightTests/Test_ExtensionHostNative/main.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/HostImageDescriptionTest.cpp
@@ -2727,7 +2753,6 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/app/FileCompanions.h
     header   src/AfterNightControls/app/FileDialogUtils.h
     header   src/AfterNightControls/app/IconManager.h
-    header   src/AfterNightControls/app/MenuActionManager.h
     header   src/AfterNightControls/app/ProcessControlEvent.h
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/SequenceOutputCleanup.h
@@ -5065,7 +5090,6 @@ sources Test_ProcessFramework
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightControls/AfterNightControlsExport.h
-    header   src/AfterNightControls/app/ActionStateCoordinator.h
     header   src/AfterNightControls/app/AfterNightAppListener.h
     header   src/AfterNightControls/app/AfterNightAppUiBuilder.h
     header   src/AfterNightControls/app/AfterNightEvent.h
@@ -5085,7 +5109,6 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/app/ImageOperationsCoordinator.h
     header   src/AfterNightControls/app/MaskOverlayCoordinator.h
-    header   src/AfterNightControls/app/MenuActionManager.h
     header   src/AfterNightControls/app/ProcessControlEvent.h
     header   src/AfterNightControls/app/ProcessMenuState.h
     header   src/AfterNightControls/app/ProcessRegistry.h
@@ -5375,3 +5398,5 @@ sources Test_ProcessFramework
     external sodium
     external zstd
     qt       core gui widgets sql svg network testlib
+    header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightTests/fixtures/RecordedActions.h

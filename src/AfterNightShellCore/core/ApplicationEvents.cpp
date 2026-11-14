@@ -8,6 +8,7 @@
 
 #include "core/ApplicationEvents.h"
 
+#include "actions/ActionStateCoordinator.h"
 #include "core/ApplicationCore.h"
 #include "services/DialogService.h"
 #include "views/ViewService.h"
@@ -560,10 +561,7 @@ void ServiceEventTarget::updateImageViewControlList()
 
 void ServiceEventTarget::updateActiveImageActions()
 {
-    if (m_dependencies.updateActiveImageActions)
-    {
-        m_dependencies.updateActiveImageActions();
-    }
+    m_core.actionState().updateActiveImageActions();
 }
 
 void ServiceEventTarget::addRecentFile(const std::string& fileName,

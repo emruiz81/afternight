@@ -125,10 +125,10 @@ is recorded in six text files beside the suites that read them, and a case compa
 | Record | Holds | Held by |
 |---|---|---|
 | `Test_ThemeSystem/data/TokenBaseline.txt` | Every colour of every combination the interface settings can choose - two themes, four contrast profiles, five accent families, six surface tints, 240 in all - and the spacing, the radii and the type scale no choice changes | `TokenBaseline.ClassicValuesAreRecorded` |
-| `Test_AfterNightApp/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord` |
+| `Test_AfterNightApp/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord`; the shell core's catalogue and menu tree, by `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar` in `Test_ShellCore` |
 | `Test_AfterNightApp/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord` |
 | `Test_AfterNightApp/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
-| `Test_AfterNightApp/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord` |
+| `Test_AfterNightApp/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
 | `Test_ProcessFramework/data/ProcessShapes.txt` | What the window of every registered process is made of: the framework class it derives from, how its controls and its preview are laid out, its preview checkbox and where the preview view lands, its button box, its selectors of images and channels, its menus, whether its size is fixed and which window hints it changes, what the person marks on a view for it, and every key sequence its own actions and shortcuts carry | `ProcessCensus.EveryProcessStatesItsShape` |
 
 The records exist so that a change which reorganises the interface's code - a part of the window moved to another
@@ -145,6 +145,9 @@ favourite and the recent processes - is held by name alone, of the Extensions me
 actions are read over one image that was never edited, because Undo, Redo and Maximize View are worded after the
 active image. `fixtures/BaselineRecord.h` is the reader: a record is sections of entries, a case compares one section
 in order, and the failure names the first entry that differs with what the record holds and what the product has.
+A suite below the shell core, which cannot link its action catalogue, builds the classic window's menus over the
+actions the record holds (`fixtures/RecordedActions.h`): their object names, texts, tool tips, shortcuts and
+checkability are the catalogue's, which `ActionCatalogue.HoldsTheRecordedInventory` holds to the same record.
 
 The process shapes are read by launching every descriptor as the application launches it, on a colour view with a
 grey one open beside it, under window settings that hold nothing, so no case that ran before decides what a window

@@ -82,11 +82,10 @@ public:
 class AFTERNIGHTSHELLCORE_API ServiceEventTarget final : public IApplicationEventTarget
 {
 public:
-    /// What the window still does for an event: the actions' state, and the recent files with their thumbnails and
-    /// menus. An empty one does nothing.
+    /// What the window still does for an event: the recent files with their thumbnails and menus. An empty one does
+    /// nothing.
     struct Dependencies
     {
-        std::function<void()> updateActiveImageActions;
         std::function<void(const std::string& fileName, const std::shared_ptr<const an::consumer::ImageAsset>& image)>
             addRecentFile;
         std::function<void(const std::string& fileName)> removeRecentFile;

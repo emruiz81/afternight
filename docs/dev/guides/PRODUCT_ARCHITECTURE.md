@@ -1290,7 +1290,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/ViewService.h`, `actions/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1356,9 +1356,33 @@ view the image actions act on and `lookingView()` the one the looking actions ac
 showing a task names the task's target and canvas (`setTaskSubject`), until it clears them or one of them goes.
 `services/ProcessLaunchService.h` launches the registry's processes - one that acts on an image acts on the subject
 view - prepares an extension's environment before it launches the extension's process, and lists the extensions once
-each, by name (`extensionFamilies`). What a service needs that is neither the core's nor the shell's to give - the
-state of the actions, the image selector, the extension sessions' views, the settings dialogs, the process menus - it is
-handed as its `Hooks` by the window, which sets them as it is made and clears them, with the shell, as it goes.
+each, by name (`extensionFamilies`). `services/ExtensionService.h` is the installed extensions: it registers the
+packages' processes - the ones the start-up catalogue names at once, every one once a worker has found them - binds each
+to the extension host that runs it, puts them in the process menus, prepares their environments and removes the ones no
+package uses on the worker, and finds the packages again after an install or a removal in the folders it watches. It
+owns the extension host's launch coordinator, tells it of the views and the theme, and gives the SDK the sessions talk
+to what it reads of the application. What a service needs that is neither the core's nor the shell's to give - the
+image selector, the settings dialogs, an extension's questions and settings, the confirmations of the process lists -
+it is handed as its `Hooks` by the window, which sets them as it is made and clears them, with the shell, as it goes.
+
+The actions belong to the core too (`actions/`). `ActionCatalogue` makes the application's 186 actions once, from one
+table (`ActionSpec`: the text, the icon's key, the shortcut and its context, whether it can be checked, its group - the
+menu of the menu bar it belongs to), each under the object name the classic window always gave it, which
+`actions/ActionIds.h` spells as a constant; a unit of Controls is handed them as an `an::ui::ActionLookup`
+(`app/ActionLookup.h`) and never names the catalogue. The actions are the core's children: a shell's window hosts them
+while it lives (`host`) - they are then its children in Qt's object tree, as a window's own actions are, which is what
+a test, an accessibility client or `findChild` reads - and gives them back as it goes (`release`), so they live from
+the core's start to its end. `ActionBindings` connects them to what they do, once, to targets the shell gives and can
+change: the file workflows, the image operations and the mask overlay by their members, the dialogs, the layout, and a
+process's action to the registry descriptor it launches; binding a process's action names its descriptor by the
+action's text - the name the menus give a process - and an action whose descriptor is missing is withdrawn and says
+it is still loading. `ActionStateCoordinator` sets which actions are offered and checked from the image the image
+actions act on and the view the looking actions act on, and tells a menu its state by its id, which the shell's menu
+of that id follows. `ProcessMenuModel` holds what the process menus list beyond the catalogue - the favourite and the
+recent processes, and each extension's processes, bound to their descriptors, in the menu of their category, and
+each extension once in the Extensions menu - and says what changed; a shell makes its menus from it on demand.
+`MenuTree` declares the menu bar as data, entry for entry the classic window's, and builds a menu bar or one menu of it
+over the catalogue: a shell that builds its own menus builds them from it.
 
 `ApplicationContext` (`core/ApplicationContext.h`) is the application's side of `IAppContext`, made over the core and
 a shell, and naming no window: the settings, the process settings, the temporary files, the folders remembered, the
@@ -1366,14 +1390,15 @@ thumbnails, the output intents, the RAW policy and the session (`ApplicationCore
 core's; the messages and the file dialogs are its `DialogService` and `FileDialogService`; the listeners, the recent
 files and the open process windows its `AppEventBus`, `RecentFilesModel` and `OpenProcessRegistry`; the view factory,
 registry and manager its `ViewService`; the status line is the shell's `IStatusDisplay`, and the default parent and the
-process presenter (`IAppContext::getProcessPresenter`, null where every process is a window) are the shell's. What is
-still a window's - the theme it applies, the recent and dropped files it opens, an image action's own state - reaches it
-through the `Dependencies` the context is handed.
+process presenter (`IAppContext::getProcessPresenter`, null where every process is a window) are the shell's; the
+state of the actions is the core's `ActionStateCoordinator`. What is still a window's - the theme it applies, the
+recent and dropped files it opens - reaches it through the `Dependencies` the context is handed.
 
 The core is also the receiver of the work a thread hands the GUI thread (`core/ApplicationEvents.h`): each of its
 `...Async` calls posts one event to the core and returns, never waiting, and the event runs once on the GUI thread
 against the core's `IApplicationEventTarget` - `ServiceEventTarget`, which answers through the view and dialog
-services and hands the window what is still its own (the actions' state, the recent files' thumbnails and menus). An
+services and the core's action state, and hands the window what is still its own (the recent files' thumbnails and
+menus). An
 event posted through the context's event bus by any library runs there too. The core being the receiver is what keeps
 an event from running after it: Qt lets go of a receiver's pending events when it goes. The window discards the events
 still pending and takes its target away as it goes, so nothing handed to it runs once it is gone; an event that throws
@@ -1387,7 +1412,12 @@ is reported to the target and logged, and the next one runs.
 placed and maximized, the status line, home), `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
 the system's or Qt's browser), `ViewService.*` (real views of a session the case opens: names, the active view, the
 order a removal is told in, a worker's request, who asked for a view, the subject and the looking view) and
-`ProcessLaunchService.*`.
+`ProcessLaunchService.*`. The actions' cases are held to the records of the classic window beside `Test_AfterNightApp`
+(`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
+read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
+record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and
+`ProcessMenuModel.*` the categories, the lists and an extension's processes and family. A suite below the shell core that
+builds the classic window's menus builds them over the actions the record holds (`fixtures/RecordedActions.h`).
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/ApplicationStart.h`, `app/AfterNightApp.h`)
 
@@ -1397,7 +1427,9 @@ lists the views in its image selector (`ViewControlCoordinator`, which keeps the
 longer the list), shows its dashboard as home and its dock area as the place of views, and fills its status bar. It
 composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, `WindowLayoutCoordinator`,
 `DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and installs the shell
-core's `ApplicationContext` over the core and itself. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
+core's `ApplicationContext` over the core and itself. It hosts the core's actions while it lives, its builder making its
+menus and its tool bar of them, gives the action bindings their targets, and makes its process menus from the core's
+process menu model whenever it changes. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
 (`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's
 minimum version names the product - initializes the platform logger, owns one `ApplicationSession` and makes the
 `ApplicationCore` the window is made over, and starts them in one order (`startApplication`): the core's stores first -
@@ -1410,10 +1442,10 @@ opening it in `main` would mean reading that store twice, or opening with defaul
 may already lend. The core lends that session (`IEngineSessionProvider`) once it is open, and the persistence
 coordinator's RAW policy (`IRawOpenPolicyService`) and output intents (`IOutputIntentProvider`). The view factory and
 the events that carry an image move an `ImageDocument`; an event whose document no view takes closes it, and no entry
-point makes a worker wait for the GUI thread. The extension seam's hooks land a result as an edit the history records,
-a preview through `replaceImage`, generated images and output masks as new documents, and hand an execute an output
-mask of the target's shape with every sample zero; a view snapshot is exported under a read lease taken without
-waiting; a workflow's sequence output is opened on a worker. Teardown is `shutDownApplication`: admission closed, the
+point makes a worker wait for the GUI thread. The extension seam's hooks, which the core's extension service sets, land
+a result as an edit the history records, a preview through `replaceImage`, generated images and output masks as new
+documents, and hand an execute an output mask of the target's shape with every sample zero; a view snapshot is exported
+under a read lease taken without waiting; a workflow's sequence output is opened on a worker. Teardown is `shutDownApplication`: admission closed, the
 window destroyed - its views, history and extension sessions, the context it installed cleared - the windows closed on
 the way out deleted, the thread pool drained and what it posted back delivered, the session shut down, checked; then
 the logger and the crash handler. `Test_AfterNightApp` compiles the application's three units and runs the real window

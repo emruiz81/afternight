@@ -3,6 +3,7 @@
 
 #include "core/ApplicationContext.h"
 
+#include "actions/ActionStateCoordinator.h"
 #include "core/ApplicationCore.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
@@ -404,20 +405,17 @@ void ApplicationContext::clearImageCelestialCoordsInStatusBar()
 void ApplicationContext::setCustomImageActionEnabled(ImageViewControl* view, const GlobalViewControlActions action,
                                                      const bool enable)
 {
-    if (m_dependencies.setCustomImageActionEnabled)
-    {
-        m_dependencies.setCustomImageActionEnabled(view, action, enable);
-    }
+    m_core.actionState().setCustomImageActionEnabled(view, action, enable);
 }
 
 void ApplicationContext::updateActiveImageActions()
 {
-    m_core.viewService().updateActiveImageActions();
+    m_core.actionState().updateActiveImageActions();
 }
 
 void ApplicationContext::updateActiveImageHistory()
 {
-    m_core.viewService().updateActiveImageHistory();
+    m_core.actionState().updateActiveImageHistory();
 }
 
 } // namespace an::ui::shell

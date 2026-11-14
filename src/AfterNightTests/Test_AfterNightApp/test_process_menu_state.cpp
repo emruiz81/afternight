@@ -13,6 +13,7 @@
 
 #include "app/AfterNightAppUiBuilder.h"
 #include "app/ProcessMenuState.h"
+#include "fixtures/RecordedActions.h"
 
 namespace
 {
@@ -192,7 +193,9 @@ TEST(AfterNightAppProcessMenuSuite, FavoriteMenuLayoutReflectsManageAndClearPlac
 TEST(AfterNightAppProcessMenuSuite, BuildUiProvidesDedicatedExtensionsMenuForManagement)
 {
     QMainWindow window;
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
+    const an::tests::fixtures::RecordedActions actions(window);
+    ASSERT_TRUE(actions.loaded());
+    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window, actions.lookup());
 
     ASSERT_NE(ui.menuBar, nullptr);
     ASSERT_NE(ui.menuProcess, nullptr);
@@ -222,7 +225,9 @@ TEST(AfterNightAppProcessMenuSuite, BuildUiProvidesDedicatedExtensionsMenuForMan
 TEST(AfterNightAppProcessMenuSuite, BuildUiPlacesNBRGBCombinationNearLRGBInColorSpaces)
 {
     QMainWindow window;
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
+    const an::tests::fixtures::RecordedActions actions(window);
+    ASSERT_TRUE(actions.loaded());
+    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window, actions.lookup());
 
     ASSERT_NE(ui.menuColor_Spaces, nullptr);
     ASSERT_NE(ui.actionLRGB_Combination, nullptr);

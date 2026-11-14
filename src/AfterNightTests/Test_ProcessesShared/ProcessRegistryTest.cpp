@@ -12,7 +12,6 @@
 #include "Test_ProcessesShared/ProcessesSharedTestSupport.h"
 #include "fixtures/harness/QObjectCensus.h"
 
-#include "app/MenuActionManager.h"
 #include "app/ProcessRegistry.h"
 
 #include <QAction>
@@ -418,81 +417,6 @@ TEST(ProcessRegistryTest, EveryProcessDescriptorStatesWhatItsProcessSaysOfItself
                                  expected.action == std::string("actionNBColorMapper");
         EXPECT_EQ(descriptor->requires_still_image, expected.stillImage || stillByRole) << descriptor->id;
     }
-}
-
-// The menu names each descriptor by its action's text when it binds the action, and leaves the name the process
-// attaches to a view under, which the guards and an attached window's exclusive access are read by; an action that
-// opens no process of its own is named by the menu throughout.
-TEST(ProcessRegistryTest, TheMenuNamesADescriptorWithoutRenamingItsProcess)
-{
-    const RegistrySnapshot snapshot;
-    QObject signalContext;
-    an::ui::MenuActionManager::Dependencies dependencies;
-    dependencies.signalContext = &signalContext;
-    const an::ui::MenuActionManager menu(dependencies);
-
-    for (const Registration& expected : kRegistrations)
-    {
-        QAction action(QStringLiteral("&Menu text of %1...").arg(QString::fromLatin1(expected.action)));
-        action.setObjectName(QString::fromLatin1(expected.action));
-        menu.bindRegistryAction(&action, expected.category);
-
-        const auto* descriptor = registered(idOf(expected));
-        ASSERT_NE(descriptor, nullptr) << idOf(expected);
-        EXPECT_EQ(descriptor->display_name, "Menu text of " + std::string(expected.action) + "...") << descriptor->id;
-        if (std::string(expected.processName).empty())
-        {
-            EXPECT_EQ(descriptor->process_name, descriptor->display_name) << descriptor->id;
-        }
-        else
-        {
-            EXPECT_EQ(descriptor->process_name, expected.processName) << descriptor->id;
-        }
-    }
-}
-
-// An extension's action stays enabled while its environment can be prepared - a launch prepares it - and says why the
-// environment is not ready yet; one whose environment cannot be prepared, an incompatible one here, is disabled.
-TEST(ProcessRegistryTest, AnExtensionsActionStaysEnabledWhileItsEnvironmentCanBePrepared)
-{
-    using an::ui::process_registry::ProcessAvailability;
-
-    const RegistrySnapshot snapshot;
-    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
-    const auto registerExtensionProcess = [&registry](const std::string& name, const ProcessAvailability availability,
-                                                      const std::string& reason) {
-        an::ui::process_registry::ProcessDescriptor descriptor;
-        descriptor.id = "extensions." + name;
-        descriptor.display_name = name;
-        descriptor.category = "extensions";
-        descriptor.action_object_name = "action_" + name;
-        descriptor.process_name = name;
-        descriptor.is_extension_process = true;
-        descriptor.extension_id = name;
-        descriptor.availability = availability;
-        descriptor.availability_reason = reason;
-        return registry.registerProcess(std::move(descriptor));
-    };
-    ASSERT_TRUE(registerExtensionProcess("preparable", ProcessAvailability::InstallNeeded,
-                                         "Extension environment has not been provisioned yet."));
-    ASSERT_TRUE(registerExtensionProcess("incompatible", ProcessAvailability::Incompatible,
-                                         "Requires AfterNight 99.0 or newer."));
-
-    QObject signalContext;
-    an::ui::MenuActionManager::Dependencies dependencies;
-    dependencies.signalContext = &signalContext;
-    const an::ui::MenuActionManager menu(dependencies);
-
-    QAction preparable(QStringLiteral("Preparable"));
-    preparable.setObjectName(QStringLiteral("action_preparable"));
-    menu.bindRegistryAction(&preparable, "extensions", "extensions.preparable");
-    EXPECT_TRUE(preparable.isEnabled());
-    EXPECT_EQ(preparable.toolTip(), QStringLiteral("Extension environment has not been provisioned yet."));
-
-    QAction incompatible(QStringLiteral("Incompatible"));
-    incompatible.setObjectName(QStringLiteral("action_incompatible"));
-    menu.bindRegistryAction(&incompatible, "extensions", "extensions.incompatible");
-    EXPECT_FALSE(incompatible.isEnabled());
 }
 
 // The roles the registry states beside the facts: the starless and star-mask outputs of StarNet, the colour-only NBRGB

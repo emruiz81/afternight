@@ -41,7 +41,7 @@ struct ProcessDescriptor
     std::string display_name;
     std::string category;
     std::string action_object_name;
-    std::string icon_key; // Reserved for future use; currently set via MenuActionManager::setActionIcons().
+    std::string icon_key; // Reserved for future use; an action's icon is the application's action catalogue's.
     std::string process_name;
     ProcessLaunchMode launch_mode = ProcessLaunchMode::SingleImage;
     bool requires_exclusive_access = false;

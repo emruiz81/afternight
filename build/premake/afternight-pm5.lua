@@ -1689,6 +1689,7 @@ workspace "AfterNight"
                     "../../src/AfterNightShellCore/AfterNightShellCoreExport.h",
                     "../../src/AfterNightShellCore/stdafx.*"
                 },
+                ["actions"] = { "../../src/AfterNightShellCore/actions/**.*" },
                 ["core"] = { "../../src/AfterNightShellCore/core/**.*" },
                 ["services"] = { "../../src/AfterNightShellCore/services/**.*" },
                 ["views"] = { "../../src/AfterNightShellCore/views/**.*" }

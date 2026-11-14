@@ -46,19 +46,14 @@ class AFTERNIGHTSHELLCORE_API ViewService final : public an::ui::IViewFactory,
                                                   public an::ui::IViewRegistry
 {
 public:
-    /// What the application does around a view that is not the shell's to do: the state of the actions and the image
-    /// history, the extension sessions' views, the views' list as the window shows it, and the view's context menu.
+    /// What a shell's window does around a view beyond what the shell contract asks: the views' list as the window
+    /// shows it, what it shows of a view that changed, and the view's context menu. The state of the actions and the
+    /// extension sessions follow the views through the core's own units.
     struct Hooks
     {
-        std::function<void()> updateActiveImageActions;
-        std::function<void()> updateActiveImageHistory;
         /// The window's list of the views is made again from the service's.
         std::function<void()> refreshViewList;
-        std::function<void(const ImageViewControl*)> viewCreated;
-        std::function<void(const ImageViewControl*)> viewDestroyed;
         std::function<void(const ImageViewControl*)> viewUpdated;
-        std::function<void(const std::string& newName, const std::string& oldName, const ImageViewControl*)>
-            viewRenamed;
         std::function<void(ImageViewControl*, QContextMenuEvent*)> contextMenu;
         /// Whether the application is closing: a view closed then is not logged.
         std::function<bool()> isTerminating;

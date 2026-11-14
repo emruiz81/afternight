@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "app/ActionLookup.h"
+
 #include <QtCore/QVariant>
 #include <QtGui/QAction>
 #include <QtWidgets/QApplication>
@@ -248,414 +250,198 @@ public:
     QToolBar* mainToolBar;
     QStatusBar* statusBar;
 
-    void setupUi(QMainWindow* AfterNightAppClass)
+    void setupUi(QMainWindow* AfterNightAppClass, const an::ui::ActionLookup& actions)
     {
         if (AfterNightAppClass->objectName().isEmpty())
             AfterNightAppClass->setObjectName("AfterNightAppClass");
         AfterNightAppClass->resize(1267, 950);
-        actionOpen = new QAction(AfterNightAppClass);
-        actionOpen->setObjectName("actionOpen");
-        actionSave_as = new QAction(AfterNightAppClass);
-        actionSave_as->setObjectName("actionSave_as");
-        actionExit = new QAction(AfterNightAppClass);
-        actionExit->setObjectName("actionExit");
-        actionAbout_Qt = new QAction(AfterNightAppClass);
-        actionAbout_Qt->setObjectName("actionAbout_Qt");
-        actionAbout_AfterNight = new QAction(AfterNightAppClass);
-        actionAbout_AfterNight->setObjectName("actionAbout_AfterNight");
-        actionSystem_Information = new QAction(AfterNightAppClass);
-        actionSystem_Information->setObjectName("actionSystem_Information");
-        actionUser_Guide = new QAction(AfterNightAppClass);
-        actionUser_Guide->setObjectName("actionUser_Guide");
-        // A process window is a window of its own, where a shortcut of the main window's context is not heard: Help
-        // answers from whichever window of the application is active, and opens that window's page.
-        actionUser_Guide->setShortcutContext(Qt::ApplicationShortcut);
-        actionUndo = new QAction(AfterNightAppClass);
-        actionUndo->setObjectName("actionUndo");
-        actionUndo->setEnabled(false);
-        actionRedo = new QAction(AfterNightAppClass);
-        actionRedo->setObjectName("actionRedo");
-        actionRedo->setEnabled(false);
-        actionClose = new QAction(AfterNightAppClass);
-        actionClose->setObjectName("actionClose");
-        actionClose_All = new QAction(AfterNightAppClass);
-        actionClose_All->setObjectName("actionClose_All");
-        actionDuplicate = new QAction(AfterNightAppClass);
-        actionDuplicate->setObjectName("actionDuplicate");
-        actionRename = new QAction(AfterNightAppClass);
-        actionRename->setObjectName("actionRename");
-        actionShow_In_File_Browser = new QAction(AfterNightAppClass);
-        actionShow_In_File_Browser->setObjectName("actionShow_In_File_Browser");
-        actionShow_In_File_Browser->setEnabled(false);
-        actionExtract_Red_Channel = new QAction(AfterNightAppClass);
-        actionExtract_Red_Channel->setObjectName("actionExtract_Red_Channel");
-        actionExtract_Green_Channel = new QAction(AfterNightAppClass);
-        actionExtract_Green_Channel->setObjectName("actionExtract_Green_Channel");
-        actionExtract_Blue_Channel = new QAction(AfterNightAppClass);
-        actionExtract_Blue_Channel->setObjectName("actionExtract_Blue_Channel");
-        actionExtract_RGB_Channels = new QAction(AfterNightAppClass);
-        actionExtract_RGB_Channels->setObjectName("actionExtract_RGB_Channels");
-        actionConvert_to_8_bit = new QAction(AfterNightAppClass);
-        actionConvert_to_8_bit->setObjectName("actionConvert_to_8_bit");
-        actionConvert_to_signed_16_bit = new QAction(AfterNightAppClass);
-        actionConvert_to_signed_16_bit->setObjectName("actionConvert_to_signed_16_bit");
-        actionConvert_to_unsigned_16_bit = new QAction(AfterNightAppClass);
-        actionConvert_to_unsigned_16_bit->setObjectName("actionConvert_to_unsigned_16_bit");
-        actionConvert_to_signed_32_bit = new QAction(AfterNightAppClass);
-        actionConvert_to_signed_32_bit->setObjectName("actionConvert_to_signed_32_bit");
-        actionConvert_to_unsigned_32_bit = new QAction(AfterNightAppClass);
-        actionConvert_to_unsigned_32_bit->setObjectName("actionConvert_to_unsigned_32_bit");
-        actionConvert_to_32_bit_float = new QAction(AfterNightAppClass);
-        actionConvert_to_32_bit_float->setObjectName("actionConvert_to_32_bit_float");
-        actionConvert_to_64_bit_float = new QAction(AfterNightAppClass);
-        actionConvert_to_64_bit_float->setObjectName("actionConvert_to_64_bit_float");
-        action = new QAction(AfterNightAppClass);
-        action->setObjectName("action");
-        actionHorizontal_Mirror = new QAction(AfterNightAppClass);
-        actionHorizontal_Mirror->setObjectName("actionHorizontal_Mirror");
-        actionVertical_Mirror = new QAction(AfterNightAppClass);
-        actionVertical_Mirror->setObjectName("actionVertical_Mirror");
-        actionArcSinh_Stretch = new QAction(AfterNightAppClass);
-        actionArcSinh_Stretch->setObjectName("actionArcSinh_Stretch");
-        actionRotate_180 = new QAction(AfterNightAppClass);
-        actionRotate_180->setObjectName("actionRotate_180");
-        actionRotate_90_Left = new QAction(AfterNightAppClass);
-        actionRotate_90_Left->setObjectName("actionRotate_90_Left");
-        actionRotate_90_Right = new QAction(AfterNightAppClass);
-        actionRotate_90_Right->setObjectName("actionRotate_90_Right");
-        actionStarnet = new QAction(AfterNightAppClass);
-        actionStarnet->setObjectName("actionStarnet");
-        actionStar_Reduction = new QAction(AfterNightAppClass);
-        actionStar_Reduction->setObjectName("actionStar_Reduction");
-        actionAutomatic_MTF_Transform = new QAction(AfterNightAppClass);
-        actionAutomatic_MTF_Transform->setObjectName("actionAutomatic_MTF_Transform");
-        actionExtract_CIE_L = new QAction(AfterNightAppClass);
-        actionExtract_CIE_L->setObjectName("actionExtract_CIE_L");
-        actionExtract_CIE_a = new QAction(AfterNightAppClass);
-        actionExtract_CIE_a->setObjectName("actionExtract_CIE_a");
-        actionExtract_CIE_b = new QAction(AfterNightAppClass);
-        actionExtract_CIE_b->setObjectName("actionExtract_CIE_b");
-        actionExtract_CIE_a_b = new QAction(AfterNightAppClass);
-        actionExtract_CIE_a_b->setObjectName("actionExtract_CIE_a_b");
-        actionExtract_CIE_L_a_b = new QAction(AfterNightAppClass);
-        actionExtract_CIE_L_a_b->setObjectName("actionExtract_CIE_L_a_b");
-        actionExtract_CIE_L_c_h = new QAction(AfterNightAppClass);
-        actionExtract_CIE_L_c_h->setObjectName("actionExtract_CIE_L_c_h");
-        actionExtract_CIE_c = new QAction(AfterNightAppClass);
-        actionExtract_CIE_c->setObjectName("actionExtract_CIE_c");
-        actionExtract_CIE_h = new QAction(AfterNightAppClass);
-        actionExtract_CIE_h->setObjectName("actionExtract_CIE_h");
-        actionExtract_CIE_X = new QAction(AfterNightAppClass);
-        actionExtract_CIE_X->setObjectName("actionExtract_CIE_X");
-        actionExtract_CIE_Y = new QAction(AfterNightAppClass);
-        actionExtract_CIE_Y->setObjectName("actionExtract_CIE_Y");
-        actionExtract_CIE_Z = new QAction(AfterNightAppClass);
-        actionExtract_CIE_Z->setObjectName("actionExtract_CIE_Z");
-        actionExtract_CIE_X_Y_Z = new QAction(AfterNightAppClass);
-        actionExtract_CIE_X_Y_Z->setObjectName("actionExtract_CIE_X_Y_Z");
-        actionExtract_HSL_Hue = new QAction(AfterNightAppClass);
-        actionExtract_HSL_Hue->setObjectName("actionExtract_HSL_Hue");
-        actionExtract_HSL_Saturation = new QAction(AfterNightAppClass);
-        actionExtract_HSL_Saturation->setObjectName("actionExtract_HSL_Saturation");
-        actionExtract_HSL_Lightness = new QAction(AfterNightAppClass);
-        actionExtract_HSL_Lightness->setObjectName("actionExtract_HSL_Lightness");
-        actionExtract_HSL = new QAction(AfterNightAppClass);
-        actionExtract_HSL->setObjectName("actionExtract_HSL");
-        actionExtract_HSV_Hue = new QAction(AfterNightAppClass);
-        actionExtract_HSV_Hue->setObjectName("actionExtract_HSV_Hue");
-        actionExtract_HSV_Saturation = new QAction(AfterNightAppClass);
-        actionExtract_HSV_Saturation->setObjectName("actionExtract_HSV_Saturation");
-        actionExtract_HSV_Value = new QAction(AfterNightAppClass);
-        actionExtract_HSV_Value->setObjectName("actionExtract_HSV_Value");
-        actionExtract_HSV = new QAction(AfterNightAppClass);
-        actionExtract_HSV->setObjectName("actionExtract_HSV");
-        actionExtract_HSI_Hue = new QAction(AfterNightAppClass);
-        actionExtract_HSI_Hue->setObjectName("actionExtract_HSI_Hue");
-        actionExtract_HSI_Saturation = new QAction(AfterNightAppClass);
-        actionExtract_HSI_Saturation->setObjectName("actionExtract_HSI_Saturation");
-        actionExtract_HSI_Intensity = new QAction(AfterNightAppClass);
-        actionExtract_HSI_Intensity->setObjectName("actionExtract_HSI_Intensity");
-        actionExtract_HSI = new QAction(AfterNightAppClass);
-        actionExtract_HSI->setObjectName("actionExtract_HSI");
-        actionNegative_Transformation = new QAction(AfterNightAppClass);
-        actionNegative_Transformation->setObjectName("actionNegative_Transformation");
-        actionImage_History = new QAction(AfterNightAppClass);
-        actionImage_History->setObjectName("actionImage_History");
-        actionImage_History->setEnabled(false);
-        actionasd = new QAction(AfterNightAppClass);
-        actionasd->setObjectName("actionasd");
-        actionasd_2 = new QAction(AfterNightAppClass);
-        actionasd_2->setObjectName("actionasd_2");
-        actionStatistics = new QAction(AfterNightAppClass);
-        actionStatistics->setObjectName("actionStatistics");
-        actionStatistics->setEnabled(false);
-        actionHistogram = new QAction(AfterNightAppClass);
-        actionHistogram->setObjectName("actionHistogram");
-        actionHistogram->setEnabled(false);
-        actionImage_EXIFViewer = new QAction(AfterNightAppClass);
-        actionImage_EXIFViewer->setObjectName("actionImage_EXIFViewer");
-        actionImage_EXIFViewer->setEnabled(false);
-        actionFITSHeader = new QAction(AfterNightAppClass);
-        actionFITSHeader->setObjectName("actionFITSHeader");
-        actionFITSHeader->setEnabled(false);
-        actionAstrometryInfo = new QAction(AfterNightAppClass);
-        actionAstrometryInfo->setObjectName("actionAstrometryInfo");
-        actionAstrometryInfo->setEnabled(false);
-        actionPlateSolve = new QAction(AfterNightAppClass);
-        actionPlateSolve->setObjectName("actionPlateSolve");
-        actionPlateSolve->setEnabled(false);
-        actionAnnotateImage = new QAction(AfterNightAppClass);
-        actionAnnotateImage->setObjectName("actionAnnotateImage");
-        actionAnnotateImage->setEnabled(false);
-        actionAdjustBrightness_Contrast = new QAction(AfterNightAppClass);
-        actionAdjustBrightness_Contrast->setObjectName("actionAdjustBrightness_Contrast");
-        actionAdjustBrightness_Contrast->setEnabled(true);
-        actionGamma_Correction = new QAction(AfterNightAppClass);
-        actionGamma_Correction->setObjectName("actionGamma_Correction");
-        actionGamma_Correction->setEnabled(true);
-        actionAdjustHSL = new QAction(AfterNightAppClass);
-        actionAdjustHSL->setObjectName("actionAdjustHSL");
-        actionStarmask_Recombination = new QAction(AfterNightAppClass);
-        actionStarmask_Recombination->setObjectName("actionStarmask_Recombination");
-        actionSCNR = new QAction(AfterNightAppClass);
-        actionSCNR->setObjectName("actionSCNR");
-        actionMedian_Filter = new QAction(AfterNightAppClass);
-        actionMedian_Filter->setObjectName("actionMedian_Filter");
-        actionClose_2 = new QAction(AfterNightAppClass);
-        actionClose_2->setObjectName("actionClose_2");
-        actionZoom_In = new QAction(AfterNightAppClass);
-        actionZoom_In->setObjectName("actionZoom_In");
-        actionZoom_Out = new QAction(AfterNightAppClass);
-        actionZoom_Out->setObjectName("actionZoom_Out");
-        actionZoom_100 = new QAction(AfterNightAppClass);
-        actionZoom_100->setObjectName("actionZoom_100");
-        actionFit_To_Window = new QAction(AfterNightAppClass);
-        actionFit_To_Window->setObjectName("actionFit_To_Window");
-        actionClose_All_Others = new QAction(AfterNightAppClass);
-        actionClose_All_Others->setObjectName("actionClose_All_Others");
-        actionChannelComposition = new QAction(AfterNightAppClass);
-        actionChannelComposition->setObjectName("actionChannelComposition");
-        actionDebayer = new QAction(AfterNightAppClass);
-        actionDebayer->setObjectName("actionDebayer");
-        actionConvert_to_Grayscale = new QAction(AfterNightAppClass);
-        actionConvert_to_Grayscale->setObjectName("actionConvert_to_Grayscale");
-        actionConvert_to_RGB = new QAction(AfterNightAppClass);
-        actionConvert_to_RGB->setObjectName("actionConvert_to_RGB");
-        actionSummary = new QAction(AfterNightAppClass);
-        actionSummary->setObjectName("actionSummary");
-        actionResize = new QAction(AfterNightAppClass);
-        actionResize->setObjectName("actionResize");
-        actionCrop = new QAction(AfterNightAppClass);
-        actionCrop->setObjectName("actionCrop");
-        actionRotate = new QAction(AfterNightAppClass);
-        actionRotate->setObjectName("actionRotate");
-        actionRotate->setEnabled(true);
-        actionHistogram_Transformation = new QAction(AfterNightAppClass);
-        actionHistogram_Transformation->setObjectName("actionHistogram_Transformation");
-        actionColor_Calibration_2 = new QAction(AfterNightAppClass);
-        actionColor_Calibration_2->setObjectName("actionColor_Calibration_2");
-        actionPhotometric_Color_Calibration = new QAction(AfterNightAppClass);
-        actionPhotometric_Color_Calibration->setObjectName("actionPhotometric_Color_Calibration");
-        actionSpectrophotometric_Color_Calibration = new QAction(AfterNightAppClass);
-        actionSpectrophotometric_Color_Calibration->setObjectName("actionSpectrophotometric_Color_Calibration");
-        actionBackground_Neutralization = new QAction(AfterNightAppClass);
-        actionBackground_Neutralization->setObjectName("actionBackground_Neutralization");
-        actionMask_Drawing = new QAction(AfterNightAppClass);
-        actionMask_Drawing->setObjectName("actionMask_Drawing");
-        actionRange_Selection = new QAction(AfterNightAppClass);
-        actionRange_Selection->setObjectName("actionRange_Selection");
-        actionSelect_Mask = new QAction(AfterNightAppClass);
-        actionSelect_Mask->setObjectName("actionSelect_Mask");
-        actionRemove_Mask = new QAction(AfterNightAppClass);
-        actionRemove_Mask->setObjectName("actionRemove_Mask");
-        actionInvert_Mask = new QAction(AfterNightAppClass);
-        actionInvert_Mask->setObjectName("actionInvert_Mask");
-        actionInvert_Mask->setCheckable(true);
-        actionEnable_Mask = new QAction(AfterNightAppClass);
-        actionEnable_Mask->setObjectName("actionEnable_Mask");
-        actionEnable_Mask->setCheckable(true);
-        actionShow_Mask = new QAction(AfterNightAppClass);
-        actionShow_Mask->setObjectName("actionShow_Mask");
-        actionShow_Mask->setCheckable(true);
-        actionOverlay_Red = new QAction(AfterNightAppClass);
-        actionOverlay_Red->setObjectName("actionOverlay_Red");
-        actionOverlay_Red->setCheckable(true);
-        actionOverlay_Red->setChecked(true);
-        actionOverlay_Green = new QAction(AfterNightAppClass);
-        actionOverlay_Green->setObjectName("actionOverlay_Green");
-        actionOverlay_Green->setCheckable(true);
-        actionOverlay_Blue = new QAction(AfterNightAppClass);
-        actionOverlay_Blue->setObjectName("actionOverlay_Blue");
-        actionOverlay_Blue->setCheckable(true);
-        actionOverlay_Yellow = new QAction(AfterNightAppClass);
-        actionOverlay_Yellow->setObjectName("actionOverlay_Yellow");
-        actionOverlay_Yellow->setCheckable(true);
-        actionOverlay_Magenta = new QAction(AfterNightAppClass);
-        actionOverlay_Magenta->setObjectName("actionOverlay_Magenta");
-        actionOverlay_Magenta->setCheckable(true);
-        actionOverlay_Cyan = new QAction(AfterNightAppClass);
-        actionOverlay_Cyan->setObjectName("actionOverlay_Cyan");
-        actionOverlay_Cyan->setCheckable(true);
-        actionReplace = new QAction(AfterNightAppClass);
-        actionReplace->setObjectName("actionReplace");
-        actionReplace->setCheckable(true);
-        actionMultiply = new QAction(AfterNightAppClass);
-        actionMultiply->setObjectName("actionMultiply");
-        actionMultiply->setCheckable(true);
-        actionIntegerResample = new QAction(AfterNightAppClass);
-        actionIntegerResample->setObjectName("actionIntegerResample");
-        actionCLA_Histogram_Equalization = new QAction(AfterNightAppClass);
-        actionCLA_Histogram_Equalization->setObjectName("actionCLA_Histogram_Equalization");
-        actionDeepSNR = new QAction(AfterNightAppClass);
-        actionDeepSNR->setObjectName("actionDeepSNR");
-        actionNon_Local_Bayes_Filter = new QAction(AfterNightAppClass);
-        actionNon_Local_Bayes_Filter->setObjectName("actionNon_Local_Bayes_Filter");
-        actionBackground_Extraction = new QAction(AfterNightAppClass);
-        actionBackground_Extraction->setObjectName("actionBackground_Extraction");
-        actionAuto_Gradient_Removal = new QAction(AfterNightAppClass);
-        actionAuto_Gradient_Removal->setObjectName("actionAuto_Gradient_Removal");
-        actionWavelet_Denoise_Filter = new QAction(AfterNightAppClass);
-        actionWavelet_Denoise_Filter->setObjectName("actionWavelet_Denoise_Filter");
-        actionPatch_PCA_Filter = new QAction(AfterNightAppClass);
-        actionPatch_PCA_Filter->setObjectName("actionPatch_PCA_Filter");
-        actionLocal_Histogram_Equalization = new QAction(AfterNightAppClass);
-        actionLocal_Histogram_Equalization->setObjectName("actionLocal_Histogram_Equalization");
-        actionLocal_Contrast_Enhancement = new QAction(AfterNightAppClass);
-        actionLocal_Contrast_Enhancement->setObjectName("actionLocal_Contrast_Enhancement");
-        actionDark_Structure_Enhance = new QAction(AfterNightAppClass);
-        actionDark_Structure_Enhance->setObjectName("actionDark_Structure_Enhance");
-        actionLinear_Match = new QAction(AfterNightAppClass);
-        actionLinear_Match->setObjectName("actionLinear_Match");
-        actionCurves_Transformation = new QAction(AfterNightAppClass);
-        actionCurves_Transformation->setObjectName("actionCurves_Transformation");
-        actionExtract_YCbCr_Luminance = new QAction(AfterNightAppClass);
-        actionExtract_YCbCr_Luminance->setObjectName("actionExtract_YCbCr_Luminance");
-        actionExtract_YCbCr_Blue_Chrominance = new QAction(AfterNightAppClass);
-        actionExtract_YCbCr_Blue_Chrominance->setObjectName("actionExtract_YCbCr_Blue_Chrominance");
-        actionExtract_YCbCr_Red_Chrominance = new QAction(AfterNightAppClass);
-        actionExtract_YCbCr_Red_Chrominance->setObjectName("actionExtract_YCbCr_Red_Chrominance");
-        actionExtract_YCbCr = new QAction(AfterNightAppClass);
-        actionExtract_YCbCr->setObjectName("actionExtract_YCbCr");
-        actionMultiscale_Linear_Transform = new QAction(AfterNightAppClass);
-        actionMultiscale_Linear_Transform->setObjectName("actionMultiscale_Linear_Transform");
-        actionMultiscale_Alpha_Sharpen = new QAction(AfterNightAppClass);
-        actionMultiscale_Alpha_Sharpen->setObjectName("actionMultiscale_Alpha_Sharpen");
-        actionStar_Mask = new QAction(AfterNightAppClass);
-        actionStar_Mask->setObjectName("actionStar_Mask");
-        actionStarnet_Star_Mask = new QAction(AfterNightAppClass);
-        actionStarnet_Star_Mask->setObjectName("actionStarnet_Star_Mask");
-        actionGaussian_Blur = new QAction(AfterNightAppClass);
-        actionGaussian_Blur->setObjectName("actionGaussian_Blur");
-        actionHigh_Pass = new QAction(AfterNightAppClass);
-        actionHigh_Pass->setObjectName("actionHigh_Pass");
-        actionFilters = new QAction(AfterNightAppClass);
-        actionFilters->setObjectName("actionFilters");
-        actionMorphological_Transformation = new QAction(AfterNightAppClass);
-        actionMorphological_Transformation->setObjectName("actionMorphological_Transformation");
-        actionGRAYCstoration_Filter = new QAction(AfterNightAppClass);
-        actionGRAYCstoration_Filter->setObjectName("actionGRAYCstoration_Filter");
-        actionAdjustLightness_Chroma_Hue = new QAction(AfterNightAppClass);
-        actionAdjustLightness_Chroma_Hue->setObjectName("actionAdjustLightness_Chroma_Hue");
-        actionExposure = new QAction(AfterNightAppClass);
-        actionExposure->setObjectName("actionExposure");
-        actionCosmetic_Correction_Filter = new QAction(AfterNightAppClass);
-        actionCosmetic_Correction_Filter->setObjectName("actionCosmetic_Correction_Filter");
-        actionBanding_Reduction_Filter = new QAction(AfterNightAppClass);
-        actionBanding_Reduction_Filter->setObjectName("actionBanding_Reduction_Filter");
-        actionStar_Profiler_v2 = new QAction(AfterNightAppClass);
-        actionStar_Profiler_v2->setObjectName("actionStar_Profiler_v2");
-        actionTighten_Edges = new QAction(AfterNightAppClass);
-        actionTighten_Edges->setObjectName("actionTighten_Edges");
-        actionProfiled_Starmask_Recombination = new QAction(AfterNightAppClass);
-        actionProfiled_Starmask_Recombination->setObjectName("actionProfiled_Starmask_Recombination");
-        actionStar_Profiler_v1 = new QAction(AfterNightAppClass);
-        actionStar_Profiler_v1->setObjectName("actionStar_Profiler_v1");
-        actionLock_Layout = new QAction(AfterNightAppClass);
-        actionLock_Layout->setObjectName("actionLock_Layout");
-        actionLock_Layout->setEnabled(true);
-        actionUnlock_Layout = new QAction(AfterNightAppClass);
-        actionUnlock_Layout->setObjectName("actionUnlock_Layout");
-        actionFit_Images_To_Window = new QAction(AfterNightAppClass);
-        actionFit_Images_To_Window->setObjectName("actionFit_Images_To_Window");
-        actionGroup_All_Images = new QAction(AfterNightAppClass);
-        actionGroup_All_Images->setObjectName("actionGroup_All_Images");
-        actionSplit_All_Images = new QAction(AfterNightAppClass);
-        actionSplit_All_Images->setObjectName("actionSplit_All_Images");
-        actionUnsharp_Mask = new QAction(AfterNightAppClass);
-        actionUnsharp_Mask->setObjectName("actionUnsharp_Mask");
-        actionNoise_Generator = new QAction(AfterNightAppClass);
-        actionNoise_Generator->setObjectName("actionNoise_Generator");
-        actionTotal_Variation_Denoise_Filter = new QAction(AfterNightAppClass);
-        actionTotal_Variation_Denoise_Filter->setObjectName("actionTotal_Variation_Denoise_Filter");
-        actionImage_Blend = new QAction(AfterNightAppClass);
-        actionImage_Blend->setObjectName("actionImage_Blend");
-        actionImage_Compare = new QAction(AfterNightAppClass);
-        actionImage_Compare->setObjectName("actionImage_Compare");
-        actionSplit_CFA = new QAction(AfterNightAppClass);
-        actionSplit_CFA->setObjectName("actionSplit_CFA");
-        actionMerge_CFA = new QAction(AfterNightAppClass);
-        actionMerge_CFA->setObjectName("actionMerge_CFA");
-        actionGeneralized_Hyperbolic_Transformation = new QAction(AfterNightAppClass);
-        actionGeneralized_Hyperbolic_Transformation->setObjectName("actionGeneralized_Hyperbolic_Transformation");
-        actionColor_Saturation = new QAction(AfterNightAppClass);
-        actionColor_Saturation->setObjectName("actionColor_Saturation");
-        actionBilateral_Filter = new QAction(AfterNightAppClass);
-        actionBilateral_Filter->setObjectName("actionBilateral_Filter");
-        actionLog_Viewer = new QAction(AfterNightAppClass);
-        actionLog_Viewer->setObjectName("actionLog_Viewer");
-        actionLog_Viewer->setCheckable(true);
-        actionExtract_Frame = new QAction(AfterNightAppClass);
-        actionExtract_Frame->setObjectName("actionExtract_Frame");
-        actionExtract_Sequence = new QAction(AfterNightAppClass);
-        actionExtract_Sequence->setObjectName("actionExtract_Sequence");
-        actionNew_Sequence = new QAction(AfterNightAppClass);
-        actionNew_Sequence->setObjectName("actionNew_Sequence");
-        actionConvert_to_SER = new QAction(AfterNightAppClass);
-        actionConvert_to_SER->setObjectName("actionConvert_to_SER");
-        actionConvert_to_Image_List = new QAction(AfterNightAppClass);
-        actionConvert_to_Image_List->setObjectName("actionConvert_to_Image_List");
-        actionConvert_to_FITS = new QAction(AfterNightAppClass);
-        actionConvert_to_FITS->setObjectName("actionConvert_to_FITS");
-        actionCFA_Integer_Resample = new QAction(AfterNightAppClass);
-        actionCFA_Integer_Resample->setObjectName("actionCFA_Integer_Resample");
-        actionMaximize_View = new QAction(AfterNightAppClass);
-        actionMaximize_View->setObjectName("actionMaximize_View");
-        actionPixel_Math_2 = new QAction(AfterNightAppClass);
-        actionPixel_Math_2->setObjectName("actionPixel_Math_2");
-        actionBinarize = new QAction(AfterNightAppClass);
-        actionBinarize->setObjectName("actionBinarize");
-        actionImage_Calibration = new QAction(AfterNightAppClass);
-        actionImage_Calibration->setObjectName("actionImage_Calibration");
-        actionImage_Registration = new QAction(AfterNightAppClass);
-        actionImage_Registration->setObjectName("actionImage_Registration");
-        actionImage_Stacking = new QAction(AfterNightAppClass);
-        actionImage_Stacking->setObjectName("actionImage_Stacking");
-        actionImage_Integration = new QAction(AfterNightAppClass);
-        actionImage_Integration->setObjectName("actionImage_Integration");
-        actionImage_Integration_Lite = new QAction(AfterNightAppClass);
-        actionImage_Integration_Lite->setObjectName("actionImage_Integration_Lite");
-        actionStatistical_Stretch = new QAction(AfterNightAppClass);
-        actionStatistical_Stretch->setObjectName("actionStatistical_Stretch");
-        actionLRGB_Combination = new QAction(AfterNightAppClass);
-        actionLRGB_Combination->setObjectName("actionLRGB_Combination");
-        actionNBRGB_Combination = new QAction(AfterNightAppClass);
-        actionNBRGB_Combination->setObjectName("actionNBRGB_Combination");
-        actionNBColorMapper = new QAction(AfterNightAppClass);
-        actionNBColorMapper->setObjectName("actionNBColorMapper");
-        actionNarrowbandPaletteComposer = new QAction(AfterNightAppClass);
-        actionNarrowbandPaletteComposer->setObjectName("actionNarrowbandPaletteComposer");
-        actionSave_File = new QAction(AfterNightAppClass);
-        actionSave_File->setObjectName("actionSave_File");
-        actionImage_List_Analyzer = new QAction(AfterNightAppClass);
-        actionImage_List_Analyzer->setObjectName("actionImage_List_Analyzer");
-        actionExport = new QAction(AfterNightAppClass);
-        actionExport->setObjectName("actionExport");
-        actionColorize = new QAction(AfterNightAppClass);
-        actionColorize->setObjectName("actionColorize");
-        actionSettings = new QAction(AfterNightAppClass);
-        actionSettings->setObjectName("actionSettings");
-        actionManage_Extensions = new QAction(AfterNightAppClass);
-        actionManage_Extensions->setObjectName("actionManage_Extensions");
+        // The actions are the application's catalogue's: the window holds them in its menus and its tool bar.
+        actionOpen = actions("actionOpen");
+        actionSave_as = actions("actionSave_as");
+        actionExit = actions("actionExit");
+        actionAbout_Qt = actions("actionAbout_Qt");
+        actionAbout_AfterNight = actions("actionAbout_AfterNight");
+        actionSystem_Information = actions("actionSystem_Information");
+        actionUser_Guide = actions("actionUser_Guide");
+        actionUndo = actions("actionUndo");
+        actionRedo = actions("actionRedo");
+        actionClose = actions("actionClose");
+        actionClose_All = actions("actionClose_All");
+        actionDuplicate = actions("actionDuplicate");
+        actionRename = actions("actionRename");
+        actionShow_In_File_Browser = actions("actionShow_In_File_Browser");
+        actionExtract_Red_Channel = actions("actionExtract_Red_Channel");
+        actionExtract_Green_Channel = actions("actionExtract_Green_Channel");
+        actionExtract_Blue_Channel = actions("actionExtract_Blue_Channel");
+        actionExtract_RGB_Channels = actions("actionExtract_RGB_Channels");
+        actionConvert_to_8_bit = actions("actionConvert_to_8_bit");
+        actionConvert_to_signed_16_bit = actions("actionConvert_to_signed_16_bit");
+        actionConvert_to_unsigned_16_bit = actions("actionConvert_to_unsigned_16_bit");
+        actionConvert_to_signed_32_bit = actions("actionConvert_to_signed_32_bit");
+        actionConvert_to_unsigned_32_bit = actions("actionConvert_to_unsigned_32_bit");
+        actionConvert_to_32_bit_float = actions("actionConvert_to_32_bit_float");
+        actionConvert_to_64_bit_float = actions("actionConvert_to_64_bit_float");
+        action = actions("action");
+        actionHorizontal_Mirror = actions("actionHorizontal_Mirror");
+        actionVertical_Mirror = actions("actionVertical_Mirror");
+        actionArcSinh_Stretch = actions("actionArcSinh_Stretch");
+        actionRotate_180 = actions("actionRotate_180");
+        actionRotate_90_Left = actions("actionRotate_90_Left");
+        actionRotate_90_Right = actions("actionRotate_90_Right");
+        actionStarnet = actions("actionStarnet");
+        actionStar_Reduction = actions("actionStar_Reduction");
+        actionAutomatic_MTF_Transform = actions("actionAutomatic_MTF_Transform");
+        actionExtract_CIE_L = actions("actionExtract_CIE_L");
+        actionExtract_CIE_a = actions("actionExtract_CIE_a");
+        actionExtract_CIE_b = actions("actionExtract_CIE_b");
+        actionExtract_CIE_a_b = actions("actionExtract_CIE_a_b");
+        actionExtract_CIE_L_a_b = actions("actionExtract_CIE_L_a_b");
+        actionExtract_CIE_L_c_h = actions("actionExtract_CIE_L_c_h");
+        actionExtract_CIE_c = actions("actionExtract_CIE_c");
+        actionExtract_CIE_h = actions("actionExtract_CIE_h");
+        actionExtract_CIE_X = actions("actionExtract_CIE_X");
+        actionExtract_CIE_Y = actions("actionExtract_CIE_Y");
+        actionExtract_CIE_Z = actions("actionExtract_CIE_Z");
+        actionExtract_CIE_X_Y_Z = actions("actionExtract_CIE_X_Y_Z");
+        actionExtract_HSL_Hue = actions("actionExtract_HSL_Hue");
+        actionExtract_HSL_Saturation = actions("actionExtract_HSL_Saturation");
+        actionExtract_HSL_Lightness = actions("actionExtract_HSL_Lightness");
+        actionExtract_HSL = actions("actionExtract_HSL");
+        actionExtract_HSV_Hue = actions("actionExtract_HSV_Hue");
+        actionExtract_HSV_Saturation = actions("actionExtract_HSV_Saturation");
+        actionExtract_HSV_Value = actions("actionExtract_HSV_Value");
+        actionExtract_HSV = actions("actionExtract_HSV");
+        actionExtract_HSI_Hue = actions("actionExtract_HSI_Hue");
+        actionExtract_HSI_Saturation = actions("actionExtract_HSI_Saturation");
+        actionExtract_HSI_Intensity = actions("actionExtract_HSI_Intensity");
+        actionExtract_HSI = actions("actionExtract_HSI");
+        actionNegative_Transformation = actions("actionNegative_Transformation");
+        actionImage_History = actions("actionImage_History");
+        actionasd = actions("actionasd");
+        actionasd_2 = actions("actionasd_2");
+        actionStatistics = actions("actionStatistics");
+        actionHistogram = actions("actionHistogram");
+        actionImage_EXIFViewer = actions("actionImage_EXIFViewer");
+        actionFITSHeader = actions("actionFITSHeader");
+        actionAstrometryInfo = actions("actionAstrometryInfo");
+        actionPlateSolve = actions("actionPlateSolve");
+        actionAnnotateImage = actions("actionAnnotateImage");
+        actionAdjustBrightness_Contrast = actions("actionAdjustBrightness_Contrast");
+        actionGamma_Correction = actions("actionGamma_Correction");
+        actionAdjustHSL = actions("actionAdjustHSL");
+        actionStarmask_Recombination = actions("actionStarmask_Recombination");
+        actionSCNR = actions("actionSCNR");
+        actionMedian_Filter = actions("actionMedian_Filter");
+        actionClose_2 = actions("actionClose_2");
+        actionZoom_In = actions("actionZoom_In");
+        actionZoom_Out = actions("actionZoom_Out");
+        actionZoom_100 = actions("actionZoom_100");
+        actionFit_To_Window = actions("actionFit_To_Window");
+        actionClose_All_Others = actions("actionClose_All_Others");
+        actionChannelComposition = actions("actionChannelComposition");
+        actionDebayer = actions("actionDebayer");
+        actionConvert_to_Grayscale = actions("actionConvert_to_Grayscale");
+        actionConvert_to_RGB = actions("actionConvert_to_RGB");
+        actionSummary = actions("actionSummary");
+        actionResize = actions("actionResize");
+        actionCrop = actions("actionCrop");
+        actionRotate = actions("actionRotate");
+        actionHistogram_Transformation = actions("actionHistogram_Transformation");
+        actionColor_Calibration_2 = actions("actionColor_Calibration_2");
+        actionPhotometric_Color_Calibration = actions("actionPhotometric_Color_Calibration");
+        actionSpectrophotometric_Color_Calibration = actions("actionSpectrophotometric_Color_Calibration");
+        actionBackground_Neutralization = actions("actionBackground_Neutralization");
+        actionMask_Drawing = actions("actionMask_Drawing");
+        actionRange_Selection = actions("actionRange_Selection");
+        actionSelect_Mask = actions("actionSelect_Mask");
+        actionRemove_Mask = actions("actionRemove_Mask");
+        actionInvert_Mask = actions("actionInvert_Mask");
+        actionEnable_Mask = actions("actionEnable_Mask");
+        actionShow_Mask = actions("actionShow_Mask");
+        actionOverlay_Red = actions("actionOverlay_Red");
+        actionOverlay_Green = actions("actionOverlay_Green");
+        actionOverlay_Blue = actions("actionOverlay_Blue");
+        actionOverlay_Yellow = actions("actionOverlay_Yellow");
+        actionOverlay_Magenta = actions("actionOverlay_Magenta");
+        actionOverlay_Cyan = actions("actionOverlay_Cyan");
+        actionReplace = actions("actionReplace");
+        actionMultiply = actions("actionMultiply");
+        actionIntegerResample = actions("actionIntegerResample");
+        actionCLA_Histogram_Equalization = actions("actionCLA_Histogram_Equalization");
+        actionDeepSNR = actions("actionDeepSNR");
+        actionNon_Local_Bayes_Filter = actions("actionNon_Local_Bayes_Filter");
+        actionBackground_Extraction = actions("actionBackground_Extraction");
+        actionAuto_Gradient_Removal = actions("actionAuto_Gradient_Removal");
+        actionWavelet_Denoise_Filter = actions("actionWavelet_Denoise_Filter");
+        actionPatch_PCA_Filter = actions("actionPatch_PCA_Filter");
+        actionLocal_Histogram_Equalization = actions("actionLocal_Histogram_Equalization");
+        actionLocal_Contrast_Enhancement = actions("actionLocal_Contrast_Enhancement");
+        actionDark_Structure_Enhance = actions("actionDark_Structure_Enhance");
+        actionLinear_Match = actions("actionLinear_Match");
+        actionCurves_Transformation = actions("actionCurves_Transformation");
+        actionExtract_YCbCr_Luminance = actions("actionExtract_YCbCr_Luminance");
+        actionExtract_YCbCr_Blue_Chrominance = actions("actionExtract_YCbCr_Blue_Chrominance");
+        actionExtract_YCbCr_Red_Chrominance = actions("actionExtract_YCbCr_Red_Chrominance");
+        actionExtract_YCbCr = actions("actionExtract_YCbCr");
+        actionMultiscale_Linear_Transform = actions("actionMultiscale_Linear_Transform");
+        actionMultiscale_Alpha_Sharpen = actions("actionMultiscale_Alpha_Sharpen");
+        actionStar_Mask = actions("actionStar_Mask");
+        actionStarnet_Star_Mask = actions("actionStarnet_Star_Mask");
+        actionGaussian_Blur = actions("actionGaussian_Blur");
+        actionHigh_Pass = actions("actionHigh_Pass");
+        actionFilters = actions("actionFilters");
+        actionMorphological_Transformation = actions("actionMorphological_Transformation");
+        actionGRAYCstoration_Filter = actions("actionGRAYCstoration_Filter");
+        actionAdjustLightness_Chroma_Hue = actions("actionAdjustLightness_Chroma_Hue");
+        actionExposure = actions("actionExposure");
+        actionCosmetic_Correction_Filter = actions("actionCosmetic_Correction_Filter");
+        actionBanding_Reduction_Filter = actions("actionBanding_Reduction_Filter");
+        actionStar_Profiler_v2 = actions("actionStar_Profiler_v2");
+        actionTighten_Edges = actions("actionTighten_Edges");
+        actionProfiled_Starmask_Recombination = actions("actionProfiled_Starmask_Recombination");
+        actionStar_Profiler_v1 = actions("actionStar_Profiler_v1");
+        actionLock_Layout = actions("actionLock_Layout");
+        actionUnlock_Layout = actions("actionUnlock_Layout");
+        actionFit_Images_To_Window = actions("actionFit_Images_To_Window");
+        actionGroup_All_Images = actions("actionGroup_All_Images");
+        actionSplit_All_Images = actions("actionSplit_All_Images");
+        actionUnsharp_Mask = actions("actionUnsharp_Mask");
+        actionNoise_Generator = actions("actionNoise_Generator");
+        actionTotal_Variation_Denoise_Filter = actions("actionTotal_Variation_Denoise_Filter");
+        actionImage_Blend = actions("actionImage_Blend");
+        actionImage_Compare = actions("actionImage_Compare");
+        actionSplit_CFA = actions("actionSplit_CFA");
+        actionMerge_CFA = actions("actionMerge_CFA");
+        actionGeneralized_Hyperbolic_Transformation = actions("actionGeneralized_Hyperbolic_Transformation");
+        actionColor_Saturation = actions("actionColor_Saturation");
+        actionBilateral_Filter = actions("actionBilateral_Filter");
+        actionLog_Viewer = actions("actionLog_Viewer");
+        actionExtract_Frame = actions("actionExtract_Frame");
+        actionExtract_Sequence = actions("actionExtract_Sequence");
+        actionNew_Sequence = actions("actionNew_Sequence");
+        actionConvert_to_SER = actions("actionConvert_to_SER");
+        actionConvert_to_Image_List = actions("actionConvert_to_Image_List");
+        actionConvert_to_FITS = actions("actionConvert_to_FITS");
+        actionCFA_Integer_Resample = actions("actionCFA_Integer_Resample");
+        actionMaximize_View = actions("actionMaximize_View");
+        actionPixel_Math_2 = actions("actionPixel_Math_2");
+        actionBinarize = actions("actionBinarize");
+        actionImage_Calibration = actions("actionImage_Calibration");
+        actionImage_Registration = actions("actionImage_Registration");
+        actionImage_Stacking = actions("actionImage_Stacking");
+        actionImage_Integration = actions("actionImage_Integration");
+        actionImage_Integration_Lite = actions("actionImage_Integration_Lite");
+        actionStatistical_Stretch = actions("actionStatistical_Stretch");
+        actionLRGB_Combination = actions("actionLRGB_Combination");
+        actionNBRGB_Combination = actions("actionNBRGB_Combination");
+        actionNBColorMapper = actions("actionNBColorMapper");
+        actionNarrowbandPaletteComposer = actions("actionNarrowbandPaletteComposer");
+        actionSave_File = actions("actionSave_File");
+        actionImage_List_Analyzer = actions("actionImage_List_Analyzer");
+        actionExport = actions("actionExport");
+        actionColorize = actions("actionColorize");
+        actionSettings = actions("actionSettings");
+        actionManage_Extensions = actions("actionManage_Extensions");
         centralWidget = new QStackedWidget(AfterNightAppClass);
         centralWidget->setObjectName("centralWidget");
         centralWidget->setAutoFillBackground(true);
@@ -999,7 +785,6 @@ public:
         mainToolBar->addAction(actionClose);
 
         retranslateUi(AfterNightAppClass);
-        QObject::connect(actionExit, &QAction::triggered, AfterNightAppClass, qOverload<>(&QMainWindow::close));
 
         QMetaObject::connectSlotsByName(AfterNightAppClass);
     } // setupUi
@@ -1007,307 +792,6 @@ public:
     void retranslateUi(QMainWindow* AfterNightAppClass)
     {
         AfterNightAppClass->setWindowTitle(QCoreApplication::translate("AfterNightAppClass", "AfterNight", nullptr));
-        actionOpen->setText(QCoreApplication::translate("AfterNightAppClass", "Open", nullptr));
-#if QT_CONFIG(shortcut)
-        actionOpen->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+O", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionSave_as->setText(QCoreApplication::translate("AfterNightAppClass", "Save as...", nullptr));
-#if QT_CONFIG(shortcut)
-        actionSave_as->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+Shift+S", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionExit->setText(QCoreApplication::translate("AfterNightAppClass", "Exit", nullptr));
-        actionAbout_Qt->setText(QCoreApplication::translate("AfterNightAppClass", "About Qt", nullptr));
-        actionAbout_AfterNight->setText(QCoreApplication::translate("AfterNightAppClass", "About AfterNight", nullptr));
-        actionSystem_Information->setText(
-            QCoreApplication::translate("AfterNightAppClass", "System Information", nullptr));
-        actionUser_Guide->setText(QCoreApplication::translate("AfterNightAppClass", "User Guide", nullptr));
-#if QT_CONFIG(shortcut)
-        actionUser_Guide->setShortcut(QCoreApplication::translate("AfterNightAppClass", "F1", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionUser_Guide->setToolTip(
-            QCoreApplication::translate("AfterNightAppClass", "Open the AfterNight User Guide.", nullptr));
-        actionUser_Guide->setStatusTip(
-            QCoreApplication::translate("AfterNightAppClass", "Open the AfterNight User Guide.", nullptr));
-        actionUser_Guide->setWhatsThis(
-            QCoreApplication::translate("AfterNightAppClass", "Open the AfterNight User Guide.", nullptr));
-        actionUndo->setText(QCoreApplication::translate("AfterNightAppClass", "Undo", nullptr));
-#if QT_CONFIG(shortcut)
-        actionUndo->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+Z", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionRedo->setText(QCoreApplication::translate("AfterNightAppClass", "Redo", nullptr));
-#if QT_CONFIG(shortcut)
-        actionRedo->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+Y", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionClose->setText(QCoreApplication::translate("AfterNightAppClass", "Close", nullptr));
-        actionClose_All->setText(QCoreApplication::translate("AfterNightAppClass", "Close All", nullptr));
-        actionDuplicate->setText(QCoreApplication::translate("AfterNightAppClass", "Duplicate", nullptr));
-        actionRename->setText(QCoreApplication::translate("AfterNightAppClass", "Rename", nullptr));
-        actionShow_In_File_Browser->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Show in File Browser", nullptr));
-        actionExtract_Red_Channel->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract Red Channel", nullptr));
-        actionExtract_Green_Channel->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract Green Channel", nullptr));
-        actionExtract_Blue_Channel->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract Blue Channel", nullptr));
-        actionExtract_RGB_Channels->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract RGB Channels", nullptr));
-        actionConvert_to_8_bit->setText(QCoreApplication::translate("AfterNightAppClass", "Convert to 8 bit", nullptr));
-        actionConvert_to_signed_16_bit->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to signed 16 bit", nullptr));
-        actionConvert_to_unsigned_16_bit->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to unsigned 16 bit", nullptr));
-        actionConvert_to_signed_32_bit->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to signed 32 bit", nullptr));
-        actionConvert_to_unsigned_32_bit->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to unsigned 32 bit", nullptr));
-        actionConvert_to_32_bit_float->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to 32 bit float", nullptr));
-        actionConvert_to_64_bit_float->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to 64 bit float", nullptr));
-        action->setText(QCoreApplication::translate("AfterNightAppClass", ".", nullptr));
-        actionHorizontal_Mirror->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Horizontal Mirror", nullptr));
-        actionVertical_Mirror->setText(QCoreApplication::translate("AfterNightAppClass", "Vertical Mirror", nullptr));
-        actionArcSinh_Stretch->setText(QCoreApplication::translate("AfterNightAppClass", "ArcSinh Stretch", nullptr));
-        actionRotate_180->setText(QCoreApplication::translate("AfterNightAppClass", "Rotate 180\302\272", nullptr));
-        actionRotate_90_Left->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Rotate 90\302\272 Left", nullptr));
-        actionRotate_90_Right->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Rotate 90\302\272 Right", nullptr));
-        actionStarnet->setText(QCoreApplication::translate("AfterNightAppClass", "Starnet++", nullptr));
-        actionStar_Reduction->setText(QCoreApplication::translate("AfterNightAppClass", "Star Reduction", nullptr));
-        actionAutomatic_MTF_Transform->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Automatic MTF Transform", nullptr));
-        actionExtract_CIE_L->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE L*", nullptr));
-        actionExtract_CIE_a->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE a*", nullptr));
-        actionExtract_CIE_b->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE b*", nullptr));
-        actionExtract_CIE_a_b->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract CIE a*=R / b*=G", nullptr));
-        actionExtract_CIE_L_a_b->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract CIE L*a*b*", nullptr));
-        actionExtract_CIE_L_c_h->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract CIE L*c*h*", nullptr));
-        actionExtract_CIE_c->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE c*", nullptr));
-        actionExtract_CIE_h->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE h*", nullptr));
-        actionExtract_CIE_X->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE X", nullptr));
-        actionExtract_CIE_Y->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE Y", nullptr));
-        actionExtract_CIE_Z->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE Z", nullptr));
-        actionExtract_CIE_X_Y_Z->setText(QCoreApplication::translate("AfterNightAppClass", "Extract CIE XYZ", nullptr));
-        actionExtract_HSL_Hue->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSL Hue", nullptr));
-        actionExtract_HSL_Saturation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSL Saturation", nullptr));
-        actionExtract_HSL_Lightness->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSL Lightness", nullptr));
-        actionExtract_HSL->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSL", nullptr));
-        actionExtract_HSV_Hue->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSV Hue", nullptr));
-        actionExtract_HSV_Saturation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSV Saturation", nullptr));
-        actionExtract_HSV_Value->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSV Value", nullptr));
-        actionExtract_HSV->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSV", nullptr));
-        actionExtract_HSI_Hue->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSI Hue", nullptr));
-        actionExtract_HSI_Saturation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSI Saturation", nullptr));
-        actionExtract_HSI_Intensity->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract HSI Intensity", nullptr));
-        actionExtract_HSI->setText(QCoreApplication::translate("AfterNightAppClass", "Extract HSI", nullptr));
-        actionNegative_Transformation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Negative Transformation", nullptr));
-        actionImage_History->setText(QCoreApplication::translate("AfterNightAppClass", "Image History", nullptr));
-        actionasd->setText(QCoreApplication::translate("AfterNightAppClass", "asd", nullptr));
-        actionasd_2->setText(QCoreApplication::translate("AfterNightAppClass", "asd", nullptr));
-        actionStatistics->setText(QCoreApplication::translate("AfterNightAppClass", "Statistics", nullptr));
-        actionHistogram->setText(QCoreApplication::translate("AfterNightAppClass", "Histogram", nullptr));
-        actionImage_EXIFViewer->setText(QCoreApplication::translate("AfterNightAppClass", "EXIF Viewer", nullptr));
-        actionFITSHeader->setText(QCoreApplication::translate("AfterNightAppClass", "FITS Header", nullptr));
-        actionAstrometryInfo->setText(QCoreApplication::translate("AfterNightAppClass", "Astrometry Info", nullptr));
-        actionPlateSolve->setText(QCoreApplication::translate("AfterNightAppClass", "Plate Solve", nullptr));
-        actionAnnotateImage->setText(QCoreApplication::translate("AfterNightAppClass", "Annotate Image...", nullptr));
-        actionAdjustBrightness_Contrast->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Brightness/Contrast", nullptr));
-        actionGamma_Correction->setText(QCoreApplication::translate("AfterNightAppClass", "Gamma Correction", nullptr));
-        actionAdjustHSL->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Hue/Saturation/Lightness", nullptr));
-        actionStarmask_Recombination->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Starmask Recombination", nullptr));
-        actionSCNR->setText(QCoreApplication::translate("AfterNightAppClass", "SCNR Filter", nullptr));
-        actionMedian_Filter->setText(QCoreApplication::translate("AfterNightAppClass", "Median Filter", nullptr));
-        actionClose_2->setText(QCoreApplication::translate("AfterNightAppClass", "Close", nullptr));
-        actionZoom_In->setText(QCoreApplication::translate("AfterNightAppClass", "Zoom In", nullptr));
-#if QT_CONFIG(shortcut)
-        actionZoom_In->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl++", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionZoom_Out->setText(QCoreApplication::translate("AfterNightAppClass", "Zoom Out", nullptr));
-#if QT_CONFIG(shortcut)
-        actionZoom_Out->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+-", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionZoom_100->setText(QCoreApplication::translate("AfterNightAppClass", "Zoom 100%", nullptr));
-#if QT_CONFIG(shortcut)
-        actionZoom_100->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+0", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionFit_To_Window->setText(QCoreApplication::translate("AfterNightAppClass", "Fit To Window", nullptr));
-        actionClose_All_Others->setText(QCoreApplication::translate("AfterNightAppClass", "Close All Others", nullptr));
-        actionChannelComposition->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Channel Composition", nullptr));
-        actionDebayer->setText(QCoreApplication::translate("AfterNightAppClass", "Debayer", nullptr));
-        actionConvert_to_Grayscale->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to Grayscale", nullptr));
-        actionConvert_to_RGB->setText(QCoreApplication::translate("AfterNightAppClass", "Convert to RGB", nullptr));
-        actionSummary->setText(QCoreApplication::translate("AfterNightAppClass", "Summary", nullptr));
-        actionResize->setText(QCoreApplication::translate("AfterNightAppClass", "Resize", nullptr));
-        actionCrop->setText(QCoreApplication::translate("AfterNightAppClass", "Crop", nullptr));
-        actionRotate->setText(QCoreApplication::translate("AfterNightAppClass", "Rotate", nullptr));
-        actionHistogram_Transformation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Histogram Transformation", nullptr));
-        actionColor_Calibration_2->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Color Calibration", nullptr));
-        actionPhotometric_Color_Calibration->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Photometric Color Calibration", nullptr));
-        actionSpectrophotometric_Color_Calibration->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Spectrophotometric Color Calibration", nullptr));
-        actionBackground_Neutralization->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Background Neutralization", nullptr));
-        actionMask_Drawing->setText(QCoreApplication::translate("AfterNightAppClass", "Mask Drawing", nullptr));
-        actionRange_Selection->setText(QCoreApplication::translate("AfterNightAppClass", "Range Selection", nullptr));
-        actionSelect_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Select Mask", nullptr));
-        actionRemove_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Remove Mask", nullptr));
-        actionInvert_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Invert Mask", nullptr));
-        actionEnable_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Enable Mask", nullptr));
-        actionShow_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Show Mask", nullptr));
-        actionOverlay_Red->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Red", nullptr));
-        actionOverlay_Green->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Green", nullptr));
-        actionOverlay_Blue->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Blue", nullptr));
-        actionOverlay_Yellow->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Yellow", nullptr));
-        actionOverlay_Magenta->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Magenta", nullptr));
-        actionOverlay_Cyan->setText(QCoreApplication::translate("AfterNightAppClass", "Overlay Cyan", nullptr));
-        actionReplace->setText(QCoreApplication::translate("AfterNightAppClass", "Replace", nullptr));
-        actionMultiply->setText(QCoreApplication::translate("AfterNightAppClass", "Multiply", nullptr));
-        actionIntegerResample->setText(QCoreApplication::translate("AfterNightAppClass", "Integer Resample", nullptr));
-        actionCLA_Histogram_Equalization->setText(
-            QCoreApplication::translate("AfterNightAppClass", "CLA Histogram Equalization", nullptr));
-        actionDeepSNR->setText(QCoreApplication::translate("AfterNightAppClass", "DeepSNR", nullptr));
-        actionNon_Local_Bayes_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Non-Local Bayes Filter", nullptr));
-        actionBackground_Extraction->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Background Extraction", nullptr));
-        actionAuto_Gradient_Removal->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Auto Gradient Removal", nullptr));
-        actionWavelet_Denoise_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Wavelet Denoise Filter", nullptr));
-        actionPatch_PCA_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Patch PCA Denoise Filter", nullptr));
-        actionLocal_Histogram_Equalization->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Local Histogram Equalization", nullptr));
-        actionLocal_Contrast_Enhancement->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Local Contrast Enhancement", nullptr));
-        actionDark_Structure_Enhance->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Dark Structure Enhance", nullptr));
-        actionLinear_Match->setText(QCoreApplication::translate("AfterNightAppClass", "Linear Match", nullptr));
-        actionCurves_Transformation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Curves Transformation", nullptr));
-        actionExtract_YCbCr_Luminance->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract YCbCr Luma", nullptr));
-        actionExtract_YCbCr_Blue_Chrominance->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract YCbCr Blue Chroma", nullptr));
-        actionExtract_YCbCr_Red_Chrominance->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Extract YCbCr Red Chroma", nullptr));
-        actionExtract_YCbCr->setText(QCoreApplication::translate("AfterNightAppClass", "Extract YCbCr", nullptr));
-        actionMultiscale_Linear_Transform->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Multiscale Linear Transform", nullptr));
-        actionMultiscale_Alpha_Sharpen->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Multiscale Alpha Sharpen", nullptr));
-        actionStar_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Star Mask", nullptr));
-        actionStarnet_Star_Mask->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Starnet++ Star Mask", nullptr));
-        actionGaussian_Blur->setText(QCoreApplication::translate("AfterNightAppClass", "Gaussian Blur", nullptr));
-        actionHigh_Pass->setText(QCoreApplication::translate("AfterNightAppClass", "High Pass", nullptr));
-        actionFilters->setText(QCoreApplication::translate("AfterNightAppClass", "Filters", nullptr));
-        actionMorphological_Transformation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Morphological Transformation", nullptr));
-        actionGRAYCstoration_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "GRAYCstoration Filter", nullptr));
-        actionAdjustLightness_Chroma_Hue->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Lightness/Chroma/Hue", nullptr));
-        actionExposure->setText(QCoreApplication::translate("AfterNightAppClass", "Exposure", nullptr));
-        actionCosmetic_Correction_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Cosmetic Correction Filter", nullptr));
-        actionBanding_Reduction_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Banding Reduction Filter", nullptr));
-        actionStar_Profiler_v2->setText(QCoreApplication::translate("AfterNightAppClass", "Star Profiler v2", nullptr));
-        actionTighten_Edges->setText(QCoreApplication::translate("AfterNightAppClass", "Tighten Edges", nullptr));
-        actionProfiled_Starmask_Recombination->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Profiled Starmask Recombination", nullptr));
-        actionStar_Profiler_v1->setText(QCoreApplication::translate("AfterNightAppClass", "Star Profiler v1", nullptr));
-        actionLock_Layout->setText(QCoreApplication::translate("AfterNightAppClass", "Lock Layout", nullptr));
-        actionUnlock_Layout->setText(QCoreApplication::translate("AfterNightAppClass", "Unlock Layout", nullptr));
-        actionFit_Images_To_Window->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Fit Images To Window", nullptr));
-        actionGroup_All_Images->setText(QCoreApplication::translate("AfterNightAppClass", "Group All Images", nullptr));
-        actionSplit_All_Images->setText(QCoreApplication::translate("AfterNightAppClass", "Split All Images", nullptr));
-        actionUnsharp_Mask->setText(QCoreApplication::translate("AfterNightAppClass", "Unsharp Mask", nullptr));
-        actionNoise_Generator->setText(QCoreApplication::translate("AfterNightAppClass", "Noise Generator", nullptr));
-        actionTotal_Variation_Denoise_Filter->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Total Variation Denoise Filter", nullptr));
-        actionImage_Blend->setText(QCoreApplication::translate("AfterNightAppClass", "Image Blend", nullptr));
-        actionImage_Compare->setText(QCoreApplication::translate("AfterNightAppClass", "Image Compare", nullptr));
-        actionSplit_CFA->setText(QCoreApplication::translate("AfterNightAppClass", "Split CFA", nullptr));
-        actionMerge_CFA->setText(QCoreApplication::translate("AfterNightAppClass", "Merge CFA", nullptr));
-        actionGeneralized_Hyperbolic_Transformation->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Generalized Hyperbolic Transformation", nullptr));
-        actionColor_Saturation->setText(QCoreApplication::translate("AfterNightAppClass", "Color Saturation", nullptr));
-        actionBilateral_Filter->setText(QCoreApplication::translate("AfterNightAppClass", "Bilateral Filter", nullptr));
-        actionLog_Viewer->setText(QCoreApplication::translate("AfterNightAppClass", "Session Console", nullptr));
-        actionExtract_Frame->setText(QCoreApplication::translate("AfterNightAppClass", "Extract Frame", nullptr));
-#if QT_CONFIG(tooltip)
-        actionExtract_Frame->setToolTip(QCoreApplication::translate(
-            "AfterNightAppClass", "Extract current sequence frame into a new image", nullptr));
-#endif // QT_CONFIG(tooltip)
-        actionExtract_Sequence->setText(QCoreApplication::translate("AfterNightAppClass", "Extract Sequence", nullptr));
-        actionNew_Sequence->setText(QCoreApplication::translate("AfterNightAppClass", "New Sequence...", nullptr));
-        actionConvert_to_SER->setText(QCoreApplication::translate("AfterNightAppClass", "Convert to SER", nullptr));
-        actionConvert_to_Image_List->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Convert to Image List", nullptr));
-        actionConvert_to_FITS->setText(QCoreApplication::translate("AfterNightAppClass", "Convert to FITS", nullptr));
-        actionCFA_Integer_Resample->setText(
-            QCoreApplication::translate("AfterNightAppClass", "CFA Integer Resample", nullptr));
-        actionMaximize_View->setText(QCoreApplication::translate("AfterNightAppClass", "Maximize View", nullptr));
-        actionPixel_Math_2->setText(QCoreApplication::translate("AfterNightAppClass", "Pixel Math", nullptr));
-        actionBinarize->setText(QCoreApplication::translate("AfterNightAppClass", "Binarize", nullptr));
-        actionImage_Calibration->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Image Calibration", nullptr));
-        actionImage_Registration->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Image Registration", nullptr));
-        actionImage_Stacking->setText(QCoreApplication::translate("AfterNightAppClass", "Image Stacking", nullptr));
-        actionImage_Integration->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Image Integration", nullptr));
-        actionImage_Integration_Lite->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Image Integration Lite", nullptr));
-        actionStatistical_Stretch->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Statistical Stretch", nullptr));
-        actionLRGB_Combination->setText(QCoreApplication::translate("AfterNightAppClass", "LRGB Combination", nullptr));
-        actionNBRGB_Combination->setText(
-            QCoreApplication::translate("AfterNightAppClass", "NBRGB Combination", nullptr));
-        actionNBColorMapper->setText(QCoreApplication::translate("AfterNightAppClass", "NB Color Mapper", nullptr));
-        actionNarrowbandPaletteComposer->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Narrowband Palette Composer", nullptr));
-        actionSave_File->setText(QCoreApplication::translate("AfterNightAppClass", "Save File...", nullptr));
-        actionImage_List_Analyzer->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Image List Analyzer", nullptr));
-        actionExport->setText(QCoreApplication::translate("AfterNightAppClass", "Export...", nullptr));
-        actionColorize->setText(QCoreApplication::translate("AfterNightAppClass", "Colorize", nullptr));
-        actionSettings->setText(QCoreApplication::translate("AfterNightAppClass", "Settings...", nullptr));
-#if QT_CONFIG(shortcut)
-        actionSettings->setShortcut(QCoreApplication::translate("AfterNightAppClass", "Ctrl+,", nullptr));
-#endif // QT_CONFIG(shortcut)
-        actionManage_Extensions->setText(
-            QCoreApplication::translate("AfterNightAppClass", "Manage Extensions...", nullptr));
-        actionManage_Extensions->setToolTip(QCoreApplication::translate(
-            "AfterNightAppClass", "Install, update, remove, and configure extensions.", nullptr));
-        actionManage_Extensions->setStatusTip(QCoreApplication::translate(
-            "AfterNightAppClass", "Install, update, remove, and configure extensions.", nullptr));
-        actionManage_Extensions->setWhatsThis(QCoreApplication::translate(
-            "AfterNightAppClass", "Install, update, remove, and configure extensions.", nullptr));
         menuFile->setTitle(QCoreApplication::translate("AfterNightAppClass", "File", nullptr));
         menuOpen_Recent->setTitle(QCoreApplication::translate("AfterNightAppClass", "Open Recent", nullptr));
         menuEdit->setTitle(QCoreApplication::translate("AfterNightAppClass", "Edit", nullptr));
@@ -1353,7 +837,7 @@ public:
     } // retranslateUi
 };
 
-inline AfterNightAppUiElements buildAfterNightAppUi(QWidget* parent)
+inline AfterNightAppUiElements buildAfterNightAppUi(QWidget* parent, const an::ui::ActionLookup& actions)
 {
     AfterNightAppUiElements ui{};
     if (!parent)
@@ -1361,7 +845,7 @@ inline AfterNightAppUiElements buildAfterNightAppUi(QWidget* parent)
         return ui;
     }
 
-    ui.setupUi(qobject_cast<QMainWindow*>(parent));
+    ui.setupUi(qobject_cast<QMainWindow*>(parent), actions);
     return ui;
 }
 

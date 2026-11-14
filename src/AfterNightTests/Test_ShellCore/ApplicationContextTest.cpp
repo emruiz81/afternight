@@ -10,6 +10,8 @@
 #include "ShellCoreTestSupport.h"
 #include "ShellCoreViewSupport.h"
 
+#include "actions/ActionCatalogue.h"
+#include "actions/ActionIds.h"
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
@@ -21,9 +23,11 @@
 #include "app/RuntimeStorageCoordinator.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewControlManager.h"
 
 #include <gtest/gtest.h>
 
+#include <QAction>
 #include <QPointer>
 #include <QString>
 #include <QStringList>
@@ -68,9 +72,6 @@ protected:
         dependencies.openDroppedFiles = [this](const QStringList& files) {
             asked.push_back("dropped " + files.join(QLatin1Char(',')).toStdString());
         };
-        dependencies.setCustomImageActionEnabled = [this](ImageViewControl*, GlobalViewControlActions, bool enable) {
-            asked.push_back(enable ? "action enabled" : "action disabled");
-        };
         m_context = std::make_unique<ApplicationContext>(m_core, m_shell, std::move(dependencies));
         an::ui::clearAppContext();
         an::ui::setAppContext(m_context.get());
@@ -80,6 +81,9 @@ protected:
     {
         // A standard view is made in a dock widget that holds it; the case deletes the docks it made, and so their
         // views.
+        // The views leave the list first, as the window's going takes them out of it: a view deleted while it is
+        // listed would leave the list naming it for the work still queued to read.
+        m_core.viewService().manager().clear();
         for (const QPointer<QWidget>& dock : m_docks)
         {
             delete dock.data();
@@ -216,11 +220,30 @@ TEST_F(ApplicationContextTest, WhatTheWindowStillAnswersReachesItThroughItsDepen
     m_context->getRecentFilesService()->openRecentSingleFile(QStringLiteral("m42.fits"));
     m_context->getRecentFilesService()->openDroppedFiles(
         QStringList{QStringLiteral("a.fits"), QStringLiteral("b.fits")});
-    m_context->getActionStateManager()->setCustomImageActionEnabled(nullptr, GlobalViewControlActions::HISTOGRAM_ACTION,
-                                                                    false);
 
-    EXPECT_EQ(asked,
-              (std::vector<std::string>{"theme dark", "recent m42.fits", "dropped a.fits,b.fits", "action disabled"}));
+    EXPECT_EQ(asked, (std::vector<std::string>{"theme dark", "recent m42.fits", "dropped a.fits,b.fits"}));
+}
+
+// The state of the actions is the core's coordinator's: an information action of the view the image actions act on
+// follows what that view's own toolbar offers, and another view's changes nothing.
+TEST_F(ApplicationContextTest, TheActionsStateIsTheCoresCoordinators)
+{
+    ImageViewControl* const other = viewNamed(QStringLiteral("other"));
+    ImageViewControl* const active = viewNamed(QStringLiteral("active"));
+    ASSERT_NE(other, nullptr);
+    ASSERT_NE(active, nullptr);
+    m_core.viewService().setActiveImageViewControl(active);
+    QAction* const histogram = m_core.actions().action(an::ui::shell::ids::kHistogram);
+    ASSERT_NE(histogram, nullptr);
+    an::ui::IActionStateManager* const state = m_context->getActionStateManager();
+    ASSERT_NE(state, nullptr);
+
+    state->setCustomImageActionEnabled(active, GlobalViewControlActions::HISTOGRAM_ACTION, false);
+    EXPECT_FALSE(histogram->isEnabled());
+    state->setCustomImageActionEnabled(other, GlobalViewControlActions::HISTOGRAM_ACTION, true);
+    EXPECT_FALSE(histogram->isEnabled()) << "a view the image actions do not act on changed the action";
+    state->setCustomImageActionEnabled(active, GlobalViewControlActions::HISTOGRAM_ACTION, true);
+    EXPECT_TRUE(histogram->isEnabled());
 }
 
 } // namespace

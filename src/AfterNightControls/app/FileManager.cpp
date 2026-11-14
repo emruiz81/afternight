@@ -9,7 +9,6 @@
 #include "app/FilePolicies.h"
 #include "app/FileWorkflowRunner.h"
 #include "app/MessageBoxes.h"
-#include "app/AfterNightAppUiBuilder.h"
 
 #include "controls/AutostretchApply.h"
 #include "controls/DashboardUtils.h"
@@ -730,30 +729,31 @@ void FileManager::persistRecentFiles() const
 void FileManager::updateRecentFilesMenuEntries() const
 {
     QObject* signalContext = resolveSignalContext(m_deps);
-    if (!m_deps.ui || !m_deps.recentFiles || !signalContext)
+    QMenu* const menu = m_deps.recentFilesMenu;
+    if (!menu || !m_deps.recentFiles || !signalContext)
     {
         return;
     }
 
-    m_deps.ui->menuOpen_Recent->clear();
+    menu->clear();
     if (m_deps.recentFiles->empty())
     {
-        m_deps.ui->menuOpen_Recent->setEnabled(false);
+        menu->setEnabled(false);
         return;
     }
 
-    m_deps.ui->menuOpen_Recent->setEnabled(true);
+    menu->setEnabled(true);
 
     for (const auto& recentFileName : *m_deps.recentFiles)
     {
         const auto recentFilePath = QString::fromUtf8(recentFileName);
-        auto* action = m_deps.ui->menuOpen_Recent->addAction(recentFilePath);
+        auto* action = menu->addAction(recentFilePath);
         QObject::connect(action, &QAction::triggered, signalContext,
                          [this, recentFilePath]() { openRecentSingleFile(recentFilePath); });
     }
 
-    m_deps.ui->menuOpen_Recent->addSeparator();
-    auto* clearAction = m_deps.ui->menuOpen_Recent->addAction("Clear recent files list");
+    menu->addSeparator();
+    auto* clearAction = menu->addAction("Clear recent files list");
 
     QObject::connect(clearAction, &QAction::triggered, signalContext, [this]() { clearRecentFilesList(); });
 }

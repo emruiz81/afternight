@@ -28,10 +28,10 @@ class IShell;
 /// `FileDialogService` | | the listeners, the recent files, the open process windows | the core's `AppEventBus`,
 /// `RecentFilesModel`, `OpenProcessRegistry` | | the view factory, the views' registry and their manager | the core's
 /// `ViewService`, which asks the shell where a view goes | | the status line | the shell's `IStatusDisplay` | | the
-/// window, the process presenter | the shell |
+/// window, the process presenter | the shell | | the state of the actions | the core's `ActionStateCoordinator` |
 ///
-/// What is still the window's - the theme, the recent files opened and the files dropped, the image actions' own
-/// state - is answered through the `Dependencies` it is handed.
+/// What is still the window's - the theme, the recent files opened and the files dropped - is answered through the
+/// `Dependencies` it is handed.
 class AFTERNIGHTSHELLCORE_API ApplicationContext final : public an::ui::IAppContext,
                                                          public an::ui::IGlobalSettingsProvider,
                                                          public an::ui::IInterfaceSettingsRuntimeService,
@@ -49,14 +49,12 @@ class AFTERNIGHTSHELLCORE_API ApplicationContext final : public an::ui::IAppCont
 {
 public:
     /// What the context asks of the window that holds it, and of no service yet: the theme it applies, the files it
-    /// opens, the state of an image action it shows. An empty one does nothing.
+    /// opens. An empty one does nothing.
     struct Dependencies
     {
         std::function<void(const QString& themeId)> applyTheme;
         std::function<void(const QString& filePath)> openRecentSingleFile;
         std::function<void(const QStringList& files)> openDroppedFiles;
-        std::function<void(ImageViewControl* view, GlobalViewControlActions action, bool enable)>
-            setCustomImageActionEnabled;
     };
 
     /// @param core the application core; it outlives the context.

@@ -34,13 +34,9 @@ class QAction;
 class FolderTrackerPersistence;
 class GlobalSettingsPersistence;
 class ImageViewControl;
+class QMenu;
 class QObject;
 class ThumbnailPersistence;
-
-namespace an::ui::app
-{
-class AfterNightAppUiElements;
-}
 
 namespace an::ui
 {
@@ -180,7 +176,8 @@ public:
     struct Dependencies
     {
         QObject* signalContext = nullptr;
-        an::ui::app::AfterNightAppUiElements* ui = nullptr;
+        /// The menu that lists the recent files; none, the files are kept but listed nowhere.
+        QMenu* recentFilesMenu = nullptr;
         std::deque<std::string>* recentFiles = nullptr;
         std::string* lastOpenDirectory = nullptr;
         ThumbnailPersistence* thumbnailPersistence = nullptr;

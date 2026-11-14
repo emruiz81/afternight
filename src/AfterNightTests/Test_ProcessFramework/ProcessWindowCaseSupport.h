@@ -5,19 +5,20 @@
 /// What this suite's process window cases share: a view of a Float32 image registered with the suite's context and
 /// made its active view, a process window opened over a view as the launcher's entry point opens one and deleted with
 /// the case once its runs have landed, a widget of a window by its object name, the event loop turned until the windows
-/// and the views are idle, and the application's process menus with the registry actions bound to them as the menu
-/// action manager binds them.
+/// and the views are idle, and the application's process menus over the record's actions, each process action asking
+/// for the registry descriptor the processes library registered for it.
 #pragma once
 
 #include "Test_ProcessFramework/ProcessFrameworkSuiteSupport.h"
 
 #include "app/AfterNightAppUiBuilder.h"
-#include "app/MenuActionManager.h"
 #include "app/ProcessRegistry.h"
 #include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "controls/ImageViewControl.h"
 #include "theme/AnDesignTokens.h"
+
+#include "fixtures/RecordedActions.h"
 
 #include <QAction>
 #include <QCheckBox>
@@ -264,23 +265,25 @@ inline void expectNoStyleSheet(QWidget& root)
     return nullptr;
 }
 
-/// The application's main window with its menus, the registry's process actions bound to them as the menu action
-/// manager binds them and every launch it asks for recorded rather than run. The registry is put back as it was when
-/// the menus go, passing or failing.
+/// The application's main window with its menus, built over the actions the record of the interface holds, each
+/// process action asking for the registry descriptor the processes library registered under its name, and every launch
+/// it asks for recorded rather than run. The registry is put back as it was when the menus go, passing or failing.
 class ProcessMenus
 {
 public:
-    ProcessMenus() : m_ui(an::ui::app::buildAfterNightAppUi(&m_window))
+    ProcessMenus() : m_actions(m_window), m_ui(an::ui::app::buildAfterNightAppUi(&m_window, m_actions.lookup()))
     {
-        an::ui::MenuActionManager::Dependencies dependencies;
-        dependencies.signalContext = &m_window;
-        dependencies.ui = &m_ui;
-        dependencies.tryLaunchRegistryProcessById = [this](const std::string& id) {
-            launched.push_back(id);
-            return true;
-        };
-        m_manager = std::make_unique<an::ui::MenuActionManager>(dependencies);
-        m_manager->connectProcessActions();
+        for (const an::ui::process_registry::ProcessDescriptor& descriptor :
+             an::ui::process_registry::ProcessRegistry::instance().all())
+        {
+            if (descriptor.is_extension_process)
+            {
+                continue;
+            }
+            QAction* const action = m_actions.action(descriptor.action_object_name);
+            QObject::connect(action, &QAction::triggered, &m_window,
+                             [this, id = descriptor.id]() { launched.push_back(id); });
+        }
     }
     ProcessMenus(const ProcessMenus&) = delete;
     ProcessMenus& operator=(const ProcessMenus&) = delete;
@@ -316,8 +319,8 @@ public:
 private:
     shared::RegistrySnapshot m_registry;
     QMainWindow m_window;
+    an::tests::fixtures::RecordedActions m_actions;
     an::ui::app::AfterNightAppUiElements m_ui;
-    std::unique_ptr<an::ui::MenuActionManager> m_manager;
 };
 
 } // namespace an::tests::processes::framework

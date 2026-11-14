@@ -277,8 +277,12 @@ The application without a window, `namespace an::ui::shell`: what every shell (a
 then the default). `core/ApplicationCore` is what the application holds that is not a window - the persistence stores
 (`openStores()` makes no widget), the folder last opened, the temporary and thumbnail folders, `services/` (the
 listeners, the open process windows, the recent files and processes, the favourites; `DialogService`,
-`FileDialogService`, `ProcessLaunchService`), `views/ViewService` (the views and what the shell is told of them) -
-and the receiver of the work threads hand the GUI thread (`core/ApplicationEvents.h`); `main` makes it before the
+`FileDialogService`, `ProcessLaunchService`, `ExtensionService` - the installed extensions and their host sessions),
+`views/ViewService` (the views and what the shell is told of them), `actions/` (`ActionCatalogue`, the 186 actions by
+the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBindings`, what they do;
+`ActionStateCoordinator`; `ProcessMenuModel`; `MenuTree`, the menu bar as data) - and the receiver of the work threads
+hand the GUI thread (`core/ApplicationEvents.h`); a unit of Controls is handed the actions as an `ActionLookup`
+(`app/ActionLookup.h`) and never names the catalogue; `main` makes it before the
 window and hands it to the window, which is the shell its services answer through (`setShell`). It sits above Processes and below the application; Controls and Processes never include it, it
 never includes the application or a host, and no extension host links it (`check_consumer_layering.py`,
 `check_build_graph.py`). A case about one of its classes lives in `Test_ShellCore`.

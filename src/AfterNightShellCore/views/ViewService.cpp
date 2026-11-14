@@ -3,9 +3,11 @@
 
 #include "views/ViewService.h"
 
+#include "actions/ActionStateCoordinator.h"
 #include "core/ApplicationCore.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
+#include "services/ExtensionService.h"
 
 #include "app/IconManager.h"
 #include "app/ViewCreationCoordinator.h"
@@ -106,8 +108,8 @@ struct ViewService::Impl
     /// The shell shows the active view's state, and the actions and the history follow the active view.
     void activeViewChanged(ImageViewControl* active)
     {
-        call(hooks.updateActiveImageActions);
-        call(hooks.updateActiveImageHistory);
+        core.actionState().updateActiveImageActions();
+        core.actionState().updateActiveImageHistory();
         if (IShell* const shell = core.shell())
         {
             shell->statusDisplay().showImageInfo(manager.getActiveImageViewControl());
@@ -140,8 +142,8 @@ ViewService::ViewService(ApplicationCore& core) : m_impl(std::make_unique<Impl>(
         const IconManagerSptr& icons = impl.core.iconManager();
         return icons ? icons->getIcon(QString::fromUtf8(iconName)) : QIcon();
     };
-    creationDeps.updateActiveImageActions = [&impl]() { call(impl.hooks.updateActiveImageActions); };
-    creationDeps.updateActiveImageHistory = [&impl]() { call(impl.hooks.updateActiveImageHistory); };
+    creationDeps.updateActiveImageActions = [&impl]() { impl.core.actionState().updateActiveImageActions(); };
+    creationDeps.updateActiveImageHistory = [&impl]() { impl.core.actionState().updateActiveImageHistory(); };
     creationDeps.updateImageInfoInStatusBar = [&impl]() {
         if (IShell* const shell = impl.core.shell())
         {
@@ -149,7 +151,7 @@ ViewService::ViewService(ApplicationCore& core) : m_impl(std::make_unique<Impl>(
         }
     };
     creationDeps.notifyViewControlCreated = [&impl](const ImageViewControl* view) {
-        call(impl.hooks.viewCreated, view);
+        impl.core.extensions().viewCreated(view);
         impl.core.eventBus().notifyViewControlCreated(view);
     };
     creationDeps.placeView = [&impl](ImageViewControl& view, ImageViewControl* neighbour,
@@ -194,12 +196,12 @@ void ViewService::setActiveViewByName(const std::string& name)
 
 void ViewService::updateActiveImageActions()
 {
-    call(m_impl->hooks.updateActiveImageActions);
+    m_impl->core.actionState().updateActiveImageActions();
 }
 
 void ViewService::updateActiveImageHistory()
 {
-    call(m_impl->hooks.updateActiveImageHistory);
+    m_impl->core.actionState().updateActiveImageHistory();
 }
 
 void ViewService::refreshViewList()
@@ -322,7 +324,7 @@ void ViewService::removeViewControl(ImageViewControl* view, const bool deleteObj
     IViewHost* const host = m_impl->host();
     if (listed)
     {
-        call(m_impl->hooks.viewDestroyed, view);
+        m_impl->core.extensions().viewDestroyed(view);
         m_impl->core.eventBus().notifyViewControlDestroyed(view);
         if (host != nullptr)
         {
@@ -362,7 +364,7 @@ void ViewService::renameViewControl(ImageViewControl* view)
     }
 
     LOG_INFO("Image '{}' renamed to '{}'", oldName, newName);
-    call(m_impl->hooks.viewRenamed, newName, oldName, view);
+    m_impl->core.extensions().viewRenamed(newName, oldName, view);
     m_impl->core.eventBus().notifyViewControlRenamed(newName, oldName, view);
 }
 
@@ -393,6 +395,7 @@ void ViewService::restoreViewControl(ImageViewControl* ctrl)
 void ViewService::notifyViewControlUpdated(const ImageViewControl* ctrl)
 {
     call(m_impl->hooks.viewUpdated, ctrl);
+    m_impl->core.extensions().viewUpdated(ctrl);
     m_impl->core.eventBus().notifyViewControlUpdated(ctrl);
 }
 

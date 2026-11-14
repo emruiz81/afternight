@@ -90,6 +90,56 @@ inline constexpr const char* kWriteBaselineRecordsVariable = "AFTERNIGHT_WRITE_B
     return QString(depth * 4, QLatin1Char(' ')) + written.join(QStringLiteral(" | "));
 }
 
+/// The fields of an entry as `baselineEntry` wrote them, its indentation dropped: split at each ` | ` that is not
+/// escaped, `-` read back as an empty field and every escape undone.
+[[nodiscard]] inline QStringList baselineFields(const QString& entry)
+{
+    QStringList fields;
+    QString field;
+    bool escaped = false;
+    const QString trimmed = entry.trimmed();
+    for (qsizetype index = 0; index < trimmed.size(); ++index)
+    {
+        const QChar character = trimmed[index];
+        if (escaped)
+        {
+            escaped = false;
+            if (character == QLatin1Char('t'))
+            {
+                field += QLatin1Char('\t');
+            }
+            else if (character == QLatin1Char('n'))
+            {
+                field += QLatin1Char('\n');
+            }
+            else if (character == QLatin1Char('r'))
+            {
+                field += QLatin1Char('\r');
+            }
+            else
+            {
+                field += character;
+            }
+            continue;
+        }
+        if (character == QLatin1Char('\\'))
+        {
+            escaped = true;
+            continue;
+        }
+        if (trimmed.mid(index, 3) == QStringLiteral(" | "))
+        {
+            fields.append(field == QStringLiteral("-") ? QString() : field);
+            field.clear();
+            index += 2;
+            continue;
+        }
+        field += character;
+    }
+    fields.append(field == QStringLiteral("-") ? QString() : field);
+    return fields;
+}
+
 /// One record: the checked-in file a suite's cases compare the product with, a section at a time.
 class BaselineRecord
 {
@@ -143,6 +193,19 @@ public:
             names.append(section.name);
         }
         return names;
+    }
+
+    /// The entries a section holds, in its order, as written; none when the record has no such section.
+    [[nodiscard]] QStringList entries(const QString& section) const
+    {
+        for (const Section& candidate : m_sections)
+        {
+            if (candidate.name == section)
+            {
+                return candidate.entries;
+            }
+        }
+        return {};
     }
 
     /// Compares a section of the record with the entries read from the product, in order; the failure names the

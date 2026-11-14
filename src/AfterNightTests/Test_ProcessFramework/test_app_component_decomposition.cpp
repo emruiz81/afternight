@@ -13,7 +13,6 @@
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/ExtensionManager.h"
 #include "app/MaskOverlayCoordinator.h"
-#include "app/MenuActionManager.h"
 #include "app/UiBootstrapCoordinator.h"
 #include "app/ViewControlCoordinator.h"
 #include "app/WindowLayoutCoordinator.h"
@@ -71,13 +70,6 @@ TEST(ChannelExtractorComponent, ChannelExtractor_ExecutesOperationWithActiveImag
     EXPECT_TRUE(executed);
     EXPECT_EQ(ranOn, std::vector<ImageViewControl*>{someView()});
     EXPECT_EQ(errorCount, 0);
-}
-
-// The menu's actions are connected once: connected already, they are not connected again.
-TEST(MenuActionManagerComponent, MenuActionManager_ConnectionGuardIsIdempotent)
-{
-    EXPECT_TRUE(an::ui::shouldConnectMenuActions(false));
-    EXPECT_FALSE(an::ui::shouldConnectMenuActions(true));
 }
 
 // The image selector is changed only when it shows another image than the active one.

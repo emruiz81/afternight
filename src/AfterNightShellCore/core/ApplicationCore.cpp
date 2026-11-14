@@ -3,9 +3,14 @@
 
 #include "core/ApplicationCore.h"
 
+#include "actions/ActionBindings.h"
+#include "actions/ActionCatalogue.h"
+#include "actions/ActionStateCoordinator.h"
+#include "actions/ProcessMenuModel.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
+#include "services/ExtensionService.h"
 #include "services/FavoriteProcessesModel.h"
 #include "services/FileDialogService.h"
 #include "services/ProcessLaunchService.h"
@@ -102,10 +107,17 @@ struct ApplicationCore::Impl
     an::ui::IEngineSessionProvider* session = nullptr;
 
     std::shared_ptr<IconManager> iconManager = std::make_shared<IconManager>();
+    // The actions and their state are made after the services and go after them: a service that goes may still ask
+    // for the actions' state.
+    std::unique_ptr<ActionCatalogue> catalogue;
+    std::unique_ptr<ActionBindings> bindings;
+    std::unique_ptr<ActionStateCoordinator> actionState;
+    std::unique_ptr<ProcessMenuModel> processMenus;
     std::unique_ptr<DialogService> dialogs;
     std::unique_ptr<FileDialogService> fileDialogs;
     std::unique_ptr<ViewService> views;
     std::unique_ptr<ProcessLaunchService> launches;
+    std::unique_ptr<ExtensionService> extensions;
 };
 
 ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<Impl>())
@@ -144,11 +156,55 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     impl.fileDialogs = std::make_unique<FileDialogService>(*this);
     impl.views = std::make_unique<ViewService>(*this);
     impl.launches = std::make_unique<ProcessLaunchService>(*this);
+
+    // The actions are the core's children, made from the catalogue's table; what they do is connected when a shell
+    // gives its targets.
+    impl.catalogue = std::make_unique<ActionCatalogue>(*this);
+    impl.bindings = std::make_unique<ActionBindings>(*impl.catalogue, *this);
+
+    ActionStateCoordinator::Dependencies stateDeps;
+    stateDeps.actions = impl.catalogue->lookup();
+    stateDeps.subjectView = [&impl]() { return impl.views->subjectView(); };
+    stateDeps.lookingView = [&impl]() { return impl.views->lookingView(); };
+    stateDeps.registryActions = [&impl]() { return impl.processMenus->extensionActions(); };
+    stateDeps.timerContext = this;
+    stateDeps.isMaximizedViewActive = [&impl]() {
+        return impl.shell != nullptr && impl.shell->viewHost().isMaximizedViewActive();
+    };
+    stateDeps.iconProvider = [&impl](const std::string& key) {
+        return impl.iconManager ? impl.iconManager->getIcon(QString::fromUtf8(key)) : QIcon();
+    };
+    impl.actionState = std::make_unique<ActionStateCoordinator>(std::move(stateDeps));
+
+    ProcessMenuModel::Dependencies menuDeps;
+    menuDeps.recentProcesses = &impl.recentProcesses;
+    menuDeps.favoriteProcesses = &impl.favoriteProcesses;
+    menuDeps.actions = impl.catalogue->lookup();
+    menuDeps.launch = [&impl](const std::string& descriptorId) { return impl.launches->launch(descriptorId); };
+    menuDeps.manageExtensions = [&impl]() { impl.dialogs->openExtensionsAt(ExtensionService::statusPageTitle()); };
+    menuDeps.bindExtensionAction = [&impl](QAction* action, const std::string& category,
+                                           const std::string& descriptorId) {
+        impl.bindings->bindRegistryAction(action, category, descriptorId);
+    };
+    impl.processMenus = std::make_unique<ProcessMenuModel>(std::move(menuDeps));
+
+    impl.extensions = std::make_unique<ExtensionService>(*this);
+
+    // A launch the menus record, and an extension's environment a launch prepared, change the process menus.
+    ProcessLaunchService::Hooks launchHooks;
+    launchHooks.recentProcessesChanged = [&impl]() {
+        impl.processMenus->notifyChanged(ProcessMenuModel::Change::RecentProcesses);
+    };
+    launchHooks.extensionsPrepared = [&impl](const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered) {
+        impl.extensions->extensionsPrepared(discovered);
+    };
+    impl.launches->setHooks(std::move(launchHooks));
 }
 
 ApplicationCore::~ApplicationCore()
 {
     m_impl->eventTarget = nullptr;
+    m_impl->extensions.reset();
     m_impl->launches.reset();
     m_impl->shell = nullptr;
     closeStores();
@@ -323,9 +379,34 @@ ProcessLaunchService& ApplicationCore::processLaunch() noexcept
     return *m_impl->launches;
 }
 
+ExtensionService& ApplicationCore::extensions() noexcept
+{
+    return *m_impl->extensions;
+}
+
 const std::shared_ptr<IconManager>& ApplicationCore::iconManager() const noexcept
 {
     return m_impl->iconManager;
+}
+
+ActionCatalogue& ApplicationCore::actions() noexcept
+{
+    return *m_impl->catalogue;
+}
+
+ActionBindings& ApplicationCore::actionBindings() noexcept
+{
+    return *m_impl->bindings;
+}
+
+ActionStateCoordinator& ApplicationCore::actionState() noexcept
+{
+    return *m_impl->actionState;
+}
+
+ProcessMenuModel& ApplicationCore::processMenus() noexcept
+{
+    return *m_impl->processMenus;
 }
 
 void ApplicationCore::setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept

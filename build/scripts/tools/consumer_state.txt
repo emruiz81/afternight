@@ -440,15 +440,6 @@ state src/AfterNightControls/controls/PixelMathEditControl.cpp m_formats_allowed
 
 # ---- UI state kept between uses of a view.
 
-state src/AfterNightApp/app/AfterNightApp.cpp cleanupMissingStoredProcessIdsOnNextRefresh
-    scope            anonymous namespace
-    category         ui-state
-    owner            the application's menu refresh sets and consumes it
-    lifetime         the whole process
-    synchronization  GUI thread
-    reason           Defers pruning stored process identifiers until the next menu refresh, once every registry
-                     source has reported.
-
 state src/AfterNightControls/app/ExtensionEnvironmentManager.cpp g_environmentPreparations
     scope            an::ui::extensions (anonymous namespace)
     category         ui-state

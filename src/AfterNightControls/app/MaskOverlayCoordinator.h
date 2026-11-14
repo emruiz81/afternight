@@ -5,20 +5,18 @@
 
 #include "AfterNightControlsExport.h"
 
+#include "app/ActionLookup.h"
+
 #include <array>
 #include <cstddef>
 #include <functional>
+#include <string_view>
 
 #include <QString>
 
 class QAction;
 class ImageViewControl;
 class ImageViewControlManager;
-
-namespace an::ui::app
-{
-class AfterNightAppUiElements;
-}
 
 enum class MaskRenderingMode : unsigned char;
 
@@ -67,7 +65,8 @@ class AFTERNIGHTCONTROLS_API MaskOverlayCoordinator
 public:
     struct Dependencies
     {
-        an::ui::app::AfterNightAppUiElements* ui = nullptr;
+        /// The application's actions: the overlay entries are kept exclusive among them.
+        ActionLookup actions;
         ImageViewControlManager* imageViewControlManager = nullptr;
         std::function<void(const QString&, const QString&)> notifyErrorMessage;
     };
@@ -88,6 +87,7 @@ public:
 
 private:
     std::array<QAction*, kMaskOverlayActionCount> overlayActions() const;
+    [[nodiscard]] QAction* action(std::string_view objectName) const;
     ImageViewControl* activeControlOrNotify(const QString& title) const;
     void applyOverlayMode(bool checked, QAction* selectedAction, MaskRenderingMode mode) const;
 

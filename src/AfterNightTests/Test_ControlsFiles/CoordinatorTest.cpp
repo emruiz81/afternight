@@ -11,8 +11,6 @@
 
 #include "Test_ControlsFiles/FilesTestContext.h"
 
-#include "app/ActionStateCoordinator.h"
-#include "app/AfterNightAppUiBuilder.h"
 #include "app/DemosaicTextMaps.h"
 #include "app/ImageOperationsCoordinator.h"
 #include "app/PersistenceCoordinator.h"
@@ -529,66 +527,6 @@ TEST_F(CoordinatorTest, EndingASessionRemovesOnlyItsOwnDirectory)
     EXPECT_FALSE(an::ui::isSessionDirectoryName("IMG_SWAP{x}.dmp"));
 }
 
-// The convert actions are gated by the representation the image's description states, read without a lease, and the
-// colour actions by its channels.
-TEST_F(CoordinatorTest, TheActionsFollowTheImagesDescription)
-{
-    QMainWindow window;
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
-    ImageViewControlManager manager;
-    an::ui::ActionStateCoordinator::Dependencies deps;
-    deps.ui = &ui;
-    deps.imageViewControlManager = &manager;
-    deps.timerContext = &window;
-    an::ui::ActionStateCoordinator coordinator(deps);
-
-    coordinator.updateActiveImageActions();
-    EXPECT_FALSE(ui.actionSave_as->isEnabled());
-
-    ImageViewControl* floating = showView<float>("floating");
-    manager.setActiveImageViewControl(floating);
-    coordinator.updateActiveImageActions();
-    EXPECT_TRUE(ui.actionSave_as->isEnabled());
-    EXPECT_FALSE(ui.actionConvert_to_32_bit_float->isEnabled());
-    EXPECT_TRUE(ui.actionConvert_to_unsigned_16_bit->isEnabled());
-    EXPECT_TRUE(ui.actionConvert_to_8_bit->isEnabled());
-    EXPECT_FALSE(ui.actionAdjustHSL->isEnabled());
-
-    ImageViewControl* sixteen = showView<std::uint16_t>("sixteen", Channels::Rgb);
-    manager.setActiveImageViewControl(sixteen);
-    coordinator.updateActiveImageActions();
-    EXPECT_FALSE(ui.actionConvert_to_unsigned_16_bit->isEnabled());
-    EXPECT_TRUE(ui.actionConvert_to_32_bit_float->isEnabled());
-    EXPECT_TRUE(ui.actionAdjustHSL->isEnabled());
-    EXPECT_FALSE(ui.actionFITSHeader->isEnabled());
-    pumpQuietly();
-}
-
-// Undo and redo are labelled with the steps the view's history names; a view with no step offers none.
-TEST_F(CoordinatorTest, UndoAndRedoFollowTheViewsHistory)
-{
-    QMainWindow window;
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
-    ImageViewControlManager manager;
-    an::ui::ActionStateCoordinator::Dependencies deps;
-    deps.ui = &ui;
-    deps.imageViewControlManager = &manager;
-    deps.timerContext = &window;
-    an::ui::ActionStateCoordinator coordinator(deps);
-
-    ImageViewControl* view = showView<float>("history");
-    manager.setActiveImageViewControl(view);
-    coordinator.updateActiveImageHistory();
-    EXPECT_TRUE(ui.actionImage_History->isEnabled());
-    EXPECT_FALSE(ui.actionUndo->isEnabled());
-    ASSERT_NE(view->viewHistory(), nullptr);
-    ASSERT_TRUE(view->viewHistory()->registerShownState("Brighten", "made brighter"));
-    coordinator.updateActiveImageHistory();
-    EXPECT_TRUE(ui.actionUndo->isEnabled());
-    EXPECT_EQ(ui.actionUndo->text(), QStringLiteral("Undo <Brighten>"));
-    EXPECT_FALSE(ui.actionRedo->isEnabled());
-}
-
 // The image menu reaches the view's history through the view, opens the export dialog through what the application
 // wires, and says a FITS sequence is not available.
 TEST_F(CoordinatorTest, TheImageOperationsReachTheViewsHistoryThroughTheView)
@@ -660,39 +598,6 @@ TEST_F(CoordinatorTest, ARenameIsRecordedInTheViewsHistory)
     ok->click();
     EXPECT_EQ(view->getUniqueName(), "after");
     EXPECT_EQ(view->viewHistory()->previousStepName(), "Rename");
-    pumpQuietly();
-}
-
-// Show in File Browser is offered for the active view's image only while the image has a file: not with no view, not
-// for an image a process made and nobody saved, and once the image names the file it was read from or saved to.
-TEST_F(CoordinatorTest, ShowInFileBrowserIsOfferedOnlyForAnImageThatIsAFile)
-{
-    QMainWindow window;
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window);
-    ImageViewControlManager manager;
-    an::ui::ActionStateCoordinator::Dependencies deps;
-    deps.ui = &ui;
-    deps.imageViewControlManager = &manager;
-    deps.timerContext = &window;
-    an::ui::ActionStateCoordinator coordinator(deps);
-
-    coordinator.updateActiveImageActions();
-    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "no view";
-
-    ImageViewControl* view = showView<float>("made");
-    manager.setActiveImageViewControl(view);
-    coordinator.updateActiveImageActions();
-    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "an image that has never been a file";
-
-    an::ui::DocumentNames names = view->document().names();
-    names.sourcePath = QStringLiteral("/somewhere/saved.fits");
-    view->document().setNames(std::move(names));
-    coordinator.updateActiveImageActions();
-    EXPECT_TRUE(ui.actionShow_In_File_Browser->isEnabled()) << "an image that names its file";
-
-    manager.setActiveImageViewControl(nullptr);
-    coordinator.updateActiveImageActions();
-    EXPECT_FALSE(ui.actionShow_In_File_Browser->isEnabled()) << "no active view again";
     pumpQuietly();
 }
 

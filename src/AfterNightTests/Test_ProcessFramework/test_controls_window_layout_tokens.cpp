@@ -12,6 +12,7 @@
 #include "Test_ProcessFramework/WindowLayoutChecks.h"
 
 #include "app/AfterNightAppUiBuilder.h"
+#include "fixtures/RecordedActions.h"
 #include "controls/AutostretchSettingsControlUiBuilder.h"
 #include "controls/ExportSequenceControlUiBuilder.h"
 #include "controls/ImageEXIFViewerControlUiBuilder.h"
@@ -129,7 +130,8 @@ TEST(ControlsWindowLayoutTest, EveryControlsWindowTakesItsFontsFromTheTokens)
     }
 
     QMainWindow mainWindow;
-    (void)an::ui::app::buildAfterNightAppUi(&mainWindow);
+    const an::tests::fixtures::RecordedActions actions(mainWindow);
+    (void)an::ui::app::buildAfterNightAppUi(&mainWindow, actions.lookup());
     const QStringList outside = fontsOutsideTheTokens(mainWindow);
     EXPECT_TRUE(outside.isEmpty()) << "main window: " << outside.join(QStringLiteral(", ")).toStdString();
 }
@@ -439,7 +441,8 @@ TEST(ControlsWindowLayoutTest, NewSequenceWindowUsesTokenSpacing)
 TEST(ControlsWindowLayoutTest, TheMainWindowsMenusAreBuilt)
 {
     QMainWindow host;
-    const auto ui = an::ui::app::buildAfterNightAppUi(&host);
+    const an::tests::fixtures::RecordedActions actions(host);
+    const auto ui = an::ui::app::buildAfterNightAppUi(&host, actions.lookup());
     ASSERT_NE(ui.centralWidget, nullptr);
     ASSERT_NE(ui.menuBar, nullptr);
     ASSERT_NE(ui.mainToolBar, nullptr);

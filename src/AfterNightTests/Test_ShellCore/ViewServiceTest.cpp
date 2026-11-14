@@ -17,6 +17,7 @@
 
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewControlManager.h"
 
 #include <gtest/gtest.h>
 
@@ -68,6 +69,9 @@ protected:
     {
         // A standard view is made in a dock widget that holds it; the case deletes the docks it made, and so their
         // views.
+        // The views leave the list first, as the window's going takes them out of it: a view deleted while it is
+        // listed would leave the list naming it for the work still queued to read.
+        m_core.viewService().manager().clear();
         for (const QPointer<QWidget>& dock : m_docks)
         {
             delete dock.data();

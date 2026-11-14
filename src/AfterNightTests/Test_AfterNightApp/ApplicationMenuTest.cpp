@@ -10,6 +10,8 @@
 
 #include "ApplicationDriving.h"
 #include "InventoryRecords.h"
+#include "actions/ActionCatalogue.h"
+#include "actions/MenuTree.h"
 #include "app/ProcessRegistry.h"
 #include "controls/AboutDialog.h"
 #include "controls/IAppContext.h"
@@ -55,6 +57,7 @@
 #include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
+#include <QSet>
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QThread>
@@ -1171,6 +1174,22 @@ TEST_F(ApplicationMenu, MenuBarTreeMatchesTheRecord)
 
     EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::app::kMenuBarSection),
                                an::tests::app::menuBarTreeEntries(*s_window)));
+}
+
+// The menu tree the shell core declares builds the window's menu bar over the same actions: the same menus, actions and
+// separators in the same order. While the window keeps a builder of its own, this holds the two together.
+TEST_F(ApplicationMenu, TheMenuTreeBuildsTheWindowsMenuBar)
+{
+    QMenuBar built;
+    an::ui::shell::MenuTree::menuBar().buildMenuBar(built, s_core->actions().lookup());
+    const QSet<const QAction*> declared = an::tests::app::declaredActionSet(*s_window);
+    QStringList fromTree;
+    QStringList fromWindow;
+    an::tests::app::appendMenuTree(built.actions(), 0, {}, declared, fromTree);
+    an::tests::app::appendMenuTree(s_window->menuBar()->actions(), 0, {}, declared, fromWindow);
+
+    EXPECT_FALSE(fromTree.isEmpty());
+    EXPECT_EQ(fromTree, fromWindow);
 }
 
 // The menu a view shows on a right click is the tree the record holds, entry for entry: the menus it shares with the

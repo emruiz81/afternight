@@ -5,7 +5,6 @@
 
 #include "app/MaskOverlayCoordinator.h"
 
-#include "app/AfterNightAppUiBuilder.h"
 
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
@@ -76,65 +75,56 @@ void MaskOverlayCoordinator::onShowMaskClicked(const bool checked) const
 
 void MaskOverlayCoordinator::onOverlayRedClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Red : nullptr,
-                     MaskRenderingMode::red_mode);
+    applyOverlayMode(checked, action("actionOverlay_Red"), MaskRenderingMode::red_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayGreenClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Green : nullptr,
-                     MaskRenderingMode::green_mode);
+    applyOverlayMode(checked, action("actionOverlay_Green"), MaskRenderingMode::green_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayBlueClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Blue : nullptr,
-                     MaskRenderingMode::blue_mode);
+    applyOverlayMode(checked, action("actionOverlay_Blue"), MaskRenderingMode::blue_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayYellowClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Yellow : nullptr,
-                     MaskRenderingMode::yellow_mode);
+    applyOverlayMode(checked, action("actionOverlay_Yellow"), MaskRenderingMode::yellow_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayCyanClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Cyan : nullptr,
-                     MaskRenderingMode::cyan_mode);
+    applyOverlayMode(checked, action("actionOverlay_Cyan"), MaskRenderingMode::cyan_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayMagentaClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionOverlay_Magenta : nullptr,
-                     MaskRenderingMode::magenta_mode);
+    applyOverlayMode(checked, action("actionOverlay_Magenta"), MaskRenderingMode::magenta_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayMultiplyClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionMultiply : nullptr,
-                     MaskRenderingMode::multiply_mode);
+    applyOverlayMode(checked, action("actionMultiply"), MaskRenderingMode::multiply_mode);
 }
 
 void MaskOverlayCoordinator::onOverlayReplaceClicked(const bool checked) const
 {
-    applyOverlayMode(checked, m_dependencies.ui ? m_dependencies.ui->actionReplace : nullptr,
-                     MaskRenderingMode::replace_mode);
+    applyOverlayMode(checked, action("actionReplace"), MaskRenderingMode::replace_mode);
 }
 
 std::array<QAction*, kMaskOverlayActionCount> MaskOverlayCoordinator::overlayActions() const
 {
-    if (!m_dependencies.ui)
-    {
-        return {};
-    }
-
     return {
-        m_dependencies.ui->actionOverlay_Red,  m_dependencies.ui->actionOverlay_Green,
-        m_dependencies.ui->actionOverlay_Blue, m_dependencies.ui->actionOverlay_Yellow,
-        m_dependencies.ui->actionOverlay_Cyan, m_dependencies.ui->actionOverlay_Magenta,
-        m_dependencies.ui->actionReplace,      m_dependencies.ui->actionMultiply,
+        action("actionOverlay_Red"),    action("actionOverlay_Green"), action("actionOverlay_Blue"),
+        action("actionOverlay_Yellow"), action("actionOverlay_Cyan"),  action("actionOverlay_Magenta"),
+        action("actionReplace"),        action("actionMultiply"),
     };
+}
+
+QAction* MaskOverlayCoordinator::action(const std::string_view objectName) const
+{
+    return m_dependencies.actions ? m_dependencies.actions(objectName) : nullptr;
 }
 
 ImageViewControl* MaskOverlayCoordinator::activeControlOrNotify(const QString& title) const
