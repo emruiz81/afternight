@@ -72,6 +72,39 @@ public:
         return m_known;
     }
 
+    /// The chosen shell starts under its descriptor's profile, or under the one the developer switch names.
+    void chooseStyleProfile(const QProcessEnvironment& environment)
+    {
+        if (m_choice.descriptor == nullptr)
+        {
+            return;
+        }
+        m_choice.styleProfile = m_choice.descriptor->styleProfile;
+        const QString variable = QString::fromLatin1(ShellSelection::kStyleProfileVariable);
+        const QString value = environment.value(variable).trimmed();
+        if (value.isEmpty())
+        {
+            return;
+        }
+        if (value.compare(QStringLiteral("classic"), Qt::CaseInsensitive) == 0)
+        {
+            m_choice.styleProfile = an::ui::StyleProfile::Classic;
+        }
+        else if (value.compare(QStringLiteral("observatory"), Qt::CaseInsensitive) == 0)
+        {
+            m_choice.styleProfile = an::ui::StyleProfile::Observatory;
+        }
+        else
+        {
+            warn(QStringLiteral("%1=%2 names no style profile and was passed over; the profiles are classic and "
+                                "observatory")
+                     .arg(variable, value));
+            return;
+        }
+        LOG_INFO("The {} shell starts under the style profile {} names: {}", m_choice.descriptor->id.toStdString(),
+                 variable.toStdString(), value.toLower().toStdString());
+    }
+
     [[nodiscard]] ShellChoice result()
     {
         return std::move(m_choice);
@@ -118,29 +151,26 @@ private:
     return id;
 }
 
-} // namespace
-
-ShellChoice ShellSelection::resolve(const QStringList& arguments, const QProcessEnvironment& environment,
-                                    IGlobalSettingsProvider* settings, const ShellRegistry& registry)
+/// Chooses the shell into `chooser`: the first source that names a registered one.
+void chooseShell(const QStringList& arguments, const QProcessEnvironment& environment,
+                 IGlobalSettingsProvider* settings, Chooser& chooser)
 {
-    Chooser chooser(registry);
-
     if (const std::optional<QString> id = commandLineId(arguments, chooser))
     {
         if (chooser.take(*id, ShellChoiceSource::CommandLine))
         {
-            return chooser.result();
+            return;
         }
         chooser.warn(QStringLiteral("%1=%2 names no registered shell and was passed over; the registered shells are %3")
-                         .arg(QString::fromLatin1(kOption), *id, chooser.known()));
+                         .arg(QString::fromLatin1(ShellSelection::kOption), *id, chooser.known()));
     }
 
-    const QString variable = QString::fromLatin1(kEnvironmentVariable);
+    const QString variable = QString::fromLatin1(ShellSelection::kEnvironmentVariable);
     if (const QString id = environment.value(variable).trimmed(); !id.isEmpty())
     {
         if (chooser.take(id, ShellChoiceSource::Environment))
         {
-            return chooser.result();
+            return;
         }
         chooser.warn(QStringLiteral("%1=%2 names no registered shell and was passed over; the registered shells are %3")
                          .arg(variable, id, chooser.known()));
@@ -153,7 +183,7 @@ ShellChoice ShellSelection::resolve(const QStringList& arguments, const QProcess
         {
             if (chooser.take(id, ShellChoiceSource::Setting))
             {
-                return chooser.result();
+                return;
             }
             chooser.warn(QStringLiteral("The setting %1 is %2, which names no registered shell, and was passed over; "
                                         "the registered shells are %3")
@@ -168,6 +198,16 @@ ShellChoice ShellSelection::resolve(const QStringList& arguments, const QProcess
                                     "shells are %2")
                          .arg(defaultId, chooser.known()));
     }
+}
+
+} // namespace
+
+ShellChoice ShellSelection::resolve(const QStringList& arguments, const QProcessEnvironment& environment,
+                                    IGlobalSettingsProvider* settings, const ShellRegistry& registry)
+{
+    Chooser chooser(registry);
+    chooseShell(arguments, environment, settings, chooser);
+    chooser.chooseStyleProfile(environment);
     return chooser.result();
 }
 

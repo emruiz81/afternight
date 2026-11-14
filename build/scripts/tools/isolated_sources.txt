@@ -454,6 +454,7 @@ sources Test_ControlsViewer
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/session/ImageReads.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ComparisonViewWidget.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
@@ -534,6 +535,7 @@ sources Test_ControlsProcessFramework
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -607,6 +609,7 @@ sources Test_ImageProcessControl
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -780,6 +783,7 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/controls/settings/ProcessingLimits.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -838,6 +842,7 @@ sources Test_ControlsHistory
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -937,6 +942,7 @@ sources Test_ControlsFiles
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -1054,6 +1060,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -1155,6 +1162,7 @@ sources Test_ControlsStatistics
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
@@ -1286,6 +1294,7 @@ sources Test_MaskDrawing
     header   src/AfterNightProcesses/processes/MaskDrawingProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
     header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/RecordedActions.h
     include  src/AfterNightTests
@@ -1366,6 +1375,7 @@ sources Test_ControlsSequences
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -1528,6 +1538,7 @@ sources Test_ControlsDialogs
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightControls/controls/settings/InterfaceSettingsPage.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -1560,6 +1571,7 @@ sources Test_ControlsDocking
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/KddwProxyStyle.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     include  src/AfterNightTests
     include  src/AfterNightControls
@@ -1680,6 +1692,7 @@ sources Test_ShellCore
     header   src/AfterNightShellCore/actions/ProcessMenuModel.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightControls/controls/KDDockWidgetsHelper.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightShellCore/actions/ViewMenuBuilder.h
     header   src/AfterNightShellCore/services/FileDropHandler.h
     header   src/AfterNightShellCore/services/WindowGeometryStore.h
@@ -1758,6 +1771,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/session/ImageDocument.cpp
     unit     src/AfterNightControls/session/ImageReads.cpp
     unit     src/AfterNightControls/theme/AnDesignTokens.cpp
+    unit     src/AfterNightControls/theme/ObservatoryPalette.cpp
     unit     src/AfterNightControls/widgets/ComparisonDisplayModule.cpp
     unit     src/AfterNightControls/widgets/ComparisonViewWidget.cpp
     unit     src/AfterNightControls/widgets/CurvesWidget.cpp
@@ -1875,7 +1889,9 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/stdafx.hpp
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/theme/ObservatoryPalette.h
     header   src/AfterNightControls/theme/PainterGuard.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ComparisonDisplayModule.h
     header   src/AfterNightControls/widgets/ComparisonViewWidget.h
@@ -2026,6 +2042,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ComparisonDisplayModule.h
     header   src/AfterNightControls/widgets/ComparisonViewWidget.h
@@ -2091,6 +2108,7 @@ sources Test_MainDashboard
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ImageThumbnailWidget.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/InMemoryDatabase.h
@@ -2301,6 +2319,7 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
     header   src/AfterNightTests/fixtures/common/FixtureDigest.h
     header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
@@ -2316,6 +2335,7 @@ sources Test_AfterNightApp
     header   src/AfterNightShellCore/services/RecentFilesModel.h
     header   src/AfterNightShellCore/services/RecentProcessesModel.h
     header   src/AfterNightControls/app/MessageBoxes.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightShellCore/core/IShell.h
     header   src/AfterNightShellCore/services/DialogService.h
     header   src/AfterNightShellCore/services/FileDialogService.h
@@ -2476,6 +2496,7 @@ sources Test_ShellClassic
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
@@ -2598,6 +2619,7 @@ sources Test_ShellParity
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -2739,6 +2761,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/session/PreviewProxies.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
@@ -2806,6 +2829,8 @@ sources Test_ExtensionHostNative
 # The theme suite, switched with the Controls suites: the design tokens, the proxy style, the animation helpers, the
 # feature flags, the theme manager's cascade and the PixelMath palette, its cases linked against the Controls library.
 sources Test_ThemeSystem
+    unit     src/AfterNightTests/Test_ThemeSystem/ObservatoryTokensTest.cpp
+    unit     src/AfterNightTests/Test_ThemeSystem/StyleProfileTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/main.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/TokenBaselineTest.cpp
     unit     src/AfterNightTests/Test_ThemeSystem/test_animation_utils.cpp
@@ -2823,18 +2848,26 @@ sources Test_ThemeSystem
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/theme/ObservatoryPalette.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  3rdparty/src
+    include  src/AfterNightPlatform/include
     link     AfterNightControls
+    link     AfterNightPlatform
     qt       core gui widgets
 
 # The widgets suite, linked against the Controls library: the components, the timeline and stage widgets, the waiting
 # spinner, the structuring element, vector slope, lens, curves and histogram widgets, the quick zoom over an image the
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
+    unit     src/AfterNightTests/Test_Widgets/NewTokensTest.cpp
     unit     src/AfterNightTests/Test_Widgets/main.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_button_group.cpp
     unit     src/AfterNightTests/Test_Widgets/test_an_card_widget.cpp
@@ -2877,6 +2910,7 @@ sources Test_Widgets
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramOverlay.h
@@ -2920,6 +2954,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_tint_strength_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_json_serializer.cpp
     unit     src/AfterNightTests/Test_Persistence/test_persistence_repository.cpp
     unit     src/AfterNightTests/Test_Persistence/test_schema_versioning.cpp
@@ -3104,6 +3139,7 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -3199,6 +3235,7 @@ sources Test_ProcessesPointwise
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/session/PreviewProxies.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramComputation.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
@@ -3326,6 +3363,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/session/PreviewProxies.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
@@ -3445,6 +3483,7 @@ sources Test_ProcessesSpatial
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/session/PreviewProxies.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -3595,6 +3634,7 @@ sources Test_ProcessesMasks
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -3720,6 +3760,7 @@ sources Test_ProcessesChannels
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -3823,6 +3864,7 @@ sources Test_ProcessesGeometry
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -3949,6 +3991,7 @@ sources Test_ProcessesColorTools
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -4071,6 +4114,7 @@ sources Test_ProcessesPixelMath
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -4187,6 +4231,7 @@ sources Test_ProcessesExternalTools
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -4304,6 +4349,7 @@ sources Test_ProcessesPhotometric
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -4421,6 +4467,7 @@ sources Test_ProcessesCombinations
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -4543,6 +4590,7 @@ sources Test_ProcessesStarProfilers
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
@@ -4720,6 +4768,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightControls/app/AppContextHelpers.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightProcesses/processes/ImageIntegration/controls/LocalNormalizationSettingsDialog.h
     header   src/AfterNightProcesses/processes/ImageIntegration/controls/LocalNormalizationSettingsDialogUiBuilder.h
     header   src/AfterNightProcesses/processes/ImageIntegration/controls/RegistrationSettingsDialog.h
@@ -5202,6 +5251,7 @@ sources Test_ImageIntegration
     header   src/AfterNightControls/controls/StaticPreviewCacheLimits.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/ComparisonViewWidget.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
@@ -5700,5 +5750,6 @@ sources Test_ProcessFramework
     external zstd
     qt       core gui widgets sql svg network testlib
     header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/RecordedActions.h
     header   src/AfterNightTests/fixtures/RecordedMenus.h

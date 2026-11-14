@@ -634,7 +634,7 @@ capability new.hub
 
 capability new.look
     title        Presets, tint strength, density, Night
-    shared
+    shared       StyleProfile.TheTokensInForceAreTheResolversAnswer, ObservatoryLadder.EachStrengthTakesItsShare, InterfaceTintStrengthSetting.TheGlobalSettingsStoreKeepsTheChoice, ApplicationStart.TheTintStrengthIsReadFromTheSettingsStore
     classic
     observatory  pending
 

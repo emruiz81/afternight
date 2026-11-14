@@ -5,7 +5,11 @@
 
 #include <QApplication>
 
+#include <string>
+
 #include "fixtures/HeadlessQtFixture.h"
+
+#include <AfterNightPlatform/Logging.h>
 
 int main(int argc, char** argv)
 {
@@ -18,5 +22,10 @@ int main(int argc, char** argv)
     app.setApplicationName("Test_ThemeSystem");
     app.setOrganizationName("AfterNight");
 
-    return RUN_ALL_TESTS();
+    // The log's ring buffer alone, no file: the cases read what the theme logs.
+    an::platform::initializeLogging(std::string());
+
+    const int result = RUN_ALL_TESTS();
+    an::platform::shutdownLogging();
+    return result;
 }

@@ -37,8 +37,9 @@ struct StartedApplication
 
 /// Starts the application in its order: the core's stores first - they make no widget, and the shell is chosen from
 /// one of them - then the shell chosen among the registered ones (the command line, the environment, the setting, the
-/// default; a source that names none is passed over with a warning in the log), then the style, before the first widget
-/// exists, then the shell made over the core and built. Nothing is shown.
+/// default; a source that names none is passed over with a warning in the log), then the style under the profile the
+/// chosen shell names (or the developer switch `AFTERNIGHT_STYLE_PROFILE`), before the first widget exists, then the
+/// shell made over the core and built. Nothing is shown.
 ///
 /// The core is given the application's session first (`ApplicationCore::setApplicationSession`): a shell's window opens
 /// it from the limits the settings store states.
@@ -47,15 +48,16 @@ struct StartedApplication
 /// @param registry the shells the application can make.
 /// @param arguments the process's arguments as `main` received them, the program first.
 /// @param environment the process's environment.
-/// @param installStyle installs the application's style; called once, once the stores are open and the shell is chosen,
-///        before any widget.
+/// @param installStyle puts the given style profile in force (`an::ui::setStyleProfile`) and installs the application's
+///        style; called once, once the stores are open and the shell is chosen, before any widget, with the chosen
+///        shell's profile.
 /// @return the shell built, and how it was chosen.
 /// @throws std::runtime_error when the stores cannot be opened, no registered shell can be chosen, or the shell cannot
 ///         be built, as the application reports it.
 [[nodiscard]] StartedApplication startApplication(an::ui::shell::ApplicationCore& core,
                                                   const an::ui::shell::ShellRegistry& registry,
                                                   const QStringList& arguments, const QProcessEnvironment& environment,
-                                                  const std::function<void()>& installStyle);
+                                                  const std::function<void(an::ui::StyleProfile)>& installStyle);
 
 /// Shows a started shell where its window was.
 void showApplication(an::ui::shell::IShell& shell);

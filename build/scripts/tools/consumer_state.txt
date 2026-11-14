@@ -268,6 +268,22 @@ state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeSurfaceTintFamily
     synchronization  an atomic
     reason           The surface tint family the token resolution applies.
 
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_themeTintStrength
+    scope            anonymous namespace
+    category         theme-service
+    owner            the theme manager
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           How much of the surface tint the Observatory profile's resolution blends in.
+
+state src/AfterNightControls/theme/AnDesignTokens.cpp g_styleProfile
+    scope            anonymous namespace
+    category         theme-service
+    owner            the application's style step, once, before the first widget; the suites' scoped profile
+    lifetime         the whole process
+    synchronization  an atomic, written before any widget exists and read by every resolution
+    reason           The style profile the token resolution resolves under, which the started shell names.
+
 state src/AfterNightControls/theme/AnDesignTokens.cpp g_nativeBackdropSupported
     scope            anonymous namespace
     category         theme-service

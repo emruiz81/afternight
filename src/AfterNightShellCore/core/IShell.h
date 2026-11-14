@@ -15,6 +15,7 @@
 /// widget, dock library or process header through it.
 
 #include "AfterNightShellCoreExport.h"
+#include "theme/StyleProfile.h"
 
 #include <QString>
 
@@ -125,6 +126,8 @@ struct ShellDescriptor
     QString id;
     /// The name the user reads where shells are listed.
     QString displayName;
+    /// The style profile the shell is drawn in, put in force before the first widget exists.
+    StyleProfile styleProfile = StyleProfile::Classic;
     /// Makes the shell over the application. Called once, when the shell has been chosen; nothing is built or shown
     /// until the application asks the shell to.
     std::function<std::unique_ptr<IShell>(ApplicationCore&)> create;

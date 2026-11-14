@@ -19,7 +19,7 @@ namespace an::ui
 
 StartedApplication startApplication(an::ui::shell::ApplicationCore& core, const an::ui::shell::ShellRegistry& registry,
                                     const QStringList& arguments, const QProcessEnvironment& environment,
-                                    const std::function<void()>& installStyle)
+                                    const std::function<void(an::ui::StyleProfile)>& installStyle)
 {
     // The stores first: they make no widget, and the shell is chosen from one of them.
     core.openStores();
@@ -32,10 +32,11 @@ StartedApplication startApplication(an::ui::shell::ApplicationCore& core, const 
     }
     LOG_INFO("Starting the {} shell", started.choice.descriptor->id.toStdString());
 
-    // The style before the first widget exists.
+    // The profile and the style before the first widget exists: a widget is sized and painted under one profile for its
+    // life.
     if (installStyle)
     {
-        installStyle();
+        installStyle(started.choice.styleProfile);
     }
 
     started.shell = started.choice.descriptor->create(core);

@@ -62,6 +62,7 @@ inline constexpr auto INTERFACE_MATERIAL_BACKDROP_MODE = "auto";
 inline constexpr auto INTERFACE_THEME_CONTRAST_PROFILE = "balanced";
 inline constexpr auto INTERFACE_THEME_ACCENT_FAMILY = "blue";
 inline constexpr auto INTERFACE_THEME_SURFACE_TINT_FAMILY = "neutral";
+inline constexpr auto INTERFACE_THEME_TINT_STRENGTH = "balanced"; // the Classic style profile ignores it
 inline constexpr int INTERFACE_ZOOM_SENSITIVITY = 50;
 inline constexpr bool INTERFACE_ZOOM_REQUIRES_CTRL = false;
 inline constexpr bool INTERFACE_LOCK_LAYOUT_BY_DEFAULT = false;

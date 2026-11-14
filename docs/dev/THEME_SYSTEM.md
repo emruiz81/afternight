@@ -64,6 +64,8 @@
 | File | Purpose |
 |---|---|
 | `theme/AnDesignTokens.h/.cpp` | Token definitions, resolution pipeline, theme preference API |
+| `theme/StyleProfile.h` | The style profiles, `Classic` and `Observatory` (see [Profiles](#profiles)) |
+| `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)) |
 | `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
@@ -93,6 +95,13 @@ Organized into semantic groups accessible via helper methods:
 | **Status** | `colors.status()` | `success`, `warning`, `error`, `info`, plus `*Soft` variants |
 | **Accent** | `colors.accent()` | `primary`, `hover`, `pressed`, `disabled`, `pinned`, `surfaceTint`, `surfaceBorderTint` |
 | **Effects** | `colors.effects()` | `shadowOverlay` |
+| **Observatory roles** | members only | `bgCanvas`, `bgWell`, `bgSnack`, `textOnSnack`, `stateLayer`, `scrim`, `scrimSoft`, `edge`, `textOnImage`, `textOnImageSecondary`, `accentOnImage`, `textOnAccentImage`, `accentContainer`, `textOnAccentContainer`, `accentTrack`, `accentSoft`, `accentSofter`, `accentLine`, `channelRed`/`Green`/`Blue`/`Gray`, `plotRed`/`Green`/`Blue`/`Gray` |
+
+The Observatory roles are what the Observatory profile's design names. Each holds a colour under both profiles: under
+`Classic` the colour AfterNight 1.1 paints in that role (the view's background around an image, the histogram's well,
+the selected row's fill, the channel selectors' dots, the histogram's curves, and so on), so a widget shared by both
+profiles that reads a role paints under `Classic` what it painted. `NewTokens.ClassicValuesAreWhatClassicPaints` in
+`Test_Widgets` reads each from where 1.1 has it.
 
 #### SpacingTokens
 ```cpp
@@ -146,7 +155,11 @@ struct TypographyTokens {
 
 ### Token Resolution Pipeline
 
-Tokens go through a multi-stage resolution before becoming active:
+Tokens go through a multi-stage resolution before becoming active. The resolution of one combination is a pure function,
+`resolveDesignTokens(const ThemeChoices&)`: its inputs are a struct - the theme, the contrast profile, the accent family,
+the surface tint, the tint strength, the style profile and whether the native backdrop is used - and it reads and writes
+no global, so a test resolves any combination without touching the application's state. `refreshTokens()` builds the
+choices in force for each theme, resolves both and publishes them. Under the `Classic` profile the stages are these:
 
 ```
 Base Tokens (createDarkTokens / createLightTokens)
@@ -172,6 +185,79 @@ Validate Contrast Ratios (debug builds only)
        ▼
 Publish Snapshot (lock-free atomic pointer swap)
 ```
+
+Under the `Observatory` profile the base, accent, tint and contrast stages are replaced by the tables and derivations of
+`theme/ObservatoryPalette.cpp` ([The surface ladder](#the-surface-ladder)); the materials and the publication are the
+same, and the debug-build validation runs the profile's own rules.
+
+### Profiles
+
+Two **style profiles** resolve the tokens. `Classic` resolves every token to the value AfterNight 1.1 paints;
+`TokenBaseline.ClassicValuesAreRecorded` holds all 240 combinations of theme, contrast profile, accent family and surface
+tint to a record, which is never written again whole. `Observatory` is the 2.0 look: the same user choices, resolved by
+other tables, plus a **tint strength**.
+
+- **The shell names the profile.** `ShellDescriptor::styleProfile` (`core/IShell.h`) says which profile a shell is drawn
+  in; the application puts it in force with `setStyleProfile()` from the style step of `startApplication`, after the
+  settings stores open and before the first widget exists.
+- **A profile is fixed once a widget exists.** A widget is sized and painted under one profile for its life, so
+  `setStyleProfile()` refuses a profile other than the one in force once `QApplication::allWidgets()` is not empty,
+  logs the refusal and returns false. `styleProfile()` answers the profile in force; it is `Classic` until a shell
+  names another.
+- **Suites test a profile through `an::ui::testing::ScopedStyleProfile`** (`src/AfterNightTests/fixtures/ScopedStyleProfile.h`),
+  which puts a profile in force for its scope whatever widgets exist and puts the previous one back. Only the test
+  executables compile it; the library's `an::ui::testing::forceStyleProfile()` exists for it alone. A suite that needs
+  only token values calls `resolveDesignTokens()` with the profile in its choices and needs neither.
+- **The developer switch.** `AFTERNIGHT_STYLE_PROFILE=observatory` (or `classic`, in any case) in the environment starts
+  the chosen shell under that profile instead of the one its descriptor names (`ShellSelection::kStyleProfileVariable`);
+  an unknown value is passed over with a warning in the log. It is a developer aid, to look at the Observatory colours
+  in the classic shell, and goes when every shell draws in a profile of its own.
+- **The tint strength** - `ThemeTintStrength {Off, Subtle, Balanced, Strong}`, `setThemeTintStrength()`, stored as
+  `interface/themeTintStrength` (`off`, `subtle`, `balanced`, `strong`; default `balanced`) and read at start with the
+  other theme choices - is an input of both profiles; `Classic` ignores it.
+
+### The surface ladder
+
+The Observatory profile builds its surfaces as a **ladder**: five neutral steps per theme and contrast profile, each with
+its share of a softened tint. Everything below is data in `theme/ObservatoryPalette.cpp`; `mixColors(a, p, b)` is `p`
+of `a` and the rest of `b` per channel in sRGB with premultiplied alpha, as CSS `color-mix(in srgb)` mixes them, each
+component rounded to the nearest 8-bit value.
+
+- **Neutrals and text.** Each theme and contrast profile has five neutral surfaces `n0`-`n4`, three text tones and the
+  opacity of its line and outline (white in the dark theme, `#18181B` in the light one). OLED is the dark theme's: the
+  light theme resolves it as Balanced, as `Classic` does. The Soft profile's secondary text is set by its third surface
+  under the Strong tint, the most tinted that surface gets: it is the lightest tone (dark theme) or the darkest (light
+  theme) that keeps 4.5 : 1 there.
+- **The softened tint.** A tint's hue is first mixed with a lift grey (`#808086` dark, `#8A8A90` light), keeping a share
+  of itself: all of it for Ocean, and in the dark theme 66 % for Mint, 78 % for Amethyst, 44 % for Rose and 40 % for
+  Amber (78 % and 72 % for Rose and Amber in the light theme). A raw warm hue turns a dark neutral brown or maroon; pulled
+  toward the grey first, it warms the graphite instead.
+- **The strength's shares.** Off gives the tint no share, Subtle 5 % to surfaces and 8 % to lines, Balanced 8 % and 12 %
+  (1.1's blend), Strong 12 % and 18 %. The Neutral tint is Off whatever the strength.
+- **The ladder.** Surface `i` is `mixColors(tint, share x k_i, n_i)` with `k` = 1, 1.5, 2, 2.5, 2.5 in the dark theme
+  (a tint shows less on dark) and 0.75, 1, 1.5, 1.75, 2 in the light one. Under OLED surfaces 0 and 1 take no tint:
+  black stays black. The line and the outline take the line share; the well and the canvas the surface share; the
+  transient message's fill two and a half times it.
+- **The existing roles read the ladder**, so every widget repaints under the profile without an edit: `bgPrimary` is
+  surface 0, `bgSurface` 1, `bgCard` and `bgCardPrimary` 2, `bgCardSecondary` and `bgInput` 3, `bgHover` 4;
+  `borderSubtle` is the line and `borderPrimary` the outline; `borderFocus` is the accent's text tone;
+  `cardSurfaceTint` and `cardSurfaceBorderTint` are the softened tint while the surfaces carry any of it.
+- **Accents.** The five families keep their 300-800 steps. The dark theme fills with 400, hovers 300, presses 500 and
+  writes accent text in 300, with `#0B1020` on the fill; the light theme uses 600, 700, 800 and 700 with white on the
+  fill, a tone darker for Teal and Amber so white keeps 4.5 : 1. The container is the accent mixed into the third
+  neutral, untinted (28 % dark, 18 % light), its text the accent's text tone at 45 % over the primary text, the track
+  the accent at 30 % over the fourth neutral, and the soft forms the accent at 16 %, 8 % and 45 %. Mixed over the bare
+  neutrals, the container and the track read the same whatever the tint, and the container's text keeps 4.5 : 1 under
+  every tint and strength, which over the tinted steps it did not.
+- **Status, channels, images.** The status colours, the pinned colour and the channels' dots are per theme; a curve is
+  drawn in a well, dark in both themes, so the plot colours are the dark ones in both. What is laid over an image - the
+  text, the accent's 300 step, the text on it - is the same in both themes: an image is judged against dark.
+- **The rules.** `observatoryContrastFailures()` holds a resolved set to the profile's rules: primary and secondary text
+  4.5 : 1 and tertiary 3 : 1 against surfaces 0 to 3; the text on the accent and on the container 4.5 : 1; text over
+  an image 4.5 : 1 on the scrim over black and over white; the outline 3 : 1 against surfaces 1 to 3 in High and
+  1.6 : 1 elsewhere; adjacent surfaces different (except OLED's black pair); status colours 3 : 1 against surfaces 1 and
+  2. `ObservatoryValidation.EveryCombinationMeetsTheContrastRules` enumerates every combination a user can choose; a
+  combination that fails is a test failure. Where one fails, a table value moves, never the rule.
 
 ### Accessing Tokens
 
@@ -750,6 +836,9 @@ The same flow applies for accent family, contrast profile, and surface tint chan
 ### Environment Variable
 
 Set `AN_THEME_TOKEN_DEBUG_DUMP=1` to log the resolved token values each time the tokens are resolved, once the logger is initialized, in any build configuration.
+
+Set `AFTERNIGHT_STYLE_PROFILE=observatory` to start the chosen shell under the Observatory profile (see
+[Profiles](#profiles)): a developer aid.
 
 ---
 

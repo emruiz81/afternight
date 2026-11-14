@@ -228,7 +228,9 @@ protected:
         running->core->setShellRegistry(running->registry.get());
         running->started = an::ui::startApplication(
             *running->core, *running->registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=") + id},
-            QProcessEnvironment(), []() {
+            QProcessEnvironment(), [](const an::ui::StyleProfile profile) {
+                // The shell's profile, put in force in a process whose widgets an earlier shell made, as the suites do.
+                an::ui::testing::forceStyleProfile(profile);
                 // The style is the process's: one start of the application installs it once.
                 if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled() &&
                     an::ui::installedAnProxyStyle() == nullptr)

@@ -1307,7 +1307,8 @@ ships with the product (`ship product`); the application links it.
 the geometry, the Session Console's visibility, a theme change), `IViewHost` (where a new view goes, by `ViewOrigin`:
 a view the user asked for takes the user to it, one a process made leaves the place on screen to the shell),
 `IStatusDisplay`, and `ShellDescriptor`, what the application knows of a shell before it makes one - its id, its
-display name and the function that makes it. The contract names the views, the dock library's main window and the
+display name, the style profile it is drawn in (`StyleProfile`, `theme/StyleProfile.h`: put in force before the first
+widget exists, as `THEME_SYSTEM.md` says under "Profiles") and the function that makes it. The contract names the views, the dock library's main window and the
 process presenter by declaration only, so a unit that includes it reaches no widget header through it.
 
 `ShellRegistry` holds the descriptors of the shells one run can make, in the order they were registered; the
@@ -1496,7 +1497,9 @@ the `ApplicationCore` a shell is made over, registers the shells it can make (`S
 It starts them in one order (`startApplication`, `app/ApplicationStart.h`): the core's stores first - they make no
 widget, and a shell is chosen from one of them - then the shell chosen among the registered ones (`--shell=<id>`,
 `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default; a source that names none is passed over with a warning
-in the log), then the style, before the first widget exists, then the shell made over the core and built;
+in the log), then the style under the profile the chosen shell names (or the developer switch
+`AFTERNIGHT_STYLE_PROFILE`; `ShellChoice::styleProfile`), before the first widget exists, then the shell made over
+the core and built;
 `showApplication` shows it where it was. The Interface page offers the choice of a shell only when the application
 registers more than one (`IInterfaceSettingsRuntimeService::availableShells`), and the choice takes effect at the next
 start. At the end `stopApplication` has the shell keep its geometry and tears the application down

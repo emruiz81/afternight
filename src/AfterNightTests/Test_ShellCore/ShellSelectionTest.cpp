@@ -21,6 +21,8 @@
 #include <QStringList>
 #include <QTemporaryDir>
 
+#include <utility>
+
 namespace
 {
 
@@ -330,6 +332,89 @@ TEST_F(ShellSelection, DISABLED_OwnCommandLineIsNotRead)
 
     EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
     EXPECT_EQ(choice.source, ShellChoiceSource::Default);
+}
+
+// ---- The style profile the chosen shell starts under.
+
+[[nodiscard]] QProcessEnvironment environmentWithStyleProfile(const QString& profile)
+{
+    QProcessEnvironment environment;
+    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable), profile);
+    return environment;
+}
+
+// A shell starts under the profile its descriptor names, whichever source chose it.
+TEST_F(ShellSelection, TheChosenShellStartsUnderTheProfileItsDescriptorNames)
+{
+    ShellRegistry registry;
+    an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("observatory"));
+    observatory.styleProfile = an::ui::StyleProfile::Observatory;
+    ASSERT_TRUE(registry.add(an::tests::shellcore::descriptorOf(QStringLiteral("classic"))));
+    ASSERT_TRUE(registry.add(std::move(observatory)));
+
+    const ShellChoice classic =
+        an::ui::shell::ShellSelection::resolve({kProgram}, QProcessEnvironment(), &m_settings, registry);
+    const ShellChoice chosen = an::ui::shell::ShellSelection::resolve({kProgram, QStringLiteral("--shell=observatory")},
+                                                                      QProcessEnvironment(), &m_settings, registry);
+
+    EXPECT_EQ(chosenId(classic), QStringLiteral("classic"));
+    EXPECT_EQ(classic.styleProfile, an::ui::StyleProfile::Classic);
+    EXPECT_EQ(chosenId(chosen), QStringLiteral("observatory"));
+    EXPECT_EQ(chosen.styleProfile, an::ui::StyleProfile::Observatory);
+    EXPECT_TRUE(chosen.warnings.isEmpty()) << chosen.warnings.join(QLatin1Char('\n')).toStdString();
+}
+
+// The developer switch starts the chosen shell under the profile it names, in any case, the shell itself unchanged.
+TEST_F(ShellSelection, TheDeveloperSwitchStartsTheShellUnderTheProfileItNames)
+{
+    for (const QString& value :
+         {QStringLiteral("observatory"), QStringLiteral(" Observatory "), QStringLiteral("OBSERVATORY")})
+    {
+        const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(value));
+
+        EXPECT_EQ(chosenId(choice), QStringLiteral("classic")) << value.toStdString();
+        EXPECT_EQ(choice.source, ShellChoiceSource::Default) << value.toStdString();
+        EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Observatory) << value.toStdString();
+        EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
+    }
+
+    ShellRegistry registry;
+    an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("classic"));
+    observatory.styleProfile = an::ui::StyleProfile::Observatory;
+    ASSERT_TRUE(registry.add(std::move(observatory)));
+    const ShellChoice classic = an::ui::shell::ShellSelection::resolve(
+        {kProgram}, environmentWithStyleProfile(QStringLiteral("classic")), &m_settings, registry);
+    EXPECT_EQ(classic.styleProfile, an::ui::StyleProfile::Classic);
+}
+
+// A switch that names no profile is passed over with a warning, and the descriptor's profile stands; an empty one is
+// no switch.
+TEST_F(ShellSelection, AStyleProfileTheSwitchDoesNotNameIsPassedOverWithAWarning)
+{
+    const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("workbench")));
+
+    EXPECT_EQ(chosenId(choice), QStringLiteral("classic"));
+    EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
+    ASSERT_EQ(choice.warnings.size(), 1);
+    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("AFTERNIGHT_STYLE_PROFILE=workbench")))
+        << choice.warnings.front().toStdString();
+    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("classic and observatory")))
+        << choice.warnings.front().toStdString();
+
+    const ShellChoice empty = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("  ")));
+    EXPECT_EQ(empty.styleProfile, an::ui::StyleProfile::Classic);
+    EXPECT_TRUE(empty.warnings.isEmpty()) << empty.warnings.join(QLatin1Char('\n')).toStdString();
+}
+
+// With no shell chosen there is nothing to start: the profile is Classic and the switch is not read.
+TEST_F(ShellSelection, WithNoShellChosenTheProfileIsClassic)
+{
+    m_registry = registryOf({"observatory"});
+
+    const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("observatory")));
+
+    EXPECT_EQ(choice.descriptor, nullptr);
+    EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
 }
 
 } // namespace

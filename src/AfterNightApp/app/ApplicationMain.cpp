@@ -12,6 +12,7 @@
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
 #include "core/ShellRegistry.h"
+#include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 
 #include <AfterNightEngine/Core/Version.h>
@@ -245,11 +246,12 @@ int runApplication(int argc, char* argv[])
         (void)shells.add(an::ui::shell::classicShellDescriptor());
         core->setShellRegistry(&shells);
 
-        // The stores open first - they make no widget - then the shell is chosen, the style is installed, before the
-        // first widget, and the shell is made and built last. A store or a session that cannot be opened ends the start
-        // with its error.
-        an::ui::StartedApplication started =
-            an::ui::startApplication(*core, shells, arguments, QProcessEnvironment::systemEnvironment(), []() {
+        // The stores open first - they make no widget - then the shell is chosen, its style profile is put in force and
+        // the style is installed, before the first widget, and the shell is made and built last. A store or a session
+        // that cannot be opened ends the start with its error.
+        an::ui::StartedApplication started = an::ui::startApplication(
+            *core, shells, arguments, QProcessEnvironment::systemEnvironment(), [](const an::ui::StyleProfile profile) {
+                (void)an::ui::setStyleProfile(profile);
                 // The QProxyStyle theme paints the standard widgets with direct C++ calls using AnDesignTokens.
                 if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
                 {

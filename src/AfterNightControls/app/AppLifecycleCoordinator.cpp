@@ -79,6 +79,10 @@ void AppLifecycleCoordinator::initialize() const
                                    QString(SettingsDefaults::INTERFACE_THEME_SURFACE_TINT_FAMILY));
         setThemeSurfaceTintFamily(resolveThemeSurfaceTintFamily(surfaceTintFamily));
 
+        const QString tintStrength = globalSettings->select(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH,
+                                                            QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH));
+        setThemeTintStrength(resolveThemeTintStrength(tintStrength));
+
         const QString theme =
             globalSettings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME));
         m_dependencies.applyTheme(theme);

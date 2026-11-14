@@ -111,6 +111,7 @@ ShellDescriptor classicShellDescriptor()
     return ShellDescriptor{
         .id = QString::fromLatin1(ClassicShell::kId),
         .displayName = QObject::tr("Classic"),
+        .styleProfile = an::ui::StyleProfile::Classic,
         .create = [](ApplicationCore& core) -> std::unique_ptr<IShell> { return std::make_unique<ClassicShell>(core); },
     };
 }

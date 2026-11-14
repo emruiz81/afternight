@@ -230,6 +230,46 @@ inline QString themeSurfaceTintFamilyId(const ThemeSurfaceTintFamily family)
     }
 }
 
+/// The tint strength a setting names: `off`, `subtle`, `balanced` or `strong`, in any case; anything else is Balanced.
+inline ThemeTintStrength resolveThemeTintStrength(const QString& strengthId)
+{
+    const QString normalizedStrengthId = strengthId.trimmed().toLower();
+
+    if (normalizedStrengthId == QStringLiteral("off"))
+    {
+        return ThemeTintStrength::Off;
+    }
+
+    if (normalizedStrengthId == QStringLiteral("subtle"))
+    {
+        return ThemeTintStrength::Subtle;
+    }
+
+    if (normalizedStrengthId == QStringLiteral("strong"))
+    {
+        return ThemeTintStrength::Strong;
+    }
+
+    return ThemeTintStrength::Balanced;
+}
+
+/// The setting's value for a tint strength.
+inline QString themeTintStrengthId(const ThemeTintStrength strength)
+{
+    switch (strength)
+    {
+    case ThemeTintStrength::Off:
+        return QStringLiteral("off");
+    case ThemeTintStrength::Subtle:
+        return QStringLiteral("subtle");
+    case ThemeTintStrength::Strong:
+        return QStringLiteral("strong");
+    case ThemeTintStrength::Balanced:
+    default:
+        return QStringLiteral("balanced");
+    }
+}
+
 inline std::pair<QColor, QColor> iconPaletteForTheme(const bool darkMode)
 {
     const auto& colors = darkMode ? resolvedDarkTokens().colors : resolvedLightTokens().colors;

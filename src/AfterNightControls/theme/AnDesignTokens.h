@@ -4,6 +4,7 @@
 #pragma once
 
 #include "AfterNightControlsExport.h"
+#include "theme/StyleProfile.h"
 
 #include <QColor>
 #include <QFont>
@@ -58,6 +59,17 @@ enum class ThemeVariant
 {
     Dark,
     Light
+};
+
+/// How much of the surface tint goes into the surfaces and the lines under the Observatory profile: Off, Subtle 5 % and
+/// 8 %, Balanced 8 % and 12 % (1.1's blend), Strong 12 % and 18 %. The Neutral tint is Off whatever the strength. The
+/// Classic profile has one blend and ignores it.
+enum class ThemeTintStrength
+{
+    Off,
+    Subtle,
+    Balanced,
+    Strong
 };
 
 enum class SemanticColorRole
@@ -250,6 +262,36 @@ struct ColorTokens
 
     QColor shadowOverlay;
 
+    // The roles the Observatory profile names. Under the Classic profile each holds the colour AfterNight 1.1 paints
+    // in that role, so a widget shared by both profiles reads it under either.
+
+    QColor bgCanvas; ///< Behind an image in a view.
+    QColor bgWell; ///< Behind a plot: dark in both themes, as an image is judged against dark.
+    QColor bgSnack; ///< A transient message's fill.
+    QColor textOnSnack; ///< Text on bgSnack.
+    QColor stateLayer; ///< Laid over a control at 8 % while it is hovered and at 12 % while it is pressed.
+    QColor scrim; ///< Under text laid over an image.
+    QColor scrimSoft; ///< A lighter scrim: under a control laid over an image.
+    QColor edge; ///< The 1 px line under a raised part (a menu, a tooltip, a popover).
+    QColor textOnImage; ///< Text laid over an image, on a scrim.
+    QColor textOnImageSecondary; ///< Secondary text laid over an image.
+    QColor accentOnImage; ///< The accent drawn over an image.
+    QColor textOnAccentImage; ///< Text on an accentOnImage fill.
+    QColor accentContainer; ///< A chosen item's tonal fill.
+    QColor textOnAccentContainer; ///< Text and icons on accentContainer.
+    QColor accentTrack; ///< A slider's or a progress's track.
+    QColor accentSoft; ///< The accent at 16 %: a selected row.
+    QColor accentSofter; ///< The accent at 8 %: a hovered item of an accent group.
+    QColor accentLine; ///< The accent at 45 %: an accent outline.
+    QColor channelRed; ///< A channel's dot or label.
+    QColor channelGreen;
+    QColor channelBlue;
+    QColor channelGray;
+    QColor plotRed; ///< A channel's curve in a well.
+    QColor plotGreen;
+    QColor plotBlue;
+    QColor plotGray;
+
     [[nodiscard]] BackgroundGroup bg()
     {
         return {bgPrimary, bgSurface, bgCard, bgCardPrimary, bgCardSecondary, bgInput, bgHover};
@@ -385,6 +427,28 @@ struct DesignTokens
     [[nodiscard]] bool operator==(const DesignTokens&) const = default;
 };
 
+/// Everything one resolution of the tokens reads: the theme it resolves, the user's choices and the profile. The
+/// application's state is one of these per theme (refreshTokens()); a suite resolves any of them with
+/// resolveDesignTokens() and no global.
+struct ThemeChoices
+{
+    ThemeVariant theme = ThemeVariant::Dark;
+    ThemeContrastProfile contrast = ThemeContrastProfile::Balanced;
+    ThemeAccentFamily accent = ThemeAccentFamily::Blue;
+    ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral;
+    ThemeTintStrength tintStrength = ThemeTintStrength::Balanced;
+    StyleProfile profile = StyleProfile::Classic;
+    /// Whether the material surfaces take the window system's backdrop (setMaterialBackdropMode()).
+    bool nativeBackdrop = false;
+
+    [[nodiscard]] bool operator==(const ThemeChoices&) const = default;
+};
+
+/// Resolves the tokens of one combination in the pipeline's order - the base, the accent, the tint, the contrast
+/// profile, the text on the accent, the materials - under the combination's profile. Reads and writes no global
+/// state, so it may be called from any thread.
+[[nodiscard]] AFTERNIGHTCONTROLS_API DesignTokens resolveDesignTokens(const ThemeChoices& choices);
+
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& tokens();
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& darkTokens();
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& lightTokens();
@@ -414,6 +478,28 @@ AFTERNIGHTCONTROLS_API void setThemeAccentFamily(ThemeAccentFamily family);
 [[nodiscard]] AFTERNIGHTCONTROLS_API ThemeAccentFamily themeAccentFamily();
 AFTERNIGHTCONTROLS_API void setThemeSurfaceTintFamily(ThemeSurfaceTintFamily family);
 [[nodiscard]] AFTERNIGHTCONTROLS_API ThemeSurfaceTintFamily themeSurfaceTintFamily();
+AFTERNIGHTCONTROLS_API void setThemeTintStrength(ThemeTintStrength strength);
+[[nodiscard]] AFTERNIGHTCONTROLS_API ThemeTintStrength themeTintStrength();
+
+/// Puts a style profile in force and resolves the tokens again. The application sets the profile its shell names once,
+/// before its first widget: a widget is sized and painted under one profile for its life. Once a widget exists, a
+/// profile other than the one in force is refused, and the refusal is logged.
+///
+/// @return whether `profile` is in force when the call returns: true when it already was or has been set, false when
+///         it was refused.
+AFTERNIGHTCONTROLS_API bool setStyleProfile(StyleProfile profile);
+
+/// The style profile in force: `Classic` until setStyleProfile() sets another.
+[[nodiscard]] AFTERNIGHTCONTROLS_API StyleProfile styleProfile();
+
+namespace testing
+{
+/// Puts a style profile in force whatever widgets exist, and resolves the tokens again. For the suites alone, through
+/// `an::ui::testing::ScopedStyleProfile` (`fixtures/ScopedStyleProfile.h`), which only the test executables compile: a
+/// suite tests a profile in a process whose widgets were made under another. The application calls
+/// setStyleProfile().
+AFTERNIGHTCONTROLS_API void forceStyleProfile(StyleProfile profile);
+} // namespace testing
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool nativeBackdropSupported();
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool usingNativeBackdropMaterials();
 
