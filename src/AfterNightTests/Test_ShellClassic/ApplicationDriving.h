@@ -7,10 +7,10 @@
 /// fixture that makes the window as the application makes it.
 #pragma once
 
-#include "app/AfterNightApp.h"
+#include "AfterNightApp.h"
 
 #include "AppTestSupport.h"
-#include "app/ApplicationSession.h"
+#include "core/ApplicationSession.h"
 #include "core/ApplicationCore.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"

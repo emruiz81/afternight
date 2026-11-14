@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The application suite's entry point: the storage root, the temporary directory and the headless Qt application every
-// case runs under. No application context is installed for the whole run: the window's cases make the application's
-// own main window, which installs its context, and the settings pages and dialogs the other cases make need none.
+// case runs under. No application context is installed for the whole run: each case that starts the application starts
+// a shell of its own, whose window installs its context, and takes it down before it ends.
 
 #include <gtest/gtest.h>
 

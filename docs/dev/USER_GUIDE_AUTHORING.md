@@ -129,8 +129,8 @@ data_out: nonlinear
   short description and a hue for each theme, readable at 4.5:1 or better on the backgrounds it is drawn on. A process
   page's stage is its own, not its menu category's: most noise reduction, StarNet and Star Mask work on linear data
   before the stretch, and their pages say so, so a stage per category would teach the wrong order.
-- **Menus.** `check_user_guide.py` reads the application's menus from `AfterNightAppUiBuilder.h` and its registered
-  actions from `ProcessRegistryBuiltins.cpp`. Every `menu` path a page states must exist. A path may name a submenu,
+- **Menus.** `check_user_guide.py` reads the application's menus from the shell core's `MenuTree.cpp`, their labels
+  from `ActionCatalogue.cpp` and its registered actions from `ProcessRegistryBuiltins.cpp`. Every `menu` path a page states must exist. A path may name a submenu,
   which covers every action under it, as the Non-Interactive Processes page names the submenus of immediate actions.
   Every registered action, and every other action of the Process menu, must sit on some page's `menu`, so a process
   cannot ship without a page.
@@ -411,7 +411,7 @@ guide otherwise, as the home page opens.
 - **Moving or renaming a page** changes its row in the same change. Rule R15 of `check_user_guide.py` reads the
   table from the source: every path is a page the guide has, every row is of a registered action, every registered
   action has a row or is a non-interactive operation, and the page a row names is one whose `menu` reaches the
-  action. `Test_AfterNightApp` holds the same of the descriptors the application registers, and
+  action. `Test_ShellClassic` holds the same of the descriptors the application registers, and
   `Test_ProcessesShared` that every window a launch shows carries its descriptor's page.
 
 ## Sources of truth
@@ -419,7 +419,7 @@ guide otherwise, as the home page opens.
 A page states what the product does, and each statement is read from the product, in this order:
 
 1. **Reachability and labels:** `src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp`,
-   `src/AfterNightControls/app/AfterNightAppUiBuilder.h`, `src/AfterNightControls/app/MenuActionManager.cpp`, the
+   `src/AfterNightShellCore/actions/MenuTree.cpp` and `ActionCatalogue.cpp`, `src/AfterNightShellClassic/MenuActionManager.cpp`, the
    action-state code and the registration of dialogs and pages - for Settings,
    `DialogOrchestrationCoordinator::openSettingsAt`.
 2. **Control behavior:** the process or control implementation, its UI builder, its parameter structs, settings keys

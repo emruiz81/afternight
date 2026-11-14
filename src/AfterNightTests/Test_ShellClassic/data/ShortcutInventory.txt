@@ -13,7 +13,7 @@
 # A key is listed when the view takes the press, whether or not it has something to act on.
 # Undo and Redo, Ctrl+Z and Ctrl+Y, are the window's.
 #
-# ApplicationWindow.ShortcutsMatchTheRecord in Test_AfterNightApp compares the running application with this record.
+# ApplicationWindow.ShortcutsMatchTheRecord in Test_ShellClassic compares the running application with this record.
 # An entry is edited by the change that means to move it - a renamed action, a new menu
 # entry, a retired process; the record is not written again whole. A field is `-` when
 # empty; `\t` is a tab and `\|` a bar inside a text.

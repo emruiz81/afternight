@@ -46,6 +46,7 @@ python build/scripts/tools/check_consumer_state.py
 python build/scripts/tools/check_consumer_layering.py
 python build/scripts/tools/consumer_targets.py check
 python build/scripts/tools/product_measurement.py check
+python build/scripts/tools/check_shell_capabilities.py
 ```
 
 Every check in that list but three answers from a checkout alone. `check_build_graph.py` and

@@ -1291,7 +1291,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `services/`, `views/`, `actions/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1434,7 +1434,7 @@ is reported to the target and logged, and the next one runs.
 placed and maximized, the status line, home), `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
 the system's or Qt's browser), `ViewService.*` (real views of a session the case opens: names, the active view, the
 order a removal is told in, a worker's request, who asked for a view, the subject and the looking view) and
-`ProcessLaunchService.*`. The actions' cases are held to the records of the classic window beside `Test_AfterNightApp`
+`ProcessLaunchService.*`. The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
 (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
 read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and
@@ -1444,43 +1444,88 @@ builds the classic window's menus builds them over the actions the record holds 
 groups, splits, fits and locks real views in a main window the case makes; `ViewMenuBuilderTest.EqualsTheRecordedTree`
 reads the record of the view's menu; `WindowGeometryStoreTest.*` and `FileDropHandlerTest.*` need no window.
 
-### The application (`src/AfterNightApp/`: `app/ApplicationSession.h`, `app/ApplicationStart.h`, `app/AfterNightApp.h`)
+### The classic shell (`src/AfterNightShellClassic/`: `ClassicShell.h`, `AfterNightApp.h`)
 
-A thin shell: `AfterNightApp` (a `QMainWindow`) is the classic shell - it implements `IShell`, `IViewHost` and
-`IStatusDisplay` for the core's services: it docks a new view beside its neighbour or on the right of its dock area,
-lists the views in its image selector (`ViewControlCoordinator`, which keeps the selector and the docks' order and no
-longer the list), shows its dashboard as home and its dock area as the place of views, and fills its status bar. It
-composes coordinators that live in `AfterNightControls/app/` (`UiBootstrapCoordinator`, which builds its three pages -
-the dashboard, the dock area, the maximized view - into its central widget; `WindowLayoutCoordinator`, its dock tool bar,
-the switch between dashboard and dock area and the maximized view; `DialogOrchestrationCoordinator`,
+`AfterNightShellClassic` is the main window of AfterNight 1.1, kept whole in a library of its own. `AfterNightApp` (a
+`QMainWindow`) implements `IViewHost` and `IStatusDisplay` for the core's services: it docks a new view beside its
+neighbour or on the right of its dock area, lists the views in its image selector (`ViewControlCoordinator`, which
+keeps the selector and the docks' order and no longer the list), shows its dashboard as home and its dock area as the
+place of views, and fills its status bar. It composes its own coordinators - `ClassicUiBootstrap`, which builds its
+three pages (the dashboard, the dock area, the maximized view) into its central widget; `ClassicWindowLayout`, its dock
+tool bar, the switch between dashboard and dock area and the maximized view; `MenuActionManager`, its process, recent
+and favourite menus; `AfterNightAppUiBuilder.h`, its widgets - and Controls' (`DialogOrchestrationCoordinator`,
 `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), each handed what it needs of the shell core through its
 `Dependencies`, and installs the shell core's `ApplicationContext` over the core and itself. Its lock, group, split and
 fit, the view's menu, its saved place and the files dropped on it are the core's (`DockLayoutOperations`,
-`ViewMenuBuilder`, `WindowGeometryStore`, `FileDropHandler`) over its one dock area. It hosts the core's actions while it lives, its builder making its
-menus and its tool bar of them, gives the action bindings their targets, and makes its process menus from the core's
-process menu model whenever it changes. `main.cpp` installs the platform crash handler before any Qt object, states the product's version
-(`kProductVersion`; the engine's is a crash annotation beside it) - a version of its own because an extension's
-minimum version names the product - initializes the platform logger, owns one `ApplicationSession` and makes the
-`ApplicationCore` the window is made over, and starts them in one order (`startApplication`): the core's stores first -
-they make no widget, and a shell is chosen from one of them - then the style, before the first widget exists, then the
-window (`AfterNightApp::createInstance`); `AfterNightApp::initialize` opens the session, once the settings store has
-been read, from the processing limits stored there
-(`applicationSessionSettings`: `sessionSettingsForLimits` with the product's codecs), before anything reads an image.
-The session opens there because the limits it is opened from are in the settings store the window has the core open:
-opening it in `main` would mean reading that store twice, or opening with defaults and replacing a session the window
-may already lend. The core lends that session (`IEngineSessionProvider`) once it is open, and the persistence
-coordinator's RAW policy (`IRawOpenPolicyService`) and output intents (`IOutputIntentProvider`). The view factory and
-the events that carry an image move an `ImageDocument`; an event whose document no view takes closes it, and no entry
-point makes a worker wait for the GUI thread. The extension seam's hooks, which the core's extension service sets, land
-a result as an edit the history records, a preview through `replaceImage`, generated images and output masks as new
-documents, and hand an execute an output mask of the target's shape with every sample zero; a view snapshot is exported
-under a read lease taken without waiting; a workflow's sequence output is opened on a worker. Teardown is `shutDownApplication`: admission closed, the
-window destroyed - its views, history and extension sessions, the context it installed cleared - the windows closed on
-the way out deleted, the thread pool drained and what it posted back delivered, the session shut down, checked; then
-the logger and the crash handler. `Test_AfterNightApp` compiles the application's three units and runs the real window
-in one session the suite owns: `ApplicationMenu` holds every menu behaviour, `ProductSmoke` every format read, a save
-read back and a process of every framework family, and `Test_AfterNightApp/ApplicationDriving.h`'s `RealWindowCase` drives the window as a
-person does.
+`ViewMenuBuilder`, `WindowGeometryStore`, `FileDropHandler`) over its one dock area. It hosts the core's actions while
+it lives, its builder making its menus and its tool bar of them, gives the action bindings their targets, and makes its
+process menus from the core's process menu model whenever it changes.
+
+`AfterNightApp::initialize` opens the application's session once the settings store has been read, from the
+processing limits stored there (`applicationSessionSettings`: `sessionSettingsForLimits` with the product's codecs),
+before anything reads an image. The session opens there because the limits it is opened from are in the settings store
+the window has the core open: opening it in `main` would mean reading that store twice, or opening with defaults and
+replacing a session the window may already lend. The core lends that session (`IEngineSessionProvider`) once it is
+open, and the persistence coordinator's RAW policy (`IRawOpenPolicyService`) and output intents
+(`IOutputIntentProvider`). The view factory and the events that carry an image move an `ImageDocument`; an event whose
+document no view takes closes it, and no entry point makes a worker wait for the GUI thread. The extension seam's hooks,
+which the core's extension service sets, land a result as an edit the history records, a preview through
+`replaceImage`, generated images and output masks as new documents, and hand an execute an output mask of the target's
+shape with every sample zero; a view snapshot is exported under a read lease taken without waiting; a workflow's
+sequence output is opened on a worker.
+
+`ClassicShell` (`ClassicShell.h`) is that window behind the shell contract: made over the core, it makes and readies the
+window when it is built, with the session the core was given (`ApplicationCore::setApplicationSession`), forwards the
+contract's calls to it, and destroys it - its views, history and extension sessions with it - when it goes.
+`classicShellDescriptor()` is how the application registers it: `classic`, "Classic". The library links the shell core
+and what is below it; no shell includes another, and neither the shell core nor Controls nor Processes includes a shell
+(`SourceGuards.ShellsDoNotReachEachOther`, `check_consumer_layering.py`, `check_build_graph.py`). Its code is 1.1's,
+moved and renamed, not rewritten, so it carries no `.clang-tidy` of its own. `Test_ShellClassic` links it and runs the
+real window in one session the suite owns: `ApplicationMenu` holds every menu behaviour, `ProductSmoke` every format
+read, a save read back and a process of every framework family, and `Test_ShellClassic/ApplicationDriving.h`'s
+`RealWindowCase` drives the window as a person does; the records of the 1.1 interface are beside it
+(`Test_ShellClassic/data/`).
+
+### The application (`src/AfterNightApp/`: `app/ApplicationMain.h`, `app/ApplicationStart.h`)
+
+The executable composes a shell and owns what outlives it. `main.cpp` calls `runApplication` (`app/ApplicationMain.h`),
+which installs the platform crash handler before any Qt object, states the product's version (`kProductVersion`, in
+`core/ApplicationSession.h`; the engine's is a crash annotation beside it) - a version of its own because an
+extension's minimum version names the product - initializes the platform logger, owns one `ApplicationSession`, makes
+the `ApplicationCore` a shell is made over, registers the shells it can make (`ShellRegistry`) and hands the core both.
+It starts them in one order (`startApplication`, `app/ApplicationStart.h`): the core's stores first - they make no
+widget, and a shell is chosen from one of them - then the shell chosen among the registered ones (`--shell=<id>`,
+`AFTERNIGHT_SHELL`, the setting `interface/shell`, the default; a source that names none is passed over with a warning
+in the log), then the style, before the first widget exists, then the shell made over the core and built;
+`showApplication` shows it where it was. The Interface page offers the choice of a shell only when the application
+registers more than one (`IInterfaceSettingsRuntimeService::availableShells`), and the choice takes effect at the next
+start. At the end `stopApplication` has the shell keep its geometry and tears the application down
+(`shutDownApplication`): admission closed, the shell destroyed - its window, views, history and extension sessions, the
+context it installed cleared - the windows closed on the way out deleted, the thread pool drained and what it posted
+back delivered, the session shut down, checked; then the logger and the crash handler. `Test_AfterNightApp` compiles
+the application's start and holds its order and its end (`ApplicationStart.*`, `ApplicationTeardown.*`) and the session
+the application owns (`ApplicationSession.*`).
+
+### The shells' parity (`Test_ShellParity/ShellDriver.h`, `Test_ShellParity/ShellScenarioTest.cpp`, `Test_ShellParity/Capabilities.txt`)
+
+What a person does to the application is written once and run against every registered shell. `ShellDriver` is the
+handful of things a scenario does to a shell - open a file, name the active view and the views, close a view answering
+its question, run an action by its id and read whether the shell offers it enabled, launch a process by its id, press
+Apply and cancel a run, read the status line and a view's menu, drop files, close the window - each done as that shell
+lets a person do it, with one driver per shell (`ClassicDriver` drives the 1.1 window through its menus and tool bars,
+its file dialog and its process and progress windows). `ShellScenario` is a value-parameterised case instantiated for
+every registered shell, named `ShellScenario.<Case>/<shell>`; its fixture starts a shell as the application starts it -
+the registry, the choice on the command line, the style, the shell built and shown - and ends it as the application
+ends it. The run over a sequence is cancelled before its first frame - the thread pool held while Apply and Cancel are
+pressed - so the case does not race the run. A shell that cannot yet do what a scenario asks fails it until it can, and
+a shell that is retired leaves the instantiation and the scenarios stay.
+
+`Test_ShellParity/Capabilities.txt` is the register of the interface's capabilities, a record each: the `shared` cases of code every
+shell uses, and for each shell the cases that drive its window - `pending` while a shell has none.
+`check_shell_capabilities.py` holds it to the suites: every case it names is defined, a scenario is named on the line
+of the shell it ran for, no capability is listed twice, and every capability has an `observatory` line;
+`--require-shell <shell>` leaves nothing of that shell pending. A capability the interface gains is added to the
+register in the change that adds it.
 
 ### The runtime backend (`src/AfterNightExtensionRuntimeBackend/`)
 

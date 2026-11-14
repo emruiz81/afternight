@@ -69,10 +69,11 @@ AfterNight's; and the Lite host and the protocol library, which the licensing bo
 do not reach the platform library either.
 
 A tenth holds the product's own libraries to their order: `AfterNightControls` reaches neither
-`AfterNightProcesses`, `AfterNightShellCore`, the application nor the full host; `AfterNightProcesses` reaches none
-of the last three; and `AfterNightShellCore` neither the application nor the full host. A library that reached
-upward could not be built or tested without the target above it. No extension host reaches a shell library, which
-only the application composes.
+`AfterNightProcesses`, `AfterNightShellCore`, a shell, the application nor the full host; `AfterNightProcesses`
+reaches none of the last four; `AfterNightShellCore` no shell, the application nor the full host; and a shell -
+`AfterNightShellClassic` - neither the application nor the full host. A library that reached upward could not be
+built or tested without the target above it. No extension host reaches a shell library, which only the application
+composes.
 
 An eleventh holds every inspected tree to the target registry, `build/scripts/tools/consumer_targets.txt`, which
 states per target whether it reaches the engine, what it links and what it may compile: every generated project is
@@ -133,6 +134,7 @@ EXPECTED_MAIN_PROJECTS = (
     'AfterNightExtensionRuntimeBackend',
     'AfterNightPlatform',
     'AfterNightProcesses',
+    'AfterNightShellClassic',
     'AfterNightShellCore',
     'AfterNightStylePlugin',
 )
@@ -155,7 +157,9 @@ EXPECTED_TEST_PROJECTS = (
     'Test_Persistence',
     'Test_Platform',
     'Test_ProcessFramework',
+    'Test_ShellClassic',
     'Test_ShellCore',
+    'Test_ShellParity',
     'Test_EngineConsumerProbes',
     'Test_EngineCalibration',
     'Test_EngineCore',
@@ -232,15 +236,18 @@ RUNTIME_BACKEND_SUITE_SOURCE_DIRS = (('src', 'afternighttests', 'test_extensionr
 # application and the full host compose them, so a library that reached upward would make its own consumer a
 # dependency: it could no longer be built or tested before the target above it.
 PRODUCT_LAYERS = (
-    ('AfterNightControls', ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
-    ('AfterNightProcesses', ('AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
-    ('AfterNightShellCore', ('AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightControls', ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightApp',
+                            'AfterNightExtensionHost')),
+    ('AfterNightProcesses', ('AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightApp',
+                             'AfterNightExtensionHost')),
+    ('AfterNightShellCore', ('AfterNightShellClassic', 'AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightShellClassic', ('AfterNightApp', 'AfterNightExtensionHost')),
 )
 
 # The shell libraries, which only the application composes. An extension host shows a process's window in a process
 # of its own and has no main window to put a shell in, so a host that reached a shell library would carry the
 # application's window code into every extension's process.
-SHELL_LIBRARIES = ('AfterNightShellCore',)
+SHELL_LIBRARIES = ('AfterNightShellCore', 'AfterNightShellClassic')
 SHELL_FREE_PROJECTS = ('AfterNightExtensionHost', 'AfterNightExtensionHostLite')
 
 # The optional adapters, and the one suite each is allowed to be linked by. An adapter exists so a

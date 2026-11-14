@@ -3,10 +3,13 @@
 
 // The rules of the source tree no case of behaviour can hold, each read from the sources themselves: no bare
 // std::min or std::max, which the Windows SDK's macros would expand; no stylesheet, since the look is painted from the
-// design tokens; and no QSettings but the product's own settings file, since any other is the native store, which no
-// test storage root redirects. A guard fails naming the file and the line, and says what to write instead.
+// design tokens; no QSettings but the product's own settings file, since any other is the native store, which no
+// test storage root redirects; and no shell reached from below it or from another shell. A guard fails naming the file
+// and the line, and says what to write instead.
 
 #include <gtest/gtest.h>
+
+#include <algorithm>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -16,6 +19,7 @@
 #include <QIODevice>
 #include <QRegularExpression>
 #include <QString>
+#include <QSet>
 #include <QStringList>
 
 namespace
@@ -342,4 +346,102 @@ TEST(SourceGuards, NoDefaultQSettingsInSrc)
         EXPECT_TRUE(met.contains(entry)) << "the guard allows a line the sources no longer hold: "
                                          << entry.toStdString();
     }
+}
+
+// A shell is reached only by the application that composes it and by the suites that drive it. No unit of Controls,
+// the processes library or the shell core includes a header of a shell - the shell core is what every shell is built
+// on, and the libraries below it know no window - no suite below them includes one, and no shell includes another's:
+// two shells are two ways to show the same application, and one that reached into the other would carry it into every
+// run of its own. An include is a shell's when it names a file of the shell's tree and nothing beside the including
+// file; the shell's own tree, the application and the shell's suites are left out.
+TEST(SourceGuards, ShellsDoNotReachEachOther)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty());
+    const QDir rootFolder(root);
+
+    struct Shell
+    {
+        QString tree;
+        QStringList reachers;
+    };
+    // Each shell's tree, and the trees that may include it: the application and the suites that drive it.
+    const QList<Shell> shells = {
+        {QStringLiteral("src/AfterNightShellClassic/"),
+         {QStringLiteral("src/AfterNightApp/"), QStringLiteral("src/AfterNightTests/Test_ShellClassic/"),
+          QStringLiteral("src/AfterNightTests/Test_ShellParity/"),
+          QStringLiteral("src/AfterNightTests/Test_AfterNightApp/")}},
+    };
+
+    const QRegularExpression include(QStringLiteral(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^>"]+)[>"])"),
+                                     QRegularExpression::MultilineOption);
+    QList<Finding> findings;
+    int read = 0;
+    for (const Shell& shell : shells)
+    {
+        // The names a source includes the shell's headers by: their paths inside the tree.
+        QSet<QString> headers;
+        QDirIterator files(rootFolder.filePath(shell.tree), {QStringLiteral("*.h"), QStringLiteral("*.hpp")},
+                           QDir::Files, QDirIterator::Subdirectories);
+        while (files.hasNext())
+        {
+            headers.insert(QDir(rootFolder.filePath(shell.tree)).relativeFilePath(files.next()));
+        }
+        // Every library precompiles a header of that name of its own, which its sources reach in its own root.
+        headers.remove(QStringLiteral("stdafx.hpp"));
+        ASSERT_FALSE(headers.isEmpty()) << shell.tree.toStdString() << " holds no header";
+
+        QDirIterator sources(
+            rootFolder.filePath(QStringLiteral("src")),
+            {QStringLiteral("*.cpp"), QStringLiteral("*.h"), QStringLiteral("*.hpp"), QStringLiteral("*.inl")},
+            QDir::Files, QDirIterator::Subdirectories);
+        while (sources.hasNext())
+        {
+            const QString path = sources.next();
+            const QString relative = rootFolder.relativeFilePath(path);
+            const bool reaches = relative.startsWith(shell.tree) ||
+                                 std::any_of(shell.reachers.cbegin(), shell.reachers.cend(),
+                                             [&relative](const QString& tree) { return relative.startsWith(tree); });
+            if (reaches)
+            {
+                continue;
+            }
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly))
+            {
+                continue;
+            }
+            ++read;
+            QString source = QString::fromUtf8(file.readAll());
+            source.remove(QLatin1Char('\r'));
+            const QString code = withoutComments(source);
+            QRegularExpressionMatchIterator matches = include.globalMatch(code);
+            while (matches.hasNext())
+            {
+                const QRegularExpressionMatch match = matches.next();
+                QString name = match.captured(1);
+                const QString prefix = shell.tree.mid(QStringLiteral("src/").size());
+                if (name.startsWith(prefix))
+                {
+                    name = name.mid(prefix.size());
+                }
+                else if (QFileInfo::exists(QFileInfo(path).dir().filePath(name)))
+                {
+                    continue; // a file beside the includer, of the same name
+                }
+                if (!headers.contains(name))
+                {
+                    continue;
+                }
+                const int line = static_cast<int>(code.left(match.capturedStart()).count(QLatin1Char('\n'))) + 1;
+                findings.append(Finding{relative, line, source.split(QLatin1Char('\n')).value(line - 1).trimmed()});
+            }
+        }
+    }
+
+    EXPECT_GT(read, 1000) << "the guard read too few sources to have read the tree";
+    EXPECT_TRUE(findings.isEmpty())
+        << "a shell's header included from below it or from another shell; reach the application through the shell "
+           "core's units and contract (core/IShell.h) instead:\n"
+        << described(findings).toStdString();
 }

@@ -18,6 +18,7 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QSignalBlocker>
 #include <QComboBox>
 #include <QSlider>
 #include <QCheckBox>
@@ -203,6 +204,17 @@ void InterfaceSettingsPage::setupUi()
 
     mainLayout->addWidget(layoutGroup);
 
+    // === Shell Section: shown when the application can make more than one shell ===
+    m_ShellGroup = new QGroupBox(tr("Shell"), this);
+    m_ShellGroup->setObjectName(QStringLiteral("anInterfaceSettingsShellGroup"));
+    auto* shellLayout = new QFormLayout(m_ShellGroup);
+    m_ShellCombo = new QComboBox(m_ShellGroup);
+    m_ShellCombo->setObjectName(QStringLiteral("anInterfaceSettingsShellCombo"));
+    shellLayout->addRow(tr("Shell:"), m_ShellCombo);
+    shellLayout->addRow(createInfoLabel(tr("Takes effect when AfterNight restarts.")));
+    m_ShellGroup->setVisible(false);
+    mainLayout->addWidget(m_ShellGroup);
+
     // Add stretch to push content to top
     mainLayout->addStretch(1);
 
@@ -233,6 +245,39 @@ void InterfaceSettingsPage::connectSignals()
     trackChanges(m_UseSystemFileBrowserCheck);
     trackChanges(m_LockLayoutByDefaultCheck);
     trackChanges(m_RememberWindowSizeCheck);
+    trackChanges(m_ShellCombo);
+}
+
+void InterfaceSettingsPage::setAvailableShells(std::vector<an::ui::ShellOption> shells)
+{
+    m_Shells = std::move(shells);
+    {
+        const QSignalBlocker blocker(m_ShellCombo);
+        m_ShellCombo->clear();
+        for (const an::ui::ShellOption& shell : m_Shells)
+        {
+            m_ShellCombo->addItem(shell.displayName, shell.id);
+        }
+    }
+    m_ShellGroup->setVisible(m_Shells.size() > 1);
+    if (m_Settings != nullptr)
+    {
+        selectShell(
+            m_Settings->select(SettingsKeys::INTERFACE_SHELL, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)));
+    }
+}
+
+void InterfaceSettingsPage::selectShell(const QString& id)
+{
+    int index = m_ShellCombo->findData(id);
+    if (index < 0)
+    {
+        index = m_ShellCombo->findData(QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL));
+    }
+    if (index >= 0)
+    {
+        m_ShellCombo->setCurrentIndex(index);
+    }
 }
 
 void InterfaceSettingsPage::loadSettings()
@@ -293,6 +338,9 @@ void InterfaceSettingsPage::loadSettings()
     QString lockLayoutStr = m_Settings->select(SettingsKeys::INTERFACE_LOCK_LAYOUT_BY_DEFAULT,
                                                SettingsDefaults::INTERFACE_LOCK_LAYOUT_BY_DEFAULT ? "1" : "0");
     m_LockLayoutByDefaultCheck->setChecked(lockLayoutStr == "1");
+
+    selectShell(
+        m_Settings->select(SettingsKeys::INTERFACE_SHELL, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)));
 
     // Remember window size
     QString rememberSizeStr = m_Settings->select(SettingsKeys::INTERFACE_REMEMBER_WINDOW_SIZE,
@@ -396,6 +444,12 @@ void InterfaceSettingsPage::saveSettings()
     // Lock layout by default
     upsertSetting(SettingsKeys::INTERFACE_LOCK_LAYOUT_BY_DEFAULT, m_LockLayoutByDefaultCheck->isChecked() ? "1" : "0");
 
+    // A shell is chosen only where there is a choice to make.
+    if (m_Shells.size() > 1 && m_ShellCombo->currentIndex() >= 0)
+    {
+        upsertSetting(SettingsKeys::INTERFACE_SHELL, m_ShellCombo->currentData().toString());
+    }
+
     // Remember window size
     upsertSetting(SettingsKeys::INTERFACE_REMEMBER_WINDOW_SIZE, m_RememberWindowSizeCheck->isChecked() ? "1" : "0");
 
@@ -437,6 +491,7 @@ void InterfaceSettingsPage::resetToDefaults()
 
     // Layout options
     m_LockLayoutByDefaultCheck->setChecked(SettingsDefaults::INTERFACE_LOCK_LAYOUT_BY_DEFAULT);
+    selectShell(QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL));
     m_RememberWindowSizeCheck->setChecked(SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE);
 
     updateSensitivityLabel();

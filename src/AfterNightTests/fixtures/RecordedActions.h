@@ -23,7 +23,7 @@ namespace an::tests::fixtures
 {
 
 /// The record of the application's actions, from the repository's root.
-inline constexpr const char* kRecordedActionsPath = "src/AfterNightTests/Test_AfterNightApp/data/ActionInventory.txt";
+inline constexpr const char* kRecordedActionsPath = "src/AfterNightTests/Test_ShellClassic/data/ActionInventory.txt";
 
 /// The actions the record holds, made under an owner, which deletes them.
 class RecordedActions

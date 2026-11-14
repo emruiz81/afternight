@@ -15,6 +15,7 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
+#include "core/ShellRegistry.h"
 #include "services/DialogService.h"
 #include "services/FileDialogService.h"
 #include "services/RecentFilesModel.h"
@@ -247,3 +248,30 @@ TEST_F(ApplicationContextTest, TheActionsStateIsTheCoresCoordinators)
 }
 
 } // namespace
+
+// The interface settings offer the shells the application registered, in the order it registered them: none before it
+// hands its registry over, and so no choice.
+TEST_F(ApplicationContextTest, OffersTheShellsTheApplicationRegistered)
+{
+    an::ui::IInterfaceSettingsRuntimeService* const runtime = m_context->getInterfaceSettingsRuntimeService();
+    ASSERT_NE(runtime, nullptr);
+    EXPECT_TRUE(runtime->availableShells().empty());
+
+    an::ui::shell::ShellRegistry registry;
+    const auto made = [](an::ui::shell::ApplicationCore&) -> std::unique_ptr<an::ui::shell::IShell> { return nullptr; };
+    ASSERT_TRUE(
+        registry.add({.id = QStringLiteral("classic"), .displayName = QStringLiteral("Classic"), .create = made}));
+    ASSERT_TRUE(
+        registry.add({.id = QStringLiteral("second"), .displayName = QStringLiteral("Second"), .create = made}));
+    m_core.setShellRegistry(&registry);
+
+    const std::vector<an::ui::ShellOption> shells = runtime->availableShells();
+    ASSERT_EQ(shells.size(), 2u);
+    EXPECT_EQ(shells[0].id, QStringLiteral("classic"));
+    EXPECT_EQ(shells[0].displayName, QStringLiteral("Classic"));
+    EXPECT_EQ(shells[1].id, QStringLiteral("second"));
+    EXPECT_EQ(shells[1].displayName, QStringLiteral("Second"));
+
+    m_core.setShellRegistry(nullptr);
+    EXPECT_TRUE(runtime->availableShells().empty());
+}

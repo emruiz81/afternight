@@ -36,6 +36,7 @@ class LayeringCase(unittest.TestCase):
         write(self.root, 'src/AfterNightControls/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
         write(self.root, 'src/AfterNightProcesses/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
         write(self.root, 'src/AfterNightShellCore/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
+        write(self.root, 'src/AfterNightShellClassic/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
 
     def run_check(self) -> tuple[int, str]:
         stream = io.StringIO()
@@ -57,7 +58,7 @@ class CleanTreeTests(LayeringCase):
     def test_a_clean_tree_passes(self) -> None:
         code, output = self.run_check()
         self.assertEqual(code, 0, output)
-        self.assertIn('read 3 layered library sources', output)
+        self.assertIn('read 4 layered library sources', output)
 
 
 class LayerTests(LayeringCase):
@@ -146,6 +147,43 @@ class ShellCoreLayerTests(LayeringCase):
         write(self.root, 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.h', '#pragma once\n')
         write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp',
               '#include "controls/IAppContext.h"\n#include "app/ProcessRegistryBuiltins.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+
+class ClassicShellLayerTests(LayeringCase):
+    """The classic shell sits above the shell core and below the application and the full host."""
+
+    def test_controls_including_a_classic_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightControls/app/ThemeManager.cpp', '#include "ClassicShell.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightControls/app/ThemeManager.cpp:1 includes ClassicShell.h from '
+                      'AfterNightShellClassic', output)
+
+    def test_shell_core_including_a_classic_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellClassic/AfterNightApp.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp', '#include "AfterNightApp.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellCore/core/ShellSelection.cpp:1 includes AfterNightApp.h from '
+                      'AfterNightShellClassic', output)
+
+    def test_classic_shell_including_an_application_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightApp/app/ApplicationStart.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp', '#include "app/ApplicationStart.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellClassic/ClassicShell.cpp:1 includes app/ApplicationStart.h from '
+                      'AfterNightApp', output)
+
+    def test_classic_shell_including_shell_core_processes_and_controls_headers_passes(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/core/IShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightControls/controls/IAppContext.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp',
+              '#include "core/IShell.h"\n#include "controls/IAppContext.h"\n#include "app/ProcessRegistryBuiltins.h"\n')
         code, output = self.run_check()
         self.assertEqual(code, 0, output)
 

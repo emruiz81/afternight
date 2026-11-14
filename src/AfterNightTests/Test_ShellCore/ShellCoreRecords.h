@@ -25,13 +25,13 @@ namespace an::tests::shellcore
 {
 
 /// The actions and the menu bar of 1.1's main window, beside the suite that drives the window.
-inline constexpr const char* kActionRecordPath = "src/AfterNightTests/Test_AfterNightApp/data/ActionInventory.txt";
+inline constexpr const char* kActionRecordPath = "src/AfterNightTests/Test_ShellClassic/data/ActionInventory.txt";
 
 /// The processes 1.1 registers, beside the same suite.
-inline constexpr const char* kProcessRecordPath = "src/AfterNightTests/Test_AfterNightApp/data/ProcessInventory.txt";
+inline constexpr const char* kProcessRecordPath = "src/AfterNightTests/Test_ShellClassic/data/ProcessInventory.txt";
 
 /// The menu a view of 1.1 shows on a right click, beside the same suite.
-inline constexpr const char* kViewMenuRecordPath = "src/AfterNightTests/Test_AfterNightApp/data/ViewMenuInventory.txt";
+inline constexpr const char* kViewMenuRecordPath = "src/AfterNightTests/Test_ShellClassic/data/ViewMenuInventory.txt";
 
 /// The entries of a record's section, each as its fields; none when the record or the section is missing.
 [[nodiscard]] inline std::vector<QStringList> recordedRows(const char* path, const char* section)

@@ -93,6 +93,7 @@ public:
     // ---- IInterfaceSettingsRuntimeService
     void applyTheme(const QString& themeId) override;
     void refreshAllZoomSettings() override;
+    [[nodiscard]] std::vector<an::ui::ShellOption> availableShells() const override;
 
     // ---- IProcessSettingsProvider
     bool upsert(const QString& processName, int windowState, int width, int height,

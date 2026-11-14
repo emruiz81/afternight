@@ -199,23 +199,58 @@ REAL_DATA['vocabulary.yml'] = re.sub(r'(?ms)^allow:.*\Z', 'allow: []\n', REAL_DA
 REAL_DATA['limits.yml'] = re.sub(r'(?ms)^before_after_exempt:.*\Z', 'before_after_exempt: []\n',
                                  REAL_DATA['limits.yml'])
 
-UI_BUILDER = '''\
-        menuProcess->setTitle(QCoreApplication::translate("AfterNightAppClass", "&Process", nullptr));
-        menuStretch->setTitle(QCoreApplication::translate("AfterNightAppClass", "Intensity Transformations", nullptr));
-        menuAdjustments->setTitle(QCoreApplication::translate("AfterNightAppClass", "Adjustments", nullptr));
-        menuImage->setTitle(QCoreApplication::translate("AfterNightAppClass", "Image", nullptr));
-        actionHT->setText(QCoreApplication::translate("AfterNightAppClass", "Histogram Transformation", nullptr));
-        actionCurves->setText(QCoreApplication::translate("AfterNightAppClass", "Curves Transformation", nullptr));
-        actionNegative->setText(QCoreApplication::translate("AfterNightAppClass", "Negative Transformation", nullptr));
-        actionZoom->setText(QCoreApplication::translate("AfterNightAppClass", "Zoom &In", nullptr));
-        menuBar->addAction(menuProcess->menuAction());
-        menuBar->addAction(menuImage->menuAction());
-        menuProcess->addAction(menuStretch->menuAction());
-        menuProcess->addAction(menuAdjustments->menuAction());
-        menuStretch->addAction(actionHT);
-        menuStretch->addAction(actionCurves);
-        menuAdjustments->addAction(actionNegative);
-        menuImage->addAction(actionZoom);
+ACTION_IDS = '''\
+namespace an::ui::shell::ids
+{
+inline constexpr std::string_view kHT = "actionHT";
+inline constexpr std::string_view kCurves = "actionCurves";
+inline constexpr std::string_view kNegative = "actionNegative";
+inline constexpr std::string_view kZoom = "actionZoom";
+} // namespace an::ui::shell::ids
+'''
+
+ACTION_CATALOGUE = '''\
+constexpr ActionSpec kSpecs[] = {
+    {.id = ids::kHT, .text = "Histogram Transformation", .group = ActionGroup::Process},
+    {.id = ids::kCurves, .text = "Curves Transformation", .group = ActionGroup::Process},
+    {.id = ids::kNegative, .text = "Negative Transformation", .group = ActionGroup::Process},
+    {.id = ids::kZoom, .text = "Zoom &In", .group = ActionGroup::Image, .shortcut = "Ctrl++"},
+};
+'''
+
+# The Negative item is on line 15, where a finding about it is reported.
+MENU_TREE = '''\
+namespace an::ui::shell
+{
+constexpr MenuItem kProcessItems[] = {
+    {MenuItemKind::Menu, "menuStretch"},
+    {MenuItemKind::Menu, "menuAdjustments"},
+};
+
+constexpr MenuItem kStretchItems[] = {
+    {MenuItemKind::Action, ids::kHT},
+    {MenuItemKind::Action, ids::kCurves},
+};
+
+constexpr MenuItem kAdjustmentsItems[] = {
+    {MenuItemKind::Separator, {}},
+    {MenuItemKind::Action, ids::kNegative},
+};
+
+constexpr MenuItem kImageItems[] = {
+    {MenuItemKind::Action, ids::kZoom},
+};
+
+constexpr MenuNode kMenus[] = {
+    {"menuProcess", "&Process", false, true, kProcessItems},
+    {"menuStretch", "Intensity Transformations", false, true, kStretchItems},
+    {"menuAdjustments", "Adjustments", false, true, kAdjustmentsItems},
+    {"menuRecent", "Recent", true, false, {}},
+    {"menuImage", "Image", false, true, kImageItems},
+};
+
+constexpr std::string_view kTopLevel[] = {"menuProcess", "menuImage"};
+} // namespace an::ui::shell
 '''
 
 REGISTRY = '''\
@@ -344,7 +379,9 @@ class GuideCase(unittest.TestCase):
     def setUp(self):
         self.root = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root, True)
-        self.write('src/AfterNightControls/app/AfterNightAppUiBuilder.h', UI_BUILDER)
+        self.write('src/AfterNightShellCore/actions/ActionIds.h', ACTION_IDS)
+        self.write('src/AfterNightShellCore/actions/ActionCatalogue.cpp', ACTION_CATALOGUE)
+        self.write('src/AfterNightShellCore/actions/MenuTree.cpp', MENU_TREE)
         self.write('src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp', REGISTRY)
         self.write('README.md', '# Repository\n')
         self.write('docs/user-guide/mkdocs.yml', MKDOCS)
@@ -471,7 +508,7 @@ class MenuRuleTests(GuideCase):
     def test_an_uncovered_process_menu_action_is_reported_at_its_menu_line(self):
         self.page('processes/adjustments.md', PAGES['processes/adjustments.md'].replace(
             'menu: Process > Adjustments', 'menu: Process > Intensity Transformations > Curves Transformation'))
-        self.assertOneFinding('R4', 'AfterNightAppUiBuilder.h', 15, 'Process menu action actionNegative')
+        self.assertOneFinding('R4', 'MenuTree.cpp', 15, 'Process menu action actionNegative')
 
     def test_a_submenu_covers_every_action_under_it(self):
         self.page('processes/ht.md', PAGES['processes/ht.md'].replace(

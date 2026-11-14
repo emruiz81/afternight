@@ -3,9 +3,9 @@
 
 #include "stdafx.hpp"
 
-#include "app/UiBootstrapCoordinator.h"
+#include "ClassicUiBootstrap.h"
 
-#include "app/AfterNightAppUiBuilder.h"
+#include "AfterNightAppUiBuilder.h"
 
 #include "widgets/ImageInfoStatusBarWidget.h"
 #include "controls/MainDashboard.h"
@@ -23,9 +23,9 @@
 namespace an::ui
 {
 
-UiBootstrapCoordinator::UiBootstrapCoordinator(const Dependencies& dependencies) : m_dependencies(dependencies) {}
+ClassicUiBootstrap::ClassicUiBootstrap(const Dependencies& dependencies) : m_dependencies(dependencies) {}
 
-void UiBootstrapCoordinator::finalizeConstructorUiSetup() const
+void ClassicUiBootstrap::finalizeConstructorUiSetup() const
 {
     if (!m_dependencies.ui || !m_dependencies.mainWindow || !m_dependencies.imageViewControlListComboBox)
     {
@@ -72,7 +72,7 @@ void UiBootstrapCoordinator::finalizeConstructorUiSetup() const
     }
 }
 
-void UiBootstrapCoordinator::initializeMainDashboard() const
+void ClassicUiBootstrap::initializeMainDashboard() const
 {
     if (!m_dependencies.ui || !m_dependencies.mainWindow || !m_dependencies.mainDashboard ||
         !m_dependencies.mainDashboardScrollArea)
@@ -177,7 +177,7 @@ void UiBootstrapCoordinator::initializeMainDashboard() const
                      });
 }
 
-void UiBootstrapCoordinator::initializeDockManager() const
+void ClassicUiBootstrap::initializeDockManager() const
 {
     if (!m_dependencies.ui || !m_dependencies.mainWindow || !m_dependencies.dockMainWindow)
     {
@@ -203,7 +203,7 @@ void UiBootstrapCoordinator::initializeDockManager() const
     m_dependencies.ui->centralWidget->addWidget(*m_dependencies.dockMainWindow);
 }
 
-void UiBootstrapCoordinator::initializeMaximizedView() const
+void ClassicUiBootstrap::initializeMaximizedView() const
 {
     if (!m_dependencies.ui || !m_dependencies.mainWindow)
     {

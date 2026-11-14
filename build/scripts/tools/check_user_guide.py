@@ -13,9 +13,9 @@ Rules, each reported with its id:
   R2  Front matter. Every page opens with YAML front matter whose keys, types and values fit its `kind`, and whose
       stage ids are those of data/stages.yml (the schema is docs/user-guide/hooks/guide_model.py's).
   R3  Every page under the docs folder is in the nav, every nav entry names a page, and each page has exactly one H1.
-  R4  Menu parity with the application, read from ProcessRegistryBuiltins.cpp (the registered actions) and
-      AfterNightAppUiBuilder.h (labels and menus): every `menu` path a page states is a menu or an action of the
-      application, and every registered action, and every other action of the Process menu, sits on a page's `menu`,
+  R4  Menu parity with the application, read from ProcessRegistryBuiltins.cpp (the registered actions) and the shell
+      core's actions (ActionIds.h, the ids; ActionCatalogue.cpp, the labels; MenuTree.cpp, the menus): every `menu`
+      path a page states is a menu or an action of the application, and every registered action, and every other action of the Process menu, sits on a page's `menu`,
       as the path itself or under a submenu the page names.
   R5  Every image a page shows exists, spelled with the file's own case: its Markdown and HTML images, the images of
       its `figure` blocks and the picture its front matter names (the home page's `hero.image`). An image under
@@ -116,7 +116,9 @@ from dataclasses import dataclass
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 REGISTRY = 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp'
-UI_BUILDER = 'src/AfterNightControls/app/AfterNightAppUiBuilder.h'
+ACTION_IDS = 'src/AfterNightShellCore/actions/ActionIds.h'
+ACTION_CATALOGUE = 'src/AfterNightShellCore/actions/ActionCatalogue.cpp'
+MENU_TREE = 'src/AfterNightShellCore/actions/MenuTree.cpp'
 IMAGE_EXTENSIONS = ('.png', '.webp', '.jpg', '.jpeg', '.gif', '.svg')
 CREDITS = 'Credits'
 
@@ -468,12 +470,17 @@ def check_site(site, display=None):
     return check.findings, documents, stylesheets, references
 
 
-_ACTION_TEXT = re.compile(
-    r'(?s)(action[A-Za-z0-9_]+)->setText\(.*?QCoreApplication::translate\("AfterNightAppClass",\s*"([^"]+)".*?\)\s*\);')
-_MENU_TITLE = re.compile(
-    r'(?s)(menu[A-Za-z0-9_]+)->setTitle\(.*?QCoreApplication::translate\("AfterNightAppClass",\s*"([^"]+)".*?\)\s*\);')
-_ADD_ACTION = re.compile(r'(?m)^\s*(menu[A-Za-z0-9_]+)->addAction\((action[A-Za-z0-9_]+)\);')
-_ADD_MENU = re.compile(r'(?m)^\s*(menu[A-Za-z0-9_]+)->addAction\((menu[A-Za-z0-9_]+)->menuAction\(\)\);')
+# An action's id, its label and its menus, as the shell core states them: `kOpen = "actionOpen"` in ActionIds.h, a
+# catalogue entry `{.id = ids::kOpen, .text = "Open", ...}`, a menu's items `constexpr MenuItem kFileItems[] = {...};`
+# and the menu `{"menuFile", "File", <varies>, <tear-off>, kFileItems}`.
+_ACTION_ID = re.compile(r'\bconstexpr\s+std::string_view\s+(k[A-Za-z0-9_]+)\s*=\s*"(action[A-Za-z0-9_]+)"\s*;')
+_ACTION_SPEC = re.compile(r'\{\s*\.id\s*=\s*ids::(k[A-Za-z0-9_]+)\s*,\s*\.text\s*=\s*"([^"]*)"')
+_MENU_ITEMS = re.compile(r'(?s)\bconstexpr\s+MenuItem\s+(k[A-Za-z0-9_]+)\[\]\s*=\s*\{(.*?)\n\};')
+_MENU_ITEM = re.compile(
+    r'\{\s*MenuItemKind::(Action|Menu|Separator)\s*,\s*(?:ids::(k[A-Za-z0-9_]+)|"(menu[A-Za-z0-9_]+)"|\{\})\s*\}')
+_MENU_NODE = re.compile(
+    r'\{\s*"(menu[A-Za-z0-9_]+)"\s*,\s*"([^"]*)"\s*,\s*(?:true|false)\s*,\s*(?:true|false)\s*,\s*'
+    r'(k[A-Za-z0-9_]+|\{\})\s*\}')
 _REGISTRATION = re.compile(
     r'(?ms)^\s+AN_REGISTER_(PROCESS_(?:SINGLE|TOPLEVEL|NON_INTERACTIVE)|CHANNEL|IMAGE_OPERATION)\((.*?)\);')
 _ACTION_NAME = re.compile(r'\b(action[A-Za-z0-9_]+)\b')
@@ -486,24 +493,38 @@ NON_INTERACTIVE_CATEGORY = 'kCategoryNonInteractive'
 
 
 class ProductMenus:
-    """The application's menus as its UI builder declares them, and the actions its process registry registers.
+    """The application's menus as the shell core's menu tree and action catalogue declare them, and the actions its
+    process registry registers.
 
     A menu path is the titles from the menu bar down, then the action's label, joined by " > ", the `&` of a mnemonic
     dropped: `Process > Intensity Transformations > Histogram Transformation`."""
 
     def __init__(self, repo):
-        ui_text = _read(os.path.join(repo, UI_BUILDER))
+        ids_text = _read(os.path.join(repo, ACTION_IDS))
+        catalogue_text = _read(os.path.join(repo, ACTION_CATALOGUE))
+        tree_text = _read(os.path.join(repo, MENU_TREE))
         registry_text = _read(os.path.join(repo, REGISTRY))
-        self.labels = {match.group(1): match.group(2).replace('&', '') for match in _ACTION_TEXT.finditer(ui_text)}
-        self.titles = {match.group(1): match.group(2).replace('&', '') for match in _MENU_TITLE.finditer(ui_text)}
+        names = {match.group(1): match.group(2) for match in _ACTION_ID.finditer(ids_text)}
+        self.labels = {names[match.group(1)]: match.group(2).replace('&', '')
+                       for match in _ACTION_SPEC.finditer(catalogue_text) if match.group(1) in names}
+        # Each menu's items: (kind, the action's object name or the submenu's, where the item is written).
+        items = {}
+        for array in _MENU_ITEMS.finditer(tree_text):
+            items[array.group(1)] = [
+                (item.group(1), names.get(item.group(2)) if item.group(2) else item.group(3), array.start(2) + item.start())
+                for item in _MENU_ITEM.finditer(array.group(2))]
+        self.titles = {}
         self.placements = {}
-        for match in _ADD_ACTION.finditer(ui_text):
-            self.placements.setdefault(match.group(2), []).append((match.group(1), _line_of(ui_text, match.start(1))))
-        # A menu added to a titled menu is its submenu; one added to the menu bar, which has no title, is a top menu.
+        # A menu among another's items is its submenu; a menu among no menu's items is a menu of the menu bar.
         self.parents = {}
-        for match in _ADD_MENU.finditer(ui_text):
-            if match.group(1) in self.titles:
-                self.parents.setdefault(match.group(2), []).append(match.group(1))
+        for node in _MENU_NODE.finditer(tree_text):
+            menu, title, array = node.groups()
+            self.titles[menu] = title.replace('&', '')
+            for kind, target, offset in items.get(array, []):
+                if kind == 'Action' and target:
+                    self.placements.setdefault(target, []).append((menu, _line_of(tree_text, offset)))
+                elif kind == 'Menu' and target:
+                    self.parents.setdefault(target, []).append(menu)
         self.registered = []
         # The actions registered in the non-interactive category: the channel and image operations, and a process
         # registered under it by name.
@@ -532,7 +553,7 @@ class ProductMenus:
         return [trail + [menu] for parent in parents for trail in self._menu_trails(parent, seen + (menu,))]
 
     def placements_of(self, action):
-        """(menu path, the ids of the menus above it, UI builder line) for every place an action sits."""
+        """(menu path, the ids of the menus above it, menu tree line) for every place an action sits."""
         found = []
         for menu, line in self.placements.get(action, []):
             for trail in self._menu_trails(menu):
@@ -551,7 +572,7 @@ class ProductMenus:
         return paths
 
     def process_menu_actions(self):
-        """(action, UI builder line) for every action the Process menu holds, at any depth."""
+        """(action, menu tree line) for every action the Process menu holds, at any depth."""
         found = {}
         for action in self.placements:
             for _, trail, line in self.placements_of(action):
@@ -1507,16 +1528,17 @@ class _GuideCheck:
         page_paths = [menu for front in self.pages.values() if front.meta
                       for menu in self.model.menu_paths(front.meta)]
         registry = os.path.join(self.repo, REGISTRY)
-        ui_builder = os.path.join(self.repo, UI_BUILDER)
+        menu_tree = os.path.join(self.repo, MENU_TREE)
         registered = set()
         covered = 0
         for action, line in product.registered:
             registered.add(action)
             places = product.placements_of(action)
             if action not in product.labels:
-                self.report('R4', registry, line, 'registered action %s has no label in %s' % (action, UI_BUILDER))
+                self.report('R4', registry, line, 'registered action %s has no label in %s' %
+                            (action, ACTION_CATALOGUE))
             if not places:
-                self.report('R4', registry, line, 'registered action %s is in no menu of %s' % (action, UI_BUILDER))
+                self.report('R4', registry, line, 'registered action %s is in no menu of %s' % (action, MENU_TREE))
             elif not any(_covered(place, page_paths) for place, _, _ in places):
                 self.report('R4', registry, line, 'registered action %s (%s) is on no page\'s `menu`' %
                             (action, '; '.join(place for place, _, _ in places)))
@@ -1526,7 +1548,7 @@ class _GuideCheck:
         for action, line in unregistered:
             places = [place for place, trail, _ in product.placements_of(action) if trail[0] == PROCESS_MENU]
             if not any(_covered(place, page_paths) for place in places):
-                self.report('R4', ui_builder, line, 'Process menu action %s (%s) is on no page\'s `menu`' %
+                self.report('R4', menu_tree, line, 'Process menu action %s (%s) is on no page\'s `menu`' %
                             (action, '; '.join(places)))
             else:
                 covered += 1

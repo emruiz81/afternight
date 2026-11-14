@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The application's teardown in its own order, over a main window of its own: the window cases share one window for
-// their suite, so this case makes, uses and destroys another, after or before them, never while theirs exists.
+// The application's teardown in its own order: each case starts the classic shell as the application starts it, over a
+// core and a session of its own, uses its window and ends it as the application ends - the window gone before the
+// session is shut down.
 
-#include "app/AfterNightApp.h"
+#include "ClassicShell.h"
 
-#include "AppTestSupport.h"
+#include "Test_ShellClassic/AppTestSupport.h"
 #include "Test_ControlsSeams/FreedMemoryQuarantine.h"
-#include "app/ApplicationSession.h"
+#include "app/ApplicationStart.h"
+#include "core/ApplicationSession.h"
+#include "core/IShell.h"
+#include "core/ShellRegistry.h"
 #include "core/ApplicationCore.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -25,6 +29,7 @@
 
 #include <QAction>
 #include <QPointer>
+#include <QProcessEnvironment>
 #include <QThreadPool>
 #include <QWidget>
 
@@ -38,15 +43,30 @@
 #include <thread>
 #include <utility>
 
+namespace
+{
+
+/// The classic shell started as the application starts it, over the core and the session the case owns.
+an::ui::StartedApplication startClassicShell(an::ui::shell::ApplicationCore& core, an::ui::ApplicationSession& session)
+{
+    core.setApplicationSession(&session);
+    an::ui::shell::ShellRegistry registry;
+    EXPECT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    return an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
+}
+
+} // namespace
+
 TEST(ApplicationTeardown, TheWindowTakesItsContextDownAndTheSessionShutsDownCleanly)
 {
-    ASSERT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    AfterNightApp* const window = AfterNightApp::createInstance(core);
-    window->initialize(session);
+    an::ui::StartedApplication started = startClassicShell(core, session);
+    ASSERT_NE(started.shell, nullptr);
+    QWidget* const window = started.shell->mainWindow();
+    ASSERT_NE(window, nullptr);
     ASSERT_TRUE(session.isOpen());
     an::ui::IAppContext* const context = an::ui::appContext();
     ASSERT_NE(context, nullptr);
@@ -66,9 +86,8 @@ TEST(ApplicationTeardown, TheWindowTakesItsContextDownAndTheSessionShutsDownClea
     // The application's exit: the window is closed, which closes every view, and the event loop returns.
     ASSERT_TRUE(window->close());
 
-    const an::Status shut = an::ui::shutDownApplication(session, []() { AfterNightApp::destroyInstance(); });
+    const an::Status shut = an::ui::stopApplication(std::move(started.shell), session);
 
-    EXPECT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     EXPECT_EQ(an::ui::appContext(), nullptr) << "the window left the context it installed behind it";
     EXPECT_TRUE(viewGuard.isNull());
     EXPECT_TRUE(image.expired()) << "the closed view's image is still held: " << image.use_count();
@@ -82,13 +101,14 @@ TEST(ApplicationTeardown, TheWindowTakesItsContextDownAndTheSessionShutsDownClea
 // the window's state after it went faults, rather than reading what the freed state still held.
 TEST(ApplicationTeardown, QuittingWithTheSessionConsoleOpenReadsNothingOfTheWindowAfterItsStateIsGone)
 {
-    ASSERT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    AfterNightApp* const window = AfterNightApp::createInstance(core);
-    window->initialize(session);
+    an::ui::StartedApplication started = startClassicShell(core, session);
+    ASSERT_NE(started.shell, nullptr);
+    QWidget* const window = started.shell->mainWindow();
+    ASSERT_NE(window, nullptr);
     ASSERT_TRUE(session.isOpen());
     auto* const console = window->findChild<QAction*>(QStringLiteral("actionLog_Viewer"));
     ASSERT_NE(console, nullptr);
@@ -104,10 +124,9 @@ TEST(ApplicationTeardown, QuittingWithTheSessionConsoleOpenReadsNothingOfTheWind
     an::Status shut = an::Status::success();
     {
         const an::tests::viewer::FreedMemoryQuarantine quarantine;
-        shut = an::ui::shutDownApplication(session, []() { AfterNightApp::destroyInstance(); });
+        shut = an::ui::stopApplication(std::move(started.shell), session);
     }
 
-    EXPECT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     EXPECT_EQ(an::ui::appContext(), nullptr);
     EXPECT_TRUE(shut.ok()) << "the session did not shut down cleanly after the window went: " << shut.message();
 }
@@ -118,13 +137,14 @@ TEST(ApplicationTeardown, QuittingWithTheSessionConsoleOpenReadsNothingOfTheWind
 // begun, and the window goes under the quarantine, so a read that reached a store already gone faults.
 TEST(ApplicationTeardown, ASettingsReadStillWaitingOnThePoolWhenTheApplicationClosesFindsTheStore)
 {
-    ASSERT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     ASSERT_EQ(an::ui::appContext(), nullptr);
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    AfterNightApp* const window = AfterNightApp::createInstance(core);
-    window->initialize(session);
+    an::ui::StartedApplication started = startClassicShell(core, session);
+    ASSERT_NE(started.shell, nullptr);
+    QWidget* const window = started.shell->mainWindow();
+    ASSERT_NE(window, nullptr);
     ASSERT_TRUE(session.isOpen());
     an::ui::IAppContext* const context = an::ui::appContext();
     ASSERT_NE(context, nullptr);
@@ -149,12 +169,11 @@ TEST(ApplicationTeardown, ASettingsReadStillWaitingOnThePoolWhenTheApplicationCl
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
             release.set_value();
         });
-        shut = an::ui::shutDownApplication(session, []() { AfterNightApp::destroyInstance(); });
+        shut = an::ui::stopApplication(std::move(started.shell), session);
         releaser.join();
     }
 
     EXPECT_EQ(*answered, QStringLiteral("12")) << "the read did not find the store it asked";
-    EXPECT_EQ(AfterNightApp::instanceOrNull(), nullptr);
     EXPECT_EQ(an::ui::appContext(), nullptr);
     EXPECT_TRUE(shut.ok()) << "the session did not shut down cleanly after the window went: " << shut.message();
 }

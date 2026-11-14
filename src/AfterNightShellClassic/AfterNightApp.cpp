@@ -3,9 +3,9 @@
 
 #include "stdafx.hpp"
 #include "common.h"
-#include "app/AfterNightApp.h"
-#include "app/ApplicationSession.h"
-#include "app/AfterNightAppUiBuilder.h"
+#include "AfterNightApp.h"
+#include "core/ApplicationSession.h"
+#include "AfterNightAppUiBuilder.h"
 #include "app/ModernizationFeatureFlags.h"
 #include "app/ExtensionManager.h"
 #include "app/ExtensionEnvironmentManager.h"
@@ -17,18 +17,18 @@
 #include "app/ProcessMenuState.h"
 #include "app/ChannelExtractor.h"
 #include "app/ThemeManager.h"
-#include "app/MenuActionManager.h"
+#include "MenuActionManager.h"
 #include "app/FileCompanions.h"
 #include "app/FileManager.h"
 #include "app/FileDialogUtils.h"
-#include "app/ViewControlCoordinator.h"
+#include "ViewControlCoordinator.h"
 #include "app/ViewCreationCoordinator.h"
 #include "app/ImageOperationsCoordinator.h"
 #include "app/MaskOverlayCoordinator.h"
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/RuntimeStorageCoordinator.h"
-#include "app/UiBootstrapCoordinator.h"
-#include "app/WindowLayoutCoordinator.h"
+#include "ClassicUiBootstrap.h"
+#include "ClassicWindowLayout.h"
 #include "app/AppLifecycleCoordinator.h"
 #include "app/ExtensionCommon.h"
 #include "theme/AnDesignTokens.h"
@@ -173,8 +173,8 @@ struct AfterNightApp::Impl
     std::unique_ptr<an::ui::ImageOperationsCoordinator> m_ImageOperationsCoordinator;
     std::unique_ptr<an::ui::MaskOverlayCoordinator> m_MaskOverlayCoordinator;
     std::unique_ptr<an::ui::DialogOrchestrationCoordinator> m_DialogOrchestrationCoordinator;
-    std::unique_ptr<an::ui::UiBootstrapCoordinator> m_UiBootstrapCoordinator;
-    std::unique_ptr<an::ui::WindowLayoutCoordinator> m_WindowLayoutCoordinator;
+    std::unique_ptr<an::ui::ClassicUiBootstrap> m_UiBootstrapCoordinator;
+    std::unique_ptr<an::ui::ClassicWindowLayout> m_WindowLayoutCoordinator;
     std::unique_ptr<an::ui::AppLifecycleCoordinator> m_AppLifecycleCoordinator;
     std::unique_ptr<an::ui::shell::ApplicationContext> m_AppContext;
 
@@ -494,7 +494,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
         }
     };
     m_impl->m_DialogOrchestrationCoordinator = std::make_unique<an::ui::DialogOrchestrationCoordinator>(dialogDeps);
-    an::ui::UiBootstrapCoordinator::Dependencies uiBootstrapDeps;
+    an::ui::ClassicUiBootstrap::Dependencies uiBootstrapDeps;
     uiBootstrapDeps.ui = &m_impl->ui;
     uiBootstrapDeps.mainWindow = this;
     uiBootstrapDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
@@ -541,8 +541,8 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     uiBootstrapDeps.onRemoveRecentFileRequested = [this](const QString& filePath) {
         removeRecentFile(filePath.toStdString());
     };
-    m_impl->m_UiBootstrapCoordinator = std::make_unique<an::ui::UiBootstrapCoordinator>(uiBootstrapDeps);
-    an::ui::WindowLayoutCoordinator::Dependencies windowLayoutDeps;
+    m_impl->m_UiBootstrapCoordinator = std::make_unique<an::ui::ClassicUiBootstrap>(uiBootstrapDeps);
+    an::ui::ClassicWindowLayout::Dependencies windowLayoutDeps;
     windowLayoutDeps.ui = &m_impl->ui;
     windowLayoutDeps.imageViewControlManager = m_impl->m_ImageViewControlManager;
     windowLayoutDeps.imageViewControlListComboBox = m_impl->m_ImageViewControlListComboBox.get();
@@ -568,7 +568,7 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
         return an::ui::shell::DockLayoutOperations::viewsSharingTheWindowOf(
             view, m_impl->m_Core.viewService().getListOfViewControls());
     };
-    m_impl->m_WindowLayoutCoordinator = std::make_unique<an::ui::WindowLayoutCoordinator>(windowLayoutDeps);
+    m_impl->m_WindowLayoutCoordinator = std::make_unique<an::ui::ClassicWindowLayout>(windowLayoutDeps);
     an::ui::AppLifecycleCoordinator::Dependencies appLifecycleDeps;
     appLifecycleDeps.mainWindow = this;
     appLifecycleDeps.globalSettingsPersistence = [this]() { return m_impl->m_Core.globalSettingsStore(); };
@@ -769,7 +769,7 @@ an::ui::MaskOverlayCoordinator* AfterNightApp::maskOverlay() const
     return m_impl->m_MaskOverlayCoordinator.get();
 }
 
-an::ui::WindowLayoutCoordinator* AfterNightApp::windowLayout() const
+an::ui::ClassicWindowLayout* AfterNightApp::windowLayout() const
 {
     return m_impl->m_WindowLayoutCoordinator.get();
 }

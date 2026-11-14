@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "AfterNightControlsExport.h"
+#include "AfterNightShellClassicExport.h"
 
 #include <functional>
 
@@ -16,7 +16,7 @@ namespace an::ui
 
 /// What the classic window's menus and tool bars connect of their own: the image selector, which makes the view it
 /// names the active one. The application's actions are connected by the shell core's action bindings.
-class AFTERNIGHTCONTROLS_API MenuActionManager
+class AFTERNIGHTSHELLCLASSIC_API MenuActionManager
 {
 public:
     struct Dependencies

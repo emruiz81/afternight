@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "AfterNightControlsExport.h"
+#include "AfterNightShellClassicExport.h"
 
 #include <functional>
 #include <list>
@@ -47,7 +47,7 @@ inline std::pair<std::string, QString> maximizeActionPresentation(const bool max
     return {"fullscreen", QStringLiteral("Maximize View")};
 }
 
-class AFTERNIGHTCONTROLS_API WindowLayoutCoordinator
+class AFTERNIGHTSHELLCLASSIC_API ClassicWindowLayout
 {
 public:
     struct Dependencies
@@ -76,7 +76,7 @@ public:
         std::function<std::list<ImageViewControl*>(ImageViewControl&)> viewsSharingTheWindowOf;
     };
 
-    explicit WindowLayoutCoordinator(const Dependencies& dependencies);
+    explicit ClassicWindowLayout(const Dependencies& dependencies);
 
     void switchToMainDashboard() const;
     void switchToDockManager() const;

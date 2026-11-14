@@ -119,7 +119,10 @@ protected:
 
     void TearDown() override
     {
-        m_core.viewService().manager().clear();
+        // The docks go with the context still there: deleting a tab of a group makes the dock library show the next
+        // tab, whose view the context makes the active one. The views then leave the list, the active one with them,
+        // before any work queued meanwhile runs - as the window's going takes them out of it - so none reads a view
+        // that went.
         for (const QPointer<QWidget>& dock : m_docks)
         {
             delete dock.data();
@@ -128,6 +131,7 @@ protected:
         {
             delete view.data();
         }
+        m_core.viewService().manager().clear();
         settleDocks();
         m_window.reset();
         settleDocks();

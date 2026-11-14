@@ -5,6 +5,7 @@
 
 #include "actions/ActionStateCoordinator.h"
 #include "core/ApplicationCore.h"
+#include "core/ShellRegistry.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
@@ -223,6 +224,19 @@ void ApplicationContext::applyTheme(const QString& themeId)
     {
         m_dependencies.applyTheme(themeId);
     }
+}
+
+std::vector<an::ui::ShellOption> ApplicationContext::availableShells() const
+{
+    std::vector<an::ui::ShellOption> shells;
+    if (const ShellRegistry* const registry = m_core.shellRegistry())
+    {
+        for (const ShellDescriptor* descriptor : registry->descriptors())
+        {
+            shells.push_back(an::ui::ShellOption{.id = descriptor->id, .displayName = descriptor->displayName});
+        }
+    }
+    return shells;
 }
 
 void ApplicationContext::refreshAllZoomSettings()

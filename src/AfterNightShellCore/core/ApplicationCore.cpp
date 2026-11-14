@@ -108,6 +108,8 @@ struct ApplicationCore::Impl
     IApplicationEventTarget* eventTarget = nullptr;
     IShell* shell = nullptr;
     an::ui::IEngineSessionProvider* session = nullptr;
+    an::ui::ApplicationSession* applicationSession = nullptr;
+    const ShellRegistry* shellRegistry = nullptr;
 
     std::shared_ptr<IconManager> iconManager = std::make_shared<IconManager>();
     // The actions and their state are made after the services and go after them: a service that goes may still ask
@@ -432,6 +434,26 @@ FileDropHandler& ApplicationCore::fileDrops() noexcept
 void ApplicationCore::setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept
 {
     m_impl->session = provider;
+}
+
+void ApplicationCore::setApplicationSession(an::ui::ApplicationSession* session) noexcept
+{
+    m_impl->applicationSession = session;
+}
+
+an::ui::ApplicationSession* ApplicationCore::applicationSession() const noexcept
+{
+    return m_impl->applicationSession;
+}
+
+void ApplicationCore::setShellRegistry(const ShellRegistry* registry) noexcept
+{
+    m_impl->shellRegistry = registry;
+}
+
+const ShellRegistry* ApplicationCore::shellRegistry() const noexcept
+{
+    return m_impl->shellRegistry;
 }
 
 an::ui::IEngineSessionProvider* ApplicationCore::engineSessionProvider() const noexcept

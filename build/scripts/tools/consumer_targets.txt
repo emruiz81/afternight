@@ -210,17 +210,29 @@ target AfterNightShellCore
                  the contract a shell implements. Built on the processes and Controls libraries; only the application
                  links it, never an extension host.
 
+target AfterNightShellClassic
+    workspace    main
+    kind         shared
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
+    sources      src/AfterNightShellClassic
+    ship         product
+    note         The classic shell: the main window of AfterNight 1.1 and the units only it uses - its builder, its
+                 process menus, its image selector, its pages and its dock tool bar - made by the application through
+                 its descriptor. Built on the shell core; only the application links it, never an extension host.
+
 target AfterNightApp
     workspace    main
     kind         windowed
     output       AfterNight
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore
     sources      src/AfterNightApp
     ship         product
-    note         It owns the process's one engine session. Its main window, context and session are compiled by its
-                 suite as well.
+    note         The composition: it owns the process's one engine session, registers the shells it links, chooses one
+                 and starts it, and ends the application in its order. Its start is compiled by its suite as well.
 
 target AfterNightStylePlugin
     workspace    main
@@ -264,13 +276,40 @@ target Test_AfterNightApp
     kind         console
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore
     sources      @Test_AfterNightApp
+    fixture      none
+    runner       product
+    note         The application's own suite: its start - the stores, the shell chosen among those registered, the
+                 style, the shell made and built - and its end in their order, compiled from the application's
+                 sources and linked against the shell libraries, and the session the application owns.
+
+target Test_ShellClassic
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore
+    sources      @Test_ShellClassic
     fixture      adapter
     runner       product
-    note         Its cases compile the application's main window, its context and its session from the application's
-                 sources, linked against the processes and Controls libraries, and run them in one engine session the
-                 suite owns as the application owns its own.
+    note         The classic shell's suite: its window driven as a person drives it, in one engine session the suite
+                 owns as the application owns its own, the records of the 1.1 interface it is held to, the settings
+                 pages and dialogs it opens, and its own units - linked against the classic shell and the libraries
+                 below it.
+
+target Test_ShellParity
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore
+    sources      @Test_ShellParity
+    fixture      none
+    runner       product
+    note         The parity scenarios: what a person does to the application, written once against a driver and run
+                 for every registered shell, each shell started and ended as the application starts and ends it -
+                 compiled with the application's start and linked against the shell libraries.
 
 target Test_ExtensionHostNative
     workspace    tests

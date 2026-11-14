@@ -214,6 +214,14 @@ class GuideRuleTests(TreeTest):
         self.assertEqual(len(problems), 1, problems)
         self.assertIn('core/Gone.h', problems[0])
 
+    def test_a_classic_shell_unit_named_by_its_path_inside_its_library_is_found(self):
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.h', '// The classic shell.\n')
+        write(self.root, documentation.GUIDES_DIR + '/ARCHITECTURE.md',
+              '# Architecture\n\nThe classic shell is `ClassicShell.h`, and `ClassicGone.h` is not there.\n')
+        problems = self.rules('guide-path')
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn('ClassicGone.h', problems[0])
+
     def test_a_name_spelled_nowhere_in_the_code_is_found(self):
         write(self.root, documentation.GUIDES_DIR + '/ARCHITECTURE.md',
               '# Architecture\n\nCall `an::renamedLongAgo()` and then `thing()`.\n')

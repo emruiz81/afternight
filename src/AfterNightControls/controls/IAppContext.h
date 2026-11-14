@@ -125,6 +125,13 @@ public:
 // IInterfaceSettingsRuntimeService - apply saved interface settings live
 // ---------------------------------------------------------------------------
 
+/// A shell a person can choose: its id, as the setting `interface/shell` stores it, and the name a person reads.
+struct ShellOption
+{
+    QString id;
+    QString displayName;
+};
+
 class AFTERNIGHTCONTROLS_API IInterfaceSettingsRuntimeService
 {
 public:
@@ -132,6 +139,12 @@ public:
 
     virtual void applyTheme(const QString& themeId) = 0;
     virtual void refreshAllZoomSettings() = 0;
+
+    /// The shells the application can make, in the order it registered them; none when it offers no choice.
+    [[nodiscard]] virtual std::vector<ShellOption> availableShells() const
+    {
+        return {};
+    }
 };
 
 // ---------------------------------------------------------------------------

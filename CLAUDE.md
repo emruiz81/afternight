@@ -190,7 +190,8 @@ AfterNightExtensionProtocol (shared lib)             <- engine-free, Apache-2.0 
 AfterNightControls (shared lib, an::ui)              <- ConsumerRuntime + Engine + Platform + Protocol + Qt + KDDockWidgets
 AfterNightProcesses (shared lib, an::ui::processes)  <- Controls + ConsumerRuntime + Engine + GmicAdapter + Platform + Protocol
 AfterNightShellCore (shared lib, an::ui::shell)      <- Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
-AfterNightApp (exe)                                  <- ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightShellClassic (shared lib)                  <- ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightApp (exe)                                  <- ShellClassic + ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
 ```
 
 `AfterNightCLI` links ConsumerRuntime, the engine and Platform. `AfterNightExtensionHost` links the processes and
@@ -285,20 +286,32 @@ tab's menus), `views/DockHooks` (the only setter of the dock library's process-w
 `views/DockLayoutOperations` (group, split, fit, lock), `services/WindowGeometryStore` and `services/FileDropHandler` -
 and the receiver of the work threads
 hand the GUI thread (`core/ApplicationEvents.h`); a unit of Controls is handed the actions as an `ActionLookup`
-(`app/ActionLookup.h`) and never names the catalogue; `main` makes it before the
-window and hands it to the window, which is the shell its services answer through (`setShell`). It sits above Processes and below the application; Controls and Processes never include it, it
-never includes the application or a host, and no extension host links it (`check_consumer_layering.py`,
-`check_build_graph.py`). A case about one of its classes lives in `Test_ShellCore`.
+(`app/ActionLookup.h`) and never names the catalogue. `core/ApplicationSession` is the engine session the application
+owns, and `shutDownApplication` the order it shuts down in. `main` makes the core before the shell and the shell over
+it, and the shell is what the core's services answer through (`setShell`). It sits above Processes and below the
+shells and the application; Controls and Processes never include it, it never includes a shell, the application or a
+host, and no extension host links it (`check_consumer_layering.py`, `check_build_graph.py`). A case about one of its
+classes lives in `Test_ShellCore`.
+
+### AfterNightShellClassic (`src/AfterNightShellClassic/`)
+
+The classic shell: the main window of AfterNight 1.1, kept whole in a library of its own. `AfterNightApp`
+(QMainWindow) implements `IViewHost` and `IStatusDisplay` for the shell core's services, composes its own coordinators
+(`ClassicUiBootstrap`, its three pages; `ClassicWindowLayout`, its dock tool bar and the maximized view;
+`ViewControlCoordinator`, its image selector; `MenuActionManager`, its process menus; `AfterNightAppUiBuilder.h`, its
+widgets) and Controls' (`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and
+installs the shell core's `ApplicationContext`. `ClassicShell` is that window behind `IShell`, and
+`classicShellDescriptor()` how the application registers it (`classic`). No shell includes another, and nothing below a
+shell includes one (`SourceGuards.ShellsDoNotReachEachOther`). Its cases are in `Test_ShellClassic`, beside the records
+of the 1.1 interface.
 
 ### AfterNightApp (`src/AfterNightApp/`)
 
-Thin shell: `AfterNightApp` (QMainWindow) is the classic shell - it implements `IShell`, `IViewHost` and
-`IStatusDisplay` for the shell core's services - and composes coordinators that live in `AfterNightControls/app/`
-(`UiBootstrapCoordinator`, `WindowLayoutCoordinator`, `DialogOrchestrationCoordinator`, `PersistenceCoordinator`,
-`AppLifecycleCoordinator`, …), and installs the shell core's `ApplicationContext` (the `IAppContext` service
-interfaces over the core and the shell). `app/ApplicationStart` is the order `main` starts in: the stores, the style,
-the window. Put new logic in a coordinator or service, not in `AfterNightApp.cpp`. `ApplicationSession` is the engine
-session `main.cpp` owns, and `shutDownApplication` the order the application shuts down in.
+The executable: `main.cpp` calls `app/ApplicationMain`'s `runApplication`, which owns the `ApplicationSession` and the
+`ApplicationCore`, registers the shells it can make (`ShellRegistry`) and runs them in `app/ApplicationStart`'s order -
+the stores, the shell chosen, the style, the shell made and built (`startApplication`), shown (`showApplication`), and
+at the end its geometry kept and the application shut down (`stopApplication`). Put new logic in a coordinator or a
+service, not in a shell's window.
 
 ### The extension hosts and the runtime backend
 
@@ -311,8 +324,11 @@ heartbeat-supervised by the application; `src/AfterNightExtensionHostLite/` link
 One directory and one `Test_*` executable per area: the engine's direct suites (`Test_EngineCore`, `Test_EngineImage`,
 `Test_EngineRuntime`, …), the consumer suites (`Test_Platform`, `Test_ConsumerRuntime`, `Test_AfterNightCLI`, the
 `Test_Controls*` suites, the `Test_Processes*` families, `Test_ImageIntegration`, `Test_ProcessFramework`,
-`Test_AfterNightApp`, `Test_ExtensionHostNative`, `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`,
-`Test_Persistence`, …), the `Fuzz_*` targets and the fixture executables. Test inputs come from the fixture layers
+`Test_ShellCore`, `Test_ShellClassic`, `Test_ShellParity`, `Test_AfterNightApp`, `Test_ExtensionHostNative`,
+`Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, …), the `Fuzz_*` targets and the fixture
+executables. `Test_ShellParity` runs what a person does in every registered shell (`ShellScenario.<Case>/<shell>`, over
+a `ShellDriver` per shell), and its `Capabilities.txt` names the cases that prove each capability of the interface,
+held by `check_shell_capabilities.py`. Test inputs come from the fixture layers
 under `src/AfterNightTests/fixtures/` (`common/`, `harness/`, `engine/`, held by `Test_FixtureNeutral` and
 `Test_FixtureEngine`); the expectations under `fixtures/common/expectations/` are recorded reference expectations
 that cannot be captured again, and a checked-in record is never regenerated ("The fixture layers" in
@@ -407,7 +423,7 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   planning reference. See AGENTS.md, "Credit for derived code".
 - **The interface's records are edited, never regenerated.** The tokens, actions, menus, shortcuts, process
   registry and the shape of every process window are held to text records beside `Test_ThemeSystem`,
-  `Test_AfterNightApp` and `Test_ProcessFramework` (`data/*.txt`). A change that
+  `Test_ShellClassic` and `Test_ProcessFramework` (`data/*.txt`). A change that
   means to move one edits its entry in the same diff; see "The interface's records" in
   [docs/dev/guides/TESTING.md](docs/dev/guides/TESTING.md).
 - **TDD is mandatory** for new features (failing test first), and bug fixes need a regression test.

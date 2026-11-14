@@ -16,6 +16,8 @@
 /// checked.
 #pragma once
 
+#include "AfterNightShellCoreExport.h"
+
 #include "controls/settings/ProcessingLimits.h"
 #include "session/IEngineSessionProvider.h"
 
@@ -38,10 +40,11 @@ inline constexpr char kProductVersion[] = "1.1.0";
 ///
 /// @param limits the limits the settings store states.
 /// @return the settings.
-[[nodiscard]] an::consumer::EngineSessionSettings applicationSessionSettings(const ProcessingLimits& limits);
+[[nodiscard]] AFTERNIGHTSHELLCORE_API an::consumer::EngineSessionSettings
+applicationSessionSettings(const ProcessingLimits& limits);
 
 /// The session the application owns, lent to Controls through the application context.
-class ApplicationSession final : public IEngineSessionProvider
+class AFTERNIGHTSHELLCORE_API ApplicationSession final : public IEngineSessionProvider
 {
 public:
     /// A session not opened yet.
@@ -95,6 +98,7 @@ private:
 /// @param session the application's session.
 /// @param destroyMainWindow destroys the main window.
 /// @return what the session's shutdown answered.
-an::Status shutDownApplication(ApplicationSession& session, const std::function<void()>& destroyMainWindow);
+AFTERNIGHTSHELLCORE_API an::Status shutDownApplication(ApplicationSession& session,
+                                                       const std::function<void()>& destroyMainWindow);
 
 } // namespace an::ui

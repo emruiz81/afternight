@@ -3,9 +3,14 @@
 
 #pragma once
 
+#include <vector>
+
+#include "AfterNightControlsExport.h"
 #include "SettingsPage.h"
+#include "controls/IAppContext.h"
 
 class QComboBox;
+class QGroupBox;
 class QSlider;
 class QCheckBox;
 class QLabel;
@@ -13,7 +18,7 @@ class GlobalSettingsPersistence;
 
 /// Interface settings page.
 /// Controls theme, zoom behavior, mouse interaction, and layout preferences.
-class InterfaceSettingsPage : public SettingsPage
+class AFTERNIGHTCONTROLS_API InterfaceSettingsPage : public SettingsPage
 {
     W_OBJECT(InterfaceSettingsPage)
 
@@ -35,7 +40,14 @@ public:
 
     [[nodiscard]] ValidationResult validateSettings() const override;
 
+    /// The shells a person can choose among. The Shell row is shown only when there is more than one; with one or none
+    /// the page writes no shell.
+    void setAvailableShells(std::vector<an::ui::ShellOption> shells);
+
 private:
+    /// Shows the shell the settings store names, or the classic shell when it names none the page lists.
+    void selectShell(const QString& id);
+
     void setupUi();
     void connectSignals();
 
@@ -68,4 +80,9 @@ private:
     // Window layout controls
     QCheckBox* m_LockLayoutByDefaultCheck = nullptr;
     QCheckBox* m_RememberWindowSizeCheck = nullptr;
+
+    // The shell, chosen for the next start
+    QGroupBox* m_ShellGroup = nullptr;
+    QComboBox* m_ShellCombo = nullptr;
+    std::vector<an::ui::ShellOption> m_Shells;
 };

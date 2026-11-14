@@ -58,7 +58,8 @@
 !build/scripts/tools/consumer_targets.txt
 !build/scripts/tools/isolated_sources.txt
 !build/scripts/tools/package_profiles.txt
-!src/AfterNightTests/Test_AfterNightApp/data/*.txt
+!src/AfterNightTests/Test_ShellClassic/data/*.txt
+!src/AfterNightTests/Test_ShellParity/Capabilities.txt
 !src/AfterNightTests/Test_ProcessFramework/data/*.txt
 !src/AfterNightTests/Test_ThemeSystem/data/*.txt
 *.mk

@@ -578,21 +578,23 @@ state src/AfterNightControls/session/ImageDocument.cpp counter
 
 # ---- Application seats: the main window and the context the Qt layers reach the application through.
 
-state src/AfterNightApp/app/AfterNightApp.h m_Instance
+state src/AfterNightShellClassic/AfterNightApp.h m_Instance
     scope            AfterNightApp
     category         application-seat
-    owner            AfterNightApp::getInstance() creates the main window on first call; destroyInstance() deletes it
-    lifetime         from the first call in main to the window's destruction before QApplication's
+    owner            the classic shell's build creates the main window (AfterNightApp::createInstance); the shell's
+                     destruction deletes it (destroyInstance)
+    lifetime         from the classic shell's build to its destruction, before QApplication's
     synchronization  GUI thread
-    reason           The main window's one owner, reached through getInstance() and instanceOrNull(). It holds no
-                     engine image, context or session: main.cpp's ApplicationSession owns the session, and the
+    reason           The classic main window's one owner, reached through getInstance() and instanceOrNull(). It holds no
+                     engine image, context or session: the application's ApplicationSession owns the session, and the
                      application context lends it.
 
-state src/AfterNightApp/app/AfterNightApp.cpp m_Instance
+state src/AfterNightShellClassic/AfterNightApp.cpp m_Instance
     scope            AfterNightApp
     category         application-seat
-    owner            AfterNightApp::getInstance() creates the main window on first call; destroyInstance() deletes it
-    lifetime         from the first call in main to the window's destruction before QApplication's
+    owner            the classic shell's build creates the main window (AfterNightApp::createInstance); the shell's
+                     destruction deletes it (destroyInstance)
+    lifetime         from the classic shell's build to its destruction, before QApplication's
     synchronization  GUI thread
     reason           The storage behind the declaration above.
 

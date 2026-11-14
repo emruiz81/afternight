@@ -39,6 +39,7 @@
 #include <QTemporaryDir>
 #include <QWidget>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -97,8 +98,10 @@ protected:
 
     void TearDown() override
     {
-        // The views leave the list before their docks go, as the window's going takes them out of it.
-        m_core.viewService().manager().clear();
+        // The docks go with the context still there: deleting a tab of a group makes the dock library show the next
+        // tab, whose view the context makes the active one. The views then leave the list, the active one with them,
+        // before any work queued meanwhile runs - as the window's going takes them out of it - so none reads a view
+        // that went.
         for (const QPointer<QWidget>& dock : m_docks)
         {
             delete dock.data();
@@ -107,6 +110,7 @@ protected:
         {
             delete view.data();
         }
+        m_core.viewService().manager().clear();
         settleDocks();
         m_window.reset();
         settleDocks();
@@ -192,9 +196,9 @@ TEST_F(DockLayoutOperationsTest, GroupMakesOneTabGroupAndKeepsTheActiveView)
     EXPECT_EQ(m_core.viewService().getActiveImageViewControl(), second);
 }
 
-// Split All Images gives each view a pane of its own in equal shares: of three, the first two one above the other on
-// the left and the third on the right, the two columns of one width and the two left panes of one height, within a
-// pixel.
+// Split All Images gives each view a pane of its own in equal shares: of three, two one above the other on the left and
+// one on the right, the two columns of one width and the two left panes of one height, within a pixel. Which view goes
+// where follows the order the view list holds them in, which no person chose, so the case reads the panes alone.
 TEST_F(DockLayoutOperationsTest, SplitGivesEachViewAnEqualPane)
 {
     ImageViewControl* const first = dockedView(QStringLiteral("first"));
@@ -210,14 +214,18 @@ TEST_F(DockLayoutOperationsTest, SplitGivesEachViewAnEqualPane)
 
     const std::set<KDDockWidgets::Core::Group*> groups{groupOf(first), groupOf(second), groupOf(third)};
     EXPECT_EQ(groups.size(), 3u);
-    const QRect a = placeOf(first);
-    const QRect b = placeOf(second);
-    const QRect c = placeOf(third);
-    EXPECT_EQ(a.left(), b.left());
-    EXPECT_LT(a.top(), b.top());
-    EXPECT_GT(c.left(), a.right());
-    EXPECT_LE(std::abs(a.width() - c.width()), 1) << a.width() << " and " << c.width();
-    EXPECT_LE(std::abs(a.height() - b.height()), 1) << a.height() << " and " << b.height();
+    std::vector<QRect> panes{placeOf(first), placeOf(second), placeOf(third)};
+    std::sort(panes.begin(), panes.end(), [](const QRect& left, const QRect& right) {
+        return std::pair(left.left(), left.top()) < std::pair(right.left(), right.top());
+    });
+    const QRect& upper = panes[0];
+    const QRect& lower = panes[1];
+    const QRect& beside = panes[2];
+    EXPECT_LE(std::abs(upper.left() - lower.left()), 1);
+    EXPECT_LT(upper.top(), lower.top());
+    EXPECT_GT(beside.left(), upper.right());
+    EXPECT_LE(std::abs(upper.width() - beside.width()), 1) << upper.width() << " and " << beside.width();
+    EXPECT_LE(std::abs(upper.height() - lower.height()), 1) << upper.height() << " and " << lower.height();
 }
 
 // Fit All Images to Window fits each view that shares the view's window, and leaves a view floating apart as it was.

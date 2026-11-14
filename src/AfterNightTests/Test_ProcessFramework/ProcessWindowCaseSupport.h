@@ -11,7 +11,6 @@
 
 #include "Test_ProcessFramework/ProcessFrameworkSuiteSupport.h"
 
-#include "app/AfterNightAppUiBuilder.h"
 #include "app/ProcessRegistry.h"
 #include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
@@ -19,6 +18,7 @@
 #include "theme/AnDesignTokens.h"
 
 #include "fixtures/RecordedActions.h"
+#include "fixtures/RecordedMenus.h"
 
 #include <QAction>
 #include <QCheckBox>
@@ -265,13 +265,13 @@ inline void expectNoStyleSheet(QWidget& root)
     return nullptr;
 }
 
-/// The application's main window with its menus, built over the actions the record of the interface holds, each
-/// process action asking for the registry descriptor the processes library registered under its name, and every launch
-/// it asks for recorded rather than run. The registry is put back as it was when the menus go, passing or failing.
+/// The application's menus as the record of the interface holds them, over its actions, each process action asking for
+/// the registry descriptor the processes library registered under its name, and every launch it asks for recorded
+/// rather than run. The registry is put back as it was when the menus go, passing or failing.
 class ProcessMenus
 {
 public:
-    ProcessMenus() : m_actions(m_window), m_ui(an::ui::app::buildAfterNightAppUi(&m_window, m_actions.lookup()))
+    ProcessMenus() : m_actions(m_window), m_menus(m_window, m_actions)
     {
         for (const an::ui::process_registry::ProcessDescriptor& descriptor :
              an::ui::process_registry::ProcessRegistry::instance().all())
@@ -307,10 +307,10 @@ public:
         return nullptr;
     }
 
-    /// The menus' elements.
-    [[nodiscard]] const an::ui::app::AfterNightAppUiElements& ui() const noexcept
+    /// The action of an object name, as the menus hold it.
+    [[nodiscard]] QAction* action(std::string_view objectName) const
     {
-        return m_ui;
+        return m_actions.action(objectName);
     }
 
     /// The registry ids every launch the actions asked for named, in order.
@@ -320,7 +320,7 @@ private:
     shared::RegistrySnapshot m_registry;
     QMainWindow m_window;
     an::tests::fixtures::RecordedActions m_actions;
-    an::ui::app::AfterNightAppUiElements m_ui;
+    an::tests::fixtures::RecordedMenus m_menus;
 };
 
 } // namespace an::tests::processes::framework

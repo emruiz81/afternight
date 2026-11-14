@@ -5,9 +5,10 @@
 
 A lower library that included a header of the library built on top of it would need the higher one to compile,
 so a source of a product library includes no header of a product target above it - `AfterNightControls` none of
-`AfterNightProcesses`, `AfterNightShellCore`, the application or the full host; `AfterNightProcesses` none of the
-last three; and `AfterNightShellCore`, the application without a window that every shell is built on, none of the
-application or the full host. An include is resolved the way the compiler searches - beside the including file,
+`AfterNightProcesses`, `AfterNightShellCore`, a shell, the application or the full host; `AfterNightProcesses` none
+of the last four; `AfterNightShellCore`, the application without a window that every shell is built on, no shell,
+the application or the full host; and a shell - `AfterNightShellClassic` - neither the application nor the full
+host. An include is resolved the way the compiler searches - beside the including file,
 then the library's own root, then the roots below it - so a path that two libraries hold is the including
 library's own.
 
@@ -39,11 +40,14 @@ PLATFORM_INCLUDE = 'src/AfterNightPlatform/include'
 # Each product library held to the layer order: its source root, the roots below it that its includes may
 # resolve into besides its own and the platform library's, and the targets above it.
 LAYERS = (
-    ('AfterNightControls', 'src/AfterNightControls', (), ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightApp',
-                                                          'AfterNightExtensionHost')),
+    ('AfterNightControls', 'src/AfterNightControls', (),
+     ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightApp', 'AfterNightExtensionHost')),
     ('AfterNightProcesses', 'src/AfterNightProcesses', ('src/AfterNightControls',),
-     ('AfterNightShellCore', 'AfterNightApp', 'AfterNightExtensionHost')),
+     ('AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightApp', 'AfterNightExtensionHost')),
     ('AfterNightShellCore', 'src/AfterNightShellCore', ('src/AfterNightProcesses', 'src/AfterNightControls'),
+     ('AfterNightShellClassic', 'AfterNightApp', 'AfterNightExtensionHost')),
+    ('AfterNightShellClassic', 'src/AfterNightShellClassic',
+     ('src/AfterNightShellCore', 'src/AfterNightProcesses', 'src/AfterNightControls'),
      ('AfterNightApp', 'AfterNightExtensionHost')),
 )
 

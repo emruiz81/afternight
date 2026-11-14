@@ -185,7 +185,9 @@ src/AfterNightConsumerRuntime/
                              the engine session, operation admission and image assets the product shares
 src/AfterNightControls/      reusable Qt controls, application services and the theme
 src/AfterNightProcesses/     every user-facing process and the ImageIntegration workflow
-src/AfterNightApp/           the application
+src/AfterNightShellCore/     the application without a window: its stores, services, views and actions
+src/AfterNightShellClassic/  the classic shell, the main window of AfterNight 1.1
+src/AfterNightApp/           the application, which starts a shell
 src/AfterNightCLI/           the command-line tool
 src/AfterNightExtension*/    the extension protocol, the two extension hosts and the runtime backend
 src/AfterNightTests/         the Google Test suites, one Test_* executable per area

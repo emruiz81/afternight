@@ -195,6 +195,8 @@ run thread pipeline.firstcall Test_EngineRuntime filter=CpuCapabilitiesTest.Dete
 # suite links to carry the instrumentation beside it, as it requires the engine.
 
 run address suite.consumer.afterNightApp Test_AfterNightApp whole
+run address suite.consumer.shellClassic Test_ShellClassic whole
+run address suite.consumer.shellParity Test_ShellParity whole
 run address suite.consumer.afterNightCLI Test_AfterNightCLI whole
 run address suite.consumer.consumerFaults Test_ConsumerFaults whole
 run address suite.consumer.consumerRuntime Test_ConsumerRuntime whole
@@ -251,6 +253,8 @@ run address pipeline.consumer.hostsessions Test_ProcessFramework filter=Extensio
 run address pipeline.consumer.publication Test_ImageIntegration filter=DocumentPublicationTest.*:DocumentEnvelopeTest.*:SessionDatabaseFormatTest.*:RegistrationMetricsFormatTest.*:WorkflowExecutor.*:WorkflowCancellationTest.*:NormalizationDocumentTest.* repeat=2 shuffle
 
 run leak suite.consumer.afterNightApp Test_AfterNightApp whole
+run leak suite.consumer.shellClassic Test_ShellClassic whole
+run leak suite.consumer.shellParity Test_ShellParity whole
 run leak suite.consumer.afterNightCLI Test_AfterNightCLI whole
 run leak suite.consumer.consumerFaults Test_ConsumerFaults whole
 run leak suite.consumer.consumerRuntime Test_ConsumerRuntime whole
@@ -307,6 +311,8 @@ run leak pipeline.consumer.hostsessions Test_ProcessFramework filter=ExtensionHo
 run leak pipeline.consumer.publication Test_ImageIntegration filter=DocumentPublicationTest.*:DocumentEnvelopeTest.*:SessionDatabaseFormatTest.*:RegistrationMetricsFormatTest.*:WorkflowExecutor.*:WorkflowCancellationTest.*:NormalizationDocumentTest.*
 
 run thread suite.consumer.afterNightApp Test_AfterNightApp skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.shellClassic Test_ShellClassic skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
+run thread suite.consumer.shellParity Test_ShellParity skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.afterNightCLI Test_AfterNightCLI whole
 run thread suite.consumer.consumerFaults Test_ConsumerFaults skip=Its concurrency runs through Qt - its mutexes, its thread pool and its queued connections - which is not instrumented here, so every edge those establish is invisible to ThreadSanitizer and its reports would be about the library rather than this product. The deterministic race cases in the consumer suites and the address configuration hold these paths instead.
 run thread suite.consumer.consumerRuntime Test_ConsumerRuntime whole

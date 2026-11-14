@@ -5,9 +5,9 @@
 // and shut down in the application's order - admission closed before the main window goes, the thread pool drained,
 // the session shut down, checked, last.
 
-#include "app/ApplicationSession.h"
+#include "core/ApplicationSession.h"
 
-#include "AppTestSupport.h"
+#include "Test_ShellClassic/AppTestSupport.h"
 #include "app/ApplicationStorage.h"
 #include "controls/settings/ProcessingLimits.h"
 

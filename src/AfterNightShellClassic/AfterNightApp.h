@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "AfterNightShellClassicExport.h"
+
 #include <QtWidgets/QMainWindow>
 #include <QApplication>
 #include <QFileDialog>
@@ -97,8 +99,8 @@ class ImageOperationsCoordinator;
 class MaskOverlayCoordinator;
 class DialogOrchestrationCoordinator;
 class RuntimeStorageCoordinator;
-class UiBootstrapCoordinator;
-class WindowLayoutCoordinator;
+class ClassicUiBootstrap;
+class ClassicWindowLayout;
 class AppLifecycleCoordinator;
 class PersistenceCoordinator;
 } // namespace an::ui
@@ -111,10 +113,10 @@ class ApplicationCore;
 /// The classic window: the main window of menus, a toolbar and a status bar over the dashboard, the dock area and the
 /// page of a maximized view. It is the classic shell - what only a window can answer for the application core's
 /// services: where a view goes, what the status line shows, whether the Session Console is on screen.
-class AfterNightApp : public QMainWindow,
-                      public an::ui::shell::IShell,
-                      public an::ui::shell::IViewHost,
-                      public an::ui::shell::IStatusDisplay
+class AFTERNIGHTSHELLCLASSIC_API AfterNightApp : public QMainWindow,
+                                                 public an::ui::shell::IShell,
+                                                 public an::ui::shell::IViewHost,
+                                                 public an::ui::shell::IStatusDisplay
 {
 public:
     /// Makes the main window over the application core `main` made, which outlives it; called once.
@@ -403,7 +405,7 @@ private:
 
     [[nodiscard]] an::ui::FileManager* fileManager() const;
     [[nodiscard]] an::ui::MaskOverlayCoordinator* maskOverlay() const;
-    [[nodiscard]] an::ui::WindowLayoutCoordinator* windowLayout() const;
+    [[nodiscard]] an::ui::ClassicWindowLayout* windowLayout() const;
     [[nodiscard]] an::ui::DialogOrchestrationCoordinator* dialogOrchestration() const;
 
     void on_imageViewControlListComboBox_currentTextChanged(const QString& text);

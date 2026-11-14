@@ -11,7 +11,7 @@
 
 #include <QMainWindow>
 
-#include "app/AfterNightAppUiBuilder.h"
+#include "AfterNightAppUiBuilder.h"
 #include "app/ProcessMenuState.h"
 #include "fixtures/RecordedActions.h"
 

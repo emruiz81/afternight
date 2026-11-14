@@ -9,7 +9,7 @@
 
 #include "Test_ProcessFramework/ProcessFrameworkSuiteSupport.h"
 
-#include "app/AfterNightAppUiBuilder.h"
+#include "AfterNightAppUiBuilder.h"
 #include "fixtures/RecordedActions.h"
 
 #include <QAction>

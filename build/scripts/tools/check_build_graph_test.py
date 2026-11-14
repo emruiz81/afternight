@@ -1020,6 +1020,58 @@ class ShellCoreLayerTests(VisualStudioTreeCase):
         self.assertEqual(code, 0, output)
 
 
+SHELL_CLASSIC_INCLUDE = os.path.join('..', '..', 'src', 'AfterNightShellClassic')
+
+
+class ClassicShellLayerTests(VisualStudioTreeCase):
+    """The classic shell sits above the shell core and below the application; no extension host reaches it."""
+
+    def test_the_classic_shell_is_generated(self):
+        self.assertIn('AfterNightShellClassic', graph.EXPECTED_MAIN_PROJECTS)
+        self.assertIn('Test_ShellClassic', graph.EXPECTED_TEST_PROJECTS)
+        self.assertIn('Test_ShellParity', graph.EXPECTED_TEST_PROJECTS)
+
+    def test_the_shell_core_including_the_classic_shell_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellCore': {
+            'includes': SHELL_CORE_INCLUDE + ';' + SHELL_CLASSIC_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellCore includes %s from the AfterNightShellClassic tree' % SHELL_CLASSIC_INCLUDE,
+                      output)
+
+    def test_controls_linking_the_classic_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightControls': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightShellClassic.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightControls links AfterNightShellClassic', output)
+
+    def test_the_classic_shell_including_the_application_tree_fails(self):
+        application = os.path.join('..', '..', 'src', 'AfterNightApp')
+        self.build_tree(main_overrides={'AfterNightShellClassic': {
+            'includes': SHELL_CLASSIC_INCLUDE + ';' + application}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellClassic includes %s from the AfterNightApp tree' % application, output)
+
+    def test_the_full_host_linking_the_classic_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHost': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightShellClassic.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHost links AfterNightShellClassic; an extension host links no shell library',
+                      output)
+
+    def test_the_classic_shell_reaching_the_shell_core_passes(self):
+        self.build_tree(main_overrides={'AfterNightShellClassic': {
+                            'includes': SHELL_CLASSIC_INCLUDE + ';' + SHELL_CORE_INCLUDE + ';' + CONTROLS_INCLUDE,
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib;AfterNightControls.lib'}},
+                        main_dependencies={'AfterNightShellClassic.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellCore.vcxproj', 'AfterNightControls.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+
 OPENCL_SDK_INCLUDE = os.path.join('..', '..', 'vcpkg', 'installed', 'x64-windows-opencl', 'include')
 GPU_BACKEND = 'AfterNightEngineOpenClBackend'
 GPU_BACKEND_SUITE = 'Test_EngineOpenClBackend'

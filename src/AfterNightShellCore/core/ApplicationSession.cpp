@@ -3,7 +3,7 @@
 
 // The engine session the application owns, and the order it is shut down in.
 
-#include "app/ApplicationSession.h"
+#include "core/ApplicationSession.h"
 
 #include "app/FilePolicies.h"
 

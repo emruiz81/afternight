@@ -3,7 +3,7 @@
 
 #include "stdafx.hpp"
 
-#include "app/ViewControlCoordinator.h"
+#include "ViewControlCoordinator.h"
 
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"

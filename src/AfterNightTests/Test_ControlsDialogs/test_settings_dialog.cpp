@@ -6,6 +6,8 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QGroupBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -26,6 +28,7 @@
 #include "controls/PersistenceDbExecutor.h"
 #include "controls/SettingsDialog.h"
 #include "controls/settings/GeneralSettingsPage.h"
+#include "controls/settings/InterfaceSettingsPage.h"
 
 #include <AfterNightPlatform/Logging.h>
 #include <AfterNightPlatform/LoggingConfig.h>
@@ -436,4 +439,47 @@ TEST_F(SettingsDialogTest, GeneralSettingsPage_ImportsThePreviewFrameRateAsANumb
     EXPECT_EQ(imported(QJsonValue(QStringLiteral("fast"))), QStringLiteral("60"))
         << "a text that is no number leaves what is stored rather than storing zero";
     EXPECT_EQ(imported(QJsonValue(29.7)), QStringLiteral("60")) << "a fraction is no whole number of previews";
+}
+
+// The Interface page offers the choice of a shell only when there is one to make: with one shell registered the Shell
+// row is not shown and the page writes no shell; with two it lists them, shows the one stored, writes the one chosen -
+// which takes effect at the next start - and resets to the classic shell.
+TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIsAChoice)
+{
+    PersistenceDbExecutor executor(QStringLiteral(":memory:"), QStringLiteral("interface_settings_shell_row"));
+    GlobalSettingsPersistence settings(executor);
+    ASSERT_TRUE(executor.isOpen());
+    ASSERT_TRUE(settings.initializeTable());
+    const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_SHELL);
+
+    InterfaceSettingsPage alone(&settings);
+    alone.setAvailableShells({{QStringLiteral("classic"), QStringLiteral("Classic")}});
+    alone.loadSettings();
+    auto* const aloneRow = alone.findChild<QGroupBox*>(QStringLiteral("anInterfaceSettingsShellGroup"));
+    ASSERT_NE(aloneRow, nullptr);
+    EXPECT_TRUE(aloneRow->isHidden());
+    alone.saveSettings();
+    EXPECT_EQ(settings.select(key, QStringLiteral("(none)")), QStringLiteral("(none)"));
+
+    ASSERT_TRUE(settings.upsert(key, QStringLiteral("observatory")));
+    InterfaceSettingsPage choosing(&settings);
+    choosing.setAvailableShells({{QStringLiteral("classic"), QStringLiteral("Classic")},
+                                 {QStringLiteral("observatory"), QStringLiteral("Observatory")}});
+    choosing.loadSettings();
+    auto* const row = choosing.findChild<QGroupBox*>(QStringLiteral("anInterfaceSettingsShellGroup"));
+    auto* const combo = choosing.findChild<QComboBox*>(QStringLiteral("anInterfaceSettingsShellCombo"));
+    ASSERT_NE(row, nullptr);
+    ASSERT_NE(combo, nullptr);
+    EXPECT_FALSE(row->isHidden());
+    ASSERT_EQ(combo->count(), 2);
+    EXPECT_EQ(combo->itemText(0), QStringLiteral("Classic"));
+    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("observatory"));
+
+    combo->setCurrentIndex(0);
+    choosing.saveSettings();
+    EXPECT_EQ(settings.select(key), QStringLiteral("classic"));
+
+    combo->setCurrentIndex(1);
+    choosing.resetToDefaults();
+    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("classic"));
 }

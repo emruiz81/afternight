@@ -179,7 +179,7 @@ TEST(AutoGradientRemovalRegistrationTest, TheBackgroundModelizationMenuLaunchesI
     ProcessMenus menus;
     QAction* entry = menus.entry(QStringLiteral("Background Modelization"), QStringLiteral("Auto Gradient Removal"));
     ASSERT_NE(entry, nullptr);
-    EXPECT_EQ(entry, menus.ui().actionAuto_Gradient_Removal);
+    EXPECT_EQ(entry, menus.action("actionAuto_Gradient_Removal"));
     ASSERT_TRUE(entry->isEnabled());
     entry->trigger();
     EXPECT_EQ(menus.launched, std::vector<std::string>{"background_extraction.actionAuto_Gradient_Removal"});

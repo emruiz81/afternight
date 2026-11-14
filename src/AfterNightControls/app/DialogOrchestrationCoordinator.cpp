@@ -698,7 +698,13 @@ void DialogOrchestrationCoordinator::openSettingsAt(const QString& pageName) con
     dialog.addPage(new GeneralSettingsPage(settingsPersistence, &dialog));
     dialog.addPage(new RawImageSettingsPage(settingsPersistence, &dialog));
     dialog.addPage(new ExternalToolsSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new InterfaceSettingsPage(settingsPersistence, &dialog));
+    auto* interfacePage = new InterfaceSettingsPage(settingsPersistence, &dialog);
+    if (auto* context = an::ui::appContext();
+        context != nullptr && context->getInterfaceSettingsRuntimeService() != nullptr)
+    {
+        interfacePage->setAvailableShells(context->getInterfaceSettingsRuntimeService()->availableShells());
+    }
+    dialog.addPage(interfacePage);
     dialog.addPage(new ExportSettingsPage(settingsPersistence, &dialog));
     dialog.addPage(new ProcessingSettingsPage(settingsPersistence, &dialog));
     dialog.addPage(new LoggingSettingsPage(settingsPersistence, &dialog));

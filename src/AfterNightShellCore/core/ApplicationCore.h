@@ -47,6 +47,7 @@ class ImageAsset;
 
 namespace an::ui
 {
+class ApplicationSession;
 class IEngineSessionProvider;
 class IGlobalSettingsProvider;
 class ImageDocument;
@@ -72,6 +73,7 @@ class FileDropHandler;
 class IApplicationEventTarget;
 class IShell;
 class OpenProcessRegistry;
+class ShellRegistry;
 class ProcessLaunchService;
 class ProcessMenuModel;
 class RecentFilesModel;
@@ -227,6 +229,16 @@ public:
     /// session is the caller's and must outlive what it lent, or be taken back first.
     void setEngineSessionProvider(an::ui::IEngineSessionProvider* provider) noexcept;
     [[nodiscard]] an::ui::IEngineSessionProvider* engineSessionProvider() const noexcept;
+
+    /// The session the application owns, given before a shell is built: the shell's window opens it from the limits the
+    /// settings store states. The caller's; it outlives the shell, and the caller shuts it down once the shell is gone.
+    void setApplicationSession(an::ui::ApplicationSession* session) noexcept;
+    [[nodiscard]] an::ui::ApplicationSession* applicationSession() const noexcept;
+
+    /// The shells the application registered, which the interface settings offer; the caller's, and it outlives the
+    /// core or is taken back first. Null until the application hands it over.
+    void setShellRegistry(const ShellRegistry* registry) noexcept;
+    [[nodiscard]] const ShellRegistry* shellRegistry() const noexcept;
 
     // ---- The shell
 

@@ -126,7 +126,7 @@ TEST(NarrowbandPaletteComposerProcessContracts, TheColorSpacesMenuLaunchesTheCom
     ProcessMenus menus;
     QAction* entry = menus.entry(QStringLiteral("Color Spaces"), QStringLiteral("Narrowband Palette Composer"));
     ASSERT_NE(entry, nullptr);
-    EXPECT_EQ(entry, menus.ui().actionNarrowbandPaletteComposer);
+    EXPECT_EQ(entry, menus.action("actionNarrowbandPaletteComposer"));
     ASSERT_TRUE(entry->isEnabled());
     entry->trigger();
     EXPECT_EQ(menus.launched, std::vector<std::string>{"color.actionNarrowbandPaletteComposer"});

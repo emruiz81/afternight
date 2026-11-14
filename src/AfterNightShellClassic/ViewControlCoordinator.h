@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "AfterNightControlsExport.h"
+#include "AfterNightShellClassicExport.h"
 
 #include <functional>
 #include <map>
@@ -71,7 +71,7 @@ inline void syncActiveImageSelectorSelection(QComboBox* imageViewControlListComb
 
 /// The classic window's half of its views: the image selector that lists them, and how it brings the active one
 /// forward among the docks. The views' list is the application's; the window is told of each change to it and shows it.
-class AFTERNIGHTCONTROLS_API ViewControlCoordinator
+class AFTERNIGHTSHELLCLASSIC_API ViewControlCoordinator
 {
 public:
     struct Dependencies

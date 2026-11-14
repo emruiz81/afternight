@@ -3,9 +3,9 @@
 
 #include "stdafx.hpp"
 
-#include "app/WindowLayoutCoordinator.h"
+#include "ClassicWindowLayout.h"
 
-#include "app/AfterNightAppUiBuilder.h"
+#include "AfterNightAppUiBuilder.h"
 
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
@@ -21,13 +21,12 @@
 #include <QToolButton>
 #include <QWidget>
 
-
 namespace an::ui
 {
 
-WindowLayoutCoordinator::WindowLayoutCoordinator(const Dependencies& dependencies) : m_dependencies(dependencies) {}
+ClassicWindowLayout::ClassicWindowLayout(const Dependencies& dependencies) : m_dependencies(dependencies) {}
 
-void WindowLayoutCoordinator::switchToMainDashboard() const
+void ClassicWindowLayout::switchToMainDashboard() const
 {
     if (!m_dependencies.ui || !m_dependencies.mainDashboardScrollArea)
     {
@@ -84,7 +83,7 @@ void WindowLayoutCoordinator::switchToMainDashboard() const
     }
 }
 
-void WindowLayoutCoordinator::switchToDockManager() const
+void ClassicWindowLayout::switchToDockManager() const
 {
     if (!m_dependencies.ui || !m_dependencies.dockMainWindow)
     {
@@ -120,7 +119,7 @@ void WindowLayoutCoordinator::switchToDockManager() const
     }
 }
 
-void WindowLayoutCoordinator::createAuxToolBars() const
+void ClassicWindowLayout::createAuxToolBars() const
 {
     if (!m_dependencies.ui || !m_dependencies.dockManagerToolBar || !m_dependencies.toolbarLockLayout ||
         !m_dependencies.addToolBar)
@@ -164,12 +163,12 @@ void WindowLayoutCoordinator::createAuxToolBars() const
     *m_dependencies.toolbarLockLayout = toolbarLockLayout;
 }
 
-bool WindowLayoutCoordinator::viewControlInAMaximizedContainer(ImageViewControl* control) const
+bool ClassicWindowLayout::viewControlInAMaximizedContainer(ImageViewControl* control) const
 {
     return getViewControlInAMaximizedContainer(control) != nullptr;
 }
 
-ImageViewControl* WindowLayoutCoordinator::getViewControlInAMaximizedContainer(ImageViewControl* control) const
+ImageViewControl* ClassicWindowLayout::getViewControlInAMaximizedContainer(ImageViewControl* control) const
 {
     auto vControls = getListOfViewControlsSharingTheSameWindow(control);
 
@@ -185,7 +184,7 @@ ImageViewControl* WindowLayoutCoordinator::getViewControlInAMaximizedContainer(I
 }
 
 std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*>
-WindowLayoutCoordinator::getViewControlsByDockWidgetMap() const
+ClassicWindowLayout::getViewControlsByDockWidgetMap() const
 {
     std::map<KDDockWidgets::QtWidgets::DockWidget*, ImageViewControl*> ret;
 
@@ -207,7 +206,7 @@ WindowLayoutCoordinator::getViewControlsByDockWidgetMap() const
 }
 
 std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*>
-WindowLayoutCoordinator::getDockWidgetsByViewControlMap() const
+ClassicWindowLayout::getDockWidgetsByViewControlMap() const
 {
     std::map<ImageViewControl*, KDDockWidgets::QtWidgets::DockWidget*> ret;
 
@@ -228,7 +227,7 @@ WindowLayoutCoordinator::getDockWidgetsByViewControlMap() const
     return ret;
 }
 
-std::list<ImageViewControl*> WindowLayoutCoordinator::getListOfMaximizedViewControls() const
+std::list<ImageViewControl*> ClassicWindowLayout::getListOfMaximizedViewControls() const
 {
     std::list<ImageViewControl*> ret;
 
@@ -249,7 +248,7 @@ std::list<ImageViewControl*> WindowLayoutCoordinator::getListOfMaximizedViewCont
     return ret;
 }
 
-std::list<ImageViewControl*> WindowLayoutCoordinator::getListOfViewControls() const
+std::list<ImageViewControl*> ClassicWindowLayout::getListOfViewControls() const
 {
     std::list<ImageViewControl*> ret;
 
@@ -271,7 +270,7 @@ std::list<ImageViewControl*> WindowLayoutCoordinator::getListOfViewControls() co
 }
 
 std::list<ImageViewControl*>
-WindowLayoutCoordinator::getListOfViewControlsSharingTheSameWindow(ImageViewControl* currentViewControl) const
+ClassicWindowLayout::getListOfViewControlsSharingTheSameWindow(ImageViewControl* currentViewControl) const
 {
     if (!currentViewControl || !m_dependencies.viewsSharingTheWindowOf)
     {
@@ -280,7 +279,7 @@ WindowLayoutCoordinator::getListOfViewControlsSharingTheSameWindow(ImageViewCont
     return m_dependencies.viewsSharingTheWindowOf(*currentViewControl);
 }
 
-void WindowLayoutCoordinator::maximizeViewControl(ImageViewControl* ctrl) const
+void ClassicWindowLayout::maximizeViewControl(ImageViewControl* ctrl) const
 {
     if (!ctrl || !m_dependencies.ui)
     {
@@ -342,7 +341,7 @@ void WindowLayoutCoordinator::maximizeViewControl(ImageViewControl* ctrl) const
     }
 }
 
-void WindowLayoutCoordinator::restoreViewControl(ImageViewControl* ctrl) const
+void ClassicWindowLayout::restoreViewControl(ImageViewControl* ctrl) const
 {
     if (!ctrl || !m_dependencies.ui)
     {

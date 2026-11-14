@@ -51,7 +51,7 @@ carries under `PythonLib`, which must ship with it.
 Both packagers also name the product's version - the Windows installer's one statement of it, from which its name,
 its registration and its file version are taken, the AppImage's name - and each is held to the version the application
 states, `kProductVersion` in
-`src/AfterNightApp/app/ApplicationSession.h`, because a package that names another version than the window, the log
+`src/AfterNightShellCore/core/ApplicationSession.h`, because a package that names another version than the window, the log
 and the crash reports it installs is a release nobody can match to its reports.
 
 The binary the Linux packager copies by a rule of its own - the application, which the profile leaves out of the sweep
@@ -107,7 +107,7 @@ PROFILES = os.path.join('build', 'scripts', 'tools', 'package_profiles.txt')
 REGISTRIES = (REGISTRY, SOURCE_LISTS, PROFILES)
 
 # Where the application states the product's version, which both packagers name.
-PRODUCT_VERSION_SOURCE = os.path.join('src', 'AfterNightApp', 'app', 'ApplicationSession.h')
+PRODUCT_VERSION_SOURCE = os.path.join('src', 'AfterNightShellCore', 'core', 'ApplicationSession.h')
 PRODUCT_VERSION = re.compile(r'kProductVersion\[\]\s*=\s*"([^"]+)"')
 # What each packager states the version as, and the spellings of the product's version each statement may take: the
 # installer's one statement of it, which names the package and registers it, and its file version, which Inno Setup

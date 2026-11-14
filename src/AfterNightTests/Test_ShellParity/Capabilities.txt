@@ -1,0 +1,659 @@
+# The capability register of the interface.
+#
+# One record per capability of the interface: the capabilities of AfterNight 1.1, then the ones the new interface
+# adds. A record names the cases that prove the capability:
+#
+#   shared       cases of code every shell uses - a dialog, a control, a model
+#   classic      cases that drive the classic shell's own window
+#   observatory  cases that drive the Observatory shell's own window; `pending` until they are written
+#
+# A case is named as Google Test names it: `Suite.Case`, and a parity scenario run for one shell
+# `ShellScenario.Case/<shell>`. An empty `classic` line is a capability 1.1 has no case of that kind for. The cases
+# named are the ones that most directly prove the capability, three of a kind at most: the register says where a
+# capability is proved, not everything that touches it.
+#
+# build/scripts/tools/check_shell_capabilities.py holds the register to the suites: every case it names exists, no
+# capability is listed twice, and every capability has an `observatory` line. A capability the interface gains is added
+# here in the change that adds it; one it loses goes with it.
+
+# ---- Files
+
+capability files.open
+    title        Open (Ctrl+O), with the system or the built-in file browser
+    shared       FileOpenTest.FilesAreShownInViewsDockedBesideTheFirst, FileOpenTest.AFileThatCannotBeReadIsReportedAndTheOpenGoesOn, AfterNightAppFileSuite.ANonNativeFileDialogsIconProviderIsHeldByTheDialog
+    classic      ApplicationMenu.OpenShowsTheChosenFileInAViewOfItsOwn, ProductSmoke.TheFileMenuOpensEveryFormatTheProductReads, ShellScenario.OpensAnImageAndShowsItActive/classic
+    observatory  pending
+
+capability files.open-recent
+    title        Open Recent
+    shared       FileOpenTest.ARecentFileOpenRemembersItsFolder, AfterNightAppFileSuite.UpdateRecentFileListAddsNewFileToFront, FileManagerComponent.FileManager_MaintainsRecentFilesList
+    classic      ShellScenario.TheRecentFilesGainTheOpenedFile/classic
+    observatory  pending
+
+capability files.drop
+    title        Drop files on the window
+    shared       FileDropHandlerTest.TakesADragOfAnImage, FileDropHandlerTest.ADropHandsEveryLocalFileToBeOpened, FileDropHandlerTest.DoesNotTakeADragOfAnUnsupportedFile
+    classic      ShellScenario.ADroppedFileOpens/classic
+    observatory  pending
+
+capability files.save-as
+    title        Save as (Ctrl+Shift+S) and the per-format options
+    shared       FileSaveTest.EachContainerIsWrittenAsTheSettingsSay, FileSaveTest.AnXisfFileIsWrittenInTheFormTheSettingsChoose, ExportSettingsTest.SavingStoresTheTextsASaveReadsBack
+    classic      ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ProductSmoke.AnImageSavedInEveryContainerTheProductWritesOpensAgainWithItsSamples
+    observatory  pending
+
+capability files.close
+    title        Close, Close All, Close All Others
+    shared       ImageOperationsCoordinatorComponent.ImageOperationsCoordinator_CloseAllOtherFiles_PreservesActiveControl, ImageViewControlCloseLifecycle.ClosingAViewLetsGoOfEveryProcessBeforeClosingAny
+    classic      ApplicationMenu.CloseClosesTheActiveViewOnly, ApplicationMenu.CloseAllClosesEveryView, ApplicationMenu.CloseAllOthersKeepsOnlyTheActiveView
+    observatory  pending
+
+capability files.close-unsaved
+    title        Confirmation before closing an unsaved image
+    shared       AppLifecycleCoordinatorComponent.AppLifecycleCoordinator_PromptsOnPendingChanges, AfterNightAppProcessSuite.LifecycleHelpersPromptOnlyWhenRequired
+    classic      ApplicationMenu.ExitAsksAboutUnsavedChangesAndAnsweredNoKeepsTheWindowAndItsViews, ShellScenario.ClosingAViewWithUnsavedChangesAsks/classic, ShellScenario.ClosingTheApplicationWithAProcessOpenLeavesNothingBehind/classic
+    observatory  pending
+
+capability files.new-sequence
+    title        New Sequence dialog
+    shared       NewSequenceWindowTest.AddedFilesAreProbedAndListedInOrder, NewSequenceWindowTest.AnImageListNamesTheFilesAndOpensInANewSequenceView, NewSequenceWindowTest.ASerHoldsEveryFileDemosaicedByTheOneSetting
+    classic      ApplicationMenu.NewSequenceOpensTheNewSequenceWindow
+    observatory  pending
+
+# ---- Home
+
+capability home.identity
+    title        Identity bar with Settings, User Guide and About
+    shared       MainDashboardInteraction.IdentityBarUtilityButtonsEmitSignals, VersionDialogsTest.TheDashboardShowsTheProductsVersionAndDevWhenNoneIsStated
+    classic
+    observatory  pending
+
+capability home.featured
+    title        Featured file card with Continue and pin
+    shared       MainDashboardInteraction.FeaturedCardShowsMostRecentFileAndMetadata, MainDashboardInteraction.FeaturedContinueButtonEmitsOpenRecentFileRequested, MainDashboardInteraction.FeaturedPinButtonClearsPersistedPinnedHeroPath
+    classic
+    observatory  pending
+
+capability home.quick-actions
+    title        Quick actions and their overflow
+    shared       MainDashboardInteraction.ToolbarExposesPrimaryAndOverflowActions, MainDashboardInteraction.PrimaryOpenFileButtonClickEmitsOpenFileRequested, MainDashboardInteraction.SystemInfoOverflowActionEnabledAndClickable
+    classic
+    observatory  pending
+
+capability home.customize-actions
+    title        Customize quick actions (move, hide, reset)
+    shared       MainDashboardInteraction.ActionContextMenuMoveLaterReordersAndPersists, MainDashboardInteraction.ActionContextMenuHideAndRevealActionPersists, MainDashboardInteraction.ActionLayoutPreferencesApplyPersistedOrderAndHiddenActions
+    classic
+    observatory  pending
+
+capability home.recent
+    title        Recent files: search, sort, thumbnails
+    shared       MainDashboardRecents.SearchFiltersRecentFilesByName, MainDashboardRecents.SortByNameReordersRecentFilesAlphabetically, MainDashboardRecents.ThumbnailCardsExposeMetadataChips
+    classic
+    observatory  pending
+
+capability home.recent-menu
+    title        Recent thumbnail menu
+    shared       MainDashboardRecents.PinningRecentFileMovesItToTop
+    classic
+    observatory  pending
+
+capability home.first-run
+    title        First-run panel
+    shared       MainDashboardInteraction.EmptyStateShowsFeatureHighlightsInsteadOfActionButtons, MainDashboardInteraction.EmptyStateFeatureCardsUseUniformColumnsWithoutOverflow, DashboardThemeTokens.DashboardOnboardingPanel_ConstructionDoesNotCrash
+    classic
+    observatory  pending
+
+# ---- Main window
+
+capability window.menu-bar
+    title        Menu bar
+    shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt, ActionStateTest.TheFiltersMenuFollowsTheImageActions
+    classic      ApplicationMenu.MenuBarTreeMatchesTheRecord, ApplicationMenu.ActionInventoryMatchesTheRecord, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/classic
+    observatory  pending
+
+capability window.main-toolbar
+    title        Main toolbar: Open, Save as, Close
+    shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt
+    classic      ApplicationMenu.OpenShowsTheChosenFileInAViewOfItsOwn, ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ApplicationMenu.CloseClosesTheActiveViewOnly
+    observatory  pending
+
+capability window.dock-toolbar
+    title        Dock toolbar: Lock, Group All, Split All, Fit
+    shared       ActionStateTest.EachStateOffersTheActionsTheTableStates
+    classic      ApplicationMenu.FitImagesToWindowFitsEveryView
+    observatory  pending
+
+capability window.status-bar
+    title        Status bar: selector, facts, zoom, coordinates
+    shared       ImageViewControlStatusBarCoordinates.FormatSexagesimalRa, ImageSelectorTooltipTest.SaysWhatTheViewShowsFromItsDocument, ViewControlCoordinatorComponent.ViewControlCoordinator_SelectsActiveImageWithoutSignals
+    classic      ShellScenario.TheStatusLineShowsTheImageTheZoomAndTheCoordinates/classic
+    observatory  pending
+
+capability window.geometry
+    title        Window size and position remembered
+    shared       WindowGeometryStoreTest.RestoresThePlaceWhenItIsOnAScreen, WindowGeometryStoreTest.ShowsMaximizedWhenThePlaceIsOnAScreenThatIsGone, WindowGeometryStoreTest.NeverRestoresSmallerThanTheMinimum
+    classic      AfterNightAppWindowGeometrySuite.MainWindowMinimumSizeTargets720pLayouts
+    observatory  pending
+
+capability window.console
+    title        Session Console dock and its toolbar
+    shared       SessionConsoleBridge.RecordsEntriesAndEmitsSignal, SessionConsoleViewerTest.AnsiColoursAreRenderedUntilTurnedOffAndTheChoiceIsKept, SessionConsoleViewerTest.WithoutWordWrapANewEntryKeepsTheStartOfTheLineInView
+    classic      ApplicationTeardown.QuittingWithTheSessionConsoleOpenReadsNothingOfTheWindowAfterItsStateIsGone
+    observatory  pending
+
+# ---- Image views and docking
+
+capability dock.tabs
+    title        Each image is a dock: tabs, reorder, split, close on the tab
+    shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, FileOpenTest.FilesAreShownInViewsDockedBesideTheFirst
+    classic
+    observatory  pending
+
+capability dock.float
+    title        Float, floating windows, groups in them, drop indicators
+    shared       ViewControlCoordinatorComponent.ViewControlCoordinator_PromotesDockOnlyWhenAttached
+    classic
+    observatory  pending
+
+capability dock.tab-buttons
+    title        Tab buttons and the tab list
+    shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, ViewMenuBuilderTest.TabMenuOffersTheTabsEntriesInOrder
+    classic
+    observatory  pending
+
+capability dock.group-split-fit
+    title        Group All, Split All, Fit All
+    shared       DockLayoutOperationsTest.GroupMakesOneTabGroupAndKeepsTheActiveView, DockLayoutOperationsTest.SplitGivesEachViewAnEqualPane, DockLayoutOperationsTest.FitFitsEachViewSharingTheWindowOfTheView
+    classic      ApplicationMenu.FitImagesToWindowFitsEveryView, ShellScenario.SplitsGroupsAndFitsTwoImages/classic
+    observatory  pending
+
+capability dock.lock
+    title        Lock and Unlock Layout; the default in Settings
+    shared       DockLayoutOperationsTest.LockRefusesADragOfThatMainWindowsWidgetsAndNoOthers, DockLayoutOperationsTest.LockingTheOnlyDockAreaLocksTheWholeLayout, DockLayoutOperationsTest.LockOffersUnlockInPlaceOfLock
+    classic      ShellScenario.ALockedLayoutRefusesADrag/classic
+    observatory  pending
+
+capability dock.maximize
+    title        Maximize View (F11)
+    shared       ApplicationContextTest.MaximizingRestoringAndTheStatusLineReachTheShell, ViewMenuBuilderTest.WithdrawsGroupAndSplitForAMaximizedView
+    classic      ApplicationMenu.MaximizeViewMaximizesTheActiveViewAndASecondInvocationRestoresIt, ShellScenario.MaximizesAndRestoresAView/classic
+    observatory  pending
+
+capability view.context-menu
+    title        Context menu of a view
+    shared       ViewMenuBuilderTest.EqualsTheRecordedTree, ViewMenuBuilderTest.CurrentWindowGroupsTheViewsSharingTheViewsWindow
+    classic      ApplicationMenu.ViewMenuTreeMatchesTheRecord, ApplicationMenuContextMenu.TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile, ShellScenario.ViewMenuEntries/classic
+    observatory  pending
+
+capability dock.all-floating
+    title        With every image floating, an empty dock area
+    shared
+    classic
+    observatory  pending
+
+capability dock.no-image
+    title        With no image open, the dashboard
+    shared       ViewControlCoordinatorComponent.ViewControlCoordinator_DetectsDashboardSwitchCondition, ViewCreationDecisionTest.AStandardViewLeavesTheDashboardForTheDockManager
+    classic
+    observatory  pending
+
+# ---- View toolbar
+
+capability view.zoom
+    title        Fit, Zoom In, Zoom Out, 100 %
+    shared       ImageViewControlZoomPan.ZoomManagerClampsMinimumScale, ViewFitTest.FitToWindowFitsTheViewportAsLaidOutAtOnceAPendingChangeIncluded, ImageViewControlTest.EveryStepOfAZoomPaintsAllTheViewShows
+    classic      ApplicationMenu.ZoomInEnlargesTheActiveView, ApplicationMenu.ZoomOneHundredShowsTheActiveViewAtItsPixelScale, ApplicationMenu.FitToWindowScalesTheActiveViewToItsWindow
+    observatory  pending
+
+capability view.channel
+    title        Channel
+    shared       ImageViewControlChannelSwitching.TheMenusCompositionsAreTheEnginesScopes, ChannelDisplayLookupTest.EveryModeMapsToAChannelAndBack, ViewPresentationTest.AStoredChannelIsShownAsItsOwnPlane
+    classic
+    observatory  pending
+
+capability view.display-mode
+    title        Linear or Autostretch
+    shared       StaticPreviewBehavior.TheDisplayModeComboShowsTheModeTheImageIsShownIn, ImageViewControlTest.AnImageThatHoldsTheAutostretchIsShownAsItIsInTheAutostretchMode, ViewPresentationTest.ALinearImageIsShownAsTheNearestByteOfEachSample
+    classic
+    observatory  pending
+
+capability view.autostretch
+    title        Autostretch Settings and Apply Stretch
+    shared       AutostretchApply.StretchesACopyAndLeavesTheSourceUnchanged, AutostretchApply.TheSettingsWindowIsOfferedOnlyWhileTheViewShowsItsImageStretched, AutostretchApply.TheStepIsNamedAutostretch
+    classic
+    observatory  pending
+
+capability view.undo-redo
+    title        Undo, Redo, Image History
+    shared       ActionStateTest.UndoAndRedoFollowTheViewsHistory, ViewHistoryTest.AnEditIsRecordedBeforeTheViewShowsItAndUndoneThroughTheView, ViewHistoryTest.TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheView
+    classic      ApplicationMenu.UndoReturnsTheActiveViewToTheStateBeforeItsLastEdit, ApplicationMenu.ImageHistoryShowsTheActiveViewsHistoryWindow, ShellScenario.UndoesAndRedoesAnAppliedProcess/classic
+    observatory  pending
+
+capability view.information
+    title        Statistics, Histogram, EXIF, FITS Header, Summary
+    shared       ViewToolsTest.EachToolOpensItsOwnWindowAsAChildOfTheView, ViewToolsTest.TheViewsOwnCommandsOpenTheirWindowsThroughTheOpener, ViewToolsTest.TheInspectorsAViewOffersFollowItsImageAndNotItsToolbarsRoom
+    classic      ApplicationMenu.StatisticsOpensTheStatisticsWindowOverTheActiveView, ApplicationMenu.HistogramOpensTheHistogramWindowOverTheActiveView, ApplicationMenu.SummaryOpensTheSummaryWindowOverTheActiveView
+    observatory  pending
+
+capability view.astrometry
+    title        Show Astrometry and its settings
+    shared       ViewCompanionWiringTest.TheMenusChoicesAreHandedToTheOverlaysAndKeptForTheNextView, AstrometryOverlaysTest.TheGridDrawsLinesOverASolvedImageAndNoneOverAnUnsolvedOne, AstrometryOverlaysTest.TheViewsChoicesReachTheOverlaysThatDrawThem
+    classic
+    observatory  pending
+
+capability view.astrometry-tools
+    title        Astrometry Info, Annotate Image, Plate Solve
+    shared       ViewToolsTest.TheAstrometryAndPlateSolveWindowsOpenOncePerViewAndAreRaisedWhenAskedAgain, AnnotateImageWindowTest.TheWindowPreviewsTheAnnotationsOfTheSolvedImageAndIsOnePerView, ImageAstrometryInfoFormatter.BuildSummaryExtractsSolvedMetadataFields
+    classic      ApplicationMenu.AstrometryInfoOpensTheSolutionWindowOverTheActiveView, ApplicationMenu.AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView, ApplicationMenu.PlateSolveOpensThePlateSolveWindowOverTheActiveView
+    observatory  pending
+
+capability view.overlays
+    title        Statistics overlay; the AUTOSTRETCH badge
+    shared       StaticPreviewBehavior.TheStatisticsCardMeasuresTheImageThePreviewShows, StaticPreviewBehavior.TheStatisticsCardMovesBelowTheAutostretchBanner, ImageViewControlTest.OfferingThePresentationChoicesAgainKeepsWhatTheOwnerSetOfTheBannerAndTheStatistics
+    classic
+    observatory  pending
+
+capability view.sequence-player
+    title        Sequence player
+    shared       SequencePlayerTest.PlaybackStartsAtTheRateTheSerStates, SequencePlayerTest.NextAndPreviousStepOneFrameAndStopAtTheEnds, ImageViewControlTest.TheSequencePlayerIsHeldWhileAProcessHasTheView
+    classic
+    observatory  pending
+
+capability view.lens-zoom-pan
+    title        Lens, wheel zoom, pan and their settings
+    shared       ImageViewControlImageLoading.TheLensReadsEveryColourChannelOfAPixel, WidgetsQuickZoom.LensPositionUsesDefaultOffset, ImageViewControlTest.AtFullZoomTheViewPresentsWhatItShowsAndPresentsAgainWhenItPansPastIt
+    classic
+    observatory  pending
+
+# ---- Information windows
+
+capability info.statistics
+    title        Statistics window
+    shared       StatisticsWindowTest.TheTableIsFilledWhenTheMeasurementLands, StatisticsWindowTest.IncludingTheClippedSamplesRefreshingOrAnotherImageMeasuresAgain, StatisticsWindowTest.AScaleChangesOnlyTheNumbersShown
+    classic      ApplicationMenu.StatisticsOpensTheStatisticsWindowOverTheActiveView
+    observatory  pending
+
+capability info.histogram
+    title        Histogram window
+    shared       HistogramWindowTest.TheWindowShowsTheViewsImageCountedOnAWorker, HistogramWindowTest.AnotherResolutionOrAnotherImageIsCountedAgain, HistogramWindowTest.TheChannelSelectorFollowsTheImagesChannels
+    classic      ApplicationMenu.HistogramOpensTheHistogramWindowOverTheActiveView
+    observatory  pending
+
+capability info.headers
+    title        FITS Header, EXIF, Summary, Astrometry Info windows
+    shared       InspectorWindowsTest.TheFitsHeaderWindowShowsTheViewsCardsAndFollowsTheImageItShows, InspectorWindowsTest.TheExifWindowShowsTheViewsExifFieldsAndNothingElse, InspectorWindowsTest.TheSummaryWindowShowsTheViewsSummaryAndCopiesIt
+    classic      ApplicationMenu.FitsHeaderOpensTheHeaderWindowOverAViewOfAFitsFile, ApplicationMenu.ExifViewerOpensTheExifWindowOverAViewOfATiffFile, ApplicationMenu.AstrometryInfoOpensTheSolutionWindowOverTheActiveView
+    observatory  pending
+
+capability info.history
+    title        Image History window
+    shared       ImageHistoryControlLifecycle.DoubleClickingAStepInTheHistoryWindowShowsThatStep, ImageHistoryControlLifecycle.TheHistoryWindowsContextMenuRemovesOneStepAndClonesAnother, ViewHistoryTest.TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheView
+    classic      ApplicationMenu.ImageHistoryShowsTheActiveViewsHistoryWindow, ApplicationMenu.ImageHistoryWithNoImageIsOfferedDisabledAndShowsNothing
+    observatory  pending
+
+# ---- Image actions
+
+capability image.basic
+    title        Duplicate, Rename, Close, Save File
+    shared       ImageOperationTest.DuplicateOpensACopyThatHasNeverBeenAFile, CoordinatorTest.ARenameIsRecordedInTheViewsHistory, ImageViewControlTest.AViewWritesItsImageAndClearsItsPendingChanges
+    classic      ApplicationMenu.CloseClosesTheActiveViewOnly, ApplicationMenu.SaveWritesTheActiveViewThroughTheSaveDialogToo, ShellScenario.RenamesAndDuplicatesAView/classic
+    observatory  pending
+
+capability image.convert
+    title        Convert Format
+    shared       ChannelActionTableTest.EachRowStatesThePlanesItMakesTheirNamesAndWhatItConvertsTo, ChannelConversionTest.AConversionRoundsToTheNearestCodeAndMapsTheRangesEndsOntoEachOther, ChannelSequenceRunTest.AConversionASerSequenceCannotHoldIsRefusedByName
+    classic
+    observatory  pending
+
+capability image.extract-channel
+    title        Extract Channel
+    shared       ChannelActionTest.ItOpensWhatItMakesBesideTheImageNamedAfterIt, ProcessRegistryTest.EveryChannelActionReachesTheExtractionOfItsName, ChannelActionTest.OnAGreyImageAnExtractionSaysWhyAndOpensNothing
+    classic
+    observatory  pending
+
+capability image.fast-geometry
+    title        Fast Geometry
+    shared       GeometryTurnRecordTest.EveryRecordOfTheMirrorsAndTurnsIsReproducedThroughTheMenu, ImageTurnsTest.ATurnIsOneHistoryStepThatUndoes, ImageOperationTest.AStillImagesMirrorIsTheViewsOwnEdit
+    classic
+    observatory  pending
+
+capability image.mask
+    title        Mask actions
+    shared       MaskActionsTest.SelectMaskOpensTheMaskSelectorOverTheActiveView, MaskActionsTest.RemoveMaskDetachesTheMaskAndChangesNothingElse, MaskOverlayCoordinatorComponent.MaskOverlayCoordinator_ToggleMaskFlags_UpdatesActiveView
+    classic      ApplicationMenu.InvertMaskInvertsTheActiveViewsMask, ApplicationMenuOverlay.OverlayRedTintsTheMaskRed, ProductSmoke.TheMaskSelectorDialogLaunchesFromTheMenuOverTheActiveView
+    observatory  pending
+
+capability image.sequence
+    title        Sequence: Convert, Extract Frame, Extract Sequence, Export
+    shared       ImageOperationsTest.TheSequenceConversionsRunTheNonInteractiveConversion, ImageOperationTest.ExtractFrameOpensTheShownFrameAsAStillImage, ImageOperationsTest.ExportOpensTheExportWindowOverTheActiveSequence
+    classic
+    observatory  pending
+
+capability image.show-in-browser
+    title        Show In File Browser
+    shared       CoordinatorTest.ShowInFileBrowserRevealsTheFileTheActiveViewsDocumentNames, ActionStateTest.TheInformationActionsFollowTheViewAndShowInFileBrowserItsFile, CoordinatorTest.ShowInFileBrowserWarnsWhenTheFileIsNoLongerOnDisk
+    classic      ApplicationMenu.ShowInFileBrowserIsOfferedForAViewOfAFile, ApplicationMenu.ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk, ApplicationMenuContextMenu.TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile
+    observatory  pending
+
+# ---- Processes
+
+capability process.menu
+    title        Process menu: sixteen categories
+    shared       ProcessRegistryRulesTest.ACategoryListsItsDescriptorsInTheirSortOrder, ProcessMenuModelTest.HoldsTheSixteenCategoriesInTheMenusOrder, ProcessRegistryTest.EveryProcessActionOpensItsProcessWindow
+    classic      ApplicationMenu.EveryRegisteredProcessIsAnEntryOfTheWindowsMenus, ProcessRegistry.InventoryMatchesTheRecord, ShellScenario.AProcessWithNoImageSaysWhyItCannotRun/classic
+    observatory  pending
+
+capability process.favorites
+    title        Favorite Processes, Manage Favorites
+    shared       AfterNightAppProcessMenuSuite.BuildFavoriteProcessEntriesFiltersMissingAndSortsCaseInsensitive, AfterNightAppProcessMenuSuite.FavoriteMenuLayoutReflectsManageAndClearPlacementRules, AfterNightAppProcessMenuSuite.DeserializeProcessIdSetParsesMixedSeparatorsAndWhitespace
+    classic
+    observatory  pending
+
+capability process.recent
+    title        Recent Processes
+    shared       AfterNightAppProcessMenuSuite.UpdateRecentProcessListMaintainsMruAndConfiguredLimit, AfterNightAppProcessMenuSuite.BuildRecentProcessEntriesPreservesUnknownDescriptors, RecentProcessMenuTest.ARecentProcessNotRegisteredYetIsKeptUnderItsId
+    classic
+    observatory  pending
+
+capability process.window
+    title        A process opens a window, its size remembered
+    shared       ProcessFrameworkCriticalPathTest.RestoresGeometryWhenRememberWindowSizeIsEnabled, ProcessPersistenceCriticalPathTest.RestoreClampsOversizedGeometryToAvailableScreen, ProcessLauncherTest.AProcessOpensOnTheActiveViewUnderItsDescriptor
+    classic      ProductSmoke.ATypedProcessLaunchedFromTheMenuAppliesToTheActiveView, ProductSmoke.AnOwnThreadWindowLaunchesFromTheMenuOverTheActiveView
+    observatory  pending
+
+capability process.header
+    title        Title, description, message banner with progress
+    shared       ProcessShellModernization.ProcessShell_HasStyledHeader, ProcessShellModernization.ProcessShell_ShowsBannerProgress, ImageProcessControlTitleTest.TheTitleNamesTheProcessAndItsTargetInAngleBrackets
+    classic
+    observatory  pending
+
+capability process.layout
+    title        Controls at the left, preview at the right
+    shared       BuildMainProcessSplitter.ProducesCorrectWidgetHierarchy, BuildMainProcessSplitter.StretchFactorsAreCorrect, RTPreviewViewTest.ThePreviewIsAViewOfTheWindowsOwnInItsPaneStartingWithTheTargetsOwnImage
+    classic
+    observatory  pending
+
+capability process.preview-toolbar
+    title        Preview toolbar
+    shared       RTPreviewAreaTest.ThePreviewToolbarsCheckboxRunsThePreviewOverTheAreaOrTheWholeImage, RTPreviewAreaTest.TheAreaIsChosenOnThePreviewViewAndTheNextPreviewRunsOverIt, RTPreviewLayoutTest.TurningThePreviewOffShrinksTheWindowToItsControlsAndLeavesItResizable
+    classic
+    observatory  pending
+
+capability process.histogram-tools
+    title        Histogram toolbar inside a process
+    shared       BuildHistogramToolbar.DefaultOptionsCreateAllButtons, BuildHistogramToolbar.IncludingTransferCurveCreatesButton, RTPreviewHistogramTest.ThePlotResolutionsOfferedAreTheHistogramsAndTheOneChosenIsCounted
+    classic
+    observatory  pending
+
+capability process.target
+    title        Target Image, Channel, Preview
+    shared       ProcessWindowTest.TheSelectorOffersEveryChoiceForAColourTargetEachCarryingItsScope, PreviewRunTest.TheChannelAPreviewRunsOnIsTheOneTheSelectorNamedWhenItStarted, ProcessWindowTest.ASecondPreviewOnAViewTurnsOffTheOneAlreadyShownThere
+    classic
+    observatory  pending
+
+capability process.buttons
+    title        Reset, Close, Apply
+    shared       ApplyRunTest.ApplyEditsTheTargetAndRecordsTheStepBeforeShowingIt, PreviewLifecycle.AResetIsFollowedByOnePreview, ProcessShellModernization.ProcessShell_HasStyledButtonBar
+    classic      ShellScenario.AnAppliedProcessIsOneHistoryStepAndChangesTheImage/classic
+    observatory  pending
+
+capability process.sequence-apply
+    title        Applying to a sequence: two bars, Cancel
+    shared       ProgressDialogUiTest.SequenceProgressCardExists, ProgressDialogTest.OneStepOfSeveralIsShownAsTheWholesProgress, SequenceRunTest.CancelStopsTheRunAndPublishesNothing
+    classic      ShellScenario.ARunOverASequenceIsCancelled/classic
+    observatory  pending
+
+capability process.several
+    title        Several process windows; a process pointed at another image
+    shared       ProcessWindowTest.ASecondPreviewOnAViewTurnsOffTheOneAlreadyShownThere, ProcessLauncherTest.TheSameProcessAttachedUnderItsOwnNameIsRefused, PreviewLifecycle.AChangedTargetShowsNothingKeptOfTheImageBefore
+    classic      ShellScenario.AnExclusiveProcessIsRefusedWhileAnotherIsAttached/classic
+    observatory  pending
+
+capability process.lock
+    title        A view is locked while a run writes it
+    shared       ImageViewControlTest.TheProcessingLockAdmitsExactlyOneOfConcurrentCallers, ApplyRunTest.AnApplyOnAViewAnotherRunHoldsIsRefusedWithAWarning, ProcessLauncherTest.AProcessThatNeedsTheViewToItselfIsHeldOnBothSides
+    classic
+    observatory  pending
+
+capability process.multi-input
+    title        Processes with several inputs
+    shared       CombinationsProcessCase.ImageCompareOffersOnlyViewsOfTheTargetsSize, CombinationsProcessCase.CompositionNarrowsToTheHighestInputAndFillsAMissingComponentWithZero, CombinationsChangingTest.TheCardsEverySourceStatesAndTheFirstSourcesSolutionAreKept
+    classic
+    observatory  pending
+
+capability process.external-tools
+    title        StarNet, DeepSNR
+    shared       ExternalToolsWindowTest.TheRegisteredActionOpensTheWindow, ExternalToolsSmokeTest.StarNetRemovesTheStarsOfASyntheticField, ExternalToolsSmokeTest.DeepSnrQuietensANoisyGradient
+    classic
+    observatory  pending
+
+capability process.extensions
+    title        Extension processes with their own interface
+    shared       ExtensionUiWidgetHostTest.ApplyDescriptionBuildsSupportedWidgetTree, ExtensionHandoffTest.AnExecuteResultIsImportedOnAWorkerAndHandedToTheViewOnTheGuiThread, ProcessRegistryRulesTest.AnExtensionsProcessWhoseEnvironmentIsNotReadyIsPreparedBeforeItsLaunch
+    classic
+    observatory  pending
+
+# ---- Pre-processing
+
+capability integration.navigation
+    title        Frame sources and workflow as two levels of tabs
+    shared       ImageIntegrationProcessTest.NestedTabStructure, ImageIntegrationProcessTest.TabWidgetCanNavigateProgrammatically, ImageIntegrationProcessTest.TabNavigationWithKeyboardShortcuts
+    classic
+    observatory  pending
+
+capability integration.menus
+    title        Its six menus
+    shared       KeyboardActionsTest.MenuBarHasExpectedTopLevelMenus, KeyboardActionsTest.FramesMenuHasExpectedActionsAndTooltips, KeyboardActionsTest.AllMenusHaveTooltipsOnAllEntries
+    classic
+    observatory  pending
+
+capability integration.frame-tree
+    title        Frame tree menu
+    shared       TreeContextMenuHandlerTest.LightFrameShowsSetAsReferenceFrameAction, TreeContextMenuHandlerTest.ChangeTypeSubmenuHasAllFrameTypes, TreeContextMenuHandlerTest.GroupContextMenuShowsExpandCollapseActions
+    classic
+    observatory  pending
+
+capability integration.settings
+    title        Stacking, Registration, Local Normalization, Calibration, Weighting dialogs
+    shared       RegistrationSettingsDialog.RegistrationSettingsSnapshotReflectsLiveWidgetEdits, DialogModernizationLifecycle.TheLocalNormalizationDialogOffersOnlyWhatTheRunReads, DialogModernizationLifecycle.TheLightCalibrationDialogOffersAndSaysWhatTheRunReads
+    classic
+    observatory  pending
+
+capability integration.tools
+    title        Blink, manual registration points, comet tracking
+    shared       BlinkComparatorTest.NextButtonAdvancesIndex, AccessibilityTest.ManualRegistrationDialog_HasAccessibleControls, CometTrackingDialog.AutoTrackRunsAsyncHandlerAndDisplaysCandidatesForAcceptance
+    classic
+    observatory  pending
+
+capability integration.run
+    title        Processing window with the timeline; Open Report
+    shared       WorkflowProgressDialogV2Test.InitializesWithPendingStages, WorkflowProgressDialogV2Test.HandlesProgressUpdate, WorkflowProgressDialogV2Test.OpenReportButtonFollowsHtmlReportPath
+    classic
+    observatory  pending
+
+capability integration.import
+    title        Import progress with Pause and Resume
+    shared       ImportProgressDialogTest.ShowsCurrentFile, ImportProgressDialogTest.CancelButtonMarksImportCancelled, ImportProgressReporter.SupportsPauseResume
+    classic
+    observatory  pending
+
+capability integration.history
+    title        Run history and session notes
+    shared       SummaryTabActions.RunHistoryActionsEmitIntentSignals, SummaryDashboard.RunHistoryReadsFromHistoryDir, SummaryDashboard.SessionNotesPersistToOutputDir
+    classic
+    observatory  pending
+
+capability integration.project-files
+    title        Project import, export, recents, presets, Reset Settings
+    shared       KeyboardActionsTest.ProjectMenuHasExpectedActionsAndTooltips, ProjectManager.TracksRecentProjects, PresetManagerTest.CanLoadPreset
+    classic
+    observatory  pending
+
+capability integration.lite
+    title        Image Integration Lite
+    shared       ImageIntegrationLiteProcessUi.BuilderDefaultsMatchLiteContract, ImageIntegrationLiteProcessUi.ExecuteOpensPreparingProgressDialogImmediately, ActionBindingsTest.EachCalibrationAndTheMenusOtherProcessesLaunchTheirOwnDescriptor
+    classic      ProductSmoke.TheTopLevelIntegrationWindowsLaunchFromTheMenuTheLiteOneAmongThem, ProcessMenuWiringTest.ImageIntegrationLiteIsOfferedInThePreprocessMenu
+    observatory  pending
+
+capability integration.single-steps
+    title        Image Calibration, Registration, Stacking
+    shared       LaunchTest.TheRegisteredActionOpensTheToolsWindow, RegistrationTest.TheWindowRegistersRecordsAndAlignsItsFrames, StackingTest.TheWindowStacksEveryGroupAndOpensWhatItWrote
+    classic      ProductSmoke.TheTopLevelIntegrationWindowsLaunchFromTheMenuTheLiteOneAmongThem
+    observatory  pending
+
+capability integration.analyzer
+    title        Image List Analyzer
+    shared       AnalyzerTest.TheListedFilesPlayAsAnImageListSequence, AnalyzerTest.EachFileIsMeasuredOnceAndItsStatisticsShownWhenItsFrameIs, ImageListAnalyzerImportContract.ThePreviewIsAViewInsideTheWindowAndNoneTheApplicationMakes
+    classic
+    observatory  pending
+
+# ---- Astrometry and annotation
+
+capability astrometry.plate-solve
+    title        Plate Solve
+    shared       PlateSolveWindowTest.ASolveIsWrittenIntoTheImageAsAnEditTheHistoryRecords, PlateSolveWindowTest.TheHintsAreThePointingAndOpticsTheSolveReads, PlateSolveWindowTest.AFailedSolveIsReportedThroughTheDialogService
+    classic      ApplicationMenu.PlateSolveOpensThePlateSolveWindowOverTheActiveView
+    observatory  pending
+
+capability astrometry.find-object
+    title        Find object dialog
+    shared       CatalogSearchDialog.DialogReturnsSelectedEntry, CatalogSearchDialog.FitsObjectKeywordPreFillsSearchField, LocalCatalogSearchTest.TheBundledCatalogsAnswerByName
+    classic
+    observatory  pending
+
+capability astrometry.annotate
+    title        Annotate Image
+    shared       AnnotateImageWindowTest.TheWindowPreviewsTheAnnotationsOfTheSolvedImageAndIsOnePerView, AnnotateImageWindowTest.ThePictureIsExportedAtTheSizeChosenAndATransparentOneIsNotWrittenAsJpeg, AnnotateImageWindowTest.AnImageWithoutASolutionIsSaidToNeedOneAndOffersNoPicture
+    classic      ApplicationMenu.AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView
+    observatory  pending
+
+# ---- Settings and extensions
+
+capability settings.pages
+    title        Ten pages, search, Reset Page, Reset All
+    shared       SettingsDialogTest.SettingsDialog_NavigationWorks, SettingsDialogTest.SettingsDialog_SavesModifiedSettings, RawSettingsTest.ResetPageSelectsNoneAsItAlwaysHas
+    classic      ApplicationMenu.SettingsShowsTheSettingsWindow, ShellScenario.TheSettingsDialogOpensAtAPage/classic
+    observatory  pending
+
+capability settings.interface
+    title        Theme, contrast, accent, tint, animations
+    shared       TokenBaseline.ClassicValuesAreRecorded, ThemeSystemDesignTokens.DesignTokens_ContrastProfilesShiftDarkThemeIntensity, ThemeSystemDesignTokens.DesignTokens_AccentFamiliesRetintAccentRoles
+    classic      ShellScenario.AThemeChangeRepaintsWithoutARestart/classic
+    observatory  pending
+
+capability settings.shell
+    title        The shell a run starts with: the command line, the environment, the Interface page
+    shared       ShellSelection.TheCommandLineWinsOverTheEnvironmentAndTheSetting, ApplicationStart.StartsTheChosenShell, SettingsDialogTest.InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIsAChoice
+    classic
+    observatory  pending
+
+capability extensions.menu
+    title        Extensions menu and a submenu per family
+    shared       AfterNightAppProcessMenuSuite.BuildUiProvidesDedicatedExtensionsMenuForManagement, ActionStateTest.AnExtensionsActionThatCanBePreparedFollowsItsLaunchGuards, ActionBindingsTest.AnExtensionsActionStaysEnabledWhileItsEnvironmentCanBePrepared
+    classic      ApplicationMenu.ManageExtensionsShowsTheExtensionsWindowAtTheExtensionManager
+    observatory  pending
+
+capability extensions.catalogs
+    title        Catalog download dialogs
+    shared       CatalogDownloadDialogTest.DefaultGaiaInspectorMarksInstalledPackAsDownloaded, CatalogDownloadDialogTest.SpccInspectorMarksInstalledPackAsDownloaded, CatalogDownloadDialogTest.SynchronousDownloadFailureDoesNotLeaveDialogBusy
+    classic
+    observatory  pending
+
+# ---- Help
+
+capability help.all
+    title        User Guide (F1), About, About Qt, System Information
+    shared       VersionDialogsTest.TheAboutDialogShowsTheProductsVersionTheEngineAndTheEnginesLibraries, VersionDialogsTest.TheSystemInformationListsTheProductsVersionTheEngineAndItsLibraries, DialogOrchestrationCoordinatorComponent.DialogOrchestrationCoordinator_OpenHelp_ResolvesBundledUserGuide
+    classic      ApplicationMenu.UserGuideAnswersF1FromEveryWindowOfTheApplication, ApplicationMenu.AboutShowsTheAboutWindowNamingTheProductsVersion, ApplicationMenu.SystemInformationShowsTheSystemInformationWindow
+    observatory  pending
+
+# ---- Keyboard
+
+capability keys.existing
+    title        Every 1.1 shortcut
+    shared       KeyboardActionsTest.ShortcutsAreConfiguredOnMenuActions, MainDashboardInteraction.ToolbarActionsWithShortcutsExposeTooltips, FrameSourceTab.CtrlFFocusesSearch
+    classic      ApplicationWindow.ShortcutsMatchTheRecord, ApplicationMenu.UserGuideAnswersF1FromEveryWindowOfTheApplication
+    observatory  pending
+
+capability keys.palette
+    title        Ctrl+K
+    shared
+    classic
+    observatory  pending
+
+capability keys.new
+    title        Esc, Ctrl+Enter, Ctrl+Shift+N, Ctrl+W, F6
+    shared
+    classic
+    observatory  pending
+
+# ---- Added by the design
+
+capability new.palette
+    title        The command palette
+    shared
+    classic
+    observatory  pending
+
+capability new.readout
+    title        The readout column
+    shared
+    classic
+    observatory  pending
+
+capability new.history-strip
+    title        The history strip
+    shared
+    classic
+    observatory  pending
+
+capability new.tasks
+    title        Tasks in the rail; float, attach, drag
+    shared
+    classic
+    observatory  pending
+
+capability new.workspaces
+    title        Several workspaces
+    shared
+    classic
+    observatory  pending
+
+capability new.projects
+    title        Projects
+    shared
+    classic
+    observatory  pending
+
+capability new.hub
+    title        The Integration hub
+    shared
+    classic
+    observatory  pending
+
+capability new.look
+    title        Presets, tint strength, density, Night
+    shared
+    classic
+    observatory  pending
+
+capability new.change-against-original
+    title        The change under each statistic of a task
+    shared
+    classic
+    observatory  pending
+
+# ---- Covered less than their lines suggest
+#
+# Read before a capability's cases are written.
+#
+# dock.all-floating: no case of either kind; nothing floats every image. dock.lock: nothing reads the default in
+#   Settings.
+# dock.tabs, dock.float, dock.tab-buttons, dock.no-image: only flags and decision helpers are tested; no case drives
+#   a dock.
+# window.main-toolbar, window.dock-toolbar, dock.group-split-fit: the classic cases trigger the actions the toolbars
+#   hold, not the toolbar buttons.
+# home.recent-menu: the case pins through the model; nothing opens the thumbnail's menu.
+# view.display-mode, view.overlays: proved through the static preview, which shares the view's toolbar.
+# The window-geometry cases named under `classic` do not build the main window; they test its size rules.

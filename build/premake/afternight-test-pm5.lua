@@ -329,6 +329,14 @@ end
             linux_debug = { "-lAfterNightShellCore_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
             dependson = { "AfterNightShellCore" }
         },
+        -- The classic shell: a suite that links it drives the 1.1 window from the library's binary. It links the shell
+        -- core and the libraries below it, so GNU ld needs the docking framework's directory for the same reason.
+        AfterNightShellClassic = {
+            windows_release = { "AfterNightShellClassic.lib" }, windows_debug = { "AfterNightShellClassic_d.lib" },
+            linux_release = { "-lAfterNightShellClassic", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            linux_debug = { "-lAfterNightShellClassic_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            dependson = { "AfterNightShellClassic" }
+        },
         -- The optional G'MIC adapter, which the processes that run a G'MIC command reach; built with or without the
         -- library, as AFTERNIGHT_GMIC says.
         AfterNightEngineGmicAdapter = {
@@ -749,9 +757,16 @@ end
     -- Controls library.
     addIsolatedTestProject { name = "Test_ShellCore" }
 
-    -- The application's suite: its main window, context and session compiled from the application's sources and
-    -- linked against the processes and Controls libraries, beside the cases over the settings pages, dialogs and
-    -- coordinators it opens.
+    -- The classic shell's suite: the 1.1 window driven from the library's binary, the records it is held to, the
+    -- settings pages, dialogs and coordinators it opens, and its own units.
+    addIsolatedTestProject { name = "Test_ShellClassic" }
+
+    -- The parity scenarios: written once against a driver and run for every registered shell, each started and ended
+    -- by the application's own start and end, which the suite compiles.
+    addIsolatedTestProject { name = "Test_ShellParity" }
+
+    -- The application's suite: its start and end, compiled from the application's sources and linked against the
+    -- shell libraries, and the session the application owns.
     addIsolatedTestProject { name = "Test_AfterNightApp" }
 
     -- The fixture layers: the engine-neutral layer with the Qt-only harness, and the engine's fixture adapter, each in

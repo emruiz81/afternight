@@ -13,10 +13,7 @@
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/ExtensionManager.h"
 #include "app/MaskOverlayCoordinator.h"
-#include "app/ViewControlCoordinator.h"
-#include "app/WindowLayoutCoordinator.h"
 
-#include <QComboBox>
 #include <QDir>
 #include <QString>
 #include <QStringList>
@@ -66,63 +63,6 @@ TEST(ChannelExtractorComponent, ChannelExtractor_ExecutesOperationWithActiveImag
     EXPECT_TRUE(executed);
     EXPECT_EQ(ranOn, std::vector<ImageViewControl*>{someView()});
     EXPECT_EQ(errorCount, 0);
-}
-
-// The image selector is changed only when it shows another image than the active one.
-TEST(ViewControlCoordinatorComponent, ViewControlCoordinator_DetectsSelectionChange)
-{
-    EXPECT_TRUE(an::ui::shouldUpdateImageSelectorSelection(QStringLiteral("A"), QStringLiteral("B")));
-    EXPECT_FALSE(an::ui::shouldUpdateImageSelectorSelection(QStringLiteral("A"), QStringLiteral("A")));
-}
-
-// The dashboard is shown again when the last image is gone, and only if there is a dashboard and no image left.
-TEST(ViewControlCoordinatorComponent, ViewControlCoordinator_DetectsDashboardSwitchCondition)
-{
-    EXPECT_TRUE(an::ui::shouldSwitchToMainDashboardAfterListRefresh(true, false));
-    EXPECT_FALSE(an::ui::shouldSwitchToMainDashboardAfterListRefresh(false, false));
-    EXPECT_FALSE(an::ui::shouldSwitchToMainDashboardAfterListRefresh(true, true));
-}
-
-// An active view's dock is raised only when it has one, docked in the main window or floating.
-TEST(ViewControlCoordinatorComponent, ViewControlCoordinator_PromotesDockOnlyWhenAttached)
-{
-    EXPECT_FALSE(an::ui::shouldPromoteActiveDockWidget(false, false, false));
-    EXPECT_FALSE(an::ui::shouldPromoteActiveDockWidget(true, false, false));
-    EXPECT_TRUE(an::ui::shouldPromoteActiveDockWidget(true, true, false));
-    EXPECT_TRUE(an::ui::shouldPromoteActiveDockWidget(true, false, true));
-}
-
-// A view registered is added to the image selector, chosen there and given its tooltip, without the selector telling
-// anyone its choice changed.
-TEST(ViewControlCoordinatorComponent, ViewControlCoordinator_RegistersImageSelectorEntryWithoutSignals)
-{
-    QComboBox imageSelector;
-    int changedCount = 0;
-    QObject::connect(&imageSelector, &QComboBox::currentTextChanged,
-                     [&changedCount](const QString&) { ++changedCount; });
-
-    an::ui::syncRegisteredImageSelectorEntry(&imageSelector, QStringLiteral("new_view"), QStringLiteral("tooltip"));
-
-    EXPECT_EQ(imageSelector.count(), 1);
-    EXPECT_EQ(imageSelector.currentText(), QStringLiteral("new_view"));
-    EXPECT_EQ(imageSelector.itemData(0, Qt::ToolTipRole).toString(), QStringLiteral("tooltip"));
-    EXPECT_EQ(changedCount, 0);
-}
-
-// The active view is chosen in the image selector without the selector telling anyone its choice changed.
-TEST(ViewControlCoordinatorComponent, ViewControlCoordinator_SelectsActiveImageWithoutSignals)
-{
-    QComboBox imageSelector;
-    imageSelector.addItem(QStringLiteral("first"));
-    imageSelector.addItem(QStringLiteral("second"));
-    int changedCount = 0;
-    QObject::connect(&imageSelector, &QComboBox::currentTextChanged,
-                     [&changedCount](const QString&) { ++changedCount; });
-
-    an::ui::syncActiveImageSelectorSelection(&imageSelector, QStringLiteral("second"));
-
-    EXPECT_EQ(imageSelector.currentText(), QStringLiteral("second"));
-    EXPECT_EQ(changedCount, 0);
 }
 
 // A mask overlay is applied only with an active view, and an overlay choice unchecked by a click is checked again,
@@ -264,22 +204,6 @@ TEST(DialogOrchestrationCoordinatorComponent, DialogOrchestrationCoordinator_Not
     EXPECT_EQ(an::ui::resolveDialogParent(mainWindow, otherParent), otherParent);
 }
 
-// A maximized view's action offers to restore it.
-TEST(WindowLayoutCoordinatorComponent, WindowLayoutCoordinator_UsesRestorePresentationWhenMaximized)
-{
-    const auto [iconName, actionText] = an::ui::maximizeActionPresentation(true);
-    EXPECT_EQ(iconName, "fullscreen_exit");
-    EXPECT_EQ(actionText, QStringLiteral("Restore View"));
-}
-
-// A view that is not maximized offers to maximize it.
-TEST(WindowLayoutCoordinatorComponent, WindowLayoutCoordinator_UsesMaximizePresentationWhenRestored)
-{
-    const auto [iconName, actionText] = an::ui::maximizeActionPresentation(false);
-    EXPECT_EQ(iconName, "fullscreen");
-    EXPECT_EQ(actionText, QStringLiteral("Maximize View"));
-}
-
 // Closing asks about unsaved changes only when there are some and the person asked to be asked.
 TEST(AppLifecycleCoordinatorComponent, AppLifecycleCoordinator_PromptsOnPendingChanges)
 {
@@ -307,4 +231,3 @@ TEST(AppLifecycleCoordinatorComponent, AppLifecycleCoordinator_ComputesThreadBud
     EXPECT_EQ(an::ui::computePreviewThreadBudget(12), 10);
     EXPECT_EQ(an::ui::computePreviewThreadBudget(4), 3);
 }
-

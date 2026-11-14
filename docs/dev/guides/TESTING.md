@@ -57,7 +57,9 @@ for the engine's fault harness over the product's paths, `Test_AfterNightCLI`, t
 interface subtrees mirroring the production structure - `Test_ProcessFramework`, `Test_ExtensionHostNative`,
 `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, `Test_Widgets`, `Test_ImageViewControl`,
 `Test_ImageProcessControl`, `Test_ImageRTPreviewControl`, `Test_MainDashboard`, `Test_MaskDrawing`,
-`Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window, and `Test_AfterNightApp`, and
+`Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window, `Test_ShellClassic` for the
+classic shell's window, `Test_ShellParity` for what a person does in every shell, `Test_AfterNightApp` for the
+application's start and end, and
 the fixture executables `Test_FixtureNeutral` and `Test_FixtureEngine`. The fuzz targets `Fuzz_Engine*` and `Fuzz_Consumer*` are run by the fuzz campaign below.
 `build/scripts/tools/consumer_targets.txt` is the list that is authoritative.
 
@@ -125,10 +127,10 @@ is recorded in six text files beside the suites that read them, and a case compa
 | Record | Holds | Held by |
 |---|---|---|
 | `Test_ThemeSystem/data/TokenBaseline.txt` | Every colour of every combination the interface settings can choose - two themes, four contrast profiles, five accent families, six surface tints, 240 in all - and the spacing, the radii and the type scale no choice changes | `TokenBaseline.ClassicValuesAreRecorded` |
-| `Test_AfterNightApp/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord`; the shell core's catalogue and menu tree, by `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar` in `Test_ShellCore` |
-| `Test_AfterNightApp/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord`; the shell core's view menu, by `ViewMenuBuilderTest.EqualsTheRecordedTree` in `Test_ShellCore` |
-| `Test_AfterNightApp/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
-| `Test_AfterNightApp/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
+| `Test_ShellClassic/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord`; the shell core's catalogue and menu tree, by `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar` in `Test_ShellCore` |
+| `Test_ShellClassic/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord`; the shell core's view menu, by `ViewMenuBuilderTest.EqualsTheRecordedTree` in `Test_ShellCore` |
+| `Test_ShellClassic/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
+| `Test_ShellClassic/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
 | `Test_ProcessFramework/data/ProcessShapes.txt` | What the window of every registered process is made of: the framework class it derives from, how its controls and its preview are laid out, its preview checkbox and where the preview view lands, its button box, its selectors of images and channels, its menus, whether its size is fixed and which window hints it changes, what the person marks on a view for it, and every key sequence its own actions and shortcuts carry | `ProcessCensus.EveryProcessStatesItsShape` |
 
 The records exist so that a change which reorganises the interface's code - a part of the window moved to another
@@ -138,7 +140,7 @@ something says so in the same diff, as an edited entry a reviewer reads: a renam
 retired process.
 
 Each record is read from the running product - the tokens from the resolution, the actions and menus from the
-application's own main window, a view's keys by pressing them on a view - and holds nothing that follows the host: no
+classic shell's main window, a view's keys by pressing them on a view - and holds nothing that follows the host: no
 geometry, no font but its size against the body font's, the material surfaces with the native backdrop off. Nor
 anything that follows what ran before the case: a menu whose entries are what a person did - the recent files, the
 favourite and the recent processes - is held by name alone, of the Extensions menu only its own actions, and the
@@ -180,9 +182,23 @@ written before checking it in. From then on a record is edited by hand, entry by
 move it. It is never written again whole: a record written from the product agrees with whatever the product does,
 a defect included, and the diff of a rewritten record hides the one entry that mattered among the ones that did not.
 
+### What a person does, in every shell
+
+`Test_ShellParity` runs the scenarios of the interface - open an image, split, group and fit, lock the layout, maximize,
+rename and duplicate, undo and redo, apply a process, cancel a run over a sequence, the launch guards, a view's menu,
+every action reachable in the catalogue's state, the recent files, a drop, the status line, the questions a close asks,
+a theme change, the settings at a page - against every registered shell: each is a `ShellScenario` case instantiated
+for each shell id (`ShellScenario.ViewMenuEntries/classic`), started and ended as the application starts and ends it,
+and driven through that shell's `ShellDriver`. A scenario reads the records above where a record holds what it shows.
+
+`Test_ShellParity/Capabilities.txt` names, for each capability of the interface, the cases that prove it - the
+`shared` ones, of code every shell uses, and each shell's own - and `check_shell_capabilities.py` holds every name to a
+case the suites define. A capability with no case of a kind is an empty line, and one a shell has no case of yet is
+`pending` on its line.
+
 ## The source guards
 
-Three rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
+Four rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
 `Test_ImageIntegration` (`Test_ImageIntegration/unit/SourceGuardsTest.cpp`); a change to any C or C++ file under
 `src/` runs them (`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
 
@@ -191,8 +207,9 @@ Three rules of the source tree are held by cases that read the sources themselve
 | `NoRawStdMinMaxCallsInSrc` | No source calls `std::min` or `std::max` by its bare name, which the Windows SDK's macros would expand |
 | `NoStyleSheetsInSrc` | The product sets and reads no stylesheet, names no stylesheet style and no `.qss` file, and the tree holds none: the look is painted from the design tokens |
 | `NoDefaultQSettingsInSrc` | The product makes no `QSettings` but the one `an::ui::applicationSettings()` returns: any other is the platform's native store, which no test storage root redirects |
+| `ShellsDoNotReachEachOther` | A shell is reached only by the application that composes it and the suites that drive it: no shell includes another's header, and neither the shell core, Controls, Processes nor a suite of theirs includes one |
 
-The last two read the product and not the test tree, whose cases read a widget's stylesheet to prove it empty and
+`NoStyleSheetsInSrc` and `NoDefaultQSettingsInSrc` read the product and not the test tree, whose cases read a widget's stylesheet to prove it empty and
 make settings files of their own in temporary folders; and they read code, not comments, so a comment may name what
 the code may not do. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
 and its one wrapper - and fails when a listed line is gone, so the list cannot outlive what it allowed. A guard is
@@ -333,6 +350,7 @@ Windows and Linux. Most need nothing but a checkout; three read the generated pr
 | What is built, deployed and shipped | `check_deployed_runtimes.py`, `check_installer_payload.py`, `check_gpu_backend_optionality.py`, `remove_gpu_proof.py` |
 | Dependencies and safety | `check_dependency_provenance.py`, `check_safety_register.py` |
 | The product's layering, state and targets | `check_consumer_layering.py`, `check_consumer_state.py`, `consumer_targets.py check`, `product_measurement.py check` |
+| The interface's capabilities | `check_shell_capabilities.py`, which fails a case the capability register names that no suite defines, a scenario named on another shell's line, a capability listed twice and one with no `observatory` line |
 | The campaigns' registries | the `--check` mode of each campaign runner and of `run_performance_campaign.py`, and `generate_skimage_goldens.py check` |
 | The licence of every source | `check_license_headers.py`, which fails a source file that does not open with its SPDX licence and copyright lines, or states a licence other than its own |
 | The links of the developer documents | `check_markdown_links.py`, which fails a link in `docs/dev/`, the contributor guides, the README or the repository's root documents that leads to no file |

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "AfterNightControlsExport.h"
+#include "AfterNightShellClassicExport.h"
 
 #include <cstddef>
 #include <functional>
@@ -46,7 +46,7 @@ inline bool isUiBootstrapOrderValid(const std::vector<std::string>& steps)
 
 inline constexpr size_t kMainDashboardDelegateBindingCount = 11;
 
-class AFTERNIGHTCONTROLS_API UiBootstrapCoordinator
+class AFTERNIGHTSHELLCLASSIC_API ClassicUiBootstrap
 {
 public:
     struct Dependencies
@@ -76,7 +76,7 @@ public:
         std::function<void(const QString&)> onRemoveRecentFileRequested;
     };
 
-    explicit UiBootstrapCoordinator(const Dependencies& dependencies);
+    explicit ClassicUiBootstrap(const Dependencies& dependencies);
 
     void finalizeConstructorUiSetup() const;
     void initializeMainDashboard() const;

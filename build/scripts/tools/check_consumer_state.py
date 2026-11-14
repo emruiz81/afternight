@@ -88,6 +88,7 @@ SCANNED_TREES = (
     'src/AfterNightControls',
     'src/AfterNightProcesses',
     'src/AfterNightShellCore',
+    'src/AfterNightShellClassic',
     'src/AfterNightApp',
     'src/AfterNightCLI',
     'src/AfterNightExtensionHost',
@@ -110,14 +111,14 @@ PENDING_REHOME = 'pending-rehome'
 CATEGORIES = (PLATFORM_SERVICE, MODULE_SEAT, APPLICATION_SEAT, THEME_SERVICE, UI_REGISTRATION, UI_STATE, IDENTITY,
               CONSTANT, PENDING_REHOME)
 
-QT_LAYERS = ('src/AfterNightControls/', 'src/AfterNightProcesses/', 'src/AfterNightShellCore/', 'src/AfterNightApp/',
-             'src/AfterNightExtensionHost/')
+QT_LAYERS = ('src/AfterNightControls/', 'src/AfterNightProcesses/', 'src/AfterNightShellCore/',
+             'src/AfterNightShellClassic/', 'src/AfterNightApp/', 'src/AfterNightExtensionHost/')
 LOCATIONS = {
     PLATFORM_SERVICE: ('src/AfterNightPlatform/',),
     MODULE_SEAT: ('src/AfterNightExtensionRuntimeBackend/', 'src/AfterNightExtensionHost/',
                   'src/AfterNightExtensionHostLite/', 'src/AfterNightCLI/'),
     APPLICATION_SEAT: ('src/AfterNightApp/', 'src/AfterNightControls/controls/IAppContext.cpp',
-                       'src/AfterNightShellCore/core/'),
+                       'src/AfterNightShellCore/core/', 'src/AfterNightShellClassic/'),
     THEME_SERVICE: ('src/AfterNightControls/theme/',),
     UI_REGISTRATION: QT_LAYERS,
     UI_STATE: QT_LAYERS,
@@ -125,7 +126,7 @@ LOCATIONS = {
 LOCATION_REASONS = {
     PLATFORM_SERVICE: 'the platform library',
     MODULE_SEAT: 'the runtime backend, an extension host or the command-line tool',
-    APPLICATION_SEAT: "the application, its context locator or the shell core's core",
+    APPLICATION_SEAT: "the application, its context locator, the shell core's core or a shell",
     THEME_SERVICE: 'the theme directory',
     UI_REGISTRATION: 'a Qt layer',
     UI_STATE: 'a Qt layer',

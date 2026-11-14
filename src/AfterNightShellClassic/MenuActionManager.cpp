@@ -3,7 +3,7 @@
 
 #include "stdafx.hpp"
 
-#include "app/MenuActionManager.h"
+#include "MenuActionManager.h"
 
 #include <QComboBox>
 #include <QObject>

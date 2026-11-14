@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "AfterNightControlsExport.h"
+
 #include <QWidget>
 #include <kddockwidgets/DockWidget.h>
 
@@ -10,7 +12,8 @@
 
 class AN_TabBar;
 class AN_Stack;
-class DockableControl : public QWidget
+// Exported: the classic shell, a library of its own, raises the dock of the view it activates.
+class AFTERNIGHTCONTROLS_API DockableControl : public QWidget
 {
 public:
     enum class DockableControlType

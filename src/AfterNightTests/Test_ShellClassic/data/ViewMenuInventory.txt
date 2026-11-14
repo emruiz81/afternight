@@ -7,7 +7,7 @@
 #   entry | text                                   an entry of the view's own
 #   separator
 #
-# ApplicationMenu.ViewMenuTreeMatchesTheRecord in Test_AfterNightApp compares the running application with this record.
+# ApplicationMenu.ViewMenuTreeMatchesTheRecord in Test_ShellClassic compares the running application with this record.
 # An entry is edited by the change that means to move it - a renamed action, a new menu
 # entry, a retired process; the record is not written again whole. A field is `-` when
 # empty; `\t` is a tab and `\|` a bar inside a text.

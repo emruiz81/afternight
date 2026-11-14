@@ -6,12 +6,12 @@
 // the output intents its settings store publishes; its view factory handing documents to the views it makes, from the
 // GUI thread or from a worker that never waits for it; its listeners; and its teardown, in the application's order.
 
-#include "app/AfterNightApp.h"
+#include "AfterNightApp.h"
 
 #include "AppTestSupport.h"
 #include "InventoryRecords.h"
 #include "app/AfterNightAppListener.h"
-#include "app/ApplicationSession.h"
+#include "core/ApplicationSession.h"
 #include "core/ApplicationCore.h"
 #include "app/FilePolicies.h"
 #include "controls/IAppContext.h"

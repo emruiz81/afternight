@@ -45,12 +45,12 @@
 namespace an::tests::app
 {
 
-inline constexpr const char* kActionInventoryPath = "src/AfterNightTests/Test_AfterNightApp/data/ActionInventory.txt";
+inline constexpr const char* kActionInventoryPath = "src/AfterNightTests/Test_ShellClassic/data/ActionInventory.txt";
 inline constexpr const char* kShortcutInventoryPath =
-    "src/AfterNightTests/Test_AfterNightApp/data/ShortcutInventory.txt";
+    "src/AfterNightTests/Test_ShellClassic/data/ShortcutInventory.txt";
 inline constexpr const char* kViewMenuInventoryPath =
-    "src/AfterNightTests/Test_AfterNightApp/data/ViewMenuInventory.txt";
-inline constexpr const char* kProcessInventoryPath = "src/AfterNightTests/Test_AfterNightApp/data/ProcessInventory.txt";
+    "src/AfterNightTests/Test_ShellClassic/data/ViewMenuInventory.txt";
+inline constexpr const char* kProcessInventoryPath = "src/AfterNightTests/Test_ShellClassic/data/ProcessInventory.txt";
 
 inline constexpr const char* kActionsSection = "actions";
 inline constexpr const char* kMenuBarSection = "menu bar";
@@ -64,7 +64,7 @@ inline constexpr const char* kProcessesSection = "processes";
 {
     return {
         QString(),
-        heldBy + QStringLiteral(" in Test_AfterNightApp compares the running application with this record."),
+        heldBy + QStringLiteral(" in Test_ShellClassic compares the running application with this record."),
         QStringLiteral("An entry is edited by the change that means to move it - a renamed action, a new menu"),
         QStringLiteral("entry, a retired process; the record is not written again whole. A field is `-` when"),
         QStringLiteral("empty; `\\t` is a tab and `\\|` a bar inside a text."),

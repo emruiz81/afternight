@@ -11,8 +11,6 @@
 #include "Test_ProcessFramework/ProcessFrameworkSuiteSupport.h"
 #include "Test_ProcessFramework/WindowLayoutChecks.h"
 
-#include "app/AfterNightAppUiBuilder.h"
-#include "fixtures/RecordedActions.h"
 #include "controls/AutostretchSettingsControlUiBuilder.h"
 #include "controls/ExportSequenceControlUiBuilder.h"
 #include "controls/ImageEXIFViewerControlUiBuilder.h"
@@ -36,9 +34,7 @@
 
 #include <QCoreApplication>
 #include <QLayout>
-#include <QMainWindow>
 #include <QMargins>
-#include <QMenuBar>
 #include <QSize>
 #include <QSizePolicy>
 #include <QStringList>
@@ -128,12 +124,6 @@ TEST(ControlsWindowLayoutTest, EveryControlsWindowTakesItsFontsFromTheTokens)
         const QStringList outside = fontsOutsideTheTokens(window);
         EXPECT_TRUE(outside.isEmpty()) << built.name << ": " << outside.join(QStringLiteral(", ")).toStdString();
     }
-
-    QMainWindow mainWindow;
-    const an::tests::fixtures::RecordedActions actions(mainWindow);
-    (void)an::ui::app::buildAfterNightAppUi(&mainWindow, actions.lookup());
-    const QStringList outside = fontsOutsideTheTokens(mainWindow);
-    EXPECT_TRUE(outside.isEmpty()) << "main window: " << outside.join(QStringLiteral(", ")).toStdString();
 }
 
 // A Controls window that resizes lays out everything it shows: no widget sits at a fixed geometry outside the
@@ -434,20 +424,4 @@ TEST(ControlsWindowLayoutTest, NewSequenceWindowUsesTokenSpacing)
     EXPECT_EQ(output->contentsMargins(), QMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md));
     const QStringList outside = fontsOutsideTheTokens(*window);
     EXPECT_TRUE(outside.isEmpty()) << outside.join(QStringLiteral(", ")).toStdString();
-}
-
-// The main window is built with its menu bar, tool bar, status bar and central stack in place, the menu bar holding
-// the application's menus.
-TEST(ControlsWindowLayoutTest, TheMainWindowsMenusAreBuilt)
-{
-    QMainWindow host;
-    const an::tests::fixtures::RecordedActions actions(host);
-    const auto ui = an::ui::app::buildAfterNightAppUi(&host, actions.lookup());
-    ASSERT_NE(ui.centralWidget, nullptr);
-    ASSERT_NE(ui.menuBar, nullptr);
-    ASSERT_NE(ui.mainToolBar, nullptr);
-    ASSERT_NE(ui.statusBar, nullptr);
-    EXPECT_EQ(host.menuBar(), ui.menuBar);
-    EXPECT_EQ(host.centralWidget(), ui.centralWidget);
-    EXPECT_GT(ui.menuBar->actions().size(), 0);
 }

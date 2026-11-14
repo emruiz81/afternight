@@ -188,7 +188,7 @@ TEST(DarkStructureEnhanceRegistrationTest, TheDetailsMenuLaunchesItThroughItsDes
     ProcessMenus menus;
     QAction* entry = menus.entry(QStringLiteral("Details"), QStringLiteral("Dark Structure Enhance"));
     ASSERT_NE(entry, nullptr);
-    EXPECT_EQ(entry, menus.ui().actionDark_Structure_Enhance);
+    EXPECT_EQ(entry, menus.action("actionDark_Structure_Enhance"));
     ASSERT_TRUE(entry->isEnabled());
     entry->trigger();
     EXPECT_EQ(menus.launched, std::vector<std::string>{"sharpening_enhancement.actionDark_Structure_Enhance"});
