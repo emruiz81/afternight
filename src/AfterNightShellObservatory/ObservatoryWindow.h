@@ -10,6 +10,7 @@
 #include "AfterNightShellObservatoryExport.h"
 
 #include "core/IShell.h"
+#include "tasks/TaskModel.h"
 #include "views/WorkspaceModel.h"
 
 #include <QMainWindow>
@@ -18,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 class ImageViewControl;
 class QCloseEvent;
@@ -33,6 +35,7 @@ namespace an::ui
 class AnCommandPalette;
 class AnIconRail;
 class AnReadoutColumn;
+struct RailItem;
 } // namespace an::ui
 
 namespace an::ui::shell
@@ -51,6 +54,7 @@ class HomePage;
 class MenuBarOnAlt;
 class ShellActions;
 class StatusLine;
+class TaskPresenter;
 class TopBar;
 class WorkspaceHost;
 class WorkspacePage;
@@ -59,7 +63,7 @@ class WorkspaceToolbar;
 /// The Observatory shell's main window. It is what only a window can answer for the application core's services -
 /// where a view goes, what the status line shows, whether the Session Console is on screen - and the window a person
 /// works in: Home when no image is open, the workspace that holds the views otherwise. Processes open as windows of
-/// their own.
+/// their own, and each is a task in the rail (`TaskPresenter`).
 ///
 /// It is made over an application that is initialized and started (`ApplicationCore::initialize`, `start`): the
 /// context exists, the session is open and the installed extensions are known. The core outlives it.
@@ -112,6 +116,16 @@ public:
 
     /// The rail's item of a workspace.
     [[nodiscard]] static QString railWorkspaceId(const QString& workspaceId);
+
+    /// The rail's item of a task.
+    [[nodiscard]] static QString railTaskId(an::ui::shell::TaskId id);
+
+    /// The shell's process presenter, which keeps its tasks; null once the window is on its way out.
+    [[nodiscard]] TaskPresenter* taskPresenter() const noexcept;
+
+    /// A task's menu: Show, Attach (a process shown as a window has no page to attach to yet), Close (disabled during
+    /// a run), acting on that task.
+    void buildTaskMenu(QMenu& menu, an::ui::shell::TaskId id);
 
     [[nodiscard]] HomePage* homePage() const noexcept;
     /// The page of the workspace the centre shows, or would show.
@@ -217,6 +231,10 @@ private:
     void placeChanged();
     void railActivated(const QString& id);
     void updateRail();
+    /// The tasks' items of the rail, in the order they were opened.
+    void appendTaskItems(std::vector<an::ui::RailItem>& items) const;
+    /// What each workspace's history strip shows of the task open on the view it shows.
+    void refreshPendingChips();
     void updateExtensionMenus();
     void activeViewChanged(ImageViewControl* view);
     void refreshViewSelector();

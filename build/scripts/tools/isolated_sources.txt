@@ -2502,6 +2502,7 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
+    header   src/AfterNightShellCore/tasks/TaskModel.h
 
 sources Test_ShellClassic
     unit     src/AfterNightTests/Test_ShellClassic/NightWindowTest.cpp
@@ -2736,6 +2737,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ConsoleDrawerTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/WorkspacesTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TasksTest.cpp
     include  src/AfterNightTests
     include  src/AfterNightShellObservatory
     include  src/AfterNightShellCore
@@ -2877,6 +2879,22 @@ sources Test_ShellObservatory
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
     header   src/AfterNightTests/fixtures/WindowDriving.h
+    header   src/AfterNightControls/app/AfterNightAppListener.h
+    header   src/AfterNightControls/components/AnProgressCard.h
+    header   src/AfterNightControls/controls/ImageCropController.h
+    header   src/AfterNightControls/controls/ImageProcessControl.h
+    header   src/AfterNightControls/controls/ImageRTPreviewControl.h
+    header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ProcessCompanions.h
+    header   src/AfterNightControls/controls/ProcessExecution.h
+    header   src/AfterNightControls/controls/ProgressDialogControl.h
+    header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
+    header   src/AfterNightControls/controls/QSliderSpinBox.h
+    header   src/AfterNightControls/controls/ViewProcessingNotice.h
+    header   src/AfterNightControls/session/ExecutionScope.h
+    header   src/AfterNightShellCore/tasks/TaskModel.h
+    header   src/AfterNightShellCore/views/ViewThumbnailService.h
+    header   src/AfterNightShellObservatory/tasks/TaskPresenter.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3012,6 +3030,7 @@ sources Test_ShellParity
     header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
+    header   src/AfterNightShellCore/tasks/TaskModel.h
 
 # The full extension host's native suite: its application context, its native process window and the session it borrows
 # from the runtime backend, compiled from the host's sources and linked against the processes and Controls libraries. It

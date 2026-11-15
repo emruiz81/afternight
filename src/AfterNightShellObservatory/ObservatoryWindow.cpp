@@ -14,6 +14,7 @@
 #include "pages/FloatingImagesPage.h"
 #include "pages/HomePage.h"
 #include "pages/WorkspacePage.h"
+#include "tasks/TaskPresenter.h"
 #include "workspaces/FloatingViewChrome.h"
 #include "workspaces/RenameWorkspaceDialog.h"
 #include "workspaces/WorkspaceHost.h"
@@ -40,6 +41,7 @@
 #include "services/ProcessLaunchService.h"
 #include "services/RecentFilesModel.h"
 #include "services/WindowGeometryStore.h"
+#include "tasks/TaskModel.h"
 #include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
@@ -59,6 +61,7 @@
 #include "components/AnChip.h"
 #include "components/AnCommandPalette.h"
 #include "components/AnFloatingToolbar.h"
+#include "components/AnHistoryStrip.h"
 #include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
 #include "components/AnReadoutColumn.h"
@@ -89,6 +92,7 @@
 #include <QContextMenuEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -104,6 +108,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include <cmath>
 #include <functional>
 #include <map>
 #include <utility>
@@ -194,6 +199,8 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<WorkspaceHost> workspaces;
     // The window's chrome follows the active view through the core's listeners.
     std::unique_ptr<ViewFollower> follower;
+    // The shell's process presenter: the tasks, what their views show of them.
+    std::unique_ptr<TaskPresenter> tasks;
     // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
     std::unique_ptr<ShellActions> shellActions;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
@@ -306,9 +313,27 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
         closeAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
     }
 
+    // The tasks are kept from the window's start: a process opened from here on is one.
+    impl.tasks = std::make_unique<TaskPresenter>(core);
+
     buildRegions();
     makeUnits();
     bindServices();
+
+    TaskPresenter::Hooks taskHooks;
+    taskHooks.tasksChanged = [this]() {
+        updateRail();
+        refreshPendingChips();
+    };
+    taskHooks.viewChanged = [this](ImageViewControl* /*view*/) { refreshPendingChips(); };
+    impl.tasks->setHooks(std::move(taskHooks));
+    // The task whose window is active is the one the person looks at.
+    QObject::connect(qApp, &QGuiApplication::focusWindowChanged, this, [this](QWindow* /*focus*/) {
+        if (m_impl->tasks)
+        {
+            m_impl->tasks->activeWindowChanged(QApplication::activeWindow());
+        }
+    });
 
     // The installed extensions joined the process menus as the application started; the catalogue's actions are
     // connected to what they do, the process actions bound over the registry.
@@ -323,6 +348,12 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    // The tasks go first: what the process windows tell as they go reaches no presenter.
+    if (impl.tasks)
+    {
+        impl.tasks->setHooks({});
+        impl.tasks.reset();
+    }
     if (impl.shellCommands != nullptr)
     {
         core.commands().removeProvider(impl.shellCommands);
@@ -572,6 +603,22 @@ void ObservatoryWindow::buildRegions()
     // a workspace's icon opens its menu.
     QObject::connect(impl.rail, &an::ui::AnIconRail::itemMenuRequested, this,
                      [this](const QString& id, const QPoint& globalPos) {
+                         const QString taskPrefix = railTaskId(0u).chopped(1);
+                         if (id.startsWith(taskPrefix))
+                         {
+                             bool numbered = false;
+                             const an::ui::shell::TaskId task = id.mid(taskPrefix.size()).toULongLong(&numbered);
+                             if (!numbered)
+                             {
+                                 return;
+                             }
+                             auto* menu = new QMenu(this);
+                             menu->setObjectName(QStringLiteral("taskMenu"));
+                             menu->setAttribute(Qt::WA_DeleteOnClose);
+                             buildTaskMenu(*menu, task);
+                             menu->popup(globalPos);
+                             return;
+                         }
                          const QString prefix = railWorkspaceId(QString());
                          if (!id.startsWith(prefix))
                          {
@@ -999,6 +1046,16 @@ HomePage* ObservatoryWindow::homePage() const noexcept
     return m_impl->homePage;
 }
 
+QString ObservatoryWindow::railTaskId(const an::ui::shell::TaskId id)
+{
+    return QStringLiteral("task.%1").arg(id);
+}
+
+TaskPresenter* ObservatoryWindow::taskPresenter() const noexcept
+{
+    return m_impl->tasks.get();
+}
+
 QString ObservatoryWindow::railWorkspaceId(const QString& workspaceId)
 {
     return QStringLiteral("workspace.") + workspaceId;
@@ -1163,8 +1220,12 @@ void ObservatoryWindow::activate(ImageViewControl& view)
     }
 }
 
-void ObservatoryWindow::viewAdded(ImageViewControl& /*view*/, const an::ui::shell::ViewOrigin /*origin*/)
+void ObservatoryWindow::viewAdded(ImageViewControl& view, const an::ui::shell::ViewOrigin /*origin*/)
 {
+    if (m_impl->tasks)
+    {
+        m_impl->tasks->watch(view);
+    }
     refreshViewSelector();
     placeChanged();
 }
@@ -1728,6 +1789,31 @@ void ObservatoryWindow::updateWorkspacePage()
         if (wanted != bound)
         {
             page->bindView(wanted);
+        }
+    }
+    refreshPendingChips();
+}
+
+void ObservatoryWindow::refreshPendingChips()
+{
+    Impl& impl = *m_impl;
+    if (!impl.workspaces)
+    {
+        return;
+    }
+    for (const QString& id : impl.workspaces->ids())
+    {
+        WorkspacePage* const page = impl.workspaces->page(id);
+        if (page == nullptr || page->historyStrip() == nullptr)
+        {
+            continue;
+        }
+        ImageViewControl* const shown = page->binder().historyView();
+        std::optional<an::ui::HistoryPendingStep> pending =
+            impl.tasks && shown != nullptr ? impl.tasks->pendingStepOf(shown) : std::nullopt;
+        if (page->historyStrip()->pendingStep() != pending)
+        {
+            page->historyStrip()->setPendingStep(std::move(pending));
         }
     }
 }
@@ -2583,6 +2669,7 @@ void ObservatoryWindow::updateRail()
     }
     items.push_back(item(QString::fromLatin1(kRailIntegration), an::ui::RailSection::Place, QStringLiteral("layers"),
                          tr("Integration")));
+    appendTaskItems(items);
     an::ui::RailItem console = item(QString::fromLatin1(kRailConsole), an::ui::RailSection::Foot,
                                     QStringLiteral("terminal"), tr("Session Console"));
     const int unseen = impl.consoleDrawer != nullptr ? impl.consoleDrawer->unseenWarnings() : 0;
@@ -2612,10 +2699,91 @@ void ObservatoryWindow::updateRail()
     }
 }
 
+void ObservatoryWindow::appendTaskItems(std::vector<an::ui::RailItem>& items) const
+{
+    const Impl& impl = *m_impl;
+    if (!impl.tasks)
+    {
+        return;
+    }
+    const an::ui::shell::TaskModel& model = impl.tasks->model();
+    for (const an::ui::shell::Task& task : model.tasks())
+    {
+        an::ui::RailItem made;
+        made.id = railTaskId(task.id);
+        made.section = an::ui::RailSection::Task;
+        made.text = task.targetName.isEmpty() ? task.displayName
+                                              : QStringLiteral("%1 - %2").arg(task.displayName, task.targetName);
+        made.thumbnail = task.target.isNull() ? QImage() : task.thumbnail;
+        made.glyphKey = task.iconKey;
+        made.floating = task.presentation == an::ui::shell::TaskPresentation::Window;
+        made.selected = task.id == model.current() && task.presentation == an::ui::shell::TaskPresentation::Page;
+        if (task.run.running())
+        {
+            made.runPhase = an::ui::RailRunPhase::Running;
+            if (task.run.progress.has_value())
+            {
+                made.progress = static_cast<int>(std::lround(*task.run.progress * 100.0));
+            }
+        }
+        else if (task.unseenResult)
+        {
+            made.runPhase = task.run.phase == an::ui::ProcessRunState::Phase::Failed ? an::ui::RailRunPhase::Failed
+                                                                                     : an::ui::RailRunPhase::Succeeded;
+            made.unseenResult = true;
+        }
+        items.push_back(std::move(made));
+    }
+}
+
+void ObservatoryWindow::buildTaskMenu(QMenu& menu, const an::ui::shell::TaskId id)
+{
+    TaskPresenter* const tasks = m_impl->tasks.get();
+    const an::ui::shell::Task* task = tasks != nullptr ? tasks->model().task(id) : nullptr;
+    if (task == nullptr)
+    {
+        return;
+    }
+    QAction* const show = menu.addAction(tr("Show"));
+    show->setObjectName(QStringLiteral("actionShowTask"));
+    QObject::connect(show, &QAction::triggered, this, [this, id]() {
+        if (m_impl->tasks)
+        {
+            (void)m_impl->tasks->show(id);
+        }
+    });
+    // A task in a window is attached to a page of this window; a process shown as a window has none yet.
+    const bool floats = task->presentation == an::ui::shell::TaskPresentation::Window;
+    QAction* const place = menu.addAction(floats ? tr("Attach") : tr("Float as Window"));
+    place->setObjectName(QStringLiteral("actionPlaceTask"));
+    place->setEnabled(task->surface != an::ui::ProcessSurface::Window);
+    menu.addSeparator();
+    QAction* const close = menu.addAction(tr("Close"));
+    close->setObjectName(QStringLiteral("actionCloseTask"));
+    close->setEnabled(tasks->canClose(id));
+    QObject::connect(close, &QAction::triggered, this, [this, id]() {
+        if (m_impl->tasks)
+        {
+            (void)m_impl->tasks->close(id);
+        }
+    });
+}
+
 void ObservatoryWindow::railActivated(const QString& id)
 {
     Impl& impl = *m_impl;
     const QString workspacePrefix = railWorkspaceId(QString());
+    const QString taskPrefix = railTaskId(0u).chopped(1);
+    if (id.startsWith(taskPrefix))
+    {
+        bool numbered = false;
+        const an::ui::shell::TaskId task = id.mid(taskPrefix.size()).toULongLong(&numbered);
+        if (numbered && impl.tasks)
+        {
+            (void)impl.tasks->show(task);
+        }
+        return;
+    }
     if (id == QLatin1String(kRailHome))
     {
         showHome();

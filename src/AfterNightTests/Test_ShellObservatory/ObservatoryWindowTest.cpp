@@ -167,7 +167,9 @@ TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
     EXPECT_TRUE(process->isWindow());
     EXPECT_FALSE(window().isAncestorOf(process));
     EXPECT_EQ(core().openProcesses().size(), openBefore + 1);
-    EXPECT_EQ(shell().processPresenter(), nullptr);
+    // The shell lends its presenter, which takes no process into a page yet: the process stays a window.
+    ASSERT_NE(shell().processPresenter(), nullptr);
+    EXPECT_FALSE(shell().processPresenter()->adopt(*process));
 }
 
 /// The window's exit, each case over a start of its own: its end is the application's.

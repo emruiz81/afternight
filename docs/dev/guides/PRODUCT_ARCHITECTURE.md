@@ -1771,6 +1771,23 @@ open and close it; whether it is open, its height and whether it floats are kept
 `interface/consoleDrawerHeight`, `interface/consoleFloating`), the height read as the window is made and the rest put
 back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
 
+Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes no process into a page
+yet, so every process is still the window it was, and it keeps the shell core's `TaskModel`, fed by what the windows
+tell it, and a `ViewThumbnailService` that follows the tasks' targets. The rail lists the tasks under the places, in
+the order they were opened, under a hairline drawn only while there are any: each its target's thumbnail with the
+process's glyph, or the glyph on a tile for a process with no single target; dimmed with the window glyph, since a
+task in a window floats; the ring and its arc while the run is on its way and says how far it is; a result's dot for a
+run that ended while its task was not the one looked at - the task whose window is active - which showing the task
+clears. A click, and the task menu's Show, raise and activate its window; the menu's Attach is offered only to a
+process that has a page, which none has yet, and Close is refused while the run is on its way. A view a run writes
+carries the notice that names the running task and how far it has come, with Show, set as its processing lock is taken
+and as the run moves on - the lock is taken before the run is stated, so the notice names the task once it is - and
+cleared as the lock is let go; another view goes on as usual. The tab of a view a task is open on carries the task's
+glyph, its tool tip naming the task and, during a run, that the image is locked until the run ends; its click shows the
+task. The history strip of the view a workspace's chrome shows adds the pending step of the task open on it,
+"writing" while the run writes it. The presenter watches every view the window is told of (`IViewHost::viewAdded`), for
+its lock and its name, and goes first as the window goes, so what the process windows tell as they go reaches none.
+
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
 window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's

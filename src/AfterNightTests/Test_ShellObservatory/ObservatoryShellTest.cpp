@@ -6,6 +6,8 @@
 
 #include "ObservatoryWindowCase.h"
 
+#include "tasks/TaskPresenter.h"
+
 #include "pages/HomePage.h"
 #include "pages/WorkspacePage.h"
 #include "workspaces/WorkspaceHost.h"
@@ -40,15 +42,16 @@ using ObservatoryShell = ObservatoryWindowCase;
     return dock != nullptr && area != nullptr && an::ui::shell::DockHooks::mainWindowHolding(dock) == area;
 }
 
-// The shell answers the contract through its window: the window it shows, no process presenter while every process
-// is a window, a view placed in the workspace's dock area and the workspace shown, a view brought forward as a tab,
-// a view maximized over the whole page and restored to its dock with the layout as it was, the dock area the core's
-// operations act on, and Home and the views shown when asked.
+// The shell answers the contract through its window: the window it shows, its window's task presenter, which takes no
+// process into a page while every process is a window, a view placed in the workspace's dock area and the workspace
+// shown, a view brought forward as a tab, a view maximized over the whole page and restored to its dock with the layout
+// as it was, the dock area the core's operations act on, and Home and the views shown when asked.
 TEST_F(ObservatoryShell, ImplementsTheContract)
 {
     an::ui::observatory::ObservatoryShell& contract = shell();
     ASSERT_EQ(contract.mainWindow(), &window());
-    EXPECT_EQ(contract.processPresenter(), nullptr);
+    EXPECT_EQ(contract.processPresenter(), static_cast<an::ui::IProcessPresenter*>(window().taskPresenter()));
+    EXPECT_NE(contract.processPresenter(), nullptr);
     EXPECT_EQ(&contract.viewHost(), static_cast<an::ui::shell::IViewHost*>(&window()));
     EXPECT_EQ(&contract.statusDisplay(), static_cast<an::ui::shell::IStatusDisplay*>(&window()));
     EXPECT_EQ(core().shell(), &contract);

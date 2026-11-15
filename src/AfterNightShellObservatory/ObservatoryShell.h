@@ -45,7 +45,8 @@ public:
     [[nodiscard]] QWidget* mainWindow() override;
     [[nodiscard]] an::ui::shell::IViewHost& viewHost() override;
     [[nodiscard]] an::ui::shell::IStatusDisplay& statusDisplay() override;
-    /// Null: every process is a window of its own in this shell for now.
+    /// The window's tasks (`TaskPresenter`): every process is a window of its own still, and each is a task in the
+    /// rail. Null once the window is on its way out.
     [[nodiscard]] an::ui::IProcessPresenter* processPresenter() override;
     void setSessionConsoleVisible(bool visible) override;
     [[nodiscard]] bool isSessionConsoleVisible() const override;

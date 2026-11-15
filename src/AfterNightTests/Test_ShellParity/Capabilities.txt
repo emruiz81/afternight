@@ -360,7 +360,7 @@ capability process.window
     title        A process opens a window, its size remembered
     shared       ProcessFrameworkCriticalPathTest.RestoresGeometryWhenRememberWindowSizeIsEnabled, ProcessPersistenceCriticalPathTest.RestoreClampsOversizedGeometryToAvailableScreen, ProcessLauncherTest.AProcessOpensOnTheActiveViewUnderItsDescriptor
     classic      ProductSmoke.ATypedProcessLaunchedFromTheMenuAppliesToTheActiveView, ProductSmoke.AnOwnThreadWindowLaunchesFromTheMenuOverTheActiveView
-    observatory  pending
+    observatory  ObservatoryWindow.ProcessOpensAsAWindow, Tasks.TheRailGainsAndLosesItems, Tasks.TheMenusEntries
 
 capability process.header
     title        Title, description, message banner with progress
@@ -408,13 +408,13 @@ capability process.several
     title        Several process windows; a process pointed at another image
     shared       ProcessWindowTest.ASecondPreviewOnAViewTurnsOffTheOneAlreadyShownThere, ProcessLauncherTest.TheSameProcessAttachedUnderItsOwnNameIsRefused, PreviewLifecycle.AChangedTargetShowsNothingKeptOfTheImageBefore
     classic      ShellScenario.AnExclusiveProcessIsRefusedWhileAnotherIsAttached/classic
-    observatory  pending
+    observatory  BlockedView.AnotherViewTakesAProcessMeanwhile, Tasks.ATargetChangeUpdatesTheThumbnailAndTheTooltip
 
 capability process.lock
     title        A view is locked while a run writes it
     shared       ImageViewControlTest.TheProcessingLockAdmitsExactlyOneOfConcurrentCallers, ApplyRunTest.AnApplyOnAViewAnotherRunHoldsIsRefusedWithAWarning, ProcessLauncherTest.AProcessThatNeedsTheViewToItselfIsHeldOnBothSides, ProcessingLock.NotifiesOnTheGuiThread, ProcessingNotice.DisablesTheToolbarsActionsAndChoices
     classic
-    observatory  pending
+    observatory  BlockedView.TheNoticeNamesTheProcessAndTheProgress, BlockedView.ShowRaisesTheTask, TabGlyph.ATaskMarksItsImagesTab
 
 capability process.multi-input
     title        Processes with several inputs
@@ -610,9 +610,9 @@ capability new.history-strip
 
 capability new.tasks
     title        Tasks in the rail; float, attach, drag
-    shared
+    shared       TaskModel.ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget, ViewThumbnailService.ASixtyPixelSquareThroughTheViewsDisplay, RunState.AnApplyGoesFromIdleToRunningToSucceeded
     classic
-    observatory  pending
+    observatory  Tasks.TheArcFollowsTheProgress, Tasks.TheResultDotOfARunThatEndedElsewhereClearsOnShow, HistoryStrip.PendingChipFollowsTheTask
 
 capability new.workspaces
     title        Several workspaces

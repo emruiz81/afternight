@@ -6,6 +6,7 @@
 #include "ObservatoryShell.h"
 
 #include "ObservatoryWindow.h"
+#include "tasks/TaskPresenter.h"
 
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
@@ -75,7 +76,7 @@ an::ui::shell::IStatusDisplay& ObservatoryShell::statusDisplay()
 
 an::ui::IProcessPresenter* ObservatoryShell::processPresenter()
 {
-    return nullptr;
+    return m_window != nullptr ? m_window->taskPresenter() : nullptr;
 }
 
 void ObservatoryShell::setSessionConsoleVisible(const bool visible)
