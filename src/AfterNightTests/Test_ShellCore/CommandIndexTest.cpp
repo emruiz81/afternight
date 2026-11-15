@@ -377,6 +377,38 @@ TEST_F(CommandIndex, ACommandThatCannotRunIsDimmedWithItsReasonAndDoesNotRun)
     EXPECT_TRUE(index->recentIds().empty());
 }
 
+// A provider removed takes its commands with it at once: a query finds none of them and an id of one runs nothing,
+// while the other providers' commands stay; a provider the index does not hold changes nothing.
+TEST_F(CommandIndex, ARemovedProviderTakesItsCommandsWithIt)
+{
+    Index index;
+    index.addProvider(std::make_unique<FixedCommands>(
+        std::vector<CommandEntry>{command(QStringLiteral("kept"), QStringLiteral("Kept Command"))}));
+    auto owned = std::make_unique<FixedCommands>(
+        std::vector<CommandEntry>{command(QStringLiteral("gone"), QStringLiteral("Gone Command"))});
+    const FixedCommands* const removed = owned.get();
+    index.addProvider(std::move(owned));
+    index.refresh();
+    ASSERT_NE(index.entry(QStringLiteral("gone")), nullptr);
+    ASSERT_NE(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("gone")), nullptr);
+
+    const FixedCommands stranger({command(QStringLiteral("stranger"), QStringLiteral("Stranger"))});
+    index.removeProvider(&stranger);
+    EXPECT_NE(index.entry(QStringLiteral("gone")), nullptr) << "a provider the index does not hold changes nothing";
+    EXPECT_NE(index.entry(QStringLiteral("kept")), nullptr);
+
+    index.removeProvider(removed);
+    EXPECT_EQ(index.entry(QStringLiteral("gone")), nullptr);
+    EXPECT_EQ(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("gone")), nullptr);
+    EXPECT_FALSE(index.run(QStringLiteral("gone")));
+    EXPECT_TRUE(m_runs.isEmpty());
+    ASSERT_NE(index.entry(QStringLiteral("kept")), nullptr);
+    EXPECT_NE(rowOf(index.query(QStringLiteral("Command")), QStringLiteral("kept")), nullptr);
+
+    index.removeProvider(removed);
+    EXPECT_NE(index.entry(QStringLiteral("kept")), nullptr) << "a provider removed twice is removed once";
+}
+
 // The commands run last are the last twenty, most recent first, each once; they are written to the store as they
 // change and read back by another index over it, as the next start reads them.
 TEST_F(CommandIndex, KeepsTheLastTwentyCommandsRunAndReadsThemBack)

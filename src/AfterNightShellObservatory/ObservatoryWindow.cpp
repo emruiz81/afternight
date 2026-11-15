@@ -5,7 +5,9 @@
 
 #include "ObservatoryWindow.h"
 
+#include "ShellActions.h"
 #include "chrome/MenuBarOnAlt.h"
+#include "chrome/PaletteField.h"
 #include "chrome/StatusLine.h"
 #include "chrome/TopBar.h"
 #include "pages/FloatingImagesPage.h"
@@ -22,6 +24,7 @@
 #include "actions/ProcessListDialogs.h"
 #include "actions/ProcessMenuModel.h"
 #include "actions/ViewMenuBuilder.h"
+#include "commands/CommandIndex.h"
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
@@ -49,7 +52,9 @@
 #include "app/RuntimeStorageCoordinator.h"
 #include "app/ThemeManager.h"
 #include "app/ViewCreationCoordinator.h"
+#include "components/AnBreadcrumb.h"
 #include "components/AnChip.h"
+#include "components/AnCommandPalette.h"
 #include "components/AnFloatingToolbar.h"
 #include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
@@ -68,12 +73,14 @@
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
 #include "theme/AnProxyStyle.h"
+#include "theme/ComponentParts.h"
 
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/core/TabBar.h>
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QComboBox>
@@ -86,7 +93,9 @@
 #include <QTimer>
 #include <QMenu>
 #include <QPointer>
+#include <QPainter>
 #include <QResizeEvent>
+#include <QToolButton>
 #include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -94,6 +103,10 @@
 #include <functional>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace an::ui::observatory
 {
@@ -125,6 +138,25 @@ private:
     std::function<void(ImageViewControl*)> m_activeChanged;
 };
 
+/// The scrim laid over the centre and the column while the command palette is open.
+class PaletteScrim final : public QWidget
+{
+public:
+    explicit PaletteScrim(QWidget* parent) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("observatoryPaletteScrim"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        hide();
+    }
+
+protected:
+    void paintEvent(QPaintEvent* /*event*/) override
+    {
+        QPainter painter(this);
+        painter.fillRect(rect(), an::ui::tokens().colors.scrimSoft);
+    }
+};
+
 } // namespace
 
 struct ObservatoryWindow::Impl
@@ -153,6 +185,15 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<WorkspaceHost> workspaces;
     // The window's chrome follows the active view through the core's listeners.
     std::unique_ptr<ViewFollower> follower;
+    // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
+    std::unique_ptr<ShellActions> shellActions;
+    const an::ui::shell::ICommandProvider* shellCommands = nullptr;
+    an::ui::AnCommandPalette* palette = nullptr;
+    PaletteScrim* scrim = nullptr;
+    QMenu* moreMenu = nullptr;
+    QMenu* informationMenu = nullptr;
+    // The Close action's shortcut before this shell gave it Ctrl+W.
+    QKeySequence closeShortcutBefore;
     bool fillingSelector = false;
 
     // What the window's units read through a pointer to a pointer: the dashboard, the dock area, the lock's button
@@ -245,6 +286,14 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
                          SettingsDefaults::INTERFACE_ALWAYS_SHOW_MENU_BAR ? QStringLiteral("1")
                                                                           : QStringLiteral("0")) == QStringLiteral("1");
     impl.menuBar = new MenuBarOnAlt(*this, core.actions().lookup(), alwaysShown);
+    // The shell's own actions, and Ctrl+W on Close, which only this shell gives it: the catalogue's table and the
+    // classic shell keep 1.1's shortcuts.
+    impl.shellActions = std::make_unique<ShellActions>(*this);
+    if (QAction* const closeAction = core.actions().action(an::ui::shell::ids::kClose))
+    {
+        impl.closeShortcutBefore = closeAction->shortcut();
+        closeAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_W));
+    }
 
     buildRegions();
     makeUnits();
@@ -254,6 +303,7 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     // connected to what they do, the process actions bound over the registry.
     core.actionBindings().connectProcessActions();
     core.actionBindings().connectActions();
+    bindShellActions();
 }
 
 ObservatoryWindow::~ObservatoryWindow()
@@ -262,6 +312,15 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    if (impl.shellCommands != nullptr)
+    {
+        core.commands().removeProvider(impl.shellCommands);
+        impl.shellCommands = nullptr;
+    }
+    if (QAction* const closeAction = core.actions().action(an::ui::shell::ids::kClose))
+    {
+        closeAction->setShortcut(impl.closeShortcutBefore);
+    }
     if (impl.follower)
     {
         core.eventBus().unsubscribe(impl.follower.get());
@@ -417,8 +476,8 @@ void ObservatoryWindow::buildRegions()
     iconDeps.setLocked = [this](const bool locked) { lockLayout(locked); };
     iconDeps.icon = [this](const QString& name) { return m_impl->icon(name.toStdString()); };
     impl.layoutIcons = new WorkspaceToolbar(std::move(iconDeps), impl.topBar);
-    impl.topBar->row()->addStretch(1);
-    impl.topBar->row()->addWidget(impl.layoutIcons);
+    impl.topBar->trailing()->addWidget(impl.layoutIcons);
+    buildTopBarTrailing();
 
     // The status line's own parts: the view selector, the readout's button, the Console chip.
     QObject::connect(impl.statusLine->viewSelector(), &QComboBox::currentTextChanged, this,
@@ -428,8 +487,12 @@ void ObservatoryWindow::buildRegions()
                              m_impl->core.viewService().setActiveViewByName(name.toStdString());
                          }
                      });
-    QObject::connect(impl.statusLine->readoutButton(), &QAbstractButton::clicked, this,
-                     [this]() { m_impl->readoutColumn->setCollapsed(!m_impl->readoutColumn->isCollapsed()); });
+    QObject::connect(impl.statusLine->readoutButton(), &QAbstractButton::clicked, this, [this]() {
+        if (QAction* const readout = m_impl->shellActions->action(ids::kToggleReadout))
+        {
+            readout->trigger();
+        }
+    });
     QObject::connect(impl.statusLine->consoleChip(), &QAbstractButton::clicked, this,
                      [this]() { setSessionConsoleVisible(true); });
 
@@ -443,6 +506,20 @@ void ObservatoryWindow::buildRegions()
 
     impl.centre->setCurrentWidget(impl.homePage);
     connectDashboard();
+
+    // The command palette over the core's index of commands, and its scrim over the centre and the column.
+    impl.topBar->setIconProvider([this](const QString& name) { return m_impl->icon(name.toStdString()); });
+    impl.palette = new an::ui::AnCommandPalette(this);
+    impl.palette->setObjectName(QStringLiteral("observatoryCommandPalette"));
+    impl.palette->setSource(&impl.core.commands());
+    impl.palette->setIconResolver([this](const QString& key) { return m_impl->icon(key.toStdString()); });
+    impl.scrim = new PaletteScrim(central);
+    QObject::connect(impl.palette, &an::ui::AnCommandPalette::closed, this, [this]() { m_impl->scrim->hide(); });
+    QObject::connect(impl.palette, &an::ui::AnCommandPalette::allMenusRequested, this, [this]() {
+        const QWidget* const field = m_impl->topBar->paletteField();
+        m_impl->moreMenu->popup(field->mapToGlobal(QPoint(0, field->height())));
+    });
+    QObject::connect(impl.topBar->paletteField(), &QAbstractButton::clicked, this, [this]() { openPalette(); });
 
     // The readout follows the active view into the column.
     impl.readout = std::make_unique<an::ui::shell::ReadoutController>(impl.core);
@@ -901,6 +978,26 @@ FloatingViewChrome& ObservatoryWindow::floatingViewChrome() const noexcept
     return *m_impl->floatingChrome;
 }
 
+ShellActions& ObservatoryWindow::shellActions() const noexcept
+{
+    return *m_impl->shellActions;
+}
+
+an::ui::AnCommandPalette* ObservatoryWindow::palette() const noexcept
+{
+    return m_impl->palette;
+}
+
+QWidget* ObservatoryWindow::paletteScrim() const noexcept
+{
+    return m_impl->scrim;
+}
+
+QMenu* ObservatoryWindow::moreMenu() const noexcept
+{
+    return m_impl->moreMenu;
+}
+
 bool ObservatoryWindow::isHomeShown() const
 {
     return m_impl->centre->currentWidget() == m_impl->homePage;
@@ -1026,6 +1123,7 @@ void ObservatoryWindow::viewRemoved(ImageViewControl& view)
 void ObservatoryWindow::viewRenamed(ImageViewControl& /*view*/, const std::string& /*previousName*/)
 {
     refreshViewSelector();
+    updateBreadcrumb();
 }
 
 void ObservatoryWindow::maximize(ImageViewControl& view)
@@ -1176,11 +1274,16 @@ bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
 void ObservatoryWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
-    // The column narrows in a narrow window and folds a card in a short one.
+    // The column narrows in a narrow window and folds a card in a short one; the palette's field takes its form.
     if (m_impl->readoutColumn != nullptr)
     {
         m_impl->readoutColumn->setWindowSize(size());
     }
+    if (m_impl->topBar != nullptr)
+    {
+        m_impl->topBar->setWindowWidth(width());
+    }
+    placePaletteScrim();
 }
 
 // ---- What the window does
@@ -1208,6 +1311,7 @@ void ObservatoryWindow::applyThemeById(const QString& themeId)
     }
     m_impl->core.extensions().themeChanged();
     refreshTheme();
+    refreshChromeIcons();
 }
 
 void ObservatoryWindow::setActionIcons()
@@ -1330,6 +1434,7 @@ void ObservatoryWindow::placeChanged()
         impl.layoutIcons->setVisible(isWorkspaceShown());
     }
     updateRail();
+    updateBreadcrumb();
 }
 
 void ObservatoryWindow::activeViewChanged(ImageViewControl* view)
@@ -1351,6 +1456,7 @@ void ObservatoryWindow::activeViewChanged(ImageViewControl* view)
     }
     impl.workspacePage->binder().setViewCount(docked);
     refreshViewSelector();
+    updateBreadcrumb();
 }
 
 void ObservatoryWindow::refreshViewSelector()
@@ -1499,6 +1605,276 @@ void ObservatoryWindow::offerTheLock(const bool maximized)
         impl.layoutIcons->lockButton()->setEnabled(!maximized);
         impl.layoutIcons->refreshLock();
     }
+}
+
+void ObservatoryWindow::buildTopBarTrailing()
+{
+    Impl& impl = *m_impl;
+    const auto button = [&impl](const char* name, const QString& iconFile, const QString& tip) {
+        auto* made = new QToolButton(impl.topBar);
+        made->setObjectName(QString::fromLatin1(name));
+        made->setAutoRaise(true);
+        made->setFixedSize(an::ui::parts::kTopBarButton, an::ui::parts::kTopBarButton);
+        made->setIconSize(QSize(an::ui::parts::kTopBarIcon, an::ui::parts::kTopBarIcon));
+        // The icon is the theme's, set again whenever the theme changes.
+        made->setProperty("iconName", iconFile);
+        made->setIcon(impl.icon(iconFile.toStdString()));
+        made->setToolTip(tip);
+        impl.topBar->trailing()->addWidget(made);
+        return made;
+    };
+    const auto withKeys = [](const QAction* action) {
+        if (action == nullptr)
+        {
+            return QString();
+        }
+        const QString text = QString(action->text()).remove(QLatin1Char('&'));
+        return action->shortcut().isEmpty()
+                   ? text
+                   : QStringLiteral("%1 (%2)").arg(text, action->shortcut().toString(QKeySequence::NativeText));
+    };
+
+    // Night, a toggle: the shell's action.
+    QAction* const night = impl.shellActions->action(ids::kToggleNight);
+    QToolButton* const nightButton = button("topBarNightButton", QStringLiteral("moon"), withKeys(night));
+    night->setIcon(nightButton->icon());
+    nightButton->setDefaultAction(night);
+    nightButton->setToolTip(withKeys(night));
+
+    // Help: the user guide.
+    QAction* const guide = impl.core.actions().action(an::ui::shell::ids::kUserGuide);
+    QToolButton* const helpButton = button("topBarHelpButton", QStringLiteral("help"), withKeys(guide));
+    QObject::connect(helpButton, &QToolButton::clicked, this, [guide]() {
+        if (guide != nullptr)
+        {
+            guide->trigger();
+        }
+    });
+
+    // Information: About, About Qt and System Information.
+    QToolButton* const information = button("topBarInformationButton", QStringLiteral("info"), tr("Information"));
+    impl.informationMenu = new QMenu(information);
+    impl.informationMenu->setObjectName(QStringLiteral("topBarInformationMenu"));
+    for (const std::string_view id :
+         {an::ui::shell::ids::kAboutAfterNight, an::ui::shell::ids::kAboutQt, an::ui::shell::ids::kSystemInformation})
+    {
+        if (QAction* const action = impl.core.actions().action(id))
+        {
+            impl.informationMenu->addAction(action);
+        }
+    }
+    information->setMenu(impl.informationMenu);
+    information->setPopupMode(QToolButton::InstantPopup);
+
+    // More: the menu tree, as the menu bar holds it.
+    QToolButton* const more = button("topBarMoreButton", QStringLiteral("more_horiz"), tr("More"));
+    impl.moreMenu = new QMenu(more);
+    impl.moreMenu->setObjectName(QStringLiteral("topBarMoreMenu"));
+    for (QAction* top : impl.menuBar->bar()->actions())
+    {
+        if (top->menu() != nullptr)
+        {
+            impl.moreMenu->addMenu(top->menu());
+        }
+    }
+    more->setMenu(impl.moreMenu);
+    more->setPopupMode(QToolButton::InstantPopup);
+}
+
+void ObservatoryWindow::refreshChromeIcons()
+{
+    Impl& impl = *m_impl;
+    if (impl.topBar == nullptr)
+    {
+        return;
+    }
+    for (QToolButton* button : impl.topBar->findChildren<QToolButton*>())
+    {
+        const QString name = button->property("iconName").toString();
+        if (!name.isEmpty())
+        {
+            const QIcon themed = impl.icon(name.toStdString());
+            if (button->defaultAction() != nullptr)
+            {
+                button->defaultAction()->setIcon(themed);
+            }
+            button->setIcon(themed);
+        }
+    }
+    impl.topBar->refreshIcons();
+    if (impl.layoutIcons != nullptr)
+    {
+        impl.layoutIcons->refreshLock();
+    }
+}
+
+void ObservatoryWindow::bindShellActions()
+{
+    Impl& impl = *m_impl;
+    ShellActions& actions = *impl.shellActions;
+    QObject::connect(actions.action(ids::kShowHome), &QAction::triggered, this, [this]() { showHome(); });
+    QObject::connect(actions.action(ids::kCommandPalette), &QAction::triggered, this, [this]() { openPalette(); });
+
+    // The readout's collapse, both ways.
+    QAction* const readout = actions.action(ids::kToggleReadout);
+    readout->setChecked(!impl.readoutColumn->isCollapsed());
+    QObject::connect(readout, &QAction::toggled, this,
+                     [this](const bool shown) { m_impl->readoutColumn->setCollapsed(!shown); });
+    QObject::connect(impl.readoutColumn, &an::ui::AnReadoutColumn::collapsedChanged, this,
+                     [this](const bool collapsed) {
+                         QAction* const toggle = m_impl->shellActions->action(ids::kToggleReadout);
+                         const QSignalBlocker blocker(toggle);
+                         toggle->setChecked(!collapsed);
+                     });
+
+    QAction* const night = actions.action(ids::kToggleNight);
+    night->setChecked(an::ui::nightModeSet());
+    QObject::connect(night, &QAction::toggled, this, [this](const bool on) { setNight(on); });
+
+    QAction* const compact = actions.action(ids::kDensityCompact);
+    QAction* const comfortable = actions.action(ids::kDensityComfortable);
+    (an::ui::themeDensity() == an::ui::ThemeDensity::Comfortable ? comfortable : compact)->setChecked(true);
+    QObject::connect(compact, &QAction::triggered, this, [this]() { setDensity(false); });
+    QObject::connect(comfortable, &QAction::triggered, this, [this]() { setDensity(true); });
+
+    // The View menu of the menu bar lists them after what 1.1 had there.
+    if (QMenu* const view = impl.menuBar->menu("menuView_2"))
+    {
+        view->addSeparator();
+        view->addAction(actions.action(ids::kShowHome));
+        view->addAction(actions.action(ids::kCommandPalette));
+        view->addAction(readout);
+        view->addAction(night);
+        QMenu* const density = view->addMenu(tr("Density"));
+        density->setObjectName(QStringLiteral("menuDensity"));
+        density->addAction(compact);
+        density->addAction(comfortable);
+    }
+
+    // The palette offers them with the window's other views.
+    std::unique_ptr<an::ui::shell::ICommandProvider> provider = actions.commandProvider();
+    impl.shellCommands = provider.get();
+    impl.core.commands().addProvider(std::move(provider));
+    applyCaptionColour();
+}
+
+void ObservatoryWindow::openPalette()
+{
+    Impl& impl = *m_impl;
+    if (impl.palette == nullptr || impl.palette->isVisible())
+    {
+        return;
+    }
+    // Centred over the centre and the column, 12 px under the top bar.
+    const QRect centreAndColumn = impl.centre->geometry().united(
+        impl.rightColumn->isVisible() ? impl.rightColumn->geometry() : impl.centre->geometry());
+    const QPoint anchor =
+        centralWidget()->mapToGlobal(QPoint(centreAndColumn.center().x(), impl.topBar->geometry().bottom() + 1));
+    placePaletteScrim();
+    impl.scrim->show();
+    impl.scrim->raise();
+    impl.palette->open(anchor, height());
+}
+
+void ObservatoryWindow::placePaletteScrim()
+{
+    Impl& impl = *m_impl;
+    if (impl.scrim == nullptr || impl.centre == nullptr)
+    {
+        return;
+    }
+    QRect area = impl.centre->geometry();
+    if (impl.rightColumn->isVisible())
+    {
+        area = area.united(impl.rightColumn->geometry());
+    }
+    // The centre's geometry is in its row's coordinates: the scrim is laid in the central widget's.
+    const QPoint origin = impl.centre->parentWidget()->mapTo(centralWidget(), area.topLeft());
+    impl.scrim->setGeometry(QRect(origin, area.size()));
+}
+
+void ObservatoryWindow::updateBreadcrumb()
+{
+    Impl& impl = *m_impl;
+    if (impl.topBar == nullptr)
+    {
+        return;
+    }
+    QStringList parts;
+    if (isWorkspaceShown())
+    {
+        parts.append(impl.workspaces->workspaceName());
+        if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl())
+        {
+            parts.append(QString::fromUtf8(active->getUniqueName()));
+        }
+    }
+    else
+    {
+        parts.append(tr("Home"));
+    }
+    impl.topBar->breadcrumb()->setParts(parts);
+}
+
+void ObservatoryWindow::setNight(const bool night)
+{
+    if (an::ui::nightModeSet() == night)
+    {
+        return;
+    }
+    an::ui::setNightMode(night);
+    an::ui::IGlobalSettingsProvider* const settings = m_impl->core.globalSettings();
+    applyThemeById(settings->select(QString::fromLatin1(SettingsKeys::INTERFACE_THEME),
+                                    QString::fromLatin1(SettingsDefaults::INTERFACE_THEME)));
+    applyCaptionColour();
+}
+
+void ObservatoryWindow::setDensity(const bool comfortable)
+{
+    const an::ui::ThemeDensity density =
+        comfortable ? an::ui::ThemeDensity::Comfortable : an::ui::ThemeDensity::Compact;
+    an::ui::IGlobalSettingsProvider* const settings = m_impl->core.globalSettings();
+    (void)settings->upsert(QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY),
+                           comfortable ? QStringLiteral("comfortable") : QStringLiteral("compact"));
+    if (an::ui::themeDensity() == density)
+    {
+        return;
+    }
+    an::ui::setThemeDensity(density);
+    applyThemeById(settings->select(QString::fromLatin1(SettingsKeys::INTERFACE_THEME),
+                                    QString::fromLatin1(SettingsDefaults::INTERFACE_THEME)));
+}
+
+void ObservatoryWindow::applyCaptionColour()
+{
+#ifdef _WIN32
+    // Under Night the native title bar is drawn in the darkest surface with the primary text, where the system has the
+    // attribute (Windows 11): a white caption would undo the dark adaptation Night is for. Off, the system's own again.
+    constexpr DWORD kCaptionColour = 35;
+    constexpr DWORD kTextColour = 36;
+    constexpr DWORD kDefaultColour = 0xFFFFFFFF;
+    using SetAttribute = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+    static const SetAttribute setAttribute = []() -> SetAttribute {
+        HMODULE const library = LoadLibraryW(L"dwmapi.dll");
+        return library != nullptr ? reinterpret_cast<SetAttribute>(
+                                        reinterpret_cast<void*>(GetProcAddress(library, "DwmSetWindowAttribute")))
+                                  : nullptr;
+    }();
+    if (setAttribute == nullptr || !testAttribute(Qt::WA_WState_Created))
+    {
+        return;
+    }
+    const auto colourOf = [](const QColor& colour) {
+        return static_cast<DWORD>(RGB(colour.red(), colour.green(), colour.blue()));
+    };
+    const bool night = an::ui::nightModeSet() && an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
+    const an::ui::DesignTokens& t = an::ui::tokens();
+    const DWORD caption = night ? colourOf(t.layers.surface0) : kDefaultColour;
+    const DWORD text = night ? colourOf(t.colors.textPrimary) : kDefaultColour;
+    const HWND handle = reinterpret_cast<HWND>(winId());
+    (void)setAttribute(handle, kCaptionColour, &caption, sizeof(caption));
+    (void)setAttribute(handle, kTextColour, &text, sizeof(text));
+#endif
 }
 
 void ObservatoryWindow::lockLayout(const bool locked)

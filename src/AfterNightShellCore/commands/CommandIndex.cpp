@@ -254,6 +254,21 @@ void CommandIndex::addProvider(std::unique_ptr<ICommandProvider> provider)
     }
 }
 
+void CommandIndex::removeProvider(const ICommandProvider* provider)
+{
+    auto& providers = m_impl->providers;
+    const auto found =
+        std::find_if(providers.begin(), providers.end(),
+                     [provider](const std::unique_ptr<ICommandProvider>& held) { return held.get() == provider; });
+    if (found == providers.end())
+    {
+        return;
+    }
+    providers.erase(found);
+    // What the provider gave may run nothing any more: the commands are collected again without it.
+    refresh();
+}
+
 void CommandIndex::setStore(RecentStore store)
 {
     m_impl->store = std::move(store);

@@ -2706,6 +2706,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryChromeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryPlacesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/WorkspacePageTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TopBarAndPaletteTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryShellTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
@@ -2741,13 +2742,17 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/app/ExtensionManager.h
     header   src/AfterNightControls/app/FilePolicies.h
     header   src/AfterNightControls/app/ModernizationFeatureFlags.h
+    header   src/AfterNightControls/app/ProcessMenuState.h
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/RuntimeStorageCoordinator.h
+    header   src/AfterNightControls/components/AnBreadcrumb.h
+    header   src/AfterNightControls/components/AnCommandPalette.h
     header   src/AfterNightControls/components/AnFloatingToolbar.h
     header   src/AfterNightControls/components/AnHistoryStrip.h
     header   src/AfterNightControls/components/AnIconRail.h
     header   src/AfterNightControls/components/AnReadoutColumn.h
     header   src/AfterNightControls/components/AnTaskThumbnail.h
+    header   src/AfterNightControls/components/ICommandSource.h
     header   src/AfterNightControls/components/RailItem.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
@@ -2799,11 +2804,13 @@ sources Test_ShellObservatory
     header   src/AfterNightShellCore/actions/ActionIds.h
     header   src/AfterNightShellCore/actions/MenuTree.h
     header   src/AfterNightShellCore/actions/ViewMenuBuilder.h
+    header   src/AfterNightShellCore/commands/CommandIndex.h
     header   src/AfterNightShellCore/core/ApplicationContext.h
     header   src/AfterNightShellCore/core/ApplicationCore.h
     header   src/AfterNightShellCore/core/ApplicationSession.h
     header   src/AfterNightShellCore/core/IShell.h
     header   src/AfterNightShellCore/readout/ReadoutController.h
+    header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
     header   src/AfterNightShellCore/services/OpenProcessRegistry.h
     header   src/AfterNightShellCore/services/ProcessLaunchService.h
     header   src/AfterNightShellCore/views/DockHooks.h
@@ -2813,7 +2820,9 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/AfterNightShellObservatoryExport.h
     header   src/AfterNightShellObservatory/ObservatoryShell.h
     header   src/AfterNightShellObservatory/ObservatoryWindow.h
+    header   src/AfterNightShellObservatory/ShellActions.h
     header   src/AfterNightShellObservatory/chrome/MenuBarOnAlt.h
+    header   src/AfterNightShellObservatory/chrome/PaletteField.h
     header   src/AfterNightShellObservatory/chrome/StatusLine.h
     header   src/AfterNightShellObservatory/chrome/TopBar.h
     header   src/AfterNightShellObservatory/pages/FloatingImagesPage.h
@@ -2824,7 +2833,9 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/workspaces/WorkspaceToolbar.h
     header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
     header   src/AfterNightTests/Test_ShellClassic/AppTestSupport.h
+    header   src/AfterNightTests/Test_ShellClassic/InventoryRecords.h
     header   src/AfterNightTests/Test_ShellObservatory/ObservatoryWindowCase.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
     header   src/AfterNightTests/fixtures/WindowDriving.h
@@ -3343,6 +3354,8 @@ sources Test_Persistence
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/InMemoryDatabase.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
@@ -5600,6 +5613,8 @@ sources Test_ImageIntegration
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportChartSamples.h
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportDocumentTestSupport.h
     header   src/AfterNightTests/Test_ImageIntegration/reporting/ReportRenderedScenarios.h
+    header   src/AfterNightTests/fixtures/ScopedNightMode.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     header   src/AfterNightWorkflowDriver/ResidentMemory.h
     header   src/AfterNightWorkflowDriver/WorkflowDriver.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/CalibrationRun.h

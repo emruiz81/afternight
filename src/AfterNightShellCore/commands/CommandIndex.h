@@ -136,6 +136,10 @@ public:
     /// Adds a provider, asked from the next refresh on.
     void addProvider(std::unique_ptr<ICommandProvider> provider);
 
+    /// Removes a provider the index was given, and the commands it gave: a shell's own commands go with its window.
+    /// Nothing for a provider the index does not hold.
+    void removeProvider(const ICommandProvider* provider);
+
     /// Where the commands run last are kept; an empty store keeps them in memory only.
     void setStore(RecentStore store);
 

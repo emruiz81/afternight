@@ -395,6 +395,11 @@ to start in it. It is three things, and none of them is an effect laid over the 
   coloured icons in their Night form, as it tints the others.
 - **Where hue told things apart, shape does.** The histogram draws its curves in the plot's colours, which Night makes
   red, and strokes them red solid, green dashed, blue dotted (`HistogramWidget::channelStroke`).
+- **What the system draws follows where it can.** Under Night the built-in file browser is used whatever
+  `interface/useSystemFileBrowser` says (`useSystemFileBrowser`, `app/FileDialogUtils.h`), since only it is drawn in
+  Night's red; and on Windows the Observatory window asks the window manager for a caption in the darkest surface with
+  the primary text (`DWMWA_CAPTION_COLOR`, `DWMWA_TEXT_COLOR`, where the system has them), and for its own again when
+  Night goes.
 
 **A widget that paints a picture is on the list.** `theme/NightImageWidgets.h` names every widget of Controls that
 draws an image or a pixmap, sets a label's pixmap or hands a picture to a `NightPicture`, and says how it shows the

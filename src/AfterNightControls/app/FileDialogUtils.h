@@ -5,6 +5,7 @@
 
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
+#include "theme/AnDesignTokens.h"
 
 #include <algorithm>
 #include <array>
@@ -363,6 +364,12 @@ inline void applyCompactOpenFilterPresentation(QFileDialog& dialog)
 
 template <typename SettingsT> [[nodiscard]] inline bool useSystemFileBrowser(SettingsT* settings)
 {
+    // Under Night the built-in browser, which is drawn in Night's red as the window is: the system's would be drawn in
+    // its own colours, whatever the setting says.
+    if (an::ui::nightModeSet() && an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+    {
+        return false;
+    }
     if (!settings)
     {
         return SettingsDefaults::INTERFACE_USE_SYSTEM_FILE_BROWSER;

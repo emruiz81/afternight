@@ -216,6 +216,18 @@ inline constexpr int kTopBarButton = 32;
 inline constexpr int kTopBarIcon = 20;
 inline constexpr int kTopBarPadding = 12;
 inline constexpr int kTopBarGap = 8;
+inline constexpr int kTopBarLogo = 20;
+// The project switcher in the top bar: at most 220 px wide, its name elided in the middle.
+inline constexpr int kProjectSwitcherMaxWidth = 220;
+// The command palette's field in the top bar: 340 px wide, 240 px in a window under 1200 px, an icon button under
+// 1100 px; the bar's height less 14, the small parts' corners of 8, a 16 px search icon.
+inline constexpr int kPaletteFieldWide = 340;
+inline constexpr int kPaletteFieldNarrow = 240;
+inline constexpr int kPaletteFieldNarrowWindow = 1200;
+inline constexpr int kPaletteFieldIconWindow = 1100;
+inline constexpr int kPaletteFieldInset = 14;
+inline constexpr int kPaletteFieldRadius = 8;
+inline constexpr int kPaletteFieldIcon = 16;
 
 // The floating toolbar of a view: a rounded scrim `metrics.floatingToolbar` high with a 1 px edge under it, padding 0
 // 5, gap 2; its buttons 10 px less than its height, its choices 12 px less; separators 1 x 20 with 4 px each side. The

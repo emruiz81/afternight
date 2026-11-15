@@ -28,6 +28,7 @@ class QStackedWidget;
 
 namespace an::ui
 {
+class AnCommandPalette;
 class AnIconRail;
 class AnReadoutColumn;
 } // namespace an::ui
@@ -44,6 +45,7 @@ class FloatingImagesPage;
 class FloatingViewChrome;
 class HomePage;
 class MenuBarOnAlt;
+class ShellActions;
 class StatusLine;
 class TopBar;
 class WorkspaceHost;
@@ -109,6 +111,15 @@ public:
     [[nodiscard]] WorkspaceToolbar* layoutIcons() const noexcept;
     /// The small toolbars of the images that float in windows of their own.
     [[nodiscard]] FloatingViewChrome& floatingViewChrome() const noexcept;
+    /// The shell's own actions: Home, the Command Palette, the Readout, Night and the densities.
+    [[nodiscard]] ShellActions& shellActions() const noexcept;
+    /// The command palette, and the scrim laid over the centre and the column while it is open.
+    [[nodiscard]] an::ui::AnCommandPalette* palette() const noexcept;
+    [[nodiscard]] QWidget* paletteScrim() const noexcept;
+    /// The top bar's More: the menu tree as a menu.
+    [[nodiscard]] QMenu* moreMenu() const noexcept;
+    /// Opens the command palette over the centre, 12 px under the top bar.
+    void openPalette();
 
     /// Whether the centre shows Home, or the workspace.
     [[nodiscard]] bool isHomeShown() const;
@@ -189,6 +200,14 @@ private:
     void updateWorkspacePage();
     void offerTheLock(bool maximized);
     void lockLayout(bool locked);
+    void buildTopBarTrailing();
+    void refreshChromeIcons();
+    void bindShellActions();
+    void updateBreadcrumb();
+    void setNight(bool night);
+    void setDensity(bool comfortable);
+    void applyCaptionColour();
+    void placePaletteScrim();
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

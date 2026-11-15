@@ -81,6 +81,7 @@ using WorkspacePage = ObservatoryWindowCase;
 using LayoutIcons = ObservatoryWindowCase;
 using FloatingImagesPage = ObservatoryWindowCase;
 using ChangingPlace = ObservatoryWindowCase;
+using Timing = ObservatoryWindowCase;
 
 /// Lets the window settle: posted work delivered, the deletions of closed docks done, the layouts applied.
 void settle()
@@ -614,7 +615,7 @@ protected:
 
 // The time from a click on the rail to the painted page, with four 60-megapixel images open, the workspace and Home in
 // turn, the median of twenty changes. Measured, never asserted, and only when AFTERNIGHT_TEST_TIMINGS=1 asks for it.
-TEST_F(ChangingPlace, Timing)
+TEST_F(Timing, ChangingPlace)
 {
     if (qEnvironmentVariable("AFTERNIGHT_TEST_TIMINGS") != QStringLiteral("1"))
     {

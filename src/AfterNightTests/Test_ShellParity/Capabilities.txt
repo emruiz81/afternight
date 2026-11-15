@@ -28,7 +28,7 @@ capability files.open-recent
     title        Open Recent
     shared       FileOpenTest.ARecentFileOpenRemembersItsFolder, AfterNightAppFileSuite.UpdateRecentFileListAddsNewFileToFront, FileManagerComponent.FileManager_MaintainsRecentFilesList
     classic      ShellScenario.TheRecentFilesGainTheOpenedFile/classic
-    observatory  ShellScenario.TheRecentFilesGainTheOpenedFile/observatory
+    observatory  ShellScenario.TheRecentFilesGainTheOpenedFile/observatory, Palette.FindsEveryMenuAction
 
 capability files.drop
     title        Drop files on the window
@@ -66,7 +66,7 @@ capability home.identity
     title        Identity bar with Settings, User Guide and About
     shared       MainDashboardInteraction.IdentityBarUtilityButtonsEmitSignals, VersionDialogsTest.TheDashboardShowsTheProductsVersionAndDevWhenNoneIsStated
     classic
-    observatory  pending
+    observatory  TopBar.TheButtonsAtItsRight
 
 capability home.featured
     title        Featured file card with Continue and pin
@@ -110,13 +110,13 @@ capability window.menu-bar
     title        Menu bar
     shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt, ActionStateTest.TheFiltersMenuFollowsTheImageActions
     classic      ApplicationMenu.MenuBarTreeMatchesTheRecord, ApplicationMenu.ActionInventoryMatchesTheRecord, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/classic
-    observatory  MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree, MenuBarOnAlt.AltShowsAndFocusesIt, MenuBarOnAlt.AltAndALetterOpensItsMenu, MenuBarOnAlt.HidesOnceLeft, MenuBarKept.TheSettingKeepsItShown, ObservatoryWindow.ShortcutsWorkWithTheMenuBarHidden
+    observatory  MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree, MenuBarOnAlt.AltShowsAndFocusesIt, MenuBarOnAlt.AltAndALetterOpensItsMenu, MenuBarOnAlt.HidesOnceLeft, MenuBarKept.TheSettingKeepsItShown, ObservatoryWindow.ShortcutsWorkWithTheMenuBarHidden, TopBar.TheButtonsAtItsRight
 
 capability window.main-toolbar
     title        Main toolbar: Open, Save as, Close
     shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt
     classic      ApplicationMenu.OpenShowsTheChosenFileInAViewOfItsOwn, ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ApplicationMenu.CloseClosesTheActiveViewOnly
-    observatory  WorkspacePage.TabMenu, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
+    observatory  WorkspacePage.TabMenu, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory, Palette.RunsAnActionAndRecordsIt
 
 capability window.dock-toolbar
     title        Dock toolbar: Lock, Group All, Split All, Fit
@@ -348,13 +348,13 @@ capability process.favorites
     title        Favorite Processes, Manage Favorites
     shared       AfterNightAppProcessMenuSuite.BuildFavoriteProcessEntriesFiltersMissingAndSortsCaseInsensitive, AfterNightAppProcessMenuSuite.FavoriteMenuLayoutReflectsManageAndClearPlacementRules, AfterNightAppProcessMenuSuite.DeserializeProcessIdSetParsesMixedSeparatorsAndWhitespace
     classic
-    observatory  pending
+    observatory  Palette.AnEmptyQueryListsTheFavouritesFirst
 
 capability process.recent
     title        Recent Processes
     shared       AfterNightAppProcessMenuSuite.UpdateRecentProcessListMaintainsMruAndConfiguredLimit, AfterNightAppProcessMenuSuite.BuildRecentProcessEntriesPreservesUnknownDescriptors, RecentProcessMenuTest.ARecentProcessNotRegisteredYetIsKeptUnderItsId
     classic
-    observatory  pending
+    observatory  Palette.RunsAnActionAndRecordsIt
 
 capability process.window
     title        A process opens a window, its size remembered
@@ -566,7 +566,7 @@ capability help.all
     title        User Guide (F1), About, About Qt, System Information
     shared       VersionDialogsTest.TheAboutDialogShowsTheProductsVersionTheEngineAndTheEnginesLibraries, VersionDialogsTest.TheSystemInformationListsTheProductsVersionTheEngineAndItsLibraries, DialogOrchestrationCoordinatorComponent.DialogOrchestrationCoordinator_OpenHelp_ResolvesBundledUserGuide
     classic      ApplicationMenu.UserGuideAnswersF1FromEveryWindowOfTheApplication, ApplicationMenu.AboutShowsTheAboutWindowNamingTheProductsVersion, ApplicationMenu.SystemInformationShowsTheSystemInformationWindow
-    observatory  pending
+    observatory  TopBar.TheButtonsAtItsRight
 
 # ---- Keyboard
 
@@ -580,13 +580,13 @@ capability keys.palette
     title        Ctrl+K
     shared
     classic
-    observatory  pending
+    observatory  Palette.OpensWithCtrlK, Palette.FindsEveryMenuAction
 
 capability keys.new
     title        Esc, Ctrl+Enter, Ctrl+Shift+N, Ctrl+W, F6
     shared
     classic
-    observatory  pending
+    observatory  NewShortcuts.DoNotCollideWithTheRecordedOnes, NewShortcuts.CtrlWIsTheObservatoryShellsAlone, Night.ToggleRepaintsEverythingRed
 
 # ---- Added by the design
 

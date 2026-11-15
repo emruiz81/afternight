@@ -1660,6 +1660,22 @@ neither until its tool bar's button was used. With every image floating the only
 status line gains the selector of the active view, the readout's button and the Console chip; files dropped on the
 window open through the core's `FileDropHandler`; and `interface/lockLayoutByDefault` locks the layout at the start.
 
+The top bar (`chrome/TopBar`) holds, from the left, the logo (drawn in its Night form under Night), the project
+switcher ("No project", its entries offered once projects exist), the breadcrumb of the place and its item (Home;
+"Workspace 1" and the active view's full name, elided in the middle by `AnBreadcrumb`, which ends before the field), the
+palette's field centred in the bar (`chrome/PaletteField`: 340 px wide, 240 px under a 1200 px window, an icon button
+under 1100 px), and at the right the layout icons, Night, Help, Information (About, About Qt, System Information) and
+More, which is the menu tree as a menu; its icons are the themed icon manager's and are set again at every change of
+the theme. The palette is Controls' `AnCommandPalette` over the core's `CommandIndex`, opened by the field or `Ctrl+K`,
+centred over the centre and the column 12 px under the bar with `scrimSoft` laid over them while it is open; a command
+it runs goes through what the menus run - a process through the launcher's guards - and is kept among the commands run
+last. The shell's own actions (`ShellActions.h`: Home, Command Palette, Readout, Night, the densities) are a table
+beside the catalogue's that only this shell holds, added to the window and to the menu bar's View menu, and offered by
+the index through a provider the window adds and takes back (`CommandIndex::removeProvider`); Night switches the
+tokens' Night and applies the theme again, the densities store `interface/density` and apply it. `Ctrl+W` is set on the
+catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table and the classic
+shell keep 1.1's shortcuts.
+
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
 window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's

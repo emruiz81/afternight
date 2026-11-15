@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
+
+#include "stdafx.hpp"
+
+#include "ShellActions.h"
+
+#include "commands/CommandIndex.h"
+
+#include <QAction>
+#include <QActionGroup>
+#include <QCoreApplication>
+#include <QPointer>
+#include <QWidget>
+
+#include <utility>
+
+namespace an::ui::observatory
+{
+
+namespace
+{
+
+constexpr char kContext[] = "an::ui::observatory::ShellActions";
+
+/// The shell's actions, as the command index offers them.
+class ShellActionCommands final : public an::ui::shell::ICommandProvider
+{
+public:
+    explicit ShellActionCommands(const std::vector<QAction*>& actions)
+    {
+        for (QAction* action : actions)
+        {
+            m_actions.emplace_back(action);
+        }
+    }
+
+    void collect(std::vector<an::ui::shell::CommandEntry>& entries) const override
+    {
+        for (const QPointer<QAction>& held : m_actions)
+        {
+            QAction* const action = held.data();
+            if (action == nullptr)
+            {
+                continue;
+            }
+            an::ui::shell::CommandEntry entry;
+            entry.id = QStringLiteral("action:") + action->objectName();
+            entry.title = QString(action->text()).remove(QLatin1Char('&'));
+            entry.shortcut = action->shortcut();
+            entry.iconKey = action->property("iconKey").toString();
+            entry.group = an::ui::shell::CommandGroup::Views;
+            entry.keywords = {QCoreApplication::translate(kContext, "View")};
+            entry.available = action->isEnabled();
+            entry.run = [held]() {
+                if (held.isNull() || !held->isEnabled())
+                {
+                    return false;
+                }
+                held->trigger();
+                return true;
+            };
+            entries.push_back(std::move(entry));
+        }
+    }
+
+private:
+    std::vector<QPointer<QAction>> m_actions;
+};
+
+} // namespace
+
+const std::vector<ShellActionSpec>& ShellActions::table()
+{
+    static const std::vector<ShellActionSpec> kTable = {
+        {ids::kShowHome, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Home"), QKeySequence(), "home", false},
+        {ids::kCommandPalette, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Command Palette..."),
+         QKeySequence(Qt::CTRL | Qt::Key_K), "search", false},
+        {ids::kToggleReadout, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Readout"), QKeySequence(),
+         "panel_right", true},
+        {ids::kToggleNight, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Night"),
+         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N), "night", true},
+        {ids::kDensityCompact, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Compact"), QKeySequence(), "",
+         true},
+        {ids::kDensityComfortable, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Comfortable"),
+         QKeySequence(), "", true},
+    };
+    return kTable;
+}
+
+ShellActions::ShellActions(QWidget& window)
+{
+    m_densities = new QActionGroup(&window);
+    m_densities->setExclusive(true);
+    for (const ShellActionSpec& spec : table())
+    {
+        auto* action = new QAction(QCoreApplication::translate(kContext, spec.text), &window);
+        action->setObjectName(QString::fromLatin1(spec.id.data(), static_cast<qsizetype>(spec.id.size())));
+        action->setShortcut(spec.shortcut);
+        action->setShortcutContext(Qt::WindowShortcut);
+        action->setCheckable(spec.checkable);
+        action->setProperty("iconKey", QString::fromLatin1(spec.iconKey));
+        if (!spec.shortcut.isEmpty())
+        {
+            action->setToolTip(
+                QStringLiteral("%1 (%2)").arg(action->text(), spec.shortcut.toString(QKeySequence::NativeText)));
+        }
+        if (spec.id == ids::kDensityCompact || spec.id == ids::kDensityComfortable)
+        {
+            m_densities->addAction(action);
+        }
+        window.addAction(action);
+        m_actions.push_back(action);
+    }
+}
+
+QAction* ShellActions::action(const std::string_view id) const
+{
+    const QString name = QString::fromLatin1(id.data(), static_cast<qsizetype>(id.size()));
+    for (QAction* action : m_actions)
+    {
+        if (action->objectName() == name)
+        {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
+const std::vector<QAction*>& ShellActions::all() const noexcept
+{
+    return m_actions;
+}
+
+QActionGroup* ShellActions::densities() const noexcept
+{
+    return m_densities;
+}
+
+std::unique_ptr<an::ui::shell::ICommandProvider> ShellActions::commandProvider() const
+{
+    return std::make_unique<ShellActionCommands>(m_actions);
+}
+
+} // namespace an::ui::observatory
