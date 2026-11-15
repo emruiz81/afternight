@@ -180,10 +180,16 @@ measurement is run by hand with `QT_QPA_PLATFORM=windows`; it is a number for a 
 decision is, not a case of a sweep.
 
 The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
-are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control of the
-column reached by Tab, in both densities of the Observatory look, at 600 px of height - and report themselves skipped
-for the rest; the box font is told by every character being one width. Started with `QT_QPA_PLATFORM=windows` they
-also hold that nothing in the body lies past the column's side; their page hosts are kept off the screen there.
+are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control in the
+column, none left beside the preview in the canvas, and reached by Tab (a checkable button of an exclusive group through
+the group's one Tab stop, as Qt navigates such a group), Target image and Channel at the body's head and no group left
+empty, in both densities of the Observatory look, at 600 px of height - and report themselves skipped for the rest; the
+box font is told by every character being one width. Started with `QT_QPA_PLATFORM=windows` they also hold that nothing
+in the body lies past the column's side; their page hosts are kept off the screen there. A content a scroll area of the
+controls holds is measured too: its least width is not the area's.
+`PageLayout.<Process>AppliesAsInAWindow` applies the same parameters in a window and through the page and compares the
+results, the target's or the new image's; a process that draws its result at random from a seed of its own - Noise
+Generator - is held instead to changing the image in both.
 
 A record is made once. With `AFTERNIGHT_WRITE_BASELINE_RECORDS` naming a folder a case writes its section there
 instead of comparing - the only case in which it writes, and never beside the suite - and a person reads what was

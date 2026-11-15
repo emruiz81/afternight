@@ -8,7 +8,8 @@
 /// Undo; Esc and Ctrl+Enter; the image's floor beside each column; the compact readout's figures; a new image a run
 /// makes landing in a workspace while the page stays. And what the window's actions act on while a page is shown: the
 /// looking actions on its canvas, the image actions on its target, Close and Maximize View withdrawn, Apply from the
-/// rail.
+/// rail. And the controls of other families a page holds: a structuring element's grid edited in the column, a
+/// chooser of a second image following the images open.
 
 #include "ObservatoryWindowCase.h"
 
@@ -43,6 +44,8 @@
 #include "views/ViewService.h"
 #include "widgets/CurvesWidget.h"
 #include "widgets/ImageViewWidget.h"
+#include "widgets/StructuredElementWidget.h"
+#include "widgets/StructuringElementGrid.h"
 #include "widgets/ToneCurveModel.h"
 
 #include <AfterNightEngine/Algorithms/Pointwise/ToneCurve.h>
@@ -50,15 +53,20 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontMetrics>
+#include <QLabel>
 #include <QPointer>
 #include <QStackedWidget>
 #include <QtTest/QTest>
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -76,6 +84,43 @@ namespace shellIds = an::ui::observatory::ids;
 namespace actionIds = an::ui::shell::ids;
 
 constexpr std::string_view kCurves = "transforms.actionCurves_Transformation";
+constexpr std::string_view kMorphology = "filters.actionMorphological_Transformation";
+constexpr std::string_view kStarReduction = "star_object.actionStar_Reduction";
+
+/// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
+/// character one width.
+[[nodiscard]] bool textIsMeasured()
+{
+    const QFontMetrics metrics(QApplication::font());
+    return metrics.horizontalAdvance(QStringLiteral("iiiiiiiiii")) <
+           metrics.horizontalAdvance(QStringLiteral("WWWWWWWWWW"));
+}
+
+/// A process's part of a class the process does not name.
+template <typename PartT> [[nodiscard]] PartT* partOf(const QWidget& process)
+{
+    for (QWidget* widget : process.findChildren<QWidget*>())
+    {
+        if (auto* part = dynamic_cast<PartT*>(widget))
+        {
+            return part;
+        }
+    }
+    return nullptr;
+}
+
+/// A process's label of a text; null when it has none.
+[[nodiscard]] const QLabel* labelled(const QWidget& process, const QString& text)
+{
+    for (const QLabel* label : process.findChildren<QLabel*>())
+    {
+        if (label->text() == text)
+        {
+            return label;
+        }
+    }
+    return nullptr;
+}
 
 /// Lets the window settle: posted work delivered, the deletions done, the layouts applied.
 void settle()
@@ -495,6 +540,85 @@ TEST_F(TaskPage, AResultThatIsANewImageDoesNotLeaveThePage)
     settle();
     EXPECT_TRUE(window().isWorkspaceShown());
     EXPECT_EQ(core().viewService().getActiveImageViewControl(), made);
+}
+
+// Morphological Transformation's structuring element is a grid a click edits: on its page the grid is in the column,
+// whole where text is measured as the interface draws it, and a click on a cell turns the cell over and the preview
+// follows.
+TEST_F(TaskPage, TheStructuringElementGridIsEditedInTheColumn)
+{
+    ImageViewControl* const view = openView(QStringLiteral("page-morphology"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch(kMorphology));
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    ASSERT_NE(layout, nullptr);
+    EXPECT_EQ(layout->columnWidth(), 520);
+    StructuredElementWidget* const grid = partOf<StructuredElementWidget>(*process);
+    ASSERT_NE(grid, nullptr);
+    ASSERT_TRUE(idle(process));
+    settle();
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(grid)) << "the grid is in the column";
+    ASSERT_TRUE(grid->isVisible()) << "its section is open";
+    EXPECT_FALSE(grid->size().isEmpty());
+    if (textIsMeasured())
+    {
+        const QPoint at = grid->mapTo(layout->bodyContent(), QPoint(0, 0));
+        EXPECT_GE(at.x(), 0);
+        EXPECT_LE(at.x() + grid->width(), layout->body()->viewport()->width()) << "the grid lies whole in the column";
+    }
+
+    const an::ui::StructuringElementGrid before = grid->structuringElement();
+    const std::uint64_t frames = process->previewFramesShown();
+    QTest::mouseClick(grid, Qt::LeftButton, Qt::NoModifier, grid->rect().center());
+    settle();
+    EXPECT_FALSE(grid->structuringElement() == before) << "the click turned a cell over";
+    EXPECT_TRUE(an::tests::app::processEventsUntil([&]() { return process->previewFramesShown() > frames; }, 10000))
+        << "the preview follows the grid";
+}
+
+// Star Reduction chooses, beside its target, the starless image it reads the stars against: on its page that chooser is
+// in the column with its label, lists the images open and one opened while the page is shown, and the target's chooser
+// leads the body with its own label.
+TEST_F(TaskPage, AChooserOfASecondImageFollowsTheOpenImages)
+{
+    ImageViewControl* const starless = openView(QStringLiteral("page-starless"));
+    ImageViewControl* const view = openView(QStringLiteral("page-star-reduction"));
+    ASSERT_TRUE(starless != nullptr && view != nullptr);
+    TopLevelProcessBaseControl* const process = launch(kStarReduction);
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    ASSERT_NE(layout, nullptr);
+    auto* const chooser = process->findChild<QComboBox*>(QStringLiteral("starlessImageSelector"));
+    auto* const target = process->findChild<QComboBox*>(QStringLiteral("targetImageSelector"));
+    ASSERT_TRUE(chooser != nullptr && target != nullptr);
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(chooser)) << "the chooser is in the column";
+    EXPECT_GE(chooser->findText(QStringLiteral("page-starless")), 0) << "it lists the images open";
+
+    // Each chooser is beside its own label: the target's at the head of the body, the starless one's where it was.
+    const QLabel* const targetLabel = labelled(*process, QStringLiteral("Target image"));
+    const QLabel* const starlessLabel = labelled(*process, QStringLiteral("Starless image"));
+    ASSERT_TRUE(targetLabel != nullptr && starlessLabel != nullptr);
+    EXPECT_EQ(targetLabel->parentWidget(), target->parentWidget()) << "the target's label went with its chooser";
+    EXPECT_EQ(starlessLabel->parentWidget(), chooser->parentWidget());
+    const QWidget* const views = process->findChild<QWidget*>(QStringLiteral("viewsGroup"));
+    ASSERT_NE(views, nullptr);
+    EXPECT_FALSE(views->isAncestorOf(targetLabel)) << "no label of the target is left in the group it came from";
+
+    std::optional<an::ui::ImageDocument> document =
+        an::tests::app::filledDocument(session(), QStringLiteral("page-starless-later"), 0.2f);
+    ASSERT_TRUE(document.has_value());
+    ImageViewControl* const later = core().viewService().createNewImageViewControlFromImage(
+        nullptr, std::move(*document), nullptr, "page-starless-later", ViewControlMode::standard, view, false, false);
+    ASSERT_NE(later, nullptr);
+    settle();
+    EXPECT_TRUE(window().isTaskPageShown()) << "the person stays on the page";
+    EXPECT_GE(chooser->findText(QStringLiteral("page-starless-later")), 0) << "it lists an image opened since";
+    chooser->setCurrentIndex(chooser->findText(QStringLiteral("page-starless-later")));
+    settle();
+    EXPECT_EQ(chooser->currentText(), QStringLiteral("page-starless-later"));
 }
 
 // Zoom Out on a page zooms the canvas and leaves the image's view as it was: the zoom is the canvas's.

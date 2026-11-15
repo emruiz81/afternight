@@ -25,6 +25,7 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QFormLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -335,7 +336,8 @@ struct Slot
     return {};
 }
 
-/// The layout that holds a widget, the layout's children searched: null when none does.
+/// The layout that holds a widget, the layout's children and the layouts of the widgets it lays out - a group box's -
+/// searched: null when none does.
 [[nodiscard]] QLayout* holderOf(QLayout* layout, const QWidget* widget)
 {
     if (layout == nullptr)
@@ -352,6 +354,13 @@ struct Slot
         if (QLayout* const found = holderOf(item->layout(), widget))
         {
             return found;
+        }
+        if (QWidget* const laidOut = item->widget(); laidOut != nullptr)
+        {
+            if (QLayout* const found = holderOf(laidOut->layout(), widget))
+            {
+                return found;
+            }
         }
     }
     return nullptr;
@@ -713,6 +722,22 @@ struct ProcessPageLayout::Impl : public QObject
                     box->removeWidget(label);
                 }
                 box->removeWidget(selector);
+            }
+            else if (auto* grid = qobject_cast<QGridLayout*>(holder))
+            {
+                // A row of a grid - the images a process reads, grouped: the label is the cell before the field's.
+                int gridRow = 0;
+                int gridColumn = 0;
+                int rowSpan = 0;
+                int columnSpan = 0;
+                grid->getItemPosition(grid->indexOf(selector), &gridRow, &gridColumn, &rowSpan, &columnSpan);
+                QLayoutItem* const before = gridColumn > 0 ? grid->itemAtPosition(gridRow, gridColumn - 1) : nullptr;
+                if (before != nullptr && qobject_cast<QLabel*>(before->widget()) != nullptr)
+                {
+                    label = before->widget();
+                    grid->removeWidget(label);
+                }
+                grid->removeWidget(selector);
             }
             if (label != nullptr)
             {

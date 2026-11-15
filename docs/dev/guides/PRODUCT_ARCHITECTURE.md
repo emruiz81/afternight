@@ -354,10 +354,12 @@ A presenter may take a process into a page of the main window instead of showing
 pages, and which column each takes, is stated where they are registered (`kPageSurfaces` in
 `app/ProcessRegistryBuiltins.cpp`, read into `ProcessDescriptor::surface` and `columnWidth`): the pointwise and tone
 processes and the stretching processes, every one in the wide column, since the one row of the histogram's toolbar
-under their controls - and Curves Transformation's 350 px curve editor - is wider than the standard one. It is asked once, at the
-process's first `setVisible(true)` and before it is visible (`adopt`); taking it means `attachToPage(host)`, which
-arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A process that cannot be one
-answers no page and stays the window it was. The arrangement is generic, made from what the process already is:
+under their controls - and Curves Transformation's 350 px curve editor - is wider than the standard one; and the
+spatial and noise processes and the mask, star and background processes, each in the column its widest row needs. It
+is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
+`attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
+process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
+process already is:
 
 - **The standard parts.** `initializeStandardProcess` records the six parts it is handed (`ProcessStandardParts`):
   nothing finds them by name, since the builders name them four ways. `ProcessPageLayout` reads them and moves by
@@ -377,7 +379,15 @@ answers no page and stays the window it was. The arrangement is generic, made fr
   after the hints up the chain from it are dropped: a widget's item keeps the size it last had until its widget asks
   for a new geometry, and a section's change asks only when the event loop turns. Target image and Channel are moved,
   with their labels, to a row at the body's head: the labels on one line and the fields on the next, so two fields lie
-  side by side whether each has a label.
+  side by side whether each has a label. They are found wherever the controls lay them out - a form, a box, a grid,
+  inside a group box (Star Reduction groups its target with the starless image it reads) - and a label is the one
+  before its field: the form's, the box's previous item, the grid's previous cell.
+- **A process of another shape arranges itself first.** `makePageLayout` is virtual: Multiscale Linear Transform keeps
+  the selected layer's controls, the target and what its preview shows in its preview's pane, which the canvas takes
+  whole, so its override moves them into its controls - the selected layer's group under the layers it is chosen from,
+  its name on a row of its own, the preview's mode a labelled row of the target's form - and takes its global settings
+  out of the scroll area of their own the window gives them, with the 480 px least width that area's content was given
+  for the window's wider pane, before the generic arrangement runs.
 - **The footer shows what the button box holds** - Reset and Help at the left, a stretch, the others, Close, the
   primary (Apply, Ok) - as buttons of its own that press the box's, follow its enabled state and leave its connections
   as they were; the box is kept, out of sight. During a run Cancel takes the primary's place and stops the run as a

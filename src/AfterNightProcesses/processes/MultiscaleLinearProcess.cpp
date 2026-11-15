@@ -4,6 +4,7 @@
 #include "stdafx.hpp"
 #include "MultiscaleLinearProcess.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/PointwiseProcessUtils.h"
 #include "processes/ProcessCommonUtils.h"
 
@@ -12,6 +13,8 @@
 #include <AfterNightEngine/Image/ImageMetadata.h>
 #include <AfterNightEngine/Image/Provenance.h>
 
+#include <QCoreApplication>
+#include <QLabel>
 #include <QTreeWidgetItem>
 
 #include <array>
@@ -1057,6 +1060,43 @@ void MultiscaleLinearProcess::resetSettings()
     {
         schedulePreviewProcessExecution();
     }
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> MultiscaleLinearProcess::makePageLayout()
+{
+    // The selected layer's controls under the layers it is chosen from, its name on a row of its own: beside its switch
+    // and its two buttons it would be wider than the column.
+    m_ui.rightPanelLayout->removeWidget(m_ui.layerInspectorGroup);
+    m_ui.leftPanelLayout->insertWidget(m_ui.leftPanelLayout->indexOf(m_ui.layerTreeGroup) + 1,
+                                       m_ui.layerInspectorGroup);
+    m_ui.layerHeaderLayout->removeWidget(m_ui.layerNameLabel);
+    m_ui.layerInspectorLayout->insertWidget(0, m_ui.layerNameLabel);
+
+    // The global settings without the scroll area the window gives them, and without the least size it sets for its
+    // wider pane: the page's body scrolls, and a column never scrolls sideways.
+    if (QWidget* const settings = m_ui.globalSettingsScrollArea->takeWidget())
+    {
+        settings->setMinimumSize(0, 0);
+        m_ui.globalSettingsOuterLayout->removeWidget(m_ui.globalSettingsScrollArea);
+        m_ui.globalSettingsScrollArea->hide();
+        m_ui.globalSettingsOuterLayout->addWidget(settings);
+        settings->show();
+    }
+
+    // What the preview shows is a row of the target's form, labelled: its Preview check box, which labels it in the
+    // window, goes to the page's toggles.
+    m_ui.previewLayout->removeWidget(m_ui.previewModeComboBox);
+    auto* const previewModeLabel =
+        new QLabel(QCoreApplication::translate("MultiscaleLinearProcess", "Preview Mode"), m_ui.rightPanelWidget);
+    previewModeLabel->setObjectName(QStringLiteral("previewModeLabel"));
+    previewModeLabel->setToolTip(m_ui.previewModeComboBox->toolTip());
+    m_ui.targetFormLayout->addRow(previewModeLabel, m_ui.previewModeComboBox);
+
+    // The target's form at the head of the controls, where the page finds the target and the channel.
+    m_ui.rightPanelLayout->removeItem(m_ui.targetFormLayout);
+    m_ui.targetFormLayout->setParent(nullptr);
+    m_ui.leftPanelLayout->insertLayout(0, m_ui.targetFormLayout);
+    return ImageRTPreviewControl::makePageLayout();
 }
 
 void MultiscaleLinearProcess::on_channelSelector_currentTextChangedInternal(const QString& text)

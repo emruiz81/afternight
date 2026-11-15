@@ -215,6 +215,11 @@ private:
 
     void resetSettings() override;
 
+    /// A page of its own arrangement: what the window keeps beside its preview - the selected layer's controls, the
+    /// target and channel, what the preview shows - goes to the controls before the generic arrangement, so that the
+    /// column holds it and the canvas the preview alone.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
     void on_channelSelector_currentTextChangedInternal(const QString& text) override;
 
     void initialize();

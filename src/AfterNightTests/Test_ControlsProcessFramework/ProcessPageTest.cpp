@@ -22,14 +22,22 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QGridLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QSplitter>
 #include <QToolBar>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <QtTest/QTest>
 
 #include <gtest/gtest.h>
@@ -412,6 +420,53 @@ TEST(ProcessPageLayout, TargetImageAndChannelLeadTheBody)
     {
         EXPECT_GT(topIn(*section, *body), topIn(*process->targetSelector, *body)) << "the selectors come first";
     }
+}
+
+// Target image leads the body whatever layout of the controls holds it: from a row of a grid inside a group - as a
+// builder that groups the images a process reads lays them out - it goes with its label, and another image's chooser
+// stays in the group with its own.
+TEST(ProcessPageLayout, ATargetInAGridLeadsTheBodyWithItsLabel)
+{
+    PagedContext paged;
+    ASSERT_NE(paged.context, nullptr);
+    QWidget process;
+    auto* const mainLayout = new QHBoxLayout(&process);
+    auto* const splitter = new QSplitter(Qt::Horizontal);
+    splitter->setObjectName(QStringLiteral("mainSplitter"));
+    auto* const controls = new QWidget(splitter);
+    auto* const controlsLayout = new QVBoxLayout(controls);
+    auto* const previewLayout = new QVBoxLayout(new QWidget(splitter));
+    mainLayout->addWidget(splitter);
+    auto* const images = new QGroupBox(QStringLiteral("Views"), controls);
+    auto* const grid = new QGridLayout(images);
+    auto* const targetLabel = new QLabel(QStringLiteral("Target image"), images);
+    auto* const target = new QComboBox(images);
+    auto* const otherLabel = new QLabel(QStringLiteral("Starless image"), images);
+    auto* const other = new QComboBox(images);
+    grid->addWidget(targetLabel, 0, 0);
+    grid->addWidget(target, 0, 1, 1, 2);
+    grid->addWidget(otherLabel, 1, 0);
+    grid->addWidget(other, 1, 1, 1, 2);
+    controlsLayout->addWidget(images);
+    auto* const buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, controls);
+    controlsLayout->addWidget(buttons);
+
+    const an::ui::ProcessStandardParts parts{
+        .mainLayout = mainLayout, .previewLayout = previewLayout, .buttonBox = buttons, .targetSelector = target};
+    ProcessPageLayout page(process, parts, ProcessPageLayout::Description{.title = QStringLiteral("Grid")});
+    process.resize(PagePresenter::kCentre);
+    process.show();
+    pumpQuietly();
+    QWidget* const body = page.bodyContent();
+    EXPECT_FALSE(images->isAncestorOf(target)) << "the target's chooser left the group";
+    EXPECT_FALSE(images->isAncestorOf(targetLabel)) << "its label went with it";
+    EXPECT_TRUE(body->isAncestorOf(target) && body->isAncestorOf(targetLabel));
+    EXPECT_EQ(targetLabel->parentWidget(), target->parentWidget());
+    EXPECT_LT(topIn(*targetLabel, *body), topIn(*target, *body)) << "the label over its field";
+    EXPECT_LT(topIn(*target, *body), topIn(*images, *body)) << "at the body's head";
+    EXPECT_TRUE(images->isAncestorOf(other) && images->isAncestorOf(otherLabel)) << "the other chooser stays";
+    EXPECT_GE(grid->indexOf(otherLabel), 0);
+    EXPECT_GE(grid->indexOf(other), 0);
 }
 
 // In a shell with no readout to give, the readout slot is empty.

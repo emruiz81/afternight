@@ -2747,6 +2747,8 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ConsoleDrawerTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/WorkspacesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TasksTest.cpp
+    header   src/AfterNightControls/widgets/StructuredElementWidget.h
+    header   src/AfterNightControls/widgets/StructuringElementGrid.h
     include  src/AfterNightTests
     include  src/AfterNightShellObservatory
     include  src/AfterNightShellCore
@@ -3934,6 +3936,7 @@ sources Test_ProcessesSpatial
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    unit     src/AfterNightTests/Test_ProcessesSpatial/SpatialPageLayoutTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -4048,6 +4051,12 @@ sources Test_ProcessesSpatial
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
     header   src/AfterNightProcesses/AfterNightProcessesExport.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -4081,6 +4090,7 @@ sources Test_ProcessesMasks
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksProcessCasesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/MasksRegionFrameTest.cpp
     unit     src/AfterNightTests/Test_ProcessesMasks/RangeSelectionFrameTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesMasks/MasksPageLayoutTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -4181,6 +4191,13 @@ sources Test_ProcessesMasks
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
     header   src/AfterNightTests/fixtures/harness/QObjectCensus.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls

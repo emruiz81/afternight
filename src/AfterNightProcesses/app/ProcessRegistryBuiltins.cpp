@@ -214,6 +214,38 @@ constexpr PageSurface kPageSurfaces[] = {
     {"actionGeneralized_Hyperbolic_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionHistogram_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionStatistical_Stretch", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    // The spatial and noise processes, each in the column its widest row needs: the equalizers, High Pass and Local
+    // Contrast Enhancement take the wide one for the histogram's toolbar under their controls.
+    {"actionBanding_Reduction_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionBilateral_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionCLA_Histogram_Equalization", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionCosmetic_Correction_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionGaussian_Blur", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionGRAYCstoration_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionHigh_Pass", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionLocal_Contrast_Enhancement", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionLocal_Histogram_Equalization", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionMedian_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionMorphological_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionMultiscale_Alpha_Sharpen", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionNoise_Generator", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionNon_Local_Bayes_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionPatch_PCA_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionTighten_Edges", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionTotal_Variation_Denoise_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionUnsharp_Mask", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionWavelet_Denoise_Filter", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    // The mask, star and background processes. Multiscale Linear Transform arranges its page itself: the controls it
+    // keeps beside its preview in a window go to the column.
+    {"actionAuto_Gradient_Removal", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionBackground_Extraction", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionBinarize", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionDark_Structure_Enhance", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionMask_Drawing", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionMultiscale_Linear_Transform", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionRange_Selection", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionStar_Mask", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionStar_Reduction", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.
