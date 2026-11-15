@@ -62,6 +62,7 @@ namespace an::ui::shell
 
 class ActionBindings;
 class ActionCatalogue;
+class ApplicationContext;
 class ActionStateCoordinator;
 class AppEventBus;
 class CommandIndex;
@@ -151,6 +152,34 @@ public:
     /// @return the intent, or why none can be built - also that the stores are not open.
     [[nodiscard]] an::Result<an::OutputIntent> buildOutputIntent(const an::ImageDescriptor& source,
                                                                  an::CodecFormat container) const;
+
+    // ---- The start
+
+    /// Readies the application once its stores are open and before a shell's window is made, in this order: the
+    /// application context Controls and the processes reach it through is made and installed (`an::ui::setAppContext`);
+    /// the session the core was given (`setApplicationSession`), if any, is opened from the processing limits the
+    /// settings store states and lent (`setEngineSessionProvider`); the interface's settings are put in force - the
+    /// material backdrop, the contrast, the accent, the tint and its strength, the preset, Night, the density and the
+    /// animations - so the first widget is made under them; the temporary folders are swept as the settings say; and
+    /// the SDK the extensions' sessions talk to is told what it reads of the application. Once; called again, it does
+    /// nothing.
+    ///
+    /// @throws std::runtime_error when the stores are not open, or when the session cannot be opened, as the
+    /// application
+    ///         reports it.
+    void initialize();
+    [[nodiscard]] bool isInitialized() const noexcept;
+
+    /// Starts what runs before a shell's window exists: the installed extensions are found and their processes join the
+    /// process menus' data, which a shell's window builds its menus from and binds the catalogue's process actions
+    /// over. Once, after `initialize`; called again, it does nothing.
+    void start();
+    [[nodiscard]] bool isStarted() const noexcept;
+
+    /// The application context `initialize` made, installed while it is the one the context's global names; null
+    /// before. It goes with the core; a shell's window takes it out of the global as it goes
+    /// (`an::ui::clearAppContext`), so the windows destroyed after it find none.
+    [[nodiscard]] ApplicationContext* context() const noexcept;
 
     // ---- The folder last opened
 

@@ -196,7 +196,7 @@ capability dock.no-image
     title        With no image open, the dashboard
     shared       ViewControlCoordinatorComponent.ViewControlCoordinator_DetectsDashboardSwitchCondition, ViewCreationDecisionTest.AStandardViewLeavesTheDashboardForTheDockManager
     classic
-    observatory  pending
+    observatory  ObservatoryWindow.NoViewsShowsHome
 
 # ---- View toolbar
 

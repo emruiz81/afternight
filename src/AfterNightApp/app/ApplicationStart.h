@@ -39,6 +39,8 @@ struct StartedApplication
 /// one of them - then the shell chosen among the registered ones (the command line, the environment, the setting, the
 /// default; a source that names none is passed over with a warning in the log), then the style under the profile the
 /// chosen shell names (or the developer switch `AFTERNIGHT_STYLE_PROFILE`), before the first widget exists, then the
+/// core initialized and started (`ApplicationCore::initialize`, `ApplicationCore::start`: the application context made
+/// and installed, the session opened, the interface's settings in force, the installed extensions known), and last the
 /// shell made over the core and built. Nothing is shown.
 ///
 /// The core is given the application's session first (`ApplicationCore::setApplicationSession`): a shell's window opens

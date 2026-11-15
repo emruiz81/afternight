@@ -337,6 +337,14 @@ end
             linux_debug = { "-lAfterNightShellClassic_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
             dependson = { "AfterNightShellClassic" }
         },
+        -- The Observatory shell: a suite that links it drives the Observatory window from the library's binary. It links
+        -- the shell core and the libraries below it, so GNU ld needs the docking framework's directory for the same reason.
+        AfterNightShellObservatory = {
+            windows_release = { "AfterNightShellObservatory.lib" }, windows_debug = { "AfterNightShellObservatory_d.lib" },
+            linux_release = { "-lAfterNightShellObservatory", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            linux_debug = { "-lAfterNightShellObservatory_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
+            dependson = { "AfterNightShellObservatory" }
+        },
         -- The optional G'MIC adapter, which the processes that run a G'MIC command reach; built with or without the
         -- library, as AFTERNIGHT_GMIC says.
         AfterNightEngineGmicAdapter = {
@@ -760,6 +768,10 @@ end
     -- The classic shell's suite: the 1.1 window driven from the library's binary, the records it is held to, the
     -- settings pages, dialogs and coordinators it opens, and its own units.
     addIsolatedTestProject { name = "Test_ShellClassic" }
+
+    -- The Observatory shell's suite: its window driven as a person drives it, from the library's binary, in one engine
+    -- session the suite owns as the application owns its own.
+    addIsolatedTestProject { name = "Test_ShellObservatory" }
 
     -- The parity scenarios: written once against a driver and run for every registered shell, each started and ended
     -- by the application's own start and end, which the suite compiles.

@@ -42,6 +42,12 @@ StartedApplication startApplication(an::ui::shell::ApplicationCore& core, const 
     // The dock library takes its separator only while no dock widget exists: the profile's, before the shell makes one.
     an::ui::applyDockDecorationsProfile();
 
+    // The application without a window is readied and started before a shell is made: the context exists, the session
+    // is open, the interface's settings are in force and the installed extensions are known, so a shell's window is
+    // made over all of it.
+    core.initialize();
+    core.start();
+
     started.shell = started.choice.descriptor->create(core);
     started.shell->build();
     return started;

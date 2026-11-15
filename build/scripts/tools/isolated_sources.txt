@@ -2261,11 +2261,13 @@ sources Test_AfterNightApp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationStartTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationSessionTest.cpp
     unit     src/AfterNightTests/Test_AfterNightApp/ApplicationTeardownTest.cpp
+    unit     src/AfterNightTests/Test_AfterNightApp/ObservatoryStartTest.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
     unit     src/AfterNightApp/app/ApplicationStart.cpp
     include  src/AfterNightTests
     include  src/AfterNightApp
     include  src/AfterNightShellClassic
+    include  src/AfterNightShellObservatory
     include  src/AfterNightShellCore
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -2274,6 +2276,7 @@ sources Test_AfterNightApp
     include  src/AfterNightExtensionProtocol
     include  3rdparty/src
     link     AfterNightShellClassic
+    link     AfterNightShellObservatory
     link     AfterNightShellCore
     link     AfterNightControls
     link     AfterNightProcesses
@@ -2314,6 +2317,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/app/ImageOperationsCoordinator.h
     header   src/AfterNightControls/app/MaskOverlayCoordinator.h
+    header   src/AfterNightControls/app/MessageBoxes.h
     header   src/AfterNightControls/app/ModernizationFeatureFlags.h
     header   src/AfterNightControls/app/PersistenceCoordinator.h
     header   src/AfterNightControls/app/PlateSolveTypes.h
@@ -2368,7 +2372,6 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageSummaryViewerControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
-    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -2390,12 +2393,14 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ProcessTabStyling.h
     header   src/AfterNightControls/controls/ProgressDialogControl.h
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
+    header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
     header   src/AfterNightControls/controls/SettingsDialog.h
     header   src/AfterNightControls/controls/SystemInformationDialog.h
     header   src/AfterNightControls/controls/SystemInformationDialogUiBuilder.h
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
     header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
@@ -2407,7 +2412,6 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/controls/settings/SettingsPage.h
-    header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/session/CommitTicket.h
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/ExecutionScope.h
@@ -2416,6 +2420,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/ObservatoryDock.h
+    header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightControls/widgets/HistogramDisplayData.h
@@ -2440,7 +2445,31 @@ sources Test_AfterNightApp
     header   src/AfterNightProcesses/app/ChannelExtractor.h
     header   src/AfterNightProcesses/app/ProcessLauncher.h
     header   src/AfterNightProcesses/stdafx.hpp
+    header   src/AfterNightShellClassic/AfterNightShellClassicExport.h
+    header   src/AfterNightShellClassic/ClassicShell.h
+    header   src/AfterNightShellClassic/stdafx.hpp
+    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/core/ApplicationContext.h
+    header   src/AfterNightShellCore/core/ApplicationCore.h
+    header   src/AfterNightShellCore/core/ApplicationEvents.h
+    header   src/AfterNightShellCore/core/ApplicationSession.h
+    header   src/AfterNightShellCore/core/IShell.h
+    header   src/AfterNightShellCore/core/ShellRegistry.h
+    header   src/AfterNightShellCore/core/ShellSelection.h
+    header   src/AfterNightShellCore/services/AppEventBus.h
+    header   src/AfterNightShellCore/services/DialogService.h
+    header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
+    header   src/AfterNightShellCore/services/FileDialogService.h
+    header   src/AfterNightShellCore/services/OpenProcessRegistry.h
+    header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/services/RecentFilesModel.h
+    header   src/AfterNightShellCore/services/RecentProcessesModel.h
+    header   src/AfterNightShellCore/views/ViewService.h
+    header   src/AfterNightShellObservatory/AfterNightShellObservatoryExport.h
+    header   src/AfterNightShellObservatory/ObservatoryShell.h
+    header   src/AfterNightShellObservatory/ObservatoryWindow.h
     header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
+    header   src/AfterNightTests/Test_ShellClassic/AppTestSupport.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
@@ -2449,29 +2478,6 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
-    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
-    header   src/AfterNightShellCore/core/ApplicationContext.h
-    header   src/AfterNightShellCore/core/ApplicationCore.h
-    header   src/AfterNightShellCore/core/ApplicationEvents.h
-    header   src/AfterNightShellCore/services/AppEventBus.h
-    header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
-    header   src/AfterNightShellCore/services/OpenProcessRegistry.h
-    header   src/AfterNightShellCore/services/RecentFilesModel.h
-    header   src/AfterNightShellCore/services/RecentProcessesModel.h
-    header   src/AfterNightControls/app/MessageBoxes.h
-    header   src/AfterNightControls/theme/StyleProfile.h
-    header   src/AfterNightShellCore/core/IShell.h
-    header   src/AfterNightShellCore/services/DialogService.h
-    header   src/AfterNightShellCore/services/FileDialogService.h
-    header   src/AfterNightShellCore/services/ProcessLaunchService.h
-    header   src/AfterNightShellCore/views/ViewService.h
-    header   src/AfterNightShellClassic/AfterNightShellClassicExport.h
-    header   src/AfterNightShellClassic/ClassicShell.h
-    header   src/AfterNightShellClassic/stdafx.hpp
-    header   src/AfterNightShellCore/core/ApplicationSession.h
-    header   src/AfterNightShellCore/core/ShellRegistry.h
-    header   src/AfterNightShellCore/core/ShellSelection.h
-    header   src/AfterNightTests/Test_ShellClassic/AppTestSupport.h
 
 sources Test_ShellClassic
     unit     src/AfterNightTests/Test_ShellClassic/NightWindowTest.cpp
@@ -2688,6 +2694,105 @@ sources Test_ShellClassic
     external kddockwidgets
     external tbb
     qt       core gui widgets sql svg network testlib
+    header   src/AfterNightTests/fixtures/WindowDriving.h
+
+# The Observatory shell's suite: its window driven as a person drives it - its regions, its places, its pages and its
+# chrome - started and ended in the application's order by the suite's fixture, linked against the Observatory shell
+# and the libraries below it, never against the classic shell.
+sources Test_ShellObservatory
+    unit     src/AfterNightTests/Test_ShellObservatory/main.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryShellTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryWindowTest.cpp
+    unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
+    include  src/AfterNightTests
+    include  src/AfterNightShellObservatory
+    include  src/AfterNightShellCore
+    include  src/AfterNightProcesses
+    include  src/AfterNightControls
+    include  src/AfterNightPlatform/include
+    include  src/AfterNightConsumerRuntime/include
+    include  src/AfterNightExtensionProtocol
+    include  3rdparty/src
+    link     AfterNightShellObservatory
+    link     AfterNightShellCore
+    link     AfterNightControls
+    link     AfterNightProcesses
+    link     AfterNightExtensionProtocol
+    link     AfterNightPlatform
+    link     AfterNightConsumerRuntime
+    external kddockwidgets
+    external tbb
+    qt       core gui widgets sql svg network testlib
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
+    header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/app/ApplicationStorage.h
+    header   src/AfterNightControls/app/DemosaicTextMaps.h
+    header   src/AfterNightControls/app/ExtensionManager.h
+    header   src/AfterNightControls/app/FilePolicies.h
+    header   src/AfterNightControls/app/ModernizationFeatureFlags.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/app/RuntimeStorageCoordinator.h
+    header   src/AfterNightControls/components/AnIconRail.h
+    header   src/AfterNightControls/components/AnTaskThumbnail.h
+    header   src/AfterNightControls/components/RailItem.h
+    header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
+    header   src/AfterNightControls/controls/DockableControl.h
+    header   src/AfterNightControls/controls/GlobalViewControlActions.h
+    header   src/AfterNightControls/controls/IAppContext.h
+    header   src/AfterNightControls/controls/ImageViewControl.h
+    header   src/AfterNightControls/controls/ImageViewControlListener.h
+    header   src/AfterNightControls/controls/ImageViewFiles.h
+    header   src/AfterNightControls/controls/ImageViewScrollArea.h
+    header   src/AfterNightControls/controls/ImageViewThemeColors.h
+    header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ViewChrome.h
+    header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/settings/ProcessingLimits.h
+    header   src/AfterNightControls/controls/settings/SettingsKeys.h
+    header   src/AfterNightControls/session/DerivedResultKey.h
+    header   src/AfterNightControls/session/IEngineSessionProvider.h
+    header   src/AfterNightControls/session/ImageDocument.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/NightImage.h
+    header   src/AfterNightControls/theme/StyleProfile.h
+    header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
+    header   src/AfterNightControls/widgets/ImageChannelViewMode.h
+    header   src/AfterNightControls/widgets/ImageViewWidget.h
+    header   src/AfterNightControls/widgets/ImageViewWidgetDisplayModule.h
+    header   src/AfterNightControls/widgets/MaskRenderer.h
+    header   src/AfterNightControls/widgets/PresentationBridge.h
+    header   src/AfterNightControls/widgets/ViewPresentation.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/core/ApplicationContext.h
+    header   src/AfterNightShellCore/core/ApplicationCore.h
+    header   src/AfterNightShellCore/core/ApplicationSession.h
+    header   src/AfterNightShellCore/core/IShell.h
+    header   src/AfterNightShellCore/services/OpenProcessRegistry.h
+    header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/views/DockHooks.h
+    header   src/AfterNightShellCore/views/DockLayoutOperations.h
+    header   src/AfterNightShellCore/views/ViewService.h
+    header   src/AfterNightShellObservatory/AfterNightShellObservatoryExport.h
+    header   src/AfterNightShellObservatory/ObservatoryShell.h
+    header   src/AfterNightShellObservatory/ObservatoryWindow.h
+    header   src/AfterNightShellObservatory/chrome/StatusLine.h
+    header   src/AfterNightShellObservatory/chrome/TopBar.h
+    header   src/AfterNightShellObservatory/pages/HomePage.h
+    header   src/AfterNightShellObservatory/pages/WorkspacePage.h
+    header   src/AfterNightShellObservatory/workspaces/WorkspaceHost.h
+    header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
+    header   src/AfterNightTests/Test_ShellClassic/AppTestSupport.h
+    header   src/AfterNightTests/Test_ShellObservatory/ObservatoryWindowCase.h
+    header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
+    header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
+    header   src/AfterNightTests/fixtures/WindowDriving.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -2813,6 +2918,7 @@ sources Test_ShellParity
     external kddockwidgets
     external tbb
     qt       core gui widgets sql svg network testlib
+    header   src/AfterNightTests/fixtures/WindowDriving.h
 
 # The full extension host's native suite: its application context, its native process window and the session it borrows
 # from the runtime backend, compiled from the host's sources and linked against the processes and Controls libraries. It

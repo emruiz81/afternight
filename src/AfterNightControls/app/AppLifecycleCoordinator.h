@@ -79,12 +79,8 @@ public:
         int* maxThreadsForPreviewProcess = nullptr;
         std::function<GlobalSettingsPersistence*()> globalSettingsPersistence;
 
-        std::function<void()> logModernizationFeatureFlags;
         std::function<void()> initializePersistence;
         std::function<void()> cleanTemporaryFiles;
-        std::function<void()> cleanTemporaryFilesAsync;
-        std::function<void()> cleanStaleScratchRootsAsync;
-        std::function<void()> preloadLocalCatalogsAsync;
         std::function<void(const QString&)> applyTheme;
         std::function<void()> loadIcons;
         std::function<void()> setActionIcons;
@@ -117,7 +113,6 @@ public:
     void saveWindowGeometry() const;
 
 private:
-    bool shouldCleanTempFilesOnStartup() const;
     bool shouldCleanTempFilesOnExit() const;
     bool isCloseConfirmationEnabled() const;
 

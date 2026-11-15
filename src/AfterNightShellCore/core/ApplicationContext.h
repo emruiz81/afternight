@@ -32,6 +32,10 @@ class IShell;
 ///
 /// What is still the window's - the theme, the recent files opened and the files dropped - is answered through the
 /// `Dependencies` it is handed.
+///
+/// The application makes it as it starts, before any shell exists (`ApplicationCore::initialize`): made over the core
+/// alone, it answers what is the shell's through the shell the core holds (`ApplicationCore::setShell`), and nothing
+/// while there is none; the shell's window hands it its `Dependencies` while it lives.
 class AFTERNIGHTSHELLCORE_API ApplicationContext final : public an::ui::IAppContext,
                                                          public an::ui::IGlobalSettingsProvider,
                                                          public an::ui::IInterfaceSettingsRuntimeService,
@@ -60,6 +64,18 @@ public:
     /// @param core the application core; it outlives the context.
     /// @param shell the shell the context is made over; it outlives the context.
     ApplicationContext(ApplicationCore& core, IShell& shell, Dependencies dependencies = {});
+
+    /// The context the application makes before a shell exists: what is the shell's is answered by the shell the core
+    /// holds, and nothing while it holds none.
+    /// @param core the application core; it outlives the context.
+    explicit ApplicationContext(ApplicationCore& core);
+
+    /// What the shell's window answers - the theme, the recent and the dropped files; an empty one does nothing. The
+    /// window hands them as it is made and takes them back, with an empty one, as it goes.
+    void setDependencies(Dependencies dependencies);
+
+    /// The shell the context answers through: the one it was made over, or the core's; null while there is none.
+    [[nodiscard]] IShell* shell() const noexcept;
 
     // ---- IAppContext
     [[nodiscard]] an::ui::IIconProviderPtr getIconProvider() override;
@@ -150,7 +166,8 @@ public:
 
 private:
     ApplicationCore& m_core;
-    IShell& m_shell;
+    // The shell the context was made over; null, the core's.
+    IShell* m_shell = nullptr;
     Dependencies m_dependencies;
 };
 

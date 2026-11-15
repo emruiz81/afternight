@@ -10,8 +10,6 @@
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
-#include "app/ThemeManager.h"
-#include "theme/AnimationUtils.h"
 
 #include <QMainWindow>
 #include <QMessageBox>
@@ -26,11 +24,9 @@ AppLifecycleCoordinator::AppLifecycleCoordinator(const Dependencies& dependencie
 
 void AppLifecycleCoordinator::initialize() const
 {
-    if (m_dependencies.logModernizationFeatureFlags)
-    {
-        m_dependencies.logModernizationFeatureFlags();
-    }
-
+    // The application was initialized before the window was made (the shell core's ApplicationCore::initialize): its
+    // session is open, the interface's settings are in force and the temporary folders are being swept. What is left
+    // is the window's.
     if (m_dependencies.initializePersistence)
     {
         m_dependencies.initializePersistence();
@@ -39,74 +35,13 @@ void AppLifecycleCoordinator::initialize() const
     GlobalSettingsPersistence* globalSettings =
         m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
 
-    if (shouldCleanTempFilesOnStartup() && m_dependencies.cleanTemporaryFilesAsync)
-    {
-        m_dependencies.cleanTemporaryFilesAsync();
-    }
-
-    // Scratch stranded outside the managed temp directory by an earlier crash or force-quit is
-    // never needed again, so it is reclaimed regardless of the clear-temp-on-exit preference.
-    if (m_dependencies.cleanStaleScratchRootsAsync)
-    {
-        m_dependencies.cleanStaleScratchRootsAsync();
-    }
-
-    if (m_dependencies.preloadLocalCatalogsAsync)
-    {
-        m_dependencies.preloadLocalCatalogsAsync();
-    }
-
     loadSettings();
 
     if (globalSettings && m_dependencies.applyTheme)
     {
-        const QString backdropMode =
-            globalSettings->select(SettingsKeys::INTERFACE_MATERIAL_BACKDROP_MODE,
-                                   QString(SettingsDefaults::INTERFACE_MATERIAL_BACKDROP_MODE));
-        setMaterialBackdropMode(resolveMaterialBackdropMode(backdropMode));
-
-        const QString contrastProfile =
-            globalSettings->select(SettingsKeys::INTERFACE_THEME_CONTRAST_PROFILE,
-                                   QString(SettingsDefaults::INTERFACE_THEME_CONTRAST_PROFILE));
-        setThemeContrastProfile(resolveThemeContrastProfile(contrastProfile));
-
-        const QString accentFamily = globalSettings->select(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY,
-                                                            QString(SettingsDefaults::INTERFACE_THEME_ACCENT_FAMILY));
-        setThemeAccentFamily(resolveThemeAccentFamily(accentFamily));
-
-        const QString surfaceTintFamily =
-            globalSettings->select(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY,
-                                   QString(SettingsDefaults::INTERFACE_THEME_SURFACE_TINT_FAMILY));
-        setThemeSurfaceTintFamily(resolveThemeSurfaceTintFamily(surfaceTintFamily));
-
-        const QString tintStrength = globalSettings->select(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH,
-                                                            QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH));
-        setThemeTintStrength(resolveThemeTintStrength(tintStrength));
-
-        // A preset stored puts its three parts in force; with none - an earlier version's settings, or a hand-made
-        // combination - the parts stored stay as they are, and the preset is the one they make.
-        if (const std::optional<QString> preset = globalSettings->selectOptional(SettingsKeys::INTERFACE_THEME_PRESET);
-            preset.has_value())
-        {
-            applyThemePreset(resolveThemePreset(*preset));
-        }
-
-        // Night is off at every start unless the person asked to start in it.
-        const QString startInNight = globalSettings->select(SettingsKeys::INTERFACE_START_IN_NIGHT,
-                                                            SettingsDefaults::INTERFACE_START_IN_NIGHT ? "1" : "0");
-        setNightMode(startInNight == QStringLiteral("1"));
-
-        const QString density =
-            globalSettings->select(SettingsKeys::INTERFACE_DENSITY, QString(SettingsDefaults::INTERFACE_DENSITY));
-        setThemeDensity(resolveThemeDensity(density));
-
         const QString theme =
             globalSettings->select(SettingsKeys::INTERFACE_THEME, QString(SettingsDefaults::INTERFACE_THEME));
         m_dependencies.applyTheme(theme);
-
-        const QString animationsStr = globalSettings->select(
-            SettingsKeys::INTERFACE_ANIMATIONS_ENABLED, SettingsDefaults::INTERFACE_ANIMATIONS_ENABLED ? "1" : "0");
-        an::ui::AnimationUtils::setAnimationsEnabled(animationsStr == "1");
     }
     else
     {
@@ -331,20 +266,6 @@ void AppLifecycleCoordinator::saveWindowGeometry() const
     {
         m_dependencies.keepWindowPlace(*m_dependencies.mainWindow);
     }
-}
-
-bool AppLifecycleCoordinator::shouldCleanTempFilesOnStartup() const
-{
-    GlobalSettingsPersistence* globalSettings =
-        m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
-
-    if (!globalSettings)
-    {
-        return true;
-    }
-
-    const QString clearTempStr = globalSettings->select(SettingsKeys::GENERAL_CLEAR_TEMP_ON_EXIT, "1");
-    return clearTempStr == "1";
 }
 
 bool AppLifecycleCoordinator::shouldCleanTempFilesOnExit() const

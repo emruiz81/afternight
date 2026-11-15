@@ -89,6 +89,7 @@ SCANNED_TREES = (
     'src/AfterNightProcesses',
     'src/AfterNightShellCore',
     'src/AfterNightShellClassic',
+    'src/AfterNightShellObservatory',
     'src/AfterNightApp',
     'src/AfterNightCLI',
     'src/AfterNightExtensionHost',
@@ -112,13 +113,15 @@ CATEGORIES = (PLATFORM_SERVICE, MODULE_SEAT, APPLICATION_SEAT, THEME_SERVICE, UI
               CONSTANT, PENDING_REHOME)
 
 QT_LAYERS = ('src/AfterNightControls/', 'src/AfterNightProcesses/', 'src/AfterNightShellCore/',
-             'src/AfterNightShellClassic/', 'src/AfterNightApp/', 'src/AfterNightExtensionHost/')
+             'src/AfterNightShellClassic/', 'src/AfterNightShellObservatory/', 'src/AfterNightApp/',
+             'src/AfterNightExtensionHost/')
 LOCATIONS = {
     PLATFORM_SERVICE: ('src/AfterNightPlatform/',),
     MODULE_SEAT: ('src/AfterNightExtensionRuntimeBackend/', 'src/AfterNightExtensionHost/',
                   'src/AfterNightExtensionHostLite/', 'src/AfterNightCLI/'),
     APPLICATION_SEAT: ('src/AfterNightApp/', 'src/AfterNightControls/controls/IAppContext.cpp',
-                       'src/AfterNightShellCore/core/', 'src/AfterNightShellClassic/'),
+                       'src/AfterNightShellCore/core/', 'src/AfterNightShellClassic/',
+                       'src/AfterNightShellObservatory/'),
     THEME_SERVICE: ('src/AfterNightControls/theme/',),
     UI_REGISTRATION: QT_LAYERS,
     UI_STATE: QT_LAYERS,

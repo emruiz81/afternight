@@ -148,6 +148,33 @@ class ConsumerStateTest(unittest.TestCase):
         self.write_register()
         self.assertEqual(state.check(self.root), [])
 
+    def test_the_observatory_shell_is_read(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/pages/Cache.cpp', 'static QHash<int, int> gCache;\n')
+        problems = state.check(self.root)
+        self.assertTrue(any('src/AfterNightShellObservatory/pages/Cache.cpp:1: gCache has process lifetime' in p
+                            for p in problems), problems)
+
+    def test_the_observatory_shell_is_a_qt_layer(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/chrome/Order.cpp', 'static int gOrder = 0;\n')
+        self.entries.append(('src/AfterNightShellObservatory/chrome/Order.cpp', 'gOrder', 'ui-state', 'GUI thread'))
+        self.write_register()
+        self.assertEqual(state.check(self.root), [])
+
+    def test_an_application_seat_may_live_in_the_observatory_shell(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryWindow.cpp', 'static Window* gWindow = nullptr;\n')
+        self.entries.append(('src/AfterNightShellObservatory/ObservatoryWindow.cpp', 'gWindow', 'application-seat',
+                             'GUI thread'))
+        self.write_register()
+        self.assertEqual(state.check(self.root), [])
+
+    def test_the_observatory_shell_holds_no_module_seat(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/Seat.cpp', 'Seat gSeat;\n')
+        self.entries.append(('src/AfterNightShellObservatory/Seat.cpp', 'gSeat', 'module-seat', 'a lock'))
+        self.write_register()
+        problems = state.check(self.root)
+        self.assertTrue(any('gSeat: module-seat state may only live in the runtime backend, an extension host or '
+                            'the command-line tool' in p for p in problems), problems)
+
     def test_platform_services_live_only_in_the_platform_library(self) -> None:
         write(self.root, 'src/AfterNightPlatform/src/Logging.cpp', 'std::shared_ptr<int> gLogger;\n')
         write(self.root, 'src/AfterNightControls/app/Logger.cpp', 'static int gLevel = 0;\n')

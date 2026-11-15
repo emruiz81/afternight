@@ -121,6 +121,12 @@ protected:
     {
         s_session = std::make_unique<an::ui::ApplicationSession>();
         s_core = std::make_unique<an::ui::shell::ApplicationCore>();
+        // The application is readied before its window, as it starts: the stores, the context and the session,
+        // the installed extensions.
+        s_core->setApplicationSession(s_session.get());
+        s_core->openStores();
+        s_core->initialize();
+        s_core->start();
         s_window = AfterNightApp::createInstance(*s_core);
         s_window->initialize(*s_session);
     }

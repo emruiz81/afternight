@@ -9,6 +9,8 @@
 #include "actions/ProcessMenuModel.h"
 #include "commands/CommandIndex.h"
 #include "commands/CommandProviders.h"
+#include "core/ApplicationContext.h"
+#include "core/ApplicationSession.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
@@ -25,9 +27,11 @@
 #include "views/ViewService.h"
 
 #include "app/IconManager.h"
+#include "app/ModernizationFeatureFlags.h"
 
 #include "app/PersistenceCoordinator.h"
 #include "app/RuntimeStorageCoordinator.h"
+#include "app/ThemeManager.h"
 #include "controls/FolderTrackerPersistence.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
@@ -35,7 +39,11 @@
 #include "controls/ProcessSettingsPersistence.h"
 #include "controls/ThumbnailPersistence.h"
 #include "controls/ImageViewControl.h"
+#include "controls/settings/ProcessingLimits.h"
+#include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
+#include "theme/AnDesignTokens.h"
+#include "theme/AnimationUtils.h"
 
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Core/Status.h>
@@ -47,9 +55,12 @@
 
 #include <QUuid>
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -134,6 +145,11 @@ struct ApplicationCore::Impl
     std::unique_ptr<ProcessLaunchService> launches;
     std::unique_ptr<ExtensionService> extensions;
     std::unique_ptr<CommandIndex> commands;
+
+    // The context the application reaches the core through, made as the application starts and gone with the core.
+    std::unique_ptr<ApplicationContext> context;
+    bool initialized = false;
+    bool started = false;
 };
 
 ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<Impl>())
@@ -314,6 +330,12 @@ void ApplicationCore::makeCommands()
 
 ApplicationCore::~ApplicationCore()
 {
+    // The context goes first: nothing reaches the core through it once the core is on its way out.
+    if (m_impl->context != nullptr && an::ui::appContext() == m_impl->context.get())
+    {
+        an::ui::clearAppContext();
+    }
+    m_impl->context.reset();
     m_impl->eventTarget = nullptr;
     m_impl->extensions.reset();
     m_impl->launches.reset();
@@ -330,6 +352,151 @@ void ApplicationCore::openStores()
     m_impl->persistence->initializePersistence();
     // The commands the palette ran last live in the settings, which are open from here.
     m_impl->commands->loadRecents();
+}
+
+namespace
+{
+
+void logModernizationFeatureFlags()
+{
+    using an::ui::modernization::ModernizationFeatureFlags;
+
+    LOG_DEBUG("Modernization feature flags: "
+              "AN_UI_TOKENS_ENABLED={} (default={}), "
+              "AN_UI_PROGRAMMATIC_PROCESSES={} (default={}), "
+              "AN_DIALOG_MODERN_STYLE_ENABLED={} (default={}), "
+              "AN_PERSISTENCE_THREADSAFE_ENABLED={} (default={})",
+              ModernizationFeatureFlags::uiTokensEnabled(), ModernizationFeatureFlags::kUiTokensEnabledDefault,
+              ModernizationFeatureFlags::programmaticProcessesEnabled(),
+              ModernizationFeatureFlags::kProgrammaticProcessesEnabledDefault,
+              ModernizationFeatureFlags::dialogModernStyleEnabled(),
+              ModernizationFeatureFlags::kDialogModernStyleEnabledDefault,
+              ModernizationFeatureFlags::persistenceThreadsafeEnabled(),
+              ModernizationFeatureFlags::kPersistenceThreadsafeEnabledDefault);
+}
+
+/// Puts the interface's stored settings in force, in the order each depends on the last: a preset stored puts its three
+/// parts in force over the ones stored beside it, and Night is off at every start unless the person asked to start in
+/// it. The theme itself - system, light or dark - is the shell's window's to apply, once it exists.
+void applyStoredInterfaceSettings(GlobalSettingsPersistence& settings)
+{
+    namespace keys = SettingsKeys;
+    namespace defaults = SettingsDefaults;
+
+    an::ui::setMaterialBackdropMode(an::ui::resolveMaterialBackdropMode(
+        settings.select(keys::INTERFACE_MATERIAL_BACKDROP_MODE, QString(defaults::INTERFACE_MATERIAL_BACKDROP_MODE))));
+    an::ui::setThemeContrastProfile(an::ui::resolveThemeContrastProfile(
+        settings.select(keys::INTERFACE_THEME_CONTRAST_PROFILE, QString(defaults::INTERFACE_THEME_CONTRAST_PROFILE))));
+    an::ui::setThemeAccentFamily(an::ui::resolveThemeAccentFamily(
+        settings.select(keys::INTERFACE_THEME_ACCENT_FAMILY, QString(defaults::INTERFACE_THEME_ACCENT_FAMILY))));
+    an::ui::setThemeSurfaceTintFamily(an::ui::resolveThemeSurfaceTintFamily(settings.select(
+        keys::INTERFACE_THEME_SURFACE_TINT_FAMILY, QString(defaults::INTERFACE_THEME_SURFACE_TINT_FAMILY))));
+    an::ui::setThemeTintStrength(an::ui::resolveThemeTintStrength(
+        settings.select(keys::INTERFACE_THEME_TINT_STRENGTH, QString(defaults::INTERFACE_THEME_TINT_STRENGTH))));
+    if (const std::optional<QString> preset = settings.selectOptional(keys::INTERFACE_THEME_PRESET); preset.has_value())
+    {
+        an::ui::applyThemePreset(an::ui::resolveThemePreset(*preset));
+    }
+    an::ui::setNightMode(settings.select(keys::INTERFACE_START_IN_NIGHT,
+                                         defaults::INTERFACE_START_IN_NIGHT ? "1" : "0") == QStringLiteral("1"));
+    an::ui::setThemeDensity(
+        an::ui::resolveThemeDensity(settings.select(keys::INTERFACE_DENSITY, QString(defaults::INTERFACE_DENSITY))));
+    an::ui::AnimationUtils::setAnimationsEnabled(
+        settings.select(keys::INTERFACE_ANIMATIONS_ENABLED, defaults::INTERFACE_ANIMATIONS_ENABLED ? "1" : "0") ==
+        QStringLiteral("1"));
+}
+
+} // namespace
+
+void ApplicationCore::initialize()
+{
+    Impl& impl = *m_impl;
+    if (impl.initialized)
+    {
+        return;
+    }
+    if (!storesOpen())
+    {
+        throw std::runtime_error("The application is initialized over its stores, and they are not open");
+    }
+    logModernizationFeatureFlags();
+
+    // The context first: a control made from here on finds the application through it.
+    impl.context = std::make_unique<ApplicationContext>(*this);
+    an::ui::setAppContext(impl.context.get());
+
+    // The session is opened once the settings store has been read, from the limits it states, before anything that
+    // reads or shows an image.
+    if (impl.applicationSession != nullptr && !impl.applicationSession->isOpen())
+    {
+        GlobalSettingsPersistence* const settings = impl.globalSettingsPersistence.get();
+        const an::ui::ProcessingLimits limits =
+            settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
+                return settings->select(key, fallback);
+            })
+                                : an::ui::ProcessingLimits{};
+        const an::Status opened = impl.applicationSession->open(limits);
+        if (opened.failed())
+        {
+            const std::string message = fmt::format("The engine session cannot be opened: {}", opened.message());
+            LOG_ERROR(message);
+            throw std::runtime_error(message);
+        }
+    }
+    if (impl.applicationSession != nullptr && impl.applicationSession->isOpen())
+    {
+        // The core lends the session the context hands out once it is open.
+        impl.session = impl.applicationSession;
+    }
+
+    if (GlobalSettingsPersistence* const settings = impl.globalSettingsPersistence.get())
+    {
+        applyStoredInterfaceSettings(*settings);
+        // The temporary folder is cleared at the start as it is at the end, when the person asked for it.
+        if (settings->select(SettingsKeys::GENERAL_CLEAR_TEMP_ON_EXIT, "1") == QStringLiteral("1"))
+        {
+            impl.runtimeStorage->cleanTemporaryFilesAsync();
+        }
+    }
+    // Scratch stranded outside the managed temporary folder by an earlier crash or force-quit is never needed again,
+    // so it is reclaimed whatever the preference says.
+    impl.runtimeStorage->cleanStaleScratchRootsAsync();
+
+    // The stores are open: the SDK the extensions' sessions talk to is told what it reads of the application.
+    impl.extensions->configureSdk();
+    impl.initialized = true;
+}
+
+bool ApplicationCore::isInitialized() const noexcept
+{
+    return m_impl->initialized;
+}
+
+void ApplicationCore::start()
+{
+    Impl& impl = *m_impl;
+    if (impl.started)
+    {
+        return;
+    }
+    if (!impl.initialized)
+    {
+        throw std::runtime_error("The application starts once it is initialized");
+    }
+    // The installed extensions join the process menus - the ones the start-up catalogue names now - before a shell's
+    // window binds the catalogue's process actions, so an extension's process bound to one of them keeps it.
+    impl.extensions->start();
+    impl.started = true;
+}
+
+bool ApplicationCore::isStarted() const noexcept
+{
+    return m_impl->started;
+}
+
+ApplicationContext* ApplicationCore::context() const noexcept
+{
+    return m_impl->context.get();
 }
 
 void ApplicationCore::closeStores() noexcept

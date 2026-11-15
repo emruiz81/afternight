@@ -6,6 +6,7 @@
 #include "app/ApplicationMain.h"
 
 #include "ClassicShell.h"
+#include "ObservatoryShell.h"
 #include "app/ApplicationStart.h"
 #include "app/ModernizationFeatureFlags.h"
 #include "app/SessionConsoleBridge.h"
@@ -244,6 +245,7 @@ int runApplication(int argc, char* argv[])
         // The shells this application can make; one run makes one of them.
         an::ui::shell::ShellRegistry shells;
         (void)shells.add(an::ui::shell::classicShellDescriptor());
+        (void)shells.add(an::ui::observatory::observatoryShellDescriptor());
         core->setShellRegistry(&shells);
 
         // The stores open first - they make no widget - then the shell is chosen, its style profile is put in force and

@@ -191,7 +191,8 @@ AfterNightControls (shared lib, an::ui)              <- ConsumerRuntime + Engine
 AfterNightProcesses (shared lib, an::ui::processes)  <- Controls + ConsumerRuntime + Engine + GmicAdapter + Platform + Protocol
 AfterNightShellCore (shared lib, an::ui::shell)      <- Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
 AfterNightShellClassic (shared lib)                  <- ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
-AfterNightApp (exe)                                  <- ShellClassic + ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightShellObservatory (shared lib, an::ui::observatory) <- ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
+AfterNightApp (exe)                                  <- ShellClassic + ShellObservatory + ShellCore + Processes + Controls + ConsumerRuntime + Engine + Platform + Protocol
 ```
 
 `AfterNightCLI` links ConsumerRuntime, the engine and Platform. `AfterNightExtensionHost` links the processes and
@@ -303,16 +304,28 @@ The classic shell: the main window of AfterNight 1.1, kept whole in a library of
 (`ClassicUiBootstrap`, its three pages; `ClassicWindowLayout`, its dock tool bar and the maximized view;
 `ViewControlCoordinator`, its image selector; `MenuActionManager`, its process menus; `AfterNightAppUiBuilder.h`, its
 widgets) and Controls' (`DialogOrchestrationCoordinator`, `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), and
-installs the shell core's `ApplicationContext`. `ClassicShell` is that window behind `IShell`, and
-`classicShellDescriptor()` how the application registers it (`classic`). No shell includes another, and nothing below a
-shell includes one (`SourceGuards.ShellsDoNotReachEachOther`). Its cases are in `Test_ShellClassic`, beside the records
-of the 1.1 interface.
+is handed the shell core's `ApplicationContext`, which the core made as the application started. `ClassicShell` is that
+window behind `IShell`, and `classicShellDescriptor()` how the application registers it (`classic`). No shell includes
+another, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachEachOther`). Its cases are in
+`Test_ShellClassic`, beside the records of the 1.1 interface.
+
+### AfterNightShellObservatory (`src/AfterNightShellObservatory/`)
+
+The Observatory shell, `namespace an::ui::observatory`, drawn in the Observatory style profile: `ObservatoryWindow`
+(QMainWindow) of regions sized from the density's metrics - `chrome/TopBar`, the rail (`AnIconRail`), the centre's
+pages (`pages/HomePage`, the dashboard; `pages/WorkspacePage` over the dock area `workspaces/WorkspaceHost` makes), the
+column and `chrome/StatusLine` - implementing `IViewHost` and `IStatusDisplay`; `ObservatoryShell` behind `IShell`, and
+`observatoryShellDescriptor()` how the application registers it (`observatory`; `--shell=observatory`). It composes
+Controls' coordinators as the classic window does; processes open as windows of their own. Its cases are in
+`Test_ShellObservatory`, over `ObservatoryWindowCase`.
 
 ### AfterNightApp (`src/AfterNightApp/`)
 
 The executable: `main.cpp` calls `app/ApplicationMain`'s `runApplication`, which owns the `ApplicationSession` and the
-`ApplicationCore`, registers the shells it can make (`ShellRegistry`) and runs them in `app/ApplicationStart`'s order -
-the stores, the shell chosen, the style, the shell made and built (`startApplication`), shown (`showApplication`), and
+`ApplicationCore`, registers the shells it can make (`ShellRegistry`: `classic` and `observatory`) and runs them in
+`app/ApplicationStart`'s order - the stores, the shell chosen, the style, the core initialized and started (the context,
+the session, the interface's settings, the extensions), the shell made and built (`startApplication`), shown
+(`showApplication`), and
 at the end its geometry kept and the application shut down (`stopApplication`). Put new logic in a coordinator or a
 service, not in a shell's window.
 
@@ -327,7 +340,7 @@ heartbeat-supervised by the application; `src/AfterNightExtensionHostLite/` link
 One directory and one `Test_*` executable per area: the engine's direct suites (`Test_EngineCore`, `Test_EngineImage`,
 `Test_EngineRuntime`, …), the consumer suites (`Test_Platform`, `Test_ConsumerRuntime`, `Test_AfterNightCLI`, the
 `Test_Controls*` suites, the `Test_Processes*` families, `Test_ImageIntegration`, `Test_ProcessFramework`,
-`Test_ShellCore`, `Test_ShellClassic`, `Test_ShellParity`, `Test_AfterNightApp`, `Test_ExtensionHostNative`,
+`Test_ShellCore`, `Test_ShellClassic`, `Test_ShellObservatory`, `Test_ShellParity`, `Test_AfterNightApp`, `Test_ExtensionHostNative`,
 `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, …), the `Fuzz_*` targets and the fixture
 executables. `Test_ShellParity` runs what a person does in every registered shell (`ShellScenario.<Case>/<shell>`, over
 a `ShellDriver` per shell), and its `Capabilities.txt` names the cases that prove each capability of the interface,

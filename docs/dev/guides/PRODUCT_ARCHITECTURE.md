@@ -1547,6 +1547,23 @@ builds the classic window's menus builds them over the actions the record holds 
 groups, splits, fits and locks real views in a main window the case makes; `ViewMenuBuilderTest.EqualsTheRecordedTree`
 reads the record of the view's menu; `WindowGeometryStoreTest.*` and `FileDropHandlerTest.*` need no window.
 
+### The shells
+
+The application holds two shells, each a library over the shell core: `AfterNightShellClassic`, the window of
+AfterNight 1.1, and `AfterNightShellObservatory`, the window of places and tasks. One run makes one of them, chosen at
+the start (`--shell=<id>`, `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default `classic`), and each names the
+style profile it is drawn in. A shell is a window and what only a window answers; everything else is the core's, made
+and started before the shell is: `ApplicationCore::initialize` makes and installs the application context, opens the
+session from the limits the settings store states, puts the interface's settings in force so the first widget is made
+under them, sweeps the temporary folders and readies the extensions' SDK, and `ApplicationCore::start` finds the
+installed extensions, whose processes join the process menus' data. The context is the core's (`ApplicationCore::
+context`): made over the core alone, it answers what is the shell's through the shell the core holds, and a shell's
+window hands it the little it still answers itself (`ApplicationContext::setDependencies`) and takes it out of the
+global as it goes, so the windows destroyed after it find none. A window is therefore made over an application that is
+ready - its session open, its settings in force, its extensions known - and holds only its own parts. No shell includes
+the other, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachEachOther`, `check_consumer_layering.py`,
+`check_build_graph.py`).
+
 ### The classic shell (`src/AfterNightShellClassic/`: `ClassicShell.h`, `AfterNightApp.h`)
 
 `AfterNightShellClassic` is the main window of AfterNight 1.1, kept whole in a library of its own. `AfterNightApp` (a
@@ -1558,18 +1575,18 @@ three pages (the dashboard, the dock area, the maximized view) into its central 
 tool bar, the switch between dashboard and dock area and the maximized view; `MenuActionManager`, its process, recent
 and favourite menus; `AfterNightAppUiBuilder.h`, its widgets - and Controls' (`DialogOrchestrationCoordinator`,
 `PersistenceCoordinator`, `AppLifecycleCoordinator`, …), each handed what it needs of the shell core through its
-`Dependencies`, and installs the shell core's `ApplicationContext` over the core and itself. Its lock, group, split and
+`Dependencies`, and hands the core's `ApplicationContext` what it still answers - the theme, the recent and the
+dropped files. Its lock, group, split and
 fit, the view's menu, its saved place and the files dropped on it are the core's (`DockLayoutOperations`,
 `ViewMenuBuilder`, `WindowGeometryStore`, `FileDropHandler`) over its one dock area. It hosts the core's actions while
 it lives, its builder making its menus and its tool bar of them, gives the action bindings their targets, and makes its
 process menus from the core's process menu model whenever it changes.
 
-`AfterNightApp::initialize` opens the application's session once the settings store has been read, from the
-processing limits stored there (`applicationSessionSettings`: `sessionSettingsForLimits` with the product's codecs),
-before anything reads an image. The session opens there because the limits it is opened from are in the settings store
-the window has the core open: opening it in `main` would mean reading that store twice, or opening with defaults and
-replacing a session the window may already lend. The core lends that session (`IEngineSessionProvider`) once it is
-open, and the persistence coordinator's RAW policy (`IRawOpenPolicyService`) and output intents
+The application's session is opened by the core before the window is made (`ApplicationCore::initialize`), once the
+settings store has been read, from the processing limits stored there (`applicationSessionSettings`:
+`sessionSettingsForLimits` with the product's codecs), before anything reads an image; the window is refused over a
+core that is not initialized and started. The core lends that session (`IEngineSessionProvider`) once it is open, and
+the persistence coordinator's RAW policy (`IRawOpenPolicyService`) and output intents
 (`IOutputIntentProvider`). The view factory and the events that carry an image move an `ImageDocument`; an event whose
 document no view takes closes it, and no entry point makes a worker wait for the GUI thread. The extension seam's hooks,
 which the core's extension service sets, land a result as an edit the history records, a preview through
@@ -1587,7 +1604,38 @@ moved and renamed, not rewritten, so it carries no `.clang-tidy` of its own. `Te
 real window in one session the suite owns: `ApplicationMenu` holds every menu behaviour, `ProductSmoke` every format
 read, a save read back and a process of every framework family, and `Test_ShellClassic/ApplicationDriving.h`'s
 `RealWindowCase` drives the window as a person does; the records of the 1.1 interface are beside it
-(`Test_ShellClassic/data/`).
+(`Test_ShellClassic/data/`). What a case of any shell's window shares - running the event loop until something holds,
+answering the dialogs a menu action opens - is `fixtures/WindowDriving.h`.
+
+### The Observatory shell (`src/AfterNightShellObservatory/`: `ObservatoryShell.h`, `ObservatoryWindow.h`)
+
+`AfterNightShellObservatory` (`an::ui::observatory`) is the window of places and tasks, drawn in the Observatory style
+profile. `ObservatoryWindow` (a `QMainWindow`, at least 1024 x 640) is made of regions sized from the density's
+metrics: the top bar across the window (`chrome/TopBar`, `MetricTokens::barTop`), the rail under it at the left
+(`AnIconRail`, `MetricTokens::rail`), the centre - a stack of one page per place, each kept alive while another is
+shown, so changing place computes nothing - the column right of the centre, and the status line along the bottom right
+of the rail (`chrome/StatusLine`, `MetricTokens::statusLine`). Home is `pages/HomePage`, today's dashboard in a page
+that scrolls; the workspace is `pages/WorkspacePage` over the dock area `workspaces/WorkspaceHost` makes. The dock
+area is a main window of the dock library made with the shell's window as its parent and handed to its page (made under
+the page it would stay a window of its own), drawn by the decorations' factory and `KddwProxyStyle`, and joined to the
+dock library's hooks through `DockHooks`; while it is the only one its target names no workspace, so its lock is the
+whole layout's, as the classic window's is. A view is docked there beside its neighbour or on the right; maximized, it
+covers the workspace's page while its dock keeps a stand-in, the layout locked while it is unless the person had locked
+it already. With no image open the window shows Home, and the workspace once one is; the Session Console is a dock of the
+workspace for now, which keeps the workspace on screen while it is open. Processes open as windows of their own: the
+shell has no process presenter yet.
+
+The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
+mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
+window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's
+services their hooks, and takes all of it back as it goes, after destroying the process windows still open and before
+the stores close. `ObservatoryShell` is the window behind the shell contract: made over the core, it is refused over one
+that is not initialized and started or holds no open session, sets itself as the core's shell, makes and readies the
+window when it is built, and destroys it when it goes; `observatoryShellDescriptor()` registers it as `observatory`,
+"Observatory", in the Observatory profile. The library carries the shell core's naming table (`.clang-tidy`), and its
+tree is held by the look guards (`SourceGuards.NoLookLiteralsInShellsAndComponents`,
+`.TokensAreNotCachedInConstructors`). `Test_ShellObservatory` links it and drives the real window, started and ended in
+the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/ObservatoryWindowCase.h`).
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationMain.h`, `app/ApplicationStart.h`)
 
@@ -1600,8 +1648,8 @@ It starts them in one order (`startApplication`, `app/ApplicationStart.h`): the 
 widget, and a shell is chosen from one of them - then the shell chosen among the registered ones (`--shell=<id>`,
 `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default; a source that names none is passed over with a warning
 in the log), then the style under the profile the chosen shell names (or the developer switch
-`AFTERNIGHT_STYLE_PROFILE`; `ShellChoice::styleProfile`), before the first widget exists, then the shell made over
-the core and built;
+`AFTERNIGHT_STYLE_PROFILE`; `ShellChoice::styleProfile`), before the first widget exists, then the core initialized and
+started (`ApplicationCore::initialize`, `ApplicationCore::start`), then the shell made over the core and built;
 `showApplication` shows it where it was. The Interface page offers the choice of a shell only when the application
 registers more than one (`IInterfaceSettingsRuntimeService::availableShells`), and the choice takes effect at the next
 start. At the end `stopApplication` has the shell keep its geometry and tears the application down

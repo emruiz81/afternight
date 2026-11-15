@@ -83,8 +83,20 @@ private:
 } // namespace
 
 ApplicationContext::ApplicationContext(ApplicationCore& core, IShell& shell, Dependencies dependencies)
-    : m_core(core), m_shell(shell), m_dependencies(std::move(dependencies))
+    : m_core(core), m_shell(&shell), m_dependencies(std::move(dependencies))
 {
+}
+
+ApplicationContext::ApplicationContext(ApplicationCore& core) : m_core(core) {}
+
+void ApplicationContext::setDependencies(Dependencies dependencies)
+{
+    m_dependencies = std::move(dependencies);
+}
+
+IShell* ApplicationContext::shell() const noexcept
+{
+    return m_shell != nullptr ? m_shell : m_core.shell();
 }
 
 // ---- IAppContext
@@ -191,12 +203,14 @@ an::ui::IRawOpenPolicyService* ApplicationContext::getRawOpenPolicyService()
 
 QWidget* ApplicationContext::getMainWindow()
 {
-    return m_shell.mainWindow();
+    IShell* const answering = shell();
+    return answering != nullptr ? answering->mainWindow() : nullptr;
 }
 
 an::ui::IProcessPresenter* ApplicationContext::getProcessPresenter()
 {
-    return m_shell.processPresenter();
+    IShell* const answering = shell();
+    return answering != nullptr ? answering->processPresenter() : nullptr;
 }
 
 // ---- IGlobalSettingsProvider
@@ -396,22 +410,34 @@ QString ApplicationContext::selectThumbnailPath(const QString& filePath) const
 
 void ApplicationContext::updateImageInfoInStatusBar()
 {
-    m_shell.statusDisplay().showImageInfo(m_core.viewService().getActiveImageViewControl());
+    if (IShell* const answering = shell())
+    {
+        answering->statusDisplay().showImageInfo(m_core.viewService().getActiveImageViewControl());
+    }
 }
 
 void ApplicationContext::updateImageZoomInfoInStatusBar()
 {
-    m_shell.statusDisplay().showZoom(m_core.viewService().getActiveImageViewControl());
+    if (IShell* const answering = shell())
+    {
+        answering->statusDisplay().showZoom(m_core.viewService().getActiveImageViewControl());
+    }
 }
 
 void ApplicationContext::updateImageCelestialCoordsInStatusBar(const double raDegrees, const double decDegrees)
 {
-    m_shell.statusDisplay().showCelestialCoordinates(raDegrees, decDegrees);
+    if (IShell* const answering = shell())
+    {
+        answering->statusDisplay().showCelestialCoordinates(raDegrees, decDegrees);
+    }
 }
 
 void ApplicationContext::clearImageCelestialCoordsInStatusBar()
 {
-    m_shell.statusDisplay().clearCelestialCoordinates();
+    if (IShell* const answering = shell())
+    {
+        answering->statusDisplay().clearCelestialCoordinates();
+    }
 }
 
 // ---- IActionStateManager

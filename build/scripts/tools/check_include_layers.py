@@ -244,6 +244,7 @@ FOREIGN_COMPONENTS = (
     'AfterNightProcesses',
     'AfterNightShellClassic',
     'AfterNightShellCore',
+    'AfterNightShellObservatory',
 )
 
 

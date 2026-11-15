@@ -6,7 +6,6 @@
 #include "AfterNightApp.h"
 #include "core/ApplicationSession.h"
 #include "AfterNightAppUiBuilder.h"
-#include "app/ModernizationFeatureFlags.h"
 #include "app/ExtensionManager.h"
 #include "app/ExtensionEnvironmentManager.h"
 #include "app/ExtensionHostManager.h"
@@ -39,7 +38,6 @@
 #include "controls/MainDashboard.h"
 #include "controls/LogViewerControl.h"
 #include "controls/settings/ExtensionStatusPage.h"
-#include "controls/settings/ProcessingLimits.h"
 #include "controls/ThumbnailPersistence.h"
 #include "controls/FolderTrackerPersistence.h"
 #include "controls/ProcessSettingsPersistence.h"
@@ -130,24 +128,6 @@ namespace
 
 using an::ui::ScopedTopLevelFlagRestorer;
 
-void logModernizationFeatureFlags()
-{
-    using an::ui::modernization::ModernizationFeatureFlags;
-
-    LOG_DEBUG("Modernization feature flags: "
-              "AN_UI_TOKENS_ENABLED={} (default={}), "
-              "AN_UI_PROGRAMMATIC_PROCESSES={} (default={}), "
-              "AN_DIALOG_MODERN_STYLE_ENABLED={} (default={}), "
-              "AN_PERSISTENCE_THREADSAFE_ENABLED={} (default={})",
-              ModernizationFeatureFlags::uiTokensEnabled(), ModernizationFeatureFlags::kUiTokensEnabledDefault,
-              ModernizationFeatureFlags::programmaticProcessesEnabled(),
-              ModernizationFeatureFlags::kProgrammaticProcessesEnabledDefault,
-              ModernizationFeatureFlags::dialogModernStyleEnabled(),
-              ModernizationFeatureFlags::kDialogModernStyleEnabledDefault,
-              ModernizationFeatureFlags::persistenceThreadsafeEnabled(),
-              ModernizationFeatureFlags::kPersistenceThreadsafeEnabledDefault);
-}
-
 } // anonymous namespace
 
 struct AfterNightApp::Impl
@@ -176,7 +156,6 @@ struct AfterNightApp::Impl
     std::unique_ptr<an::ui::ClassicUiBootstrap> m_UiBootstrapCoordinator;
     std::unique_ptr<an::ui::ClassicWindowLayout> m_WindowLayoutCoordinator;
     std::unique_ptr<an::ui::AppLifecycleCoordinator> m_AppLifecycleCoordinator;
-    std::unique_ptr<an::ui::shell::ApplicationContext> m_AppContext;
 
     // The session the caller of `initialize` owns and lends; it outlives this window.
     an::ui::ApplicationSession* m_Session = nullptr;
@@ -224,6 +203,12 @@ AfterNightApp* AfterNightApp::createInstance(an::ui::shell::ApplicationCore& cor
 {
     if (!m_Instance)
     {
+        // The window is made over an application that is initialized and started (startApplication): its context
+        // exists, its session is open and the installed extensions are known.
+        if (!core.isStarted() || core.context() == nullptr)
+        {
+            throw std::runtime_error("The classic window is made over an application that is initialized and started");
+        }
         m_Instance = new AfterNightApp(core);
     }
 
@@ -264,15 +249,14 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     eventTargetDeps.removeRecentFile = [this](const std::string& fileName) { removeRecentFile(fileName); };
     m_impl->m_EventTarget = std::make_unique<an::ui::shell::ServiceEventTarget>(core, std::move(eventTargetDeps));
     core.setEventTarget(m_impl->m_EventTarget.get());
-    // Install the process-global app context before constructing UI services so
-    // any control created during startup observes a live context. It is the core's and this shell's; what is still
-    // this window's is handed to it.
+    // The application context was made and installed as the application started (the shell core's
+    // ApplicationCore::initialize), so any control made from here on finds it; what is still this window's is handed to
+    // it while the window lives.
     an::ui::shell::ApplicationContext::Dependencies contextDeps;
     contextDeps.applyTheme = [this](const QString& themeId) { applyTheme(themeId); };
     contextDeps.openRecentSingleFile = [this](const QString& filePath) { openRecentSingleFile(filePath); };
     contextDeps.openDroppedFiles = [this](const QStringList& files) { openDroppedFiles(files); };
-    m_impl->m_AppContext = std::make_unique<an::ui::shell::ApplicationContext>(core, *this, std::move(contextDeps));
-    an::ui::setAppContext(m_impl->m_AppContext.get());
+    core.context()->setDependencies(std::move(contextDeps));
 
     // The application's actions are the core's; the window holds them while it lives, as its own, and its menus, its
     // tool bar and its shortcuts are made of them.
@@ -398,9 +382,10 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
             }
         });
 
-    // The installed extensions join the menus - the ones the start-up catalogue names now - before the catalogue's
-    // process actions are bound, so an extension's process bound to one of them keeps it.
-    core.extensions().start();
+    // The installed extensions joined the process menus as the application started (ApplicationCore::start): this
+    // window's menus are made from them, and the catalogue's process actions are bound over them, so an extension's
+    // process bound to one of them keeps it.
+    updateExtensionMenuEntries();
     core.actionBindings().connectProcessActions();
 
     an::ui::FileManager::Dependencies fileManagerDeps;
@@ -576,11 +561,8 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
     appLifecycleDeps.isTerminating = &m_impl->m_IsTerminating;
     appLifecycleDeps.maxThreadsForBatchProcess = &m_impl->m_MaxThreadsForBatchProcess;
     appLifecycleDeps.maxThreadsForPreviewProcess = &m_impl->m_MaxThreadsForPreviewProcess;
-    appLifecycleDeps.logModernizationFeatureFlags = []() { logModernizationFeatureFlags(); };
     appLifecycleDeps.initializePersistence = [this]() { initializePersistence(); };
     appLifecycleDeps.cleanTemporaryFiles = [this]() { cleanTemporaryFiles(); };
-    appLifecycleDeps.cleanTemporaryFilesAsync = [this]() { cleanTemporaryFilesAsync(); };
-    appLifecycleDeps.cleanStaleScratchRootsAsync = [this]() { cleanStaleScratchRootsAsync(); };
     appLifecycleDeps.applyTheme = [this](const QString& themeId) { applyTheme(themeId); };
     appLifecycleDeps.loadIcons = [this]() { loadIcons(); };
     appLifecycleDeps.setActionIcons = [this]() { setActionIcons(); };
@@ -663,17 +645,14 @@ AfterNightApp::AfterNightApp(an::ui::shell::ApplicationCore& core)
 
 void AfterNightApp::initialize(an::ui::ApplicationSession& session)
 {
-    // The session is opened once the settings store has been read, from the limits it states, before anything that
-    // reads or shows an image.
+    // The session was opened as the application was initialized, from the limits the settings store states, before
+    // this window was made.
     m_impl->m_Session = &session;
 
     if (m_impl->m_AppLifecycleCoordinator)
     {
         m_impl->m_AppLifecycleCoordinator->initialize();
     }
-
-    // The stores are open: the SDK the extensions' sessions talk to is told what it reads of the application.
-    m_impl->m_Core.extensions().configureSdk();
 
     refreshStoredProcessMenus();
 }
@@ -912,11 +891,15 @@ AfterNightApp::~AfterNightApp()
     m_impl->m_Core.discardPendingEvents();
     m_impl->m_Core.setEventTarget(nullptr);
 
-    // The context goes with this window, and the windows destroyed after it - its children - must find none rather
-    // than one on its way out.
-    if (an::ui::appContext() == m_impl->m_AppContext.get())
+    // The context is the core's and goes with it; this window takes back what it handed it, and the windows destroyed
+    // after it - its children - must find no context rather than one whose window is on its way out.
+    if (an::ui::shell::ApplicationContext* const context = m_impl->m_Core.context())
     {
-        an::ui::clearAppContext();
+        context->setDependencies({});
+        if (an::ui::appContext() == context)
+        {
+            an::ui::clearAppContext();
+        }
     }
 
     // The services answer through this window no more: they are given no hooks into it and no shell, and the views
@@ -1038,7 +1021,7 @@ void AfterNightApp::setActionIcons()
 
 void AfterNightApp::initializePersistence()
 {
-    m_impl->m_Core.openStores();
+    // The core opened the stores and the session before this window was made.
     if (m_impl->m_FileManager)
     {
         m_impl->m_FileManager->setPersistenceDependencies(m_impl->m_Core.thumbnailStore(), m_impl->m_Core.folderStore(),
@@ -1049,26 +1032,6 @@ void AfterNightApp::initializePersistence()
     {
         notifyInfoMessageAsync(this, tr("Settings"), notice);
     }
-
-    if (m_impl->m_Session != nullptr && !m_impl->m_Session->isOpen())
-    {
-        GlobalSettingsPersistence* const settings = m_impl->m_Core.globalSettingsStore();
-        const an::ui::ProcessingLimits limits =
-            settings != nullptr ? an::ui::readProcessingLimits([settings](const QString& key, const QString& fallback) {
-                return settings->select(key, fallback);
-            })
-                                : an::ui::ProcessingLimits{};
-        const an::Status opened = m_impl->m_Session->open(limits);
-        if (opened.failed())
-        {
-            const std::string message = fmt::format("The engine session cannot be opened: {}", opened.message());
-            LOG_ERROR(message);
-            throw std::runtime_error(message);
-        }
-    }
-
-    // The core lends the session the context hands out once it is open.
-    m_impl->m_Core.setEngineSessionProvider(engineSessionProvider());
 }
 
 void AfterNightApp::persistLastOpenDir()

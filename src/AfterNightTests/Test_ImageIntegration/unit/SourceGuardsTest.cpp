@@ -249,12 +249,14 @@ QString described(const QList<Finding>& findings)
     return lines.join(QLatin1Char('\n'));
 }
 
-// The trees whose look is held to the design tokens: the shell core, which every shell is built on, and the reusable
-// components. The theme's own tree is where the look is decided, and is not among them; the classic shell is the
+// The trees whose look is held to the design tokens: the shell core, which every shell is built on, the Observatory
+// shell and the reusable components. The theme's own tree is where the look is decided, and is not among them; the
+// classic shell is the
 // interface of AfterNight 1.1, kept as it was until it leaves or stays whole.
 const QStringList& lookTrees()
 {
     static const QStringList trees{QStringLiteral("src/AfterNightShellCore/"),
+                                   QStringLiteral("src/AfterNightShellObservatory/"),
                                    QStringLiteral("src/AfterNightControls/components/")};
     return trees;
 }
@@ -570,6 +572,10 @@ TEST(SourceGuards, ShellsDoNotReachEachOther)
     const QList<Shell> shells = {
         {QStringLiteral("src/AfterNightShellClassic/"),
          {QStringLiteral("src/AfterNightApp/"), QStringLiteral("src/AfterNightTests/Test_ShellClassic/"),
+          QStringLiteral("src/AfterNightTests/Test_ShellParity/"),
+          QStringLiteral("src/AfterNightTests/Test_AfterNightApp/")}},
+        {QStringLiteral("src/AfterNightShellObservatory/"),
+         {QStringLiteral("src/AfterNightApp/"), QStringLiteral("src/AfterNightTests/Test_ShellObservatory/"),
           QStringLiteral("src/AfterNightTests/Test_ShellParity/"),
           QStringLiteral("src/AfterNightTests/Test_AfterNightApp/")}},
     };

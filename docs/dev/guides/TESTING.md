@@ -58,7 +58,7 @@ interface subtrees mirroring the production structure - `Test_ProcessFramework`,
 `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, `Test_Widgets`, `Test_ImageViewControl`,
 `Test_ImageProcessControl`, `Test_ImageRTPreviewControl`, `Test_MainDashboard`, `Test_MaskDrawing`,
 `Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window, `Test_ShellClassic` for the
-classic shell's window, `Test_ShellParity` for what a person does in every shell, `Test_AfterNightApp` for the
+classic shell's window, `Test_ShellObservatory` for the Observatory shell's window, `Test_ShellParity` for what a person does in every shell, `Test_AfterNightApp` for the
 application's start and end, and
 the fixture executables `Test_FixtureNeutral` and `Test_FixtureEngine`. The fuzz targets `Fuzz_Engine*` and `Fuzz_Consumer*` are run by the fuzz campaign below.
 `build/scripts/tools/consumer_targets.txt` is the list that is authoritative.

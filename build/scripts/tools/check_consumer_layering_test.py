@@ -37,6 +37,7 @@ class LayeringCase(unittest.TestCase):
         write(self.root, 'src/AfterNightProcesses/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
         write(self.root, 'src/AfterNightShellCore/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
         write(self.root, 'src/AfterNightShellClassic/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
+        write(self.root, 'src/AfterNightShellObservatory/stdafx.hpp', CLEAN_PRECOMPILED_HEADER)
 
     def run_check(self) -> tuple[int, str]:
         stream = io.StringIO()
@@ -58,7 +59,7 @@ class CleanTreeTests(LayeringCase):
     def test_a_clean_tree_passes(self) -> None:
         code, output = self.run_check()
         self.assertEqual(code, 0, output)
-        self.assertIn('read 4 layered library sources', output)
+        self.assertIn('read 5 layered library sources', output)
 
 
 class LayerTests(LayeringCase):
@@ -183,6 +184,93 @@ class ClassicShellLayerTests(LayeringCase):
         write(self.root, 'src/AfterNightControls/controls/IAppContext.h', '#pragma once\n')
         write(self.root, 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.h', '#pragma once\n')
         write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp',
+              '#include "core/IShell.h"\n#include "controls/IAppContext.h"\n#include "app/ProcessRegistryBuiltins.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+
+class ObservatoryShellLayerTests(LayeringCase):
+    """The Observatory shell sits above the shell core and below the application and the full host, beside the
+    classic shell: neither shell includes the other."""
+
+    def test_controls_including_an_observatory_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightControls/app/ThemeManager.cpp', '#include "ObservatoryShell.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightControls/app/ThemeManager.cpp:1 includes ObservatoryShell.h from '
+                      'AfterNightShellObservatory', output)
+
+    def test_processes_including_an_observatory_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/pages/HomePage.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightProcesses/app/ProcessLauncher.cpp', '\n#include "pages/HomePage.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightProcesses/app/ProcessLauncher.cpp:2 includes pages/HomePage.h from '
+                      'AfterNightShellObservatory', output)
+
+    def test_shell_core_including_an_observatory_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryWindow.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellCore/core/ShellSelection.cpp', '#include "ObservatoryWindow.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellCore/core/ShellSelection.cpp:1 includes ObservatoryWindow.h from '
+                      'AfterNightShellObservatory', output)
+
+    def test_observatory_shell_including_an_application_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightApp/app/ApplicationStart.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.cpp', '#include "app/ApplicationStart.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellObservatory/ObservatoryShell.cpp:1 includes app/ApplicationStart.h from '
+                      'AfterNightApp', output)
+
+    def test_observatory_shell_including_a_full_host_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightExtensionHost/ExtensionAppContext.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.cpp', '#include "ExtensionAppContext.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellObservatory/ObservatoryShell.cpp:1 includes ExtensionAppContext.h from '
+                      'AfterNightExtensionHost', output)
+
+    def test_observatory_shell_including_a_classic_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.cpp', '#include "ClassicShell.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellObservatory/ObservatoryShell.cpp:1 includes ClassicShell.h from '
+                      'AfterNightShellClassic', output)
+
+    def test_classic_shell_including_an_observatory_shell_header_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp', '#include "ObservatoryShell.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellClassic/ClassicShell.cpp:1 includes ObservatoryShell.h from '
+                      'AfterNightShellObservatory', output)
+
+    def test_classic_shell_reaching_the_observatory_shell_by_a_relative_path_fails(self) -> None:
+        write(self.root, 'src/AfterNightShellObservatory/chrome/TopBar.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp',
+              '#include "../AfterNightShellObservatory/chrome/TopBar.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('src/AfterNightShellClassic/ClassicShell.cpp:1 includes '
+                      '../AfterNightShellObservatory/chrome/TopBar.h from AfterNightShellObservatory', output)
+
+    def test_a_path_both_shells_hold_resolves_to_the_including_shells_own(self) -> None:
+        write(self.root, 'src/AfterNightShellClassic/pages/HomePage.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/pages/HomePage.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryWindow.cpp', '#include "pages/HomePage.h"\n')
+        write(self.root, 'src/AfterNightShellClassic/ClassicShell.cpp', '#include "pages/HomePage.h"\n')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+    def test_observatory_shell_including_shell_core_processes_and_controls_headers_passes(self) -> None:
+        write(self.root, 'src/AfterNightShellCore/core/IShell.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightControls/controls/IAppContext.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightProcesses/app/ProcessRegistryBuiltins.h', '#pragma once\n')
+        write(self.root, 'src/AfterNightShellObservatory/ObservatoryShell.cpp',
               '#include "core/IShell.h"\n#include "controls/IAppContext.h"\n#include "app/ProcessRegistryBuiltins.h"\n')
         code, output = self.run_check()
         self.assertEqual(code, 0, output)

@@ -1072,6 +1072,156 @@ class ClassicShellLayerTests(VisualStudioTreeCase):
         self.assertEqual(code, 0, output)
 
 
+SHELL_OBSERVATORY_INCLUDE = os.path.join('..', '..', 'src', 'AfterNightShellObservatory')
+
+
+class ObservatoryShellLayerTests(VisualStudioTreeCase):
+    """The Observatory shell sits above the shell core and below the application, beside the classic shell, which
+    neither shell reaches; no extension host reaches it."""
+
+    def test_the_observatory_shell_is_generated(self):
+        self.assertIn('AfterNightShellObservatory', graph.EXPECTED_MAIN_PROJECTS)
+        self.assertIn('Test_ShellObservatory', graph.EXPECTED_TEST_PROJECTS)
+
+    def test_the_observatory_shell_is_a_shell_library(self):
+        self.assertIn('AfterNightShellObservatory', graph.SHELL_LIBRARIES)
+
+    def test_the_shell_core_including_the_observatory_shell_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellCore': {
+            'includes': SHELL_CORE_INCLUDE + ';' + SHELL_OBSERVATORY_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellCore includes %s from the AfterNightShellObservatory tree'
+                      % SHELL_OBSERVATORY_INCLUDE, output)
+
+    def test_controls_linking_the_observatory_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightControls': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightShellObservatory.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightControls links AfterNightShellObservatory', output)
+
+    def test_processes_linking_the_observatory_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightProcesses': {
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellObservatory.lib'}},
+                        main_dependencies={'AfterNightProcesses.vcxproj': ['AfterNightShellObservatory.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightProcesses links AfterNightShellObservatory', output)
+        self.assertIn('AfterNightProcesses builds after AfterNightShellObservatory', output)
+
+    def test_the_shell_core_compiling_an_observatory_shell_source_fails(self):
+        foreign = os.path.join('..', '..', 'src', 'AfterNightShellObservatory', 'ObservatoryShell.cpp')
+        self.build_tree(main_overrides={'AfterNightShellCore': {'sources': (foreign,)}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellCore compiles %s from the AfterNightShellObservatory tree' % foreign, output)
+
+    def test_the_observatory_shell_including_the_application_tree_fails(self):
+        application = os.path.join('..', '..', 'src', 'AfterNightApp')
+        self.build_tree(main_overrides={'AfterNightShellObservatory': {
+            'includes': SHELL_OBSERVATORY_INCLUDE + ';' + application}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellObservatory includes %s from the AfterNightApp tree' % application, output)
+
+    def test_the_observatory_shell_linking_the_full_host_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellObservatory': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightExtensionHost.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellObservatory links AfterNightExtensionHost', output)
+
+    def test_the_full_host_linking_the_observatory_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHost': {
+            'links': PRODUCT_ENGINE + '.lib;AfterNightShellObservatory.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHost links AfterNightShellObservatory; an extension host links no shell '
+                      'library', output)
+
+    def test_the_full_host_including_the_observatory_shell_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHost': {'includes': SHELL_OBSERVATORY_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHost includes %s from the AfterNightShellObservatory tree'
+                      % SHELL_OBSERVATORY_INCLUDE, output)
+
+    def test_the_lite_host_linking_the_observatory_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHostLite': {
+            'links': 'AfterNightShellObservatory.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHostLite links AfterNightShellObservatory; an extension host links no '
+                      'shell library', output)
+
+    def test_the_observatory_shell_linking_the_classic_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellObservatory': {
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellClassic.lib'}},
+                        main_dependencies={'AfterNightShellObservatory.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellClassic.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellObservatory links AfterNightShellClassic', output)
+        self.assertIn('AfterNightShellObservatory builds after AfterNightShellClassic', output)
+
+    def test_the_classic_shell_linking_the_observatory_shell_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellClassic': {
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellObservatory.lib'}},
+                        main_dependencies={'AfterNightShellClassic.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellObservatory.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellClassic links AfterNightShellObservatory', output)
+        self.assertIn('AfterNightShellClassic builds after AfterNightShellObservatory', output)
+
+    def test_the_observatory_shell_including_the_classic_shell_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellObservatory': {
+            'includes': SHELL_OBSERVATORY_INCLUDE + ';' + SHELL_CLASSIC_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellObservatory includes %s from the AfterNightShellClassic tree'
+                      % SHELL_CLASSIC_INCLUDE, output)
+
+    def test_the_classic_shell_including_the_observatory_shell_tree_fails(self):
+        self.build_tree(main_overrides={'AfterNightShellClassic': {
+            'includes': SHELL_CLASSIC_INCLUDE + ';' + SHELL_OBSERVATORY_INCLUDE}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellClassic includes %s from the AfterNightShellObservatory tree'
+                      % SHELL_OBSERVATORY_INCLUDE, output)
+
+    def test_the_classic_shell_compiling_an_observatory_shell_source_fails(self):
+        foreign = os.path.join('..', '..', 'src', 'AfterNightShellObservatory', 'pages', 'HomePage.cpp')
+        self.build_tree(main_overrides={'AfterNightShellClassic': {'sources': (foreign,)}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightShellClassic compiles %s from the AfterNightShellObservatory tree' % foreign, output)
+
+    def test_the_observatory_shell_reaching_the_shell_core_passes(self):
+        self.build_tree(main_overrides={'AfterNightShellObservatory': {
+                            'includes': SHELL_OBSERVATORY_INCLUDE + ';' + SHELL_CORE_INCLUDE + ';' + PROCESSES_INCLUDE
+                                        + ';' + CONTROLS_INCLUDE,
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib;AfterNightProcesses.lib;'
+                                     'AfterNightControls.lib'}},
+                        main_dependencies={'AfterNightShellObservatory.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellCore.vcxproj', 'AfterNightProcesses.vcxproj',
+                            'AfterNightControls.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+    def test_the_application_linking_both_shells_passes(self):
+        self.build_tree(main_overrides={'AfterNightApp': {
+                            'includes': SHELL_CLASSIC_INCLUDE + ';' + SHELL_OBSERVATORY_INCLUDE,
+                            'links': PRODUCT_ENGINE + '.lib;AfterNightShellCore.lib;AfterNightShellClassic.lib;'
+                                     'AfterNightShellObservatory.lib'}},
+                        main_dependencies={'AfterNightApp.vcxproj': [
+                            PRODUCT_ENGINE + '.vcxproj', 'AfterNightShellCore.vcxproj', 'AfterNightShellClassic.vcxproj',
+                            'AfterNightShellObservatory.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+
 OPENCL_SDK_INCLUDE = os.path.join('..', '..', 'vcpkg', 'installed', 'x64-windows-opencl', 'include')
 GPU_BACKEND = 'AfterNightEngineOpenClBackend'
 GPU_BACKEND_SUITE = 'Test_EngineOpenClBackend'
@@ -1566,6 +1716,20 @@ class TargetRegistryTests(VisualStudioTreeCase):
         self.assertIn('vs2026-msvc: AfterNightShellCore is generated and consumer_targets.txt does not declare it',
                       output)
         self.assertIn('vs2026-msvc: Test_ShellCore is generated and consumer_targets.txt does not declare it', output)
+
+    def test_the_observatory_shell_without_its_record_fails(self):
+        self.build_tree()
+        registry = os.path.join(self.root, 'build', 'scripts', 'tools', 'consumer_targets.txt')
+        os.makedirs(os.path.dirname(registry), exist_ok=True)
+        with open(registry, 'w') as handle:
+            handle.write('# a registry that declares no Observatory shell\n')
+        os.utime(registry, (1000, 1000))
+        code, output = self.run_check()
+        self.assertEqual(code, 1, output)
+        self.assertIn('vs2026-msvc: AfterNightShellObservatory is generated and consumer_targets.txt does not '
+                      'declare it', output)
+        self.assertIn('vs2026-msvc: Test_ShellObservatory is generated and consumer_targets.txt does not declare it',
+                      output)
 
 
 class NoGeneratedTreeTests(unittest.TestCase):
