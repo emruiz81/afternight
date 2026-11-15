@@ -184,6 +184,12 @@ public:
     /// The preview view the toggles row's Preview area and Compare act on; null while the preview is off.
     void setPreviewView(ImageViewControl* preview);
 
+    /// The preview view the page shows now; null while the preview is off.
+    [[nodiscard]] ImageViewControl* previewView() const;
+
+    /// Tells a listener, on the GUI thread, each time the preview view is made or goes: the view, or null.
+    void setPreviewViewListener(std::function<void(ImageViewControl*)> listener);
+
     /// The process's message, as `TopLevelProcessBaseControl::showProcessMessage` states it; empty hides the banner.
     void showMessage(const QString& text, PageMessageTone tone, std::optional<double> progressPercent);
     [[nodiscard]] QString message() const;

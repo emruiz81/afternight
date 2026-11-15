@@ -248,6 +248,12 @@ struct TaskPresenter::Impl
         {
             return false;
         }
+        if (task->presentation == an::ui::shell::TaskPresentation::Page && hooks.showPage)
+        {
+            hooks.showPage(id);
+            (void)model.setCurrent(id);
+            return true;
+        }
         TopLevelProcessBaseControl* process = task->process.data();
         if (process->isMinimized())
         {
@@ -293,14 +299,39 @@ void TaskPresenter::setHooks(Hooks hooks)
     m_impl->hooks = std::move(hooks);
 }
 
-bool TaskPresenter::adopt(TopLevelProcessBaseControl& /*process*/)
+bool TaskPresenter::adopt(TopLevelProcessBaseControl& process)
 {
-    return false;
+    Impl& impl = *m_impl;
+    if (process.processSurface() != an::ui::ProcessSurface::PreviewPage || !impl.hooks.adoptPage)
+    {
+        return false;
+    }
+    const an::ui::shell::Task* task = impl.model.taskFor(&process);
+    if (task == nullptr)
+    {
+        return false;
+    }
+    const an::ui::shell::TaskId id = task->id;
+    if (!impl.hooks.adoptPage(process))
+    {
+        return false;
+    }
+    impl.model.setPresentation(id, an::ui::shell::TaskPresentation::Page);
+    (void)impl.show(id);
+    return true;
 }
 
 void TaskPresenter::runStateChanged(TopLevelProcessBaseControl& process, const an::ui::ProcessRunState& state)
 {
-    m_impl->model.setRunState(process, state);
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* task = impl.model.taskFor(&process);
+    const an::ui::ProcessRunState before = task != nullptr ? task->run : an::ui::ProcessRunState{};
+    const an::ui::shell::TaskId id = task != nullptr ? task->id : 0u;
+    impl.model.setRunState(process, state);
+    if (id != 0u && impl.hooks.runChanged)
+    {
+        impl.hooks.runChanged(id, before);
+    }
 }
 
 void TaskPresenter::targetChanged(TopLevelProcessBaseControl& process, ImageViewControl* target)

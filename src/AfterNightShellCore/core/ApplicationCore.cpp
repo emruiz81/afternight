@@ -203,6 +203,7 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     stateDeps.actions = impl.catalogue->lookup();
     stateDeps.subjectView = [&impl]() { return impl.views->subjectView(); };
     stateDeps.lookingView = [&impl]() { return impl.views->lookingView(); };
+    stateDeps.taskShown = [&impl]() { return impl.views->hasTaskSubject(); };
     stateDeps.registryActions = [&impl]() { return impl.processMenus->extensionActions(); };
     stateDeps.timerContext = this;
     stateDeps.isMaximizedViewActive = [&impl]() {

@@ -101,6 +101,9 @@ public:
     /// The subject and the looking view are the active view again.
     void clearTaskSubject();
 
+    /// Whether a shell names a task's target and canvas, and one of them is still there.
+    [[nodiscard]] bool hasTaskSubject() const;
+
     // ---- IViewFactory: a process's views
     [[nodiscard]] ImageViewControl*
     createNewImageViewControlFromImage(ImageViewControl* customViewControl, an::ui::ImageDocument&& document,

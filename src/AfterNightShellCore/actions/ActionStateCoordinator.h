@@ -63,6 +63,9 @@ public:
         std::function<bool()> isTerminating;
         /// Whether a maximized view is on screen: the window's views cannot be grouped or split then.
         std::function<bool()> isMaximizedViewActive;
+        /// Whether a shell shows a task's page: Close, Close All Others and Maximize View are withdrawn there - an
+        /// image is closed from its workspace, a task by its own Close.
+        std::function<bool()> taskShown;
         std::function<QIcon(const std::string& key)> iconProvider;
     };
 

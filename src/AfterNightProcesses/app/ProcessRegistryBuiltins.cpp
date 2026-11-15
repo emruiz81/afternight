@@ -23,7 +23,9 @@ namespace
 
 using an::ui::ChannelExtractor;
 using an::ui::ImageOperationsCoordinator;
+using an::ui::ProcessColumnWidth;
 using an::ui::ProcessLauncher;
+using an::ui::ProcessSurface;
 using an::ui::process_registry::ProcessDescriptor;
 using an::ui::process_registry::ProcessLaunchMode;
 using an::ui::process_registry::ProcessRegistry;
@@ -184,6 +186,36 @@ std::string helpPathOf(const std::string_view category, const std::string_view a
     return category == "non_interactive" ? std::string(kNonInteractiveHelpPage) : std::string();
 }
 
+/// Where a registered process is shown when a shell's presenter takes it, and the width of its page's column.
+struct PageSurface
+{
+    /// The action's object name.
+    std::string_view actionObjectName;
+
+    ProcessSurface surface = ProcessSurface::Window;
+    ProcessColumnWidth columnWidth = ProcessColumnWidth::Standard;
+};
+
+/// The processes shown as pages, each with its column: the width of a column is the least its controls take, the
+/// standard one for 348 px or less and the wide one for 508 px or less, measured with the controls' own side margins.
+/// A process with no row here is a window of its own.
+constexpr PageSurface kPageSurfaces[] = {
+    {"actionCurves_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+};
+
+/// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.
+[[nodiscard]] PageSurface pageSurfaceOf(const std::string_view actionObjectName)
+{
+    for (const PageSurface& row : kPageSurfaces)
+    {
+        if (row.actionObjectName == actionObjectName)
+        {
+            return row;
+        }
+    }
+    return PageSurface{actionObjectName};
+}
+
 std::string buildProcessId(const std::string_view category, const std::string_view actionObjectName)
 {
     std::string id;
@@ -215,6 +247,9 @@ ProcessDescriptor makeDescriptor(const char* category, const char* actionObjectN
     descriptor.process_name = descriptor.display_name;
     descriptor.launch_mode = launchMode;
     descriptor.helpPath = helpPathOf(descriptor.category, descriptor.action_object_name);
+    const PageSurface page = pageSurfaceOf(descriptor.action_object_name);
+    descriptor.surface = page.surface;
+    descriptor.columnWidth = page.columnWidth;
     return descriptor;
 }
 

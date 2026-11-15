@@ -366,19 +366,19 @@ capability process.header
     title        Title, description, message banner with progress
     shared       ProcessShellModernization.ProcessShell_HasStyledHeader, ProcessShellModernization.ProcessShell_ShowsBannerProgress, ImageProcessControlTitleTest.TheTitleNamesTheProcessAndItsTargetInAngleBrackets
     classic
-    observatory  pending
+    observatory  TaskPage.OpeningCurvesTransformationShowsItsPage, TaskPage.ARunShowsTheBarTheRowTheDisabledControlsAndCancel
 
 capability process.layout
     title        Controls at the left, preview at the right
     shared       BuildMainProcessSplitter.ProducesCorrectWidgetHierarchy, BuildMainProcessSplitter.StretchFactorsAreCorrect, RTPreviewViewTest.ThePreviewIsAViewOfTheWindowsOwnInItsPaneStartingWithTheTargetsOwnImage
     classic
-    observatory  pending
+    observatory  TaskPage.OpeningCurvesTransformationShowsItsPage, TaskPage.TheImageKeepsItsFloor
 
 capability process.preview-toolbar
     title        Preview toolbar
     shared       RTPreviewAreaTest.ThePreviewToolbarsCheckboxRunsThePreviewOverTheAreaOrTheWholeImage, RTPreviewAreaTest.TheAreaIsChosenOnThePreviewViewAndTheNextPreviewRunsOverIt, RTPreviewLayoutTest.TurningThePreviewOffShrinksTheWindowToItsControlsAndLeavesItResizable
     classic
-    observatory  pending
+    observatory  TaskSubject.ZoomInZoomsTheCanvas
 
 capability process.histogram-tools
     title        Histogram toolbar inside a process
@@ -396,7 +396,7 @@ capability process.buttons
     title        Reset, Close, Apply
     shared       ApplyRunTest.ApplyEditsTheTargetAndRecordsTheStepBeforeShowingIt, PreviewLifecycle.AResetIsFollowedByOnePreview, ProcessShellModernization.ProcessShell_HasStyledButtonBar
     classic      ShellScenario.AnAppliedProcessIsOneHistoryStepAndChangesTheImage/classic
-    observatory  pending
+    observatory  TaskPage.CtrlEnterApplies, TaskPage.SuccessShowsTheSnackbarAndUndoUndoes, TaskSubject.ApplyTaskWithTheFocusOnTheRail
 
 capability process.sequence-apply
     title        Applying to a sequence: two bars, Cancel
@@ -642,7 +642,7 @@ capability new.change-against-original
     title        The change under each statistic of a task
     shared       ReadoutController.InATaskItMeasuresSettledFramesAgainstTheOriginal, CompactReadout.TheFiveCellsCarryTheirChangeAgainstTheOriginal
     classic
-    observatory  pending
+    observatory  TaskPage.TheCompactReadoutShowsSettledFiguresAndTheirChange
 
 # ---- Covered less than their lines suggest
 #

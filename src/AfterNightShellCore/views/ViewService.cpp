@@ -158,7 +158,9 @@ ViewService::ViewService(ApplicationCore& core) : m_impl(std::make_unique<Impl>(
                                      const bool keepFocusedNeighbour) {
         if (IViewHost* const host = impl.host())
         {
-            host->place(view, ViewPlacement{.neighbour = neighbour, .keepFocusedNeighbour = keepFocusedNeighbour});
+            host->place(view, ViewPlacement{.neighbour = neighbour,
+                                            .keepFocusedNeighbour = keepFocusedNeighbour,
+                                            .origin = impl.making.value_or(ViewOrigin::Process)});
         }
     };
     impl.creation = std::make_unique<an::ui::ViewCreationCoordinator>(creationDeps);
@@ -232,6 +234,11 @@ void ViewService::setTaskSubject(ImageViewControl* target, ImageViewControl* can
     m_impl->taskSubjectSet = true;
     m_impl->taskTarget = target;
     m_impl->taskCanvas = canvas;
+}
+
+bool ViewService::hasTaskSubject() const
+{
+    return m_impl->taskSubjectSet && (!m_impl->taskTarget.isNull() || !m_impl->taskCanvas.isNull());
 }
 
 void ViewService::clearTaskSubject()

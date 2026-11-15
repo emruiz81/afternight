@@ -13,8 +13,10 @@
 #include "chrome/TopBar.h"
 #include "pages/FloatingImagesPage.h"
 #include "pages/HomePage.h"
+#include "pages/TaskPage.h"
 #include "pages/WorkspacePage.h"
 #include "tasks/TaskPresenter.h"
+#include "tasks/TaskReadoutSource.h"
 #include "workspaces/FloatingViewChrome.h"
 #include "workspaces/RenameWorkspaceDialog.h"
 #include "workspaces/WorkspaceHost.h"
@@ -60,20 +62,25 @@
 #include "components/AnBreadcrumb.h"
 #include "components/AnChip.h"
 #include "components/AnCommandPalette.h"
+#include "components/AnCompactReadout.h"
 #include "components/AnFloatingToolbar.h"
 #include "components/AnHistoryStrip.h"
 #include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
 #include "components/AnReadoutColumn.h"
+#include "components/AnSnackbar.h"
+#include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
 #include "controls/ExportSequenceControl.h"
 #include "controls/GlobalSettingsPersistence.h"
+#include "controls/ImageRTPreviewControl.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
 #include "controls/KDDockWidgetsHelper.h"
 #include "controls/ViewChrome.h"
 #include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
@@ -108,6 +115,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <map>
@@ -201,6 +209,20 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<ViewFollower> follower;
     // The shell's process presenter: the tasks, what their views show of them.
     std::unique_ptr<TaskPresenter> tasks;
+    // The pages of the tasks taken into one, by their tasks; the task whose page the centre shows, and the place it
+    // showed before the first task's page.
+    std::map<an::ui::shell::TaskId, QPointer<TaskPage>> taskPages;
+    an::ui::shell::TaskId shownTask = 0;
+    QPointer<QWidget> placeBeforeTask;
+    // What the compact readout of the task shown reads.
+    std::unique_ptr<TaskReadoutSource> readoutSource;
+    // When each task's run began, and when its last one succeeded: the snackbar's detail and the header's state.
+    std::map<an::ui::shell::TaskId, std::chrono::steady_clock::time_point> runStarted;
+    std::map<an::ui::shell::TaskId, std::chrono::steady_clock::time_point> appliedAt;
+    QTimer appliedTicker;
+    // The transient message at the foot of the centre, and what its action does.
+    an::ui::AnSnackbar* snackbar = nullptr;
+    std::function<void()> snackbarAction;
     // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
     std::unique_ptr<ShellActions> shellActions;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
@@ -322,11 +344,25 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
 
     TaskPresenter::Hooks taskHooks;
     taskHooks.tasksChanged = [this]() {
+        refreshTaskPages();
         updateRail();
         refreshPendingChips();
     };
     taskHooks.viewChanged = [this](ImageViewControl* /*view*/) { refreshPendingChips(); };
+    taskHooks.adoptPage = [this](TopLevelProcessBaseControl& process) { return adoptTaskPage(process); };
+    taskHooks.showPage = [this](const an::ui::shell::TaskId id) { showTaskPage(id); };
+    taskHooks.runChanged = [this](const an::ui::shell::TaskId id, const an::ui::ProcessRunState& before) {
+        taskRunChanged(id, before);
+    };
     impl.tasks->setHooks(std::move(taskHooks));
+    // "applied 2.8 s ago" is told again each second while a task's page is shown.
+    impl.appliedTicker.setInterval(1000);
+    QObject::connect(&impl.appliedTicker, &QTimer::timeout, this, [this]() {
+        if (m_impl->shownTask != 0u)
+        {
+            refreshTaskHeader(m_impl->shownTask);
+        }
+    });
     // The task whose window is active is the one the person looks at.
     QObject::connect(qApp, &QGuiApplication::focusWindowChanged, this, [this](QWindow* /*focus*/) {
         if (m_impl->tasks)
@@ -348,6 +384,16 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    // The task shown is let go of: the readout reads no process, the actions act on no page.
+    impl.appliedTicker.stop();
+    if (impl.readout)
+    {
+        impl.readout->followTask(nullptr);
+        impl.readout->setCompactReadout(nullptr);
+    }
+    impl.readoutSource.reset();
+    impl.shownTask = 0;
+    core.viewService().clearTaskSubject();
     // The tasks go first: what the process windows tell as they go reaches no presenter.
     if (impl.tasks)
     {
@@ -514,6 +560,17 @@ void ObservatoryWindow::buildRegions()
     right->addWidget(impl.statusLine);
 
     setCentralWidget(central);
+
+    // The transient message, at the foot of the centre over everything there.
+    impl.snackbar = new an::ui::AnSnackbar(central);
+    impl.snackbar->setObjectName(QStringLiteral("observatorySnackbar"));
+    impl.snackbar->hide();
+    QObject::connect(impl.snackbar, &an::ui::AnSnackbar::actionTriggered, this, [this]() {
+        if (const std::function<void()> act = m_impl->snackbarAction)
+        {
+            act();
+        }
+    });
 
     // Home: the dashboard.
     impl.homePage = new HomePage(impl.centre);
@@ -744,8 +801,10 @@ void ObservatoryWindow::makeUnits()
     impl.fileManager = std::make_unique<an::ui::FileManager>(fileDeps);
 
     an::ui::ImageOperationsCoordinator::Dependencies imageDeps;
-    imageDeps.activeViewControl = [viewManager]() -> ImageViewControl* {
-        return viewManager->getActiveImageViewControl();
+    // On a task's page the image operations act on its target and the looking ones on its canvas.
+    imageDeps.activeViewControl = [this]() -> ImageViewControl* { return m_impl->core.viewService().subjectView(); };
+    imageDeps.lookingViewControl = [this]() -> ImageViewControl* {
+        return m_impl->core.viewService().hasTaskSubject() ? m_impl->core.viewService().lookingView() : nullptr;
     };
     imageDeps.listViewControls = [viewManager]() -> std::vector<ImageViewControl*> {
         return viewManager->getListOfImageViewControls();
@@ -1196,6 +1255,31 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
                          [this](bool) { QTimer::singleShot(0, this, [this]() { updateWorkspacePage(); }); });
     }
     const QString workspace = impl.workspaces->workspaceOf(view);
+    if (isTaskPageShown() && placement.origin == an::ui::shell::ViewOrigin::Process)
+    {
+        updateWorkspacePage();
+        const QString where =
+            impl.workspaces->workspaceName(workspace.isEmpty() ? impl.workspaces->current() : workspace);
+        QPointer<ImageViewControl> made(&view);
+        showSnackbar(tr("%1 opened in %2").arg(QString::fromUtf8(view.getUniqueName()), where), QString(), tr("Show"),
+                     [this, made]() {
+                         if (made.isNull())
+                         {
+                             return;
+                         }
+                         const QString in = m_impl->workspaces->workspaceOf(*made);
+                         if (in.isEmpty())
+                         {
+                             showViews();
+                         }
+                         else
+                         {
+                             showWorkspace(in);
+                         }
+                         m_impl->core.viewService().setActiveImageViewControl(made.data());
+                     });
+        return;
+    }
     if (workspace.isEmpty())
     {
         showViews();
@@ -1344,12 +1428,15 @@ void ObservatoryWindow::showViews()
 
 void ObservatoryWindow::showImageInfo(ImageViewControl* view)
 {
-    m_impl->statusLine->showImageInfo(view);
+    // On a task's page the status line shows the preview's facts.
+    ImageViewControl* const looking = isTaskPageShown() ? m_impl->core.viewService().lookingView() : nullptr;
+    m_impl->statusLine->showImageInfo(looking != nullptr ? looking : view);
 }
 
 void ObservatoryWindow::showZoom(ImageViewControl* view)
 {
-    m_impl->statusLine->showZoom(view);
+    ImageViewControl* const looking = isTaskPageShown() ? m_impl->core.viewService().lookingView() : nullptr;
+    m_impl->statusLine->showZoom(looking != nullptr ? looking : view);
 }
 
 void ObservatoryWindow::showCelestialCoordinates(const double raDegrees, const double decDegrees)
@@ -1448,6 +1535,7 @@ void ObservatoryWindow::resizeEvent(QResizeEvent* event)
         m_impl->consoleDrawer->windowResized();
     }
     placePaletteScrim();
+    placeSnackbar();
 }
 
 void ObservatoryWindow::changeEvent(QEvent* event)
@@ -1627,6 +1715,10 @@ void ObservatoryWindow::restoreConsole()
 void ObservatoryWindow::placeChanged()
 {
     Impl& impl = *m_impl;
+    if (impl.shownTask != 0u && !isTaskPageShown())
+    {
+        leaveTaskPage();
+    }
     // The readout is beside the workspace, and beside Home while an image is open.
     const bool viewsOpen = !impl.core.viewService().getListOfViewControls().empty();
     const bool column = isWorkspaceShown() || (isHomeShown() && viewsOpen);
@@ -1811,6 +1903,21 @@ void ObservatoryWindow::refreshPendingChips()
         ImageViewControl* const shown = page->binder().historyView();
         std::optional<an::ui::HistoryPendingStep> pending =
             impl.tasks && shown != nullptr ? impl.tasks->pendingStepOf(shown) : std::nullopt;
+        if (page->historyStrip()->pendingStep() != pending)
+        {
+            page->historyStrip()->setPendingStep(std::move(pending));
+        }
+    }
+    // A task's page shows its target's history with the task's pending step.
+    for (const auto& [id, page] : impl.taskPages)
+    {
+        if (page.isNull() || !impl.tasks)
+        {
+            continue;
+        }
+        ImageViewControl* const shown = page->binder().historyView();
+        std::optional<an::ui::HistoryPendingStep> pending =
+            shown != nullptr ? impl.tasks->pendingStepOf(shown) : std::nullopt;
         if (page->historyStrip()->pendingStep() != pending)
         {
             page->historyStrip()->setPendingStep(std::move(pending));
@@ -2497,6 +2604,14 @@ void ObservatoryWindow::bindShellActions()
     }
     updateWorkspaceActions();
 
+    // Apply runs the current task's primary action: inside a page the page answers the key itself.
+    QObject::connect(actions.action(ids::kApplyTask), &QAction::triggered, this, [this]() { applyCurrentTask(); });
+    if (QMenu* const process = impl.menuBar->menu("menuProcess"))
+    {
+        process->addSeparator();
+        process->addAction(actions.action(ids::kApplyTask));
+    }
+
     // The palette offers them with the window's other views.
     std::unique_ptr<an::ui::shell::ICommandProvider> provider = actions.commandProvider();
     impl.shellCommands = provider.get();
@@ -2547,7 +2662,18 @@ void ObservatoryWindow::updateBreadcrumb()
         return;
     }
     QStringList parts;
-    if (isWorkspaceShown())
+    const an::ui::shell::Task* const task =
+        isTaskPageShown() && impl.tasks ? impl.tasks->model().task(impl.shownTask) : nullptr;
+    if (task != nullptr)
+    {
+        // A task's page: the process and the image it works on.
+        parts.append(task->displayName);
+        if (!task->targetName.isEmpty())
+        {
+            parts.append(task->targetName);
+        }
+    }
+    else if (isWorkspaceShown())
     {
         const QString shown = impl.workspaces->shown();
         parts.append(impl.workspaces->workspaceName(shown));
@@ -2756,7 +2882,8 @@ void ObservatoryWindow::buildTaskMenu(QMenu& menu, const an::ui::shell::TaskId i
     const bool floats = task->presentation == an::ui::shell::TaskPresentation::Window;
     QAction* const place = menu.addAction(floats ? tr("Attach") : tr("Float as Window"));
     place->setObjectName(QStringLiteral("actionPlaceTask"));
-    place->setEnabled(task->surface != an::ui::ProcessSurface::Window);
+    // A task stays where it opened: a page in the centre, a process of no page in its window.
+    place->setEnabled(false);
     menu.addSeparator();
     QAction* const close = menu.addAction(tr("Close"));
     close->setObjectName(QStringLiteral("actionCloseTask"));
@@ -2824,6 +2951,351 @@ void ObservatoryWindow::updateExtensionMenus()
     if (QMenu* const extensions = m_impl->menuBar->menu("menuExtensions"))
     {
         menus.buildExtensionFamilyMenus(*extensions);
+    }
+}
+
+TaskPage* ObservatoryWindow::taskPage(const an::ui::shell::TaskId id) const
+{
+    const auto found = m_impl->taskPages.find(id);
+    return found != m_impl->taskPages.end() ? found->second.data() : nullptr;
+}
+
+bool ObservatoryWindow::isTaskPageShown() const
+{
+    const auto* const page = dynamic_cast<const TaskPage*>(m_impl->centre->currentWidget());
+    return page != nullptr;
+}
+
+an::ui::shell::TaskId ObservatoryWindow::shownTask() const noexcept
+{
+    return m_impl->shownTask;
+}
+
+an::ui::AnSnackbar* ObservatoryWindow::snackbar() const noexcept
+{
+    return m_impl->snackbar;
+}
+
+an::ui::shell::ReadoutController& ObservatoryWindow::readoutController() const noexcept
+{
+    return *m_impl->readout;
+}
+
+bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().taskFor(&process) : nullptr;
+    if (task == nullptr)
+    {
+        return false;
+    }
+    const an::ui::shell::TaskId id = task->id;
+    auto* const page = new TaskPage(impl.centre);
+    page->setObjectName(QStringLiteral("observatoryTaskPage.%1").arg(id));
+    if (!process.attachToPage(*page->processHost()))
+    {
+        delete page;
+        return false;
+    }
+    impl.centre->addWidget(page);
+    page->dress(process, [this, id](ImageViewControl* preview) {
+        // The canvas the looking actions act on is the preview shown now.
+        if (m_impl->shownTask == id)
+        {
+            const an::ui::shell::Task* const shown = m_impl->tasks ? m_impl->tasks->model().task(id) : nullptr;
+            m_impl->core.viewService().setTaskSubject(shown != nullptr ? shown->target.data() : nullptr, preview);
+            m_impl->core.actionState().updateActiveImageActions();
+        }
+    });
+    page->binder().setMenuFiller(impl.viewMenuFiller);
+    if (an::ui::ProcessPageLayout* const layout = process.pageLayout())
+    {
+        const std::string_view menu = an::ui::shell::ProcessMenuModel::menuOfCategory(task->category.toStdString());
+        for (const an::ui::shell::ProcessMenuModel::Category& category : an::ui::shell::ProcessMenuModel::categories())
+        {
+            if (category.menuId == menu)
+            {
+                layout->setCategory(category.title);
+            }
+        }
+    }
+    an::ui::AnTaskHeader* const header = page->header();
+    header->floatButton()->setEnabled(false);
+    QPointer<TopLevelProcessBaseControl> guarded(&process);
+    QObject::connect(header, &an::ui::AnTaskHeader::closeRequested, this, [guarded]() {
+        if (guarded && !guarded->runState().running())
+        {
+            (void)guarded->close();
+        }
+    });
+    impl.taskPages[id] = page;
+    refreshTaskHeader(id);
+    return true;
+}
+
+void ObservatoryWindow::showTaskPage(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    TaskPage* const page = taskPage(id);
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    if (page == nullptr || task == nullptr)
+    {
+        return;
+    }
+    if (!isTaskPageShown())
+    {
+        impl.placeBeforeTask = impl.centre->currentWidget();
+    }
+    else if (impl.shownTask != id)
+    {
+        leaveTaskPage();
+    }
+    impl.centre->setCurrentWidget(page);
+    impl.shownTask = id;
+    ImageViewControl* const target = task->target.data();
+    auto* const preview = dynamic_cast<ImageRTPreviewControl*>(task->process.data());
+    ImageViewControl* const canvas = preview != nullptr ? preview->previewView() : nullptr;
+    // The image actions act on the target, the looking ones on the canvas.
+    if (target != nullptr && impl.core.viewService().getActiveImageViewControl() != target)
+    {
+        impl.core.viewService().setActiveImageViewControl(target);
+    }
+    impl.core.viewService().setTaskSubject(target, canvas);
+    page->bindViews(canvas, target);
+    // The compact readout reads the task's preview.
+    if (impl.readout)
+    {
+        impl.readout->followTask(nullptr);
+        impl.readoutSource.reset();
+        if (preview != nullptr)
+        {
+            impl.readoutSource = std::make_unique<TaskReadoutSource>(*preview);
+            impl.readout->setCompactReadout(page->compactReadout());
+            impl.readout->followTask(impl.readoutSource.get());
+        }
+    }
+    impl.core.actionState().updateActiveImageActions();
+    impl.appliedTicker.start();
+    refreshTaskHeader(id);
+    refreshPendingChips();
+    placeChanged();
+    if (canvas != nullptr)
+    {
+        impl.statusLine->showImageInfo(canvas);
+        impl.statusLine->showZoom(canvas);
+    }
+}
+
+void ObservatoryWindow::leaveTaskPage()
+{
+    Impl& impl = *m_impl;
+    if (impl.shownTask == 0u)
+    {
+        return;
+    }
+    impl.shownTask = 0u;
+    impl.appliedTicker.stop();
+    impl.core.viewService().clearTaskSubject();
+    if (impl.readout)
+    {
+        impl.readout->followTask(nullptr);
+        impl.readout->setCompactReadout(nullptr);
+    }
+    impl.readoutSource.reset();
+    if (impl.tasks)
+    {
+        const an::ui::shell::Task* const current = impl.tasks->model().task(impl.tasks->model().current());
+        if (current != nullptr && current->presentation == an::ui::shell::TaskPresentation::Page)
+        {
+            (void)impl.tasks->model().setCurrent(0u);
+        }
+    }
+    impl.core.actionState().updateActiveImageActions();
+    if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl())
+    {
+        impl.statusLine->showImageInfo(active);
+        impl.statusLine->showZoom(active);
+    }
+}
+
+void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an::ui::ProcessRunState& before)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    if (task == nullptr || task->process.isNull())
+    {
+        return;
+    }
+    const an::ui::ProcessRunState now = task->process->runState();
+    const auto at = std::chrono::steady_clock::now();
+    if (now.running() && !before.running())
+    {
+        impl.runStarted[id] = at;
+        impl.appliedAt.erase(id);
+    }
+    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() &&
+        task->presentation == an::ui::shell::TaskPresentation::Page)
+    {
+        impl.appliedAt[id] = at;
+        const auto started = impl.runStarted.find(id);
+        const double seconds =
+            started != impl.runStarted.end() ? std::chrono::duration<double>(at - started->second).count() : 0.0;
+        QPointer<ImageViewControl> target(task->target.data());
+        showSnackbar(tr("%1 applied").arg(task->displayName), QStringLiteral("%1 s").arg(seconds, 0, 'f', 1),
+                     tr("Undo"), [this, target]() {
+                         if (target.isNull())
+                         {
+                             return;
+                         }
+                         m_impl->core.viewService().setActiveImageViewControl(target.data());
+                         if (QAction* const undo = m_impl->core.actions().action(an::ui::shell::ids::kUndo))
+                         {
+                             undo->trigger();
+                         }
+                     });
+    }
+    refreshTaskHeader(id);
+}
+
+void ObservatoryWindow::refreshTaskPages()
+{
+    Impl& impl = *m_impl;
+    if (!impl.tasks)
+    {
+        return;
+    }
+    for (auto entry = impl.taskPages.begin(); entry != impl.taskPages.end();)
+    {
+        const an::ui::shell::TaskId id = entry->first;
+        if (impl.tasks->model().task(id) != nullptr && !entry->second.isNull())
+        {
+            refreshTaskHeader(id);
+            ++entry;
+            continue;
+        }
+        QPointer<TaskPage> page = entry->second;
+        entry = impl.taskPages.erase(entry);
+        impl.runStarted.erase(id);
+        impl.appliedAt.erase(id);
+        const bool shown = !page.isNull() && impl.centre->currentWidget() == page.data();
+        if (shown || impl.shownTask == id)
+        {
+            leaveTaskPage();
+            // The place shown before the task comes back: a workspace while one has views, else Home.
+            QWidget* const before = impl.placeBeforeTask.data();
+            if (before != nullptr && dynamic_cast<TaskPage*>(before) == nullptr && impl.centre->indexOf(before) >= 0)
+            {
+                impl.centre->setCurrentWidget(before);
+                placeChanged();
+            }
+            else if (impl.core.viewService().getListOfViewControls().empty())
+            {
+                showHome();
+            }
+            else
+            {
+                showViews();
+            }
+        }
+        if (!page.isNull())
+        {
+            impl.centre->removeWidget(page.data());
+            page->hide();
+            page->deleteLater();
+        }
+    }
+}
+
+void ObservatoryWindow::refreshTaskHeader(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    TaskPage* const page = taskPage(id);
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    if (page == nullptr || task == nullptr || task->process.isNull())
+    {
+        return;
+    }
+    an::ui::AnTaskHeader* const header = page->header();
+    header->setThumbnail(task->thumbnail);
+    header->setProcessName(task->displayName);
+    header->setTargetName(task->targetName);
+    const an::ui::ProcessRunState& run = task->process->runState();
+    header->closeButton()->setEnabled(!run.running());
+    if (run.running())
+    {
+        QString text = run.text.isEmpty() ? an::ui::applyingRunText() : run.text;
+        if (run.progress.has_value())
+        {
+            text = tr("%1 - %2 %").arg(text).arg(static_cast<int>(std::lround(*run.progress * 100.0)));
+        }
+        header->setState(an::ui::AnTaskHeader::State::Running, text, run.progress);
+        return;
+    }
+    if (run.phase == an::ui::ProcessRunState::Phase::Failed)
+    {
+        header->setState(an::ui::AnTaskHeader::State::Failed, tr("failed"));
+        return;
+    }
+    // A run that succeeded is told for a minute after it ended; the preview's state otherwise.
+    if (const auto applied = impl.appliedAt.find(id); applied != impl.appliedAt.end())
+    {
+        const auto since = std::chrono::steady_clock::now() - applied->second;
+        const double seconds = std::chrono::duration<double>(since).count();
+        if (seconds < 60.0)
+        {
+            header->setState(an::ui::AnTaskHeader::State::Applied,
+                             tr("applied %1 s ago").arg(seconds, 0, 'f', seconds < 10.0 ? 1 : 0));
+            return;
+        }
+    }
+    const auto* const preview = dynamic_cast<const ImageRTPreviewControl*>(task->process.data());
+    if (preview != nullptr && preview->previewView() != nullptr)
+    {
+        header->setState(an::ui::AnTaskHeader::State::UpToDate, tr("preview up to date"));
+    }
+    else
+    {
+        header->setState(an::ui::AnTaskHeader::State::None, QString());
+    }
+}
+
+void ObservatoryWindow::showSnackbar(const QString& text, const QString& detail, const QString& action,
+                                     std::function<void()> act)
+{
+    Impl& impl = *m_impl;
+    impl.snackbarAction = std::move(act);
+    impl.snackbar->setText(text);
+    impl.snackbar->setDetail(detail);
+    impl.snackbar->setActionText(action);
+    impl.snackbar->present();
+    placeSnackbar();
+    impl.snackbar->raise();
+}
+
+void ObservatoryWindow::placeSnackbar()
+{
+    Impl& impl = *m_impl;
+    if (impl.snackbar == nullptr || impl.centre == nullptr)
+    {
+        return;
+    }
+    // At the foot of the centre, in its middle, a little above the status line.
+    const QSize size = impl.snackbar->sizeHint();
+    const QRect centre(impl.centre->mapTo(centralWidget(), QPoint(0, 0)), impl.centre->size());
+    const int statusTop = impl.statusLine->mapTo(centralWidget(), QPoint(0, 0)).y();
+    const int bottom = (std::min)(centre.bottom() + 1, statusTop) - an::ui::parts::kSnackbarAboveStatusLine;
+    impl.snackbar->setGeometry(centre.center().x() - size.width() / 2, bottom - size.height(), size.width(),
+                               size.height());
+}
+
+void ObservatoryWindow::applyCurrentTask()
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task =
+        impl.tasks ? impl.tasks->model().task(impl.tasks->model().current()) : nullptr;
+    if (task != nullptr && !task->process.isNull())
+    {
+        (void)task->process->triggerPrimaryAction();
     }
 }
 

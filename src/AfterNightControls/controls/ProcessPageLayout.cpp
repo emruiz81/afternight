@@ -490,6 +490,7 @@ struct ProcessPageLayout::Impl : public QObject
 
     QPointer<ImageViewControl> preview;
     std::vector<QMetaObject::Connection> previewConnections;
+    std::function<void(ImageViewControl*)> previewListener;
     ProcessRunState run;
     QString message;
 
@@ -1282,6 +1283,20 @@ void ProcessPageLayout::setPreviewView(ImageViewControl* preview)
 {
     m_impl->bindPreview(preview);
     m_impl->canvas->update();
+    if (m_impl->previewListener)
+    {
+        m_impl->previewListener(preview);
+    }
+}
+
+ImageViewControl* ProcessPageLayout::previewView() const
+{
+    return m_impl->preview.data();
+}
+
+void ProcessPageLayout::setPreviewViewListener(std::function<void(ImageViewControl*)> listener)
+{
+    m_impl->previewListener = std::move(listener);
 }
 
 void ProcessPageLayout::showMessage(const QString& text, const PageMessageTone tone,

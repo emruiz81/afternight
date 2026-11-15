@@ -55,7 +55,8 @@ using an::ui::shell::Task;
 using an::ui::shell::TaskId;
 using Phase = ProcessRunState::Phase;
 
-constexpr std::string_view kCurves = "transforms.actionCurves_Transformation";
+/// A process whose descriptor states no page: it opens as a window of its own.
+constexpr std::string_view kWindowProcess = "geometry.actionResize";
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
 
 /// Lets the window settle: posted work delivered, the deletions done, the layouts applied.
@@ -115,28 +116,18 @@ protected:
         return *presenter;
     }
 
-    /// Opens a process over the active view as its menu entry does, and answers the window it showed.
+    /// Opens a process over the active view as its menu entry does, and answers the process it opened: a window of its
+    /// own, or a page of the centre.
     static TopLevelProcessBaseControl* launch(std::string_view descriptorId)
     {
-        std::vector<TopLevelProcessBaseControl*> before;
-        for (QWidget* widget : QApplication::topLevelWidgets())
-        {
-            if (auto* const process = dynamic_cast<TopLevelProcessBaseControl*>(widget))
-            {
-                before.push_back(process);
-            }
-        }
+        const std::size_t before = tasks().model().tasks().size();
         EXPECT_TRUE(core().processLaunch().launch(std::string(descriptorId)));
         TopLevelProcessBaseControl* made = nullptr;
         EXPECT_TRUE(an::tests::app::processEventsUntil([&]() {
-            for (QWidget* widget : QApplication::topLevelWidgets())
+            const std::vector<Task>& now = tasks().model().tasks();
+            if (now.size() > before && !now.back().process.isNull() && now.back().process->isVisible())
             {
-                if (auto* const candidate = dynamic_cast<TopLevelProcessBaseControl*>(widget);
-                    candidate != nullptr && candidate->isVisible() &&
-                    std::find(before.begin(), before.end(), candidate) == before.end())
-                {
-                    made = candidate;
-                }
+                made = now.back().process.data();
             }
             return made != nullptr;
         }));
@@ -211,17 +202,17 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     ASSERT_TRUE(taskItems(*window().rail()).empty());
     EXPECT_FALSE(window().rail()->hairlineRect().isValid()) << "no hairline without tasks";
 
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
-    EXPECT_TRUE(process->isWindow()) << "every process is still a window";
+    EXPECT_TRUE(process->isWindow()) << "a process of no page is a window of its own";
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
-    EXPECT_EQ(task->descriptorId, kCurves);
+    EXPECT_EQ(task->descriptorId, kWindowProcess);
     const std::vector<an::ui::RailItem> items = taskItems(*window().rail());
     ASSERT_EQ(items.size(), 1u);
     const an::ui::RailItem& item = items.front();
     EXPECT_EQ(item.id, Window::railTaskId(task->id));
-    EXPECT_EQ(item.text, QStringLiteral("Curves Transformation - tasks-gain"));
+    EXPECT_EQ(item.text, QStringLiteral("Resize - tasks-gain"));
     EXPECT_EQ(item.glyphKey, task->iconKey);
     EXPECT_TRUE(item.floating) << "a task in a window floats";
     EXPECT_EQ(item.runPhase, an::ui::RailRunPhase::None);
@@ -254,7 +245,7 @@ TEST_F(Tasks, ATargetChangeUpdatesTheThumbnailAndTheTooltip)
     ImageViewControl* const second = openView(QStringLiteral("tasks-second"), 0.9f);
     ASSERT_TRUE(first != nullptr && second != nullptr);
     core().viewService().setActiveImageViewControl(first);
-    auto* const process = dynamic_cast<ImageProcessControl*>(launch(kCurves));
+    auto* const process = dynamic_cast<ImageProcessControl*>(launch(kWindowProcess));
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -266,7 +257,7 @@ TEST_F(Tasks, ATargetChangeUpdatesTheThumbnailAndTheTooltip)
 
     process->changeTargetViewControl(second);
     settle();
-    EXPECT_EQ(railItem(*window().rail(), id).text, QStringLiteral("Curves Transformation - tasks-second"));
+    EXPECT_EQ(railItem(*window().rail(), id).text, QStringLiteral("Resize - tasks-second"));
     EXPECT_TRUE(window().rail()->itemToolTip(id).contains(QStringLiteral("tasks-second")));
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
         const QImage shown = railItem(*window().rail(), id).thumbnail;
@@ -280,7 +271,7 @@ TEST_F(Tasks, TheArcFollowsTheProgress)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-arc"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     const QString id = Window::railTaskId(taskOf(process)->id);
 
@@ -299,7 +290,7 @@ TEST_F(Tasks, TheResultDotOfARunThatEndedElsewhereClearsOnShow)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-dot"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -340,7 +331,7 @@ TEST_F(Tasks, TheMenusEntries)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-menu"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     const TaskId taskId = taskOf(process)->id;
 
@@ -412,7 +403,7 @@ TEST_F(BlockedView, TheNoticeNamesTheProcessAndTheProgress)
 {
     ImageViewControl* const view = openView(QStringLiteral("blocked-notice"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
 
     // The framework takes the lock first and states the run after it, as an Apply does.
@@ -422,7 +413,7 @@ TEST_F(BlockedView, TheNoticeNamesTheProcessAndTheProgress)
     process->setRunState(an::ui::runningState({}, 0.42));
     const an::ui::ViewProcessingNotice* notice = noticeOf(*view);
     ASSERT_NE(notice, nullptr);
-    EXPECT_EQ(notice->notice().text, QStringLiteral("Curves Transformation is applying"));
+    EXPECT_EQ(notice->notice().text, QStringLiteral("Resize is applying"));
     EXPECT_EQ(notice->notice().progress, std::optional<double>(0.42));
     EXPECT_EQ(notice->notice().actionLabel, QStringLiteral("Show"));
     process->reportRunProgress(0.75);
@@ -439,7 +430,7 @@ TEST_F(BlockedView, ShowRaisesTheTask)
 {
     ImageViewControl* const view = openView(QStringLiteral("blocked-show"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     const TaskId taskId = taskOf(process)->id;
     activateMainWindow();
@@ -468,7 +459,7 @@ TEST_F(BlockedView, AnotherViewTakesAProcessMeanwhile)
     ImageViewControl* const free = openView(QStringLiteral("blocked-other"));
     ASSERT_TRUE(blocked != nullptr && free != nullptr);
     core().viewService().setActiveImageViewControl(blocked);
-    TopLevelProcessBaseControl* const running = launch(kCurves);
+    TopLevelProcessBaseControl* const running = launch(kWindowProcess);
     ASSERT_NE(running, nullptr);
     running->setRunState(an::ui::runningState());
     ASSERT_TRUE(blocked->tryRequestLockForProcessing());
@@ -477,7 +468,7 @@ TEST_F(BlockedView, AnotherViewTakesAProcessMeanwhile)
 
     core().viewService().setActiveImageViewControl(free);
     settle();
-    TopLevelProcessBaseControl* const other = launch(kCurves);
+    TopLevelProcessBaseControl* const other = launch(kWindowProcess);
     ASSERT_NE(other, nullptr);
     EXPECT_EQ(other->processTarget(), free);
     EXPECT_EQ(noticeOf(*free), nullptr);
@@ -497,7 +488,7 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     ASSERT_NE(view, nullptr);
     ASSERT_NE(view->getDockWidget(), nullptr);
     EXPECT_EQ(an::ui::tabAdornment(view->getDockWidget()), nullptr);
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -506,7 +497,7 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     const an::ui::TabAdornment* glyph = an::ui::tabAdornment(view->getDockWidget());
     ASSERT_NE(glyph, nullptr);
     EXPECT_EQ(glyph->iconKey, task->iconKey);
-    EXPECT_EQ(glyph->toolTip, QStringLiteral("Curves Transformation is open on this image. Click to go to the task"));
+    EXPECT_EQ(glyph->toolTip, QStringLiteral("Resize is open on this image. Click to go to the task"));
     EXPECT_FALSE(glyph->locked);
 
     process->setRunState(an::ui::runningState());
@@ -515,8 +506,8 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     glyph = an::ui::tabAdornment(view->getDockWidget());
     ASSERT_NE(glyph, nullptr);
     EXPECT_TRUE(glyph->locked);
-    EXPECT_EQ(glyph->toolTip, QStringLiteral("Curves Transformation is applying to this image: it is locked until the "
-                                             "run ends. Click to go to the task"));
+    EXPECT_EQ(glyph->toolTip, QStringLiteral("Resize is applying to this image: it is locked until the run ends. Click "
+                                             "to go to the task"));
     process->setRunState(ProcessRunState{.phase = Phase::Cancelled});
     view->releaseLockForProcessing();
     settle();
@@ -548,13 +539,13 @@ TEST_F(HistoryStrip, PendingChipFollowsTheTask)
     ASSERT_NE(strip(), nullptr);
     EXPECT_FALSE(strip()->pendingStep().has_value());
 
-    TopLevelProcessBaseControl* const process = launch(kCurves);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
     ASSERT_NE(process, nullptr);
     core().viewService().setActiveImageViewControl(target);
     settle();
     ASSERT_EQ(window().workspacePage()->binder().historyView(), target);
     ASSERT_TRUE(strip()->pendingStep().has_value());
-    EXPECT_EQ(strip()->pendingStep()->processName, QStringLiteral("Curves Transformation"));
+    EXPECT_EQ(strip()->pendingStep()->processName, QStringLiteral("Resize"));
     EXPECT_FALSE(strip()->pendingStep()->writing);
     ASSERT_NE(strip()->pendingChip(), nullptr);
 

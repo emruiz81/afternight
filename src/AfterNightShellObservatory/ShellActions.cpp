@@ -93,6 +93,8 @@ const std::vector<ShellActionSpec>& ShellActions::table()
          "open_in_new", false},
         {ids::kCloseWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Workspace"),
          QKeySequence(), "close", false},
+        {ids::kApplyTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Apply"),
+         QKeySequence(Qt::CTRL | Qt::Key_Return), "check", false},
     };
     return kTable;
 }
@@ -117,6 +119,11 @@ ShellActions::ShellActions(QWidget& window)
         if (spec.id == ids::kDensityCompact || spec.id == ids::kDensityComfortable)
         {
             m_densities->addAction(action);
+        }
+        if (spec.id == ids::kApplyTask)
+        {
+            // Ctrl+Enter written as a sequence is the keypad's Enter: Apply answers both Enter keys.
+            action->setShortcuts({QKeySequence(Qt::CTRL | Qt::Key_Return), QKeySequence(Qt::CTRL | Qt::Key_Enter)});
         }
         window.addAction(action);
         m_actions.push_back(action);

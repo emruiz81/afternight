@@ -53,6 +53,8 @@ struct ViewPlacement
 {
     ImageViewControl* neighbour = nullptr; ///< dock beside it or as its tab; null: the shell's default
     bool keepFocusedNeighbour = false;
+    ViewOrigin origin =
+        ViewOrigin::Process; ///< who asked for it: a view a process made keeps the person where they are
 };
 
 /// The dock area an operation acts on: a workspace's, or the one a view is in.

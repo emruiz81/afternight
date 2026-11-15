@@ -76,19 +76,28 @@ public:
 
 } // namespace
 
-// Every process is a window until its descriptor says otherwise, and the processes library registers every one of its
-// own as a window with the standard column.
+// Every process is a window until its descriptor says otherwise: the processes library states a page, and its column,
+// for the processes it has given one, and every other is a window with the standard column.
 TEST(ProcessDescriptor, SurfaceDefaultsToWindow)
 {
     const ProcessDescriptor made;
     EXPECT_EQ(made.surface, ProcessSurface::Window);
     EXPECT_EQ(made.columnWidth, ProcessColumnWidth::Standard);
     ASSERT_FALSE(ProcessRegistry::instance().all().empty());
+    int pages = 0;
     for (const ProcessDescriptor& descriptor : ProcessRegistry::instance().all())
     {
-        EXPECT_EQ(descriptor.surface, ProcessSurface::Window) << descriptor.id;
-        EXPECT_EQ(descriptor.columnWidth, ProcessColumnWidth::Standard) << descriptor.id;
+        if (descriptor.surface == ProcessSurface::Window)
+        {
+            EXPECT_EQ(descriptor.columnWidth, ProcessColumnWidth::Standard)
+                << descriptor.id << ": a window has no column";
+        }
+        else
+        {
+            ++pages;
+        }
     }
+    EXPECT_GT(pages, 0) << "the processes library gives its preview processes pages";
 }
 
 // A window a launch makes carries what its descriptor states: the id it was launched as, its guide page, its surface

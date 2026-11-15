@@ -30,17 +30,22 @@ class QResizeEvent;
 class QShowEvent;
 class QStackedWidget;
 
+class TopLevelProcessBaseControl;
+
 namespace an::ui
 {
 class AnCommandPalette;
 class AnIconRail;
 class AnReadoutColumn;
+class AnSnackbar;
+struct ProcessRunState;
 struct RailItem;
 } // namespace an::ui
 
 namespace an::ui::shell
 {
 class ApplicationCore;
+class ReadoutController;
 } // namespace an::ui::shell
 
 namespace an::ui::observatory
@@ -54,6 +59,7 @@ class HomePage;
 class MenuBarOnAlt;
 class ShellActions;
 class StatusLine;
+class TaskPage;
 class TaskPresenter;
 class TopBar;
 class WorkspaceHost;
@@ -62,8 +68,15 @@ class WorkspaceToolbar;
 
 /// The Observatory shell's main window. It is what only a window can answer for the application core's services -
 /// where a view goes, what the status line shows, whether the Session Console is on screen - and the window a person
-/// works in: Home when no image is open, the workspace that holds the views otherwise. Processes open as windows of
-/// their own, and each is a task in the rail (`TaskPresenter`).
+/// works in: Home when no image is open, the workspace that holds the views otherwise. Every process is a task in the
+/// rail (`TaskPresenter`): one whose descriptor states a preview page opens as a page of the centre (`TaskPage`), the
+/// others as windows of their own.
+///
+/// **A task's page.** While it is shown, the image actions act on the task's target and the looking actions on its
+/// canvas (`ViewService::setTaskSubject`); Close, Close All Others and Maximize View are withdrawn; the compact readout
+/// follows the task's preview; the breadcrumb names the process and the image, and the status line shows the preview.
+/// A view a process makes meanwhile lands in a workspace and does not take the person off the page: a snackbar offers
+/// Show. A run that succeeds says so in a snackbar with Undo.
 ///
 /// It is made over an application that is initialized and started (`ApplicationCore::initialize`, `start`): the
 /// context exists, the session is open and the installed extensions are known. The core outlives it.
@@ -123,9 +136,22 @@ public:
     /// The shell's process presenter, which keeps its tasks; null once the window is on its way out.
     [[nodiscard]] TaskPresenter* taskPresenter() const noexcept;
 
-    /// A task's menu: Show, Attach (a process shown as a window has no page to attach to yet), Close (disabled during
-    /// a run), acting on that task.
+    /// A task's menu: Show, Attach or Float as Window (neither offered yet: a task stays where it opened), Close
+    /// (disabled during a run), acting on that task.
     void buildTaskMenu(QMenu& menu, an::ui::shell::TaskId id);
+
+    /// The page of a task taken into one; null for a task shown as a window, or for none.
+    [[nodiscard]] TaskPage* taskPage(an::ui::shell::TaskId id) const;
+
+    /// Whether the centre shows a task's page, and the task whose page it shows; zero for none.
+    [[nodiscard]] bool isTaskPageShown() const;
+    [[nodiscard]] an::ui::shell::TaskId shownTask() const noexcept;
+
+    /// The transient message at the foot of the centre.
+    [[nodiscard]] an::ui::AnSnackbar* snackbar() const noexcept;
+
+    /// What feeds the readout: the column of the active view, or a task page's compact readout.
+    [[nodiscard]] an::ui::shell::ReadoutController& readoutController() const noexcept;
 
     [[nodiscard]] HomePage* homePage() const noexcept;
     /// The page of the workspace the centre shows, or would show.
@@ -270,6 +296,23 @@ private:
     void updateBreadcrumb();
     void setNight(bool night);
     void setDensity(bool comfortable);
+    /// Lays a process into a page of the centre: false leaves it a window.
+    bool adoptTaskPage(TopLevelProcessBaseControl& process);
+    /// Shows a task's page: the place shown before is kept to go back to, the subject and the readout follow the task.
+    void showTaskPage(an::ui::shell::TaskId id);
+    /// The centre shows no task's page any more: the actions and the readout follow the active view again.
+    void leaveTaskPage();
+    /// A task's run moved on: its header's state, and the snackbar of a run that succeeded.
+    void taskRunChanged(an::ui::shell::TaskId id, const an::ui::ProcessRunState& before);
+    /// The pages of the tasks the model holds: a page whose task is gone goes, and the place shown before comes back.
+    void refreshTaskPages();
+    /// What a task's header says: its image, its name and where its run stands.
+    void refreshTaskHeader(an::ui::shell::TaskId id);
+    /// Shows a transient message; `act` is what its action does.
+    void showSnackbar(const QString& text, const QString& detail, const QString& action, std::function<void()> act);
+    void placeSnackbar();
+    /// Runs the current task's primary action.
+    void applyCurrentTask();
     void applyCaptionColour();
     void placePaletteScrim();
 

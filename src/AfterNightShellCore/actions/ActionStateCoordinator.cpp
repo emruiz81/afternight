@@ -159,10 +159,11 @@ void ActionStateCoordinator::setMenuEnabled(const std::string_view menuId, const
 
 void ActionStateCoordinator::setEnableImageActions(const bool enable) const
 {
+    const bool onTask = m_dependencies.taskShown && m_dependencies.taskShown();
     setEnabled(ids::kSaveAs, enable);
-    setEnabled(ids::kClose, enable);
+    setEnabled(ids::kClose, enable && !onTask);
     setEnabled(ids::kCloseAll, enable);
-    setEnabled(ids::kCloseAllOthers, enable);
+    setEnabled(ids::kCloseAllOthers, enable && !onTask);
 
     setMenuEnabled("menuActions", enable);
     setMenuEnabled("menuView", enable);
@@ -394,7 +395,8 @@ void ActionStateCoordinator::updateActiveImageActions() const
             maximize->setText("Maximize View");
         }
 
-        maximize->setEnabled(!looking->isInFloatingWindow());
+        const bool onTask = m_dependencies.taskShown && m_dependencies.taskShown();
+        maximize->setEnabled(!looking->isInFloatingWindow() && !onTask);
     });
 
     if (m_dependencies.isMaximizedViewActive && m_dependencies.isMaximizedViewActive())

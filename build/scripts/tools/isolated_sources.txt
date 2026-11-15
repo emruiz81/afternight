@@ -2735,6 +2735,7 @@ sources Test_ShellClassic
 # chrome - started and ended in the application's order by the suite's fixture, linked against the Observatory shell
 # and the libraries below it, never against the classic shell.
 sources Test_ShellObservatory
+    unit     src/AfterNightTests/Test_ShellObservatory/TaskPageTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/main.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryChromeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryPlacesTest.cpp
@@ -2903,6 +2904,22 @@ sources Test_ShellObservatory
     header   src/AfterNightShellCore/tasks/TaskModel.h
     header   src/AfterNightShellCore/views/ViewThumbnailService.h
     header   src/AfterNightShellObservatory/tasks/TaskPresenter.h
+    header   src/AfterNightControls/components/AnCompactReadout.h
+    header   src/AfterNightControls/components/AnSnackbar.h
+    header   src/AfterNightControls/components/AnTaskHeader.h
+    header   src/AfterNightControls/controls/ProcessLaunchScope.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/widgets/CurvesWidget.h
+    header   src/AfterNightControls/widgets/ToneCurveModel.h
+    header   src/AfterNightShellObservatory/pages/TaskPage.h
+    header   src/AfterNightControls/components/AnIconButton.h
+    header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
+    header   src/AfterNightControls/controls/TypedProcessControl.h
+    header   src/AfterNightProcesses/AfterNightProcessesExport.h
+    header   src/AfterNightProcesses/processes/CurvesTransformationProcess.h
+    header   src/AfterNightProcesses/processes/CurvesTransformationProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightProcesses/processes/StretchProcessSupport.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.

@@ -1818,15 +1818,16 @@ open and close it; whether it is open, its height and whether it floats are kept
 `interface/consoleDrawerHeight`, `interface/consoleFloating`), the height read as the window is made and the rest put
 back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
 
-Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes no process into a page
-yet, so every process is still the window it was, and it keeps the shell core's `TaskModel`, fed by what the windows
-tell it, and a `ViewThumbnailService` that follows the tasks' targets. The rail lists the tasks under the places, in
+Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes a process whose
+descriptor states a preview page into a page of the centre (below) and leaves every other the window it was, and it
+keeps the shell core's `TaskModel`, fed by what the windows tell it, and a `ViewThumbnailService` that follows the
+tasks' targets. The rail lists the tasks under the places, in
 the order they were opened, under a hairline drawn only while there are any: each its target's thumbnail with the
 process's glyph, or the glyph on a tile for a process with no single target; dimmed with the window glyph, since a
 task in a window floats; the ring and its arc while the run is on its way and says how far it is; a result's dot for a
 run that ended while its task was not the one looked at - the task whose window is active - which showing the task
-clears. A click, and the task menu's Show, raise and activate its window; the menu's Attach is offered only to a
-process that has a page, which none has yet, and Close is refused while the run is on its way. A view a run writes
+clears. A click, and the task menu's Show, raise and activate its window or show its page; the menu's Attach and Float
+as Window are not offered yet - a task stays where it opened - and Close is refused while the run is on its way. A view a run writes
 carries the notice that names the running task and how far it has come, with Show, set as its processing lock is taken
 and as the run moves on - the lock is taken before the run is stated, so the notice names the task once it is - and
 cleared as the lock is let go; another view goes on as usual. The tab of a view a task is open on carries the task's
@@ -1834,6 +1835,27 @@ glyph, its tool tip naming the task and, during a run, that the image is locked 
 task. The history strip of the view a workspace's chrome shows adds the pending step of the task open on it,
 "writing" while the run writes it. The presenter watches every view the window is told of (`IViewHost::viewAdded`), for
 its lock and its name, and goes first as the window goes, so what the process windows tell as they go reaches none.
+
+A process taken into a page lives in a `pages/TaskPage` of the centre, kept alive while another place is shown: the
+task's header (`AnTaskHeader`: its image's thumbnail, the process and the image, where its run stands, Close) over the
+process arranged as a page ("A process shown as a page", above), whose canvas carries the page's floating toolbar over
+the preview view and the target's history strip under it, and whose readout slot carries the compact readout. Showing
+a task's page makes its target the active view and names the target and the preview to the view service
+(`setTaskSubject`): the image actions act on the target and the looking ones - the zoom, the fit - on the canvas
+(`ImageOperationsCoordinator::Dependencies::lookingViewControl`); Close, Close All Others and Maximize View are
+withdrawn (`ActionStateCoordinator::Dependencies::taskShown`), since an image is closed from its workspace and a task by
+its own Close or Esc. The readout follows the task's preview through a `tasks/TaskReadoutSource` - the frames the
+preview shows, told by `ImageRTPreviewControl::setPreviewFrameListener`, against the target's image - into the page's
+compact readout; leaving the page gives the actions and the readout back to the active view. The source never calls
+the process as it goes: the task model hears of a window as its base class is destroyed, after its preview's part is,
+so the listener the process holds reads a flag the source clears. The breadcrumb names the process and the image, and
+the status line shows the preview's facts and zoom. A run's header shows its progress in a bar along its foot and the
+page's own row in the banner's place; a run that succeeds is said in the window's snackbar with how long it took and
+Undo, which undoes the target's step, and the header says "applied N s ago" for a minute. Apply (`actionApply_Task`,
+the shell's own action, `Ctrl+Enter` from either Enter key) runs the current task's primary action with the focus
+anywhere in the window; inside the page the page answers the key itself. A view a process makes while a page is shown
+(`ViewPlacement::origin`, `ViewOrigin::Process`) lands in a workspace and leaves the person on the page: the snackbar
+says where and offers Show. When a task's process closes, its page goes and the place shown before it comes back.
 
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the

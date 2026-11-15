@@ -325,7 +325,7 @@ void ImageOperationsCoordinator::convertToRGB() const
 
 void ImageOperationsCoordinator::zoomIn() const
 {
-    auto* control = activeControlOrNotify("ImageZoomIn", "No selected image to adjust");
+    auto* control = lookingControlOrNotify("ImageZoomIn", "No selected image to adjust");
     if (control)
     {
         control->zoomIn();
@@ -334,7 +334,7 @@ void ImageOperationsCoordinator::zoomIn() const
 
 void ImageOperationsCoordinator::zoomOut() const
 {
-    auto* control = activeControlOrNotify("ImageZoomOut", "No selected image to adjust");
+    auto* control = lookingControlOrNotify("ImageZoomOut", "No selected image to adjust");
     if (control)
     {
         control->zoomOut();
@@ -343,7 +343,7 @@ void ImageOperationsCoordinator::zoomOut() const
 
 void ImageOperationsCoordinator::zoom100() const
 {
-    auto* control = activeControlOrNotify("ImageZoom100", "No selected image to adjust");
+    auto* control = lookingControlOrNotify("ImageZoom100", "No selected image to adjust");
     if (control)
     {
         control->zoom100();
@@ -352,7 +352,7 @@ void ImageOperationsCoordinator::zoom100() const
 
 void ImageOperationsCoordinator::fitToWindow() const
 {
-    auto* control = activeControlOrNotify("ImageFitToWindow", "No selected image to adjust");
+    auto* control = lookingControlOrNotify("ImageFitToWindow", "No selected image to adjust");
     if (control)
     {
         control->fitToWindow();
@@ -361,7 +361,7 @@ void ImageOperationsCoordinator::fitToWindow() const
 
 void ImageOperationsCoordinator::switchMaximizeView() const
 {
-    auto* control = activeControlOrNotify("SwitchMaximizeView", "No selected image to process");
+    auto* control = lookingControlOrNotify("SwitchMaximizeView", "No selected image to process");
     if (control)
     {
         control->switchMaximized();
@@ -484,6 +484,18 @@ ImageViewControl* ImageOperationsCoordinator::activeControl() const
     }
 
     return m_dependencies.activeViewControl();
+}
+
+ImageViewControl* ImageOperationsCoordinator::lookingControlOrNotify(const QString& title, const QString& message) const
+{
+    if (m_dependencies.lookingViewControl)
+    {
+        if (ImageViewControl* const looking = m_dependencies.lookingViewControl())
+        {
+            return looking;
+        }
+    }
+    return activeControlOrNotify(title, message);
 }
 
 ImageViewControl* ImageOperationsCoordinator::activeControlOrNotify(const QString& title, const QString& message) const

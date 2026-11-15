@@ -57,6 +57,9 @@ public:
     struct Dependencies
     {
         std::function<ImageViewControl*()> activeViewControl;
+        /// The view the looking operations act on - zoom, fit, maximize - when it is not the active view: a task page's
+        /// canvas. With none, or none answered, they act on the active view.
+        std::function<ImageViewControl*()> lookingViewControl;
         std::function<std::vector<ImageViewControl*>()> listViewControls;
         std::function<QWidget*()> messageParent;
         std::function<void(const QString&, const QString&)> notifyErrorMessage;
@@ -122,6 +125,8 @@ public:
 private:
     ImageViewControl* activeControl() const;
     ImageViewControl* activeControlOrNotify(const QString& title, const QString& message) const;
+    /// The view the looking operations act on: the looking view a host names, else the active view.
+    ImageViewControl* lookingControlOrNotify(const QString& title, const QString& message) const;
     ImageViewControl* sequenceControlOrNotify(const QString& title, const QString& message) const;
     std::vector<ImageViewControl*> listViewControls() const;
     QWidget* messageParent() const;
