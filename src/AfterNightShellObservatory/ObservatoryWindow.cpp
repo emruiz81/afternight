@@ -6,6 +6,7 @@
 #include "ObservatoryWindow.h"
 
 #include "ShellActions.h"
+#include "chrome/ConsoleDrawer.h"
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/PaletteField.h"
 #include "chrome/StatusLine.h"
@@ -66,7 +67,6 @@
 #include "controls/ImageViewControlManager.h"
 #include "controls/KDDockWidgetsHelper.h"
 #include "controls/ViewChrome.h"
-#include "controls/LogViewerControl.h"
 #include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -95,6 +95,8 @@
 #include <QPointer>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QScopedValueRollback>
+#include <QShowEvent>
 #include <QToolButton>
 #include <QSignalBlocker>
 #include <QStackedWidget>
@@ -216,9 +218,11 @@ struct ObservatoryWindow::Impl
     // What makes the window's process menus again when the core's process menus change.
     std::size_t processMenusSubscription = 0;
 
-    // The Session Console, a dock of the workspace's dock area while it is open.
-    LogViewerControl* console = nullptr;
-    QMetaObject::Connection consoleGone;
+    // The Session Console's drawer, and whether what it does is the last start's being put back, which is not kept
+    // again.
+    ConsoleDrawer* consoleDrawer = nullptr;
+    bool restoringConsole = false;
+    bool consoleRestored = false;
 
     // Whether the layout was locked by a maximize, and is unlocked again by the restore.
     bool unlockWhenRestored = false;
@@ -334,9 +338,9 @@ ObservatoryWindow::~ObservatoryWindow()
         impl.readout.reset();
     }
 
-    // A Session Console still open is a child the base class deletes once this window's state is gone, so its
-    // destroyed handler, which reads that state, must not run then.
-    disconnect(impl.consoleGone);
+    // The Session Console goes while the window's state is still there, its window of its own with it.
+    delete impl.consoleDrawer;
+    impl.consoleDrawer = nullptr;
     core.extensions().cancelBackgroundWork();
     core.extensions().stopSessions();
 
@@ -430,6 +434,24 @@ void ObservatoryWindow::buildRegions()
     columnLayout->addWidget(impl.readoutColumn);
     impl.rightColumn->hide();
     middle->addWidget(impl.rightColumn);
+
+    // The Session Console's drawer, between the centre and the status line, spanning the centre and the column.
+    ConsoleDrawer::Hooks drawerHooks;
+    drawerHooks.changed = [this]() { consoleChanged(); };
+    drawerHooks.unseenChanged = [this](const int unseen) { consoleUnseen(unseen); };
+    drawerHooks.icon = [this](const QString& name) { return m_impl->icon(name.toStdString()); };
+    impl.consoleDrawer = new ConsoleDrawer(*this, std::move(drawerHooks), central);
+    right->addWidget(impl.consoleDrawer);
+    {
+        // Its height is the last start's; whether it is open, and floats, is put back once the window is shown.
+        const QScopedValueRollback<bool> restoring(impl.restoringConsole, true);
+        bool readable = false;
+        const int height = impl.core.globalSettings()
+                               ->select(QString::fromLatin1(SettingsKeys::INTERFACE_CONSOLE_DRAWER_HEIGHT),
+                                        QString::number(SettingsDefaults::INTERFACE_CONSOLE_DRAWER_HEIGHT))
+                               .toInt(&readable);
+        impl.consoleDrawer->setDrawerHeight(readable ? height : SettingsDefaults::INTERFACE_CONSOLE_DRAWER_HEIGHT);
+    }
 
     impl.statusLine = new StatusLine(central);
     right->addWidget(impl.statusLine);
@@ -948,6 +970,11 @@ MenuBarOnAlt& ObservatoryWindow::menuBarOnAlt() const noexcept
     return *m_impl->menuBar;
 }
 
+ConsoleDrawer* ObservatoryWindow::consoleDrawer() const noexcept
+{
+    return m_impl->consoleDrawer;
+}
+
 StatusLine* ObservatoryWindow::statusLine() const noexcept
 {
     return m_impl->statusLine;
@@ -1022,7 +1049,7 @@ void ObservatoryWindow::setSessionConsoleVisible(const bool visible)
 
 bool ObservatoryWindow::isSessionConsoleVisible() const
 {
-    return m_impl->console != nullptr;
+    return m_impl->consoleDrawer != nullptr && m_impl->consoleDrawer->isOpen();
 }
 
 void ObservatoryWindow::refreshTheme()
@@ -1166,11 +1193,7 @@ an::ui::shell::DockTarget ObservatoryWindow::dockTarget(const ImageViewControl* 
 
 void ObservatoryWindow::showHome()
 {
-    // The Session Console is a dock of the workspace's dock area, which stays on screen while it is open.
-    if (m_impl->console == nullptr)
-    {
-        m_impl->centre->setCurrentWidget(m_impl->homePage);
-    }
+    m_impl->centre->setCurrentWidget(m_impl->homePage);
     placeChanged();
 }
 
@@ -1283,7 +1306,22 @@ void ObservatoryWindow::resizeEvent(QResizeEvent* event)
     {
         m_impl->topBar->setWindowWidth(width());
     }
+    if (m_impl->consoleDrawer != nullptr)
+    {
+        m_impl->consoleDrawer->windowResized();
+    }
     placePaletteScrim();
+}
+
+void ObservatoryWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+    // The drawer as the last start left it, once the window is on screen and laid out.
+    if (!m_impl->consoleRestored)
+    {
+        m_impl->consoleRestored = true;
+        QTimer::singleShot(0, this, [this]() { restoreConsole(); });
+    }
 }
 
 // ---- What the window does
@@ -1381,41 +1419,68 @@ void ObservatoryWindow::openSettingsAt(const QString& pageName)
 
 void ObservatoryWindow::showConsole(const bool visible)
 {
+    if (m_impl->consoleDrawer != nullptr)
+    {
+        m_impl->consoleDrawer->setOpen(visible);
+    }
+}
+
+void ObservatoryWindow::consoleChanged()
+{
     Impl& impl = *m_impl;
-    if (visible)
+    const ConsoleDrawer& drawer = *impl.consoleDrawer;
+    if (QAction* const action = impl.core.actions().action(an::ui::shell::ids::kLogViewer);
+        action != nullptr && action->isChecked() != drawer.isOpen())
     {
-        // The console is a dock of the workspace's dock area: the workspace is shown with it.
-        showViews();
-        if (impl.console != nullptr)
+        const QSignalBlocker blocker(action);
+        action->setChecked(drawer.isOpen());
+    }
+    if (impl.restoringConsole)
+    {
+        return;
+    }
+    an::ui::IGlobalSettingsProvider* const settings = impl.core.globalSettings();
+    const auto keep = [settings](const char* key, const QString& value) {
+        if (settings->select(QString::fromLatin1(key), QString()) != value)
         {
-            impl.console->show();
-            impl.console->getDockWidget()->show();
-            return;
+            (void)settings->upsert(QString::fromLatin1(key), value);
         }
-        impl.console = new LogViewerControl(this);
-        impl.consoleGone = connect(impl.console, &QObject::destroyed, this, [this]() {
-            m_impl->console = nullptr;
-            if (QAction* const action = m_impl->core.actions().action(an::ui::shell::ids::kLogViewer))
-            {
-                const QSignalBlocker blocker(action);
-                action->setChecked(false);
-            }
-            // With no image open, Home is shown again.
-            if (m_impl->core.viewService().getListOfViewControls().empty())
-            {
-                showHome();
-            }
-        });
-        impl.console->initialize();
-        impl.dockArea->addDockWidget(impl.console->getDockWidget(), KDDockWidgets::Location_OnBottom);
-        return;
-    }
-    if (impl.console == nullptr)
+    };
+    keep(SettingsKeys::INTERFACE_CONSOLE_DRAWER_OPEN, drawer.isOpen() ? QStringLiteral("1") : QStringLiteral("0"));
+    keep(SettingsKeys::INTERFACE_CONSOLE_DRAWER_HEIGHT, QString::number(drawer.drawerHeight()));
+    keep(SettingsKeys::INTERFACE_CONSOLE_FLOATING, drawer.isFloating() ? QStringLiteral("1") : QStringLiteral("0"));
+}
+
+void ObservatoryWindow::consoleUnseen(const int unseen)
+{
+    Impl& impl = *m_impl;
+    const QString count = unseen > 0 ? QString::number(unseen) : QString();
+    for (an::ui::RailItem item : impl.rail->items())
     {
-        return;
+        if (item.id == QLatin1String(kRailConsole) && item.badgeText != count)
+        {
+            item.badgeText = count;
+            impl.rail->updateItem(item);
+        }
     }
-    impl.console->getDockWidget()->forceClose();
-    impl.console->close();
+    impl.statusLine->consoleChip()->setCountText(count);
+}
+
+void ObservatoryWindow::restoreConsole()
+{
+    Impl& impl = *m_impl;
+    an::ui::IGlobalSettingsProvider* const settings = impl.core.globalSettings();
+    const auto stored = [settings](const char* key, const bool fallback) {
+        return settings->select(QString::fromLatin1(key), fallback ? QStringLiteral("1") : QStringLiteral("0")) ==
+               QStringLiteral("1");
+    };
+    const QScopedValueRollback<bool> restoring(impl.restoringConsole, true);
+    impl.consoleDrawer->setFloating(
+        stored(SettingsKeys::INTERFACE_CONSOLE_FLOATING, SettingsDefaults::INTERFACE_CONSOLE_FLOATING));
+    if (stored(SettingsKeys::INTERFACE_CONSOLE_DRAWER_OPEN, SettingsDefaults::INTERFACE_CONSOLE_DRAWER_OPEN))
+    {
+        setSessionConsoleVisible(true);
+    }
 }
 
 void ObservatoryWindow::placeChanged()
@@ -1804,7 +1869,9 @@ void ObservatoryWindow::updateBreadcrumb()
     if (isWorkspaceShown())
     {
         parts.append(impl.workspaces->workspaceName());
-        if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl())
+        // The workspace's item is its active view; one that floats is in a window of its own.
+        if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl();
+            active != nullptr && !active->isInFloatingWindow())
         {
             parts.append(QString::fromUtf8(active->getUniqueName()));
         }
@@ -1923,7 +1990,7 @@ void ObservatoryWindow::railActivated(const QString& id)
     else if (id == QLatin1String(kRailWorkspace))
     {
         // No image is open: Home is the place for it.
-        if (!impl.core.viewService().getListOfViewControls().empty() || impl.console != nullptr)
+        if (!impl.core.viewService().getListOfViewControls().empty())
         {
             showViews();
         }
@@ -1934,7 +2001,7 @@ void ObservatoryWindow::railActivated(const QString& id)
     }
     else if (id == QLatin1String(kRailConsole))
     {
-        setSessionConsoleVisible(impl.console == nullptr);
+        setSessionConsoleVisible(!isSessionConsoleVisible());
     }
     else if (id == QLatin1String(kRailSettings))
     {
@@ -1961,6 +2028,7 @@ void ObservatoryWindow::updateExtensionMenus()
 void ObservatoryWindow::arrangementChanged()
 {
     updateWorkspacePage();
+    updateBreadcrumb();
     // A view floated out of the dock area or docked back: with none left the place of the views stays, as long as one
     // is open; Home is shown once none is.
     if (m_impl->core.viewService().getListOfViewControls().empty())

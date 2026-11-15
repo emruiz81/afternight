@@ -139,8 +139,8 @@ capability window.geometry
 capability window.console
     title        Session Console dock and its toolbar
     shared       SessionConsoleBridge.RecordsEntriesAndEmitsSignal, SessionConsoleViewerTest.AnsiColoursAreRenderedUntilTurnedOffAndTheChoiceIsKept, SessionConsoleViewerTest.WithoutWordWrapANewEntryKeepsTheStartOfTheLineInView
-    classic      ApplicationTeardown.QuittingWithTheSessionConsoleOpenReadsNothingOfTheWindowAfterItsStateIsGone
-    observatory  pending
+    classic      ApplicationTeardown.QuittingWithTheSessionConsoleOpenReadsNothingOfTheWindowAfterItsStateIsGone, ApplicationWindow.TheSessionConsolesToolbarMatchesTheRecord
+    observatory  ConsoleDrawer.OpensFromTheRailTheChipAndTheAction, ConsoleDrawer.SpansTheCentreAndTheColumn, ConsoleDrawer.ResizesWithinItsLimits, ConsoleDrawer.TheToolbarIsTheConsoles, ConsoleDrawer.TheCountRisesWhileClosedAndClearsWhenOpened, ConsoleDrawer.FloatsAndAttachesKeepingItsContentScrollAndFilters, ConsoleDrawer.IsAvailableOnHomeAndOnAWorkspace, ConsoleDrawerKept.FromOneStartToTheNext
 
 # ---- Image views and docking
 

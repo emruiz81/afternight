@@ -16,6 +16,7 @@
 
 #include "app/ApplicationStorage.h"
 #include "app/ModernizationFeatureFlags.h"
+#include "app/SessionConsoleBridge.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 #include "fixtures/HeadlessQtFixture.h"
@@ -67,6 +68,8 @@ int main(int argc, char** argv)
 
         an::platform::initializeLogging(
             QDir(test_storage.path()).filePath(QStringLiteral("Test_ShellObservatory.log")).toStdString());
+        // The session's lines the Session Console shows, kept as the application keeps them once logging is up.
+        (void)an::ui::SessionConsoleBridge::initialize(&app);
 
         test_result = RUN_ALL_TESTS();
 

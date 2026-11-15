@@ -13,6 +13,7 @@
 #include "DockableControl.h"
 
 class QLabel;
+class QToolBar;
 class LogViewerSettingsControl;
 class LogViewerFindTextControl;
 
@@ -89,6 +90,11 @@ public:
     void beginBatchUpdate();
     void endBatchUpdate();
 
+    /// The console's toolbar, made by initialize(), to which a host may add parts of its own.
+    [[nodiscard]] QToolBar* toolBar() const noexcept;
+    /// The toolbar's Search entry.
+    [[nodiscard]] QAction* searchAction() const noexcept;
+
     virtual ~LogViewerControl();
 
 private:
@@ -128,6 +134,7 @@ private:
     QVBoxLayout* m_CanvasLayout = nullptr;
 
     QPlainTextEdit* m_TextEdit = nullptr;
+    QToolBar* m_ToolBar = nullptr;
 
     QAction* m_WordWrapAction = nullptr;
     QAction* m_AnsiColorsAction = nullptr;

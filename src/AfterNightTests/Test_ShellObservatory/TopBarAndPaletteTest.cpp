@@ -11,6 +11,7 @@
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/PaletteField.h"
 #include "chrome/TopBar.h"
+#include "pages/WorkspacePage.h"
 
 #include "Test_ShellClassic/InventoryRecords.h"
 #include "fixtures/BaselineRecord.h"
@@ -23,10 +24,13 @@
 #include "components/AnBreadcrumb.h"
 #include "components/AnCommandPalette.h"
 #include "controls/ImageViewControl.h"
+#include "controls/KDDockWidgetsHelper.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "core/ApplicationCore.h"
 #include "services/FavoriteProcessesModel.h"
 #include "theme/AnDesignTokens.h"
+
+#include <kddockwidgets/DockWidget.h>
 
 #include <QAction>
 #include <QApplication>
@@ -135,7 +139,7 @@ TEST_F(TopBar, GeometryByDensity)
 }
 
 // The breadcrumb says where the person is: Home; the workspace and its active view; the workspace alone while it shows
-// no view.
+// no view of its own, every image floating in a window of its own.
 TEST_F(TopBar, TheBreadcrumbNamesThePlaceAndItsItem)
 {
     an::ui::AnBreadcrumb& crumbs = *window().topBar()->breadcrumb();
@@ -146,13 +150,14 @@ TEST_F(TopBar, TheBreadcrumbNamesThePlaceAndItsItem)
     settle();
     EXPECT_EQ(crumbs.parts(), (QStringList{QStringLiteral("Workspace 1"), QString::fromUtf8(view->getUniqueName())}));
 
-    core().viewService().removeViewControl(view, true);
-    settle();
-    window().setSessionConsoleVisible(true);
-    settle();
+    view->getDockWidget()->setFloating(true);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
+        settle();
+        return window().workspacePage()->isFloatingImagesShown();
+    }));
     ASSERT_TRUE(window().isWorkspaceShown());
     EXPECT_EQ(crumbs.parts(), QStringList{QStringLiteral("Workspace 1")});
-    window().setSessionConsoleVisible(false);
+    view->getDockWidget()->setFloating(false);
     settle();
 }
 

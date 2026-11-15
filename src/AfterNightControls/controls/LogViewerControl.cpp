@@ -536,6 +536,7 @@ void LogViewerControl::initialize()
 
     // Create the toolbar
     auto tb = new QToolBar();
+    m_ToolBar = tb;
 
     tb->setAutoFillBackground(true);
 
@@ -788,6 +789,16 @@ void LogViewerControl::endBatchUpdate()
 {
     m_updatingSettings = false;
     updateSettings();
+}
+
+QToolBar* LogViewerControl::toolBar() const noexcept
+{
+    return m_ToolBar;
+}
+
+QAction* LogViewerControl::searchAction() const noexcept
+{
+    return m_SearchAction;
 }
 
 void LogViewerControl::setMaxLines(const int maxLines)

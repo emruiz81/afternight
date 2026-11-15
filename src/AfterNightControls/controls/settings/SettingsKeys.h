@@ -65,6 +65,10 @@ inline constexpr auto INTERFACE_THEME_PRESET = "interface/themePreset";
 inline constexpr auto INTERFACE_START_IN_NIGHT = "interface/startInNight";
 // Whether a shell whose menu bar shows on Alt keeps it shown.
 inline constexpr auto INTERFACE_ALWAYS_SHOW_MENU_BAR = "interface/alwaysShowMenuBar";
+// Whether a shell's Session Console drawer is open, how high it is, and whether the console is in a window of its own.
+inline constexpr auto INTERFACE_CONSOLE_DRAWER_OPEN = "interface/consoleDrawerOpen";
+inline constexpr auto INTERFACE_CONSOLE_DRAWER_HEIGHT = "interface/consoleDrawerHeight";
+inline constexpr auto INTERFACE_CONSOLE_FLOATING = "interface/consoleFloating";
 inline constexpr auto INTERFACE_ZOOM_SENSITIVITY = "interface/zoomSensitivity";
 inline constexpr auto INTERFACE_ZOOM_REQUIRES_CTRL = "interface/zoomRequiresCtrl";
 inline constexpr auto INTERFACE_LOCK_LAYOUT_BY_DEFAULT = "interface/lockLayoutByDefault";

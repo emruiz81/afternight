@@ -10,6 +10,7 @@
 
 #include "AppTestSupport.h"
 #include "InventoryRecords.h"
+#include "fixtures/ConsoleToolbarRecord.h"
 #include "app/AfterNightAppListener.h"
 #include "core/ApplicationSession.h"
 #include "core/ApplicationCore.h"
@@ -40,6 +41,7 @@
 #include <QString>
 #include <QStringList>
 #include <QThread>
+#include <QToolBar>
 #include <QWidget>
 
 #include <gtest/gtest.h>
@@ -482,4 +484,34 @@ TEST_F(ApplicationWindow, ShortcutsMatchTheRecord)
         closeWhatTheKeysOpened(*preview);
         EXPECT_TRUE(record.matches(section, taken));
     }
+}
+
+// The Session Console's toolbar is the one the record holds, entry by entry in its order: the record the Observatory
+// shell's console drawer is held to as well, so the two shells show one console.
+TEST_F(ApplicationWindow, TheSessionConsolesToolbarMatchesTheRecord)
+{
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::fixtures::kConsoleToolbarRecordPath),
+                                               an::tests::fixtures::consoleToolbarPreamble());
+    QAction* const consoleEntry = s_window->findChild<QAction*>(QStringLiteral("actionLog_Viewer"));
+    ASSERT_NE(consoleEntry, nullptr);
+    if (!consoleEntry->isChecked())
+    {
+        consoleEntry->trigger();
+    }
+    LogViewerControl* console = nullptr;
+    for (QWidget* child : s_window->findChildren<QWidget*>())
+    {
+        // The console declares no meta-object of its own, so it is told by its type.
+        if (auto* found = dynamic_cast<LogViewerControl*>(child))
+        {
+            console = found;
+        }
+    }
+    ASSERT_NE(console, nullptr) << "the Session Console did not open among the window's children";
+    const QToolBar* const toolbar = console->findChild<QToolBar*>();
+    ASSERT_NE(toolbar, nullptr);
+    EXPECT_TRUE(record.matches(QString::fromLatin1(an::tests::fixtures::kConsoleToolbarSection),
+                               an::tests::fixtures::toolbarEntries(*toolbar)));
+    consoleEntry->trigger();
+    QCoreApplication::processEvents();
 }

@@ -1,0 +1,32 @@
+# The Session Console's toolbar as AfterNight 1.1 shows it, an entry an item, in its order:
+#   action | text | tooltip | shortcut | checkable
+#   separator
+#   label | text | tooltip
+#   combo | its items | the current one | tooltip
+#   widget | its class
+#
+# Written from the classic window's console. In Test_ShellClassic
+# ApplicationWindow.TheSessionConsolesToolbarMatchesTheRecord compares the classic console with it;
+# in Test_ShellObservatory ConsoleDrawer.TheToolbarIsTheConsoles compares the console drawer's,
+# less the drawer's own parts.
+# An entry is edited by the change that means to move it; the record is not written again whole.
+# A field is `-` when empty; `\t` is a tab and `\|` a bar inside a text.
+
+[toolbar]
+action | Zoom In | Zoom In | - | -
+action | Zoom Out | Zoom Out | - | -
+action | Zoom 100% | Zoom 100% | - | -
+separator
+action | Enable word wrap | Disable word wrap | - | -
+action | Clear Session | Clear Session | - | -
+action | Reload session lines | Reload session lines | - | -
+action | ANSI Colors | Render ANSI terminal color sequences in session output when present. | - | checkable
+separator
+action | Settings | Settings | - | -
+label | Show >= | Filters visible session entries only.
+combo | error, warn, info, debug, trace | info | Filters visible session entries only. Does not change file logging.
+separator
+label | File log: info | Current file logging level from Settings > Logging.
+separator
+action | Search... | Search | Ctrl+F | -
+action | Export visible session text | Export visible session text | Ctrl+S | -

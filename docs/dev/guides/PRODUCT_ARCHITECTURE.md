@@ -1621,9 +1621,8 @@ the page it would stay a window of its own), drawn by the decorations' factory a
 dock library's hooks through `DockHooks`; while it is the only one its target names no workspace, so its lock is the
 whole layout's, as the classic window's is. A view is docked there beside its neighbour or on the right; maximized, it
 covers the workspace's page while its dock keeps a stand-in, the layout locked while it is unless the person had locked
-it already. With no image open the window shows Home, and the workspace once one is; the Session Console is a dock of the
-workspace for now, which keeps the workspace on screen while it is open. Processes open as windows of their own: the
-shell has no process presenter yet.
+it already. With no image open the window shows Home, and the workspace once one is. Processes open as windows of their own:
+the shell has no process presenter yet.
 
 The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
 Integration, which opens Image Integration - and at its foot the Session Console, which it opens and closes, and
@@ -1675,6 +1674,25 @@ the index through a provider the window adds and takes back (`CommandIndex::remo
 tokens' Night and applies the theme again, the densities store `interface/density` and apply it. `Ctrl+W` is set on the
 catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table and the classic
 shell keep 1.1's shortcuts.
+
+The Session Console is the window's drawer (`chrome/ConsoleDrawer`), between the centre and the status line and spanning
+the centre and the column, on every place: it is no dock of a workspace, so opening it changes no place. It holds 1.1's
+`LogViewerControl`, made when it is first opened and kept while the window lives, so its lines, its scroll position and
+its filters stay as the person left them. Its header is the console's own toolbar, in its order, with the drawer's
+parts about it - the title first, a stretch and the count of the session's warnings as a tag before Search, then Float
+and the close button - each marked as the drawer's (`ConsoleDrawer::kOwnPartProperty`); `LogViewerControl` lends the
+toolbar and its Search entry for it and is otherwise unchanged, and the record of its toolbar
+(`Test_ShellObservatory/data/ConsoleToolbar.txt`, written from the classic window's console) holds both shells to one
+console. It is 220 px high at first and resized by a band along its top edge between 120 px and 60 % of the window's
+height. `Float` moves the console into a floating window of the dock library - a dock widget with the affinity
+`an.console`, which no workspace and no image's window shares, made with `LayoutSaverOption::Skip` so no saved layout
+holds it, with one title bar and no tab strip - and `Attach` brings it back; the console is the same widget
+throughout. Closing its window closes the console, which opens in its window again while it floats. A warning or an
+error that arrives while the console is closed is counted on the rail's Console item and on the status line's chip
+until it opens. The rail's item, the chip, the catalogue's Session Console action and `IShell::setSessionConsoleVisible`
+open and close it; whether it is open, its height and whether it floats are kept (`interface/consoleDrawerOpen`,
+`interface/consoleDrawerHeight`, `interface/consoleFloating`), the height read as the window is made and the rest put
+back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
 
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the

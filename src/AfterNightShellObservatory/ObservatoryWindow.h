@@ -24,6 +24,7 @@ class QDragEnterEvent;
 class QDropEvent;
 class QPoint;
 class QResizeEvent;
+class QShowEvent;
 class QStackedWidget;
 
 namespace an::ui
@@ -41,6 +42,7 @@ class ApplicationCore;
 namespace an::ui::observatory
 {
 
+class ConsoleDrawer;
 class FloatingImagesPage;
 class FloatingViewChrome;
 class HomePage;
@@ -96,6 +98,8 @@ public:
     [[nodiscard]] StatusLine* statusLine() const noexcept;
     /// The menu bar, hidden until Alt is pressed.
     [[nodiscard]] MenuBarOnAlt& menuBarOnAlt() const noexcept;
+    /// The Session Console's drawer, under the centre and the column.
+    [[nodiscard]] ConsoleDrawer* consoleDrawer() const noexcept;
 
     /// The rail's items, by the ids the rail tells them by.
     static constexpr char kRailHome[] = "home";
@@ -152,7 +156,7 @@ public:
     [[nodiscard]] bool isMaximizedViewActive() const override;
     /// The workspace's dock area: the window has one.
     [[nodiscard]] an::ui::shell::DockTarget dockTarget(const ImageViewControl* view = nullptr) override;
-    /// Shows Home, unless the Session Console holds the workspace's dock area.
+    /// Shows Home.
     void showHome() override;
     /// Shows the workspace.
     void showViews() override;
@@ -168,6 +172,7 @@ public:
 protected:
     void closeEvent(QCloseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -187,6 +192,13 @@ private:
     void openSettings();
     void openSettingsAt(const QString& pageName);
     void showConsole(bool visible);
+    /// The drawer opened, closed, floated, attached or resized: the catalogue's action follows it and the settings
+    /// keep it.
+    void consoleChanged();
+    /// The count of the warnings not seen, on the rail's Console item and the status line's chip.
+    void consoleUnseen(int unseen);
+    /// The drawer as the last start left it.
+    void restoreConsole();
     void arrangementChanged();
     void placeChanged();
     void railActivated(const QString& id);

@@ -228,6 +228,11 @@ inline constexpr int kPaletteFieldIconWindow = 1100;
 inline constexpr int kPaletteFieldInset = 14;
 inline constexpr int kPaletteFieldRadius = 8;
 inline constexpr int kPaletteFieldIcon = 16;
+// A shell's Session Console drawer: resized by a 5 px band along its top edge, never under 120 px nor over 60 % of
+// the window's height.
+inline constexpr int kConsoleDrawerMinimumHeight = 120;
+inline constexpr int kConsoleDrawerMaximumPercent = 60;
+inline constexpr int kConsoleDrawerGrip = 5;
 
 // The floating toolbar of a view: a rounded scrim `metrics.floatingToolbar` high with a 1 px edge under it, padding 0
 // 5, gap 2; its buttons 10 px less than its height, its choices 12 px less; separators 1 x 20 with 4 px each side. The

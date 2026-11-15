@@ -112,7 +112,7 @@ TEST_F(ObservatoryWindow, RailSelectsPlaces)
 
     clickRail(rail, Window::kRailConsole);
     EXPECT_TRUE(window().isSessionConsoleVisible());
-    // The console closes and is deleted later, as a closed dock is: the case delivers the deletion an event loop would.
+    // A second click closes it.
     clickRail(rail, Window::kRailConsole);
     EXPECT_TRUE(an::tests::app::processEventsUntil([&]() {
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
