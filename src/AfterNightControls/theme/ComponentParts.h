@@ -207,6 +207,10 @@ inline constexpr int kCompactReadoutIcon = 12;
 /// A change smaller than this is shown as none.
 inline constexpr double kReadoutDeltaFloor = 0.00005;
 
+// A shell's status line: its texts 14 px apart, 12 px from its ends.
+inline constexpr int kStatusLineGap = 14;
+inline constexpr int kStatusLinePadding = 12;
+
 // The floating toolbar of a view: a rounded scrim `metrics.floatingToolbar` high with a 1 px edge under it, padding 0
 // 5, gap 2; its buttons 10 px less than its height, its choices 12 px less; separators 1 x 20 with 4 px each side. The
 // small form, on a floating image window, is 32 px high, radius 8, padding 0 3, its buttons 26 px.

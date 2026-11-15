@@ -1878,6 +1878,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/widgets/HistogramMTFWidget.cpp
     unit     src/AfterNightControls/widgets/HistogramWidget.cpp
     unit     src/AfterNightControls/widgets/ImageInfoStatusBarWidget.cpp
+    unit     src/AfterNightControls/widgets/ImageStatusTexts.cpp
     unit     src/AfterNightControls/widgets/ImageLensWidget.cpp
     unit     src/AfterNightControls/widgets/ImagePreviewWidget.cpp
     unit     src/AfterNightControls/widgets/ImageViewWidget.cpp
@@ -1897,14 +1898,27 @@ sources Test_ControlsSeams
     unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
     unit     src/AfterNightTests/fixtures/common/MaskRenderingCases.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
-    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
-    header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
-    header   src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.h
-    header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
-    header   src/AfterNightTests/Test_ControlsStatistics/StatisticsTestSupport.h
-    header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
-    header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
-    header   src/AfterNightTests/Test_MaskDrawing/MaskDrawingTestSupport.h
+    stub     src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.cpp stands in for the tool windows' opener, which the viewer reaches through its companion seam and the library defines beside the windows
+    stub     src/AfterNightTests/Test_ControlsSeams/ViewSequencePlayerStub.cpp stands in for the sequence player, which the viewer reaches through its companion seam and the library defines
+    stub     src/AfterNightTests/Test_ControlsSeams/ViewOverlaysStub.cpp stands in for the astrometry overlays, which the viewer reaches through its companion seam and the library defines
+    stub     src/AfterNightTests/Test_ControlsSeams/ViewHistoryStub.cpp stands in for the history, which the viewer reaches through its companion seam and the library defines
+    stub     src/AfterNightTests/Test_ControlsSeams/ImageSelectorTooltipStub.cpp stands in for the image selector tooltip the mask selector shows, which the process framework defines
+    include  src/AfterNightTests
+    include  src/AfterNightControls
+    include  src/AfterNightPlatform/include
+    include  src/AfterNightConsumerRuntime/include
+    include  3rdparty/src
+    include  src/AfterNightProcesses
+    define   AFTERNIGHTCONTROLS_EXPORTS
+    link     AfterNightPlatform
+    link     AfterNightConsumerRuntime
+    external kddockwidgets
+    qt       core gui widgets
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/SexagesimalFormatter.h
     header   src/AfterNightControls/app/AfterNightAppListener.h
@@ -1938,10 +1952,9 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/ImageStarSelectionController.h
     header   src/AfterNightControls/controls/ImageStatisticsControl.h
     header   src/AfterNightControls/controls/ImageStatisticsControlUiBuilder.h
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
-    header   src/AfterNightControls/controls/ViewChrome.h
-    header   src/AfterNightControls/controls/ViewProcessingNotice.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -1967,7 +1980,9 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/StarsFilterWindow.h
     header   src/AfterNightControls/controls/StaticPreviewCacheLimits.h
     header   src/AfterNightControls/controls/ToolbarOverflowLayout.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/ViewProcessingNotice.h
     header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/drawing/BrushEngine.h
     header   src/AfterNightControls/controls/drawing/CoveragePlane.h
@@ -2015,6 +2030,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/widgets/ImageInfoStatusBarWidget.h
     header   src/AfterNightControls/widgets/ImageLensWidget.h
     header   src/AfterNightControls/widgets/ImagePreviewWidget.h
+    header   src/AfterNightControls/widgets/ImageStatusTexts.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
     header   src/AfterNightControls/widgets/ImageViewWidgetDisplayModule.h
     header   src/AfterNightControls/widgets/MaskRenderer.h
@@ -2027,6 +2043,18 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/widgets/ViewPresentation.h
     header   src/AfterNightControls/widgets/ZoomManager.h
     header   src/AfterNightControls/widgets/waitingspinnerwidget.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/CrashHandler.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/FileSystem.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
+    header   src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.h
+    header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
+    header   src/AfterNightTests/Test_ControlsStatistics/StatisticsTestSupport.h
+    header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
+    header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
+    header   src/AfterNightTests/Test_MaskDrawing/MaskDrawingTestSupport.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
     header   src/AfterNightTests/fixtures/common/FixtureCatalogue.h
@@ -2036,35 +2064,9 @@ sources Test_ControlsSeams
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/FixtureStatistics.h
     header   src/AfterNightTests/fixtures/common/MaskRenderingCases.h
+    header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
-    header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
-    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
-    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
-    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
-    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
-    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
-    header   src/AfterNightPlatform/include/AfterNightPlatform/CrashHandler.h
-    header   src/AfterNightPlatform/include/AfterNightPlatform/FileSystem.h
-    header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
-    header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
-    header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
-    stub     src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.cpp stands in for the tool windows' opener, which the viewer reaches through its companion seam and the library defines beside the windows
-    stub     src/AfterNightTests/Test_ControlsSeams/ViewSequencePlayerStub.cpp stands in for the sequence player, which the viewer reaches through its companion seam and the library defines
-    stub     src/AfterNightTests/Test_ControlsSeams/ViewOverlaysStub.cpp stands in for the astrometry overlays, which the viewer reaches through its companion seam and the library defines
-    stub     src/AfterNightTests/Test_ControlsSeams/ViewHistoryStub.cpp stands in for the history, which the viewer reaches through its companion seam and the library defines
-    stub     src/AfterNightTests/Test_ControlsSeams/ImageSelectorTooltipStub.cpp stands in for the image selector tooltip the mask selector shows, which the process framework defines
-    include  src/AfterNightTests
-    include  src/AfterNightControls
-    include  src/AfterNightPlatform/include
-    include  src/AfterNightConsumerRuntime/include
-    include  3rdparty/src
-    include  src/AfterNightProcesses
-    define   AFTERNIGHTCONTROLS_EXPORTS
-    link     AfterNightPlatform
-    link     AfterNightConsumerRuntime
-    external kddockwidgets
-    qt       core gui widgets
 
 # The viewer suite, linked against the Controls library, class engine: the view's loading, zoom and pan, channels,
 # masks, status bar, theme colours, static preview and close lifecycle, the comparison views and their generator, the
@@ -2701,6 +2703,8 @@ sources Test_ShellClassic
 # and the libraries below it, never against the classic shell.
 sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/main.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryChromeTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryPlacesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryShellTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.cpp
@@ -2729,6 +2733,8 @@ sources Test_ShellObservatory
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/SexagesimalFormatter.h
+    header   src/AfterNightControls/app/ActionLookup.h
     header   src/AfterNightControls/app/ApplicationStorage.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/ExtensionManager.h
@@ -2737,22 +2743,29 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/RuntimeStorageCoordinator.h
     header   src/AfterNightControls/components/AnIconRail.h
+    header   src/AfterNightControls/components/AnReadoutColumn.h
     header   src/AfterNightControls/components/AnTaskThumbnail.h
     header   src/AfterNightControls/components/RailItem.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
+    header   src/AfterNightControls/controls/ImageListTableHelpers.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
     header   src/AfterNightControls/controls/ImageViewScrollArea.h
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
+    header   src/AfterNightControls/controls/MainDashboard.h
+    header   src/AfterNightControls/controls/NewSequenceControl.h
+    header   src/AfterNightControls/controls/NewSequenceControlUiBuilder.h
+    header   src/AfterNightControls/controls/ProcessTabStyling.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/ProcessingLimits.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
+    header   src/AfterNightControls/session/CommitTicket.h
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/IEngineSessionProvider.h
     header   src/AfterNightControls/session/ImageDocument.h
@@ -2761,15 +2774,24 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/theme/NightImage.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
+    header   src/AfterNightControls/widgets/HistogramDisplayData.h
+    header   src/AfterNightControls/widgets/HistogramWidget.h
     header   src/AfterNightControls/widgets/ImageChannelViewMode.h
+    header   src/AfterNightControls/widgets/ImageInfoStatusBarWidget.h
+    header   src/AfterNightControls/widgets/ImageLensWidget.h
+    header   src/AfterNightControls/widgets/ImagePreviewWidget.h
     header   src/AfterNightControls/widgets/ImageViewWidget.h
     header   src/AfterNightControls/widgets/ImageViewWidgetDisplayModule.h
     header   src/AfterNightControls/widgets/MaskRenderer.h
     header   src/AfterNightControls/widgets/PresentationBridge.h
+    header   src/AfterNightControls/widgets/TableWidget.h
     header   src/AfterNightControls/widgets/ViewPresentation.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/actions/ActionCatalogue.h
+    header   src/AfterNightShellCore/actions/ActionIds.h
+    header   src/AfterNightShellCore/actions/MenuTree.h
     header   src/AfterNightShellCore/core/ApplicationContext.h
     header   src/AfterNightShellCore/core/ApplicationCore.h
     header   src/AfterNightShellCore/core/ApplicationSession.h
@@ -2782,6 +2804,7 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/AfterNightShellObservatoryExport.h
     header   src/AfterNightShellObservatory/ObservatoryShell.h
     header   src/AfterNightShellObservatory/ObservatoryWindow.h
+    header   src/AfterNightShellObservatory/chrome/MenuBarOnAlt.h
     header   src/AfterNightShellObservatory/chrome/StatusLine.h
     header   src/AfterNightShellObservatory/chrome/TopBar.h
     header   src/AfterNightShellObservatory/pages/HomePage.h
@@ -3276,6 +3299,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_interface_preset_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_start_in_night_setting.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_always_show_menu_bar_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_tint_strength_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_json_serializer.cpp
     unit     src/AfterNightTests/Test_Persistence/test_persistence_repository.cpp

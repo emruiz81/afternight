@@ -1625,6 +1625,21 @@ it already. With no image open the window shows Home, and the workspace once one
 workspace for now, which keeps the workspace on screen while it is open. Processes open as windows of their own: the
 shell has no process presenter yet.
 
+The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
+Integration, which opens Image Integration - and at its foot the Session Console, which it opens and closes, and
+Settings; the place on screen is the one marked. The column right of the centre is the readout (`AnReadoutColumn`) fed
+by the shell core's `ReadoutController`, which follows the active view: it is shown beside the workspace, and beside
+Home while an image is open, and is told the window's size at every resize so it narrows and folds as the window does.
+The status line (`chrome/StatusLine`) writes what the classic status bar writes of the active image - its facts, its
+zoom, the position under the cursor - from the same functions (`widgets/ImageStatusTexts.h`, which the classic
+`ImageInfoStatusBarWidget` writes through too), "RA -" and "Dec -" in the tertiary colour while there is no position. The
+menu bar (`chrome/MenuBarOnAlt`) is the shell core's menu tree over the catalogue's actions, hidden unless the person
+keeps it (`interface/alwaysShowMenuBar`): Alt alone shows it and gives it the focus, Alt and a menu's first letter
+opens that menu, and it hides once its menus close and the focus is elsewhere. Every catalogue action is the window's
+own (`QWidget::addAction`), so its shortcut works with the bar hidden. The process menus are made from the core's
+`ProcessMenuModel`, whose own entries - clear the recent processes, manage and clear the favourites - ask through the
+shell core's `actions/ProcessListDialogs.h`.
+
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
 window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's

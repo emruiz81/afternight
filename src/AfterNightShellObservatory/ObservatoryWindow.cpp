@@ -5,6 +5,7 @@
 
 #include "ObservatoryWindow.h"
 
+#include "chrome/MenuBarOnAlt.h"
 #include "chrome/StatusLine.h"
 #include "chrome/TopBar.h"
 #include "pages/HomePage.h"
@@ -15,10 +16,12 @@
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
 #include "actions/ActionStateCoordinator.h"
+#include "actions/ProcessListDialogs.h"
 #include "actions/ProcessMenuModel.h"
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
+#include "readout/ReadoutController.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
 #include "services/ExtensionService.h"
@@ -42,6 +45,8 @@
 #include "app/ThemeManager.h"
 #include "app/ViewCreationCoordinator.h"
 #include "components/AnIconRail.h"
+#include "components/AnReadoutColumn.h"
+#include "components/RailItem.h"
 #include "controls/ExportSequenceControl.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/ImageViewControl.h"
@@ -50,6 +55,8 @@
 #include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
+#include "controls/settings/SettingsDefaults.h"
+#include "controls/settings/SettingsKeys.h"
 #include "theme/AnProxyStyle.h"
 
 #include <kddockwidgets/DockWidget.h>
@@ -59,7 +66,9 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QHBoxLayout>
+#include <QMenu>
 #include <QPointer>
+#include <QResizeEvent>
 #include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -94,7 +103,9 @@ struct ObservatoryWindow::Impl
     an::ui::AnIconRail* rail = nullptr;
     QStackedWidget* centre = nullptr;
     QWidget* rightColumn = nullptr;
+    an::ui::AnReadoutColumn* readoutColumn = nullptr;
     StatusLine* statusLine = nullptr;
+    MenuBarOnAlt* menuBar = nullptr;
     HomePage* homePage = nullptr;
     WorkspacePage* workspacePage = nullptr;
     std::unique_ptr<WorkspaceHost> workspaces;
@@ -114,6 +125,10 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<an::ui::MaskOverlayCoordinator> maskOverlay;
     std::unique_ptr<an::ui::DialogOrchestrationCoordinator> dialogs;
     std::unique_ptr<an::ui::AppLifecycleCoordinator> lifecycle;
+    // What the column shows of the active view: made over the core, fed into the column.
+    std::unique_ptr<an::ui::shell::ReadoutController> readout;
+    // What makes the window's process menus again when the core's process menus change.
+    std::size_t processMenusSubscription = 0;
 
     // The Session Console, a dock of the workspace's dock area while it is open.
     LogViewerControl* console = nullptr;
@@ -173,6 +188,18 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     // The application's actions are the core's; the window holds them while it lives.
     core.actions().host(*this);
     impl.icons = core.iconManager();
+    // Every action is the window's own, so its shortcut works with the menu bar hidden.
+    for (QAction* action : core.actions().all())
+    {
+        addAction(action);
+    }
+    // The menu bar, from the menu tree over the actions, hidden until Alt is pressed unless the person keeps it.
+    an::ui::IGlobalSettingsProvider* const settings = core.globalSettings();
+    const bool alwaysShown =
+        settings->select(QString::fromLatin1(SettingsKeys::INTERFACE_ALWAYS_SHOW_MENU_BAR),
+                         SettingsDefaults::INTERFACE_ALWAYS_SHOW_MENU_BAR ? QStringLiteral("1")
+                                                                          : QStringLiteral("0")) == QStringLiteral("1");
+    impl.menuBar = new MenuBarOnAlt(*this, core.actions().lookup(), alwaysShown);
 
     buildRegions();
     makeUnits();
@@ -188,6 +215,13 @@ ObservatoryWindow::~ObservatoryWindow()
 {
     Impl& impl = *m_impl;
     an::ui::shell::ApplicationCore& core = impl.core;
+
+    // The readout lets go of the views and the column first: nothing is measured for a window on its way out.
+    if (impl.readout)
+    {
+        impl.readout->setColumn(nullptr);
+        impl.readout.reset();
+    }
 
     // A Session Console still open is a child the base class deletes once this window's state is gone, so its
     // destroyed handler, which reads that state, must not run then.
@@ -228,6 +262,8 @@ ObservatoryWindow::~ObservatoryWindow()
     core.fileDrops().setHooks({});
     core.extensions().setHooks({});
     core.actionState().setHooks({});
+    core.processMenus().setHooks({});
+    core.processMenus().unsubscribe(impl.processMenusSubscription);
     core.actionBindings().setTargets({});
     // The actions are the core's: the window gives them back before its base class deletes its children.
     core.actions().release();
@@ -253,7 +289,10 @@ void ObservatoryWindow::buildRegions()
 
     impl.rail = new an::ui::AnIconRail(central);
     impl.rail->setObjectName(QStringLiteral("observatoryRail"));
+    impl.rail->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     body->addWidget(impl.rail);
+    QObject::connect(impl.rail, &an::ui::AnIconRail::itemActivated, this,
+                     [this](const QString& id) { railActivated(id); });
 
     auto* right = new QVBoxLayout();
     right->setContentsMargins(0, 0, 0, 0);
@@ -271,9 +310,13 @@ void ObservatoryWindow::buildRegions()
 
     impl.rightColumn = new QWidget(central);
     impl.rightColumn->setObjectName(QStringLiteral("observatoryRightColumn"));
+    impl.rightColumn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     auto* columnLayout = new QVBoxLayout(impl.rightColumn);
     columnLayout->setContentsMargins(0, 0, 0, 0);
     columnLayout->setSpacing(0);
+    impl.readoutColumn = new an::ui::AnReadoutColumn(impl.rightColumn);
+    impl.readoutColumn->setObjectName(QStringLiteral("observatoryReadout"));
+    columnLayout->addWidget(impl.readoutColumn);
     impl.rightColumn->hide();
     middle->addWidget(impl.rightColumn);
 
@@ -297,6 +340,35 @@ void ObservatoryWindow::buildRegions()
 
     impl.centre->setCurrentWidget(impl.homePage);
     connectDashboard();
+
+    // The readout follows the active view into the column.
+    impl.readout = std::make_unique<an::ui::shell::ReadoutController>(impl.core);
+    impl.readout->setColumn(impl.readoutColumn);
+
+    // The rail: the places, and at its foot the Session Console and Settings.
+    std::vector<an::ui::RailItem> items;
+    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailHome),
+                                     .section = an::ui::RailSection::Place,
+                                     .iconKey = QStringLiteral("home"),
+                                     .text = tr("Home")});
+    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailWorkspace),
+                                     .section = an::ui::RailSection::Place,
+                                     .iconKey = QStringLiteral("images"),
+                                     .text = impl.workspaces->workspaceName()});
+    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailIntegration),
+                                     .section = an::ui::RailSection::Place,
+                                     .iconKey = QStringLiteral("layers"),
+                                     .text = tr("Integration")});
+    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailConsole),
+                                     .section = an::ui::RailSection::Foot,
+                                     .iconKey = QStringLiteral("terminal"),
+                                     .text = tr("Session Console")});
+    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailSettings),
+                                     .section = an::ui::RailSection::Foot,
+                                     .iconKey = QStringLiteral("settings"),
+                                     .text = tr("Settings")});
+    impl.rail->setItems(items);
+    placeChanged();
 }
 
 void ObservatoryWindow::connectDashboard()
@@ -384,6 +456,7 @@ void ObservatoryWindow::makeUnits()
 
     an::ui::FileManager::Dependencies fileDeps;
     fileDeps.signalContext = this;
+    fileDeps.recentFilesMenu = impl.menuBar->menu("menuOpen_Recent");
     fileDeps.recentFiles = &core.recentFiles().entriesForEdit();
     fileDeps.lastOpenDirectory = &core.lastOpenDirectoryForEdit();
     fileDeps.recentFilesLimit = [this]() { return m_impl->core.recentFiles().limit(); };
@@ -562,9 +635,61 @@ void ObservatoryWindow::bindServices()
     targets.splitAll = [this]() { m_impl->core.dockLayout().splitAllEqually(dockTarget()); };
     core.actionBindings().setTargets(std::move(targets));
 
+    // The actions' state sets the menu bar's menus, and stops while the window closes.
     an::ui::shell::ActionStateCoordinator::Hooks actionStateHooks;
+    actionStateHooks.setMenuEnabled = [this](const std::string_view menuId, const bool enabled) {
+        if (QMenu* const menu = m_impl->menuBar->menu(menuId))
+        {
+            menu->setEnabled(enabled);
+        }
+    };
     actionStateHooks.isTerminating = [this]() { return m_impl->terminating; };
     core.actionState().setHooks(std::move(actionStateHooks));
+
+    // The process menus' own entries ask the person, and the menus are made again from the core's whenever it changes.
+    an::ui::shell::ProcessMenuModel::Hooks processMenuHooks;
+    processMenuHooks.clearRecentProcesses = [this]() {
+        if (an::ui::shell::clearRecentProcesses(m_impl->core))
+        {
+            m_impl->core.processMenus().notifyChanged(an::ui::shell::ProcessMenuModel::Change::RecentProcesses);
+        }
+    };
+    processMenuHooks.manageFavoriteProcesses = [this]() {
+        if (an::ui::shell::manageFavoriteProcesses(m_impl->core, this))
+        {
+            m_impl->core.processMenus().notifyChanged(an::ui::shell::ProcessMenuModel::Change::FavoriteProcesses);
+        }
+    };
+    processMenuHooks.clearFavoriteProcesses = [this]() {
+        if (an::ui::shell::clearFavoriteProcesses(m_impl->core))
+        {
+            m_impl->core.processMenus().notifyChanged(an::ui::shell::ProcessMenuModel::Change::FavoriteProcesses);
+        }
+    };
+    core.processMenus().setHooks(std::move(processMenuHooks));
+    impl.processMenusSubscription =
+        core.processMenus().subscribe([this](const an::ui::shell::ProcessMenuModel::Change change) {
+            switch (change)
+            {
+            case an::ui::shell::ProcessMenuModel::Change::RecentProcesses:
+                if (QMenu* const menu = m_impl->menuBar->menu("menuRecent_Processes"))
+                {
+                    m_impl->core.processMenus().buildRecentProcessesMenu(*menu);
+                }
+                break;
+            case an::ui::shell::ProcessMenuModel::Change::FavoriteProcesses:
+                if (QMenu* const menu = m_impl->menuBar->menu("menuFavorite_Processes"))
+                {
+                    m_impl->core.processMenus().buildFavoriteProcessesMenu(*menu);
+                }
+                break;
+            case an::ui::shell::ProcessMenuModel::Change::Extensions:
+                updateExtensionMenus();
+                break;
+            }
+        });
+    // The extensions the application found as it started join the menus now.
+    updateExtensionMenus();
 
     an::ui::shell::ViewService::Hooks viewHooks;
     viewHooks.isTerminating = [this]() { return m_impl->terminating; };
@@ -621,6 +746,16 @@ QStackedWidget* ObservatoryWindow::centre() const noexcept
 QWidget* ObservatoryWindow::rightColumn() const noexcept
 {
     return m_impl->rightColumn;
+}
+
+an::ui::AnReadoutColumn* ObservatoryWindow::readoutColumn() const noexcept
+{
+    return m_impl->readoutColumn;
+}
+
+MenuBarOnAlt& ObservatoryWindow::menuBarOnAlt() const noexcept
+{
+    return *m_impl->menuBar;
 }
 
 StatusLine* ObservatoryWindow::statusLine() const noexcept
@@ -733,7 +868,10 @@ void ObservatoryWindow::activate(ImageViewControl& view)
     }
 }
 
-void ObservatoryWindow::viewAdded(ImageViewControl& /*view*/, const an::ui::shell::ViewOrigin /*origin*/) {}
+void ObservatoryWindow::viewAdded(ImageViewControl& /*view*/, const an::ui::shell::ViewOrigin /*origin*/)
+{
+    placeChanged();
+}
 
 void ObservatoryWindow::viewRemoved(ImageViewControl& view)
 {
@@ -741,6 +879,7 @@ void ObservatoryWindow::viewRemoved(ImageViewControl& view)
     {
         m_impl->workspacePage->restore(view);
     }
+    placeChanged();
 }
 
 void ObservatoryWindow::viewRenamed(ImageViewControl& /*view*/, const std::string& /*previousName*/) {}
@@ -788,24 +927,41 @@ void ObservatoryWindow::showHome()
     {
         m_impl->centre->setCurrentWidget(m_impl->homePage);
     }
+    placeChanged();
 }
 
 void ObservatoryWindow::showViews()
 {
     m_impl->centre->setCurrentWidget(m_impl->workspacePage);
+    placeChanged();
 }
 
 // ---- The status line
 
-void ObservatoryWindow::showImageInfo(ImageViewControl* /*view*/) {}
+void ObservatoryWindow::showImageInfo(ImageViewControl* view)
+{
+    m_impl->statusLine->showImageInfo(view);
+}
 
-void ObservatoryWindow::showZoom(ImageViewControl* /*view*/) {}
+void ObservatoryWindow::showZoom(ImageViewControl* view)
+{
+    m_impl->statusLine->showZoom(view);
+}
 
-void ObservatoryWindow::showCelestialCoordinates(const double /*raDegrees*/, const double /*decDegrees*/) {}
+void ObservatoryWindow::showCelestialCoordinates(const double raDegrees, const double decDegrees)
+{
+    m_impl->statusLine->showCelestialCoordinates(raDegrees, decDegrees);
+}
 
-void ObservatoryWindow::clearCelestialCoordinates() {}
+void ObservatoryWindow::clearCelestialCoordinates()
+{
+    m_impl->statusLine->clearCelestialCoordinates();
+}
 
-void ObservatoryWindow::clearImageInfo() {}
+void ObservatoryWindow::clearImageInfo()
+{
+    m_impl->statusLine->clearImageInfo();
+}
 
 // ---- The window
 
@@ -819,6 +975,16 @@ void ObservatoryWindow::closeEvent(QCloseEvent* event)
     QMainWindow::closeEvent(event);
     // A window a dialog left on its own would keep the event loop alive: the application quits with this window.
     QApplication::quit();
+}
+
+void ObservatoryWindow::resizeEvent(QResizeEvent* event)
+{
+    QMainWindow::resizeEvent(event);
+    // The column narrows in a narrow window and folds a card in a short one.
+    if (m_impl->readoutColumn != nullptr)
+    {
+        m_impl->readoutColumn->setWindowSize(size());
+    }
 }
 
 // ---- What the window does
@@ -950,6 +1116,84 @@ void ObservatoryWindow::showConsole(const bool visible)
     }
     impl.console->getDockWidget()->forceClose();
     impl.console->close();
+}
+
+void ObservatoryWindow::placeChanged()
+{
+    Impl& impl = *m_impl;
+    // The readout is beside the workspace, and beside Home while an image is open.
+    const bool viewsOpen = !impl.core.viewService().getListOfViewControls().empty();
+    const bool column = isWorkspaceShown() || (isHomeShown() && viewsOpen);
+    if (impl.rightColumn->isVisibleTo(this) != column)
+    {
+        impl.rightColumn->setVisible(column);
+    }
+    updateRail();
+}
+
+void ObservatoryWindow::updateRail()
+{
+    Impl& impl = *m_impl;
+    if (impl.rail == nullptr)
+    {
+        return;
+    }
+    const QString selected = isWorkspaceShown() ? QString::fromLatin1(kRailWorkspace) : QString::fromLatin1(kRailHome);
+    for (an::ui::RailItem item : impl.rail->items())
+    {
+        const bool place = item.section == an::ui::RailSection::Place;
+        const bool shouldBeSelected = place && item.id == selected;
+        if (item.selected != shouldBeSelected)
+        {
+            item.selected = shouldBeSelected;
+            impl.rail->updateItem(item);
+        }
+    }
+}
+
+void ObservatoryWindow::railActivated(const QString& id)
+{
+    Impl& impl = *m_impl;
+    if (id == QLatin1String(kRailHome))
+    {
+        showHome();
+    }
+    else if (id == QLatin1String(kRailWorkspace))
+    {
+        // No image is open: Home is the place for it.
+        if (!impl.core.viewService().getListOfViewControls().empty() || impl.console != nullptr)
+        {
+            showViews();
+        }
+    }
+    else if (id == QLatin1String(kRailIntegration))
+    {
+        openImageIntegration();
+    }
+    else if (id == QLatin1String(kRailConsole))
+    {
+        setSessionConsoleVisible(impl.console == nullptr);
+    }
+    else if (id == QLatin1String(kRailSettings))
+    {
+        openSettings();
+    }
+}
+
+void ObservatoryWindow::updateExtensionMenus()
+{
+    const an::ui::shell::ProcessMenuModel& menus = m_impl->core.processMenus();
+    for (const an::ui::shell::ProcessMenuModel::Category& category : an::ui::shell::ProcessMenuModel::categories())
+    {
+        if (QMenu* const menu = m_impl->menuBar->menu(category.menuId))
+        {
+            menus.appendExtensionProcesses(*menu, category.menuId);
+        }
+    }
+    if (QMenu* const extensions = m_impl->menuBar->menu("menuExtensions"))
+    {
+        menus.buildExtensionFamilyMenus(*extensions);
+    }
 }
 
 void ObservatoryWindow::arrangementChanged()

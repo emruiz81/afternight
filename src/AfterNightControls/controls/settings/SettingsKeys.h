@@ -63,6 +63,8 @@ inline constexpr auto INTERFACE_DENSITY = "interface/density";
 inline constexpr auto INTERFACE_THEME_PRESET = "interface/themePreset";
 // Whether the application starts in Night, which is otherwise off at every start and never kept.
 inline constexpr auto INTERFACE_START_IN_NIGHT = "interface/startInNight";
+// Whether a shell whose menu bar shows on Alt keeps it shown.
+inline constexpr auto INTERFACE_ALWAYS_SHOW_MENU_BAR = "interface/alwaysShowMenuBar";
 inline constexpr auto INTERFACE_ZOOM_SENSITIVITY = "interface/zoomSensitivity";
 inline constexpr auto INTERFACE_ZOOM_REQUIRES_CTRL = "interface/zoomRequiresCtrl";
 inline constexpr auto INTERFACE_LOCK_LAYOUT_BY_DEFAULT = "interface/lockLayoutByDefault";

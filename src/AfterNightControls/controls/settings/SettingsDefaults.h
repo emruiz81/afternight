@@ -66,6 +66,7 @@ inline constexpr auto INTERFACE_THEME_TINT_STRENGTH = "balanced"; // the Classic
 inline constexpr auto INTERFACE_DENSITY = "compact"; // the Classic style profile ignores it
 inline constexpr auto INTERFACE_THEME_PRESET = "slate"; // the Classic style profile offers no presets
 inline constexpr bool INTERFACE_START_IN_NIGHT = false; // the Classic style profile has no Night
+inline constexpr bool INTERFACE_ALWAYS_SHOW_MENU_BAR = false; // the menu bar shows on Alt
 inline constexpr int INTERFACE_ZOOM_SENSITIVITY = 50;
 inline constexpr bool INTERFACE_ZOOM_REQUIRES_CTRL = false;
 inline constexpr bool INTERFACE_LOCK_LAYOUT_BY_DEFAULT = false;

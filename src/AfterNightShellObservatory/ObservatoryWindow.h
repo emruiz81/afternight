@@ -20,11 +20,13 @@
 
 class ImageViewControl;
 class QCloseEvent;
+class QResizeEvent;
 class QStackedWidget;
 
 namespace an::ui
 {
 class AnIconRail;
+class AnReadoutColumn;
 } // namespace an::ui
 
 namespace an::ui::shell
@@ -36,6 +38,7 @@ namespace an::ui::observatory
 {
 
 class HomePage;
+class MenuBarOnAlt;
 class StatusLine;
 class TopBar;
 class WorkspaceHost;
@@ -78,9 +81,20 @@ public:
     [[nodiscard]] an::ui::AnIconRail* rail() const noexcept;
     /// The centre: a page per place, kept alive while another is shown.
     [[nodiscard]] QStackedWidget* centre() const noexcept;
-    /// The column right of the centre.
+    /// The column right of the centre, which holds the readout: shown on the workspace, and on Home while an image is
+    /// open.
     [[nodiscard]] QWidget* rightColumn() const noexcept;
+    [[nodiscard]] an::ui::AnReadoutColumn* readoutColumn() const noexcept;
     [[nodiscard]] StatusLine* statusLine() const noexcept;
+    /// The menu bar, hidden until Alt is pressed.
+    [[nodiscard]] MenuBarOnAlt& menuBarOnAlt() const noexcept;
+
+    /// The rail's items, by the ids the rail tells them by.
+    static constexpr char kRailHome[] = "home";
+    static constexpr char kRailWorkspace[] = "workspace.1";
+    static constexpr char kRailIntegration[] = "integration";
+    static constexpr char kRailConsole[] = "console";
+    static constexpr char kRailSettings[] = "settings";
 
     [[nodiscard]] HomePage* homePage() const noexcept;
     [[nodiscard]] WorkspacePage* workspacePage() const noexcept;
@@ -132,6 +146,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     void buildRegions();
@@ -149,6 +164,10 @@ private:
     void openSettingsAt(const QString& pageName);
     void showConsole(bool visible);
     void arrangementChanged();
+    void placeChanged();
+    void railActivated(const QString& id);
+    void updateRail();
+    void updateExtensionMenus();
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

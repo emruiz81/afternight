@@ -315,8 +315,11 @@ The Observatory shell, `namespace an::ui::observatory`, drawn in the Observatory
 (QMainWindow) of regions sized from the density's metrics - `chrome/TopBar`, the rail (`AnIconRail`), the centre's
 pages (`pages/HomePage`, the dashboard; `pages/WorkspacePage` over the dock area `workspaces/WorkspaceHost` makes), the
 column and `chrome/StatusLine` - implementing `IViewHost` and `IStatusDisplay`; `ObservatoryShell` behind `IShell`, and
-`observatoryShellDescriptor()` how the application registers it (`observatory`; `--shell=observatory`). It composes
-Controls' coordinators as the classic window does; processes open as windows of their own. Its cases are in
+`observatoryShellDescriptor()` how the application registers it (`observatory`; `--shell=observatory`). The rail selects
+the places, the readout column follows the active view (`ReadoutController`), the status line writes the classic texts
+(`widgets/ImageStatusTexts.h`) and the menu bar shows on Alt (`chrome/MenuBarOnAlt`, `interface/alwaysShowMenuBar`)
+while every catalogue action is the window's own. It composes Controls' coordinators as the classic window does;
+processes open as windows of their own. Its cases are in
 `Test_ShellObservatory`, over `ObservatoryWindowCase`.
 
 ### AfterNightApp (`src/AfterNightApp/`)

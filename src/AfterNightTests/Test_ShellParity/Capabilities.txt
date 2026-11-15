@@ -58,7 +58,7 @@ capability files.new-sequence
     title        New Sequence dialog
     shared       NewSequenceWindowTest.AddedFilesAreProbedAndListedInOrder, NewSequenceWindowTest.AnImageListNamesTheFilesAndOpensInANewSequenceView, NewSequenceWindowTest.ASerHoldsEveryFileDemosaicedByTheOneSetting
     classic      ApplicationMenu.NewSequenceOpensTheNewSequenceWindow
-    observatory  pending
+    observatory  ObservatoryWindow.HomeOpensANewSequence
 
 # ---- Home
 
@@ -110,7 +110,7 @@ capability window.menu-bar
     title        Menu bar
     shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt, ActionStateTest.TheFiltersMenuFollowsTheImageActions
     classic      ApplicationMenu.MenuBarTreeMatchesTheRecord, ApplicationMenu.ActionInventoryMatchesTheRecord, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/classic
-    observatory  pending
+    observatory  MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree, MenuBarOnAlt.AltShowsAndFocusesIt, MenuBarOnAlt.AltAndALetterOpensItsMenu, MenuBarOnAlt.HidesOnceLeft, MenuBarKept.TheSettingKeepsItShown, ObservatoryWindow.ShortcutsWorkWithTheMenuBarHidden
 
 capability window.main-toolbar
     title        Main toolbar: Open, Save as, Close
@@ -128,13 +128,13 @@ capability window.status-bar
     title        Status bar: selector, facts, zoom, coordinates
     shared       ImageViewControlStatusBarCoordinates.FormatSexagesimalRa, ImageSelectorTooltipTest.SaysWhatTheViewShowsFromItsDocument, ViewControlCoordinatorComponent.ViewControlCoordinator_SelectsActiveImageWithoutSignals
     classic      ShellScenario.TheStatusLineShowsTheImageTheZoomAndTheCoordinates/classic
-    observatory  pending
+    observatory  StatusLine.TheTextsEqualTheClassicStatusBars, StatusLine.ClearedItSaysThereIsNone
 
 capability window.geometry
     title        Window size and position remembered
     shared       WindowGeometryStoreTest.RestoresThePlaceWhenItIsOnAScreen, WindowGeometryStoreTest.ShowsMaximizedWhenThePlaceIsOnAScreenThatIsGone, WindowGeometryStoreTest.NeverRestoresSmallerThanTheMinimum
     classic      AfterNightAppWindowGeometrySuite.MainWindowMinimumSizeTargets720pLayouts
-    observatory  pending
+    observatory  ObservatoryWindow.KeepsItsPlaceForTheNextStart
 
 capability window.console
     title        Session Console dock and its toolbar
@@ -552,7 +552,7 @@ capability extensions.menu
     title        Extensions menu and a submenu per family
     shared       AfterNightAppProcessMenuSuite.BuildUiProvidesDedicatedExtensionsMenuForManagement, ActionStateTest.AnExtensionsActionThatCanBePreparedFollowsItsLaunchGuards, ActionBindingsTest.AnExtensionsActionStaysEnabledWhileItsEnvironmentCanBePrepared
     classic      ApplicationMenu.ManageExtensionsShowsTheExtensionsWindowAtTheExtensionManager
-    observatory  pending
+    observatory  MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree
 
 capability extensions.catalogs
     title        Catalog download dialogs

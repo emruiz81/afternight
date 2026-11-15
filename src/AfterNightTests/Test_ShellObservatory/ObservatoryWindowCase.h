@@ -32,9 +32,11 @@
 #include <QDialog>
 #include <QString>
 #include <QWidget>
+#include <QtTest/QTest>
 
 #include <gtest/gtest.h>
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -51,9 +53,11 @@ struct RunningObservatory
     std::unique_ptr<an::ui::observatory::ObservatoryShell> shell;
 };
 
-/// Starts the Observatory shell in the application's order and shows its window off the screen, at a size of the
-/// floor display's. Qt's own file dialog is used, which a case can answer.
-[[nodiscard]] inline std::unique_ptr<RunningObservatory> startObservatory()
+/// Starts the Observatory shell in the application's order and shows its window, under the suites' platform, at the
+/// size of the floor display's, active. Qt's own file dialog is used, which a case can answer. `beforeBuild` is given
+/// the started core before the shell is made, to store what a start reads.
+[[nodiscard]] inline std::unique_ptr<RunningObservatory>
+startObservatory(const std::function<void(an::ui::shell::ApplicationCore&)>& beforeBuild = {})
 {
     auto running = std::make_unique<RunningObservatory>();
     running->session = std::make_unique<an::ui::ApplicationSession>();
@@ -62,14 +66,19 @@ struct RunningObservatory
     running->core->openStores();
     running->core->initialize();
     running->core->start();
+    if (beforeBuild)
+    {
+        beforeBuild(*running->core);
+    }
     running->shell = std::make_unique<an::ui::observatory::ObservatoryShell>(*running->core);
     running->shell->build();
     an::ui::IGlobalSettingsProvider* const settings = an::ui::appContext()->getGlobalSettings();
     (void)settings->upsert(QString::fromLatin1(SettingsKeys::INTERFACE_USE_SYSTEM_FILE_BROWSER), QStringLiteral("0"));
     an::ui::observatory::ObservatoryWindow* const window = running->shell->window();
-    window->setAttribute(Qt::WA_DontShowOnScreen, true);
     window->resize(1536, 864);
     window->show();
+    window->activateWindow();
+    (void)QTest::qWaitForWindowActive(window);
     QCoreApplication::processEvents();
     return running;
 }
