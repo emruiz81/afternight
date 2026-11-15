@@ -240,13 +240,14 @@ bool StarProfilerWindow::detectStars()
     const QPointer<ProgressDialogControl> progressGuard(progress);
 
     m_detecting = true;
+    setRunState(an::ui::runningState(QStringLiteral("detecting stars")));
     updateControls();
     LOG_INFO("Executing {} detection engine for image '{}'...", logName(), view->getUniqueName());
 
     const std::stop_token windowStop = m_runStop->get_token();
     const std::stop_token processStop = windowStopToken();
     const std::stop_token dialogStop = progress->stopToken();
-    an::ui::ExecutionObserver observer = progress->observer();
+    an::ui::ExecutionObserver observer = an::ui::withRunProgress(progress->observer(), this);
     auto timer = std::make_shared<QElapsedTimer>();
     timer->start();
     runThenPublish(
@@ -290,6 +291,9 @@ bool StarProfilerWindow::detectStars()
             {
                 LOG_INFO("{} detection finished in {:.2f} seconds", logName(),
                          static_cast<double>(timer->elapsed()) / 1000.0);
+                // A detection a newer one superseded says nothing of where the run stands.
+                setRunState(an::ui::endedRunState(result.hasValue() ? an::Status::success() : result.status(),
+                                                  result.hasValue()));
             }
             landDetection(generation, std::move(result));
         });

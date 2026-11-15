@@ -449,6 +449,7 @@ void BackgroundNeutralizationProcess::executeBackgroundNeutralization()
     // The reference and the mask are other views' images, leased before the run is admitted.
     request.reads = {reference.asset, mask.asset};
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<BackgroundNeutralizationProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

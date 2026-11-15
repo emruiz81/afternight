@@ -159,6 +159,7 @@ void DeepSNRProcess::startExecution()
     };
     request.progressWindow = true;
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<DeepSNRProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

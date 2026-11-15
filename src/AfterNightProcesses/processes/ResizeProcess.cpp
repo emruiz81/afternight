@@ -379,6 +379,7 @@ void ResizeProcess::executeImageResize()
         return an::ui::processes::transformImage(scope, source, steps, "Resize", mosaicAsGrey);
     };
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<ResizeProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

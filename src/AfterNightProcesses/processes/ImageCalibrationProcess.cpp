@@ -342,6 +342,7 @@ void ImageCalibrationProcess::calibrate()
     progress->show();
     m_impl->progress = progress;
     m_impl->running = true;
+    setRunState(an::ui::runningState(QStringLiteral("calibrating"), 0.0));
     updateControls();
 
     QPointer<ImageCalibrationProcess> guard(this);
@@ -371,6 +372,18 @@ void ImageCalibrationProcess::calibrate()
                     return;
                 }
                 guard->runFinished();
+                // A stop says nothing; a failure says why; anything else made the files.
+                if (error)
+                {
+                    guard->setRunState(
+                        an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Failed, .text = message});
+                }
+                else
+                {
+                    guard->setRunState(an::ui::ProcessRunState{
+                        .phase = message.isEmpty() ? an::ui::ProcessRunState::Phase::Cancelled
+                                                   : an::ui::ProcessRunState::Phase::Succeeded});
+                }
                 if (message.isEmpty())
                 {
                     return;
@@ -446,6 +459,7 @@ void ImageCalibrationProcess::calibrate()
                 }
                 if (guard)
                 {
+                    guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                     guard->m_impl->statuses.insert_or_assign(path, status);
                     const int row = guard->m_impl->files->rowOf(path);
                     if (row >= 0)

@@ -12,6 +12,7 @@
 #include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 
 #include "controls/IAppContext.h"
+#include "controls/TopLevelProcessBaseControl.h"
 #include "session/IEngineSessionProvider.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -92,6 +93,42 @@ void openWarningMessage(QWidget* parent, const QString& title, const QString& te
 [[nodiscard]] bool validateManifestAndWarn(QWidget* parent, const WorkflowManifest& manifest)
 {
     return validateManifestAndWarn(parent, manifest.validate());
+}
+
+/// Makes the run state of the process window a workflow is launched from follow the workflow: running from now, and
+/// ended - cancelled, failed with its message, or succeeded - by what the returned call is given, which the workflow's
+/// end and a preparation that never reached it both call. A launch from no process window follows nothing.
+///
+/// @param parent the widget the workflow is launched from.
+/// @return what ends the run state.
+[[nodiscard]] std::function<void(const WorkflowExecutor::Result&)> followRunState(QWidget* parent)
+{
+    // A process window declares no meta-object of its own, so it is known by its type.
+    auto* process = dynamic_cast<TopLevelProcessBaseControl*>(parent);
+    if (process == nullptr)
+    {
+        return [](const WorkflowExecutor::Result&) {};
+    }
+    process->setRunState(an::ui::runningState(QStringLiteral("running")));
+    return [guard = QPointer<TopLevelProcessBaseControl>(process)](const WorkflowExecutor::Result& result) {
+        if (!guard)
+        {
+            return;
+        }
+        if (result.cancelled)
+        {
+            guard->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Cancelled});
+        }
+        else if (!result.success)
+        {
+            guard->setRunState(
+                an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Failed, .text = result.errorMessage});
+        }
+        else
+        {
+            guard->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Succeeded});
+        }
+    };
 }
 
 [[nodiscard]] qint64 elapsedMilliseconds(const std::chrono::steady_clock::time_point start)
@@ -263,7 +300,9 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
     dialog->setStages(manifest.stageSequence);
 
     QObject::connect(controller, &WorkflowProgressController::finished, dialog,
-                     [onFinished = std::move(onFinished)](const WorkflowExecutor::Result& result) {
+                     [onFinished = std::move(onFinished),
+                      endRunState = followRunState(m_parent)](const WorkflowExecutor::Result& result) {
+                         endRunState(result);
                          if (onFinished)
                          {
                              onFinished(result);
@@ -301,7 +340,17 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
 
     auto* watcher = new QFutureWatcher<PreparedWorkflowManifest>(dialog);
     const auto preparationCancelled = std::make_shared<std::atomic_bool>(false);
-    const auto completion = std::make_shared<CompletionCallback>(std::move(onFinished));
+    // The run state ends with the workflow, or with a preparation that never reached it.
+    const auto endRunState =
+        std::make_shared<std::function<void(const WorkflowExecutor::Result&)>>(followRunState(m_parent));
+    const auto completion = std::make_shared<CompletionCallback>(
+        [endRunState, onFinished = std::move(onFinished)](const WorkflowExecutor::Result& result) {
+            (*endRunState)(result);
+            if (onFinished)
+            {
+                onFinished(result);
+            }
+        });
 
     QObject::connect(dialog, &WorkflowProgressDialogV2::cancelRequested, dialog,
                      [preparationCancelled]() { preparationCancelled->store(true, std::memory_order_relaxed); });

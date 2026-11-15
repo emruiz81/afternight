@@ -252,6 +252,7 @@ void LinearMatchProcess::executeLinearMatch()
     // The reference is another view's image, leased before the run is admitted.
     request.reads = {reference};
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<LinearMatchProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

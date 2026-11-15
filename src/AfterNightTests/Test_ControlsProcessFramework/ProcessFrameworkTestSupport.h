@@ -14,6 +14,7 @@
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
 #include "controls/ProcessExecution.h"
+#include "controls/ProcessPresentation.h"
 #include "controls/TypedProcessControl.h"
 #include "session/IEngineSessionProvider.h"
 
@@ -41,6 +42,7 @@
 #include <QSplitter>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QThread>
 #include <QThreadPool>
 #include <QVBoxLayout>
 
@@ -97,6 +99,90 @@ public:
     [[nodiscard]] QColor getColorDisabled() const override
     {
         return QColor(Qt::gray);
+    }
+};
+
+/// A presenter that takes no process into a page and keeps what it is told, in order, with whether it was told on the
+/// GUI thread.
+class RecordingPresenter final : public an::ui::IProcessPresenter
+{
+public:
+    /// A run state a process told.
+    struct Told
+    {
+        const TopLevelProcessBaseControl* process = nullptr;
+        an::ui::ProcessRunState state;
+        bool onGuiThread = false;
+    };
+
+    /// A target a process told.
+    struct Targeted
+    {
+        const TopLevelProcessBaseControl* process = nullptr;
+        QPointer<ImageViewControl> target;
+        bool onGuiThread = false;
+    };
+
+    bool adopt(TopLevelProcessBaseControl&) override
+    {
+        ++adoptions;
+        return false;
+    }
+
+    void runStateChanged(TopLevelProcessBaseControl& process, const an::ui::ProcessRunState& state) override
+    {
+        states.push_back(Told{.process = &process, .state = state, .onGuiThread = onGuiThread()});
+    }
+
+    void targetChanged(TopLevelProcessBaseControl& process, ImageViewControl* target) override
+    {
+        targets.push_back(Targeted{.process = &process, .target = target, .onGuiThread = onGuiThread()});
+    }
+
+    /// The phases a process told, in order, a phase told again with only its progress or text changed kept once.
+    [[nodiscard]] std::vector<an::ui::ProcessRunState::Phase> phasesOf(const TopLevelProcessBaseControl* process) const
+    {
+        std::vector<an::ui::ProcessRunState::Phase> phases;
+        for (const Told& told : states)
+        {
+            if (told.process == process && (phases.empty() || phases.back() != told.state.phase))
+            {
+                phases.push_back(told.state.phase);
+            }
+        }
+        return phases;
+    }
+
+    /// The states a process told, in order.
+    [[nodiscard]] std::vector<an::ui::ProcessRunState> statesOf(const TopLevelProcessBaseControl* process) const
+    {
+        std::vector<an::ui::ProcessRunState> told;
+        for (const Told& entry : states)
+        {
+            if (entry.process == process)
+            {
+                told.push_back(entry.state);
+            }
+        }
+        return told;
+    }
+
+    /// Whether everything was told on the GUI thread.
+    [[nodiscard]] bool everythingToldOnTheGuiThread() const
+    {
+        return std::all_of(states.cbegin(), states.cend(), [](const Told& told) { return told.onGuiThread; }) &&
+               std::all_of(targets.cbegin(), targets.cend(), [](const Targeted& told) { return told.onGuiThread; });
+    }
+
+    std::vector<Told> states;
+    std::vector<Targeted> targets;
+    int adoptions = 0;
+
+private:
+    [[nodiscard]] static bool onGuiThread()
+    {
+        return QCoreApplication::instance() != nullptr &&
+               QThread::currentThread() == QCoreApplication::instance()->thread();
     }
 };
 
@@ -220,6 +306,10 @@ public:
     [[nodiscard]] QWidget* getMainWindow() override
     {
         return nullptr;
+    }
+    [[nodiscard]] an::ui::IProcessPresenter* getProcessPresenter() override
+    {
+        return presenter;
     }
 
     // ---- IEngineSessionProvider.
@@ -472,6 +562,10 @@ public:
 
     /// The process windows registered and not yet unregistered.
     std::vector<TopLevelProcessBaseControl*> openProcesses;
+
+    /// The presenter the context lends; none, as in a shell that shows every process as a window, unless a case sets
+    /// one.
+    an::ui::IProcessPresenter* presenter = nullptr;
 
     /// How a yes-or-no question is answered.
     bool answerYes = false;

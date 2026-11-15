@@ -87,6 +87,9 @@ public:
 
     virtual bool isRTPreviewProcess() const;
 
+    /// The view the process runs on; null once it has closed.
+    [[nodiscard]] ImageViewControl* processTarget() const override;
+
     // The view's attachment
 
     /// The process's name, which is unique among the processes attached to one view.
@@ -338,3 +341,16 @@ protected:
     QComboBox*& m_UiListOfSupportedChannels;
     bool& m_IgnoreLastUiListOfSupportedChannelsEvent;
 };
+
+namespace an::ui
+{
+/// Where a run's operation reports when a process window's run state follows it: what `observer` shows - a progress
+/// window, or nothing - and the share of the work done, as the process's run progress (`reportRunProgress`). Reports go
+/// to the GUI thread only while the observer's receiver, or else the process, lives.
+///
+/// @param observer what the run reports to already; its receiver, when it has one, still guards every delivery.
+/// @param process the window whose run state follows the run, or null for none: `observer` is returned as it is.
+/// @return the observer.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExecutionObserver withRunProgress(ExecutionObserver observer,
+                                                                       TopLevelProcessBaseControl* process);
+} // namespace an::ui

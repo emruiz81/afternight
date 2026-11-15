@@ -354,7 +354,8 @@ struct RunResult
 
 /// Posts the overall progress of a sequence run to its dialog, from any thread; nothing happens once the dialog is
 /// gone.
-void postSequenceProgress(const QPointer<ProgressDialogControl>& dialog, int value, const QString& text)
+void postSequenceProgress(const QPointer<ProgressDialogControl>& dialog,
+                          const QPointer<TopLevelProcessBaseControl>& process, int value, const QString& text)
 {
     QCoreApplication* application = QCoreApplication::instance();
     if (application == nullptr)
@@ -363,11 +364,15 @@ void postSequenceProgress(const QPointer<ProgressDialogControl>& dialog, int val
     }
     QMetaObject::invokeMethod(
         application,
-        [dialog, value, text]() {
+        [dialog, process, value, text]() {
             if (dialog)
             {
                 dialog->setSeqValue(value);
                 dialog->setSeqText(text);
+            }
+            if (process)
+            {
+                process->reportRunProgress(static_cast<double>(value) / 100.0);
             }
         },
         Qt::QueuedConnection);
@@ -1655,6 +1660,8 @@ void ImageRTPreviewControl::applyProcess()
     enableProcessControls(false);
 
     const bool sequence = m_image_view_control->isSequence();
+    // A run over a sequence counts its frames from none; one over an image says how far it is when its operation does.
+    setRunState(an::ui::runningState(an::ui::applyingRunText(), sequence ? std::optional<double>(0.0) : std::nullopt));
     ProgressDialogControl* progress = getProgressDialogControl(sequence);
     if (sequence && !progress)
     {
@@ -3835,6 +3842,7 @@ void ImageRTPreviewControl::runApplyInPlace(std::shared_ptr<RunSnapshot> snapsho
         snapshot->observer = progress->observer();
         snapshot->cancel = progress->stopToken();
     }
+    snapshot->observer = an::ui::withRunProgress(std::move(snapshot->observer), this);
 
     // What the edit's worker found, read by its completion on the GUI thread after the worker let it go.
     struct Outcome
@@ -3942,6 +3950,7 @@ void ImageRTPreviewControl::runToNewImage(std::shared_ptr<RunSnapshot> snapshot,
         shared->observer = progress->observer();
         shared->cancel = progress->stopToken();
     }
+    shared->observer = an::ui::withRunProgress(std::move(shared->observer), this);
     const ResultHook hook = [this](const an::ui::ProcessSource& result, const an::ui::ProcessRun& run) {
         imageReadyToRender(result, run);
     };
@@ -4285,8 +4294,10 @@ void ImageRTPreviewControl::runOverSequence(std::shared_ptr<RunSnapshot> snapsho
     const ResultHook hook = [this](const an::ui::ProcessSource& result, const an::ui::ProcessRun& run) {
         imageReadyToRender(result, run);
     };
+    // The run's state follows its frames; the guard is made here, on the GUI thread, for the worker's reports.
+    const QPointer<TopLevelProcessBaseControl> owner(this);
     runThenPublish(
-        [session, shared, hook, this]() {
+        [session, shared, hook, owner, this]() {
             RunResult result;
             const RunBody body = [this, shared](const an::ui::ProcessSource& source,
                                                 an::ui::ProcessDestination& destination, const an::ui::ProcessRun& run,
@@ -4361,7 +4372,7 @@ void ImageRTPreviewControl::runOverSequence(std::shared_ptr<RunSnapshot> snapsho
                     {
                         break;
                     }
-                    postSequenceProgress(shared->progressDialog,
+                    postSequenceProgress(shared->progressDialog, owner,
                                          total > 0u ? static_cast<int>((written * 100u) / total) : 0,
                                          QString::fromStdString(fmt::format(
                                              "Executing process in sequence. Frame {}/{}", written + 1u, total)));
@@ -4511,6 +4522,7 @@ void ImageRTPreviewControl::finishRun(RTPreviewMode mode, bool sequenceMode, an:
         LOG_WARNING("Process '{}' produced a result that was not published: its image changed or closed under it",
                     getProcessName());
     }
+    setRunState(an::ui::endedRunState(status, published));
 
     executeProcessEnded(mode, sequenceMode, published);
 

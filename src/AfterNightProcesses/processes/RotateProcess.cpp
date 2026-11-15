@@ -453,6 +453,7 @@ void RotateProcess::executeImageRotate()
         return an::ui::processes::transformImage(scope, source, steps, "Rotate", mosaicAsGrey);
     };
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<RotateProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

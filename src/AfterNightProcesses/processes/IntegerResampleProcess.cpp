@@ -296,6 +296,7 @@ void IntegerResampleProcess::executeImageResample()
         return an::ui::processes::transformImage(scope, source, steps, "Integer Resample", mosaicAsGrey);
     };
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<IntegerResampleProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

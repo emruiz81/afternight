@@ -902,6 +902,7 @@ void PixelMathProcess::executePixelMath()
         request.operation = runOnce;
         request.reads = pixelMathImagesRead(asked, images);
         request.inFlight = beginRunInFlight();
+        request.process = this;
         request.admissionHook = admissionHook();
         runInPlace(*m_image_view_control, std::move(request), done);
         return;
@@ -930,6 +931,7 @@ void PixelMathProcess::executePixelMath()
     request.showDemosaiced = false;
     request.reads = pixelMathImagesRead(asked, images);
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     runToNewViews(*m_image_view_control, std::move(request), done);
 }

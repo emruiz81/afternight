@@ -539,6 +539,17 @@ state src/AfterNightControls/controls/settings/ExtensionStatusPage.cpp cache
     reason           Discovering installed extensions reads every package from disk; reopening the settings page
                      shows the last result while a fresh one is computed.
 
+state src/AfterNightControls/controls/ProcessLaunchScope.cpp g_innermost
+    scope            an::ui (anonymous namespace)
+    category         ui-state
+    owner            each ProcessLaunchScope makes itself the innermost as it is made and puts back the one it was made
+                     inside as it ends
+    lifetime         the whole process; it names a scope only while a launch runs
+    synchronization  GUI thread: launches run there, and process windows are made there
+    reason           A process's entry point makes and shows its window and hands nothing back, so the launcher names
+                     the launch's descriptor here and the window reads it as it is made: which descriptor it belongs
+                     to, its guide page, its surface and its column width.
+
 state src/AfterNightControls/widgets/SubStageIndicatorWidget.cpp empty
     scope            SubStageIndicatorWidget::getSubStageStats
     category         ui-state

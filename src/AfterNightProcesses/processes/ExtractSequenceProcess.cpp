@@ -150,6 +150,7 @@ void ExtractSequenceProcess::executeExtractSequence()
     request.readDemosaiced = false;
     request.showDemosaiced = m_image_view_control->isSequenceAutodebayerEnabled();
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
 
     m_ExecutionInProgress = true;

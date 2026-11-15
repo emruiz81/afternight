@@ -11,6 +11,7 @@
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
 #include "controls/ProcessButtonIcons.h"
+#include "controls/ProcessLaunchScope.h"
 
 #include <QDialogButtonBox>
 #include <QFrame>
@@ -29,6 +30,7 @@
 #include <QShowEvent>
 #include <QStyle>
 #include <QThreadPool>
+#include <QThread>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
@@ -643,6 +645,15 @@ TopLevelProcessBaseControl::TopLevelProcessBaseControl(const std::string& proces
     this->setAttribute(Qt::WA_DeleteOnClose);
     this->setProperty("anProcessShell", true);
     setWindowSizeFitMultipliers(PROCESS_WINDOW_SIZE_MULTIPLIER_DEFAULT, PROCESS_WINDOW_SIZE_MULTIPLIER_DEFAULT);
+    // A window made inside a launch belongs to the launch's descriptor - its guide page, its surface and its column -
+    // and is registered knowing it.
+    if (const an::ui::ProcessLaunchScope::Stated* launched = an::ui::ProcessLaunchScope::current())
+    {
+        m_DescriptorId = launched->descriptorId;
+        m_HelpPath = launched->helpPath;
+        m_Surface = launched->surface;
+        m_ColumnWidth = launched->columnWidth;
+    }
     an::ui::appContext()->getProcessRegistry()->registerProcessInstance(this);
     refreshTheme();
 }
@@ -1190,6 +1201,104 @@ void TopLevelProcessBaseControl::setHelpPath(const QString& helpPath)
 QString TopLevelProcessBaseControl::helpPath() const
 {
     return m_HelpPath;
+}
+
+const std::string& TopLevelProcessBaseControl::processName() const noexcept
+{
+    return m_tl_process_name;
+}
+
+const std::string& TopLevelProcessBaseControl::descriptorId() const noexcept
+{
+    return m_DescriptorId;
+}
+
+an::ui::ProcessSurface TopLevelProcessBaseControl::processSurface() const
+{
+    return m_Surface;
+}
+
+an::ui::ProcessColumnWidth TopLevelProcessBaseControl::processColumnWidth() const
+{
+    return m_ColumnWidth;
+}
+
+ImageViewControl* TopLevelProcessBaseControl::processTarget() const
+{
+    return nullptr;
+}
+
+namespace
+{
+
+/// Whether the caller is on the application's GUI thread; true with no application, where there is no other.
+[[nodiscard]] bool onGuiThread()
+{
+    const QCoreApplication* application = QCoreApplication::instance();
+    return application == nullptr || QThread::currentThread() == application->thread();
+}
+
+[[nodiscard]] an::ui::IProcessPresenter* currentPresenter()
+{
+    an::ui::IAppContext* context = an::ui::appContext();
+    return context != nullptr ? context->getProcessPresenter() : nullptr;
+}
+
+} // namespace
+
+void TopLevelProcessBaseControl::setRunState(const an::ui::ProcessRunState& state)
+{
+    if (!onGuiThread())
+    {
+        // Handed to the GUI thread through the window's own queue: a window gone before it lands drops it.
+        QMetaObject::invokeMethod(this, [this, state]() { setRunState(state); }, Qt::QueuedConnection);
+        return;
+    }
+    if (state == m_RunState)
+    {
+        return;
+    }
+    m_RunState = state;
+    if (an::ui::IProcessPresenter* presenter = currentPresenter())
+    {
+        presenter->runStateChanged(*this, m_RunState);
+    }
+}
+
+const an::ui::ProcessRunState& TopLevelProcessBaseControl::runState() const noexcept
+{
+    return m_RunState;
+}
+
+void TopLevelProcessBaseControl::reportRunProgress(const std::optional<double> progress, const QString& text)
+{
+    if (!onGuiThread())
+    {
+        QMetaObject::invokeMethod(
+            this, [this, progress, text]() { reportRunProgress(progress, text); }, Qt::QueuedConnection);
+        return;
+    }
+    if (!m_RunState.running())
+    {
+        return;
+    }
+    an::ui::ProcessRunState moved = m_RunState;
+    moved.progress = progress.has_value() && std::isfinite(*progress)
+                         ? std::optional<double>((std::clamp)(*progress, 0.0, 1.0))
+                         : std::nullopt;
+    if (!text.isEmpty())
+    {
+        moved.text = text;
+    }
+    setRunState(moved);
+}
+
+void TopLevelProcessBaseControl::notifyTargetChanged(ImageViewControl* target)
+{
+    if (an::ui::IProcessPresenter* presenter = currentPresenter())
+    {
+        presenter->targetChanged(*this, target);
+    }
 }
 
 QString an::ui::helpPathFor(const QWidget* widget)

@@ -14,8 +14,10 @@
 #include "app/PlateSolveTypes.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageProcessControl.h"
 #include "controls/ImageViewFiles.h"
 #include "controls/ProcessCompanions.h"
+#include "controls/ProcessPresentation.h"
 #include "controls/ProgressDialogControl.h"
 #include "controls/SequenceContainers.h"
 #include "processes/MaskProcessUtils.h"
@@ -397,8 +399,9 @@ template <typename WorkT, typename DoneT> void runThenLand(WorkT work, DoneT don
     });
 }
 
-/// Moves a progress window to a fraction of a run, from a worker.
-void postProgress(const QPointer<ProgressDialogControl>& progress, std::uint64_t done, std::uint64_t total)
+/// Moves a progress window, and the run state of the process the run is of, to a fraction of a run, from a worker.
+void postProgress(const QPointer<ProgressDialogControl>& progress, const QPointer<TopLevelProcessBaseControl>& process,
+                  std::uint64_t done, std::uint64_t total)
 {
     QCoreApplication* application = QCoreApplication::instance();
     if (application == nullptr || total == 0u)
@@ -406,15 +409,52 @@ void postProgress(const QPointer<ProgressDialogControl>& progress, std::uint64_t
         return;
     }
     const int percent = static_cast<int>((done * 100u) / total);
+    const double share = static_cast<double>(done) / static_cast<double>(total);
     QMetaObject::invokeMethod(
         application,
-        [progress, percent]() {
+        [progress, process, percent, share]() {
             if (progress)
             {
                 progress->setValue(percent);
             }
+            if (process)
+            {
+                process->reportRunProgress(share);
+            }
         },
         Qt::QueuedConnection);
+}
+
+/// States that the run of a process starts: over a sequence its frames are counted from none, over an image it says
+/// how far it is when its operation does.
+void startRunState(const QPointer<TopLevelProcessBaseControl>& process, const bool overFrames)
+{
+    if (process)
+    {
+        process->setRunState(
+            an::ui::runningState(an::ui::applyingRunText(), overFrames ? std::optional<double>(0.0) : std::nullopt));
+    }
+}
+
+/// What a run tells its window as it lands, with the process's run state ended first. A run refused because another
+/// held the view started nothing and leaves the state as it was.
+[[nodiscard]] an::ui::processes::GeometryRunDone endingRunState(const QPointer<TopLevelProcessBaseControl>& process,
+                                                                an::ui::processes::GeometryRunDone done)
+{
+    if (process.isNull())
+    {
+        return done;
+    }
+    return [process, done = std::move(done)](const an::ui::processes::GeometryRunOutcome& outcome) {
+        if (process && outcome.status.code() != an::ErrorCode::Busy)
+        {
+            process->setRunState(an::ui::endedRunState(outcome.status, outcome.published));
+        }
+        if (done)
+        {
+            done(outcome);
+        }
+    };
 }
 
 /// Admits a run's operation under an observer - the progress window's, when the run shows one - and tells the hook.
@@ -476,6 +516,7 @@ struct SequenceRun
 [[nodiscard]] SequenceRun runOverFrames(const an::consumer::EngineSession& session, an::ui::DocumentSequence sequence,
                                         bool readDemosaiced, const std::vector<QString>& paths, std::stop_token stop,
                                         const QPointer<ProgressDialogControl>& progress,
+                                        const QPointer<TopLevelProcessBaseControl>& process,
                                         const an::ui::processes::ImagesOperation& operation,
                                         const an::ui::processes::AdmissionHook& hook, an::ui::ImageReads& reads)
 {
@@ -579,7 +620,7 @@ struct SequenceRun
                 shownWritten = written;
             }
             ++written;
-            postProgress(progress, written, total);
+            postProgress(progress, process, written, total);
         }
         if (written == 0u)
         {
@@ -1014,6 +1055,7 @@ void reportRunFailure(QWidget* parent, const GeometryRunWords& words, const an::
 
 void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDone done)
 {
+    done = endingRunState(request.process, std::move(done));
     const an::consumer::EngineSession* session = lentEngineSession();
     if (session == nullptr)
     {
@@ -1034,10 +1076,12 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
         const QPointer<ProgressDialogControl> progressGuard(progress);
         const std::optional<std::stop_token> windowStop =
             progress != nullptr ? std::optional<std::stop_token>(progress->stopToken()) : std::nullopt;
-        an::ui::ExecutionObserver observer = progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{};
+        an::ui::ExecutionObserver observer = an::ui::withRunProgress(
+            progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{}, request.process.data());
         // The images the operation reads beside the view's own are leased by the edit, with the view's writer and in
         // one order, before the operation asks to be admitted.
         std::shared_ptr<an::ui::ImageReads> reads = readsOf(request.reads);
+        startRunState(request.process, false);
         view.editImage(
             request.stepName, request.stepDescription,
             [operation = request.operation, hook = request.admissionHook, inFlight = request.inFlight, failure,
@@ -1124,12 +1168,13 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
     const QPointer<ProgressDialogControl> progressGuard(progress);
     QPointer<ImageViewControl> guard(&view);
     const bool readDemosaiced = view.isSequenceAutodebayerEnabled();
+    startRunState(request.process, true);
     runThenLand(
         [session, sequence = sequenceToRead(*sequence, std::nullopt), paths = *paths, stop = progress->stopToken(),
-         progressGuard, readDemosaiced, operation = request.operation, hook = request.admissionHook,
-         reads = readsOf(request.reads)]() {
+         progressGuard, process = request.process, readDemosaiced, operation = request.operation,
+         hook = request.admissionHook, reads = readsOf(request.reads)]() {
             return runOverFrames(
-                *session, sequence, readDemosaiced, paths, stop, progressGuard,
+                *session, sequence, readDemosaiced, paths, stop, progressGuard, process,
                 [&operation](const an::ui::ExecutionScope& scope,
                              const an::ui::ProcessSource& frame) -> an::Result<std::vector<an::consumer::ImageAsset>> {
                     an::Result<an::consumer::ImageAsset> made = operation(scope, frame);
@@ -1195,6 +1240,7 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
 
 void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryRunDone done)
 {
+    done = endingRunState(request.process, std::move(done));
     const an::consumer::EngineSession* session = lentEngineSession();
     const auto refuse = [&request, &done](an::Status status) {
         reportRunFailure(nullptr, request.words, status);
@@ -1234,10 +1280,12 @@ void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryR
         auto held = std::make_shared<an::consumer::AssetReadLease>(std::move(*lease));
         ProgressDialogControl* progress = request.progressWindow ? showProgress(request.words) : nullptr;
         const QPointer<ProgressDialogControl> progressGuard(progress);
+        startRunState(request.process, false);
         runThenLand(
             [session, held, operation = request.operation, hook = request.admissionHook,
              stop = progress != nullptr ? progress->stopToken() : std::stop_token{},
-             observer = progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{},
+             observer = an::ui::withRunProgress(
+                 progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{}, request.process.data()),
              reads = readsOf(request.reads)]() -> an::Result<std::vector<an::consumer::ImageAsset>> {
                 // The images the operation reads beside the view's own are leased before the run is admitted, the
                 // view's own read through the lease the run holds.
@@ -1346,12 +1394,13 @@ void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryR
     }
     ProgressDialogControl* progress = showProgress(request.words);
     const QPointer<ProgressDialogControl> progressGuard(progress);
+    startRunState(request.process, true);
     runThenLand(
         [session, sequence = sequenceToRead(*sequence, request.frames), paths = *paths, stop = progress->stopToken(),
-         progressGuard, readDemosaiced = request.readDemosaiced, operation = request.operation,
-         hook = request.admissionHook, reads = readsOf(request.reads)]() {
-            return runOverFrames(*session, sequence, readDemosaiced, paths, stop, progressGuard, operation, hook,
-                                 *reads);
+         progressGuard, process = request.process, readDemosaiced = request.readDemosaiced,
+         operation = request.operation, hook = request.admissionHook, reads = readsOf(request.reads)]() {
+            return runOverFrames(*session, sequence, readDemosaiced, paths, stop, progressGuard, process, operation,
+                                 hook, *reads);
         },
         [guard, outputs = request.sequenceOutputs, showDemosaiced = request.showDemosaiced, words = request.words,
          paths = *paths, progressGuard, inFlight = request.inFlight, done](SequenceRun run) {

@@ -495,6 +495,7 @@ void PhotometricColorCalibrationProcess::applyCalibration()
     clearCalibrationResult(true);
     m_ui.statusLabel->setText(tr("Calibrating photometric gains from Gaia-matched stars..."));
     m_ExecutionInProgress = true;
+    setRunState(an::ui::runningState());
     updateAvailabilityState();
     LOG_INFO("Executing process '{}' on image '{}'... ", getProcessName(), m_image_view_control->getUniqueName());
 
@@ -517,6 +518,7 @@ void PhotometricColorCalibrationProcess::applyCalibration()
             guard->m_ui.statusLabel->setText(text);
         }
     };
+    observer = an::ui::withRunProgress(std::move(observer), this);
     const std::shared_ptr<void> inFlight = beginRunInFlight();
     // The mask is another view's image, leased by the edit with the target's writer, in one order, before the run asks
     // to be admitted.
@@ -713,6 +715,7 @@ void PhotometricColorCalibrationProcess::finalizeCalibration(const RunOutcome& o
 {
     m_ExecutionInProgress = false;
     m_runStop.reset();
+    setRunState(an::ui::endedRunState(outcome.status, shown));
     const QString title =
         QCoreApplication::translate("PhotometricColorCalibrationProcess", "Photometric Color Calibration");
     const bool closing = m_ProcessCloseRequested.load();

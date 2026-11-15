@@ -128,6 +128,7 @@ void SCNRProcess::executeSCNR()
     // The mask is another view's image, leased before the run is admitted.
     request.reads = {mask.asset};
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<SCNRProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

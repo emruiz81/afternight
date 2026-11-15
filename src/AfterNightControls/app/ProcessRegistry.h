@@ -4,6 +4,7 @@
 #pragma once
 
 #include "AfterNightControlsExport.h"
+#include "controls/ProcessPresentation.h"
 
 #include <cstddef>
 #include <functional>
@@ -64,6 +65,12 @@ struct ProcessDescriptor
     /// (`processes/stretching/histogram-transformation.html`); empty for a process the guide has no page of, an
     /// extension's among them. Help opens it from a window of the process.
     std::string helpPath;
+
+    /// Where the process is shown when a shell's presenter takes it: a window, until the process is given a page.
+    ProcessSurface surface = ProcessSurface::Window;
+
+    /// The width of its page's column.
+    ProcessColumnWidth columnWidth = ProcessColumnWidth::Standard;
 
     [[nodiscard]] bool is_available() const noexcept
     {

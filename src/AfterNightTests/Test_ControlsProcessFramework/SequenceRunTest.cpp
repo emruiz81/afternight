@@ -371,3 +371,37 @@ TEST(SequenceRunTest, ASequenceRunWithNoTemporaryFileServiceFailsBeforeReadingAn
     EXPECT_EQ(process->runTelemetry().runsFailed, 1u);
     EXPECT_FALSE(target.isLockedForProcessing());
 }
+
+// A run over a sequence says how far it has come as it goes, frame by frame, and the share only rises.
+TEST(RunState, ASequenceApplyReportsRisingProgress)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    RecordingPresenter presenter;
+    context->presenter = &presenter;
+    const InstalledContext installed(*context);
+    SequenceTarget recording(context->engineSession());
+    ImageViewControl& target = recording.view();
+    ProcessHandle process = openProcess(target, TestProcessOptions{});
+
+    process->applyProcess();
+    ASSERT_TRUE(settleProcess(*process));
+    ASSERT_TRUE(settleView(target));
+
+    EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+    std::vector<double> shares;
+    for (const an::ui::ProcessRunState& state : presenter.statesOf(process.get()))
+    {
+        if (state.running() && state.progress.has_value())
+        {
+            shares.push_back(*state.progress);
+        }
+    }
+    ASSERT_GE(shares.size(), 3u) << "a report for each of the three frames";
+    EXPECT_TRUE(std::is_sorted(shares.begin(), shares.end()));
+    EXPECT_LT(shares.front(), shares.back());
+    EXPECT_GE(shares.front(), 0.0);
+    EXPECT_LE(shares.back(), 1.0);
+    EXPECT_TRUE(presenter.everythingToldOnTheGuiThread());
+    context->presenter = nullptr;
+}

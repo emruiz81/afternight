@@ -4,6 +4,7 @@
 #pragma once
 
 #include "AfterNightControlsExport.h"
+#include "controls/ProcessPresentation.h"
 
 #include <QPointer>
 #include <QWidget>
@@ -13,6 +14,7 @@
 #include <string>
 #include <vector>
 
+class ImageViewControl;
 class QBoxLayout;
 class QKeyEvent;
 class QPaintEvent;
@@ -65,17 +67,49 @@ public:
     void stopWorkInFlight();
 
     /// States the user guide's page of the window's process, relative to the guide's root as the built guide names it
-    /// (`processes/stretching/histogram-transformation.html`). The launcher states it on the window a launch shows,
-    /// from the descriptor the launch is for.
+    /// (`processes/stretching/histogram-transformation.html`). A window made inside a launch takes its descriptor's
+    /// page as it is made (`an::ui::ProcessLaunchScope`).
     void setHelpPath(const QString& helpPath);
 
     /// The user guide's page of the window's process; empty when none was stated, and Help then opens the guide's
     /// home page.
     [[nodiscard]] QString helpPath() const;
 
+    /// The name the window was made with: "Curves Transformation".
+    [[nodiscard]] const std::string& processName() const noexcept;
+
+    /// The id of the registry descriptor the window was launched as (`an::ui::ProcessLaunchScope`); empty for a window
+    /// made outside a launch.
+    [[nodiscard]] const std::string& descriptorId() const noexcept;
+
+    /// Where the window's process is shown when a presenter takes it: what its descriptor states, and a window for one
+    /// made outside a launch.
+    [[nodiscard]] virtual an::ui::ProcessSurface processSurface() const;
+
+    /// The width of its page's column: what its descriptor states, and the standard one outside a launch.
+    [[nodiscard]] virtual an::ui::ProcessColumnWidth processColumnWidth() const;
+
+    /// The image the process runs on; null for a process with no single target.
+    [[nodiscard]] virtual ImageViewControl* processTarget() const;
+
+    /// States where the process's run stands, and tells the shell's presenter when that changes. Called where a run
+    /// starts, moves on and ends; from a thread other than the GUI thread the state is handed to the GUI thread, and
+    /// the presenter is always told there.
+    void setRunState(const an::ui::ProcessRunState& state);
+
+    /// Where the process's run stands; Idle before its first run. GUI thread.
+    [[nodiscard]] const an::ui::ProcessRunState& runState() const noexcept;
+
+    /// How far the run on its way has come, from 0 to 1, and what it does now (kept when empty); nothing while no run
+    /// is on its way, so a report that lands after the run ended changes nothing. Any thread, as `setRunState`.
+    void reportRunProgress(std::optional<double> progress, const QString& text = {});
+
     virtual ~TopLevelProcessBaseControl();
 
 protected:
+    /// Tells the shell's presenter which image the process targets now, or that it targets none.
+    void notifyTargetChanged(ImageViewControl* target);
+
     /// Stops what the window runs that its stop token does not reach - a progress window, a request tracker - as
     /// closing the window stops it; `stopWorkInFlight` calls it after it requests the token. Nothing by default.
     virtual void onStopWorkInFlight() {}
@@ -113,6 +147,10 @@ private:
     std::string m_tl_process_name;
     std::stop_source m_WindowStop;
     QString m_HelpPath;
+    std::string m_DescriptorId;
+    an::ui::ProcessSurface m_Surface = an::ui::ProcessSurface::Window;
+    an::ui::ProcessColumnWidth m_ColumnWidth = an::ui::ProcessColumnWidth::Standard;
+    an::ui::ProcessRunState m_RunState;
 };
 
 namespace an::ui

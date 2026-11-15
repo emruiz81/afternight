@@ -614,6 +614,7 @@ void ImageListAnalyzerProcess::optimize()
     m_impl->progress = progress;
     setBusy(true);
     m_impl->optimizing = true;
+    setRunState(an::ui::runningState(QStringLiteral("optimizing"), 0.0));
 
     QPointer<ImageListAnalyzerProcess> guard(this);
     QPointer<ProgressDialogControl> dialog(progress);
@@ -659,10 +660,14 @@ void ImageListAnalyzerProcess::optimize()
                 failures->emplace_back(pending[index].source, made);
             }
             const int percent = static_cast<int>(((index + 1u) * 100u) / pending.size());
-            postToGui([dialog, percent]() {
+            postToGui([dialog, guard, percent]() {
                 if (dialog)
                 {
                     dialog->setValue(percent);
+                }
+                if (guard)
+                {
+                    guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                 }
             });
         }
@@ -719,6 +724,21 @@ void ImageListAnalyzerProcess::optimize()
             }
             impl.optimizing = false;
             impl.progress.clear();
+            // A stop says nothing; files that could not be optimized are the run's failure.
+            if (stopped)
+            {
+                guard->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Cancelled});
+            }
+            else if (!failures->empty())
+            {
+                guard->setRunState(
+                    an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Failed,
+                                            .text = QString::fromStdString(failures->front().second.message())});
+            }
+            else
+            {
+                guard->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Succeeded});
+            }
             guard->setBusy(false);
             guard->updateOptimizationControls();
             guard->rebuildPreviewSequence();

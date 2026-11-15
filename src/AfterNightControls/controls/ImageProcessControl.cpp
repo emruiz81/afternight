@@ -106,6 +106,12 @@ ImageProcessControl::ImageProcessControl(ImageViewControl* control, const std::s
     {
         control->attachProcess(*this);
     }
+    notifyTargetChanged(control);
+}
+
+ImageViewControl* ImageProcessControl::processTarget() const
+{
+    return m_image_view_control;
 }
 
 void ImageProcessControl::changeTargetViewControl(ImageViewControl* control)
@@ -130,6 +136,8 @@ void ImageProcessControl::changeTargetViewControl(ImageViewControl* control)
     refreshListOfSupportedChannels();
 
     updateWindowTitle();
+
+    notifyTargetChanged(m_image_view_control);
 
     onViewControlChanged(old, m_image_view_control);
 }
@@ -212,6 +220,7 @@ void ImageProcessControl::onImageViewControlDestroyed(ImageViewControl* ctrl)
         }
 
         m_image_view_control = nullptr;
+        notifyTargetChanged(nullptr);
         close();
     }
 }
@@ -826,3 +835,30 @@ void ImageProcessControl::endRun()
         close();
     }
 }
+
+namespace an::ui
+{
+ExecutionObserver withRunProgress(ExecutionObserver observer, TopLevelProcessBaseControl* process)
+{
+    if (process == nullptr)
+    {
+        return observer;
+    }
+    if (observer.receiver.isNull())
+    {
+        observer.receiver = process;
+    }
+    QPointer<TopLevelProcessBaseControl> guard(process);
+    observer.progress = [shown = std::move(observer.progress), guard](const ExecutionProgress& report) {
+        if (shown)
+        {
+            shown(report);
+        }
+        if (guard && report.total > 0u)
+        {
+            guard->reportRunProgress(static_cast<double>(report.completed) / static_cast<double>(report.total));
+        }
+    };
+    return observer;
+}
+} // namespace an::ui

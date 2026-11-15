@@ -288,6 +288,7 @@ void CFAIntegerResampleProcess::executeImageResample()
         return an::ui::processes::transformImage(scope, source, steps, "CFA Integer Resample");
     };
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<CFAIntegerResampleProcess> guard(this);
     an::ui::processes::runInPlace(*m_image_view_control, std::move(request),

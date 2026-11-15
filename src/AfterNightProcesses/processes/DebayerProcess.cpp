@@ -184,6 +184,7 @@ void DebayerProcess::executeImageDebayer()
     request.readDemosaiced = false;
     request.showDemosaiced = false;
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
 
     m_ExecutionInProgress = true;

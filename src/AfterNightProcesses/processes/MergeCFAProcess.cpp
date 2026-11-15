@@ -241,6 +241,7 @@ void MergeCFAProcess::validateSelectedImages()
 void MergeCFAProcess::finishRun(const an::Status& outcome, bool published)
 {
     m_run->running = false;
+    setRunState(an::ui::endedRunState(outcome, published));
     if (published)
     {
         ++m_run->published;
@@ -346,6 +347,7 @@ void MergeCFAProcess::executeCFAComposition()
     m_ui.buttonBox->button(QDialogButtonBox::Close)->setEnabled(false);
 
     ProgressDialogControl* progress = nullptr;
+    setRunState(an::ui::runningState({}, sequences ? std::optional<double>(0.0) : std::nullopt));
     if (sequences)
     {
         progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Merge CFA");
@@ -541,13 +543,17 @@ void MergeCFAProcess::executeCFAComposition()
                         break;
                     }
                     outcome = writer->write(scope.engine(), scope.execution(), frame, joinedLease->image());
-                    if (total > 0u && dialog)
+                    if (total > 0u)
                     {
                         const int percent = static_cast<int>(((frame + 1u) * 100u) / total);
-                        postToGui([dialog, percent]() {
+                        postToGui([dialog, guard, percent]() {
                             if (dialog)
                             {
                                 dialog->setValue(percent);
+                            }
+                            if (guard)
+                            {
+                                guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                             }
                         });
                     }

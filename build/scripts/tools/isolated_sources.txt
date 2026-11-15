@@ -504,6 +504,7 @@ sources Test_ControlsProcessFramework
     unit     src/AfterNightTests/Test_ControlsProcessFramework/ProcessWindowTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/ProgressDialogTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/SequenceRunTest.cpp
+    unit     src/AfterNightTests/Test_ControlsProcessFramework/RunStateTest.cpp
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -534,6 +535,7 @@ sources Test_ControlsProcessFramework
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/QSliderSpinBox.h
@@ -609,6 +611,7 @@ sources Test_ImageProcessControl
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/QSliderSpinBox.h
@@ -755,6 +758,7 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -1254,6 +1258,7 @@ sources Test_MaskDrawing
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
@@ -1382,6 +1387,7 @@ sources Test_ControlsSequences
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/SequencePlayerControl.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
@@ -1714,6 +1720,7 @@ sources Test_ShellCore
     header   src/AfterNightControls/app/AfterNightEvent.h
     header   src/AfterNightControls/app/ProcessMenuState.h
     header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/app/RuntimeStorageCoordinator.h
     header   src/AfterNightControls/controls/FolderTrackerPersistence.h
     header   src/AfterNightControls/controls/GlobalSettingsPersistence.h
@@ -2404,6 +2411,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/SystemInformationDialogUiBuilder.h
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
@@ -2618,6 +2626,7 @@ sources Test_ShellClassic
     header   src/AfterNightControls/controls/SystemInformationDialogUiBuilder.h
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/annotation/AnnotateImageControl.h
@@ -2781,6 +2790,7 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/controls/NewSequenceControlUiBuilder.h
     header   src/AfterNightControls/controls/ProcessTabStyling.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/ProcessingLimits.h
@@ -2930,6 +2940,7 @@ sources Test_ShellParity
     header   src/AfterNightControls/controls/SettingsDialog.h
     header   src/AfterNightControls/controls/ThumbnailPersistence.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/ProcessingLimits.h
@@ -3061,6 +3072,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
     header   src/AfterNightControls/controls/SelectionControllerBase.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/drawing/DrawingCanvasController.h
     header   src/AfterNightControls/controls/drawing/DrawingDocument.h
@@ -3414,6 +3426,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/app/ExtensionManager.h
     header   src/AfterNightControls/app/ExtensionSdkService.h
     header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/app/SharedBufferManager.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
@@ -3528,6 +3541,7 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TableWidgetUtils.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
@@ -3628,6 +3642,7 @@ sources Test_ProcessesPointwise
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -3761,6 +3776,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightControls/controls/SelectionControllerBase.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -3882,6 +3898,7 @@ sources Test_ProcessesSpatial
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -4031,6 +4048,7 @@ sources Test_ProcessesMasks
     header   src/AfterNightControls/controls/SelectionControllerBase.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/drawing/DrawingDocument.h
@@ -4161,6 +4179,7 @@ sources Test_ProcessesChannels
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/QSliderSpinBox.h
@@ -4268,6 +4287,7 @@ sources Test_ProcessesGeometry
     header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -4401,6 +4421,7 @@ sources Test_ProcessesColorTools
     header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -4528,6 +4549,7 @@ sources Test_ProcessesPixelMath
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/QSliderSpinBox.h
@@ -4647,6 +4669,7 @@ sources Test_ProcessesExternalTools
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/controls/settings/StarNetCliTools.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -4763,6 +4786,7 @@ sources Test_ProcessesPhotometric
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsDefaults.h
@@ -4885,6 +4909,7 @@ sources Test_ProcessesCombinations
     header   src/AfterNightControls/controls/StarFilter.h
     header   src/AfterNightControls/controls/StarsFilterControlHandler.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/session/DerivedResultKey.h
@@ -5008,6 +5033,7 @@ sources Test_ProcessesStarProfilers
     header   src/AfterNightControls/controls/StarsFilterControlHandler.h
     header   src/AfterNightControls/controls/StarsFilterWindow.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
@@ -5119,6 +5145,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightControls/controls/StarFilter.h
     header   src/AfterNightControls/controls/StarsFilterControlHandler.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
@@ -5680,6 +5707,7 @@ sources Test_ImageIntegration
     header   src/AfterNightControls/controls/ProcessTabStyling.h
     header   src/AfterNightControls/controls/StaticPreviewCacheLimits.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightControls/widgets/ChannelDisplayStrategy.h
@@ -5869,6 +5897,7 @@ sources Test_ProcessFramework
     unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
     unit     src/AfterNightTests/fixtures/common/SidecarCases.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    unit     src/AfterNightTests/Test_ProcessFramework/ProcessPresentationTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -5971,6 +6000,9 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/controls/SystemInformationDialogUiBuilder.h
     header   src/AfterNightControls/controls/TableWidgetUtils.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
+    header   src/AfterNightControls/controls/ProcessLaunchScope.h
+    header   src/AfterNightProcesses/app/ProcessLauncher.h
     header   src/AfterNightControls/controls/TypedProcessControl.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/drawing/CoveragePlane.h

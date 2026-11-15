@@ -825,6 +825,7 @@ void ImageRegistrationProcess::registerFrames()
     progress->show();
     m_impl->progress = progress;
     m_impl->running = true;
+    setRunState(an::ui::runningState(QStringLiteral("registering"), 0.0));
     updateControls();
 
     QPointer<ImageRegistrationProcess> guard(this);
@@ -837,8 +838,8 @@ void ImageRegistrationProcess::registerFrames()
         std::stop_source stop;
         const std::stop_callback onClose(windowStop, [&stop]() { stop.request_stop(); });
         const std::stop_callback onCancel(cancel, [&stop]() { stop.request_stop(); });
-        const auto report = [dialog](int percent, const QString& text) {
-            postToGui([dialog, percent, text]() {
+        const auto report = [dialog, guard](int percent, const QString& text) {
+            postToGui([dialog, guard, percent, text]() {
                 if (dialog)
                 {
                     dialog->setValue(percent);
@@ -846,6 +847,10 @@ void ImageRegistrationProcess::registerFrames()
                     {
                         dialog->setText(text);
                     }
+                }
+                if (guard)
+                {
+                    guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                 }
             });
         };
@@ -1274,6 +1279,11 @@ void ImageRegistrationProcess::registerFrames()
             Impl& impl = *guard->m_impl;
             impl.running = false;
             impl.progress.clear();
+            guard->setRunState(an::ui::ProcessRunState{
+                .phase = outcome->stopped ? an::ui::ProcessRunState::Phase::Cancelled
+                                          : (outcome->failure.isEmpty() ? an::ui::ProcessRunState::Phase::Succeeded
+                                                                        : an::ui::ProcessRunState::Phase::Failed),
+                .text = outcome->stopped ? QString() : outcome->failure});
             if (outcome->stopped || !outcome->failure.isEmpty())
             {
                 // A stopped or failed run leaves nothing recorded in the window.
@@ -1409,6 +1419,7 @@ void ImageRegistrationProcess::alignFrames()
     progress->show();
     m_impl->progress = progress;
     m_impl->running = true;
+    setRunState(an::ui::runningState(QStringLiteral("aligning"), 0.0));
     updateControls();
 
     QPointer<ImageRegistrationProcess> guard(this);
@@ -1447,14 +1458,19 @@ void ImageRegistrationProcess::alignFrames()
                     stopped = true;
                     break;
                 }
-                postToGui([dialog, index, count = frames.size(), name = QFileInfo(frames[index].path).fileName()]() {
-                    if (dialog)
-                    {
-                        dialog->setText(
-                            QStringLiteral("Aligning image %1/%2: %3").arg(index + 1u).arg(count).arg(name));
-                        dialog->setValue(static_cast<int>((index * 100u) / count));
-                    }
-                });
+                postToGui(
+                    [dialog, guard, index, count = frames.size(), name = QFileInfo(frames[index].path).fileName()]() {
+                        if (dialog)
+                        {
+                            dialog->setText(
+                                QStringLiteral("Aligning image %1/%2: %3").arg(index + 1u).arg(count).arg(name));
+                            dialog->setValue(static_cast<int>((index * 100u) / count));
+                        }
+                        if (guard)
+                        {
+                            guard->reportRunProgress(static_cast<double>(index) / static_cast<double>(count));
+                        }
+                    });
                 const an::Status written = an::ui::processes::alignRegisteredFrame(
                     *session, frames[index].path, frames[index].transform, frames[index].distortion, *canvas, sampling,
                     demosaic, an::ui::processes::alignedOutputPath(frames[index].path, outputDirectory),
@@ -1485,6 +1501,11 @@ void ImageRegistrationProcess::alignFrames()
             }
             guard->m_impl->running = false;
             guard->m_impl->progress.clear();
+            guard->setRunState(an::ui::ProcessRunState{
+                .phase = !failure.isEmpty() ? an::ui::ProcessRunState::Phase::Failed
+                                            : (stopped ? an::ui::ProcessRunState::Phase::Cancelled
+                                                       : an::ui::ProcessRunState::Phase::Succeeded),
+                .text = failure});
             guard->updateControls();
             if (!failure.isEmpty())
             {

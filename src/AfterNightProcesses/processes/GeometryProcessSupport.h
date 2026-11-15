@@ -32,6 +32,7 @@
 #include <AfterNightEngine/Core/Status.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
 
+#include <QPointer>
 #include <QString>
 
 #include <cstdint>
@@ -46,6 +47,7 @@
 
 class ImageViewControl;
 class QComboBox;
+class TopLevelProcessBaseControl;
 
 namespace an::ui::processes
 {
@@ -258,6 +260,10 @@ struct InPlaceRunRequest
     /// The window's count of runs in flight, held until the run has landed.
     std::shared_ptr<void> inFlight;
 
+    /// The process window the run is of, whose run state follows the run: running from its start, moving with the
+    /// frames of a sequence and the operation's own reports, and ended as the run lands. Null for none.
+    QPointer<TopLevelProcessBaseControl> process;
+
     /// Called with the run's operation once it is admitted; empty in the product.
     AdmissionHook admissionHook;
 
@@ -320,6 +326,10 @@ struct NewViewsRunRequest
 
     /// The window's count of runs in flight, held until the run has landed.
     std::shared_ptr<void> inFlight;
+
+    /// The process window the run is of, whose run state follows the run: running from its start, moving with the
+    /// frames of a sequence and the operation's own reports, and ended as the run lands. Null for none.
+    QPointer<TopLevelProcessBaseControl> process;
 
     /// Called with the run's operation once it is admitted; empty in the product.
     AdmissionHook admissionHook;

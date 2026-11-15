@@ -223,6 +223,7 @@ void StarnetProcess::startExecution()
     request.showDemosaiced = false;
     request.progressWindow = true;
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<StarnetProcess> guard(this);
     an::ui::processes::runToNewViews(*m_image_view_control, std::move(request),

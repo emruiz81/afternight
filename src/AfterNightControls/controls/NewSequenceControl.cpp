@@ -887,6 +887,7 @@ void NewSequenceControl::createSequence()
     progress->show();
     m_Progress = progress;
     setRunning(true);
+    setRunState(an::ui::runningState(QStringLiteral("creating"), 0.0));
 
     QPointer<NewSequenceControl> guard(this);
     QPointer<ProgressDialogControl> dialog(progress);
@@ -896,13 +897,17 @@ void NewSequenceControl::createSequence()
                                           windowStop = windowStopToken(), cancel = progress->stopToken()]() {
         const LinkedStop runStop(windowStop, cancel);
         const std::stop_token stop = runStop.token();
-        const an::Status made =
-            an::ui::makeNewSequence(*session, *shared, stop, [dialog](std::uint64_t written, std::uint64_t total) {
+        const an::Status made = an::ui::makeNewSequence(
+            *session, *shared, stop, [dialog, guard](std::uint64_t written, std::uint64_t total) {
                 const int percent = total > 0u ? static_cast<int>((written * 100u) / total) : 0;
-                postToGui([dialog, percent]() {
+                postToGui([dialog, guard, percent]() {
                     if (dialog)
                     {
                         dialog->setValue(percent);
+                    }
+                    if (guard)
+                    {
+                        guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                     }
                 });
             });
@@ -952,6 +957,7 @@ void NewSequenceControl::creationFinished(const QString& path, const QString& na
 {
     setRunning(false);
     m_Progress.clear();
+    setRunState(an::ui::endedRunState(made.hasValue() ? an::Status::success() : made.status(), made.hasValue()));
     if (!made.hasValue())
     {
         if (made.status().code() == an::ErrorCode::Cancelled)

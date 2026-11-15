@@ -320,6 +320,34 @@ shows a process another way - inside another window, beside a view - is built on
   the main keyboard's Enter is `Qt::Key_Return`, written `Ctrl+Return`. Image Integration's Execute carries the
   first alone.
 
+A window also tells the shell what it is and how its runs go (`controls/ProcessPresentation.h`), so that a shell can
+show every open process - as a task in a rail, over the image a run writes - without knowing any of them:
+
+- **What it was launched as.** An entry point makes and shows its window and hands nothing back, so the launcher runs
+  each launch inside a `ProcessLaunchScope` (`controls/ProcessLaunchScope.h`) that names the descriptor, and a window
+  made inside it takes, as it is made, the descriptor's id (`descriptorId`), its guide page (`helpPath`), the surface it
+  is shown on when a presenter takes it and the width of its page's column (`processSurface`, `processColumnWidth`,
+  stated as `ProcessDescriptor::surface` and `columnWidth` where the process is registered, a window and the standard
+  column until a process is given a page). A window made outside every launch belongs to no descriptor and is a
+  window. The scope replaced an event filter that watched the application for the window a launch showed: one
+  mechanism now says which descriptor a window belongs to, and it knows before the window registers, so whoever
+  hears of the window hears of its descriptor.
+- **Where its run stands.** `setRunState` states a `ProcessRunState` - idle, running with how far it has come when it
+  can tell and what it is doing, succeeded, failed with why, or cancelled - and `reportRunProgress` moves a run on its
+  way; both may be called from a worker and reach the shell on the GUI thread, and a report that lands after its run
+  ended changes nothing. The framework states it once for every single-image process: `ImageRTPreviewControl` from
+  Apply to the run's end, its progress from the run's own reports (`withRunProgress`, beside the progress window's)
+  and, over a sequence, from its frames; the geometry support (`processes/GeometryProcessSupport.h`) for the processes
+  that run through it, which name themselves on their request (`process`); and each process with a run of its own -
+  the top-level windows, Photometric Color Calibration, the star profiler's detection, New Sequence, and Image
+  Integration and its Lite front end through `WorkflowExecutionController` - where it starts and ends. A run whose
+  result was dropped because its image changed or closed under it ends cancelled: nothing failed.
+- **What it targets.** A single-image window tells the shell its target as it is made, when it is pointed at another
+  image and when its image closes (`processTarget`).
+- **The presenter.** The shell's `IProcessPresenter`, lent through `IAppContext::getProcessPresenter`, is told of both
+  (`runStateChanged`, `targetChanged`); a shell that lends none - the classic shell - shows every process as the window
+  it is, and nothing of it changes.
+
 ### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryCompanion.cpp`)
 
 A step is a copy taken under a lease (`copyForHistory`), admitted against the session's

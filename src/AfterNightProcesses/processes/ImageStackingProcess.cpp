@@ -453,6 +453,7 @@ void ImageStackingProcess::stack()
     m_impl->progress = progress;
     m_impl->running = true;
     m_impl->lastWritten.clear();
+    setRunState(an::ui::runningState(QStringLiteral("stacking"), 0.0));
     updateControls();
 
     QPointer<ImageStackingProcess> guard(this);
@@ -492,12 +493,16 @@ void ImageStackingProcess::stack()
             });
             const double share = 100.0 / static_cast<double>(groups.size());
             an::Result<an::ui::processes::StackedGroup> stacked = an::ui::processes::stackStandaloneGroup(
-                *session, group, run, stop.get_token(), [dialog, index, share](double fraction) {
+                *session, group, run, stop.get_token(), [dialog, guard, index, share](double fraction) {
                     const int percent = static_cast<int>(share * (static_cast<double>(index) + fraction));
-                    postToGui([dialog, percent]() {
+                    postToGui([dialog, guard, percent]() {
                         if (dialog)
                         {
                             dialog->setValue(percent);
+                        }
+                        if (guard)
+                        {
+                            guard->reportRunProgress(static_cast<double>(percent) / 100.0);
                         }
                     });
                 });
@@ -567,6 +572,17 @@ void ImageStackingProcess::stack()
                 return;
             }
             guard->runFinished();
+            if (!failure.isEmpty())
+            {
+                guard->setRunState(
+                    an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Failed, .text = failure});
+            }
+            else
+            {
+                guard->setRunState(an::ui::ProcessRunState{.phase = stopped
+                                                                        ? an::ui::ProcessRunState::Phase::Cancelled
+                                                                        : an::ui::ProcessRunState::Phase::Succeeded});
+            }
             if (!failure.isEmpty())
             {
                 process_utils::notifyErrorMessage(

@@ -741,6 +741,7 @@ void ColorCalibrationProcess::executeColorCalibration()
     request.reads = {whiteReference.has_value() ? whiteReference->asset : nullptr, background->reference.asset,
                      mask.asset};
     request.inFlight = beginRunInFlight();
+    request.process = this;
     request.admissionHook = admissionHook();
     QPointer<ColorCalibrationProcess> guard(this);
     QPointer<ImageViewControl> target(m_image_view_control);
