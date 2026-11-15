@@ -21,6 +21,7 @@
 #include "views/ViewService.h"
 
 #include "controls/IAppContext.h"
+#include "controls/KDDockWidgetsHelper.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
 
@@ -332,4 +333,83 @@ TEST_F(DockLayoutOperationsTest, OperationsThatGoTakeTheirLocksWithThem)
     }
     EXPECT_TRUE(DockHooks::allowsDrag(DockDrag{.mainWindow = m_area}));
     EXPECT_FALSE(DockHooks::dropIndicatorsInhibited());
+}
+
+// A workspace's Group All Images and Split All Images gather the views docked in that workspace alone, and Fit fits
+// them alone; the target of a shell's only dock area still gathers every listed view into it, as 1.1's Window menu did.
+TEST_F(DockLayoutOperationsTest, AWorkspacesGroupAndSplitTakeItsViewsAlone)
+{
+    auto* other = new MainWindow(QStringLiteral("layout.other"), {}, m_window.get());
+    other->setGeometry(QRect(0, 0, 1000, 700));
+    settleDocks();
+    const DockTarget here{.mainWindow = m_area, .workspaceId = QStringLiteral("here")};
+    const DockTarget there{.mainWindow = other, .workspaceId = QStringLiteral("there")};
+    ImageViewControl* const first = dockedView(QStringLiteral("first"));
+    ImageViewControl* const second = dockedView(QStringLiteral("second"));
+    ImageViewControl* const away = dockedView(QStringLiteral("away"), other);
+    ImageViewControl* const awayToo = dockedView(QStringLiteral("away.too"), other);
+    ASSERT_NE(awayToo, nullptr);
+    const auto inside = [](const MainWindow* area, ImageViewControl* view) {
+        return view->getDockWidget()->dockWidget()->mainWindow() == area->mainWindow();
+    };
+    EXPECT_EQ(DockLayoutOperations::viewsDockedIn(here, m_core.viewService().getListOfViewControls()),
+              (std::vector<ImageViewControl*>{first, second}));
+
+    m_core.dockLayout().groupAll(here);
+    settleDocks();
+    EXPECT_EQ(groupOf(first), groupOf(second));
+    EXPECT_TRUE(inside(other, away));
+    EXPECT_TRUE(inside(other, awayToo));
+    EXPECT_NE(groupOf(away), groupOf(first));
+    EXPECT_NE(groupOf(away), groupOf(awayToo)) << "the other workspace's views were gathered";
+
+    m_core.dockLayout().splitAllEqually(here);
+    settleDocks();
+    EXPECT_NE(groupOf(first), groupOf(second));
+    EXPECT_TRUE(inside(other, away));
+    EXPECT_TRUE(inside(other, awayToo));
+
+    m_core.dockLayout().groupAll(there);
+    settleDocks();
+    EXPECT_EQ(groupOf(away), groupOf(awayToo));
+    EXPECT_NE(groupOf(first), groupOf(second)) << "the first workspace's views were gathered";
+
+    // The only dock area's target gathers every view into it.
+    m_core.dockLayout().groupAll(onlyArea());
+    settleDocks();
+    EXPECT_TRUE(inside(m_area, away));
+    EXPECT_TRUE(inside(m_area, awayToo));
+    EXPECT_EQ(groupOf(first), groupOf(away));
+}
+
+// A workspace's lock marks its dock area, which the decorations read so a double click floats nothing there, and only
+// there; the lock of a shell's only dock area is the whole layout's, read everywhere.
+TEST_F(DockLayoutOperationsTest, AWorkspacesLockMarksItsDockAreaAlone)
+{
+    auto* other = new MainWindow(QStringLiteral("layout.other"), {}, m_window.get());
+    settleDocks();
+    ImageViewControl* const view = dockedView(QStringLiteral("locked.here"));
+    ImageViewControl* const free = dockedView(QStringLiteral("free.there"), other);
+    ASSERT_NE(free, nullptr);
+    const DockTarget here{.mainWindow = m_area, .workspaceId = QStringLiteral("here")};
+    const DockTarget there{.mainWindow = other, .workspaceId = QStringLiteral("there")};
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*view->getDockWidget()));
+
+    m_core.dockLayout().lock(here);
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*view->getDockWidget()));
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*free->getDockWidget()));
+    // Lock Layout and Unlock Layout follow the dock area on screen.
+    m_core.dockLayout().offerFor(there);
+    EXPECT_TRUE(m_core.actions().action(ids::kLockLayout)->isEnabled());
+    m_core.dockLayout().offerFor(here);
+    EXPECT_FALSE(m_core.actions().action(ids::kLockLayout)->isEnabled());
+
+    m_core.dockLayout().unlock(here);
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*view->getDockWidget()));
+
+    m_core.dockLayout().lock(onlyArea());
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*view->getDockWidget()));
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*free->getDockWidget()));
+    m_core.dockLayout().unlock(onlyArea());
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*free->getDockWidget()));
 }

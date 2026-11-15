@@ -53,10 +53,11 @@ TEST_F(ObservatoryShell, ImplementsTheContract)
     EXPECT_EQ(&contract.statusDisplay(), static_cast<an::ui::shell::IStatusDisplay*>(&window()));
     EXPECT_EQ(core().shell(), &contract);
 
-    // The core's operations act on the workspace's dock area, which names no workspace while it is the only one.
+    // The core's operations act on the current workspace's dock area, which names its workspace: its lock is its own.
     const an::ui::shell::DockTarget target = contract.viewHost().dockTarget();
     EXPECT_EQ(target.mainWindow, window().workspaces().mainWindow());
-    EXPECT_TRUE(target.workspaceId.isEmpty());
+    EXPECT_EQ(target.workspaceId, window().workspaces().current());
+    EXPECT_FALSE(target.workspaceId.isEmpty());
 
     // Place: the image a person opens is docked in the workspace, which is shown.
     ImageViewControl* const first = openView(QStringLiteral("contract-first"));

@@ -42,10 +42,15 @@ public:
     DockLayoutOperations(DockLayoutOperations&&) = delete;
     DockLayoutOperations& operator=(DockLayoutOperations&&) = delete;
 
-    /// Gathers every listed view into the target's dock area as one tab group; the active view stays active.
+    /// Gathers the target's views into its dock area as one tab group: a workspace's, the views docked in it; a
+    /// shell's only dock area's, every listed view, as 1.1's Window menu did. The active view stays active.
     void groupAll(const DockTarget& target);
-    /// Places every listed view in the target's dock area in a grid of equal shares; the active view stays active.
+    /// Places the target's views - as `groupAll` takes them - in its dock area in a grid of equal shares; the active
+    /// view stays active.
     void splitAllEqually(const DockTarget& target);
+    /// Fits each of the target's views - a workspace's docked in it, every listed view of a shell's only dock area -
+    /// to its window.
+    void fitAllToWindow(const DockTarget& target);
 
     /// Gathers the views that share the window `view` is in into one tab group there; `view` is made active.
     void groupAll(ImageViewControl& view);
@@ -59,6 +64,13 @@ public:
     /// Lifts the target's lock, and offers Lock Layout in place of Unlock Layout.
     void unlock(const DockTarget& target);
     [[nodiscard]] bool isLocked(const DockTarget& target) const;
+    /// Offers Lock Layout or Unlock Layout as the target is: what a shell asks when another of its dock areas comes on
+    /// screen.
+    void offerFor(const DockTarget& target);
+
+    /// The views of `views` docked in the target's dock area; a view in a floating window is in none.
+    [[nodiscard]] static std::vector<ImageViewControl*> viewsDockedIn(const DockTarget& target,
+                                                                      const std::vector<ImageViewControl*>& views);
 
     /// The views of `views` that share the window `view` is in: the floating window it is in, or, docked, every view
     /// docked in a dock area. `view` among them.

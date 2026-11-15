@@ -20,6 +20,7 @@
 #include <QToolButton>
 #include <QPalette>
 #include <kddockwidgets/Config.h>
+#include <kddockwidgets/MainWindow.h>
 #include <kddockwidgets/qtwidgets/DockWidget.h>
 #include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/core/DockWidget.h>
@@ -181,6 +182,39 @@ void applyDockDecorationsProfile()
         return;
     }
     config.setSeparatorThickness(thickness);
+}
+
+namespace
+{
+
+/// The property a locked dock area carries.
+constexpr char kDockAreaLockedProperty[] = "an.dockAreaLocked";
+
+} // namespace
+
+void setDockAreaLocked(KDDockWidgets::QtWidgets::MainWindow& area, const bool locked)
+{
+    area.setProperty(kDockAreaLockedProperty, locked);
+}
+
+bool layoutChangesLockedAt(const QWidget& widget)
+{
+    if (KDDockWidgets::Config::self().dropIndicatorsInhibited())
+    {
+        return true;
+    }
+    for (const QWidget* holder = &widget; holder != nullptr; holder = holder->parentWidget())
+    {
+        if (dynamic_cast<const KDDockWidgets::QtWidgets::MainWindow*>(holder) != nullptr)
+        {
+            return holder->property(kDockAreaLockedProperty).toBool();
+        }
+        if (holder->isWindow())
+        {
+            break;
+        }
+    }
+    return false;
 }
 
 } // namespace an::ui
@@ -374,11 +408,6 @@ ImageViewControl* getImageViewControl(KDDockWidgets::Core::DockWidget* dockWidge
     }
 
     return dynamic_cast<ImageViewControl*>(dockWidget->widget());
-}
-
-[[nodiscard]] bool layoutChangesLocked()
-{
-    return KDDockWidgets::Config::self().dropIndicatorsInhibited();
 }
 
 void setActiveDockWidgetView(KDDockWidgets::Core::DockWidget* dockWidgetController)
@@ -642,7 +671,7 @@ void AN_TabBar::paintEvent(QPaintEvent* event)
 
 void AN_TabBar::mouseDoubleClickEvent(QMouseEvent* event)
 {
-    if (layoutChangesLocked())
+    if (an::ui::layoutChangesLockedAt(*this))
     {
         event->accept();
     }
@@ -839,7 +868,7 @@ bool AN_TitleBar::event(QEvent* event)
 
 void AN_TitleBar::mouseDoubleClickEvent(QMouseEvent* event)
 {
-    if (layoutChangesLocked())
+    if (an::ui::layoutChangesLockedAt(*this))
     {
         event->accept();
     }
@@ -1159,7 +1188,7 @@ void AN_Stack::styleCornerButtons()
 
 void AN_Stack::mouseDoubleClickEvent(QMouseEvent* event)
 {
-    if (layoutChangesLocked())
+    if (an::ui::layoutChangesLockedAt(*this))
     {
         event->accept();
     }

@@ -148,31 +148,31 @@ capability dock.tabs
     title        Each image is a dock: tabs, reorder, split, close on the tab
     shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, FileOpenTest.FilesAreShownInViewsDockedBesideTheFirst
     classic
-    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory, WorkspacePage.TabMenu
+    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory, WorkspacePage.TabMenu, Workspaces.AViewMovesByTheTabMenuAndEachDockAreaListsItsOwn
 
 capability dock.float
     title        Float, floating windows, groups in them, drop indicators
     shared       ViewControlCoordinatorComponent.ViewControlCoordinator_PromotesDockOnlyWhenAttached
     classic
-    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem
+    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem, Workspaces.ADragShowsTheDockAreaOfAQuietWorkspace
 
 capability dock.tab-buttons
     title        Tab buttons and the tab list
     shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, ViewMenuBuilderTest.TabMenuOffersTheTabsEntriesInOrder
     classic
-    observatory  WorkspacePage.TabMenu
+    observatory  WorkspacePage.TabMenu, Workspaces.AViewMovesByTheTabMenuAndEachDockAreaListsItsOwn
 
 capability dock.group-split-fit
     title        Group All, Split All, Fit All
-    shared       DockLayoutOperationsTest.GroupMakesOneTabGroupAndKeepsTheActiveView, DockLayoutOperationsTest.SplitGivesEachViewAnEqualPane, DockLayoutOperationsTest.FitFitsEachViewSharingTheWindowOfTheView
+    shared       DockLayoutOperationsTest.GroupMakesOneTabGroupAndKeepsTheActiveView, DockLayoutOperationsTest.SplitGivesEachViewAnEqualPane, DockLayoutOperationsTest.FitFitsEachViewSharingTheWindowOfTheView, DockLayoutOperationsTest.AWorkspacesGroupAndSplitTakeItsViewsAlone
     classic      ApplicationMenu.FitImagesToWindowFitsEveryView, ShellScenario.SplitsGroupsAndFitsTwoImages/classic
-    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory
+    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory, Workspaces.GroupSplitAndFitActOnTheWorkspaceOnScreen
 
 capability dock.lock
     title        Lock and Unlock Layout; the default in Settings
-    shared       DockLayoutOperationsTest.LockRefusesADragOfThatMainWindowsWidgetsAndNoOthers, DockLayoutOperationsTest.LockingTheOnlyDockAreaLocksTheWholeLayout, DockLayoutOperationsTest.LockOffersUnlockInPlaceOfLock
+    shared       DockLayoutOperationsTest.LockRefusesADragOfThatMainWindowsWidgetsAndNoOthers, DockLayoutOperationsTest.LockingTheOnlyDockAreaLocksTheWholeLayout, DockLayoutOperationsTest.LockOffersUnlockInPlaceOfLock, DockLayoutOperationsTest.AWorkspacesLockMarksItsDockAreaAlone, Decorations.ADoubleClickIsRefusedInALockedWorkspaceOnly
     classic      ShellScenario.ALockedLayoutRefusesADrag/classic
-    observatory  ShellScenario.ALockedLayoutRefusesADrag/observatory, LayoutIcons.TheLockTogglesItsIconAndRefusesDrags
+    observatory  ShellScenario.ALockedLayoutRefusesADrag/observatory, LayoutIcons.TheLockTogglesItsIconAndRefusesDrags, Workspaces.LockingOneWorkspaceLeavesTheOtherFree
 
 capability dock.maximize
     title        Maximize View (F11)
@@ -190,13 +190,13 @@ capability dock.all-floating
     title        With every image floating, an empty dock area
     shared
     classic
-    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem
+    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem, Workspaces.TheOnlyWorkspaceWithEveryImageFloatingShowsTheFloatingPage
 
 capability dock.no-image
     title        With no image open, the dashboard
     shared       ViewControlCoordinatorComponent.ViewControlCoordinator_DetectsDashboardSwitchCondition, ViewCreationDecisionTest.AStandardViewLeavesTheDashboardForTheDockManager
     classic
-    observatory  ObservatoryWindow.NoViewsShowsHome
+    observatory  ObservatoryWindow.NoViewsShowsHome, Workspaces.WithNoImageHomeIsShown
 
 # ---- View toolbar
 
@@ -342,7 +342,7 @@ capability process.menu
     title        Process menu: sixteen categories
     shared       ProcessRegistryRulesTest.ACategoryListsItsDescriptorsInTheirSortOrder, ProcessMenuModelTest.HoldsTheSixteenCategoriesInTheMenusOrder, ProcessRegistryTest.EveryProcessActionOpensItsProcessWindow
     classic      ApplicationMenu.EveryRegisteredProcessIsAnEntryOfTheWindowsMenus, ProcessRegistry.InventoryMatchesTheRecord, ShellScenario.AProcessWithNoImageSaysWhyItCannotRun/classic
-    observatory  pending
+    observatory  Palette.FindsEveryMenuAction, MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree
 
 capability process.favorites
     title        Favorite Processes, Manage Favorites
@@ -574,7 +574,7 @@ capability keys.existing
     title        Every 1.1 shortcut
     shared       KeyboardActionsTest.ShortcutsAreConfiguredOnMenuActions, MainDashboardInteraction.ToolbarActionsWithShortcutsExposeTooltips, FrameSourceTab.CtrlFFocusesSearch
     classic      ApplicationWindow.ShortcutsMatchTheRecord, ApplicationMenu.UserGuideAnswersF1FromEveryWindowOfTheApplication
-    observatory  pending
+    observatory  ObservatoryWindow.ShortcutsWorkWithTheMenuBarHidden, NewShortcuts.DoNotCollideWithTheRecordedOnes
 
 capability keys.palette
     title        Ctrl+K
@@ -594,19 +594,19 @@ capability new.palette
     title        The command palette
     shared
     classic
-    observatory  pending
+    observatory  Palette.OpensWithCtrlK, Palette.RunsAnActionAndRecordsIt, Palette.AnEmptyQueryListsTheFavouritesFirst, Palette.FindsEveryMenuAction
 
 capability new.readout
     title        The readout column
     shared       ReadoutController.FollowsTheActiveView, ReadoutController.MeasuresOncePerBurstOfChanges, ReadoutController.AdmitsAsAPreviewAndRetriesARefusalAtTheNextChange, ReadoutController.PublishesOnlyACommittingTicket, ReadoutController.NeverCallsTheEngineOnTheGuiThread, StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange, AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut, ReadoutController.RemembersTheFoldsAndTheCollapse, ReadoutColumn.TheFoldsAreALineOfNames, HistogramCard.TheToolsStartAsTheWindowsAndActOnItsWidget
     classic
-    observatory  pending
+    observatory  ObservatoryWindow.OpenImageShowsTheWorkspaceAndTheReadout
 
 capability new.history-strip
     title        The history strip
     shared       HistoryStrip.ChipsForAHistoryOfFive, HistoryStrip.ThePendingChipInBothForms, ViewChromeBinder.RebindsWhenToldAnotherView
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheHistoryStripFollowsTheActiveView
 
 capability new.tasks
     title        Tasks in the rail; float, attach, drag
@@ -616,9 +616,9 @@ capability new.tasks
 
 capability new.workspaces
     title        Several workspaces
-    shared
+    shared       WorkspaceModel.CreatesWorkspacesNamedInOrder, WorkspaceModel.NamesANewWorkspaceByTheLowestNumberFree, WorkspaceModel.RenamesAndRefusesAnEmptyName, WorkspaceModel.ClosesAWorkspaceButNeverTheOnlyOne, WorkspaceModel.TheCurrentOneMovesToItsNeighbourWhenClosed, WorkspaceModel.ReordersAndKeepsTheCurrent, WorkspaceModel.KeepsTheLockAndTheWindowOfEachWorkspace, WorkspaceModel.TellsItsObserversOfEveryChange
     classic
-    observatory  pending
+    observatory  Workspaces.ASecondWorkspaceAppearsInTheRailWithBadges, Workspaces.AViewMovesByTheTabMenuAndEachDockAreaListsItsOwn, Workspaces.AnEmptiedSecondWorkspaceClosesWhenLeftAndItsIconGoes, Workspaces.AWorkspaceInItsOwnWindowKeepsItsViewsToolbarAndRailIconAndReturns, Workspaces.ClosingAWorkspaceAsksForUnsavedImages, Workspaces.RenameNamesTheWorkspaceEverywhere, Workspaces.ANewViewLandsInTheWorkspaceOnScreenOrItsNeighbours
 
 capability new.projects
     title        Projects
@@ -636,7 +636,7 @@ capability new.look
     title        Presets, tint strength, density, Night
     shared       StyleProfile.TheTokensInForceAreTheResolversAnswer, ObservatoryLadder.EachStrengthTakesItsShare, InterfaceTintStrengthSetting.TheGlobalSettingsStoreKeepsTheChoice, ApplicationStart.TheTintStrengthIsReadFromTheSettingsStore
     classic
-    observatory  pending
+    observatory  Night.ToggleRepaintsEverythingRed, TopBar.GeometryByDensity
 
 capability new.change-against-original
     title        The change under each statistic of a task

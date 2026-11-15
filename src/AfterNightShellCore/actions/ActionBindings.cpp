@@ -215,7 +215,6 @@ const ImageOperationBinding kImageOperationBindings[] = {
     {ids::kPlateSolve, &Operations::plateSolve},
     {ids::kAnnotateImage, &Operations::annotateImage},
     {ids::kSummary, &Operations::imageSummary},
-    {ids::kFitImagesToWindow, &Operations::fitImageAllWindows},
 };
 
 /// An action of the mask overlay and what it sets.
@@ -438,6 +437,20 @@ void ActionBindings::connectActions()
     connect(ids::kLockLayout, [this]() { call(m_targets.lockLayout); });
     connect(ids::kUnlockLayout, [this]() { call(m_targets.unlockLayout); });
     connect(ids::kGroupAllImages, [this]() { call(m_targets.groupAll); });
+    connect(ids::kFitImagesToWindow, [this]() {
+        if (m_targets.fitAll)
+        {
+            m_targets.fitAll();
+            return;
+        }
+        if (m_targets.imageOperations)
+        {
+            if (const auto* operations = m_targets.imageOperations())
+            {
+                operations->fitImageAllWindows();
+            }
+        }
+    });
     connect(ids::kSplitAllImages, [this]() { call(m_targets.splitAll); });
 }
 

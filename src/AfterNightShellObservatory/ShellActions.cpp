@@ -84,6 +84,15 @@ const std::vector<ShellActionSpec>& ShellActions::table()
          true},
         {ids::kDensityComfortable, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Comfortable"),
          QKeySequence(), "", true},
+        {ids::kNewWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "New Workspace"), QKeySequence(),
+         "add", false},
+        {ids::kRenameWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Rename Workspace..."),
+         QKeySequence(), "edit", false},
+        {ids::kMoveWorkspaceToNewWindow,
+         QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Move Workspace to New Window"), QKeySequence(),
+         "open_in_new", false},
+        {ids::kCloseWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Workspace"),
+         QKeySequence(), "close", false},
     };
     return kTable;
 }

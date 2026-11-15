@@ -8,6 +8,7 @@
 #include "DockingTestSupport.h"
 
 #include "controls/DockDropIndicators.h"
+#include "controls/KDDockWidgetsHelper.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 #include "theme/KddwProxyStyle.h"
@@ -16,6 +17,8 @@
 #include <QAbstractButton>
 #include <QStackedWidget>
 #include <QTabBar>
+#include <QApplication>
+#include <QMouseEvent>
 
 #include <cstdint>
 
@@ -220,6 +223,68 @@ TEST_F(Decorations, ClassicUnchanged)
 
     EXPECT_EQ(an::ui::testing::observatoryDockPaints(), dockPaints) << "no Observatory painter of the decorations ran";
     EXPECT_EQ(an::ui::testing::observatoryPaints(), stylePaints) << "no Observatory painter of the style ran";
+}
+
+// A double click on a tab floats its view unless the dock area the tab is in is locked: a workspace's lock refuses it
+// in that workspace alone, and the whole layout's lock - the indicators inhibited - everywhere.
+TEST_F(Decorations, ADoubleClickIsRefusedInALockedWorkspaceOnly)
+{
+    const auto workspaces = makeWorkspaceStack();
+    const auto dockTwo = [this](MainWindow* workspace, const QString& name) {
+        auto* view = makeView(name);
+        auto* tab = makeView(name + QStringLiteral(".tab"));
+        workspace->addDockWidget(view, KDDockWidgets::Location_OnLeft);
+        view->addDockWidgetAsTab(tab);
+        return tab;
+    };
+    DockWidget* const lockedTab = dockTwo(workspaces.first, QStringLiteral("locked"));
+    DockWidget* const freeTab = dockTwo(workspaces.second, QStringLiteral("free"));
+    settle();
+    // Double-clicks the tab of a dock widget where a person does, its workspace on screen.
+    const auto doubleClick = [&workspaces](MainWindow* workspace, DockWidget* tab) {
+        workspaces.show(workspace);
+        for (AN_TabBar* bar : workspace->findChildren<AN_TabBar*>())
+        {
+            for (int index = 0; index < bar->count(); ++index)
+            {
+                if (bar->isVisible() && bar->tabText(index) == tab->title())
+                {
+                    // What a double click delivers: a press, a release, the double click and its release.
+                    const QPoint at = bar->tabRect(index).center();
+                    for (const QEvent::Type type : {QEvent::MouseButtonPress, QEvent::MouseButtonRelease,
+                                                    QEvent::MouseButtonDblClick, QEvent::MouseButtonRelease})
+                    {
+                        const bool release = type == QEvent::MouseButtonRelease;
+                        QMouseEvent event(type, QPointF(at), QPointF(bar->mapToGlobal(at)), Qt::LeftButton,
+                                          release ? Qt::NoButton : Qt::LeftButton, Qt::NoModifier);
+                        QApplication::sendEvent(bar, &event);
+                    }
+                    settle();
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    an::ui::setDockAreaLocked(*workspaces.first, true);
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*lockedTab));
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*freeTab));
+    ASSERT_TRUE(doubleClick(workspaces.first, lockedTab));
+    EXPECT_FALSE(lockedTab->isFloating()) << "a double click floated a view of a locked workspace";
+    ASSERT_TRUE(doubleClick(workspaces.second, freeTab));
+    EXPECT_TRUE(freeTab->isFloating()) << "a double click did not float a view of a free workspace";
+    an::ui::setDockAreaLocked(*workspaces.first, false);
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*lockedTab));
+    EXPECT_FALSE(an::ui::layoutChangesLockedAt(*freeTab)) << "a floating window belongs to no dock area";
+
+    // The whole layout locked, no double click floats a view anywhere.
+    KDDockWidgets::Config::self().setDropIndicatorsInhibited(true);
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*lockedTab));
+    EXPECT_TRUE(an::ui::layoutChangesLockedAt(*freeTab));
+    ASSERT_TRUE(doubleClick(workspaces.first, lockedTab));
+    EXPECT_FALSE(lockedTab->isFloating());
+    KDDockWidgets::Config::self().setDropIndicatorsInhibited(false);
 }
 
 } // namespace an::tests::docking

@@ -286,7 +286,8 @@ the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBi
 tab's menus), `commands/` (`CommandIndex`, every command the palette searches, with no widget, and its
 providers), `readout/ReadoutController` (what the readout column and a task's compact readout show, measured on the
 thread pool as a preview that never waits, never on the GUI thread), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
-`views/DockLayoutOperations` (group, split, fit, lock), `views/ViewChromeBinder` (a floating toolbar and a history strip
+`views/DockLayoutOperations` (group, split, fit, lock, on a workspace or the only dock area), `views/WorkspaceModel`
+(a shell's workspaces, no widget), `views/ViewChromeBinder` (a floating toolbar and a history strip
 bound to a view whose toolbar is outside it), `services/WindowGeometryStore` and `services/FileDropHandler` -
 and the receiver of the work threads
 hand the GUI thread (`core/ApplicationEvents.h`); a unit of Controls is handed the actions as an `ActionLookup`
@@ -313,7 +314,8 @@ another, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachE
 
 The Observatory shell, `namespace an::ui::observatory`, drawn in the Observatory style profile: `ObservatoryWindow`
 (QMainWindow) of regions sized from the density's metrics - `chrome/TopBar`, the rail (`AnIconRail`), the centre's
-pages (`pages/HomePage`, the dashboard; `pages/WorkspacePage` over the dock area `workspaces/WorkspaceHost` makes), the
+pages (`pages/HomePage`, the dashboard; a `pages/WorkspacePage` each over the dock areas of the workspaces
+`workspaces/WorkspaceHost` makes), the
 column and `chrome/StatusLine` - implementing `IViewHost` and `IStatusDisplay`; `ObservatoryShell` behind `IShell`, and
 `observatoryShellDescriptor()` how the application registers it (`observatory`; `--shell=observatory`). The rail selects
 the places, the readout column follows the active view (`ReadoutController`), the status line writes the classic texts

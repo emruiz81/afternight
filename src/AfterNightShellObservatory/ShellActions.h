@@ -35,6 +35,10 @@ inline constexpr std::string_view kToggleReadout = "actionToggle_Readout";
 inline constexpr std::string_view kToggleNight = "actionToggle_Night";
 inline constexpr std::string_view kDensityCompact = "actionDensity_Compact";
 inline constexpr std::string_view kDensityComfortable = "actionDensity_Comfortable";
+inline constexpr std::string_view kNewWorkspace = "actionNew_Workspace";
+inline constexpr std::string_view kRenameWorkspace = "actionRename_Workspace";
+inline constexpr std::string_view kMoveWorkspaceToNewWindow = "actionMove_Workspace_To_New_Window";
+inline constexpr std::string_view kCloseWorkspace = "actionClose_Workspace";
 } // namespace ids
 
 /// One action of the shell's table.
@@ -48,14 +52,15 @@ struct ShellActionSpec
     bool checkable;
 };
 
-/// The shell's own actions: Home, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`) and the two
-/// densities, which are exclusive. They are children of the window and its own, so their shortcuts work wherever the
-/// focus is in it; the window connects what each does. The classic shell holds none of them, so its records of the
-/// actions, the menus and the shortcuts stay as they are.
+/// The shell's own actions: Home, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`), the two
+/// densities, which are exclusive, and the workspace's: New Workspace, Rename Workspace..., Move Workspace to New
+/// Window and Close Workspace. They are children of the window and its own, so their shortcuts work wherever the focus
+/// is in it; the window connects what each does. The classic shell holds none of them, so its records of the actions,
+/// the menus and the shortcuts stay as they are.
 class AFTERNIGHTSHELLOBSERVATORY_API ShellActions final
 {
 public:
-    /// The table, in the order the View menu lists them.
+    /// The table: the View menu's in its order, then the Window menu's.
     [[nodiscard]] static const std::vector<ShellActionSpec>& table();
 
     /// Makes the table's actions as children of `window`, and adds them to it.

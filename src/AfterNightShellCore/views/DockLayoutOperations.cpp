@@ -9,6 +9,8 @@
 #include "views/DockHooks.h"
 #include "views/ViewService.h"
 
+#include "controls/KDDockWidgetsHelper.h"
+
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
 
@@ -384,9 +386,20 @@ struct DockLayoutOperations::Impl
         }
     }
 
+    /// The views a target's operation takes: a workspace's own, or every listed view in a shell's only dock area.
+    [[nodiscard]] std::vector<ImageViewControl*> viewsOf(const DockTarget& target) const
+    {
+        return target.workspaceId.isEmpty() ? listedViews()
+                                            : DockLayoutOperations::viewsDockedIn(target, listedViews());
+    }
+
     void lift(std::vector<Lock>::iterator lock)
     {
         const bool wholeLayout = lock->wholeLayout;
+        if (!lock->mainWindow.isNull())
+        {
+            an::ui::setDockAreaLocked(*lock->mainWindow, false);
+        }
         locks.erase(lock);
         if (wholeLayout &&
             std::none_of(locks.begin(), locks.end(), [](const Lock& other) { return other.wholeLayout; }))
@@ -413,7 +426,7 @@ void DockLayoutOperations::groupAll(const DockTarget& target)
         return;
     }
     ImageViewControl* const active = m_impl->activeView();
-    const QList<DockWidget*> docks = dockWidgetsOf(m_impl->listedViews());
+    const QList<DockWidget*> docks = dockWidgetsOf(m_impl->viewsOf(target));
     if (docks.empty())
     {
         return;
@@ -434,12 +447,27 @@ void DockLayoutOperations::splitAllEqually(const DockTarget& target)
         return;
     }
     ImageViewControl* const active = m_impl->activeView();
-    const QList<DockWidget*> docks = dockWidgetsOf(m_impl->listedViews());
+    const QList<DockWidget*> docks = dockWidgetsOf(m_impl->viewsOf(target));
     if (!docks.empty())
     {
         placeInEqualShares(target.mainWindow, docks);
     }
     m_impl->activate(active);
+}
+
+void DockLayoutOperations::fitAllToWindow(const DockTarget& target)
+{
+    if (target.mainWindow == nullptr)
+    {
+        return;
+    }
+    for (ImageViewControl* const view : m_impl->viewsOf(target))
+    {
+        if (view != nullptr)
+        {
+            view->fitToWindow();
+        }
+    }
 }
 
 void DockLayoutOperations::groupAll(ImageViewControl& view)
@@ -501,6 +529,8 @@ void DockLayoutOperations::lock(const DockTarget& target)
 
     m_impl->locks.push_back(
         Lock{.mainWindow = guarded, .wholeLayout = wholeLayout, .refusals = DockHooks::subscribe(std::move(refusals))});
+    // The decorations refuse a double click in the locked dock area, and only there.
+    an::ui::setDockAreaLocked(*locked, true);
     if (wholeLayout)
     {
         DockHooks::setDropIndicatorsInhibited(true);
@@ -521,6 +551,32 @@ void DockLayoutOperations::unlock(const DockTarget& target)
 bool DockLayoutOperations::isLocked(const DockTarget& target) const
 {
     return target.mainWindow != nullptr && m_impl->lockOf(target.mainWindow) != m_impl->locks.end();
+}
+
+void DockLayoutOperations::offerFor(const DockTarget& target)
+{
+    m_impl->offerTheOtherOf(isLocked(target));
+}
+
+std::vector<ImageViewControl*> DockLayoutOperations::viewsDockedIn(const DockTarget& target,
+                                                                   const std::vector<ImageViewControl*>& views)
+{
+    std::vector<ImageViewControl*> docked;
+    if (target.mainWindow == nullptr)
+    {
+        return docked;
+    }
+    const KDDockWidgets::Core::MainWindow* const area = target.mainWindow->mainWindow();
+    for (ImageViewControl* const view : views)
+    {
+        // The library finds a dock widget's main window among its parents, short of a window of its own.
+        if (view != nullptr && view->getDockWidget() != nullptr &&
+            view->getDockWidget()->dockWidget()->mainWindow() == area)
+        {
+            docked.push_back(view);
+        }
+    }
+    return docked;
 }
 
 std::list<ImageViewControl*> DockLayoutOperations::viewsSharingTheWindowOf(ImageViewControl& view,

@@ -1491,11 +1491,19 @@ and the dispatcher installed as the three hooks answers for any number of subscr
 when every subscriber allows it, the end of a drag told to each with the main window and the dock widget the drag that
 ended named, which the library does not say. `DockLayoutOperations` acts on a dock area the shell names (`DockTarget`)
 or on the window a view is in: it gathers the views into one tab group, splits them into a grid of equal shares, fits
-them to their windows, and locks the arrangement. A lock is a subscriber: it refuses a drag out of the locked main window
-and an indicator into it, and nothing of another; the lock of a shell's only dock area (a target with no workspace) is
-the whole layout's, as the classic window's lock always was - a floating window's drag refused too, and the indicators
-inhibited, which the decorations read to keep a double click from floating or docking a view. The lock offers Unlock
-Layout in place of Lock Layout. `services/WindowGeometryStore` keeps where the main window was in the interface
+them to their windows, and locks the arrangement. A workspace's target (one that names a workspace) takes the views
+docked in its dock area alone (`viewsDockedIn`: a view in a floating window is in none); a shell's only dock area (a
+target with no workspace) takes every listed view, as 1.1's Window menu did. A lock is a subscriber: it refuses a drag
+out of the locked main window and an indicator into it, and nothing of another, and marks the dock area locked
+(`setDockAreaLocked`, Controls' `KDDockWidgetsHelper.h`); the decorations ask `layoutChangesLockedAt` of the tab, the
+title bar or the strip a double click lands on - the whole layout locked, or the dock area it is in - so a double click
+floats nothing in a locked workspace and floats in a free one. The lock of a shell's only dock area is the whole
+layout's, as the classic window's lock always was: a floating window's drag refused too, and the indicators inhibited.
+The lock offers Unlock Layout in place of Lock Layout, and `offerFor` offers what another dock area is when it comes on
+screen. Fit Images To Window takes the shell's target when the shell gives one (`ActionBindings::Targets::fitAll`);
+the classic shell gives none and fits every image. `views/WorkspaceModel` is a shell's workspaces with no widget: their
+names ("Workspace N", the lowest number free) and order, the current one, each one's lock and whether it is in a window
+of its own; the only one never closes, and the observers hear every change. `services/WindowGeometryStore` keeps where the main window was in the interface
 settings and shows it there - when the person asked for it, at the saved place if that place is on a screen there is
 now, never smaller than the window's minimum, and maximized otherwise - and `services/FileDropHandler` takes a drag
 carrying an image or a sequence and hands every local file a drop carries to the opener the shell names.
@@ -1615,13 +1623,17 @@ metrics: the top bar across the window (`chrome/TopBar`, `MetricTokens::barTop`)
 (`AnIconRail`, `MetricTokens::rail`), the centre - a stack of one page per place, each kept alive while another is
 shown, so changing place computes nothing - the column right of the centre, and the status line along the bottom right
 of the rail (`chrome/StatusLine`, `MetricTokens::statusLine`). Home is `pages/HomePage`, today's dashboard in a page
-that scrolls; the workspace is `pages/WorkspacePage` over the dock area `workspaces/WorkspaceHost` makes. The dock
-area is a main window of the dock library made with the shell's window as its parent and handed to its page (made under
-the page it would stay a window of its own), drawn by the decorations' factory and `KddwProxyStyle`, and joined to the
-dock library's hooks through `DockHooks`; while it is the only one its target names no workspace, so its lock is the
-whole layout's, as the classic window's is. A view is docked there beside its neighbour or on the right; maximized, it
-covers the workspace's page while its dock keeps a stand-in, the layout locked while it is unless the person had locked
-it already. With no image open the window shows Home, and the workspace once one is. Processes open as windows of their own:
+that scrolls; the workspaces' place is a stack of their pages (`WorkspaceHost::stack`), each a `pages/WorkspacePage`
+over the dock area `workspaces/WorkspaceHost` makes for it. A dock area is a main window of the dock library, named
+`an.workspace.<id>`, made with the shell's window as its parent and handed to its page (made under the page it would
+stay a window of its own), drawn by the decorations' factory and a `KddwProxyStyle` of its own, and joined to the dock
+library's hooks through `DockHooks`; its target names its workspace, so its lock is its own. Before any workspace the
+host makes the two anchors, main windows inside the shell's window that are never shown - made plain child widgets, as a
+library main window is a window of its own until a layout takes it: `an.anchor.images`, with no affinity, which the
+library parents a floating image to, and `an.anchor.tasks`, with `an.task` and `an.console`, which the console's window
+is parented to. A view is docked beside its neighbour, in the neighbour's workspace, or on the right of the workspace on
+screen; maximized, it covers its workspace's page while its dock keeps a stand-in, the layout locked while it is unless
+the person had locked it already. With no image open the window shows Home, and the workspace once one is. Processes open as windows of their own:
 the shell has no process presenter yet.
 
 The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
@@ -1674,6 +1686,22 @@ the index through a provider the window adds and takes back (`CommandIndex::remo
 tokens' Night and applies the theme again, the densities store `interface/density` and apply it. `Ctrl+W` is set on the
 catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table and the classic
 shell keep 1.1's shortcuts.
+
+Several workspaces are the host's `WorkspaceModel` (ShellCore). The rail lists Home, a workspace each - the digit of its
+place on each while there are several, the window glyph on one in a window of its own - and Integration; a workspace's
+icon shows it, and its menu (a right click, or a press held) holds New Workspace, Rename..., Move to New Window, Group
+All Images, Split All Images, Fit All Images to Window, Lock Layout and Close Workspace, acting on that workspace. The
+shell's own actions add New Workspace, Rename Workspace..., Move Workspace to New Window and Close Workspace to the
+Window menu and the palette, acting on the current workspace - the one on screen, or the one in the active window of its
+own. A workspace with no docked view shows its quiet page: the only one lists the floating images, any other says it is
+empty (`FloatingImagesPage`); a drag about to start shows a quiet workspace's dock area so the drag can land there. A
+workspace left with no docked view closes, unless it is the only one; New Workspace adds "Workspace N" and shows it. The
+tab's menu adds Move to Workspace after Float - the other workspaces, a separator, New Workspace - and the person
+follows the view. Rename asks for the name in `workspaces/RenameWorkspaceDialog`. Move to New Window shows the workspace
+in `workspaces/WorkspaceWindow`, titled with its name, a header of layout icons over its page; activated, it makes its
+workspace current; closed, it asks whether to return the workspace or close its images. Close Workspace closes its
+images as Close does, each asked about as Close asks; one kept keeps the workspace. Each workspace's chrome binds its
+own active view, and Lock Layout and Unlock Layout are offered as the workspace on screen is.
 
 The Session Console is the window's drawer (`chrome/ConsoleDrawer`), between the centre and the status line and spanning
 the centre and the column, on every place: it is no dock of a workspace, so opening it changes no place. It holds 1.1's

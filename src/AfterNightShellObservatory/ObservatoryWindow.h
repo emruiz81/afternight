@@ -10,6 +10,7 @@
 #include "AfterNightShellObservatoryExport.h"
 
 #include "core/IShell.h"
+#include "views/WorkspaceModel.h"
 
 #include <QMainWindow>
 #include <QString>
@@ -44,6 +45,7 @@ namespace an::ui::observatory
 
 class ConsoleDrawer;
 class FloatingImagesPage;
+class WorkspaceWindow;
 class FloatingViewChrome;
 class HomePage;
 class MenuBarOnAlt;
@@ -108,9 +110,20 @@ public:
     static constexpr char kRailConsole[] = "console";
     static constexpr char kRailSettings[] = "settings";
 
+    /// The rail's item of a workspace.
+    [[nodiscard]] static QString railWorkspaceId(const QString& workspaceId);
+
     [[nodiscard]] HomePage* homePage() const noexcept;
+    /// The page of the workspace the centre shows, or would show.
     [[nodiscard]] WorkspacePage* workspacePage() const noexcept;
     [[nodiscard]] WorkspaceHost& workspaces() noexcept;
+    /// The window of a workspace moved to one of its own; null while it is in this window.
+    [[nodiscard]] WorkspaceWindow* workspaceWindow(const QString& workspaceId) const;
+    /// The workspace icon's menu: New Workspace, Rename..., Move to New Window, Group All Images, Split All Images,
+    /// Fit All Images to Window, Lock Layout and Close Workspace, acting on that workspace.
+    void buildWorkspaceMenu(QMenu& menu, const QString& workspaceId);
+    /// The tab's menu of a view: the shell core's, with Move to Workspace after Float.
+    void buildTabMenu(QMenu& menu, ImageViewControl& view);
     /// The layout icons in the top bar, shown while the workspace is.
     [[nodiscard]] WorkspaceToolbar* layoutIcons() const noexcept;
     /// The small toolbars of the images that float in windows of their own.
@@ -173,6 +186,7 @@ protected:
     void closeEvent(QCloseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    void changeEvent(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -208,8 +222,28 @@ private:
     void refreshViewSelector();
     void showViewMenu(ImageViewControl& view, const QPoint& globalPos);
     bool showTabMenu(QWidget& tabBar, const QPoint& position, const QPoint& globalPos);
-    void dockIntoWorkspace(ImageViewControl& view);
+    /// Docks a view into a workspace, the current one for none named.
+    void dockIntoWorkspace(ImageViewControl& view, const QString& workspaceId = {});
+    /// What each workspace's page shows: its dock area, or its quiet page; and which view its chrome shows.
     void updateWorkspacePage();
+    [[nodiscard]] WorkspacePage* makeWorkspacePage(const QString& id, KDDockWidgets::QtWidgets::MainWindow& dockArea);
+    [[nodiscard]] WorkspacePage* pageOf(ImageViewControl& view) const;
+    void workspacesChanged(an::ui::shell::WorkspaceModel::Change change, const QString& id);
+    /// Closes every workspace but one that has no docked view and that the person left.
+    void closeLeftEmptyWorkspaces();
+    void showDockAreasForADrag();
+    void showWorkspace(const QString& id);
+    void newWorkspace();
+    void renameWorkspace(const QString& id);
+    void moveWorkspaceToNewWindow(const QString& id);
+    void returnWorkspace(const QString& id);
+    void closeWorkspace(const QString& id);
+    /// Closes the views docked in a workspace as Close closes each, asked about unsaved changes as it is; true when
+    /// none is left.
+    bool closeViewsOf(const QString& id);
+    void lockWorkspace(const QString& id, bool locked);
+    void moveViewToWorkspace(ImageViewControl& view, const QString& id);
+    void updateWorkspaceActions();
     void offerTheLock(bool maximized);
     void lockLayout(bool locked);
     void buildTopBarTrailing();

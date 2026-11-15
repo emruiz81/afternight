@@ -41,7 +41,8 @@ class QPaintEvent;
 namespace KDDockWidgets::QtWidgets
 {
 class DockWidget;
-}
+class MainWindow;
+} // namespace KDDockWidgets::QtWidgets
 
 namespace an::ui
 {
@@ -71,6 +72,15 @@ tabAdornment(const KDDockWidgets::QtWidgets::DockWidget* dockWidget);
 /// under the Observatory profile. The library takes it only while no dock widget or main window exists, so the
 /// application gives it once the profile is set and before the shell makes a window.
 AFTERNIGHTCONTROLS_API void applyDockDecorationsProfile();
+
+/// Marks a dock area locked, or free again. The decorations refuse a double click that would float or dock a view in a
+/// locked one, as they do everywhere while the whole layout is locked (the dock library's drop indicators inhibited).
+AFTERNIGHTCONTROLS_API void setDockAreaLocked(KDDockWidgets::QtWidgets::MainWindow& area, bool locked);
+
+/// Whether the arrangement is not the person's to change where `widget` is: the whole layout is locked, or the dock
+/// area `widget` is in - its first parent that is one, short of a window of its own - is marked locked. A floating
+/// window belongs to no dock area, though the library parents it to one.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool layoutChangesLockedAt(const QWidget& widget);
 
 } // namespace an::ui
 

@@ -64,6 +64,9 @@ public:
         std::function<void()> unlockLayout;
         std::function<void()> groupAll;
         std::function<void()> splitAll;
+        /// Fit Images To Window: a shell with several dock areas fits the views of the one on screen; with none given,
+        /// every image is fitted, as 1.1 did.
+        std::function<void()> fitAll;
     };
 
     /// @param signalContext what the connections live as long as: the actions stop reaching their targets when it goes.

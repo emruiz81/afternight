@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// What the only workspace shows while every image it holds floats in a window of its own.
+/// What a workspace shows with no image docked in it: the images floating in windows of their own, or nothing.
 
 #include "AfterNightShellObservatoryExport.h"
 
@@ -21,9 +21,10 @@ class QVBoxLayout;
 namespace an::ui::observatory
 {
 
-/// The page of a workspace whose images all float: "The images of this workspace are floating", a row per floating
-/// image - a small picture of it, its full name and `Dock here` - then `Dock all here`, "or drag a window back here"
-/// and `Open file...`, centred.
+/// The quiet page of a workspace with no docked image, centred. While images float: "The images of this workspace are
+/// floating", a row per floating image - a small picture of it, its full name and `Dock here` - then `Dock all here`,
+/// "or drag a window back here" and `Open file...`. With none listed: "This workspace is empty", `Open file...` and "or
+/// drag an image here".
 class AFTERNIGHTSHELLOBSERVATORY_API FloatingImagesPage final : public QWidget
 {
 public:
@@ -40,8 +41,11 @@ public:
 
     explicit FloatingImagesPage(Dependencies dependencies, QWidget* parent = nullptr);
 
-    /// Lists the floating images, a row each, in the order given.
+    /// Lists the floating images, a row each, in the order given; with none, the page says the workspace is empty.
     void setViews(const std::vector<ImageViewControl*>& views);
+    /// What the page says at its top, and under its rows.
+    [[nodiscard]] QString title() const;
+    [[nodiscard]] QString hint() const;
     [[nodiscard]] const std::vector<ImageViewControl*>& views() const noexcept;
 
     /// The `Dock here` of a listed image; null when it is not listed.
@@ -54,6 +58,8 @@ public:
 private:
     Dependencies m_dependencies;
     QVBoxLayout* m_rows = nullptr;
+    QLabel* m_title = nullptr;
+    QLabel* m_hint = nullptr;
     QPushButton* m_dockAll = nullptr;
     QPushButton* m_openFile = nullptr;
     std::vector<ImageViewControl*> m_views;

@@ -78,8 +78,10 @@ TEST_F(ObservatoryWindow, Regions)
                                          an::ui::observatory::ObservatoryWindow::kMinimumHeight));
     EXPECT_EQ(shown.minimumSize(), QSize(1024, 640));
 
+    // The centre's pages: Home, and the workspaces' place, a stack of the workspaces' pages.
     ASSERT_NE(shown.centre()->indexOf(shown.homePage()), -1);
-    ASSERT_NE(shown.centre()->indexOf(shown.workspacePage()), -1);
+    ASSERT_NE(shown.centre()->indexOf(shown.workspaces().stack()), -1);
+    EXPECT_NE(shown.workspaces().stack()->indexOf(shown.workspacePage()), -1);
     EXPECT_EQ(shown.centre()->count(), 2);
 
     // The suite draws the shell in the profile it names, whose two densities size the bars differently.

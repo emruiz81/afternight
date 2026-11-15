@@ -31,10 +31,10 @@ FloatingImagesPage::FloatingImagesPage(Dependencies dependencies, QWidget* paren
     outer->addLayout(column);
     outer->addStretch(1);
 
-    auto* title = new QLabel(tr("The images of this workspace are floating"), this);
-    title->setObjectName(QStringLiteral("floatingImagesTitle"));
-    title->setAlignment(Qt::AlignHCenter);
-    column->addWidget(title);
+    m_title = new QLabel(this);
+    m_title->setObjectName(QStringLiteral("floatingImagesTitle"));
+    m_title->setAlignment(Qt::AlignHCenter);
+    column->addWidget(m_title);
 
     m_rows = new QVBoxLayout();
     m_rows->setSpacing(an::ui::parts::kTopBarGap);
@@ -50,9 +50,9 @@ FloatingImagesPage::FloatingImagesPage(Dependencies dependencies, QWidget* paren
     });
     column->addWidget(m_dockAll, 0, Qt::AlignHCenter);
 
-    auto* hint = new QLabel(tr("or drag a window back here"), this);
-    hint->setAlignment(Qt::AlignHCenter);
-    column->addWidget(hint);
+    m_hint = new QLabel(this);
+    m_hint->setAlignment(Qt::AlignHCenter);
+    column->addWidget(m_hint);
 
     m_openFile = new QPushButton(tr("Open file..."), this);
     m_openFile->setObjectName(QStringLiteral("floatingImagesOpenFileButton"));
@@ -63,6 +63,7 @@ FloatingImagesPage::FloatingImagesPage(Dependencies dependencies, QWidget* paren
         }
     });
     column->addWidget(m_openFile, 0, Qt::AlignHCenter);
+    setViews({});
 }
 
 void FloatingImagesPage::setViews(const std::vector<ImageViewControl*>& views)
@@ -82,6 +83,11 @@ void FloatingImagesPage::setViews(const std::vector<ImageViewControl*>& views)
     m_views = views;
     m_dockHere.clear();
     m_names.clear();
+    // Floating images are listed to be docked here; with none the workspace is empty, and an image is dragged here.
+    const bool floating = !m_views.empty();
+    m_title->setText(floating ? tr("The images of this workspace are floating") : tr("This workspace is empty"));
+    m_hint->setText(floating ? tr("or drag a window back here") : tr("or drag an image here"));
+    m_dockAll->setVisible(floating);
     for (ImageViewControl* view : m_views)
     {
         auto* row = new QHBoxLayout();
@@ -131,6 +137,16 @@ QPushButton* FloatingImagesPage::dockHereButton(const ImageViewControl* view) co
         }
     }
     return nullptr;
+}
+
+QString FloatingImagesPage::title() const
+{
+    return m_title->text();
+}
+
+QString FloatingImagesPage::hint() const
+{
+    return m_hint->text();
 }
 
 QPushButton* FloatingImagesPage::dockAllButton() const noexcept

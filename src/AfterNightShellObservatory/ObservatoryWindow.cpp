@@ -15,8 +15,10 @@
 #include "pages/HomePage.h"
 #include "pages/WorkspacePage.h"
 #include "workspaces/FloatingViewChrome.h"
+#include "workspaces/RenameWorkspaceDialog.h"
 #include "workspaces/WorkspaceHost.h"
 #include "workspaces/WorkspaceToolbar.h"
+#include "workspaces/WorkspaceWindow.h"
 
 #include "actions/ActionBindings.h"
 #include "actions/ActionCatalogue.h"
@@ -103,6 +105,7 @@
 #include <QVBoxLayout>
 
 #include <functional>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -180,8 +183,12 @@ struct ObservatoryWindow::Impl
     StatusLine* statusLine = nullptr;
     MenuBarOnAlt* menuBar = nullptr;
     HomePage* homePage = nullptr;
-    WorkspacePage* workspacePage = nullptr;
-    FloatingImagesPage* floatingImages = nullptr;
+    // The view's menu, which the More of every workspace page's toolbar opens.
+    an::ui::shell::ViewChromeBinder::MenuFiller viewMenuFiller;
+    // The workspaces moved to windows of their own, by their ids, and what the window hears of the workspaces.
+    std::map<QString, QPointer<WorkspaceWindow>> workspaceWindows;
+    std::size_t workspaceSubscription = 0;
+    bool closingWorkspaces = false;
     WorkspaceToolbar* layoutIcons = nullptr;
     FloatingViewChrome* floatingChrome = nullptr;
     std::unique_ptr<WorkspaceHost> workspaces;
@@ -341,6 +348,25 @@ ObservatoryWindow::~ObservatoryWindow()
     // The Session Console goes while the window's state is still there, its window of its own with it.
     delete impl.consoleDrawer;
     impl.consoleDrawer = nullptr;
+    // The workspaces in windows of their own come back: their pages go with this window.
+    if (impl.workspaces)
+    {
+        impl.workspaces->model().unsubscribe(impl.workspaceSubscription);
+        for (auto& [id, holder] : impl.workspaceWindows)
+        {
+            if (holder.isNull())
+            {
+                continue;
+            }
+            if (holder->takePage() != nullptr)
+            {
+                impl.workspaces->attach(id);
+            }
+            holder->closeWithoutAsking();
+            delete holder.data();
+        }
+        impl.workspaceWindows.clear();
+    }
     core.extensions().cancelBackgroundWork();
     core.extensions().stopSessions();
 
@@ -463,33 +489,28 @@ void ObservatoryWindow::buildRegions()
     impl.dashboard = impl.homePage->dashboard();
     impl.centre->addWidget(impl.homePage);
 
-    // The workspace: its dock area, made with this window as its parent and handed to its page.
-    WorkspaceHost::Hooks workspaceHooks;
-    workspaceHooks.arrangementChanged = [this]() { arrangementChanged(); };
-    impl.workspaces = std::make_unique<WorkspaceHost>(*this, std::move(workspaceHooks));
-    impl.dockArea = impl.workspaces->mainWindow();
-    FloatingImagesPage::Dependencies floatingDeps;
-    floatingDeps.dockHere = [this](ImageViewControl& view) { dockIntoWorkspace(view); };
-    floatingDeps.dockAll = [this]() {
-        for (ImageViewControl* view : m_impl->floatingImages->views())
-        {
-            dockIntoWorkspace(*view);
-        }
-    };
-    floatingDeps.openFile = [this]() { openFile(); };
-    impl.floatingImages = new FloatingImagesPage(std::move(floatingDeps));
-    impl.workspacePage = new WorkspacePage(*impl.dockArea, *impl.floatingImages, impl.centre);
-    impl.centre->addWidget(impl.workspacePage);
-
     // The view's menu fills the toolbars' More: the menus it shares are the menu bar's.
-    const an::ui::shell::ViewChromeBinder::MenuFiller viewMenu = [this](QMenu& menu, ImageViewControl& view) {
+    impl.viewMenuFiller = [this](QMenu& menu, ImageViewControl& view) {
         an::ui::shell::ViewMenuBuilder(m_impl->core).buildViewMenu(menu, view, [this](std::string_view menuId) {
             return m_impl->menuBar->menu(menuId);
         });
     };
-    impl.workspacePage->binder().setMenuFiller(viewMenu);
+    // The workspaces: a dock area each, made with this window as its parent and handed to the page made for it, on
+    // the stack that is the workspaces' place.
+    WorkspaceHost::Hooks workspaceHooks;
+    workspaceHooks.arrangementChanged = [this]() { arrangementChanged(); };
+    workspaceHooks.dragStarting = [this]() { showDockAreasForADrag(); };
+    workspaceHooks.makePage = [this](const QString& id, KDDockWidgets::QtWidgets::MainWindow& dockArea) {
+        return makeWorkspacePage(id, dockArea);
+    };
+    impl.workspaces = std::make_unique<WorkspaceHost>(*this, std::move(workspaceHooks));
+    impl.dockArea = impl.workspaces->mainWindow();
+    impl.centre->addWidget(impl.workspaces->stack());
+    impl.workspaceSubscription =
+        impl.workspaces->model().subscribe([this](const an::ui::shell::WorkspaceModel::Change change,
+                                                  const QString& id) { workspacesChanged(change, id); });
     impl.floatingChrome = new FloatingViewChrome(this);
-    impl.floatingChrome->setMenuFiller(viewMenu);
+    impl.floatingChrome->setMenuFiller(impl.viewMenuFiller);
 
     // The layout icons sit at the right of the top bar while a workspace is shown.
     WorkspaceToolbar::Dependencies iconDeps;
@@ -547,29 +568,21 @@ void ObservatoryWindow::buildRegions()
     impl.readout = std::make_unique<an::ui::shell::ReadoutController>(impl.core);
     impl.readout->setColumn(impl.readoutColumn);
 
-    // The rail: the places, and at its foot the Session Console and Settings.
-    std::vector<an::ui::RailItem> items;
-    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailHome),
-                                     .section = an::ui::RailSection::Place,
-                                     .iconKey = QStringLiteral("home"),
-                                     .text = tr("Home")});
-    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailWorkspace),
-                                     .section = an::ui::RailSection::Place,
-                                     .iconKey = QStringLiteral("images"),
-                                     .text = impl.workspaces->workspaceName()});
-    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailIntegration),
-                                     .section = an::ui::RailSection::Place,
-                                     .iconKey = QStringLiteral("layers"),
-                                     .text = tr("Integration")});
-    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailConsole),
-                                     .section = an::ui::RailSection::Foot,
-                                     .iconKey = QStringLiteral("terminal"),
-                                     .text = tr("Session Console")});
-    items.push_back(an::ui::RailItem{.id = QString::fromLatin1(kRailSettings),
-                                     .section = an::ui::RailSection::Foot,
-                                     .iconKey = QStringLiteral("settings"),
-                                     .text = tr("Settings")});
-    impl.rail->setItems(items);
+    // The rail: the places - Home, a workspace each, Integration - and at its foot the Session Console and Settings;
+    // a workspace's icon opens its menu.
+    QObject::connect(impl.rail, &an::ui::AnIconRail::itemMenuRequested, this,
+                     [this](const QString& id, const QPoint& globalPos) {
+                         const QString prefix = railWorkspaceId(QString());
+                         if (!id.startsWith(prefix))
+                         {
+                             return;
+                         }
+                         auto* menu = new QMenu(this);
+                         menu->setObjectName(QStringLiteral("workspaceMenu"));
+                         menu->setAttribute(Qt::WA_DeleteOnClose);
+                         buildWorkspaceMenu(*menu, id.mid(prefix.size()));
+                         menu->popup(globalPos);
+                     });
     placeChanged();
 }
 
@@ -837,6 +850,7 @@ void ObservatoryWindow::bindServices()
     targets.unlockLayout = [this]() { lockLayout(false); };
     targets.groupAll = [this]() { m_impl->core.dockLayout().groupAll(dockTarget()); };
     targets.splitAll = [this]() { m_impl->core.dockLayout().splitAllEqually(dockTarget()); };
+    targets.fitAll = [this]() { m_impl->core.dockLayout().fitAllToWindow(dockTarget()); };
     core.actionBindings().setTargets(std::move(targets));
 
     // The actions' state sets the menu bar's menus, and stops while the window closes.
@@ -985,9 +999,20 @@ HomePage* ObservatoryWindow::homePage() const noexcept
     return m_impl->homePage;
 }
 
+QString ObservatoryWindow::railWorkspaceId(const QString& workspaceId)
+{
+    return QStringLiteral("workspace.") + workspaceId;
+}
+
 WorkspacePage* ObservatoryWindow::workspacePage() const noexcept
 {
-    return m_impl->workspacePage;
+    return m_impl->workspaces->page(m_impl->workspaces->shown());
+}
+
+WorkspaceWindow* ObservatoryWindow::workspaceWindow(const QString& workspaceId) const
+{
+    const auto found = m_impl->workspaceWindows.find(workspaceId);
+    return found != m_impl->workspaceWindows.end() ? found->second.data() : nullptr;
 }
 
 WorkspaceHost& ObservatoryWindow::workspaces() noexcept
@@ -1032,7 +1057,7 @@ bool ObservatoryWindow::isHomeShown() const
 
 bool ObservatoryWindow::isWorkspaceShown() const
 {
-    return m_impl->centre->currentWidget() == m_impl->workspacePage;
+    return m_impl->centre->currentWidget() == m_impl->workspaces->stack();
 }
 
 // ---- What the shell asks of its window
@@ -1092,15 +1117,20 @@ void ObservatoryWindow::keepGeometry()
 
 void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewPlacement& placement)
 {
+    Impl& impl = *m_impl;
     // A view maximized goes back to the dock area, which the new view joins.
-    if (ImageViewControl* const maximized = m_impl->workspacePage->maximizedView();
-        maximized != nullptr && maximized != &view && !maximized->isInFloatingWindow())
+    if (WorkspacePage* const page = impl.workspaces->currentPage())
     {
-        maximized->switchMaximized();
+        if (ImageViewControl* const maximized = page->maximizedView();
+            maximized != nullptr && maximized != &view && !maximized->isInFloatingWindow())
+        {
+            maximized->switchMaximized();
+        }
     }
-    // The view's tools are outside it in this shell: the workspace's floating toolbar and history strip.
+    // The view's tools are outside it in this shell: its workspace's floating toolbar and history strip.
     view.setChromeMode(an::ui::ViewChromeMode::External);
-    an::ui::dockCreatedView(view, placement.neighbour, m_impl->dockArea);
+    // Beside its neighbour, in the neighbour's workspace; with none, in the workspace on screen.
+    an::ui::dockCreatedView(view, placement.neighbour, impl.dockArea);
     // A view floats or docks by a drag, a double click or its strip's button: what the workspace shows follows, once
     // the dock library has moved it.
     if (KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget())
@@ -1108,7 +1138,15 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
         QObject::connect(dock, &KDDockWidgets::QtWidgets::DockWidget::isFloatingChanged, this,
                          [this](bool) { QTimer::singleShot(0, this, [this]() { updateWorkspacePage(); }); });
     }
-    showViews();
+    const QString workspace = impl.workspaces->workspaceOf(view);
+    if (workspace.isEmpty())
+    {
+        showViews();
+    }
+    else
+    {
+        showWorkspace(workspace);
+    }
     updateWorkspacePage();
 }
 
@@ -1133,14 +1171,22 @@ void ObservatoryWindow::viewAdded(ImageViewControl& /*view*/, const an::ui::shel
 
 void ObservatoryWindow::viewRemoved(ImageViewControl& view)
 {
-    if (m_impl->workspacePage->maximizedView() == &view)
+    Impl& impl = *m_impl;
+    for (const QString& id : impl.workspaces->ids())
     {
-        m_impl->workspacePage->restore(view);
-    }
-    if (m_impl->workspacePage->binder().toolbarView() == &view ||
-        m_impl->workspacePage->binder().historyView() == &view)
-    {
-        m_impl->workspacePage->bindView(nullptr);
+        WorkspacePage* const page = impl.workspaces->page(id);
+        if (page == nullptr)
+        {
+            continue;
+        }
+        if (page->maximizedView() == &view)
+        {
+            page->restore(view);
+        }
+        if (page->binder().toolbarView() == &view || page->binder().historyView() == &view)
+        {
+            page->bindView(nullptr);
+        }
     }
     refreshViewSelector();
     updateWorkspacePage();
@@ -1156,14 +1202,21 @@ void ObservatoryWindow::viewRenamed(ImageViewControl& /*view*/, const std::strin
 void ObservatoryWindow::maximize(ImageViewControl& view)
 {
     Impl& impl = *m_impl;
-    impl.workspacePage->maximize(view);
-    // The layout is locked while a view is maximized: its dock keeps a stand-in that must stay where it is.
-    if (!impl.core.dockLayout().isLocked(dockTarget()))
+    WorkspacePage* const page = pageOf(view);
+    if (page == nullptr)
+    {
+        return;
+    }
+    page->maximize(view);
+    // The layout of the view's workspace is locked while a view is maximized: its dock keeps a stand-in that must stay
+    // where it is.
+    const an::ui::shell::DockTarget target = dockTarget(&view);
+    if (!impl.core.dockLayout().isLocked(target))
     {
         impl.unlockWhenRestored = true;
-        impl.core.dockLayout().lock(dockTarget());
+        impl.core.dockLayout().lock(target);
     }
-    showViews();
+    showWorkspace(impl.workspaces->workspaceOf(view));
     impl.core.viewService().setActiveImageViewControl(&view);
     offerTheLock(true);
 }
@@ -1171,23 +1224,38 @@ void ObservatoryWindow::maximize(ImageViewControl& view)
 void ObservatoryWindow::restore(ImageViewControl& view)
 {
     Impl& impl = *m_impl;
-    impl.workspacePage->restore(view);
-    if (impl.workspacePage->maximizedView() == nullptr && impl.unlockWhenRestored)
+    WorkspacePage* const page = pageOf(view);
+    if (page == nullptr)
+    {
+        return;
+    }
+    page->restore(view);
+    if (page->maximizedView() == nullptr && impl.unlockWhenRestored)
     {
         impl.unlockWhenRestored = false;
-        impl.core.dockLayout().unlock(dockTarget());
+        impl.core.dockLayout().unlock(dockTarget(&view));
     }
     impl.core.viewService().setActiveImageViewControl(&view);
-    offerTheLock(impl.workspacePage->maximizedView() != nullptr);
+    offerTheLock(page->maximizedView() != nullptr);
 }
 
 bool ObservatoryWindow::isMaximizedViewActive() const
 {
-    return isWorkspaceShown() && m_impl->workspacePage->maximizedView() != nullptr;
+    const WorkspacePage* const page = workspacePage();
+    return isWorkspaceShown() && page != nullptr && page->maximizedView() != nullptr;
 }
 
-an::ui::shell::DockTarget ObservatoryWindow::dockTarget(const ImageViewControl* /*view*/)
+an::ui::shell::DockTarget ObservatoryWindow::dockTarget(const ImageViewControl* view)
 {
+    // A view docked in a workspace is that workspace's; any other target is the current workspace's.
+    if (view != nullptr)
+    {
+        const QString workspace = m_impl->workspaces->workspaceOf(const_cast<ImageViewControl&>(*view));
+        if (!workspace.isEmpty())
+        {
+            return m_impl->workspaces->target(workspace);
+        }
+    }
     return m_impl->workspaces->target();
 }
 
@@ -1199,7 +1267,15 @@ void ObservatoryWindow::showHome()
 
 void ObservatoryWindow::showViews()
 {
-    m_impl->centre->setCurrentWidget(m_impl->workspacePage);
+    Impl& impl = *m_impl;
+    // The workspaces' place shows the workspace last shown in this window; with every one in a window of its own, Home
+    // is the place.
+    if (impl.workspaces->shown().isEmpty())
+    {
+        showHome();
+        return;
+    }
+    impl.centre->setCurrentWidget(impl.workspaces->stack());
     placeChanged();
 }
 
@@ -1279,7 +1355,7 @@ bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
         }
     }
     // Esc restores the maximized view, as F11 does, when nothing else on the window takes it.
-    if (event->type() == QEvent::KeyPress && m_impl->workspacePage->maximizedView() != nullptr)
+    if (event->type() == QEvent::KeyPress && workspacePage() != nullptr && workspacePage()->maximizedView() != nullptr)
     {
         const auto* key = static_cast<QKeyEvent*>(event);
         const auto* widget = qobject_cast<QWidget*>(watched);
@@ -1287,7 +1363,7 @@ bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
             widget->window() == this && QApplication::activePopupWidget() == nullptr &&
             QApplication::activeModalWidget() == nullptr)
         {
-            m_impl->workspacePage->maximizedView()->switchMaximized();
+            workspacePage()->maximizedView()->switchMaximized();
             return true;
         }
     }
@@ -1311,6 +1387,17 @@ void ObservatoryWindow::resizeEvent(QResizeEvent* event)
         m_impl->consoleDrawer->windowResized();
     }
     placePaletteScrim();
+}
+
+void ObservatoryWindow::changeEvent(QEvent* event)
+{
+    QMainWindow::changeEvent(event);
+    // This window active again, its workspace on screen is the current one: what the layout's actions act on.
+    if (event != nullptr && event->type() == QEvent::ActivationChange && isActiveWindow() && m_impl->workspaces &&
+        !m_impl->workspaces->shown().isEmpty() && m_impl->workspaces->current() != m_impl->workspaces->shown())
+    {
+        m_impl->workspaces->setCurrent(m_impl->workspaces->shown());
+    }
 }
 
 void ObservatoryWindow::showEvent(QShowEvent* event)
@@ -1455,14 +1542,7 @@ void ObservatoryWindow::consoleUnseen(const int unseen)
 {
     Impl& impl = *m_impl;
     const QString count = unseen > 0 ? QString::number(unseen) : QString();
-    for (an::ui::RailItem item : impl.rail->items())
-    {
-        if (item.id == QLatin1String(kRailConsole) && item.badgeText != count)
-        {
-            item.badgeText = count;
-            impl.rail->updateItem(item);
-        }
-    }
+    updateRail();
     impl.statusLine->consoleChip()->setCountText(count);
 }
 
@@ -1498,6 +1578,8 @@ void ObservatoryWindow::placeChanged()
     {
         impl.layoutIcons->setVisible(isWorkspaceShown());
     }
+    // A workspace left with no docked view closes, unless it is the only one.
+    closeLeftEmptyWorkspaces();
     updateRail();
     updateBreadcrumb();
 }
@@ -1505,21 +1587,20 @@ void ObservatoryWindow::placeChanged()
 void ObservatoryWindow::activeViewChanged(ImageViewControl* view)
 {
     Impl& impl = *m_impl;
-    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
-    // The workspace's chrome shows the active view of the workspace: a view that floats has its own.
-    if (view == nullptr || !view->isInFloatingWindow())
+    // Each workspace's chrome shows the active view of that workspace: the view goes to the page of the workspace it
+    // is docked in; a view that floats has its own.
+    if (view != nullptr)
     {
-        impl.workspacePage->bindView(view);
-    }
-    int docked = 0;
-    for (ImageViewControl* each : views)
-    {
-        if (each != nullptr && !each->isInFloatingWindow())
+        if (WorkspacePage* const page = pageOf(*view))
         {
-            ++docked;
+            page->bindView(view);
         }
     }
-    impl.workspacePage->binder().setViewCount(docked);
+    else if (WorkspacePage* const page = workspacePage())
+    {
+        page->bindView(nullptr);
+    }
+    updateWorkspacePage();
     refreshViewSelector();
     updateBreadcrumb();
 }
@@ -1573,7 +1654,7 @@ bool ObservatoryWindow::showTabMenu(QWidget& tabBar, const QPoint& position, con
         if (view != nullptr && view->getDockWidget() != nullptr && view->getDockWidget()->dockWidget() == tab)
         {
             QMenu menu(&tabBar);
-            an::ui::shell::ViewMenuBuilder(m_impl->core).buildTabMenu(menu, *view);
+            buildTabMenu(menu, *view);
             menu.exec(globalPos);
             return true;
         }
@@ -1581,18 +1662,21 @@ bool ObservatoryWindow::showTabMenu(QWidget& tabBar, const QPoint& position, con
     return false;
 }
 
-void ObservatoryWindow::dockIntoWorkspace(ImageViewControl& view)
+void ObservatoryWindow::dockIntoWorkspace(ImageViewControl& view, const QString& workspaceId)
 {
+    Impl& impl = *m_impl;
     KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget();
-    if (dock == nullptr || m_impl->dockArea == nullptr)
+    const QString workspace = workspaceId.isEmpty() ? impl.workspaces->current() : workspaceId;
+    KDDockWidgets::QtWidgets::MainWindow* const area = impl.workspaces->mainWindow(workspace);
+    if (dock == nullptr || area == nullptr)
     {
         return;
     }
-    m_impl->dockArea->addDockWidget(dock, KDDockWidgets::Location_OnRight);
+    area->addDockWidget(dock, KDDockWidgets::Location_OnRight);
     // Docked again, its tools are the workspace's.
-    QTimer::singleShot(0, this, [this]() {
+    QTimer::singleShot(0, this, [this, workspace]() {
         updateWorkspacePage();
-        showViews();
+        showWorkspace(workspace);
     });
 }
 
@@ -1601,7 +1685,6 @@ void ObservatoryWindow::updateWorkspacePage()
     Impl& impl = *m_impl;
     std::vector<ImageViewControl*> views;
     std::vector<ImageViewControl*> floating;
-    int docked = 0;
     for (ImageViewControl* view : impl.core.viewService().getListOfViewControls())
     {
         if (view == nullptr)
@@ -1613,25 +1696,519 @@ void ObservatoryWindow::updateWorkspacePage()
         {
             floating.push_back(view);
         }
-        else
-        {
-            ++docked;
-        }
     }
     impl.floatingChrome->update(views);
-    // The only workspace with every image floating lists them; with a docked one, the dock area is shown.
-    const bool listFloating = docked == 0 && !floating.empty();
-    if (listFloating)
+    ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl();
+    const bool only = impl.workspaces->model().count() == 1;
+    for (const QString& id : impl.workspaces->ids())
     {
-        impl.floatingImages->setViews(floating);
+        WorkspacePage* const page = impl.workspaces->page(id);
+        if (page == nullptr)
+        {
+            continue;
+        }
+        const std::vector<ImageViewControl*> docked = impl.workspaces->dockedViews(id, views);
+        // A workspace with no docked view shows its quiet page: the only one lists the floating images, any other
+        // says it is empty. With a docked one, the dock area is shown.
+        const bool quiet = docked.empty();
+        if (quiet)
+        {
+            page->floatingImages()->setViews(only ? floating : std::vector<ImageViewControl*>{});
+        }
+        page->showFloatingImages(quiet);
+        page->binder().setViewCount(static_cast<int>(docked.size()));
+        // Its chrome shows its active view: the application's when that is one of its own, else the one it shows if
+        // that is still docked in it, else its first.
+        const auto holds = [&docked](const ImageViewControl* view) {
+            return view != nullptr && std::find(docked.begin(), docked.end(), view) != docked.end();
+        };
+        ImageViewControl* const bound = page->binder().toolbarView();
+        ImageViewControl* const wanted =
+            holds(active) ? active : (holds(bound) ? bound : (docked.empty() ? nullptr : docked.front()));
+        if (wanted != bound)
+        {
+            page->bindView(wanted);
+        }
     }
-    impl.workspacePage->showFloatingImages(listFloating);
-    impl.workspacePage->binder().setViewCount(docked);
-    ImageViewControl* const bound = impl.workspacePage->binder().toolbarView();
-    if (bound != nullptr && bound->isInFloatingWindow())
+}
+
+WorkspacePage* ObservatoryWindow::makeWorkspacePage(const QString& id, KDDockWidgets::QtWidgets::MainWindow& dockArea)
+{
+    FloatingImagesPage::Dependencies dependencies;
+    dependencies.dockHere = [this, id](ImageViewControl& view) { dockIntoWorkspace(view, id); };
+    dependencies.dockAll = [this, id]() {
+        if (WorkspacePage* const page = m_impl->workspaces->page(id))
+        {
+            for (ImageViewControl* view : page->floatingImages()->views())
+            {
+                dockIntoWorkspace(*view, id);
+            }
+        }
+    };
+    dependencies.openFile = [this, id]() {
+        // The file opens in the workspace whose page asked for it.
+        m_impl->workspaces->setCurrent(id);
+        openFile();
+    };
+    auto* const floating = new FloatingImagesPage(std::move(dependencies));
+    auto* const page = new WorkspacePage(dockArea, *floating);
+    page->setObjectName(QStringLiteral("observatoryWorkspacePage.") + id);
+    page->binder().setMenuFiller(m_impl->viewMenuFiller);
+    return page;
+}
+
+WorkspacePage* ObservatoryWindow::pageOf(ImageViewControl& view) const
+{
+    const QString workspace = m_impl->workspaces->workspaceOf(view);
+    return workspace.isEmpty() ? nullptr : m_impl->workspaces->page(workspace);
+}
+
+void ObservatoryWindow::workspacesChanged(const an::ui::shell::WorkspaceModel::Change change, const QString& id)
+{
+    Impl& impl = *m_impl;
+    if (!impl.workspaces)
     {
-        impl.workspacePage->bindView(nullptr);
+        return;
     }
+    switch (change)
+    {
+    case an::ui::shell::WorkspaceModel::Change::Current:
+        // What the window's units dock into, and what the layout's actions and icons offer, are the current
+        // workspace's.
+        impl.dockArea = impl.workspaces->mainWindow();
+        offerTheLock(impl.workspaces->currentPage() != nullptr &&
+                     impl.workspaces->currentPage()->maximizedView() != nullptr);
+        break;
+    case an::ui::shell::WorkspaceModel::Change::Renamed:
+        if (WorkspaceWindow* const holder = workspaceWindow(id))
+        {
+            holder->setWindowTitle(impl.workspaces->workspaceName(id));
+        }
+        break;
+    case an::ui::shell::WorkspaceModel::Change::Closed:
+        impl.workspaceWindows.erase(id);
+        break;
+    default:
+        break;
+    }
+    // A workspace made, closed or made current: what each page shows follows.
+    if (change == an::ui::shell::WorkspaceModel::Change::Added ||
+        change == an::ui::shell::WorkspaceModel::Change::Closed ||
+        change == an::ui::shell::WorkspaceModel::Change::Current)
+    {
+        updateWorkspacePage();
+    }
+    updateWorkspaceActions();
+    updateRail();
+    updateBreadcrumb();
+}
+
+void ObservatoryWindow::closeLeftEmptyWorkspaces()
+{
+    Impl& impl = *m_impl;
+    if (!impl.workspaces || impl.closingWorkspaces)
+    {
+        return;
+    }
+    const QScopedValueRollback<bool> closing(impl.closingWorkspaces, true);
+    an::ui::shell::WorkspaceModel& model = impl.workspaces->model();
+    const QString onScreen = isWorkspaceShown() ? impl.workspaces->shown() : QString();
+    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
+    for (const QString& id : impl.workspaces->ids())
+    {
+        if (model.count() <= 1)
+        {
+            break;
+        }
+        const an::ui::shell::Workspace* const workspace = model.find(id);
+        const WorkspacePage* const page = impl.workspaces->page(id);
+        if (workspace == nullptr || workspace->detached || id == onScreen || page == nullptr ||
+            page->maximizedView() != nullptr)
+        {
+            continue;
+        }
+        if (impl.workspaces->dockedViews(id, views).empty())
+        {
+            if (impl.core.dockLayout().isLocked(impl.workspaces->target(id)))
+            {
+                impl.core.dockLayout().unlock(impl.workspaces->target(id));
+            }
+            (void)impl.workspaces->close(id);
+        }
+    }
+}
+
+void ObservatoryWindow::showDockAreasForADrag()
+{
+    Impl& impl = *m_impl;
+    // A workspace showing its quiet page shows its dock area while a view is dragged, so the drag can land there; what
+    // the drag left is shown again once it ends.
+    for (const QString& id : impl.workspaces->ids())
+    {
+        if (WorkspacePage* const page = impl.workspaces->page(id); page != nullptr && page->isFloatingImagesShown())
+        {
+            page->showFloatingImages(false);
+        }
+    }
+}
+
+void ObservatoryWindow::showWorkspace(const QString& id)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Workspace* const workspace = impl.workspaces->model().find(id);
+    if (workspace == nullptr)
+    {
+        showViews();
+        return;
+    }
+    if (workspace->detached)
+    {
+        // A workspace in a window of its own is raised there.
+        if (WorkspaceWindow* const holder = workspaceWindow(id))
+        {
+            holder->show();
+            holder->raise();
+            holder->activateWindow();
+        }
+        impl.workspaces->setCurrent(id);
+        return;
+    }
+    impl.workspaces->setCurrent(id);
+    showViews();
+}
+
+void ObservatoryWindow::newWorkspace()
+{
+    Impl& impl = *m_impl;
+    const QString id = impl.workspaces->create();
+    // A new workspace's layout is locked when the person keeps layouts locked by default.
+    an::ui::IGlobalSettingsProvider* const settings = impl.core.globalSettings();
+    if (settings != nullptr && settings->select(QString::fromLatin1(SettingsKeys::INTERFACE_LOCK_LAYOUT_BY_DEFAULT),
+                                                SettingsDefaults::INTERFACE_LOCK_LAYOUT_BY_DEFAULT
+                                                    ? QStringLiteral("1")
+                                                    : QStringLiteral("0")) == QStringLiteral("1"))
+    {
+        lockWorkspace(id, true);
+    }
+    showWorkspace(id);
+}
+
+void ObservatoryWindow::renameWorkspace(const QString& id)
+{
+    Impl& impl = *m_impl;
+    if (impl.workspaces->model().find(id) == nullptr)
+    {
+        return;
+    }
+    auto* const dialog = new RenameWorkspaceDialog(
+        impl.workspaces->workspaceName(id),
+        [this, id](const QString& name) { (void)m_impl->workspaces->model().rename(id, name); }, this);
+    dialog->open();
+}
+
+void ObservatoryWindow::moveWorkspaceToNewWindow(const QString& id)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Workspace* const workspace = impl.workspaces->model().find(id);
+    if (workspace == nullptr || workspace->detached)
+    {
+        return;
+    }
+    const QSize size = impl.centre->size();
+    WorkspacePage* const page = impl.workspaces->detach(id);
+    if (page == nullptr)
+    {
+        return;
+    }
+    // The window's header holds the layout icons, acting on its workspace.
+    WorkspaceToolbar::Dependencies icons;
+    icons.actions = impl.core.actions().lookup();
+    icons.isLocked = [this, id]() { return m_impl->core.dockLayout().isLocked(m_impl->workspaces->target(id)); };
+    icons.setLocked = [this, id](const bool locked) { lockWorkspace(id, locked); };
+    icons.icon = [this](const QString& name) { return m_impl->icon(name.toStdString()); };
+    auto* const header = new WorkspaceToolbar(std::move(icons));
+    header->setObjectName(QStringLiteral("workspaceWindowLayoutIcons"));
+    WorkspaceWindow::Hooks hooks;
+    hooks.activated = [this, id]() { m_impl->workspaces->setCurrent(id); };
+    hooks.answered = [this, id](const WorkspaceWindow::Answer answer) {
+        if (answer == WorkspaceWindow::Answer::Return)
+        {
+            returnWorkspace(id);
+        }
+        else
+        {
+            closeWorkspace(id);
+        }
+    };
+    hooks.takesFiles = [](const QMimeData& files) { return an::ui::shell::FileDropHandler::takes(files); };
+    hooks.filesDropped = [this, id](const QMimeData& files) {
+        // Files dropped on a workspace open there.
+        m_impl->workspaces->setCurrent(id);
+        return m_impl->core.fileDrops().drop(files);
+    };
+    auto* const holder = new WorkspaceWindow(workspace->name, *header, *page, std::move(hooks));
+    impl.workspaceWindows[id] = holder;
+    holder->resize(size.isValid() && !size.isEmpty() ? size : QSize(kMinimumWidth, kMinimumHeight) / 2);
+    holder->show();
+    holder->activateWindow();
+    impl.workspaces->setCurrent(id);
+    // This window shows another workspace, or Home when every one is in a window of its own.
+    if (isWorkspaceShown())
+    {
+        showViews();
+    }
+    updateWorkspaceActions();
+    updateRail();
+}
+
+void ObservatoryWindow::returnWorkspace(const QString& id)
+{
+    Impl& impl = *m_impl;
+    WorkspaceWindow* const holder = workspaceWindow(id);
+    if (holder == nullptr)
+    {
+        return;
+    }
+    impl.workspaceWindows.erase(id);
+    if (holder->takePage() != nullptr)
+    {
+        impl.workspaces->attach(id);
+    }
+    holder->closeWithoutAsking();
+    holder->deleteLater();
+    showWorkspace(id);
+    updateWorkspacePage();
+}
+
+void ObservatoryWindow::closeWorkspace(const QString& id)
+{
+    Impl& impl = *m_impl;
+    if (impl.workspaces->model().find(id) == nullptr)
+    {
+        return;
+    }
+    // Its images close first, each asked about as Close asks; one kept keeps the workspace.
+    if (!closeViewsOf(id))
+    {
+        return;
+    }
+    if (workspaceWindow(id) != nullptr)
+    {
+        returnWorkspace(id);
+    }
+    if (impl.workspaces->model().canClose(id))
+    {
+        if (impl.core.dockLayout().isLocked(impl.workspaces->target(id)))
+        {
+            impl.core.dockLayout().unlock(impl.workspaces->target(id));
+        }
+        const bool wasShown = isWorkspaceShown() && impl.workspaces->shown() == id;
+        (void)impl.workspaces->close(id);
+        if (wasShown)
+        {
+            showViews();
+        }
+    }
+    // With no image open, Home is the place.
+    if (impl.core.viewService().getListOfViewControls().empty())
+    {
+        showHome();
+    }
+    updateWorkspacePage();
+}
+
+bool ObservatoryWindow::closeViewsOf(const QString& id)
+{
+    Impl& impl = *m_impl;
+    QAction* const close = impl.core.actions().action(an::ui::shell::ids::kClose);
+    if (close == nullptr)
+    {
+        return false;
+    }
+    const auto stillDocked = [this, &impl, &id]() {
+        std::vector<ImageViewControl*> open;
+        for (ImageViewControl* view : impl.workspaces->dockedViews(id, impl.core.viewService().getListOfViewControls()))
+        {
+            if (view != nullptr && view->getDockWidget() != nullptr && view->getDockWidget()->isOpen())
+            {
+                open.push_back(view);
+            }
+        }
+        return open;
+    };
+    std::vector<QPointer<ImageViewControl>> closing;
+    for (ImageViewControl* view : stillDocked())
+    {
+        closing.emplace_back(view);
+    }
+    for (const QPointer<ImageViewControl>& view : closing)
+    {
+        if (view.isNull())
+        {
+            continue;
+        }
+        // Each view is closed as Close closes the active one, asked about unsaved changes as it is.
+        impl.core.viewService().setActiveImageViewControl(view.data());
+        close->trigger();
+    }
+    return stillDocked().empty();
+}
+
+void ObservatoryWindow::lockWorkspace(const QString& id, const bool locked)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::DockTarget target = impl.workspaces->target(id);
+    if (target.mainWindow == nullptr)
+    {
+        return;
+    }
+    if (locked)
+    {
+        impl.core.dockLayout().lock(target);
+    }
+    else
+    {
+        impl.core.dockLayout().unlock(target);
+    }
+    (void)impl.workspaces->model().setLocked(id, locked);
+    // Lock and Unlock, and the icons, offer what the workspace on screen is not.
+    impl.core.dockLayout().offerFor(dockTarget());
+    if (impl.layoutIcons != nullptr)
+    {
+        impl.layoutIcons->refreshLock();
+    }
+    if (WorkspaceWindow* const holder = workspaceWindow(id); holder != nullptr && holder->header() != nullptr)
+    {
+        holder->header()->refreshLock();
+    }
+}
+
+void ObservatoryWindow::moveViewToWorkspace(ImageViewControl& view, const QString& id)
+{
+    Impl& impl = *m_impl;
+    KDDockWidgets::QtWidgets::MainWindow* const area = impl.workspaces->mainWindow(id);
+    KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget();
+    if (area == nullptr || dock == nullptr || impl.workspaces->workspaceOf(view) == id)
+    {
+        return;
+    }
+    if (view.isMaximized())
+    {
+        view.switchMaximized();
+    }
+    area->addDockWidget(dock, KDDockWidgets::Location_OnRight);
+    // The person follows the view to the workspace it went to; the one it left closes if it is empty.
+    showWorkspace(id);
+    impl.core.viewService().setActiveImageViewControl(&view);
+    updateWorkspacePage();
+    closeLeftEmptyWorkspaces();
+    updateRail();
+}
+
+void ObservatoryWindow::updateWorkspaceActions()
+{
+    Impl& impl = *m_impl;
+    if (!impl.shellActions || !impl.workspaces)
+    {
+        return;
+    }
+    const QString current = impl.workspaces->current();
+    const an::ui::shell::Workspace* const workspace = impl.workspaces->model().find(current);
+    if (QAction* const close = impl.shellActions->action(ids::kCloseWorkspace))
+    {
+        close->setEnabled(impl.workspaces->model().canClose(current));
+    }
+    if (QAction* const move = impl.shellActions->action(ids::kMoveWorkspaceToNewWindow))
+    {
+        move->setEnabled(workspace != nullptr && !workspace->detached);
+    }
+}
+
+void ObservatoryWindow::buildWorkspaceMenu(QMenu& menu, const QString& workspaceId)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Workspace* const workspace = impl.workspaces->model().find(workspaceId);
+    if (workspace == nullptr)
+    {
+        return;
+    }
+    const QString id = workspaceId;
+    const auto entry = [&menu](const char* name, const QString& text) {
+        QAction* const action = menu.addAction(text);
+        action->setObjectName(QString::fromLatin1(name));
+        return action;
+    };
+    QObject::connect(entry("workspaceMenuNew", tr("New Workspace")), &QAction::triggered, this,
+                     [this]() { newWorkspace(); });
+    QObject::connect(entry("workspaceMenuRename", tr("Rename...")), &QAction::triggered, this,
+                     [this, id]() { renameWorkspace(id); });
+    QAction* const move = entry("workspaceMenuMoveToNewWindow", tr("Move to New Window"));
+    move->setEnabled(!workspace->detached);
+    QObject::connect(move, &QAction::triggered, this, [this, id]() { moveWorkspaceToNewWindow(id); });
+    menu.addSeparator();
+    QObject::connect(entry("workspaceMenuGroup", tr("Group All Images")), &QAction::triggered, this,
+                     [this, id]() { m_impl->core.dockLayout().groupAll(m_impl->workspaces->target(id)); });
+    QObject::connect(entry("workspaceMenuSplit", tr("Split All Images")), &QAction::triggered, this,
+                     [this, id]() { m_impl->core.dockLayout().splitAllEqually(m_impl->workspaces->target(id)); });
+    QObject::connect(entry("workspaceMenuFit", tr("Fit All Images to Window")), &QAction::triggered, this,
+                     [this, id]() { m_impl->core.dockLayout().fitAllToWindow(m_impl->workspaces->target(id)); });
+    menu.addSeparator();
+    QAction* const lock = entry("workspaceMenuLock", tr("Lock Layout"));
+    lock->setCheckable(true);
+    lock->setChecked(impl.core.dockLayout().isLocked(impl.workspaces->target(id)));
+    QObject::connect(lock, &QAction::triggered, this, [this, id](const bool locked) { lockWorkspace(id, locked); });
+    menu.addSeparator();
+    QAction* const close = entry("workspaceMenuClose", tr("Close Workspace"));
+    close->setEnabled(impl.workspaces->model().canClose(id));
+    QObject::connect(close, &QAction::triggered, this, [this, id]() { closeWorkspace(id); });
+}
+
+void ObservatoryWindow::buildTabMenu(QMenu& menu, ImageViewControl& view)
+{
+    Impl& impl = *m_impl;
+    an::ui::shell::ViewMenuBuilder(impl.core).buildTabMenu(menu, view);
+    // Move to Workspace, after Float: the other workspaces, a separator, a new one.
+    QAction* after = nullptr;
+    const QList<QAction*> entries = menu.actions();
+    for (qsizetype index = 0; index < entries.size(); ++index)
+    {
+        if (entries[index]->text() == QObject::tr("Float"))
+        {
+            after = index + 1 < entries.size() ? entries[index + 1] : nullptr;
+            break;
+        }
+    }
+    auto* const move = new QMenu(tr("Move to Workspace"), &menu);
+    move->setObjectName(QStringLiteral("menuMoveToWorkspace"));
+    const QString from = impl.workspaces->workspaceOf(view);
+    const QPointer<ImageViewControl> guarded(&view);
+    for (const an::ui::shell::Workspace& workspace : impl.workspaces->model().workspaces())
+    {
+        if (workspace.id == from)
+        {
+            continue;
+        }
+        const QString id = workspace.id;
+        QObject::connect(move->addAction(workspace.name), &QAction::triggered, this, [this, guarded, id]() {
+            if (guarded)
+            {
+                moveViewToWorkspace(*guarded, id);
+            }
+        });
+    }
+    if (!move->isEmpty())
+    {
+        move->addSeparator();
+    }
+    QAction* const fresh = move->addAction(tr("New Workspace"));
+    fresh->setObjectName(QStringLiteral("moveToNewWorkspace"));
+    QObject::connect(fresh, &QAction::triggered, this, [this, guarded]() {
+        if (guarded)
+        {
+            moveViewToWorkspace(*guarded, m_impl->workspaces->create());
+        }
+    });
+    menu.insertMenu(after, move);
 }
 
 void ObservatoryWindow::offerTheLock(const bool maximized)
@@ -1816,6 +2393,24 @@ void ObservatoryWindow::bindShellActions()
         density->addAction(comfortable);
     }
 
+    // The workspace's, in the Window menu, acting on the current workspace.
+    QObject::connect(actions.action(ids::kNewWorkspace), &QAction::triggered, this, [this]() { newWorkspace(); });
+    QObject::connect(actions.action(ids::kRenameWorkspace), &QAction::triggered, this,
+                     [this]() { renameWorkspace(m_impl->workspaces->current()); });
+    QObject::connect(actions.action(ids::kMoveWorkspaceToNewWindow), &QAction::triggered, this,
+                     [this]() { moveWorkspaceToNewWindow(m_impl->workspaces->current()); });
+    QObject::connect(actions.action(ids::kCloseWorkspace), &QAction::triggered, this,
+                     [this]() { closeWorkspace(m_impl->workspaces->current()); });
+    if (QMenu* const window = impl.menuBar->menu("menuWindow"))
+    {
+        window->addSeparator();
+        window->addAction(actions.action(ids::kNewWorkspace));
+        window->addAction(actions.action(ids::kRenameWorkspace));
+        window->addAction(actions.action(ids::kMoveWorkspaceToNewWindow));
+        window->addAction(actions.action(ids::kCloseWorkspace));
+    }
+    updateWorkspaceActions();
+
     // The palette offers them with the window's other views.
     std::unique_ptr<an::ui::shell::ICommandProvider> provider = actions.commandProvider();
     impl.shellCommands = provider.get();
@@ -1861,17 +2456,18 @@ void ObservatoryWindow::placePaletteScrim()
 void ObservatoryWindow::updateBreadcrumb()
 {
     Impl& impl = *m_impl;
-    if (impl.topBar == nullptr)
+    if (impl.topBar == nullptr || !impl.workspaces)
     {
         return;
     }
     QStringList parts;
     if (isWorkspaceShown())
     {
-        parts.append(impl.workspaces->workspaceName());
-        // The workspace's item is its active view; one that floats is in a window of its own.
+        const QString shown = impl.workspaces->shown();
+        parts.append(impl.workspaces->workspaceName(shown));
+        // The workspace's item is its active view; one that floats, or is in another workspace, is not its item.
         if (ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl();
-            active != nullptr && !active->isInFloatingWindow())
+            active != nullptr && impl.workspaces->workspaceOf(*active) == shown)
         {
             parts.append(QString::fromUtf8(active->getUniqueName()));
         }
@@ -1946,36 +2542,72 @@ void ObservatoryWindow::applyCaptionColour()
 
 void ObservatoryWindow::lockLayout(const bool locked)
 {
-    if (locked)
-    {
-        m_impl->core.dockLayout().lock(dockTarget());
-    }
-    else
-    {
-        m_impl->core.dockLayout().unlock(dockTarget());
-    }
-    if (m_impl->layoutIcons != nullptr)
-    {
-        m_impl->layoutIcons->refreshLock();
-    }
+    lockWorkspace(m_impl->workspaces->current(), locked);
 }
 
 void ObservatoryWindow::updateRail()
 {
     Impl& impl = *m_impl;
-    if (impl.rail == nullptr)
+    if (impl.rail == nullptr || !impl.workspaces)
     {
         return;
     }
-    const QString selected = isWorkspaceShown() ? QString::fromLatin1(kRailWorkspace) : QString::fromLatin1(kRailHome);
-    for (an::ui::RailItem item : impl.rail->items())
+    const an::ui::shell::WorkspaceModel& model = impl.workspaces->model();
+    const bool several = model.count() > 1;
+    const QString selectedWorkspace = isWorkspaceShown() ? impl.workspaces->shown() : QString();
+    const auto item = [](const QString& id, const an::ui::RailSection section, const QString& iconKey,
+                         const QString& text) {
+        an::ui::RailItem made;
+        made.id = id;
+        made.section = section;
+        made.iconKey = iconKey;
+        made.text = text;
+        return made;
+    };
+    std::vector<an::ui::RailItem> items;
+    an::ui::RailItem home =
+        item(QString::fromLatin1(kRailHome), an::ui::RailSection::Place, QStringLiteral("home"), tr("Home"));
+    home.selected = isHomeShown();
+    items.push_back(home);
+    // A workspace each, a digit on each when there are several; one in a window of its own carries the window glyph.
+    int number = 0;
+    for (const an::ui::shell::Workspace& workspace : model.workspaces())
     {
-        const bool place = item.section == an::ui::RailSection::Place;
-        const bool shouldBeSelected = place && item.id == selected;
-        if (item.selected != shouldBeSelected)
+        ++number;
+        an::ui::RailItem place =
+            item(railWorkspaceId(workspace.id), an::ui::RailSection::Place, QStringLiteral("images"), workspace.name);
+        place.badgeText = several && !workspace.detached ? QString::number(number) : QString();
+        place.floating = workspace.detached;
+        place.selected = workspace.id == selectedWorkspace;
+        items.push_back(place);
+    }
+    items.push_back(item(QString::fromLatin1(kRailIntegration), an::ui::RailSection::Place, QStringLiteral("layers"),
+                         tr("Integration")));
+    an::ui::RailItem console = item(QString::fromLatin1(kRailConsole), an::ui::RailSection::Foot,
+                                    QStringLiteral("terminal"), tr("Session Console"));
+    const int unseen = impl.consoleDrawer != nullptr ? impl.consoleDrawer->unseenWarnings() : 0;
+    console.badgeText = unseen > 0 ? QString::number(unseen) : QString();
+    items.push_back(console);
+    items.push_back(item(QString::fromLatin1(kRailSettings), an::ui::RailSection::Foot, QStringLiteral("settings"),
+                         tr("Settings")));
+
+    // The same items are updated where they differ; another set of them is set whole.
+    const std::vector<an::ui::RailItem>& shown = impl.rail->items();
+    bool sameIds = shown.size() == items.size();
+    for (std::size_t index = 0; sameIds && index < items.size(); ++index)
+    {
+        sameIds = shown[index].id == items[index].id;
+    }
+    if (!sameIds)
+    {
+        impl.rail->setItems(items);
+        return;
+    }
+    for (std::size_t index = 0; index < items.size(); ++index)
+    {
+        if (!an::ui::sameRailItem(shown[index], items[index]))
         {
-            item.selected = shouldBeSelected;
-            impl.rail->updateItem(item);
+            impl.rail->updateItem(items[index]);
         }
     }
 }
@@ -1983,17 +2615,19 @@ void ObservatoryWindow::updateRail()
 void ObservatoryWindow::railActivated(const QString& id)
 {
     Impl& impl = *m_impl;
+    const QString workspacePrefix = railWorkspaceId(QString());
     if (id == QLatin1String(kRailHome))
     {
         showHome();
     }
-    else if (id == QLatin1String(kRailWorkspace))
+    else if (id.startsWith(workspacePrefix))
     {
-        // No image is open: Home is the place for it.
-        if (!impl.core.viewService().getListOfViewControls().empty())
+        // With no image open and one workspace, Home is the place for it.
+        if (impl.core.viewService().getListOfViewControls().empty() && impl.workspaces->model().count() == 1)
         {
-            showViews();
+            return;
         }
+        showWorkspace(id.mid(workspacePrefix.size()));
     }
     else if (id == QLatin1String(kRailIntegration))
     {
