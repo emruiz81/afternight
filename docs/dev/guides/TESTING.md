@@ -179,6 +179,12 @@ as it is polished lets the window be laid out, shown as far as Qt is concerned a
 measurement is run by hand with `QT_QPA_PLATFORM=windows`; it is a number for a design decision, written where the
 decision is, not a case of a sweep.
 
+The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
+are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control of the
+column reached by Tab, in both densities of the Observatory look, at 600 px of height - and report themselves skipped
+for the rest; the box font is told by every character being one width. Started with `QT_QPA_PLATFORM=windows` they
+also hold that nothing in the body lies past the column's side; their page hosts are kept off the screen there.
+
 A record is made once. With `AFTERNIGHT_WRITE_BASELINE_RECORDS` naming a folder a case writes its section there
 instead of comparing - the only case in which it writes, and never beside the suite - and a person reads what was
 written before checking it in. From then on a record is edited by hand, entry by entry, by the change that means to

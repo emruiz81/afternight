@@ -21,6 +21,7 @@
 #include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
+#include "services/OpenProcessRegistry.h"
 #include "session/ImageDocument.h"
 #include "views/ViewService.h"
 
@@ -30,6 +31,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDialog>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 #include <QtTest/QTest>
@@ -136,6 +138,21 @@ protected:
                 (an::tests::app::isA<QDialog>(widget) || an::tests::app::isA<TopLevelProcessBaseControl>(widget)))
             {
                 widget->close();
+            }
+        }
+        // A process shown as a page is no top-level window: every open process is closed, its run ended first.
+        const std::vector<TopLevelProcessBaseControl*> open = core().openProcesses().snapshot();
+        for (const QPointer<TopLevelProcessBaseControl>& process :
+             std::vector<QPointer<TopLevelProcessBaseControl>>(open.begin(), open.end()))
+        {
+            if (!process.isNull())
+            {
+                (void)process->cancelRun();
+                if (process->runState().running())
+                {
+                    process->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Cancelled});
+                }
+                (void)process->close();
             }
         }
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);

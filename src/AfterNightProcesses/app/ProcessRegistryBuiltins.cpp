@@ -200,7 +200,20 @@ struct PageSurface
 /// standard one for 348 px or less and the wide one for 508 px or less, measured with the controls' own side margins.
 /// A process with no row here is a window of its own.
 constexpr PageSurface kPageSurfaces[] = {
+    // The pointwise and tone processes: the one row of the histogram's toolbar sets their width.
+    {"actionAdjustBrightness_Contrast", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionAdjustHSL", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionAdjustLightness_Chroma_Hue", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionArcSinh_Stretch", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionColor_Saturation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionColorize", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionExposure", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionGamma_Correction", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    // The stretching processes: Curves Transformation's curve editor is 350 px, the others' toolbar row sets theirs.
     {"actionCurves_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionGeneralized_Hyperbolic_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionHistogram_Transformation", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionStatistical_Stretch", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

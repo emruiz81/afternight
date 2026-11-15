@@ -350,7 +350,11 @@ show every open process - as a task in a rail, over the image a run writes - wit
 
 ### A process shown as a page (`controls/ProcessPageLayout.h`, `controls/PageShortcutScope.h`)
 
-A presenter may take a process into a page of the main window instead of showing its window. It is asked once, at the
+A presenter may take a process into a page of the main window instead of showing its window. Which processes are
+pages, and which column each takes, is stated where they are registered (`kPageSurfaces` in
+`app/ProcessRegistryBuiltins.cpp`, read into `ProcessDescriptor::surface` and `columnWidth`): the pointwise and tone
+processes and the stretching processes, every one in the wide column, since the one row of the histogram's toolbar
+under their controls - and Curves Transformation's 350 px curve editor - is wider than the standard one. It is asked once, at the
 process's first `setVisible(true)` and before it is visible (`adopt`); taking it means `attachToPage(host)`, which
 arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A process that cannot be one
 answers no page and stays the window it was. The arrangement is generic, made from what the process already is:

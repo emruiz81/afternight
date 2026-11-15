@@ -23,6 +23,7 @@
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProgressDialogControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "core/IShell.h"
 #include "views/DockHooks.h"
@@ -318,6 +319,11 @@ public:
                 widget->close();
             }
         }
+        // A process shown as a page is no top-level window.
+        for (QWidget* process : processWindows())
+        {
+            process->close();
+        }
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QCoreApplication::processEvents();
         for (ImageViewControl* view : views())
@@ -357,10 +363,11 @@ private:
         return found;
     }
 
+    /// The processes shown: windows of their own, and pages of the window's centre.
     [[nodiscard]] static QSet<QWidget*> processWindows()
     {
         QSet<QWidget*> windows;
-        for (QWidget* widget : QApplication::topLevelWidgets())
+        for (QWidget* widget : QApplication::allWidgets())
         {
             if (widget != nullptr && widget->isVisible() && app::isA<TopLevelProcessBaseControl>(widget))
             {
@@ -373,6 +380,17 @@ private:
     /// The Apply - or, in a window that has none, the Ok - of the process window's own buttons.
     [[nodiscard]] static QAbstractButton* applyButton(QWidget& process)
     {
+        // A page's footer shows the box's buttons, and presses them.
+        if (const auto* const page = dynamic_cast<const TopLevelProcessBaseControl*>(&process);
+            page != nullptr && page->pageLayout() != nullptr)
+        {
+            QAbstractButton* button = page->pageLayout()->footerButton(QDialogButtonBox::Apply);
+            if (button == nullptr)
+            {
+                button = page->pageLayout()->footerButton(QDialogButtonBox::Ok);
+            }
+            return button != nullptr && button->isVisible() ? button : nullptr;
+        }
         for (QDialogButtonBox* box : process.findChildren<QDialogButtonBox*>())
         {
             if (box->window() != process.window() || !box->isVisible())

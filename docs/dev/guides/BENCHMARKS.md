@@ -302,6 +302,7 @@ a floating one unrounded, as a stack holds it - and `synthetic:<representation>:
 | `AN_BENCH_FPS` | the previews a second the Processing settings state, from 5 to 60 | the product's default, `30` |
 | `AN_BENCH_WIDTH` | the session's width | the host's |
 | `AN_BENCH_TRACE` | a file the case appends its results to, one tab-separated row per run, the header first | none |
+| `AN_BENCH_PAGE` | `1` takes the dialog into a page of a host window, as a shell's presenter does; `0` leaves it a window; either brings the preview view to 1000 by 760 pixels, so that a preview in a page and in a window are compared at one size | not set: a window of the dialog's own size |
 
 ```cmd
 set AFTERNIGHT_TEST_STORAGE_ROOT=%TEMP%\at_drag

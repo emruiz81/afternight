@@ -3056,6 +3056,7 @@ sources Test_ShellParity
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
     header   src/AfterNightShellCore/tasks/TaskModel.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
 
 # The full extension host's native suite: its application context, its native process window and the session it borrows
 # from the runtime backend, compiled from the host's sources and linked against the processes and Controls libraries. It
@@ -3652,6 +3653,7 @@ sources Test_ProcessesShared
 # suite links, launched through the library's registry and entry points, over the fixture layer the recorded behavior
 # expectations start from.
 sources Test_ProcessesPointwise
+    unit     src/AfterNightTests/Test_ProcessesPointwise/PointwisePageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/PointwiseObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/main.cpp
     unit     src/AfterNightTests/Test_ProcessesPointwise/PointwiseProcesses.cpp
@@ -3762,6 +3764,8 @@ sources Test_ProcessesPointwise
     header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
     header   src/AfterNightTests/fixtures/ObservatoryLook.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -3780,6 +3784,7 @@ sources Test_ProcessesPointwise
 # through the library's registry and entry points; the fixture layer and its engine adapter give the cases their inputs
 # and the recorded behavior expectations.
 sources Test_ProcessesStretching
+    unit     src/AfterNightTests/Test_ProcessesStretching/StretchingPageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesStretching/main.cpp
     unit     src/AfterNightTests/Test_ProcessesStretching/CurvesTransformationTest.cpp
     unit     src/AfterNightTests/Test_ProcessesStretching/GHTransformationTest.cpp
@@ -3888,6 +3893,12 @@ sources Test_ProcessesStretching
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls

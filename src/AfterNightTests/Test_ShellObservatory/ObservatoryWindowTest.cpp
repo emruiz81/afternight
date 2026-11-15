@@ -46,8 +46,9 @@ namespace
 
 using ObservatoryWindow = ObservatoryWindowCase;
 
-/// The process every case launches: it opens over the active image.
+/// The processes the cases launch over the active image: one shown as a page, one that stays a window of its own.
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
+constexpr std::string_view kWindowProcess = "geometry.actionResize";
 
 /// A widget's place inside the window's central widget.
 [[nodiscard]] QRect placeIn(const QWidget& widget, const QWidget& ancestor)
@@ -151,7 +152,7 @@ TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
     ASSERT_NE(view, nullptr);
 
     const std::size_t openBefore = core().openProcesses().size();
-    ASSERT_TRUE(core().processLaunch().launch(std::string(kBrightnessContrast)));
+    ASSERT_TRUE(core().processLaunch().launch(std::string(kWindowProcess)));
     TopLevelProcessBaseControl* process = nullptr;
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
         for (QWidget* widget : QApplication::topLevelWidgets())
@@ -196,18 +197,19 @@ TEST_F(ObservatoryWindowExit, ClosesInTheExitOrder)
     ASSERT_NE(view, nullptr);
     running->core->viewService().setActiveImageViewControl(view);
     ASSERT_TRUE(running->core->processLaunch().launch(std::string(kBrightnessContrast)));
+    // The process is a page of the window: it is found among the open processes.
     QPointer<TopLevelProcessBaseControl> process;
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
-        for (QWidget* widget : QApplication::topLevelWidgets())
+        for (TopLevelProcessBaseControl* candidate : running->core->openProcesses().snapshot())
         {
-            if (auto* const candidate = dynamic_cast<TopLevelProcessBaseControl*>(widget);
-                candidate != nullptr && candidate->isVisible())
+            if (candidate != nullptr && candidate->isVisible())
             {
                 process = candidate;
             }
         }
         return !process.isNull();
     }));
+    EXPECT_TRUE(process->isPresentedAsPage());
     const QString temporary = running->core->runtimeStorage().getTempDirPath();
 
     // The window asks before it closes over unsaved images and open processes; every question is answered Yes.

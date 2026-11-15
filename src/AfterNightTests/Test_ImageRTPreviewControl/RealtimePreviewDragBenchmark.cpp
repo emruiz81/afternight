@@ -43,6 +43,9 @@
 ///   AN_BENCH_WIDTH         the session's width; the host's by default
 ///   AN_BENCH_TRACE         a file the case appends its results to as one tab-separated row, the header first when
 ///                          the file is new
+///   AN_BENCH_PAGE          1 takes the dialog into a page of a host window, as a shell's presenter does; 0 leaves
+///                          it a window; either brings the preview view to 1000 by 760 pixels, so that a page and a
+///                          window are compared at one preview size. Not set: a window of the dialog's own size
 ///
 /// The report is printed and recorded as the case's properties; the case asserts only that the drag ran and the
 /// dialog went idle after it. A second case presents the frame in a standard view, fitted and at 1:1, linear and
@@ -969,6 +972,14 @@ void runDrag(const DragSubject& subject)
         ASSERT_TRUE(settleView(*target));
     }
 
+    // A page or a window at one preview size, when asked for.
+    const int pageKnob = knob("AN_BENCH_PAGE", -1);
+    PagePresenter pages;
+    pages.adopting = pageKnob == 1;
+    if (pageKnob >= 0)
+    {
+        context->presenter = &pages;
+    }
     DialogHandle dialog = subject.open(*target);
     dialog->show();
     auto* preview = child<QCheckBox>(*dialog, "preview");
@@ -983,6 +994,21 @@ void runDrag(const DragSubject& subject)
     ASSERT_TRUE(settleDialogPatiently(*dialog));
     ImageViewControl* previewView = dialog->previewView();
     ASSERT_NE(previewView, nullptr);
+    if (pageKnob >= 0)
+    {
+        ASSERT_EQ(dialog->isPresentedAsPage(), pageKnob == 1);
+        constexpr QSize kBenchPreview(1000, 760);
+        for (int round = 0; round < 3 && previewView->size() != kBenchPreview; ++round)
+        {
+            QWidget* const top = dialog->window();
+            top->resize(top->size() + (kBenchPreview - previewView->size()));
+            ASSERT_TRUE(settleDialogPatiently(*dialog));
+        }
+        EXPECT_EQ(previewView->size(), kBenchPreview) << "the preview is compared at one size";
+        // The view was fitted at the size it opened at: it is fitted again to the one compared.
+        previewView->fitToWindow();
+        ASSERT_TRUE(settleDialogPatiently(*dialog));
+    }
     ImageViewWidget* previewWidget = previewView->getViewWidget();
     ASSERT_NE(previewWidget, nullptr);
     if (autostretch)
@@ -1322,6 +1348,7 @@ void runDrag(const DragSubject& subject)
     }
 
     dialog.reset();
+    context->presenter = nullptr;
     if (mask)
     {
         target->removeCurrentMask();
