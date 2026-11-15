@@ -29,7 +29,8 @@ const QStringList& shellIcons()
         QStringLiteral("home"),         QStringLiteral("images"),     QStringLiteral("layers"),
         QStringLiteral("moon"),         QStringLiteral("window"),     QStringLiteral("chevron_right"),
         QStringLiteral("chevron_down"), QStringLiteral("tune"),       QStringLiteral("image"),
-        QStringLiteral("information"),  QStringLiteral("more_horiz"),
+        QStringLiteral("information"),  QStringLiteral("more_horiz"), QStringLiteral("open_in_new"),
+        QStringLiteral("panel_right"),
     };
     return names;
 }

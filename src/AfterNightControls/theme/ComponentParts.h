@@ -169,6 +169,44 @@ inline constexpr int kPaletteFooterGap = 14;
 inline constexpr int kPaletteFooterHintGap = 5;
 inline constexpr int kPaletteFooterIcon = 14;
 
+// An icon button: an icon a strip's button high and square, its icon 16 px.
+inline constexpr int kIconButtonIcon = 16;
+inline constexpr int kIconButtonRadius = 6;
+
+// The readout: a column 360 px wide - 320 in a window under 1200 px wide - of cards 8 px apart, each radius 12 with a
+// section header; a plot in a well of radius 8 at least 100 px high; a value being measured again drawn at 55 %. The
+// image card starts folded in a window under 820 px high.
+inline constexpr int kReadoutColumnWidth = 360;
+inline constexpr int kReadoutColumnNarrowWidth = 320;
+inline constexpr int kReadoutNarrowWindow = 1200;
+inline constexpr int kReadoutShortWindow = 820;
+inline constexpr int kReadoutCardGap = 8;
+inline constexpr int kReadoutCardRadius = 12;
+inline constexpr int kReadoutWellRadius = 8;
+inline constexpr int kReadoutWellMinimum = 100;
+/// How far a well's plot sits inside it, so that the plot's square corners stay inside the well's rounded ones.
+inline constexpr int kReadoutWellInset = 4;
+inline constexpr int kReadoutToolGap = 2;
+inline constexpr int kReadoutValueGap = 2;
+inline constexpr int kReadoutCellGap = 10;
+inline constexpr int kReadoutDot = 6;
+inline constexpr int kReadoutDotGap = 4;
+/// A caps label's letter spacing, as a share of its font's size.
+inline constexpr qreal kReadoutCapsTracking = 0.08;
+inline constexpr qreal kReadoutStaleOpacity = 0.55;
+// The compact readout of a task: padding 6 12 8, a 20 px header, a well 92 px high beside an 84 px column; a column at
+// least 480 px wide lays its histogram and its cells side by side.
+inline constexpr int kCompactReadoutPaddingTop = 6;
+inline constexpr int kCompactReadoutPaddingSide = 12;
+inline constexpr int kCompactReadoutPaddingBottom = 8;
+inline constexpr int kCompactReadoutHeader = 20;
+inline constexpr int kCompactReadoutWell = 92;
+inline constexpr int kCompactReadoutSide = 84;
+inline constexpr int kCompactReadoutWide = 480;
+inline constexpr int kCompactReadoutIcon = 12;
+/// A change smaller than this is shown as none.
+inline constexpr double kReadoutDeltaFloor = 0.00005;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.
@@ -219,6 +257,10 @@ AFTERNIGHTCONTROLS_API void paintCrossMark(QPainter& painter, const QRectF& squa
 /// An exclamation mark in a square, as a stage that ended with a warning draws it.
 AFTERNIGHTCONTROLS_API void paintExclamationMark(QPainter& painter, const QRectF& square, const QColor& colour,
                                                  qreal width);
+
+/// A caps label: the caption in semibold capitals, its letters spaced by the readout's tracking - a card's title, a
+/// readout's label, the column's eyebrow.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QFont capsFont(const QFont& base, int logicalPixels);
 
 /// A chevron pointing right stroked in a square, as a breadcrumb draws it between its parts.
 AFTERNIGHTCONTROLS_API void paintChevronRight(QPainter& painter, const QRectF& square, const QColor& colour,

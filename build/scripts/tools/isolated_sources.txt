@@ -1123,6 +1123,7 @@ sources Test_ControlsStatistics
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsStatistics/StatisticsTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -1449,6 +1450,7 @@ sources Test_ControlsDialogs
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/RawPolicyCases.cpp
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightTests/Test_ControlsDialogs/DialogsTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -1622,6 +1624,7 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/OpenProcessRegistryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProcessLaunchServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProcessMenuModelTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ReadoutControllerTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentFilesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
@@ -1630,6 +1633,31 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/ViewServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/WindowGeometryStoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
+    header   src/AfterNightControls/components/AnIconButton.h
+    header   src/AfterNightControls/theme/ComponentParts.h
+    header   src/AfterNightControls/widgets/HistogramWidget.h
+    header   src/AfterNightControls/SexagesimalFormatter.h
+    header   src/AfterNightControls/components/AnAstrometryCard.h
+    header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnChip.h
+    header   src/AfterNightControls/components/AnCompactReadout.h
+    header   src/AfterNightControls/components/AnHistogramCard.h
+    header   src/AfterNightControls/components/AnImageFactsCard.h
+    header   src/AfterNightControls/components/AnReadoutCard.h
+    header   src/AfterNightControls/components/AnReadoutColumn.h
+    header   src/AfterNightControls/components/AnReadoutGrid.h
+    header   src/AfterNightControls/components/AnSegmentedControl.h
+    header   src/AfterNightControls/components/AnStatisticsCard.h
+    header   src/AfterNightControls/components/AnStyledTable.h
+    header   src/AfterNightControls/components/ReadoutFigures.h
+    header   src/AfterNightControls/controls/ImageAstrometryInfoFormatter.h
+    header   src/AfterNightControls/controls/ImageStatisticsControl.h
+    header   src/AfterNightControls/controls/ImageStatisticsControlUiBuilder.h
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
+    header   src/AfterNightControls/controls/ImageStatisticsReport.h
+    header   src/AfterNightControls/widgets/HistogramDisplayData.h
+    header   src/AfterNightShellCore/readout/ReadoutController.h
+    header   src/AfterNightShellCore/readout/ReadoutSummaries.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreRecords.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreTestSupport.h
     header   src/AfterNightTests/Test_ShellCore/ShellCoreViewSupport.h
@@ -1851,6 +1879,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
     unit     src/AfterNightTests/fixtures/common/MaskRenderingCases.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightTests/Test_ControlsSeams/FreedMemoryQuarantine.h
     header   src/AfterNightTests/Test_ControlsSeams/ViewCompanionsStub.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
@@ -2442,6 +2471,7 @@ sources Test_ShellClassic
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/RawPolicyCases.cpp
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightControls/app/ActionLookup.h
     header   src/AfterNightShellCore/actions/ActionBindings.h
     header   src/AfterNightShellCore/actions/ActionCatalogue.h
@@ -2967,6 +2997,7 @@ sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/AnSwitchTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnTagTest.cpp
     unit     src/AfterNightTests/Test_Widgets/ObservatoryComponentsTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/ReadoutCardsTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NewTokensTest.cpp
     unit     src/AfterNightTests/Test_Widgets/NightPicturesTest.cpp
     unit     src/AfterNightTests/Test_Widgets/main.cpp
@@ -2995,6 +3026,17 @@ sources Test_Widgets
     unit     src/AfterNightTests/fixtures/common/FixtureFits.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    header   src/AfterNightControls/components/AnAstrometryCard.h
+    header   src/AfterNightControls/components/AnCompactReadout.h
+    header   src/AfterNightControls/components/AnHistogramCard.h
+    header   src/AfterNightControls/components/AnIconButton.h
+    header   src/AfterNightControls/components/AnImageFactsCard.h
+    header   src/AfterNightControls/components/AnReadoutCard.h
+    header   src/AfterNightControls/components/AnReadoutColumn.h
+    header   src/AfterNightControls/components/AnReadoutGrid.h
+    header   src/AfterNightControls/components/AnStatisticsCard.h
+    header   src/AfterNightControls/components/ReadoutFigures.h
+    header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightTests/Test_Widgets/theme_test_utils.h
     header   src/AfterNightTests/Test_Widgets/RenderTestSupport.h
     header   src/AfterNightControls/app/IconManager.h
@@ -3086,6 +3128,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_density_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_palette_recent_commands_setting.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_readout_settings.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_preset_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_start_in_night_setting.cpp

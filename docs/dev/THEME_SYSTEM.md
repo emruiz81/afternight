@@ -754,6 +754,13 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnTaskThumbnail` | A task's 38 px box in the rail: its target's picture (in its Night form under Night), the run's ring - progress, or a quarter that turns - the process's glyph and the dot of an unseen result |
 | `AnStageList` | Rows of a status mark (never colour alone: ring, accent, check, exclamation, cross), a title and a mono line, an optional progress bar, the marks joined by a line; the selected row `accentContainer`. Up, Down and a click select; `selectedStageChanged(id)`. A list to assistive technology |
 | `AnCommandPalette` | The command palette's popup: 640 px of `surface3` in a hairline with the cards' corners on its elevation, a 48 px query row, groups under caps headers with `metrics.rowPalette` rows (the selected one `accentContainer` with an accent bar), a 36 px `surface2` footer. Shows what an `ICommandSource` answers (`components/ICommandSource.h`); a combo box with a list to assistive technology (see [The command palette](#the-command-palette)) |
+| `AnIconButton` | A square `metrics.controlXSmall` button of a 16 px icon in `textSecondary` (`textPrimary` hovered); its toggle form, checked, is `accentContainer`. Its text is its tooltip and accessible name and is never drawn |
+| `AnFlowLayout` | A layout that places widgets in a row at their size hints and wraps them onto the next row; its height follows its width |
+| `AnReadoutCard` | A card of the readout: `surface2` with `kReadoutCardRadius` corners, a `metrics.sectionHeader` header (`AnReadoutCardHeader`: a caps title, a summary at the right, tools) that folds it, a body padded by `metrics.pad`; its values drawn at 55 % while stale |
+| `AnReadoutGrid`, `AnReadoutText`, `AnReadoutWell` | Read-outs in a grid (a caps label in `textTertiary` over a mono value, an optional unit and note); a line of text in a readout style; the `bgWell` well a plot is drawn in, with an optional tag over the plot |
+| `AnHistogramCard`, `AnStatisticsCard`, `AnAstrometryCard`, `AnImageFactsCard` | The readout's four cards (see [The readout](#the-readout)) |
+| `AnReadoutColumn` | The readout column: `surface1` with a hairline at its left, 360 px wide (320 in a window under 1200 px), a header row and the four cards; its folds as a line of names |
+| `AnCompactReadout` | A task's compact readout: `surface2`, the preview's histogram in a 92 px well tagged "Preview", the mode and the clipping, five cells with the change against the original; side by side from 480 px wide |
 
 Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
 no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
@@ -815,20 +822,60 @@ and the list, whose rows are named by their title and subtitle, a dimmed one as 
 `CommandPalette.*` (`Test_Widgets`) holds its geometry in both densities, its keyboard, its colours under every look and
 ratio, the star, a dimmed command and its accessible structure.
 
+### The readout
+
+The readout is the column of the active view's figures and a task's compact readout. Its parts know no shell and
+measure nothing: the shell core's `readout/ReadoutController` hands them what it measured on the thread pool
+(`docs/dev/guides/PRODUCT_ARCHITECTURE.md`, "The readout"), and they tell what the person asks for - a fold, a range, a
+resolution, a window, an overlay. Each card is an `AnReadoutCard`: `surface2` with 12 px corners on the column's
+`surface1`, 8 px apart, a `metrics.sectionHeader` header whose title is the caption in semibold capitals,
+letter-spaced 0.08 em (`parts::capsFont`), in `textSecondary`, with the card's summary in the small size at its right
+before its tools (`AnIconButton`s); a click, Space or Enter on the header folds the card. A value being measured again
+is drawn at 55 % (`kReadoutStaleOpacity`) until the new one lands - a card never blanks it - and a plot, a child widget,
+through an opacity effect at the same share.
+
+- **Histogram** (`AnHistogramCard`): the histogram window's widget in a `bgWell` well of 8 px corners at least 100 px
+  high, which takes the height the other cards leave; under it the window's tools with the window's defaults (Zoom in,
+  Zoom out, Zoom reset; Show grid, Show clipping info, Absolute scales, Draw histogram areas) acting on the widget as the
+  window's do, and its resolution. The header says "RGB" or "Grayscale"; its tool opens the window.
+- **Statistics** (`AnStatisticsCard`): Min, Max, Mean, Median, StdDev and MAD - the statistics window's figures
+  (`components/ReadoutFigures.h`) - in three columns of read-outs for a grey image, a table of a column per colour
+  channel headed by its dot (`channelRed`, `channelGreen`, `channelBlue`) for a colour one; the header's segments choose
+  Normalized, 8-bit or 16-bit, which writes the figures again without measuring anything.
+- **Astrometry** (`AnAstrometryCard`): the field centre, the scale and the rotation as read-outs; a toggle `AnChip` per
+  overlay (Grid, Annotations, Star labels, Detected stars, SIP map) in an `AnFlowLayout`, bound to the action that draws
+  it so the chip follows the view's menu and shortcut; Plate Solve (tonal), Annotate... and Info (quiet); the header
+  says "Solved", the solver and the distortion, and its tool opens the view's astrometry settings. Not solved, "No
+  astrometric solution" and Plate Solve.
+- **Image** (`AnImageFactsCard`): Dimensions, Format, Size in memory and Channels in `metrics.rowKeyValue` rows; the
+  FITS Header, EXIF Viewer and Summary tools; folded, the facts in one line in its header.
+
+`AnReadoutColumn` lays the header row (the caps "Readout" in `textTertiary`, the view's name elided in the middle, the
+collapse button) and the cards in a `surface1` column with a `borderSubtle` hairline as its first pixel. `AnCompactReadout`
+is a task's: `surface2`, padding 6 12 8, a 20 px header (the caps "Readout · preview", the target's solution in one line,
+a chevron that asks for the full readout), the preview's histogram in a 92 px well with a "Preview" `AnTag` over it, an
+84 px column of the mode and Clip low and Clip high, and five cells each with "Δ +0.0123" - or "Δ ±0" under 0.00005 -
+under its value; under 480 px wide the cells take a row of their own, wider they sit beside the histogram. Every size is
+in `theme/ComponentParts.h` (`kReadout*`, `kCompactReadout*`, `kIconButton*`). `ReadoutCard.*` to `CompactReadout.*`
+(`Test_Widgets`) hold them, with their render cases, and `ReadoutColumn.PaintsNoGreenOrBlueAtNight` paints the filled
+column and the compact readout under Night.
+
 ### Small parts
 
 `theme/ComponentParts.h` holds what the parts are made of beyond the tokens, so that no component writes a size of its
 own: the sizes that are no metric of a density (a tag's 4 px corners and padding, a switch's 32 x 18 track and its 10 and
-14 px knob, a chip's and a segment's padding, the snackbar's, the stage list's, the rail's and the palette's parts, the
+14 px knob, a chip's and a segment's padding, the snackbar's, the stage list's, the rail's, the palette's and the readout's parts, the
 focus ring's 2 px, the state layer's 8 and 12 %, the disabled 38 %), and what every part paints the same way -
 `sizedFont` (a font of the type
-scale at a metric's size, set as points at 96 logical dots per inch), `textWidth` (a text's exact width rounded up, the
+scale at a metric's size, set as points at 96 logical dots per inch), `capsFont` (the caption in semibold capitals,
+letter-spaced), `textWidth` (a text's exact width rounded up, the
 room a part gives a text it may later elide), `paintStateLayer`, `paintFocusRing` (drawn at the part's edge, inside it,
 for keyboard focus only), `paintIcon` (an icon in one colour, the part's text's), the check, cross, exclamation and
 chevron glyphs (`paintIcon` is on `theme/NightImageWidgets.h`: it fills an icon's shape with a token, which Night
 maps), and `contrastingTextColor` (a preferred text colour, or white or black when it does not stand out). The
 shell's icons the rail, the top bar and the strips draw are SVG files in `icons/SVG/` tinted by `IconManager`: `home`,
-`images`, `layers`, `moon`, `window`, `chevron_right`, `chevron_down`, `tune`, `image` and `information`, stroked on a
+`images`, `layers`, `moon`, `window`, `chevron_right`, `chevron_down`, `tune`, `image`, `information`, `more_horiz`,
+`open_in_new` and `panel_right`, stroked on a
 960 grid at the weight of the others (`ShellIcons.*` in `Test_Widgets`).
 
 All components use `paintEvent()` with design tokens for custom drawing, and standard Qt widgets (via proxy style) for embedded controls.

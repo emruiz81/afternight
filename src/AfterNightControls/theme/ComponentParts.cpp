@@ -47,6 +47,14 @@ QFont sizedFont(const QFont& base, const int logicalPixels, const QFont::Weight 
     return font;
 }
 
+QFont capsFont(const QFont& base, const int logicalPixels)
+{
+    QFont font = sizedFont(base, logicalPixels, QFont::DemiBold);
+    font.setCapitalization(QFont::AllUppercase);
+    font.setLetterSpacing(QFont::AbsoluteSpacing, kReadoutCapsTracking * logicalPixels);
+    return font;
+}
+
 int textWidth(const QFont& font, const QString& text)
 {
     return static_cast<int>(std::ceil(QFontMetricsF(font).horizontalAdvance(text)));

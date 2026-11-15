@@ -598,7 +598,7 @@ capability new.palette
 
 capability new.readout
     title        The readout column
-    shared
+    shared       ReadoutController.FollowsTheActiveView, ReadoutController.MeasuresOncePerBurstOfChanges, ReadoutController.AdmitsAsAPreviewAndRetriesARefusalAtTheNextChange, ReadoutController.PublishesOnlyACommittingTicket, ReadoutController.NeverCallsTheEngineOnTheGuiThread, StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange, AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut, ReadoutController.RemembersTheFoldsAndTheCollapse, ReadoutColumn.TheFoldsAreALineOfNames, HistogramCard.TheToolsStartAsTheWindowsAndActOnItsWidget
     classic
     observatory  pending
 
@@ -640,7 +640,7 @@ capability new.look
 
 capability new.change-against-original
     title        The change under each statistic of a task
-    shared
+    shared       ReadoutController.InATaskItMeasuresSettledFramesAgainstTheOriginal, CompactReadout.TheFiveCellsCarryTheirChangeAgainstTheOriginal
     classic
     observatory  pending
 

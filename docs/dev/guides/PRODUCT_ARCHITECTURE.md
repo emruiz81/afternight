@@ -1297,7 +1297,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`, `commands/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`, `commands/`, `readout/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1420,6 +1420,31 @@ each until the palette's header is clicked. The palette (`components/AnCommandPa
 twenty of them, are stored in `interface/paletteRecentCommands` as they change and read again as the stores open; the
 favourites are the favourite processes the menus list, so a star in the palette and Manage Favorites edit one list.
 
+The readout - the column of the active view's figures, and the compact readout a task pins above its process - is fed
+by `readout/ReadoutController`, which a shell makes over the core and hands the widgets it shows
+(`components/AnReadoutColumn.h`, `components/AnCompactReadout.h`, in Controls, which include nothing of the shell core:
+they show what they are handed and tell what the person asks). It follows the active view as the core's listeners are
+told of it, docked or floating, or, while a shell shows a task, the task's preview through an `IReadoutFrameSource`.
+More widgets on screen must never cost the GUI thread an engine call, so a change - another view, the image updated,
+another resolution, a settled frame - only schedules an update, a burst within 150 ms makes one, and an update measures
+only what changed: the channel the view shows picks the curves drawn, and the view's name, its solution and its facts
+are read where they are kept, with nothing measured. A measurement is one operation on the thread pool: the image's
+read lease first (an edit holds the writer while it waits to be admitted), then an admission as `Preview` through
+`tryAdmit`, so the readout never queues in front of a run and a refusal costs nothing but dimmed figures until the next
+change measures again; then the histogram's counts and the statistics window's figures in the same operation - so one
+ticket, one admission and one lease answer for both, which is why the readout counts with `computeHistogramDisplayData`
+rather than through a `HistogramCountScheduler`, whose counts wait in the admission queue. The clipped samples are
+left out as the statistics window leaves them out when it opens, so the six figures the card shows are the window's
+for the same image and range. What lands is shown only when its `CommitTicket` still commits: a view closed or left
+while it is measured shows nothing of it. In a task only a settled frame is measured, because only an interactive
+frame's pixels are approximated, never a statistic: an interactive frame dims the figures and keeps them, and the
+original's figures are measured once, beside the first settled frame, for the change each cell shows against them. The
+column's folded cards and its being collapsed are kept in the global settings store (`interface/readoutCards`, an
+empty line once every card was opened again - the store keeps a null string as no value; `interface/readoutCollapsed`);
+until a line is kept, the Image card starts folded in a window under 820 px high. The chips of the astrometry card are
+bound to the view's own overlay actions, which the view names (`astrometryGridAction` ... `astrometrySipMapAction`,
+`astrometryOverlayAction`, `astrometrySettingsMenu`), so a chip and the view's menu and shortcut are one switch.
+
 The arrangement of the views is the core's too (`views/`). The dock library keeps its configuration and three hooks -
 a question before a drag starts, one before a drop indicator shows, a call when a drag ends - for the whole process,
 each hook a plain function that captures nothing. `DockHooks` is the one unit that sets them: the core configures the
@@ -1469,7 +1494,11 @@ order a removal is told in, a worker's request, who asked for a view, the subjec
 `ProcessLaunchService.*`; `CommandIndex.*` (the ranking, the prefixes, the groups, the recent and favourite commands
 and the providers over fixed lists, the settings table against the pages, the keystroke's time) and
 `CommandIndexInTheApplication.*` (every recorded action and process found by its text in a core, the commands run
-last read again by the next one). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
+last read again by the next one); `ReadoutController.*` (real views of a session: the view followed, one measurement a
+burst, a refusal while every thread is held, a view closed while it is measured, no engine call on the GUI thread, a
+task's settled and interactive frames, the folds kept), `StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange`,
+`AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut`, `ReadoutSummaries.*` and `Timing.ReadoutUpdate`
+(the GUI thread's time in an update, measured when `AFTERNIGHT_TEST_TIMINGS=1` asks). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
 (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
 read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and

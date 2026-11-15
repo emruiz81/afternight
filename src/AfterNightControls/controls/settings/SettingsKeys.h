@@ -88,6 +88,11 @@ inline constexpr auto INTERFACE_USE_SYSTEM_FILE_BROWSER = "interface/useSystemFi
 inline constexpr auto INTERFACE_SHELL = "interface/shell";
 // The commands the command palette ran last, most recent first, one id a line: no more than twenty.
 inline constexpr auto INTERFACE_PALETTE_RECENT_COMMANDS = "interface/paletteRecentCommands";
+// The readout's cards the person folded, by name, comma separated ("statistics,image"); absent until a card is folded
+// or opened, and then the Image card starts folded only in a short window.
+inline constexpr auto INTERFACE_READOUT_CARDS = "interface/readoutCards";
+// Whether the readout column is collapsed to its button.
+inline constexpr auto INTERFACE_READOUT_COLLAPSED = "interface/readoutCollapsed";
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

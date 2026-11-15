@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <QDialog>
 #include <QtWidgets/QMainWindow>
 #include "AfterNightControlsExport.h"
 #include "ImageStatisticsControlUiBuilder.h"

@@ -1500,34 +1500,41 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
         // Astrometry overlay toggle (master switch)
         m_impl->m_AstrometryToggleAction =
             m_impl->m_ToolBar->addAction(iconManager->getIcon("star"), tr("Show Astrometry"));
+        m_impl->m_AstrometryToggleAction->setObjectName(QStringLiteral("astrometryOverlayAction"));
         m_impl->m_AstrometryToggleAction->setCheckable(true);
         m_impl->m_AstrometryToggleAction->setChecked(astrometryOverlayEnabled);
         m_impl->m_AstrometryToggleAction->setToolTip(tr("Toggle astrometry overlays on solved images (Ctrl+Shift+W)"));
 
         // Astrometry settings button with popup menu
         m_impl->m_AstrometrySettingsMenu = new QMenu(this);
+        m_impl->m_AstrometrySettingsMenu->setObjectName(QStringLiteral("astrometrySettingsMenu"));
 
         m_impl->m_AstrometryGridMenuAction = m_impl->m_AstrometrySettingsMenu->addAction(tr("Equatorial Grid\tCtrl+1"));
+        m_impl->m_AstrometryGridMenuAction->setObjectName(QStringLiteral("astrometryGridAction"));
         m_impl->m_AstrometryGridMenuAction->setCheckable(true);
         m_impl->m_AstrometryGridMenuAction->setChecked(coordinateGridEnabled);
 
         m_impl->m_AstrometryAnnotationsMenuAction =
             m_impl->m_AstrometrySettingsMenu->addAction(tr("Deep-Sky Annotations\tCtrl+2"));
+        m_impl->m_AstrometryAnnotationsMenuAction->setObjectName(QStringLiteral("astrometryAnnotationsAction"));
         m_impl->m_AstrometryAnnotationsMenuAction->setCheckable(true);
         m_impl->m_AstrometryAnnotationsMenuAction->setChecked(catalogAnnotationsEnabled);
 
         m_impl->m_AstrometryStarLabelsMenuAction =
             m_impl->m_AstrometrySettingsMenu->addAction(tr("Star Labels\tCtrl+3"));
+        m_impl->m_AstrometryStarLabelsMenuAction->setObjectName(QStringLiteral("astrometryStarLabelsAction"));
         m_impl->m_AstrometryStarLabelsMenuAction->setCheckable(true);
         m_impl->m_AstrometryStarLabelsMenuAction->setChecked(starLabelsEnabled);
 
         m_impl->m_AstrometrySipMenuAction =
             m_impl->m_AstrometrySettingsMenu->addAction(tr("SIP Distortion Map\tCtrl+5"));
+        m_impl->m_AstrometrySipMenuAction->setObjectName(QStringLiteral("astrometrySipMapAction"));
         m_impl->m_AstrometrySipMenuAction->setCheckable(true);
         m_impl->m_AstrometrySipMenuAction->setChecked(distortionMapEnabled);
 
         m_impl->m_AstrometryDetectedStarsMenuAction =
             m_impl->m_AstrometrySettingsMenu->addAction(tr("Detected Stars\tCtrl+4"));
+        m_impl->m_AstrometryDetectedStarsMenuAction->setObjectName(QStringLiteral("astrometryDetectedStarsAction"));
         m_impl->m_AstrometryDetectedStarsMenuAction->setCheckable(true);
         m_impl->m_AstrometryDetectedStarsMenuAction->setChecked(detectedStarsEnabled);
 

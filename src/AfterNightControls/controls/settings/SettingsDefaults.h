@@ -79,6 +79,8 @@ inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = true;
 inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = false;
 #endif
 inline constexpr auto INTERFACE_SHELL = "classic";
+inline constexpr auto INTERFACE_READOUT_CARDS = ""; // no card folded but by the window's height
+inline constexpr bool INTERFACE_READOUT_COLLAPSED = false;
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings
