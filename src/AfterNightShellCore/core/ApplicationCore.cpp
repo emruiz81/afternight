@@ -7,6 +7,8 @@
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionStateCoordinator.h"
 #include "actions/ProcessMenuModel.h"
+#include "commands/CommandIndex.h"
+#include "commands/CommandProviders.h"
 #include "core/IShell.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
@@ -32,6 +34,8 @@
 #include "controls/PersistenceDbExecutor.h"
 #include "controls/ProcessSettingsPersistence.h"
 #include "controls/ThumbnailPersistence.h"
+#include "controls/ImageViewControl.h"
+#include "controls/settings/SettingsKeys.h"
 
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Core/Status.h>
@@ -43,7 +47,11 @@
 
 #include <QUuid>
 
+#include <algorithm>
 #include <optional>
+#include <set>
+#include <string>
+#include <vector>
 
 namespace an::ui::shell
 {
@@ -125,6 +133,7 @@ struct ApplicationCore::Impl
     std::unique_ptr<ViewService> views;
     std::unique_ptr<ProcessLaunchService> launches;
     std::unique_ptr<ExtensionService> extensions;
+    std::unique_ptr<CommandIndex> commands;
 };
 
 ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<Impl>())
@@ -211,6 +220,96 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
         impl.extensions->extensionsPrepared(discovered);
     };
     impl.launches->setHooks(std::move(launchHooks));
+
+    makeCommands();
+}
+
+void ApplicationCore::makeCommands()
+{
+    Impl& impl = *m_impl;
+    impl.commands = std::make_unique<CommandIndex>();
+    const QString recentKey = QString::fromLatin1(SettingsKeys::INTERFACE_PALETTE_RECENT_COMMANDS);
+    impl.commands->setStore(CommandIndex::RecentStore{
+        [&impl, recentKey]() { return impl.settings.select(recentKey); },
+        [&impl, recentKey](const QString& ids) { (void)impl.settings.upsert(recentKey, ids); }});
+
+    namespace registry = an::ui::process_registry;
+    ProcessCommands::Dependencies processes;
+    processes.imageGuards = [&impl](const registry::ProcessDescriptor& descriptor) {
+        // With no image the process runs, and its launch says there is none, as the menu's does.
+        ImageViewControl* const view = impl.views->subjectView();
+        return view == nullptr ? registry::LaunchGuardResult{}
+                               : registry::evaluateSingleImageLaunchGuards(
+                                     descriptor, registry::launchGuardInputFor(descriptor, view));
+    };
+    processes.launch = [&impl](const std::string& descriptorId) { return impl.launches->launch(descriptorId); };
+    processes.isFavorite = [&impl](const std::string& descriptorId) {
+        return impl.favoriteProcesses.ids().count(descriptorId) != 0u;
+    };
+    processes.setFavorite = [&impl](const std::string& descriptorId, const bool favorite) {
+        std::set<std::string> favourites = impl.favoriteProcesses.ids();
+        if (favorite)
+        {
+            favourites.insert(descriptorId);
+        }
+        else
+        {
+            favourites.erase(descriptorId);
+        }
+        impl.favoriteProcesses.setIds(std::move(favourites));
+        impl.favoriteProcesses.save();
+        impl.processMenus->notifyChanged(ProcessMenuModel::Change::FavoriteProcesses);
+    };
+    processes.actions = impl.catalogue->lookup();
+    impl.commands->addProvider(std::make_unique<ProcessCommands>(std::move(processes)));
+
+    ImageCommands::Dependencies images;
+    images.views = [&impl]() {
+        std::vector<ImageCommands::OpenView> views;
+        for (ImageViewControl* const view : impl.views->getListOfViewControls())
+        {
+            if (view != nullptr)
+            {
+                views.push_back(ImageCommands::OpenView{QString::fromStdString(view->getUniqueName()),
+                                                        QString::fromStdString(view->getFileName())});
+            }
+        }
+        return views;
+    };
+    images.activateView = [&impl](const QString& name) { impl.views->setActiveViewByName(name.toStdString()); };
+    images.recentFiles = [&impl]() {
+        std::vector<QString> files;
+        for (const std::string& file : impl.recentFiles.entries())
+        {
+            files.push_back(QString::fromStdString(file));
+        }
+        return files;
+    };
+    images.openFile = [](const QString& path) {
+        // A recent file opens as the shell's own recent files do.
+        if (an::ui::IAppContext* const context = an::ui::appContext())
+        {
+            if (an::ui::IRecentFilesService* const files = context->getRecentFilesService())
+            {
+                files->openRecentSingleFile(path);
+            }
+        }
+    };
+    impl.commands->addProvider(std::make_unique<ImageCommands>(std::move(images)));
+
+    ActionCommands::Dependencies actions;
+    actions.actions = impl.catalogue->lookup();
+    actions.launchesProcess = [](const std::string_view actionId) {
+        const auto& all = registry::ProcessRegistry::instance().all();
+        return std::any_of(all.begin(), all.end(), [actionId](const registry::ProcessDescriptor& descriptor) {
+            return descriptor.action_object_name == actionId;
+        });
+    };
+    impl.commands->addProvider(std::make_unique<ActionCommands>(std::move(actions)));
+
+    SettingsCommands::Dependencies settings;
+    settings.openPage = [&impl](const QString& pageTitle) { impl.dialogs->openSettingsAt(pageTitle); };
+    impl.commands->addProvider(std::make_unique<SettingsCommands>(std::move(settings)));
 }
 
 ApplicationCore::~ApplicationCore()
@@ -229,6 +328,8 @@ void ApplicationCore::openStores()
         return;
     }
     m_impl->persistence->initializePersistence();
+    // The commands the palette ran last live in the settings, which are open from here.
+    m_impl->commands->loadRecents();
 }
 
 void ApplicationCore::closeStores() noexcept
@@ -419,6 +520,11 @@ ActionStateCoordinator& ApplicationCore::actionState() noexcept
 ProcessMenuModel& ApplicationCore::processMenus() noexcept
 {
     return *m_impl->processMenus;
+}
+
+CommandIndex& ApplicationCore::commands() noexcept
+{
+    return *m_impl->commands;
 }
 
 DockLayoutOperations& ApplicationCore::dockLayout() noexcept

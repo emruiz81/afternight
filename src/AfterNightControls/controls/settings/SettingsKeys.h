@@ -86,6 +86,8 @@ inline constexpr auto INTERFACE_ANIMATIONS_ENABLED = "interface/animationsEnable
 inline constexpr auto INTERFACE_USE_SYSTEM_FILE_BROWSER = "interface/useSystemFileBrowser";
 // The shell the application starts with, by its id; read at start, so a change takes effect at the next one.
 inline constexpr auto INTERFACE_SHELL = "interface/shell";
+// The commands the command palette ran last, most recent first, one id a line: no more than twenty.
+inline constexpr auto INTERFACE_PALETTE_RECENT_COMMANDS = "interface/paletteRecentCommands";
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

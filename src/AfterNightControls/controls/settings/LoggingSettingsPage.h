@@ -16,7 +16,7 @@ class GlobalSettingsPersistence;
 /// Settings are stored in a text config file (logging.conf) that can be read
 /// before Qt/engine initialization.
 /// Log level changes take effect immediately at runtime.
-class LoggingSettingsPage : public SettingsPage
+class AFTERNIGHTCONTROLS_API LoggingSettingsPage : public SettingsPage
 {
     W_OBJECT(LoggingSettingsPage)
 

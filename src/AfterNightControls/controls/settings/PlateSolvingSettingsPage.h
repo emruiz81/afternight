@@ -17,7 +17,7 @@ class GlobalSettingsPersistence;
 
 /// Plate solving settings page.
 /// Configures plate solving tools (ASTAP, Astrometry.net) and solver parameters.
-class PlateSolvingSettingsPage : public SettingsPage
+class AFTERNIGHTCONTROLS_API PlateSolvingSettingsPage : public SettingsPage
 {
     W_OBJECT(PlateSolvingSettingsPage)
 

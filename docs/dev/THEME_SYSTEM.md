@@ -753,6 +753,7 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnIconRail` | The rail: places, tasks and foot items given as `RailItem`s (`components/RailItem.h`), the selected one with a 3 x 20 accent bar; badges, the overflow item and its list of every task, tooltips at an item's right, the keyboard, the menu request, the drag of a task with its ghost. A list to assistive technology (see [The rail](#the-rail)) |
 | `AnTaskThumbnail` | A task's 38 px box in the rail: its target's picture (in its Night form under Night), the run's ring - progress, or a quarter that turns - the process's glyph and the dot of an unseen result |
 | `AnStageList` | Rows of a status mark (never colour alone: ring, accent, check, exclamation, cross), a title and a mono line, an optional progress bar, the marks joined by a line; the selected row `accentContainer`. Up, Down and a click select; `selectedStageChanged(id)`. A list to assistive technology |
+| `AnCommandPalette` | The command palette's popup: 640 px of `surface3` in a hairline with the cards' corners on its elevation, a 48 px query row, groups under caps headers with `metrics.rowPalette` rows (the selected one `accentContainer` with an accent bar), a 36 px `surface2` footer. Shows what an `ICommandSource` answers (`components/ICommandSource.h`); a combo box with a list to assistive technology (see [The command palette](#the-command-palette)) |
 
 Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
 no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
@@ -790,12 +791,37 @@ product's files unless the owner sets a resolver (`setIconResolver`), and drawn 
 technology reads a list through an interface the rail installs for its class (`AnIconRailAccessible`): its children are
 the items it shows, top to bottom, the overflow item among them.
 
+### The command palette
+
+`AnCommandPalette` is a window of its own (`Qt::Popup`, translucent, its margins `elevationWindowMargins()`) that paints
+its surface and lays out three children: the query field (a `QLineEdit` with no frame, which the Observatory style
+leaves bare, at 15 px), the rows (a `QListView` with no frame and no background of its own, painted by the palette's
+delegate) and the footer (key hints, captions and the "all menus" button). The surface is `surface3` inside a
+`borderSubtle` hairline with `radius.lg` corners; the hairlines under the query row and over the footer are
+`borderSubtle`; the footer is `surface2` inside the surface's corners; the search icon is `textSecondary`. A group's
+header is the caption in semibold capitals, letter-spaced 0.08 em, in `textTertiary`, 9 px above it and 3 below on a
+14 px line, with "N more" at its right while the group hides rows. A row is `metrics.rowPalette` high with 6 px corners:
+a 16 px icon, the title in the body size (semibold when selected) in `textPrimary`, and at its right the subtitle in the
+small size in `textSecondary` - at most 45 % of the room, elided in the middle - the command's keys as a raised key hint
+and, for a favoritable row, its star. The selected row is `accentContainer` with a 3 px `accentPrimary` bar at its left
+edge, and everything on it is `textOnAccentContainer` (its key hint on colour); a hovered row lays the state layer
+over itself; a command that cannot run now is drawn at 38 %. The star is drawn while the row is hovered or selected, and
+always - filled, in `textAccent` - for a favourite: the state is the shape, not the colour alone. Every size is in
+`theme/ComponentParts.h` (`kPalette*`); the fonts are read where the palette paints, and the query's when it opens or is
+told of a change of style. The palette knows no command and reads no setting: its owner hands it a source and places it
+(`open(anchor, windowHeight)`: centred under the point, 12 px below it, the body at most 60 % of the height given).
+Assistive technology reads a combo box (an interface the palette installs for its class) holding the editable query
+and the list, whose rows are named by their title and subtitle, a dimmed one as "unavailable" with its reason.
+`CommandPalette.*` (`Test_Widgets`) holds its geometry in both densities, its keyboard, its colours under every look and
+ratio, the star, a dimmed command and its accessible structure.
+
 ### Small parts
 
 `theme/ComponentParts.h` holds what the parts are made of beyond the tokens, so that no component writes a size of its
 own: the sizes that are no metric of a density (a tag's 4 px corners and padding, a switch's 32 x 18 track and its 10 and
-14 px knob, a chip's and a segment's padding, the snackbar's and the stage list's parts, the focus ring's 2 px, the
-state layer's 8 and 12 %, the disabled 38 %), and what every part paints the same way - `sizedFont` (a font of the type
+14 px knob, a chip's and a segment's padding, the snackbar's, the stage list's, the rail's and the palette's parts, the
+focus ring's 2 px, the state layer's 8 and 12 %, the disabled 38 %), and what every part paints the same way -
+`sizedFont` (a font of the type
 scale at a metric's size, set as points at 96 logical dots per inch), `textWidth` (a text's exact width rounded up, the
 room a part gives a text it may later elide), `paintStateLayer`, `paintFocusRing` (drawn at the part's edge, inside it,
 for keyboard focus only), `paintIcon` (an icon in one colour, the part's text's), the check, cross, exclamation and

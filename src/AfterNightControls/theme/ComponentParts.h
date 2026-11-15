@@ -133,6 +133,42 @@ inline constexpr int kTaskFailedRadius = 3;
 /// A floating task's picture is drawn at this share.
 inline constexpr qreal kTaskFloatingOpacity = 0.45;
 
+// The command palette: a popup 640 px wide, 12 px under the point it opens from; a 48 px query row with an 18 px search
+// icon and the query at 15 px; a body inset 6 px at the sides and the foot, its groups under caps headers - 9 px above,
+// 3 below, 10 at the sides, on a 14 px line - and its rows with 10 px of padding, 12 px gaps and 16 px icons; a 36 px
+// footer. The body takes at most 60 % of the window's height.
+inline constexpr int kPaletteWidth = 640;
+inline constexpr int kPaletteOffset = 12;
+inline constexpr int kPaletteQueryRow = 48;
+inline constexpr int kPaletteQueryIcon = 18;
+inline constexpr int kPaletteQueryFont = 15;
+inline constexpr int kPaletteQueryPaddingStart = 16;
+inline constexpr int kPaletteQueryPaddingEnd = 12;
+inline constexpr int kPaletteQueryGap = 12;
+inline constexpr int kPaletteBodyPadding = 6;
+inline constexpr qreal kPaletteBodyShare = 0.6;
+inline constexpr int kPaletteHeaderPaddingTop = 9;
+inline constexpr int kPaletteHeaderPaddingBottom = 3;
+inline constexpr int kPaletteHeaderPaddingSide = 10;
+inline constexpr int kPaletteHeaderLine = 14;
+/// A header's letter spacing, as a share of its font's size.
+inline constexpr qreal kPaletteHeaderTracking = 0.08;
+inline constexpr int kPaletteRowRadius = 6;
+inline constexpr int kPaletteRowPadding = 10;
+inline constexpr int kPaletteRowGap = 12;
+inline constexpr int kPaletteRowIcon = 16;
+inline constexpr int kPaletteHintGap = 6;
+/// The accent's bar at the selected row's left edge.
+inline constexpr int kPaletteSelectedBar = 3;
+inline constexpr int kPaletteStar = 16;
+/// The share of the room beside a row's title its subtitle may take at most.
+inline constexpr qreal kPaletteSubtitleShare = 0.45;
+inline constexpr int kPaletteFooter = 36;
+inline constexpr int kPaletteFooterPadding = 14;
+inline constexpr int kPaletteFooterGap = 14;
+inline constexpr int kPaletteFooterHintGap = 5;
+inline constexpr int kPaletteFooterIcon = 14;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.

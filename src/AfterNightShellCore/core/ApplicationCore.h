@@ -64,6 +64,7 @@ class ActionBindings;
 class ActionCatalogue;
 class ActionStateCoordinator;
 class AppEventBus;
+class CommandIndex;
 class DialogService;
 class DockLayoutOperations;
 class ExtensionService;
@@ -214,6 +215,11 @@ public:
     /// The process menus as data: the favourite and recent processes, and what the extensions add.
     [[nodiscard]] ProcessMenuModel& processMenus() noexcept;
 
+    /// Every command of the application, which the command palette searches: the catalogue's actions, the processes,
+    /// the open views and the recent files, the settings pages and their rows. The commands run last are kept in the
+    /// settings (`interface/paletteRecentCommands`) and read again as the stores open.
+    [[nodiscard]] CommandIndex& commands() noexcept;
+
     // ---- The arrangement of the views
 
     /// Group, split and fit the views, and lock their arrangement, on a dock area the shell names. The dock library is
@@ -300,6 +306,9 @@ protected:
     void customEvent(QEvent* event) override;
 
 private:
+    /// Makes the command index over the core's services: what the palette lists, and where it keeps what ran last.
+    void makeCommands();
+
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 };

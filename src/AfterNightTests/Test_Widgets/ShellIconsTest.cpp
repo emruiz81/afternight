@@ -26,10 +26,10 @@ namespace
 const QStringList& shellIcons()
 {
     static const QStringList names{
-        QStringLiteral("home"),         QStringLiteral("images"), QStringLiteral("layers"),
-        QStringLiteral("moon"),         QStringLiteral("window"), QStringLiteral("chevron_right"),
-        QStringLiteral("chevron_down"), QStringLiteral("tune"),   QStringLiteral("image"),
-        QStringLiteral("information"),
+        QStringLiteral("home"),         QStringLiteral("images"),     QStringLiteral("layers"),
+        QStringLiteral("moon"),         QStringLiteral("window"),     QStringLiteral("chevron_right"),
+        QStringLiteral("chevron_down"), QStringLiteral("tune"),       QStringLiteral("image"),
+        QStringLiteral("information"),  QStringLiteral("more_horiz"),
     };
     return names;
 }

@@ -1608,6 +1608,7 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/ActionCatalogueTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ActionStateTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/AppEventBusTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/CommandIndexTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationContextTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationCoreTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ApplicationEventsTest.cpp
@@ -1698,6 +1699,28 @@ sources Test_ShellCore
     header   src/AfterNightControls/widgets/PresentationBridge.h
     header   src/AfterNightControls/widgets/ViewPresentation.h
     header   src/AfterNightControls/app/ActionLookup.h
+    header   src/AfterNightControls/app/ApplicationStorage.h
+    header   src/AfterNightControls/app/CatalogDownloadService.h
+    header   src/AfterNightControls/app/GaiaCatalogSettings.h
+    header   src/AfterNightControls/app/PlateSolveTypes.h
+    header   src/AfterNightControls/app/SpccCatalogSettings.h
+    header   src/AfterNightControls/app/SpccResponseSettings.h
+    header   src/AfterNightControls/components/ICommandSource.h
+    header   src/AfterNightControls/controls/settings/CatalogsDataSettingsPage.h
+    header   src/AfterNightControls/controls/settings/ExportSettingsPage.h
+    header   src/AfterNightControls/controls/settings/ExternalToolsSettingsPage.h
+    header   src/AfterNightControls/controls/settings/GeneralSettingsPage.h
+    header   src/AfterNightControls/controls/settings/InterfaceSettingsPage.h
+    header   src/AfterNightControls/controls/settings/LoggingSettingsPage.h
+    header   src/AfterNightControls/controls/settings/PlateSolvingSettingsPage.h
+    header   src/AfterNightControls/controls/settings/ProcessingSettingsPage.h
+    header   src/AfterNightControls/controls/settings/RawImageSettingsPage.h
+    header   src/AfterNightControls/controls/settings/SettingsPage.h
+    header   src/AfterNightControls/controls/settings/SettingsSearchTable.h
+    header   src/AfterNightControls/theme/AnDesignTokens.h
+    header   src/AfterNightPlatform/include/AfterNightPlatform/Sha256.h
+    header   src/AfterNightShellCore/commands/CommandIndex.h
+    header   src/AfterNightShellCore/commands/CommandProviders.h
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/app/ImageOperationsCoordinator.h
     header   src/AfterNightControls/app/MaskOverlayCoordinator.h
@@ -2933,6 +2956,7 @@ sources Test_ThemeSystem
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/AnBreadcrumbTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnCommandPaletteTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnIconRailTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnChipTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnKeyHintTest.cpp
@@ -2976,6 +3000,8 @@ sources Test_Widgets
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/components/AnBreadcrumb.h
     header   src/AfterNightControls/components/AnChip.h
+    header   src/AfterNightControls/components/AnCommandPalette.h
+    header   src/AfterNightControls/components/ICommandSource.h
     header   src/AfterNightControls/components/AnIconRail.h
     header   src/AfterNightControls/components/AnTaskThumbnail.h
     header   src/AfterNightControls/components/RailItem.h
@@ -3059,6 +3085,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_density_setting.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_interface_palette_recent_commands_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_preset_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_shell_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_start_in_night_setting.cpp

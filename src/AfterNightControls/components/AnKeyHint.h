@@ -8,6 +8,7 @@
 
 #include "AfterNightControlsExport.h"
 
+#include <QColor>
 #include <QKeySequence>
 #include <QLabel>
 #include <QSize>
@@ -15,7 +16,9 @@
 
 #include <verdigris/wobjectdefs.h>
 
+class QPainter;
 class QPaintEvent;
+class QRectF;
 
 namespace an::ui
 {
@@ -49,6 +52,13 @@ public:
     /// The keys as the hint writes them: each combination's modifiers and key in the platform's words, separated by
     /// spaces, and combinations separated by commas.
     [[nodiscard]] static QString keysText(const QKeySequence& keys);
+
+    /// The size of a hint showing a text, and the hint painted in a box: how a part that paints its own rows - the
+    /// command palette's - draws a shortcut, as the widget draws itself. On a coloured part the hint draws its outline
+    /// and its keys in `onColourText`.
+    [[nodiscard]] static QSize hintSize(const QString& text);
+    static void paintHint(QPainter& painter, const QRectF& box, const QString& text, Surface surface,
+                          const QColor& onColourText);
 
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;

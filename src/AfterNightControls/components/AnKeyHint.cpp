@@ -100,9 +100,14 @@ QString AnKeyHint::keysText(const QKeySequence& keys)
 
 QSize AnKeyHint::sizeHint() const
 {
+    return hintSize(text());
+}
+
+QSize AnKeyHint::hintSize(const QString& text)
+{
     const DesignTokens& t = tokens();
     // The text, its padding at each side and the hairline at each side.
-    return QSize(2 * parts::kKeyHintPadding + 2 + parts::textWidth(hintFont(t), text()), t.metrics.tag - 2);
+    return QSize(2 * parts::kKeyHintPadding + 2 + parts::textWidth(hintFont(t), text), t.metrics.tag - 2);
 }
 
 QSize AnKeyHint::minimumSizeHint() const
@@ -112,34 +117,42 @@ QSize AnKeyHint::minimumSizeHint() const
 
 void AnKeyHint::paintEvent(QPaintEvent* /*event*/)
 {
-    const DesignTokens& t = tokens();
     QPainter painter(this);
+    paintHint(painter, QRectF(rect()), text(), m_surface, palette().color(QPalette::WindowText));
+}
+
+void AnKeyHint::paintHint(QPainter& painter, const QRectF& area, const QString& text, const Surface surface,
+                          const QColor& onColourText)
+{
+    const DesignTokens& t = tokens();
+    painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
-    const QRectF box = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    const QRectF box = area.adjusted(0.5, 0.5, -0.5, -0.5);
     const qreal radius = parts::kKeyHintRadius - 0.5;
-    QColor text = t.colors.textSecondary;
-    if (m_surface == Surface::Raised)
+    QColor keys = t.colors.textSecondary;
+    if (surface == Surface::Raised)
     {
         painter.setPen(QPen(t.colors.borderSubtle, 1.0));
         painter.setBrush(t.layers.surface2);
         // The fill under the hairline, so a translucent line is laid over the box as it is everywhere else.
         painter.save();
         painter.setPen(Qt::NoPen);
-        painter.drawRoundedRect(QRectF(rect()), parts::kKeyHintRadius, parts::kKeyHintRadius);
+        painter.drawRoundedRect(area, parts::kKeyHintRadius, parts::kKeyHintRadius);
         painter.restore();
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(box, radius, radius);
     }
     else
     {
-        text = palette().color(QPalette::WindowText);
-        painter.setPen(QPen(parts::atShare(text, parts::kKeyHintOnColourOutline), 1.0));
+        keys = onColourText;
+        painter.setPen(QPen(parts::atShare(keys, parts::kKeyHintOnColourOutline), 1.0));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(box, radius, radius);
     }
-    painter.setPen(text);
+    painter.setPen(keys);
     painter.setFont(hintFont(t));
-    painter.drawText(QRectF(rect()), Qt::AlignCenter, this->text());
+    painter.drawText(area, Qt::AlignCenter, text);
+    painter.restore();
 }
 
 } // namespace an::ui

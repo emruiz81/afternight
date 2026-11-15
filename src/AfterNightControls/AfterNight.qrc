@@ -139,6 +139,7 @@
         <file>icons/SVG/information.svg</file>
         <file>icons/SVG/layers.svg</file>
         <file>icons/SVG/moon.svg</file>
+        <file>icons/SVG/more_horiz.svg</file>
         <file>icons/SVG/tune.svg</file>
         <file>icons/SVG/window.svg</file>
         <file>data/deep_sky_catalog.csv</file>

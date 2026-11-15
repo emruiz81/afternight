@@ -1297,7 +1297,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`, `commands/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1395,6 +1395,31 @@ shows on a right click, entry for entry the classic window's - the menus it shar
 names by their ids, Current Window and Show In File Browser - and the menu of a view's tab, which makes its view the
 active one so the catalogue's file actions act on it.
 
+Every command a person can name is in one index the command palette searches (`commands/CommandIndex.h`, held by the
+core as `ApplicationCore::commands()`). The index is pure - it includes no widget header and makes no window
+(`CommandIndex.IncludesNoWidgetHeader` reads what it includes) - so it is searched and ranked in the suites with no
+widget, and a keystroke over a thousand commands is asserted under 16 ms in Release: it is a search of a list held in
+memory, the commands collected once as the palette opens (`refresh`), each title and keyword folded then. Its
+providers (`commands/CommandProviders.h`) read the application only through the functions they are handed, which the
+core binds to its services: `ActionCommands`, the catalogue's actions a menu holds, subtitled by the menus a person
+reads down to them (`MenuTree::pathsOf`) - an action that launches a process is left to the process, so a process is
+listed once, and the five actions of the 1.1 window no menu or binding reaches are no command; `ProcessCommands`,
+every descriptor of the registry, dimmed with what stands in its way - the registry's reason, or what the launch guards
+say of the image the image actions act on - but never for having no image at all: such a process runs, and its launch
+says there is no image, as the menu's does, because a palette that dims every process with no image open would hide
+the guards' own message; `ImageCommands`, the open views and the recent files; and `SettingsCommands`, the settings
+pages and their rows. The rows come from `controls/settings/SettingsSearchTable.h`, a table in Controls of each page's
+title, search words and rows (each labelled field and check box, with the group it sits in) read without making a
+page; `CommandIndex.TheSettingsTableIsWhatThePagesShow` makes the pages and holds the table to them, so a page that
+gains, loses or renames a row fails there until the table says so, and a label a page shows in two groups is two rows,
+told apart by their group. A query's first character narrows it (`>` processes, `@` images, `:` settings); a text ranks
+an exact prefix of the title over a word prefix (of the title's words in order, or of a keyword) over a subsequence,
+then the commands run most recently first; the groups keep one order (processes, images, views, settings), six rows
+each until the palette's header is clicked. The palette (`components/AnCommandPalette.h`, in Controls) shows what an
+`ICommandSource` answers and includes nothing of the shell core: the index is one such source. The commands run last,
+twenty of them, are stored in `interface/paletteRecentCommands` as they change and read again as the stores open; the
+favourites are the favourite processes the menus list, so a star in the palette and Manage Favorites edit one list.
+
 The arrangement of the views is the core's too (`views/`). The dock library keeps its configuration and three hooks -
 a question before a drag starts, one before a drop indicator shows, a call when a drag ends - for the whole process,
 each hook a plain function that captures nothing. `DockHooks` is the one unit that sets them: the core configures the
@@ -1441,7 +1466,10 @@ is reported to the target and logged, and the next one runs.
 placed and maximized, the status line, home), `DialogService.*` and `FileDialogService.*` (the window a dialog belongs to, the folders,
 the system's or Qt's browser), `ViewService.*` (real views of a session the case opens: names, the active view, the
 order a removal is told in, a worker's request, who asked for a view, the subject and the looking view) and
-`ProcessLaunchService.*`. The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
+`ProcessLaunchService.*`; `CommandIndex.*` (the ranking, the prefixes, the groups, the recent and favourite commands
+and the providers over fixed lists, the settings table against the pages, the keystroke's time) and
+`CommandIndexInTheApplication.*` (every recorded action and process found by its text in a core, the commands run
+last read again by the next one). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
 (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
 read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and

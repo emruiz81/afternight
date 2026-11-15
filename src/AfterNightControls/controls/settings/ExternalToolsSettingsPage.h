@@ -11,7 +11,7 @@ class GlobalSettingsPersistence;
 
 /// External tools settings page.
 /// Consolidates configuration for built-in external tools.
-class ExternalToolsSettingsPage : public SettingsPage
+class AFTERNIGHTCONTROLS_API ExternalToolsSettingsPage : public SettingsPage
 {
     W_OBJECT(ExternalToolsSettingsPage)
 
