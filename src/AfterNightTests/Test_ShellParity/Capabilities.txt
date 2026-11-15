@@ -22,37 +22,37 @@ capability files.open
     title        Open (Ctrl+O), with the system or the built-in file browser
     shared       FileOpenTest.FilesAreShownInViewsDockedBesideTheFirst, FileOpenTest.AFileThatCannotBeReadIsReportedAndTheOpenGoesOn, AfterNightAppFileSuite.ANonNativeFileDialogsIconProviderIsHeldByTheDialog
     classic      ApplicationMenu.OpenShowsTheChosenFileInAViewOfItsOwn, ProductSmoke.TheFileMenuOpensEveryFormatTheProductReads, ShellScenario.OpensAnImageAndShowsItActive/classic
-    observatory  pending
+    observatory  ShellScenario.OpensAnImageAndShowsItActive/observatory, ObservatoryWindow.ShortcutsWorkWithTheMenuBarHidden
 
 capability files.open-recent
     title        Open Recent
     shared       FileOpenTest.ARecentFileOpenRemembersItsFolder, AfterNightAppFileSuite.UpdateRecentFileListAddsNewFileToFront, FileManagerComponent.FileManager_MaintainsRecentFilesList
     classic      ShellScenario.TheRecentFilesGainTheOpenedFile/classic
-    observatory  pending
+    observatory  ShellScenario.TheRecentFilesGainTheOpenedFile/observatory
 
 capability files.drop
     title        Drop files on the window
     shared       FileDropHandlerTest.TakesADragOfAnImage, FileDropHandlerTest.ADropHandsEveryLocalFileToBeOpened, FileDropHandlerTest.DoesNotTakeADragOfAnUnsupportedFile
     classic      ShellScenario.ADroppedFileOpens/classic
-    observatory  pending
+    observatory  ShellScenario.ADroppedFileOpens/observatory, WorkspacePage.DroppedFilesOpen
 
 capability files.save-as
     title        Save as (Ctrl+Shift+S) and the per-format options
     shared       FileSaveTest.EachContainerIsWrittenAsTheSettingsSay, FileSaveTest.AnXisfFileIsWrittenInTheFormTheSettingsChoose, ExportSettingsTest.SavingStoresTheTextsASaveReadsBack
     classic      ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ProductSmoke.AnImageSavedInEveryContainerTheProductWritesOpensAgainWithItsSamples
-    observatory  pending
+    observatory  WorkspacePage.SaveAsWritesTheActiveView
 
 capability files.close
     title        Close, Close All, Close All Others
     shared       ImageOperationsCoordinatorComponent.ImageOperationsCoordinator_CloseAllOtherFiles_PreservesActiveControl, ImageViewControlCloseLifecycle.ClosingAViewLetsGoOfEveryProcessBeforeClosingAny
     classic      ApplicationMenu.CloseClosesTheActiveViewOnly, ApplicationMenu.CloseAllClosesEveryView, ApplicationMenu.CloseAllOthersKeepsOnlyTheActiveView
-    observatory  pending
+    observatory  ShellScenario.ClosingAViewWithUnsavedChangesAsks/observatory, WorkspacePage.TabMenu
 
 capability files.close-unsaved
     title        Confirmation before closing an unsaved image
     shared       AppLifecycleCoordinatorComponent.AppLifecycleCoordinator_PromptsOnPendingChanges, AfterNightAppProcessSuite.LifecycleHelpersPromptOnlyWhenRequired
     classic      ApplicationMenu.ExitAsksAboutUnsavedChangesAndAnsweredNoKeepsTheWindowAndItsViews, ShellScenario.ClosingAViewWithUnsavedChangesAsks/classic, ShellScenario.ClosingTheApplicationWithAProcessOpenLeavesNothingBehind/classic
-    observatory  pending
+    observatory  ShellScenario.ClosingAViewWithUnsavedChangesAsks/observatory, ObservatoryWindowExit.ClosesInTheExitOrder
 
 capability files.new-sequence
     title        New Sequence dialog
@@ -116,13 +116,13 @@ capability window.main-toolbar
     title        Main toolbar: Open, Save as, Close
     shared       ControlsWindowLayoutTest.TheMainWindowsMenusAreBuilt
     classic      ApplicationMenu.OpenShowsTheChosenFileInAViewOfItsOwn, ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ApplicationMenu.CloseClosesTheActiveViewOnly
-    observatory  pending
+    observatory  WorkspacePage.TabMenu, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability window.dock-toolbar
     title        Dock toolbar: Lock, Group All, Split All, Fit
     shared       ActionStateTest.EachStateOffersTheActionsTheTableStates
     classic      ApplicationMenu.FitImagesToWindowFitsEveryView
-    observatory  pending
+    observatory  LayoutIcons.AreTheClassicDockToolbarsFour, LayoutIcons.TheLockTogglesItsIconAndRefusesDrags
 
 capability window.status-bar
     title        Status bar: selector, facts, zoom, coordinates
@@ -148,49 +148,49 @@ capability dock.tabs
     title        Each image is a dock: tabs, reorder, split, close on the tab
     shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, FileOpenTest.FilesAreShownInViewsDockedBesideTheFirst
     classic
-    observatory  pending
+    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory, WorkspacePage.TabMenu
 
 capability dock.float
     title        Float, floating windows, groups in them, drop indicators
     shared       ViewControlCoordinatorComponent.ViewControlCoordinator_PromotesDockOnlyWhenAttached
     classic
-    observatory  pending
+    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem
 
 capability dock.tab-buttons
     title        Tab buttons and the tab list
     shared       DockHooksTest.ConfiguresTheLibraryOnceForTheDecorations, ViewMenuBuilderTest.TabMenuOffersTheTabsEntriesInOrder
     classic
-    observatory  pending
+    observatory  WorkspacePage.TabMenu
 
 capability dock.group-split-fit
     title        Group All, Split All, Fit All
     shared       DockLayoutOperationsTest.GroupMakesOneTabGroupAndKeepsTheActiveView, DockLayoutOperationsTest.SplitGivesEachViewAnEqualPane, DockLayoutOperationsTest.FitFitsEachViewSharingTheWindowOfTheView
     classic      ApplicationMenu.FitImagesToWindowFitsEveryView, ShellScenario.SplitsGroupsAndFitsTwoImages/classic
-    observatory  pending
+    observatory  ShellScenario.SplitsGroupsAndFitsTwoImages/observatory
 
 capability dock.lock
     title        Lock and Unlock Layout; the default in Settings
     shared       DockLayoutOperationsTest.LockRefusesADragOfThatMainWindowsWidgetsAndNoOthers, DockLayoutOperationsTest.LockingTheOnlyDockAreaLocksTheWholeLayout, DockLayoutOperationsTest.LockOffersUnlockInPlaceOfLock
     classic      ShellScenario.ALockedLayoutRefusesADrag/classic
-    observatory  pending
+    observatory  ShellScenario.ALockedLayoutRefusesADrag/observatory, LayoutIcons.TheLockTogglesItsIconAndRefusesDrags
 
 capability dock.maximize
     title        Maximize View (F11)
     shared       ApplicationContextTest.MaximizingRestoringAndTheStatusLineReachTheShell, ViewMenuBuilderTest.WithdrawsGroupAndSplitForAMaximizedView
     classic      ApplicationMenu.MaximizeViewMaximizesTheActiveViewAndASecondInvocationRestoresIt, ShellScenario.MaximizesAndRestoresAView/classic
-    observatory  pending
+    observatory  ShellScenario.MaximizesAndRestoresAView/observatory, WorkspacePage.MaximizeAndRestore, WorkspacePage.TheLockIsOfferedAgainAfterAMaximize
 
 capability view.context-menu
     title        Context menu of a view
     shared       ViewMenuBuilderTest.EqualsTheRecordedTree, ViewMenuBuilderTest.CurrentWindowGroupsTheViewsSharingTheViewsWindow
     classic      ApplicationMenu.ViewMenuTreeMatchesTheRecord, ApplicationMenuContextMenu.TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile, ShellScenario.ViewMenuEntries/classic
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, WorkspacePage.ViewMenuOpensAtTheCursor
 
 capability dock.all-floating
     title        With every image floating, an empty dock area
     shared
     classic
-    observatory  pending
+    observatory  FloatingImagesPage.ListsFloatingImagesAndDocksThem
 
 capability dock.no-image
     title        With no image open, the dashboard
@@ -204,67 +204,67 @@ capability view.zoom
     title        Fit, Zoom In, Zoom Out, 100 %
     shared       ImageViewControlZoomPan.ZoomManagerClampsMinimumScale, ViewFitTest.FitToWindowFitsTheViewportAsLaidOutAtOnceAPendingChangeIncluded, ImageViewControlTest.EveryStepOfAZoomPaintsAllTheViewShows
     classic      ApplicationMenu.ZoomInEnlargesTheActiveView, ApplicationMenu.ZoomOneHundredShowsTheActiveViewAtItsPixelScale, ApplicationMenu.FitToWindowScalesTheActiveViewToItsWindow
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarZoomsTheActiveView, ShellScenario.TheStatusLineShowsTheImageTheZoomAndTheCoordinates/observatory
 
 capability view.channel
     title        Channel
     shared       ImageViewControlChannelSwitching.TheMenusCompositionsAreTheEnginesScopes, ChannelDisplayLookupTest.EveryModeMapsToAChannelAndBack, ViewPresentationTest.AStoredChannelIsShownAsItsOwnPlane
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools
 
 capability view.display-mode
     title        Linear or Autostretch
     shared       StaticPreviewBehavior.TheDisplayModeComboShowsTheModeTheImageIsShownIn, ImageViewControlTest.AnImageThatHoldsTheAutostretchIsShownAsItIsInTheAutostretchMode, ViewPresentationTest.ALinearImageIsShownAsTheNearestByteOfEachSample
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarSwitchesTheDisplayMode
 
 capability view.autostretch
     title        Autostretch Settings and Apply Stretch
     shared       AutostretchApply.StretchesACopyAndLeavesTheSourceUnchanged, AutostretchApply.TheSettingsWindowIsOfferedOnlyWhileTheViewShowsItsImageStretched, AutostretchApply.TheStepIsNamedAutostretch
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools, WorkspacePage.TheToolbarSwitchesTheDisplayMode
 
 capability view.undo-redo
     title        Undo, Redo, Image History
     shared       ActionStateTest.UndoAndRedoFollowTheViewsHistory, ViewHistoryTest.AnEditIsRecordedBeforeTheViewShowsItAndUndoneThroughTheView, ViewHistoryTest.TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheView
     classic      ApplicationMenu.UndoReturnsTheActiveViewToTheStateBeforeItsLastEdit, ApplicationMenu.ImageHistoryShowsTheActiveViewsHistoryWindow, ShellScenario.UndoesAndRedoesAnAppliedProcess/classic
-    observatory  pending
+    observatory  ShellScenario.UndoesAndRedoesAnAppliedProcess/observatory, WorkspacePage.TheHistoryStripFollowsTheActiveView
 
 capability view.information
     title        Statistics, Histogram, EXIF, FITS Header, Summary
     shared       ViewToolsTest.EachToolOpensItsOwnWindowAsAChildOfTheView, ViewToolsTest.TheViewsOwnCommandsOpenTheirWindowsThroughTheOpener, ViewToolsTest.TheInspectorsAViewOffersFollowItsImageAndNotItsToolbarsRoom
     classic      ApplicationMenu.StatisticsOpensTheStatisticsWindowOverTheActiveView, ApplicationMenu.HistogramOpensTheHistogramWindowOverTheActiveView, ApplicationMenu.SummaryOpensTheSummaryWindowOverTheActiveView
-    observatory  pending
+    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability view.astrometry
     title        Show Astrometry and its settings
     shared       ViewCompanionWiringTest.TheMenusChoicesAreHandedToTheOverlaysAndKeptForTheNextView, AstrometryOverlaysTest.TheGridDrawsLinesOverASolvedImageAndNoneOverAnUnsolvedOne, AstrometryOverlaysTest.TheViewsChoicesReachTheOverlaysThatDrawThem
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools
 
 capability view.astrometry-tools
     title        Astrometry Info, Annotate Image, Plate Solve
     shared       ViewToolsTest.TheAstrometryAndPlateSolveWindowsOpenOncePerViewAndAreRaisedWhenAskedAgain, AnnotateImageWindowTest.TheWindowPreviewsTheAnnotationsOfTheSolvedImageAndIsOnePerView, ImageAstrometryInfoFormatter.BuildSummaryExtractsSolvedMetadataFields
     classic      ApplicationMenu.AstrometryInfoOpensTheSolutionWindowOverTheActiveView, ApplicationMenu.AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView, ApplicationMenu.PlateSolveOpensThePlateSolveWindowOverTheActiveView
-    observatory  pending
+    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability view.overlays
     title        Statistics overlay; the AUTOSTRETCH badge
     shared       StaticPreviewBehavior.TheStatisticsCardMeasuresTheImageThePreviewShows, StaticPreviewBehavior.TheStatisticsCardMovesBelowTheAutostretchBanner, ImageViewControlTest.OfferingThePresentationChoicesAgainKeepsWhatTheOwnerSetOfTheBannerAndTheStatistics
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability view.sequence-player
     title        Sequence player
     shared       SequencePlayerTest.PlaybackStartsAtTheRateTheSerStates, SequencePlayerTest.NextAndPreviousStepOneFrameAndStopAtTheEnds, ImageViewControlTest.TheSequencePlayerIsHeldWhileAProcessHasTheView
     classic
-    observatory  pending
+    observatory  ShellScenario.ARunOverASequenceIsCancelled/observatory
 
 capability view.lens-zoom-pan
     title        Lens, wheel zoom, pan and their settings
     shared       ImageViewControlImageLoading.TheLensReadsEveryColourChannelOfAPixel, WidgetsQuickZoom.LensPositionUsesDefaultOffset, ImageViewControlTest.AtFullZoomTheViewPresentsWhatItShowsAndPresentsAgainWhenItPansPastIt
     classic
-    observatory  pending
+    observatory  WorkspacePage.TheToolbarZoomsTheActiveView
 
 # ---- Information windows
 
@@ -298,43 +298,43 @@ capability image.basic
     title        Duplicate, Rename, Close, Save File
     shared       ImageOperationTest.DuplicateOpensACopyThatHasNeverBeenAFile, CoordinatorTest.ARenameIsRecordedInTheViewsHistory, ImageViewControlTest.AViewWritesItsImageAndClearsItsPendingChanges
     classic      ApplicationMenu.CloseClosesTheActiveViewOnly, ApplicationMenu.SaveWritesTheActiveViewThroughTheSaveDialogToo, ShellScenario.RenamesAndDuplicatesAView/classic
-    observatory  pending
+    observatory  ShellScenario.RenamesAndDuplicatesAView/observatory, WorkspacePage.TabMenu
 
 capability image.convert
     title        Convert Format
     shared       ChannelActionTableTest.EachRowStatesThePlanesItMakesTheirNamesAndWhatItConvertsTo, ChannelConversionTest.AConversionRoundsToTheNearestCodeAndMapsTheRangesEndsOntoEachOther, ChannelSequenceRunTest.AConversionASerSequenceCannotHoldIsRefusedByName
     classic
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability image.extract-channel
     title        Extract Channel
     shared       ChannelActionTest.ItOpensWhatItMakesBesideTheImageNamedAfterIt, ProcessRegistryTest.EveryChannelActionReachesTheExtractionOfItsName, ChannelActionTest.OnAGreyImageAnExtractionSaysWhyAndOpensNothing
     classic
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability image.fast-geometry
     title        Fast Geometry
     shared       GeometryTurnRecordTest.EveryRecordOfTheMirrorsAndTurnsIsReproducedThroughTheMenu, ImageTurnsTest.ATurnIsOneHistoryStepThatUndoes, ImageOperationTest.AStillImagesMirrorIsTheViewsOwnEdit
     classic
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability image.mask
     title        Mask actions
     shared       MaskActionsTest.SelectMaskOpensTheMaskSelectorOverTheActiveView, MaskActionsTest.RemoveMaskDetachesTheMaskAndChangesNothingElse, MaskOverlayCoordinatorComponent.MaskOverlayCoordinator_ToggleMaskFlags_UpdatesActiveView
     classic      ApplicationMenu.InvertMaskInvertsTheActiveViewsMask, ApplicationMenuOverlay.OverlayRedTintsTheMaskRed, ProductSmoke.TheMaskSelectorDialogLaunchesFromTheMenuOverTheActiveView
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability image.sequence
     title        Sequence: Convert, Extract Frame, Extract Sequence, Export
     shared       ImageOperationsTest.TheSequenceConversionsRunTheNonInteractiveConversion, ImageOperationTest.ExtractFrameOpensTheShownFrameAsAStillImage, ImageOperationsTest.ExportOpensTheExportWindowOverTheActiveSequence
     classic
-    observatory  pending
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
 
 capability image.show-in-browser
     title        Show In File Browser
     shared       CoordinatorTest.ShowInFileBrowserRevealsTheFileTheActiveViewsDocumentNames, ActionStateTest.TheInformationActionsFollowTheViewAndShowInFileBrowserItsFile, CoordinatorTest.ShowInFileBrowserWarnsWhenTheFileIsNoLongerOnDisk
     classic      ApplicationMenu.ShowInFileBrowserIsOfferedForAViewOfAFile, ApplicationMenu.ShowInFileBrowserSaysSoWhenTheFileIsNoLongerOnDisk, ApplicationMenuContextMenu.TheImagesContextMenuEndsWithShowInFileBrowserForAViewOfAFile
-    observatory  pending
+    observatory  WorkspacePage.ViewMenuOpensAtTheCursor, WorkspacePage.TabMenu
 
 # ---- Processes
 

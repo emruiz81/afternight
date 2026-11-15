@@ -1640,6 +1640,26 @@ own (`QWidget::addAction`), so its shortcut works with the bar hidden. The proce
 `ProcessMenuModel`, whose own entries - clear the recent processes, manage and clear the favourites - ask through the
 shell core's `actions/ProcessListDialogs.h`.
 
+The workspace is where the views are. A view placed in it is told to keep its tools outside itself
+(`ImageViewControl::setChromeMode(ViewChromeMode::External)`, set where the shell places it): the workspace's page holds
+one `AnFloatingToolbar` centred 12 px above the bottom of its dock area, placed again at every resize, and one
+`AnHistoryStrip` under it, bound to the workspace's active view by a `ViewChromeBinder` that follows the core's active
+view (an `AfterNightAppListener`); with more than one docked view the toolbar names the one it acts on, its More opens
+the view's menu, and a maximized view keeps both. A view that floats in a window of its own gets the small toolbar
+over itself (`workspaces/FloatingViewChrome`), bound to it alone, and gives it back when it docks; the dock widget's
+`isFloatingChanged` says when, since a double click or the strip's button floats a view without any drag. The layout
+icons (`workspaces/WorkspaceToolbar`) sit at the right of the top bar while the workspace is shown: the classic dock
+tool bar's lock button and its Group All Images, Split All Images and Fit Images To Window - the catalogue's own
+actions - acting through `DockLayoutOperations` on the workspace's target. A right click on a view opens the view's
+menu at the pointer and one on a tab the tab's menu, both from `ViewMenuBuilder` (the tab's through an event filter on
+the strips, which tells a tab's view by its dock widget); `F11` maximizes and `F11` or `Esc` restores. While a view is
+maximized the layout is not the person's to change: Lock, Unlock, Group and Split are withdrawn, and once it is
+restored the lock offers what the layout is not - Lock while it is free, Unlock while it is locked - where 1.1 offered
+neither until its tool bar's button was used. With every image floating the only workspace lists them
+(`pages/FloatingImagesPage`: a picture, the full name and `Dock here` a row, `Dock all here`, `Open file...`). The
+status line gains the selector of the active view, the readout's button and the Console chip; files dropped on the
+window open through the core's `FileDropHandler`; and `interface/lockLayoutByDefault` locks the layout at the start.
+
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
 window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's
@@ -1681,7 +1701,8 @@ handful of things a scenario does to a shell - open a file, name the active view
 its question, run an action by its id and read whether the shell offers it enabled, launch a process by its id, press
 Apply and cancel a run, read the status line and a view's menu, drop files, close the window - each done as that shell
 lets a person do it, with one driver per shell (`ClassicDriver` drives the 1.1 window through its menus and tool bars,
-its file dialog and its process and progress windows). `ShellScenario` is a value-parameterised case instantiated for
+its file dialog and its process and progress windows; `ObservatoryDriver` the Observatory window through its menu tree,
+its file dialog, its process windows and its status line, whose placeholders it does not read). `ShellScenario` is a value-parameterised case instantiated for
 every registered shell, named `ShellScenario.<Case>/<shell>`; its fixture starts a shell as the application starts it -
 the registry, the choice on the command line, the style, the shell built and shown - and ends it as the application
 ends it. The run over a sequence is cancelled before its first frame - the thread pool held while Apply and Cancel are

@@ -8,9 +8,12 @@
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/StatusLine.h"
 #include "chrome/TopBar.h"
+#include "pages/FloatingImagesPage.h"
 #include "pages/HomePage.h"
 #include "pages/WorkspacePage.h"
+#include "workspaces/FloatingViewChrome.h"
 #include "workspaces/WorkspaceHost.h"
+#include "workspaces/WorkspaceToolbar.h"
 
 #include "actions/ActionBindings.h"
 #include "actions/ActionCatalogue.h"
@@ -18,6 +21,7 @@
 #include "actions/ActionStateCoordinator.h"
 #include "actions/ProcessListDialogs.h"
 #include "actions/ProcessMenuModel.h"
+#include "actions/ViewMenuBuilder.h"
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
@@ -33,6 +37,7 @@
 #include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
+#include "app/AfterNightAppListener.h"
 #include "app/AppLifecycleCoordinator.h"
 #include "app/ChannelExtractor.h"
 #include "app/DialogOrchestrationCoordinator.h"
@@ -44,6 +49,9 @@
 #include "app/RuntimeStorageCoordinator.h"
 #include "app/ThemeManager.h"
 #include "app/ViewCreationCoordinator.h"
+#include "components/AnChip.h"
+#include "components/AnFloatingToolbar.h"
+#include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
 #include "components/AnReadoutColumn.h"
 #include "components/RailItem.h"
@@ -51,6 +59,8 @@
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
+#include "controls/KDDockWidgetsHelper.h"
+#include "controls/ViewChrome.h"
 #include "controls/LogViewerControl.h"
 #include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
@@ -62,10 +72,18 @@
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
 #include <kddockwidgets/core/DockWidget.h>
+#include <kddockwidgets/core/TabBar.h>
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QComboBox>
+#include <QContextMenuEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QHBoxLayout>
+#include <QKeyEvent>
+#include <QMimeData>
+#include <QTimer>
 #include <QMenu>
 #include <QPointer>
 #include <QResizeEvent>
@@ -85,6 +103,27 @@ namespace
 
 /// The Image Integration process, which the dashboard's button opens.
 constexpr char kImageIntegrationProcess[] = "multi_image_stacking.actionImage_Integration";
+
+/// Hears which view is active and which views go, for the window's chrome.
+class ViewFollower final : public AfterNightAppListener
+{
+public:
+    explicit ViewFollower(std::function<void(ImageViewControl*)> activeChanged)
+        : AfterNightAppListener(nullptr), m_activeChanged(std::move(activeChanged))
+    {
+    }
+
+    void onActiveViewControlChanged(ImageViewControl* view) override
+    {
+        if (m_activeChanged)
+        {
+            m_activeChanged(view);
+        }
+    }
+
+private:
+    std::function<void(ImageViewControl*)> m_activeChanged;
+};
 
 } // namespace
 
@@ -108,7 +147,13 @@ struct ObservatoryWindow::Impl
     MenuBarOnAlt* menuBar = nullptr;
     HomePage* homePage = nullptr;
     WorkspacePage* workspacePage = nullptr;
+    FloatingImagesPage* floatingImages = nullptr;
+    WorkspaceToolbar* layoutIcons = nullptr;
+    FloatingViewChrome* floatingChrome = nullptr;
     std::unique_ptr<WorkspaceHost> workspaces;
+    // The window's chrome follows the active view through the core's listeners.
+    std::unique_ptr<ViewFollower> follower;
+    bool fillingSelector = false;
 
     // What the window's units read through a pointer to a pointer: the dashboard, the dock area, the lock's button
     // (this window has none).
@@ -215,6 +260,13 @@ ObservatoryWindow::~ObservatoryWindow()
 {
     Impl& impl = *m_impl;
     an::ui::shell::ApplicationCore& core = impl.core;
+
+    qApp->removeEventFilter(this);
+    if (impl.follower)
+    {
+        core.eventBus().unsubscribe(impl.follower.get());
+        impl.follower.reset();
+    }
 
     // The readout lets go of the views and the column first: nothing is measured for a window on its way out.
     if (impl.readout)
@@ -335,8 +387,59 @@ void ObservatoryWindow::buildRegions()
     workspaceHooks.arrangementChanged = [this]() { arrangementChanged(); };
     impl.workspaces = std::make_unique<WorkspaceHost>(*this, std::move(workspaceHooks));
     impl.dockArea = impl.workspaces->mainWindow();
-    impl.workspacePage = new WorkspacePage(*impl.dockArea, impl.centre);
+    FloatingImagesPage::Dependencies floatingDeps;
+    floatingDeps.dockHere = [this](ImageViewControl& view) { dockIntoWorkspace(view); };
+    floatingDeps.dockAll = [this]() {
+        for (ImageViewControl* view : m_impl->floatingImages->views())
+        {
+            dockIntoWorkspace(*view);
+        }
+    };
+    floatingDeps.openFile = [this]() { openFile(); };
+    impl.floatingImages = new FloatingImagesPage(std::move(floatingDeps));
+    impl.workspacePage = new WorkspacePage(*impl.dockArea, *impl.floatingImages, impl.centre);
     impl.centre->addWidget(impl.workspacePage);
+
+    // The view's menu fills the toolbars' More: the menus it shares are the menu bar's.
+    const an::ui::shell::ViewChromeBinder::MenuFiller viewMenu = [this](QMenu& menu, ImageViewControl& view) {
+        an::ui::shell::ViewMenuBuilder(m_impl->core).buildViewMenu(menu, view, [this](std::string_view menuId) {
+            return m_impl->menuBar->menu(menuId);
+        });
+    };
+    impl.workspacePage->binder().setMenuFiller(viewMenu);
+    impl.floatingChrome = new FloatingViewChrome(this);
+    impl.floatingChrome->setMenuFiller(viewMenu);
+
+    // The layout icons sit at the right of the top bar while a workspace is shown.
+    WorkspaceToolbar::Dependencies iconDeps;
+    iconDeps.actions = impl.core.actions().lookup();
+    iconDeps.isLocked = [this]() { return m_impl->core.dockLayout().isLocked(dockTarget()); };
+    iconDeps.setLocked = [this](const bool locked) { lockLayout(locked); };
+    iconDeps.icon = [this](const QString& name) { return m_impl->icon(name.toStdString()); };
+    impl.layoutIcons = new WorkspaceToolbar(std::move(iconDeps), impl.topBar);
+    impl.topBar->row()->addStretch(1);
+    impl.topBar->row()->addWidget(impl.layoutIcons);
+
+    // The status line's own parts: the view selector, the readout's button, the Console chip.
+    QObject::connect(impl.statusLine->viewSelector(), &QComboBox::currentTextChanged, this,
+                     [this](const QString& name) {
+                         if (!m_impl->fillingSelector && !name.isEmpty())
+                         {
+                             m_impl->core.viewService().setActiveViewByName(name.toStdString());
+                         }
+                     });
+    QObject::connect(impl.statusLine->readoutButton(), &QAbstractButton::clicked, this,
+                     [this]() { m_impl->readoutColumn->setCollapsed(!m_impl->readoutColumn->isCollapsed()); });
+    QObject::connect(impl.statusLine->consoleChip(), &QAbstractButton::clicked, this,
+                     [this]() { setSessionConsoleVisible(true); });
+
+    // The chrome follows the active view.
+    impl.follower = std::make_unique<ViewFollower>([this](ImageViewControl* view) { activeViewChanged(view); });
+    impl.core.eventBus().subscribe(impl.follower.get());
+
+    // A tab's menu, and Esc while a view is maximized, are heard before the widgets they reach.
+    qApp->installEventFilter(this);
+    setAcceptDrops(true);
 
     impl.centre->setCurrentWidget(impl.homePage);
     connectDashboard();
@@ -567,6 +670,8 @@ void ObservatoryWindow::makeUnits()
             m_impl->fileManager->updateRecentFilesMenuEntries();
         }
     };
+    // The layout starts locked when the person asked for it.
+    lifecycleDeps.lockLayout = [this]() { lockLayout(true); };
     lifecycleDeps.cancelBackgroundWork = [this]() { m_impl->core.extensions().cancelBackgroundWork(); };
     lifecycleDeps.notifyApplicationClose = [this]() { m_impl->core.eventBus().notifyApplicationClose(); };
     lifecycleDeps.getNumOfOpenProcesses = [this]() {
@@ -629,8 +734,8 @@ void ObservatoryWindow::bindServices()
     };
     targets.settings = [this]() { openSettings(); };
     targets.extensionManager = [this]() { openSettingsAt(an::ui::shell::ExtensionService::managerPageTitle()); };
-    targets.lockLayout = [this]() { m_impl->core.dockLayout().lock(dockTarget()); };
-    targets.unlockLayout = [this]() { m_impl->core.dockLayout().unlock(dockTarget()); };
+    targets.lockLayout = [this]() { lockLayout(true); };
+    targets.unlockLayout = [this]() { lockLayout(false); };
     targets.groupAll = [this]() { m_impl->core.dockLayout().groupAll(dockTarget()); };
     targets.splitAll = [this]() { m_impl->core.dockLayout().splitAllEqually(dockTarget()); };
     core.actionBindings().setTargets(std::move(targets));
@@ -692,6 +797,14 @@ void ObservatoryWindow::bindServices()
     updateExtensionMenus();
 
     an::ui::shell::ViewService::Hooks viewHooks;
+    viewHooks.refreshViewList = [this]() { refreshViewSelector(); };
+    // The view's menu opens where the person clicked.
+    viewHooks.contextMenu = [this](ImageViewControl* view, QContextMenuEvent* event) {
+        if (view != nullptr && event != nullptr)
+        {
+            showViewMenu(*view, event->globalPos());
+        }
+    };
     viewHooks.isTerminating = [this]() { return m_impl->terminating; };
     core.viewService().setHooks(std::move(viewHooks));
 
@@ -778,6 +891,16 @@ WorkspaceHost& ObservatoryWindow::workspaces() noexcept
     return *m_impl->workspaces;
 }
 
+WorkspaceToolbar* ObservatoryWindow::layoutIcons() const noexcept
+{
+    return m_impl->layoutIcons;
+}
+
+FloatingViewChrome& ObservatoryWindow::floatingViewChrome() const noexcept
+{
+    return *m_impl->floatingChrome;
+}
+
 bool ObservatoryWindow::isHomeShown() const
 {
     return m_impl->centre->currentWidget() == m_impl->homePage;
@@ -851,8 +974,18 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
     {
         maximized->switchMaximized();
     }
+    // The view's tools are outside it in this shell: the workspace's floating toolbar and history strip.
+    view.setChromeMode(an::ui::ViewChromeMode::External);
     an::ui::dockCreatedView(view, placement.neighbour, m_impl->dockArea);
+    // A view floats or docks by a drag, a double click or its strip's button: what the workspace shows follows, once
+    // the dock library has moved it.
+    if (KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget())
+    {
+        QObject::connect(dock, &KDDockWidgets::QtWidgets::DockWidget::isFloatingChanged, this,
+                         [this](bool) { QTimer::singleShot(0, this, [this]() { updateWorkspacePage(); }); });
+    }
     showViews();
+    updateWorkspacePage();
 }
 
 void ObservatoryWindow::activate(ImageViewControl& view)
@@ -870,6 +1003,7 @@ void ObservatoryWindow::activate(ImageViewControl& view)
 
 void ObservatoryWindow::viewAdded(ImageViewControl& /*view*/, const an::ui::shell::ViewOrigin /*origin*/)
 {
+    refreshViewSelector();
     placeChanged();
 }
 
@@ -879,10 +1013,20 @@ void ObservatoryWindow::viewRemoved(ImageViewControl& view)
     {
         m_impl->workspacePage->restore(view);
     }
+    if (m_impl->workspacePage->binder().toolbarView() == &view ||
+        m_impl->workspacePage->binder().historyView() == &view)
+    {
+        m_impl->workspacePage->bindView(nullptr);
+    }
+    refreshViewSelector();
+    updateWorkspacePage();
     placeChanged();
 }
 
-void ObservatoryWindow::viewRenamed(ImageViewControl& /*view*/, const std::string& /*previousName*/) {}
+void ObservatoryWindow::viewRenamed(ImageViewControl& /*view*/, const std::string& /*previousName*/)
+{
+    refreshViewSelector();
+}
 
 void ObservatoryWindow::maximize(ImageViewControl& view)
 {
@@ -896,6 +1040,7 @@ void ObservatoryWindow::maximize(ImageViewControl& view)
     }
     showViews();
     impl.core.viewService().setActiveImageViewControl(&view);
+    offerTheLock(true);
 }
 
 void ObservatoryWindow::restore(ImageViewControl& view)
@@ -908,6 +1053,7 @@ void ObservatoryWindow::restore(ImageViewControl& view)
         impl.core.dockLayout().unlock(dockTarget());
     }
     impl.core.viewService().setActiveImageViewControl(&view);
+    offerTheLock(impl.workspacePage->maximizedView() != nullptr);
 }
 
 bool ObservatoryWindow::isMaximizedViewActive() const
@@ -975,6 +1121,56 @@ void ObservatoryWindow::closeEvent(QCloseEvent* event)
     QMainWindow::closeEvent(event);
     // A window a dialog left on its own would keep the event loop alive: the application quits with this window.
     QApplication::quit();
+}
+
+void ObservatoryWindow::dragEnterEvent(QDragEnterEvent* event)
+{
+    if (event != nullptr && event->mimeData() != nullptr && an::ui::shell::FileDropHandler::takes(*event->mimeData()))
+    {
+        event->acceptProposedAction();
+    }
+}
+
+void ObservatoryWindow::dropEvent(QDropEvent* event)
+{
+    if (event != nullptr && event->mimeData() != nullptr && m_impl->core.fileDrops().drop(*event->mimeData()))
+    {
+        event->acceptProposedAction();
+    }
+}
+
+bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event == nullptr)
+    {
+        return QMainWindow::eventFilter(watched, event);
+    }
+    // A tab's menu: the menu of the tab's view.
+    if (event->type() == QEvent::ContextMenu)
+    {
+        if (auto* const tabBar = dynamic_cast<AN_TabBar*>(watched))
+        {
+            const auto* menuEvent = static_cast<QContextMenuEvent*>(event);
+            if (showTabMenu(*tabBar, menuEvent->pos(), menuEvent->globalPos()))
+            {
+                return true;
+            }
+        }
+    }
+    // Esc restores the maximized view, as F11 does, when nothing else on the window takes it.
+    if (event->type() == QEvent::KeyPress && m_impl->workspacePage->maximizedView() != nullptr)
+    {
+        const auto* key = static_cast<QKeyEvent*>(event);
+        const auto* widget = qobject_cast<QWidget*>(watched);
+        if (key->key() == Qt::Key_Escape && key->modifiers() == Qt::NoModifier && widget != nullptr &&
+            widget->window() == this && QApplication::activePopupWidget() == nullptr &&
+            QApplication::activeModalWidget() == nullptr)
+        {
+            m_impl->workspacePage->maximizedView()->switchMaximized();
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void ObservatoryWindow::resizeEvent(QResizeEvent* event)
@@ -1128,7 +1324,197 @@ void ObservatoryWindow::placeChanged()
     {
         impl.rightColumn->setVisible(column);
     }
+    // The layout icons are the workspace's.
+    if (impl.layoutIcons != nullptr)
+    {
+        impl.layoutIcons->setVisible(isWorkspaceShown());
+    }
     updateRail();
+}
+
+void ObservatoryWindow::activeViewChanged(ImageViewControl* view)
+{
+    Impl& impl = *m_impl;
+    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
+    // The workspace's chrome shows the active view of the workspace: a view that floats has its own.
+    if (view == nullptr || !view->isInFloatingWindow())
+    {
+        impl.workspacePage->bindView(view);
+    }
+    int docked = 0;
+    for (ImageViewControl* each : views)
+    {
+        if (each != nullptr && !each->isInFloatingWindow())
+        {
+            ++docked;
+        }
+    }
+    impl.workspacePage->binder().setViewCount(docked);
+    refreshViewSelector();
+}
+
+void ObservatoryWindow::refreshViewSelector()
+{
+    Impl& impl = *m_impl;
+    QComboBox* const selector = impl.statusLine->viewSelector();
+    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
+    ImageViewControl* const active = impl.core.viewService().getActiveImageViewControl();
+    impl.fillingSelector = true;
+    selector->clear();
+    for (ImageViewControl* view : views)
+    {
+        if (view != nullptr)
+        {
+            selector->addItem(QString::fromUtf8(view->getUniqueName()));
+        }
+    }
+    if (active != nullptr)
+    {
+        selector->setCurrentText(QString::fromUtf8(active->getUniqueName()));
+    }
+    selector->setVisible(selector->count() > 0);
+    impl.fillingSelector = false;
+}
+
+void ObservatoryWindow::showViewMenu(ImageViewControl& view, const QPoint& globalPos)
+{
+    QMenu menu(&view);
+    an::ui::shell::ViewMenuBuilder(m_impl->core).buildViewMenu(menu, view, [this](std::string_view menuId) {
+        return m_impl->menuBar->menu(menuId);
+    });
+    menu.exec(globalPos);
+}
+
+bool ObservatoryWindow::showTabMenu(QWidget& tabBar, const QPoint& position, const QPoint& globalPos)
+{
+    auto* const strip = dynamic_cast<KDDockWidgets::QtWidgets::TabBar*>(&tabBar);
+    if (strip == nullptr || strip->tabBar() == nullptr)
+    {
+        return false;
+    }
+    KDDockWidgets::Core::DockWidget* const tab = strip->tabBar()->dockWidgetAt(position);
+    if (tab == nullptr)
+    {
+        return false;
+    }
+    for (ImageViewControl* view : m_impl->core.viewService().getListOfViewControls())
+    {
+        if (view != nullptr && view->getDockWidget() != nullptr && view->getDockWidget()->dockWidget() == tab)
+        {
+            QMenu menu(&tabBar);
+            an::ui::shell::ViewMenuBuilder(m_impl->core).buildTabMenu(menu, *view);
+            menu.exec(globalPos);
+            return true;
+        }
+    }
+    return false;
+}
+
+void ObservatoryWindow::dockIntoWorkspace(ImageViewControl& view)
+{
+    KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget();
+    if (dock == nullptr || m_impl->dockArea == nullptr)
+    {
+        return;
+    }
+    m_impl->dockArea->addDockWidget(dock, KDDockWidgets::Location_OnRight);
+    // Docked again, its tools are the workspace's.
+    QTimer::singleShot(0, this, [this]() {
+        updateWorkspacePage();
+        showViews();
+    });
+}
+
+void ObservatoryWindow::updateWorkspacePage()
+{
+    Impl& impl = *m_impl;
+    std::vector<ImageViewControl*> views;
+    std::vector<ImageViewControl*> floating;
+    int docked = 0;
+    for (ImageViewControl* view : impl.core.viewService().getListOfViewControls())
+    {
+        if (view == nullptr)
+        {
+            continue;
+        }
+        views.push_back(view);
+        if (view->isInFloatingWindow())
+        {
+            floating.push_back(view);
+        }
+        else
+        {
+            ++docked;
+        }
+    }
+    impl.floatingChrome->update(views);
+    // The only workspace with every image floating lists them; with a docked one, the dock area is shown.
+    const bool listFloating = docked == 0 && !floating.empty();
+    if (listFloating)
+    {
+        impl.floatingImages->setViews(floating);
+    }
+    impl.workspacePage->showFloatingImages(listFloating);
+    impl.workspacePage->binder().setViewCount(docked);
+    ImageViewControl* const bound = impl.workspacePage->binder().toolbarView();
+    if (bound != nullptr && bound->isInFloatingWindow())
+    {
+        impl.workspacePage->bindView(nullptr);
+    }
+}
+
+void ObservatoryWindow::offerTheLock(const bool maximized)
+{
+    Impl& impl = *m_impl;
+    QAction* const lock = impl.core.actions().action(an::ui::shell::ids::kLockLayout);
+    QAction* const unlock = impl.core.actions().action(an::ui::shell::ids::kUnlockLayout);
+    QAction* const group = impl.core.actions().action(an::ui::shell::ids::kGroupAllImages);
+    QAction* const split = impl.core.actions().action(an::ui::shell::ids::kSplitAllImages);
+    const bool locked = impl.core.dockLayout().isLocked(dockTarget());
+    // While a view is maximized the layout is not the person's to change; restored, the lock offers what the layout
+    // is not, and the icons say what a click does.
+    const auto apply = [lock, unlock, group, split, locked, maximized]() {
+        if (lock != nullptr)
+        {
+            lock->setEnabled(!maximized && !locked);
+        }
+        if (unlock != nullptr)
+        {
+            unlock->setEnabled(!maximized && locked);
+        }
+        if (group != nullptr)
+        {
+            group->setEnabled(!maximized);
+        }
+        if (split != nullptr)
+        {
+            split->setEnabled(!maximized);
+        }
+    };
+    apply();
+    // The actions' state is set again as the active view changes: what is offered is put back after it.
+    QTimer::singleShot(0, this, apply);
+    if (impl.layoutIcons != nullptr)
+    {
+        impl.layoutIcons->lockButton()->setEnabled(!maximized);
+        impl.layoutIcons->refreshLock();
+    }
+}
+
+void ObservatoryWindow::lockLayout(const bool locked)
+{
+    if (locked)
+    {
+        m_impl->core.dockLayout().lock(dockTarget());
+    }
+    else
+    {
+        m_impl->core.dockLayout().unlock(dockTarget());
+    }
+    if (m_impl->layoutIcons != nullptr)
+    {
+        m_impl->layoutIcons->refreshLock();
+    }
 }
 
 void ObservatoryWindow::updateRail()
@@ -1198,6 +1584,7 @@ void ObservatoryWindow::updateExtensionMenus()
 
 void ObservatoryWindow::arrangementChanged()
 {
+    updateWorkspacePage();
     // A view floated out of the dock area or docked back: with none left the place of the views stays, as long as one
     // is open; Home is shown once none is.
     if (m_impl->core.viewService().getListOfViewControls().empty())

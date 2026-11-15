@@ -20,6 +20,9 @@
 
 class ImageViewControl;
 class QCloseEvent;
+class QDragEnterEvent;
+class QDropEvent;
+class QPoint;
 class QResizeEvent;
 class QStackedWidget;
 
@@ -37,12 +40,15 @@ class ApplicationCore;
 namespace an::ui::observatory
 {
 
+class FloatingImagesPage;
+class FloatingViewChrome;
 class HomePage;
 class MenuBarOnAlt;
 class StatusLine;
 class TopBar;
 class WorkspaceHost;
 class WorkspacePage;
+class WorkspaceToolbar;
 
 /// The Observatory shell's main window. It is what only a window can answer for the application core's services -
 /// where a view goes, what the status line shows, whether the Session Console is on screen - and the window a person
@@ -99,6 +105,10 @@ public:
     [[nodiscard]] HomePage* homePage() const noexcept;
     [[nodiscard]] WorkspacePage* workspacePage() const noexcept;
     [[nodiscard]] WorkspaceHost& workspaces() noexcept;
+    /// The layout icons in the top bar, shown while the workspace is.
+    [[nodiscard]] WorkspaceToolbar* layoutIcons() const noexcept;
+    /// The small toolbars of the images that float in windows of their own.
+    [[nodiscard]] FloatingViewChrome& floatingViewChrome() const noexcept;
 
     /// Whether the centre shows Home, or the workspace.
     [[nodiscard]] bool isHomeShown() const;
@@ -147,6 +157,9 @@ public:
 protected:
     void closeEvent(QCloseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void buildRegions();
@@ -168,6 +181,14 @@ private:
     void railActivated(const QString& id);
     void updateRail();
     void updateExtensionMenus();
+    void activeViewChanged(ImageViewControl* view);
+    void refreshViewSelector();
+    void showViewMenu(ImageViewControl& view, const QPoint& globalPos);
+    bool showTabMenu(QWidget& tabBar, const QPoint& position, const QPoint& globalPos);
+    void dockIntoWorkspace(ImageViewControl& view);
+    void updateWorkspacePage();
+    void offerTheLock(bool maximized);
+    void lockLayout(bool locked);
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

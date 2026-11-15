@@ -328,7 +328,7 @@ target Test_ShellParity
     kind         console
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform, AfterNightProcesses, AfterNightShellClassic, AfterNightShellCore, AfterNightShellObservatory
     sources      @Test_ShellParity
     fixture      none
     runner       product

@@ -211,6 +211,12 @@ inline constexpr double kReadoutDeltaFloor = 0.00005;
 inline constexpr int kStatusLineGap = 14;
 inline constexpr int kStatusLinePadding = 12;
 
+// A shell's top bar: icon buttons 32 px square with 20 px icons, 12 px from the bar's left, its parts 8 px apart.
+inline constexpr int kTopBarButton = 32;
+inline constexpr int kTopBarIcon = 20;
+inline constexpr int kTopBarPadding = 12;
+inline constexpr int kTopBarGap = 8;
+
 // The floating toolbar of a view: a rounded scrim `metrics.floatingToolbar` high with a 1 px edge under it, padding 0
 // 5, gap 2; its buttons 10 px less than its height, its choices 12 px less; separators 1 x 20 with 4 px each side. The
 // small form, on a floating image window, is 32 px high, radius 8, padding 0 3, its buttons 26 px.

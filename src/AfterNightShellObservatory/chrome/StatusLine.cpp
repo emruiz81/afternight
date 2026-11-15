@@ -5,10 +5,13 @@
 
 #include "chrome/StatusLine.h"
 
+#include "components/AnChip.h"
+#include "components/AnIconButton.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/ComponentParts.h"
 #include "widgets/ImageStatusTexts.h"
 
+#include <QComboBox>
 #include <QEvent>
 #include <QFontMetrics>
 #include <QHBoxLayout>
@@ -102,6 +105,11 @@ StatusLine::StatusLine(QWidget* parent) : QWidget(parent)
     m_row->setContentsMargins(an::ui::parts::kStatusLinePadding, 1, an::ui::parts::kStatusLinePadding, 0);
     m_row->setSpacing(an::ui::parts::kStatusLineGap);
 
+    m_selector = new QComboBox(this);
+    m_selector->setObjectName(QStringLiteral("observatoryViewSelector"));
+    m_selector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    m_selector->setToolTip(tr("The active image"));
+    m_selector->hide();
     m_facts = new StatusText(true, this);
     m_facts->setObjectName(QStringLiteral("observatoryStatusFacts"));
     m_zoom = new StatusText(true, this);
@@ -111,11 +119,20 @@ StatusLine::StatusLine(QWidget* parent) : QWidget(parent)
     m_declination = new StatusText(true, this);
     m_declination->setObjectName(QStringLiteral("observatoryStatusDeclination"));
 
+    m_row->addWidget(m_selector, 0);
     m_row->addWidget(m_facts, 0);
     m_row->addWidget(m_zoom, 0);
     m_row->addStretch(1);
     m_row->addWidget(m_rightAscension, 0);
     m_row->addWidget(m_declination, 0);
+
+    m_readout = new an::ui::AnIconButton(QStringLiteral("panel_right"), tr("Show or hide the readout"), this);
+    m_readout->setObjectName(QStringLiteral("observatoryReadoutButton"));
+    m_row->addWidget(m_readout, 0);
+    m_console = new an::ui::AnChip(tr("Console"), this);
+    m_console->setObjectName(QStringLiteral("observatoryConsoleChip"));
+    m_console->setToolTip(tr("Open the Session Console"));
+    m_row->addWidget(m_console, 0);
     clearCelestialCoordinates();
 }
 
@@ -188,6 +205,21 @@ StatusText* StatusLine::rightAscensionText() const noexcept
 StatusText* StatusLine::declinationText() const noexcept
 {
     return m_declination;
+}
+
+QComboBox* StatusLine::viewSelector() const noexcept
+{
+    return m_selector;
+}
+
+an::ui::AnIconButton* StatusLine::readoutButton() const noexcept
+{
+    return m_readout;
+}
+
+an::ui::AnChip* StatusLine::consoleChip() const noexcept
+{
+    return m_console;
 }
 
 QSize StatusLine::sizeHint() const

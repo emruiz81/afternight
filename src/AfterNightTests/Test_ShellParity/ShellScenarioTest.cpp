@@ -8,6 +8,7 @@
 /// `ShellScenario.OpensAnImageAndShowsItActive/classic`.
 
 #include "ClassicDriver.h"
+#include "ObservatoryDriver.h"
 #include "ShellDriver.h"
 
 #include "ClassicShell.h"
@@ -93,6 +94,7 @@ namespace
 {
 
 using an::tests::parity::ClassicDriver;
+using an::tests::parity::ObservatoryDriver;
 using an::tests::parity::ProcessLaunch;
 using an::tests::parity::ShellDriver;
 namespace app = an::tests::app;
@@ -106,6 +108,7 @@ an::ui::shell::ShellRegistry registeredShells()
 {
     an::ui::shell::ShellRegistry registry;
     EXPECT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    EXPECT_TRUE(registry.add(an::ui::observatory::observatoryShellDescriptor()));
     return registry;
 }
 
@@ -253,8 +256,18 @@ protected:
             ASSERT_NE(classic, nullptr);
             running->driver = std::make_unique<ClassicDriver>(*classic);
         }
+        else if (id == QLatin1String(an::ui::observatory::ObservatoryShell::kId))
+        {
+            auto* const observatory =
+                dynamic_cast<an::ui::observatory::ObservatoryShell*>(running->started.shell.get());
+            ASSERT_NE(observatory, nullptr);
+            running->driver = std::make_unique<ObservatoryDriver>(*observatory);
+        }
         an::ui::showApplication(*running->started.shell);
         s_running = std::move(running);
+        // What the start left for the event loop - the stored theme applied again once the window is up - runs before a
+        // scenario does.
+        settle();
     }
 
     /// Ends the running shell as the application ends: its geometry kept, the shell gone, the session shut down.
@@ -793,5 +806,7 @@ TEST_P(ShellScenario, ClosingTheApplicationWithAProcessOpenLeavesNothingBehind)
     EXPECT_TRUE(left.isEmpty()) << left.join(QStringLiteral(", ")).toStdString();
 }
 
-INSTANTIATE_TEST_SUITE_P(, ShellScenario, ::testing::Values(std::string(an::ui::shell::ClassicShell::kId)),
+INSTANTIATE_TEST_SUITE_P(, ShellScenario,
+                         ::testing::Values(std::string(an::ui::shell::ClassicShell::kId),
+                                           std::string(an::ui::observatory::ObservatoryShell::kId)),
                          [](const ::testing::TestParamInfo<std::string>& shellId) { return shellId.param; });

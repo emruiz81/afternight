@@ -13,9 +13,16 @@
 #include <QWidget>
 
 class ImageViewControl;
+class QComboBox;
 class QEvent;
 class QHBoxLayout;
 class QPaintEvent;
+
+namespace an::ui
+{
+class AnChip;
+class AnIconButton;
+} // namespace an::ui
 
 namespace an::ui::observatory
 {
@@ -53,9 +60,11 @@ private:
 };
 
 /// The band along the bottom of the window, right of the rail: the first surface with a hairline above it, as high as
-/// the density's status line. From the left, the image's facts and its zoom, in mono, as AfterNight 1.1's status bar
-/// writes them (`widgets/ImageStatusTexts.h`); at the right the right ascension and the declination under the cursor,
-/// "RA -" and "Dec -" in the tertiary colour while there is no position to tell.
+/// the density's status line. From the left, the selector of the active view (every view by its full name), the image's
+/// facts and its zoom, in mono, as AfterNight 1.1's status bar writes them (`widgets/ImageStatusTexts.h`); at the right
+/// the right ascension and the declination under the cursor, "RA -" and "Dec -" in the tertiary colour while there is
+/// no position to tell, the button that shows or hides the readout, and the Console chip, which opens the Session
+/// Console.
 class AFTERNIGHTSHELLOBSERVATORY_API StatusLine final : public QWidget
 {
 public:
@@ -78,6 +87,13 @@ public:
     [[nodiscard]] StatusText* rightAscensionText() const noexcept;
     [[nodiscard]] StatusText* declinationText() const noexcept;
 
+    /// The selector of the active view, which the window fills and follows.
+    [[nodiscard]] QComboBox* viewSelector() const noexcept;
+    /// The button that shows or hides the readout column.
+    [[nodiscard]] an::ui::AnIconButton* readoutButton() const noexcept;
+    /// The Console chip: "Console", and how many warnings there are when there are any.
+    [[nodiscard]] an::ui::AnChip* consoleChip() const noexcept;
+
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
 
@@ -87,6 +103,9 @@ protected:
 
 private:
     QHBoxLayout* m_row = nullptr;
+    QComboBox* m_selector = nullptr;
+    an::ui::AnIconButton* m_readout = nullptr;
+    an::ui::AnChip* m_console = nullptr;
     StatusText* m_facts = nullptr;
     StatusText* m_zoom = nullptr;
     StatusText* m_rightAscension = nullptr;

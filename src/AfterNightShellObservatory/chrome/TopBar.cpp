@@ -6,6 +6,7 @@
 #include "chrome/TopBar.h"
 
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 
 #include <QEvent>
 #include <QHBoxLayout>
@@ -19,8 +20,9 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent)
     setObjectName(QStringLiteral("observatoryTopBar"));
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_row = new QHBoxLayout(this);
-    m_row->setContentsMargins(0, 0, 0, 1);
-    m_row->setSpacing(0);
+    // The hairline under the bar takes its last row of pixels.
+    m_row->setContentsMargins(an::ui::parts::kTopBarPadding, 0, an::ui::parts::kTopBarPadding, 1);
+    m_row->setSpacing(an::ui::parts::kTopBarGap);
 }
 
 QHBoxLayout* TopBar::row() const noexcept
