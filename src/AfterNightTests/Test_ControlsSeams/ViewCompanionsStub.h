@@ -48,6 +48,9 @@ struct CompanionRecord
     int undosAsked = 0;
     int redosAsked = 0;
 
+    /// How many jumps to a step the histories were asked for.
+    int jumpsAsked = 0;
+
     /// How many renames the histories recorded.
     int renames = 0;
 

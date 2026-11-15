@@ -122,7 +122,7 @@ change; `docs/dev/LOCAL_VALIDATION.md` has the commands and `docs/dev/IMAGE_INTE
 ## The interface's records
 
 What the interface is - its design tokens, its actions and menus, the keys it answers, the processes it registers -
-is recorded in six text files beside the suites that read them, and a case compares each with the running product:
+is recorded in seven text files beside the suites that read them, and a case compares each with the running product:
 
 | Record | Holds | Held by |
 |---|---|---|
@@ -131,6 +131,7 @@ is recorded in six text files beside the suites that read them, and a case compa
 | `Test_ShellClassic/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord`; the shell core's view menu, by `ViewMenuBuilderTest.EqualsTheRecordedTree` in `Test_ShellCore` |
 | `Test_ShellClassic/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
 | `Test_ShellClassic/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
+| `Test_ImageViewControl/data/ViewToolbar.txt` | The toolbar row an image view builds by default in each of its modes - a standard view, a real-time preview before and after it offers its autostretch controls, a static preview: where the row is, and every action, choice and separator in order with its text, tool tip, checkability and whether it is shown | `ViewToolbar.EmbeddedContentsMatchTheRecord` |
 | `Test_ProcessFramework/data/ProcessShapes.txt` | What the window of every registered process is made of: the framework class it derives from, how its controls and its preview are laid out, its preview checkbox and where the preview view lands, its button box, its selectors of images and channels, its menus, whether its size is fixed and which window hints it changes, what the person marks on a view for it, and every key sequence its own actions and shortcuts carry | `ProcessCensus.EveryProcessStatesItsShape` |
 
 The records exist so that a change which reorganises the interface's code - a part of the window moved to another

@@ -10,6 +10,8 @@
 
 #include "controls/ImageViewControl.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -101,8 +103,34 @@ public:
         ++companionRecord().lineagesInherited;
     }
 
+    [[nodiscard]] an::ui::ViewHistorySteps steps() const override
+    {
+        // The steps recorded, the last one shown.
+        an::ui::ViewHistorySteps listed;
+        for (const std::string& name : m_steps)
+        {
+            listed.steps.push_back({.name = name});
+        }
+        listed.current = m_steps.empty() ? 0u : m_steps.size() - 1u;
+        return listed;
+    }
+
+    bool jumpToStep(std::size_t) override
+    {
+        ++companionRecord().jumpsAsked;
+        return false;
+    }
+
+    [[nodiscard]] std::uint64_t addStepsListener(StepsListener) override
+    {
+        return ++m_lastToken;
+    }
+
+    void removeStepsListener(std::uint64_t) override {}
+
 private:
     std::vector<std::string> m_steps;
+    std::uint64_t m_lastToken = 0u;
 };
 
 } // namespace

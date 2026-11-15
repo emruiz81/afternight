@@ -30,6 +30,7 @@
 
 #include "controls/AutostretchSettingsControl.h"
 #include "controls/StaticPreviewCacheLimits.h"
+#include "controls/ViewProcessingNotice.h"
 #include "controls/annotation/AnnotationSettings.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -1003,6 +1004,21 @@ struct ImageViewControl::Impl
 
     QToolBar* m_ToolBar = nullptr;
 
+    /// Where the toolbar is: the view's first row, or outside the view.
+    an::ui::ViewChromeMode m_ChromeMode = an::ui::ViewChromeMode::Embedded;
+
+    /// What a toolbar shows of the view, read again whenever a choice is offered or withdrawn.
+    an::ui::ViewChromeActions m_ChromeActions;
+
+    /// The notice of a run over the view, the widget that shows it, and the group that holds the toolbar's actions
+    /// disabled under it.
+    std::optional<an::ui::ProcessingNotice> m_Notice;
+    an::ui::ViewProcessingNotice* m_NoticeOverlay = nullptr;
+    QActionGroup* m_NoticeActions = nullptr;
+
+    /// The processing lock's state the listeners were last told.
+    bool m_LockNotified = false;
+
     bool m_IsFloating = false;
 
     bool m_ShowAutostretchBanner = true;
@@ -1721,19 +1737,12 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
 
     m_impl->m_ScrollArea->setViewControl(this);
 
-    if (m_impl->m_ViewControlMode == ViewControlMode::st_preview)
-    {
-        m_impl->m_CanvasLayout->addWidget(m_impl->m_ToolBar);
-    }
-    else
-    {
-        m_impl->m_CanvasLayout->setMenuBar(m_impl->m_ToolBar);
-    }
     m_impl->m_CanvasLayout->addWidget(m_impl->m_ScrollArea);
     m_impl->m_CanvasLayout->addWidget(m_impl->m_NoImagePreviewWidget);
 
     m_impl->m_CanvasLayout->setContentsMargins(QMargins(0, 0, 0, 0));
     m_impl->m_CanvasLayout->setSpacing(0);
+    placeToolbar();
 
     m_impl->m_ImageViewWidget = new ImageViewWidget(this);
     m_impl->m_ImageViewWidget->installEventFilter(this);
@@ -2028,6 +2037,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     {
         customToolBar->refreshOverflow();
     }
+    refreshChromeActions();
 
     if (m_impl->m_ViewControlMode == ViewControlMode::st_preview)
     {
@@ -3155,6 +3165,7 @@ void ImageViewControl::setPresentationChoicesOffered(const bool offered)
     {
         customToolBar->refreshOverflow();
     }
+    refreshChromeActions();
 }
 
 void ImageViewControl::showPreviewStatistics(const std::optional<an::ui::ViewImageStatistics>& statistics)
@@ -3533,7 +3544,11 @@ void ImageViewControl::setPreviewContentVisible(const bool hasContent)
     // All current callers run on the main thread (directly or via Qt::QueuedConnection
     // callbacks).  The macro handles the rare future path where this might be called
     // from a worker without requiring further changes at all call sites.
-    SAFE_INVOKE_METHOD_IN_GUI_THREAD_BLOCK(m_impl->m_ToolBar, setVisible, hasContent || preserveToolbarWhenEmpty);
+    // A toolbar outside the view is no row of it, and stays hidden.
+    if (m_impl->m_ChromeMode == an::ui::ViewChromeMode::Embedded)
+    {
+        SAFE_INVOKE_METHOD_IN_GUI_THREAD_BLOCK(m_impl->m_ToolBar, setVisible, hasContent || preserveToolbarWhenEmpty);
+    }
     SAFE_INVOKE_METHOD_IN_GUI_THREAD_BLOCK(m_impl->m_ScrollArea, setVisible, hasContent);
     SAFE_INVOKE_METHOD_IN_GUI_THREAD_BLOCK(m_impl->m_NoImagePreviewWidget, setVisible, !hasContent);
 }
@@ -4639,6 +4654,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
         {
             customToolBar->refreshOverflow();
         }
+        refreshChromeActions();
 
         return;
     }
@@ -4725,6 +4741,7 @@ void ImageViewControl::enableRTPreviewAutostretchControls(bool enabled)
     {
         customToolBar->refreshOverflow();
     }
+    refreshChromeActions();
 }
 
 void ImageViewControl::setShowAutostretchBanner(bool show)
@@ -5006,6 +5023,7 @@ bool ImageViewControl::tryRequestLockForProcessing()
     {
         return false;
     }
+    scheduleProcessingLockNotification();
 
     if (isSequence() && m_impl->m_SequencePlayer)
     {
@@ -5032,6 +5050,7 @@ bool ImageViewControl::isLockedForProcessing()
 void ImageViewControl::releaseLockForProcessing()
 {
     m_impl->m_IsLockedForProcessing.store(false, std::memory_order_release);
+    scheduleProcessingLockNotification();
 
     if (isSequence() && m_impl->m_SequencePlayer)
     {
@@ -5045,6 +5064,265 @@ void ImageViewControl::releaseLockForProcessing()
         };
         SAFE_INVOKE_LAMBDA_IN_GUI_THREAD(this, release);
     }
+}
+
+void ImageViewControl::scheduleProcessingLockNotification()
+{
+    // The lock is taken on whichever thread starts a run; its listeners are told on the GUI thread, of the state the
+    // lock is in when they are told, so a notification that arrives after a later one tells nothing new.
+    QPointer<ImageViewControl> guard(this);
+    auto notify = [guard]() {
+        if (guard)
+        {
+            guard->notifyProcessingLockChanged();
+        }
+    };
+    SAFE_INVOKE_LAMBDA_IN_GUI_THREAD(this, notify);
+}
+
+void ImageViewControl::notifyProcessingLockChanged()
+{
+    const bool locked = m_impl->m_IsLockedForProcessing.load(std::memory_order_acquire);
+    if (locked == m_impl->m_LockNotified || m_impl->m_ControlIsClosing.load())
+    {
+        return;
+    }
+    m_impl->m_LockNotified = locked;
+
+    std::vector<ImageViewControlListener*> listenersCopy;
+    {
+        std::shared_lock lock(m_impl->m_listeners_mutex);
+        listenersCopy = m_impl->m_listeners;
+    }
+    for (ImageViewControlListener* listener : listenersCopy)
+    {
+        listener->onProcessingLockChanged(this, locked);
+    }
+}
+
+void ImageViewControl::setChromeMode(const an::ui::ViewChromeMode mode)
+{
+    if (m_impl->m_ChromeMode == mode)
+    {
+        return;
+    }
+    m_impl->m_ChromeMode = mode;
+    placeToolbar();
+}
+
+an::ui::ViewChromeMode ImageViewControl::chromeMode() const
+{
+    return m_impl->m_ChromeMode;
+}
+
+const an::ui::ViewChromeActions& ImageViewControl::chromeActions() const
+{
+    return m_impl->m_ChromeActions;
+}
+
+void ImageViewControl::placeToolbar()
+{
+    QToolBar* toolbar = m_impl->m_ToolBar;
+    QVBoxLayout* layout = m_impl->m_CanvasLayout;
+    if (toolbar == nullptr || layout == nullptr)
+    {
+        // Not initialized yet: initialize places it.
+        return;
+    }
+    auto* customToolBar = dynamic_cast<CustomToolBar*>(toolbar);
+    if (layout->menuBar() == toolbar)
+    {
+        layout->setMenuBar(nullptr);
+    }
+    layout->removeWidget(toolbar);
+
+    if (m_impl->m_ChromeMode == an::ui::ViewChromeMode::External)
+    {
+        // No row: the toolbar keeps the actions and choices it holds, hidden, and moves none of them out of sight,
+        // since the part showing them follows their own visibility.
+        if (customToolBar != nullptr)
+        {
+            customToolBar->setOverflowEnabled(false);
+        }
+        toolbar->hide();
+        return;
+    }
+
+    // The first row: a static preview's is the layout's first item, every other view's its menu bar.
+    if (m_impl->m_ViewControlMode == ViewControlMode::st_preview)
+    {
+        layout->insertWidget(0, toolbar);
+    }
+    else
+    {
+        layout->setMenuBar(toolbar);
+    }
+    if (customToolBar != nullptr)
+    {
+        customToolBar->setOverflowEnabled(true);
+    }
+    if (toolbar->testAttribute(Qt::WA_WState_ExplicitShowHide) && m_impl->m_ScrollArea != nullptr)
+    {
+        // Back from outside the view, where it was hidden: shown as `setPreviewContentVisible` shows the row - unless
+        // the canvas was hidden for having nothing to show, but always in a static preview. A widget never shown reads
+        // as hidden, so only a canvas hidden on purpose counts as hidden.
+        const QWidget* canvas = m_impl->m_ScrollArea;
+        const bool contentShown = !(canvas->testAttribute(Qt::WA_WState_ExplicitShowHide) && canvas->isHidden());
+        toolbar->setVisible(contentShown || m_impl->m_ViewControlMode == ViewControlMode::st_preview);
+    }
+}
+
+void ImageViewControl::refreshChromeActions()
+{
+    an::ui::ViewChromeActions actions;
+    actions.fit = m_impl->m_FitToWindowAction;
+    actions.zoomIn = m_impl->m_ZoomInAction;
+    actions.zoomOut = m_impl->m_ZoomOutAction;
+    actions.zoom100 = m_impl->m_Zoom100Action;
+    actions.maximize = m_impl->m_MaximizeAction;
+
+    // A choice that is a widget is offered while the view offers the presentation choices and, for the display mode
+    // of a real-time preview, once the preview offers its autostretch controls.
+    const bool presentation = m_impl->m_PresentationChoicesOffered;
+    actions.channel = presentation ? m_impl->m_imageViewChannelComboBox : nullptr;
+    const bool displayModeOffered =
+        m_impl->m_ViewControlMode != ViewControlMode::rt_preview ||
+        (m_impl->m_ImageViewModeComboBoxAction != nullptr && m_impl->m_ImageViewModeComboBoxAction->isVisible());
+    actions.displayMode = presentation && displayModeOffered ? m_impl->m_imageViewModeComboBox : nullptr;
+    actions.autostretchSettings = m_impl->m_AutostretchSettingsAction;
+
+    actions.undo = m_impl->m_UndoAction;
+    actions.redo = m_impl->m_RedoAction;
+    actions.history = m_impl->m_HistoryAction;
+
+    actions.statistics = m_impl->m_StatisticsAction;
+    actions.histogram = m_impl->m_HistogramAction;
+    actions.exif = m_impl->m_EXIFViewerAction;
+    actions.fitsHeader = m_impl->m_FITSViewerAction;
+    actions.summary = m_impl->m_ImageSummaryAction;
+
+    actions.showAstrometry = m_impl->m_AstrometryToggleAction;
+    actions.astrometryMenu = m_impl->m_AstrometrySettingsMenu;
+    actions.astrometrySettings = m_impl->m_AstrometrySettingsAction;
+    actions.astrometryInfo = m_impl->m_AstrometryInfoAction;
+    actions.annotate = m_impl->m_AnnotateImageToolbarAction;
+    actions.plateSolve = m_impl->m_PlateSolveToolbarAction;
+
+    actions.switchImage = m_impl->m_RTPreviewShowOriginalAction;
+    const bool previewAreaOffered =
+        m_impl->m_RTPreviewAreaAction != nullptr && m_impl->m_RTPreviewAreaAction->isVisible();
+    actions.previewArea = previewAreaOffered ? m_impl->m_chkRTPreviewArea : nullptr;
+    actions.takeSnapshot = m_impl->m_RTPreviewTakeSnapshotAction;
+    actions.statisticsOverlay = m_impl->m_StatsOverlayToggleAction;
+
+    if (actions == m_impl->m_ChromeActions)
+    {
+        return;
+    }
+    m_impl->m_ChromeActions = actions;
+
+    std::vector<ImageViewControlListener*> listenersCopy;
+    {
+        std::shared_lock lock(m_impl->m_listeners_mutex);
+        listenersCopy = m_impl->m_listeners;
+    }
+    for (ImageViewControlListener* listener : listenersCopy)
+    {
+        listener->onChromeActionsChanged(this);
+    }
+}
+
+void ImageViewControl::setProcessingNotice(const an::ui::ProcessingNotice& notice)
+{
+    CHECK_IF_CONTROL_IS_CLOSING;
+
+    if (m_impl->m_ScrollArea == nullptr)
+    {
+        return;
+    }
+
+    // The toolbar's actions are held disabled by a group: an action the view enables meanwhile is enabled when the
+    // group lets it go, one it disables stays disabled - each comes back as the view would have it.
+    if (m_impl->m_NoticeActions == nullptr)
+    {
+        m_impl->m_NoticeActions = new QActionGroup(this);
+        m_impl->m_NoticeActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::None);
+    }
+    const an::ui::ViewChromeActions& actions = m_impl->m_ChromeActions;
+    for (QAction* action : {actions.fit,
+                            actions.zoomIn,
+                            actions.zoomOut,
+                            actions.zoom100,
+                            actions.maximize,
+                            actions.autostretchSettings,
+                            actions.undo,
+                            actions.redo,
+                            actions.history,
+                            actions.statistics,
+                            actions.histogram,
+                            actions.exif,
+                            actions.fitsHeader,
+                            actions.summary,
+                            actions.showAstrometry,
+                            actions.astrometrySettings,
+                            actions.astrometryInfo,
+                            actions.annotate,
+                            actions.plateSolve,
+                            actions.switchImage,
+                            actions.takeSnapshot,
+                            actions.statisticsOverlay})
+    {
+        if (action != nullptr && action->actionGroup() == nullptr)
+        {
+            m_impl->m_NoticeActions->addAction(action);
+        }
+    }
+    m_impl->m_NoticeActions->setEnabled(false);
+    // The choices that are widgets are the toolbar's children: a disabled toolbar disables them, and gives each back
+    // the state it holds of its own when it is enabled again.
+    if (m_impl->m_ToolBar != nullptr)
+    {
+        m_impl->m_ToolBar->setEnabled(false);
+    }
+
+    if (m_impl->m_NoticeOverlay == nullptr)
+    {
+        m_impl->m_NoticeOverlay = new an::ui::ViewProcessingNotice(m_impl->m_ScrollArea);
+    }
+    m_impl->m_NoticeOverlay->setNotice(notice);
+    m_impl->m_NoticeOverlay->setGeometry(m_impl->m_ScrollArea->rect());
+    m_impl->m_NoticeOverlay->show();
+    m_impl->m_NoticeOverlay->raise();
+    m_impl->m_Notice = notice;
+}
+
+void ImageViewControl::clearProcessingNotice()
+{
+    if (!m_impl->m_Notice.has_value())
+    {
+        return;
+    }
+    m_impl->m_Notice.reset();
+    if (m_impl->m_NoticeActions != nullptr)
+    {
+        m_impl->m_NoticeActions->setEnabled(true);
+        // The actions leave the group, so nothing of the notice is left on them.
+        delete m_impl->m_NoticeActions;
+        m_impl->m_NoticeActions = nullptr;
+    }
+    if (m_impl->m_ToolBar != nullptr)
+    {
+        m_impl->m_ToolBar->setEnabled(true);
+    }
+    if (m_impl->m_NoticeOverlay != nullptr)
+    {
+        m_impl->m_NoticeOverlay->hide();
+    }
+}
+
+bool ImageViewControl::hasProcessingNotice() const
+{
+    return m_impl->m_Notice.has_value();
 }
 
 void ImageViewControl::setRTPreviewTakeSnapshotActionEnabled(bool enabled)
@@ -5070,6 +5348,7 @@ void ImageViewControl::setRTPreviewAreaActionEnabled(bool enabled)
         {
             customToolBar->refreshOverflow();
         }
+        refreshChromeActions();
     }
 }
 
@@ -6162,6 +6441,39 @@ void CustomToolBar::refreshOverflow()
     queueOverflowRefresh();
 }
 
+void CustomToolBar::setOverflowEnabled(const bool enabled)
+{
+    if (m_OverflowEnabled == enabled)
+    {
+        return;
+    }
+    m_OverflowEnabled = enabled;
+    if (enabled)
+    {
+        queueOverflowRefresh();
+        return;
+    }
+    // The actions the overflow hid are shown again, by their own action, and the overflow's button goes.
+    for (QAction* action : m_OverflowedActions)
+    {
+        if (action != nullptr && action->property(kOverflowHiddenProperty).toBool())
+        {
+            action->setProperty(kOverflowHiddenProperty, false);
+            action->setProperty(kOverflowWasEnabledProperty, QVariant());
+            action->setVisible(true);
+        }
+    }
+    m_OverflowedActions.clear();
+    if (m_OverflowMenu != nullptr)
+    {
+        m_OverflowMenu->clear();
+    }
+    if (m_OverflowAction != nullptr)
+    {
+        m_OverflowAction->setVisible(false);
+    }
+}
+
 void CustomToolBar::resizeEvent(QResizeEvent* event)
 {
     QToolBar::resizeEvent(event);
@@ -6255,7 +6567,7 @@ void CustomToolBar::queueOverflowRefresh()
 
 void CustomToolBar::updateOverflowLayout()
 {
-    if (m_UpdatingOverflowLayout || !m_OverflowButton || !m_OverflowMenu || !m_OverflowAction)
+    if (!m_OverflowEnabled || m_UpdatingOverflowLayout || !m_OverflowButton || !m_OverflowMenu || !m_OverflowAction)
     {
         return;
     }

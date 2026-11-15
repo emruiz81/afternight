@@ -16,6 +16,7 @@
 #pragma once
 
 #include "AfterNightControlsExport.h"
+#include "controls/ViewChrome.h"
 #include "widgets/ViewPresentation.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
@@ -27,6 +28,7 @@
 
 #include <QString>
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -126,6 +128,30 @@ public:
     ///
     /// @param source the other view's history.
     virtual void inheritLineage(const IViewHistory& source) = 0;
+
+    /// The steps as the history's window lists them - the inherited ones, then the view's own from the state it was
+    /// created with - and the one the view shows.
+    [[nodiscard]] virtual ViewHistorySteps steps() const = 0;
+
+    /// Starts restoring a step of `steps()`, as the history window's Jump To Step does: it is read on a worker and
+    /// shown when it lands.
+    ///
+    /// @param step its index in `steps()`.
+    /// @return false, with the view unchanged, for an inherited step, the step shown, one that does not exist, or when
+    ///         the restore cannot start.
+    virtual bool jumpToStep(std::size_t step) = 0;
+
+    /// What a listener of the steps is told: that they, or the step shown, changed.
+    using StepsListener = std::function<void()>;
+
+    /// Tells a listener, on the GUI thread, each time the steps or the step shown change, until it is removed.
+    ///
+    /// @param listener told of each change.
+    /// @return the token that removes it.
+    [[nodiscard]] virtual std::uint64_t addStepsListener(StepsListener listener) = 0;
+
+    /// Tells a listener no more; a token already removed, or never given, is ignored.
+    virtual void removeStepsListener(std::uint64_t token) = 0;
 };
 
 /// Makes the history of a view. Defined beside the history tracker.

@@ -207,6 +207,77 @@ inline constexpr int kCompactReadoutIcon = 12;
 /// A change smaller than this is shown as none.
 inline constexpr double kReadoutDeltaFloor = 0.00005;
 
+// The floating toolbar of a view: a rounded scrim `metrics.floatingToolbar` high with a 1 px edge under it, padding 0
+// 5, gap 2; its buttons 10 px less than its height, its choices 12 px less; separators 1 x 20 with 4 px each side. The
+// small form, on a floating image window, is 32 px high, radius 8, padding 0 3, its buttons 26 px.
+inline constexpr int kFloatingToolbarRadius = 10;
+inline constexpr int kFloatingToolbarPadding = 5;
+inline constexpr int kFloatingToolbarGap = 2;
+inline constexpr int kFloatingToolbarButtonInset = 10;
+inline constexpr int kFloatingToolbarChoiceInset = 12;
+inline constexpr int kFloatingToolbarIcon = 18;
+inline constexpr int kFloatingToolbarSeparatorHeight = 20;
+inline constexpr int kFloatingToolbarSeparatorMargin = 4;
+inline constexpr int kFloatingToolbarChannelWidth = 104;
+inline constexpr int kFloatingToolbarZoomWidth = 62;
+inline constexpr int kFloatingToolbarNameMaximum = 220;
+inline constexpr int kFloatingToolbarNameMark = 8;
+inline constexpr int kFloatingToolbarNameMarkBorder = 2;
+inline constexpr int kFloatingToolbarNamePaddingStart = 10;
+inline constexpr int kFloatingToolbarNamePaddingEnd = 6;
+inline constexpr int kFloatingToolbarNameGap = 6;
+inline constexpr int kFloatingToolbarChoicePadding = 10;
+inline constexpr int kFloatingToolbarChoiceMargin = 2;
+inline constexpr int kFloatingToolbarChevron = 12;
+/// How far above the bottom of the area it floats over the toolbar sits, in its full and its small form.
+inline constexpr int kFloatingToolbarLift = 12;
+inline constexpr int kFloatingToolbarSmallLift = 8;
+inline constexpr int kFloatingToolbarSmallHeight = 32;
+inline constexpr int kFloatingToolbarSmallRadius = 8;
+inline constexpr int kFloatingToolbarSmallPadding = 3;
+inline constexpr int kFloatingToolbarSmallButton = 26;
+inline constexpr int kFloatingToolbarSmallIcon = 15;
+inline constexpr int kFloatingToolbarSmallZoomWidth = 54;
+/// What over an image a choice's outline and a separator are drawn in: its text at these shares.
+inline constexpr qreal kOnImageOutlineShare = 0.34;
+inline constexpr qreal kOnImageSeparatorShare = 0.22;
+
+// The history strip: `metrics.strip` high, padding 0 6 0 12, gap 6; the caps label 6 px before the first chip; chips
+// `metrics.chip` high, pills, padding 0 10, an icon of 13 px 6 px before the text and pulled 3 px in; chevrons of 12 px
+// between them; at its right the history's buttons, a small control square, their icons 16 px.
+inline constexpr int kHistoryStripPaddingStart = 12;
+inline constexpr int kHistoryStripPaddingEnd = 6;
+inline constexpr int kHistoryStripGap = 6;
+inline constexpr int kHistoryStripLabelGap = 6;
+inline constexpr int kHistoryChipPadding = 10;
+inline constexpr int kHistoryChipIcon = 13;
+inline constexpr int kHistoryChipIconPull = 3;
+inline constexpr int kHistoryChipGap = 6;
+inline constexpr int kHistoryChevron = 12;
+inline constexpr int kHistoryButtonIcon = 16;
+/// The dash of a pending chip's outline, in its pen's widths: dash, then gap.
+inline constexpr qreal kHistoryPendingDash = 3.0;
+/// How long a turn of the writing chip's spinner takes, and how often it moves.
+inline constexpr int kHistorySpinnerTurnMs = 1000;
+inline constexpr int kHistorySpinnerFrameMs = 80;
+
+// The notice over a view a run writes: the view under `scrimSoft`, and at its centre a pill 36 px high, radius 10,
+// padding 0 5 0 12, gap 8: a 14 px lock in the accent over images, the text, the share done in the monospace, a 48 x 4
+// bar, and a button 26 px high, padding 0 10, 4 px after the bar, its outline the text over images at 40 %.
+inline constexpr int kNoticePillHeight = 36;
+inline constexpr int kNoticePillRadius = 10;
+inline constexpr int kNoticePillPaddingStart = 12;
+inline constexpr int kNoticePillPaddingEnd = 5;
+inline constexpr int kNoticePillGap = 8;
+inline constexpr int kNoticeLockIcon = 14;
+inline constexpr int kNoticeBarWidth = 48;
+inline constexpr int kNoticeBarHeight = 4;
+inline constexpr qreal kNoticeBarTrackShare = 0.24;
+inline constexpr int kNoticeButtonHeight = 26;
+inline constexpr int kNoticeButtonPadding = 10;
+inline constexpr int kNoticeButtonGap = 4;
+inline constexpr qreal kNoticeButtonOutlineShare = 0.40;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.

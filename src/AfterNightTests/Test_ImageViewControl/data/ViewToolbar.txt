@@ -1,0 +1,90 @@
+# The toolbar row of AfterNight 1.1's image view, in each mode a view is made in, item for item:
+#   row | where the row is: the canvas layout's menu bar, or its first item
+#   action | text | tool tip | checkable or plain | shown or hidden
+#   widget | class | accessible name, else text, else object name | shown or hidden
+#   separator | shown or hidden
+# An item is read as a view with no image has it, before the toolbar's overflow pass first runs.
+#
+# ViewToolbar.EmbeddedContentsMatchTheRecord in Test_ImageViewControl compares the view with this
+# record. An entry is edited by the change that means to move it - a renamed action, a new
+# button; the record is not written again whole. A field is `-` when empty; `\t` is a tab
+# and `\|` a bar inside a text.
+
+[standard]
+row | the menu bar
+action | Fit To Window | Fit To Window (Ctrl+Shift+F) | plain | shown
+action | Zoom In | Zoom In | plain | shown
+action | Zoom Out | Zoom Out | plain | shown
+action | Zoom 100% | Zoom 100% | plain | shown
+action | Maximize image view | Maximize image view (F11) | plain | shown
+separator | shown
+widget | QComboBox | View Channel | shown
+separator | shown
+widget | QComboBox | Display Mode | shown
+action | Autostretch Settings | Autostretch Settings (Ctrl+Shift+A) | plain | shown
+separator | shown
+action | Undo | Undo | plain | shown
+action | Redo | Redo | plain | shown
+action | Image History | Image History (Ctrl+Shift+Z) | plain | shown
+separator | shown
+action | Statistics | Statistics (Ctrl+Shift+T) | plain | shown
+action | Histogram | Histogram (Ctrl+H) | plain | shown
+action | EXIF Viewer | EXIF Viewer (Ctrl+Shift+X) | plain | shown
+action | FITS Header | FITS Header (Ctrl+Shift+H) | plain | shown
+action | Summary | Summary (Ctrl+Shift+M) | plain | shown
+separator | shown
+action | Show Astrometry | Toggle astrometry overlays on solved images (Ctrl+Shift+W) | checkable | hidden
+action | Astrometry Settings | Configure astrometry overlay display options | plain | hidden
+action | Astrometry Info | Show astrometry solution details (Ctrl+Shift+P) | plain | shown
+action | Annotate Image | Export a picture of the solved image with its objects, stars and coordinates named (Ctrl+Shift+L) | plain | hidden
+action | Plate Solve | Solve the image astrometrically (Ctrl+P) | plain | hidden
+separator | shown
+widget | QToolButton | More | hidden
+
+[rt_preview]
+row | the menu bar
+action | Fit To Window | Fit To Window (Ctrl+Shift+F) | plain | shown
+action | Zoom In | Zoom In | plain | shown
+action | Zoom Out | Zoom Out | plain | shown
+action | Zoom 100% | Zoom 100% | plain | shown
+separator | shown
+widget | QComboBox | View Channel | shown
+separator | shown
+action | Switch image | Switch image (Space / Mouse Right-Click / Ctrl+Shift+O) | plain | shown
+widget | QCheckBox | Preview area | shown
+widget | QWidget | - | shown
+action | Take snapshot | Take snapshot (Ctrl+Shift+K) | plain | shown
+widget | QToolButton | More | hidden
+
+[rt_preview with its autostretch controls]
+row | the menu bar
+action | Fit To Window | Fit To Window (Ctrl+Shift+F) | plain | shown
+action | Zoom In | Zoom In | plain | shown
+action | Zoom Out | Zoom Out | plain | shown
+action | Zoom 100% | Zoom 100% | plain | shown
+separator | shown
+widget | QComboBox | View Channel | shown
+separator | shown
+widget | QComboBox | Display Mode | shown
+action | Autostretch Settings | Autostretch Settings | plain | shown
+separator | shown
+action | Switch image | Switch image (Space / Mouse Right-Click / Ctrl+Shift+O) | plain | shown
+widget | QCheckBox | Preview area | shown
+widget | QWidget | - | shown
+action | Take snapshot | Take snapshot (Ctrl+Shift+K) | plain | shown
+widget | QToolButton | More | hidden
+
+[st_preview]
+row | the first item
+action | Fit To Window | Fit To Window (Ctrl+Shift+F) | plain | shown
+action | Zoom In | Zoom In | plain | shown
+action | Zoom Out | Zoom Out | plain | shown
+action | Zoom 100% | Zoom 100% | plain | shown
+separator | shown
+widget | QComboBox | View Channel | shown
+separator | shown
+widget | QCheckBox | Calibrated | hidden
+widget | QComboBox | Display Mode | shown
+action | Autostretch Settings | Autostretch Settings (Ctrl+Shift+A) | plain | shown
+action | Show statistics | Show / hide image statistics overlay | checkable | shown
+widget | QToolButton | More | hidden

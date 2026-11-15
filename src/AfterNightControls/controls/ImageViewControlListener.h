@@ -55,6 +55,14 @@ public:
 
     virtual void onImageDisplayChannelChanged(ImageViewControl* ctrl, int mode) {}
 
+    /// The view's processing lock was taken or let go (`ImageViewControl::tryRequestLockForProcessing`). Told on the
+    /// GUI thread, whichever thread took or let go the lock, with the lock's state when it is told; a lock taken and
+    /// let go before the GUI thread could tell is not told.
+    virtual void onProcessingLockChanged(ImageViewControl* ctrl, bool locked) {}
+
+    /// What a toolbar shows of the view changed: a choice offered or withdrawn (`ImageViewControl::chromeActions`).
+    virtual void onChromeActionsChanged(ImageViewControl* ctrl) {}
+
     // Only for RT preview controls
     virtual void onRTTakeSnapshot(ImageViewControl* ctrl) {}
 

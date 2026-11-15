@@ -140,17 +140,20 @@ private:
     ImageViewControl& m_View;
 };
 
-/// A view's undo history: its tracker, and the windows over it the view opened.
-class ViewHistory final : public an::ui::IViewHistory
+/// A view's undo history: its tracker, the windows over it the view opened, and the listeners of its steps, which it
+/// tells of every change the tracker tells its own listeners of.
+class ViewHistory final : public an::ui::IViewHistory, private ImageHistoryTrackerListener
 {
 public:
     ViewHistory(ImageViewControl& view, const an::consumer::EngineSession& session)
         : m_View(view), m_Host(view), m_Tracker(std::make_shared<ImageHistoryTracker>(m_Host, session))
     {
+        m_Tracker->addListener(this);
     }
 
     ~ViewHistory() override
     {
+        m_Tracker->removeListener(this);
         // The windows read the tracker: they go first.
         for (const QPointer<ImageHistoryControl>& window : m_Windows)
         {
@@ -232,14 +235,82 @@ public:
         if (const auto* other = dynamic_cast<const ViewHistory*>(&source))
         {
             m_Tracker->setLineage(an::ui::history::inheritedLineage(*other->m_Tracker));
+            // The tracker tells nobody of a lineage: the inherited steps are steps a strip shows.
+            onImageHistoryUpdated();
         }
     }
 
+    [[nodiscard]] an::ui::ViewHistorySteps steps() const override
+    {
+        an::ui::ViewHistorySteps listed;
+        for (const LineageEntry& entry : m_Tracker->lineage().entries())
+        {
+            listed.steps.push_back({.name = entry.step_name, .description = entry.description, .inherited = true});
+        }
+        const std::size_t inherited = listed.steps.size();
+        if (const ImageHistoryStepSPtr initial = m_Tracker->getInitialStep())
+        {
+            listed.steps.push_back({.name = initial->getStepName(), .description = initial->getStepDesc()});
+        }
+        for (const ImageHistoryStepSPtr& step : m_Tracker->getImageHistorySteps())
+        {
+            listed.steps.push_back({.name = step->getStepName(), .description = step->getStepDesc()});
+        }
+        listed.current = listed.steps.size() > inherited ? inherited + m_Tracker->getCurrentStep() : 0u;
+        return listed;
+    }
+
+    bool jumpToStep(const std::size_t step) override
+    {
+        const std::size_t inherited = m_Tracker->lineage().entries().size();
+        if (step < inherited)
+        {
+            return false;
+        }
+        const std::size_t own = step - inherited;
+        return m_Tracker->canJumpToStep(own) && m_Tracker->jumpToStep(own);
+    }
+
+    [[nodiscard]] std::uint64_t addStepsListener(StepsListener listener) override
+    {
+        const std::uint64_t token = ++m_LastToken;
+        m_StepsListeners.emplace_back(token, std::move(listener));
+        return token;
+    }
+
+    void removeStepsListener(const std::uint64_t token) override
+    {
+        std::erase_if(m_StepsListeners, [token](const auto& each) { return each.first == token; });
+    }
+
 private:
+    void onImageHistoryUpdated() override
+    {
+        // A listener may remove itself, or another, while it is told: each is looked up again before it is told.
+        std::vector<std::uint64_t> tokens;
+        tokens.reserve(m_StepsListeners.size());
+        for (const auto& [token, listener] : m_StepsListeners)
+        {
+            tokens.push_back(token);
+        }
+        for (const std::uint64_t token : tokens)
+        {
+            const auto found = std::find_if(m_StepsListeners.begin(), m_StepsListeners.end(),
+                                            [token](const auto& each) { return each.first == token; });
+            if (found != m_StepsListeners.end() && found->second)
+            {
+                const StepsListener told = found->second;
+                told();
+            }
+        }
+    }
+
     ImageViewControl& m_View;
     ViewHistoryHost m_Host;
     std::shared_ptr<ImageHistoryTracker> m_Tracker;
     std::vector<QPointer<ImageHistoryControl>> m_Windows;
+    std::vector<std::pair<std::uint64_t, StepsListener>> m_StepsListeners;
+    std::uint64_t m_LastToken = 0u;
 };
 
 } // namespace

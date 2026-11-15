@@ -16,6 +16,7 @@
 #include "controls/CalibrationPreviewConfig.h"
 #include "controls/ImageViewThemeColors.h"
 #include "controls/ImageViewScrollArea.h"
+#include "controls/ViewChrome.h"
 #include "session/ImageDocument.h"
 #include "widgets/ChannelDisplayStrategy.h"
 #include "widgets/ImageViewWidget.h"
@@ -124,6 +125,11 @@ public:
     void setOverflowIconColors(const QColor& normalColor, const QColor& disabledColor);
     void refreshOverflow();
 
+    /// Whether the toolbar moves the actions it has no room for into its overflow menu. It hides each by hiding the
+    /// action, which every widget showing the action follows: a toolbar that is not the view's row moves none, and
+    /// shows again those it had moved.
+    void setOverflowEnabled(bool enabled);
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
@@ -144,6 +150,7 @@ private:
     bool m_OverflowRefreshPending = false;
     bool m_ReorderingOverflowAction = false;
     bool m_UpdatingOverflowLayout = false;
+    bool m_OverflowEnabled = true;
 };
 
 /// What the view's work in flight came to so far: file reads, edits and writes asked for, published, and refused as
@@ -194,6 +201,31 @@ public:
     // mode: 0 = standard view control, 1 = RT preview control, 2 = static Image preview control (for image lists with
     // preview)
     void initialize(const std::string& uniqueName, const ViewControlMode mode);
+
+    /// Where the view's toolbar is: its first row, as it is unless told otherwise, or outside it, the view building no
+    /// row and a part a shell places showing `chromeActions()`. May be told before or after `initialize`; the actions
+    /// are the same objects in either mode.
+    void setChromeMode(an::ui::ViewChromeMode mode);
+
+    /// Where the view's toolbar is.
+    [[nodiscard]] an::ui::ViewChromeMode chromeMode() const;
+
+    /// What a toolbar shows of the view, in either chrome mode: a member is null where the view's mode has none, or a
+    /// choice while the view does not offer it. Its listeners are told when that changes (`onChromeActionsChanged`).
+    [[nodiscard]] const an::ui::ViewChromeActions& chromeActions() const;
+
+    /// Lays a run's notice over the view: its image dimmed under a scrim and still seen, every action and choice of its
+    /// toolbar disabled, and at its centre a pill that says what runs, how far it has come and offers the way to it. A
+    /// notice set while another is shown replaces it. A shell sets one while a run writes the view's image; the classic
+    /// shell sets none.
+    void setProcessingNotice(const an::ui::ProcessingNotice& notice);
+
+    /// Takes the notice away: the image is seen as before, and every action and choice is as the view would have it had
+    /// there been no notice, whatever changed meanwhile.
+    void clearProcessingNotice();
+
+    /// Whether a notice lies over the view.
+    [[nodiscard]] bool hasProcessingNotice() const;
 
     void initializeNewImageHistory(const std::string& historyDesc);
 
@@ -544,7 +576,8 @@ public:
     bool isMono() const;
 
     /// Takes the view for one process run: false when another run holds it. Exactly one of two concurrent callers
-    /// succeeds.
+    /// succeeds. The view's listeners are told on the GUI thread (`onProcessingLockChanged`), as they are when the lock
+    /// is let go.
     bool tryRequestLockForProcessing();
 
     bool isLockedForProcessing();
@@ -645,6 +678,17 @@ private:
     struct EditJob;
 
     void updateSupportedImageChannels(bool forceUpdate = false);
+
+    /// Puts the toolbar where the chrome mode says: the canvas layout's first row, or nowhere.
+    void placeToolbar();
+
+    /// Reads again what a toolbar shows of the view, and tells the listeners when it changed.
+    void refreshChromeActions();
+
+    /// Tells the listeners, on the GUI thread, of the processing lock's state when it differs from what they were last
+    /// told; asked from any thread.
+    void scheduleProcessingLockNotification();
+    void notifyProcessingLockChanged();
 
     void updateAutostretchBannerText();
     void refreshCelestialCoordinateSystemCache();

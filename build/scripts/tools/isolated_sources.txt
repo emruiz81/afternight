@@ -373,6 +373,7 @@ sources Test_ControlsServices
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
     header   src/AfterNightControls/controls/ImageViewControl.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewScrollArea.h
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
@@ -440,6 +441,7 @@ sources Test_ControlsViewer
     header   src/AfterNightControls/controls/ImageMaskSelectorControl.h
     header   src/AfterNightControls/controls/ImageMaskSelectorControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -520,6 +522,7 @@ sources Test_ControlsProcessFramework
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageSelectorTooltipBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -594,6 +597,7 @@ sources Test_ImageProcessControl
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -736,6 +740,7 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -835,6 +840,7 @@ sources Test_ControlsHistory
     header   src/AfterNightControls/controls/ImageHistoryTracker.h
     header   src/AfterNightControls/controls/ImageHistoryTrackerUtils.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -924,6 +930,7 @@ sources Test_ControlsFiles
     header   src/AfterNightControls/controls/ImageRenameControl.h
     header   src/AfterNightControls/controls/ImageRenameControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -1041,6 +1048,7 @@ sources Test_ControlsAstrometry
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -1144,6 +1152,7 @@ sources Test_ControlsStatistics
     header   src/AfterNightControls/controls/ImageStatisticsControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -1250,6 +1259,7 @@ sources Test_MaskDrawing
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -1355,6 +1365,7 @@ sources Test_ControlsSequences
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -1487,6 +1498,7 @@ sources Test_ControlsDialogs
     header   src/AfterNightControls/controls/ImageSummaryViewerControl.h
     header   src/AfterNightControls/controls/ImageSummaryViewerControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -1625,6 +1637,7 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/ProcessLaunchServiceTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProcessMenuModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ReadoutControllerTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ViewChromeBinderTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentFilesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/RecentProcessesModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ShellRegistryTest.cpp
@@ -1666,6 +1679,9 @@ sources Test_ShellCore
     header   src/AfterNightShellCore/services/FileDialogService.h
     header   src/AfterNightShellCore/services/ProcessLaunchService.h
     header   src/AfterNightShellCore/views/ViewService.h
+    header   src/AfterNightShellCore/views/ViewChromeBinder.h
+    header   src/AfterNightControls/components/AnFloatingToolbar.h
+    header   src/AfterNightControls/components/AnHistoryStrip.h
     header   src/AfterNightShellCore/AfterNightShellCoreExport.h
     header   src/AfterNightShellCore/core/IShell.h
     header   src/AfterNightShellCore/core/ShellRegistry.h
@@ -1713,6 +1729,7 @@ sources Test_ShellCore
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/ImageViewControl.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewScrollArea.h
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
@@ -1818,6 +1835,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/controls/ImageViewControlManager.cpp
     unit     src/AfterNightControls/controls/ImageViewFiles.cpp
     unit     src/AfterNightControls/controls/ImageViewScrollArea.cpp
+    unit     src/AfterNightControls/controls/ViewProcessingNotice.cpp
     unit     src/AfterNightControls/controls/ImageViewThemeColors.cpp
     unit     src/AfterNightControls/controls/ImageZoomAndPanController.cpp
     unit     src/AfterNightControls/controls/KDDockWidgetsHelper.cpp
@@ -1922,6 +1940,8 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/ImageStatisticsControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
+    header   src/AfterNightControls/controls/ViewProcessingNotice.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -2076,11 +2096,13 @@ sources Test_ImageViewControl
     unit     src/AfterNightTests/Test_ImageViewControl/test_status_bar_coordinates.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_theme_colors.cpp
     unit     src/AfterNightTests/Test_ImageViewControl/test_zoom_pan.cpp
+    unit     src/AfterNightTests/Test_ImageViewControl/ViewChromeTest.cpp
     header   src/AfterNightTests/Test_ControlsAstrometry/AstrometryTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
     header   src/AfterNightTests/Test_ImageViewControl/history_test_support.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/SexagesimalFormatter.h
     header   src/AfterNightControls/app/AfterNightAppListener.h
@@ -2116,6 +2138,11 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/ImageHistoryTracker.h
     header   src/AfterNightControls/controls/ImageHistoryTrackerUtils.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
+    header   src/AfterNightControls/controls/ViewProcessingNotice.h
+    header   src/AfterNightControls/components/AnFloatingToolbar.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -2340,6 +2367,7 @@ sources Test_AfterNightApp
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageSummaryViewerControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -2549,6 +2577,7 @@ sources Test_ShellClassic
     header   src/AfterNightControls/controls/ImageStatisticsReport.h
     header   src/AfterNightControls/controls/ImageSummaryViewerControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -2692,6 +2721,7 @@ sources Test_ShellParity
     header   src/AfterNightControls/controls/ImageRenameControl.h
     header   src/AfterNightControls/controls/ImageRenameControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewControlManager.h
@@ -2839,6 +2869,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -2989,6 +3020,8 @@ sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/AnCommandPaletteTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnIconRailTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnChipTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnFloatingToolbarTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnHistoryStripTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnKeyHintTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnLabeledFieldTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnSegmentedControlTest.cpp
@@ -3027,6 +3060,10 @@ sources Test_Widgets
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
     header   src/AfterNightControls/components/AnAstrometryCard.h
+    header   src/AfterNightControls/components/AnActionButton.h
+    header   src/AfterNightControls/components/AnFloatingToolbar.h
+    header   src/AfterNightControls/components/AnHistoryStrip.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/components/AnCompactReadout.h
     header   src/AfterNightControls/components/AnHistogramCard.h
     header   src/AfterNightControls/components/AnIconButton.h
@@ -3202,6 +3239,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/controls/IAppContext.h
     header   src/AfterNightControls/controls/ImageCropController.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3295,6 +3333,7 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3392,6 +3431,7 @@ sources Test_ProcessesPointwise
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3524,6 +3564,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3645,6 +3686,7 @@ sources Test_ProcessesSpatial
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3791,6 +3833,7 @@ sources Test_ProcessesMasks
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageSampleSelectionController.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -3924,6 +3967,7 @@ sources Test_ProcessesChannels
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4029,6 +4073,7 @@ sources Test_ProcessesGeometry
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4161,6 +4206,7 @@ sources Test_ProcessesColorTools
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4284,6 +4330,7 @@ sources Test_ProcessesPixelMath
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4402,6 +4449,7 @@ sources Test_ProcessesExternalTools
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4519,6 +4567,7 @@ sources Test_ProcessesPhotometric
     header   src/AfterNightControls/controls/ImageProcessControl.h
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4638,6 +4687,7 @@ sources Test_ProcessesCombinations
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageStarSelectionController.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4758,6 +4808,7 @@ sources Test_ProcessesStarProfilers
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageStarSelectionController.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -4870,6 +4921,7 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightControls/controls/ImageRTPreviewControl.h
     header   src/AfterNightControls/controls/ImageStarSelectionController.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h
@@ -5436,6 +5488,7 @@ sources Test_ImageIntegration
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/ImageListTableHelpers.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewScrollArea.h
@@ -5700,6 +5753,7 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/controls/ImageStatisticsControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageSummaryViewerControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
     header   src/AfterNightControls/controls/ImageViewFiles.h

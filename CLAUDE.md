@@ -285,7 +285,8 @@ the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBi
 tab's menus), `commands/` (`CommandIndex`, every command the palette searches, with no widget, and its
 providers), `readout/ReadoutController` (what the readout column and a task's compact readout show, measured on the
 thread pool as a preview that never waits, never on the GUI thread), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
-`views/DockLayoutOperations` (group, split, fit, lock), `services/WindowGeometryStore` and `services/FileDropHandler` -
+`views/DockLayoutOperations` (group, split, fit, lock), `views/ViewChromeBinder` (a floating toolbar and a history strip
+bound to a view whose toolbar is outside it), `services/WindowGeometryStore` and `services/FileDropHandler` -
 and the receiver of the work threads
 hand the GUI thread (`core/ApplicationEvents.h`); a unit of Controls is handed the actions as an `ActionLookup`
 (`app/ActionLookup.h`) and never names the catalogue. `core/ApplicationSession` is the engine session the application

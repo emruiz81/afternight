@@ -761,6 +761,10 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnHistogramCard`, `AnStatisticsCard`, `AnAstrometryCard`, `AnImageFactsCard` | The readout's four cards (see [The readout](#the-readout)) |
 | `AnReadoutColumn` | The readout column: `surface1` with a hairline at its left, 360 px wide (320 in a window under 1200 px), a header row and the four cards; its folds as a line of names |
 | `AnCompactReadout` | A task's compact readout: `surface2`, the preview's histogram in a 92 px well tagged "Preview", the mode and the clipping, five cells with the change against the original; side by side from 480 px wide |
+| `AnActionButton` | A square button that is someone else's `QAction` - enabled, shown, checked and worded as the action is, triggering it - its icon in one colour: in its surface tone `textSecondary` (`textPrimary` hovered, checked `accentContainer`), in its tone over images `textOnImageSecondary` (`textOnImage` hovered, checked `accentOnImage`) |
+| `AnFloatingToolbar` | A view's actions and choices on a rounded `scrim` floating over its image, in a full form `metrics.floatingToolbar` high and a small one 32 px high; a host places it (see [The view's chrome](#the-views-chrome)) |
+| `AnHistoryStrip` | A view's history as chips on `surface1` under a hairline, the step shown `accentContainer` with a check, the pending chip dashed, the oldest giving way to "..."; the view's Undo, Redo and Image History at its right (see [The view's chrome](#the-views-chrome)) |
+| `ViewProcessingNotice` (`controls/`) | What covers a view a run writes: `scrimSoft` over the canvas and a pill of `scrim` at its centre (see [The view's chrome](#the-views-chrome)) |
 
 Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
 no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
@@ -860,11 +864,53 @@ in `theme/ComponentParts.h` (`kReadout*`, `kCompactReadout*`, `kIconButton*`). `
 (`Test_Widgets`) hold them, with their render cases, and `ReadoutColumn.PaintsNoGreenOrBlueAtNight` paints the filled
 column and the compact readout under Night.
 
+### The view's chrome
+
+What a view shows around its image can be shown outside it, over the image: a part a shell places reads the view's own
+actions and choices (`ImageViewControl::chromeActions`, `docs/dev/guides/PRODUCT_ARCHITECTURE.md`, "The view's
+chrome"), so it shows their states and does what they do, and draws them in the colours made to lie over an image -
+the scrims, the text and the accent over images - which keep one look whatever image is under them.
+
+- **The floating toolbar** (`AnFloatingToolbar`): a bar of `scrim` `metrics.floatingToolbar` high (40 / 44), its corners
+  10 px, a 1 px `edge` under it drawn only outside the bar, padding 0 5 and 2 px between its parts; nothing is drawn
+  outside the rounded shape. Its buttons are `AnActionButton`s in the tone over images, 10 px less than the bar, with
+  18 px icons; its choices 12 px less than the bar, outlined in `textOnImage` at 34 %. From the left: with more than
+  one view, the view's name (a mark outlined in `accentOnImage`, then the name in semibold `textOnImage` elided in the
+  middle, at most 220 px) and a separator; Fit To Window, Zoom Out, the zoom in the monospace (62 px, "25.36 %" as the
+  status bar writes it), Zoom In, Zoom 100 %, Maximize; the channel (a 104 px field listing the view's channels in a
+  menu that opens upwards), the display mode as segments (the chosen one `accentOnImage` with `textOnAccentImage`),
+  Autostretch Settings; Take snapshot, the statistics overlay, Show Astrometry; More. A separator is 1 x 20 px of
+  `textOnImage` at 22 % with 4 px at each side, and stands only between two groups shown. The small form, on a floating
+  image window, is 32 px high with 8 px corners, padding 0 3 and 26 px buttons: Fit, Zoom Out, the zoom (54 px), Zoom
+  In, a separator, the display mode as one toggle, More. A host places it centred over the bottom of the area it
+  floats over, its bar 12 px (8 in the small form) above the area's bottom (`placeOver`), and it places itself again
+  when what it shows changes its width.
+- **The history strip** (`AnHistoryStrip`): `metrics.strip` high (34 / 40) on `surface1`, a `borderSubtle` hairline as
+  its first row, padding 0 6 0 12: the caps "History" in `textTertiary`, then the steps as chips `metrics.chip` high
+  (pills, padding 0 10, the name in the small size in semibold), a 12 px chevron in `textTertiary` between two. A step is
+  outlined in `borderPrimary` in `textPrimary`; the step shown is `accentContainer` with a check before its name in
+  `textOnAccentContainer`; an inherited one is outlined in `borderSubtle` in `textTertiary` and asks for nothing. The
+  pending chip of a task open on the image is outlined in dashes of `textAccent`, an eye in `textAccent`, the process
+  in `textPrimary` and "pending" in the caption in `textSecondary` - or, while a run writes the image, a spinner (still
+  when animations are off) and "writing". When the steps do not fit, the oldest give way to a "..." chip that opens the
+  Image History window; a chip that still finds too little room is narrowed and its name elided. At its right, small
+  controls square with 16 px icons in the surface tone: the view's Undo, Redo and Image History.
+- **A blocked view** (`ViewProcessingNotice`): the canvas under `scrimSoft`, the image still seen, and at its centre a
+  pill 36 px high of `scrim` with 10 px corners and the `edge` under it, padding 0 5 0 12, 8 px between its parts: a 14
+  px lock in `accentOnImage`, what runs in `textOnImage`, the share done ("42 %") in the monospace in
+  `textOnImageSecondary`, a 48 x 4 px bar (`textOnImage` at 24 % under `accentOnImage`), and a button 26 px high,
+  padding 0 10, its outline `textOnImage` at 40 %, 4 px after the bar. With no progress the share and the bar are not
+  drawn; with no action there is no button, and the pill closes as it opens.
+
+Every size is in `theme/ComponentParts.h` (`kFloatingToolbar*`, `kOnImage*`, `kHistory*`, `kNotice*`).
+`FloatingToolbar.*` and `HistoryStrip.*` (`Test_Widgets`) hold the two parts, with their render cases;
+`ProcessingNotice.*` (`Test_ImageViewControl`) holds the notice over a real view.
+
 ### Small parts
 
 `theme/ComponentParts.h` holds what the parts are made of beyond the tokens, so that no component writes a size of its
 own: the sizes that are no metric of a density (a tag's 4 px corners and padding, a switch's 32 x 18 track and its 10 and
-14 px knob, a chip's and a segment's padding, the snackbar's, the stage list's, the rail's, the palette's and the readout's parts, the
+14 px knob, a chip's and a segment's padding, the snackbar's, the stage list's, the rail's, the palette's, the readout's and the view's chrome's parts, the
 focus ring's 2 px, the state layer's 8 and 12 %, the disabled 38 %), and what every part paints the same way -
 `sizedFont` (a font of the type
 scale at a metric's size, set as points at 96 logical dots per inch), `capsFont` (the caption in semibold capitals,

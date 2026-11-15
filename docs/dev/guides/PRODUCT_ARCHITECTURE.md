@@ -134,6 +134,33 @@ none) and the GUI thread's time adopting what it painted - and how far the one p
 `presentedAnalysis()` is the analysis that one was made through.
 `Test_ControlsViewer` holds the viewer and its companions.
 
+**The view's chrome** (`controls/ViewChrome.h`). A view's toolbar is its first row (`ViewChromeMode::Embedded`, the
+default and AfterNight 1.1's row, held item for item by `Test_ImageViewControl/data/ViewToolbar.txt`) or outside it
+(`External`, `setChromeMode`, told before or after `initialize`): the view builds no row, and a part a shell places
+shows `chromeActions()` - the view's own actions and choices, the same objects in either mode, so their states,
+shortcuts and tool tips are the view's wherever they are shown. A member is null where the view's mode has none, and a
+choice that is a widget is null while the view does not offer it (a real-time preview's display mode until it offers
+its autostretch controls, a static preview's choices while its owner decides them), which the listeners are told
+(`onChromeActionsChanged`). Outside the view the toolbar still holds the actions, hidden, and stops its overflow pass:
+the pass moves what has no room by hiding the action itself, which every part showing the action follows, so a row
+nobody sees must hide nothing. A run that writes the view's image lays its notice over it (`setProcessingNotice`, a
+`ViewProcessingNotice` over the canvas): the canvas under the light scrim, the pointer's presses and wheel taken so
+nothing pans the image under the run, a pill naming the run with its progress and a button that shows it, and every
+action and choice of the toolbar disabled - the actions by a non-exclusive `QActionGroup` and the choices by the
+disabled toolbar they are children of, because both give back on `clearProcessingNotice` the state the view set
+meanwhile (an action enabled while held disabled is enabled when the group lets it go, one disabled stays so), where
+saving and restoring the states would undo the view's own changes. The classic shell sets no notice. The processing
+lock, an atomic flag taken on whichever thread starts a run, tells the listeners on the GUI thread
+(`onProcessingLockChanged`) of the state it is in when they are told - a notification arriving after a later one tells
+nothing new, and a lock taken and let go before the GUI thread could tell is not told. The history answers its steps
+as its window lists them - the inherited ones, then the view's own - with the one shown (`IViewHistory::steps`),
+moves to one as the window's Jump To Step does (`jumpToStep`, refusing an inherited step) and tells its listeners of
+each change (`addStepsListener`): what a strip of the steps needs, read from what the window reads.
+`Test_ImageViewControl` holds the chrome: `ViewToolbar.EmbeddedContentsMatchTheRecord`, `ViewChrome.*`,
+`ProcessingNotice.*`, `ProcessingLock.NotifiesOnTheGuiThread`, `ViewHistorySteps.*` and
+`Timing.PanUnderTheFloatingToolbar` (a pan's frame under a floating toolbar, measured when `AFTERNIGHT_TEST_TIMINGS=1`
+asks).
+
 ### The process framework (`controls/ImageRTPreviewControl.h`, `controls/TypedProcessControl.h`, `controls/ProcessExecution.h`)
 
 A run is issued on the GUI thread from a snapshot - the parameters, the channel the selector's item carries
@@ -1445,6 +1472,16 @@ until a line is kept, the Image card starts folded in a window under 820 px high
 bound to the view's own overlay actions, which the view names (`astrometryGridAction` ... `astrometrySipMapAction`,
 `astrometryOverlayAction`, `astrometrySettingsMenu`), so a chip and the view's menu and shortcut are one switch.
 
+A view whose toolbar is outside it is shown by `views/ViewChromeBinder`: one floating toolbar and one history strip
+(`components/AnFloatingToolbar.h`, `components/AnHistoryStrip.h`, in Controls, which read nothing of the view but what
+they are handed) bound to a view, the toolbar showing its actions, choices, zoom and name, the strip its history's steps
+and its Undo, Redo and Image History; a chip clicked moves the image there through the history, and More opens the view's
+menu as the host fills it (`setMenuFiller`, a `ViewMenuBuilder`'s), as a popup that never waits. Told another view, the
+binder shows that one and hears nothing more of the first - it is the view's listener and its history's, and leaves
+both - and a view that goes is shown no more, its history's listener taken away while the history is still there (the
+view tells its listeners before its history goes). The toolbar and the strip may show two views, a task page's canvas
+and its target; a host makes the pair and its binder, so two binders never share a toolbar.
+
 The arrangement of the views is the core's too (`views/`). The dock library keeps its configuration and three hooks -
 a question before a drag starts, one before a drop indicator shows, a call when a drag ends - for the whole process,
 each hook a plain function that captures nothing. `DockHooks` is the one unit that sets them: the core configures the
@@ -1498,7 +1535,9 @@ last read again by the next one); `ReadoutController.*` (real views of a session
 burst, a refusal while every thread is held, a view closed while it is measured, no engine call on the GUI thread, a
 task's settled and interactive frames, the folds kept), `StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange`,
 `AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut`, `ReadoutSummaries.*` and `Timing.ReadoutUpdate`
-(the GUI thread's time in an update, measured when `AFTERNIGHT_TEST_TIMINGS=1` asks). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
+(the GUI thread's time in an update, measured when `AFTERNIGHT_TEST_TIMINGS=1` asks); `ViewChromeBinder.*` (real views
+of a session: a view's actions and history shown, another view bound, two views at once, two binders, a view that
+goes, More's menu). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
 (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
 read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and
