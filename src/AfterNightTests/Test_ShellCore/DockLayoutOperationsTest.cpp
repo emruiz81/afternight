@@ -352,8 +352,12 @@ TEST_F(DockLayoutOperationsTest, AWorkspacesGroupAndSplitTakeItsViewsAlone)
     const auto inside = [](const MainWindow* area, ImageViewControl* view) {
         return view->getDockWidget()->dockWidget()->mainWindow() == area->mainWindow();
     };
-    EXPECT_EQ(DockLayoutOperations::viewsDockedIn(here, m_core.viewService().getListOfViewControls()),
-              (std::vector<ImageViewControl*>{first, second}));
+    // The view list is in no order: the views the workspace holds are a set.
+    const std::vector<ImageViewControl*> docked =
+        DockLayoutOperations::viewsDockedIn(here, m_core.viewService().getListOfViewControls());
+    EXPECT_EQ(docked.size(), 2u);
+    EXPECT_EQ((std::set<ImageViewControl*>(docked.begin(), docked.end())),
+              (std::set<ImageViewControl*>{first, second}));
 
     m_core.dockLayout().groupAll(here);
     settleDocks();

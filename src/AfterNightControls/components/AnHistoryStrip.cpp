@@ -413,15 +413,17 @@ struct AnHistoryStrip::Impl
         }
 
         // A chip that still finds too little room is narrowed, its name elided, and one with less room than a chip's
-        // padding and icon is not shown; the steps leave room for the pending chip, which comes last.
+        // padding and icon is not shown, unless it is no wider than that whole (the overflow chip's three dots are, in
+        // a narrow font); the steps leave room for the pending chip, which comes last.
         const int least = 2 * parts::kHistoryChipPadding + parts::kHistoryChipIcon;
         const int reserve =
             pending.has_value() ? joint() + (std::min)(widthOf(pendingChip), (std::max)(0, (end - start) / 2)) : 0;
         int x = start;
         const auto place = [&](HistoryChip* chip, const bool joined, const int kept) {
             const int jointWidth = joined ? joint() : 0;
-            const int width = (std::min)(chip->sizeHint().width(), end - kept - x - jointWidth);
-            if (width < least)
+            const int wanted = chip->sizeHint().width();
+            const int width = (std::min)(wanted, end - kept - x - jointWidth);
+            if (width < (std::min)(least, wanted))
             {
                 chip->hide();
                 return false;

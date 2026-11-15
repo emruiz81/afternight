@@ -305,7 +305,8 @@ TEST(ReadoutCard, PaintsItsSurfaceWithItsRadius)
         forEachRatio(card, bg, [&](const RenderedPicture& picture) {
             expectColour(picture.at(0.2, 0.2), bg, "the corner, outside the radius");
             expectColour(picture.at(card.width() / 2.0, card.height() - 3), t.layers.surface2, "inside the foot");
-            expectColour(picture.at(an::ui::parts::kReadoutCardRadius, card.height() / 2.0), t.layers.surface2,
+            // Half a radius in: clear of the rows' text, which starts further in.
+            expectColour(picture.at(an::ui::parts::kReadoutCardRadius / 2.0, card.height() / 2.0), t.layers.surface2,
                          "inside the left side");
         });
     });

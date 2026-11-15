@@ -124,6 +124,10 @@ TEST(AnLabeledField, TheLabelNamesTheFieldAndAClickOnItFocusesIt)
     EXPECT_EQ(field->labelText(), QStringLiteral("Output folder"));
     EXPECT_EQ(an::tests::widgets::accessibleName(*edit), QStringLiteral("Output folder"));
 
+    // With no hint the label is the whole block, centred in the row, so the row's middle is on it; with one, the
+    // middle falls in the gap between the two lines, or on either, as the font's line heights come.
+    field->setHint(QString());
+    field->resize(field->sizeHint());
     window.show();
     QTest::mouseClick(field, Qt::LeftButton, Qt::NoModifier, QPoint(2, field->height() / 2));
     EXPECT_EQ(window.focusWidget(), edit);

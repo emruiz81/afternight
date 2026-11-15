@@ -5,7 +5,6 @@
 
 #include "app/MaskOverlayCoordinator.h"
 
-
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
 

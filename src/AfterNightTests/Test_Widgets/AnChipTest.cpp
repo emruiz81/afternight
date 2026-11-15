@@ -96,7 +96,8 @@ TEST(AnChip, PaintsItsStates)
         forEachRatio(chip, bg, [&](const RenderedPicture& picture) {
             expectColour(picture.at(chip.width() / 2.0, 1.5), container, "the container");
             expectColour(picture.at(chip.width() / 2.0, 0.5), container, "no outline when checked", 24);
-            expectColour(picture.at(middle, middle), container, "the pill's end");
+            // Inside the rounded end and left of the text, which starts a padding in: no glyph is under it.
+            expectColour(picture.at(an::ui::parts::kChipPadding / 2.0, middle), container, "the pill's end");
         });
         expectColour(recordedText(chip, QStringLiteral("Grid")).colour, t.colors.textOnAccentContainer,
                      "the checked text", 0);

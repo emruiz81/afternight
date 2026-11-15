@@ -98,13 +98,27 @@ inline an::Status stopObservatory(std::unique_ptr<RunningObservatory> running)
 }
 
 /// The Observatory window made once for a suite of cases and ended after the last of them; each case starts with no
-/// view and no dialog open, on Home.
+/// view and no dialog open, on Home, with its window active.
 class ObservatoryWindowCase : public ::testing::Test
 {
 protected:
     static void SetUpTestSuite()
     {
         s_running = startObservatory();
+        s_platformActivatesWindows = window().isActiveWindow();
+    }
+
+    /// A menu a case opened was the active window when it closed, under a platform that gives the activation to a
+    /// popup and does not hand it back: the window is then inactive, the application has no focus widget and a focus
+    /// moved inside the window is never told. Each case starts with the window active, where the platform activates
+    /// windows at all.
+    void SetUp() override
+    {
+        if (s_platformActivatesWindows && !window().isActiveWindow())
+        {
+            window().activateWindow();
+            (void)QTest::qWaitForWindowActive(&window());
+        }
     }
 
     static void TearDownTestSuite()
@@ -189,6 +203,7 @@ protected:
     }
 
     static inline std::unique_ptr<RunningObservatory> s_running;
+    static inline bool s_platformActivatesWindows = false;
 };
 
 } // namespace an::tests::observatory

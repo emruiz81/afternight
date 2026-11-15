@@ -1495,7 +1495,7 @@ them to their windows, and locks the arrangement. A workspace's target (one that
 docked in its dock area alone (`viewsDockedIn`: a view in a floating window is in none); a shell's only dock area (a
 target with no workspace) takes every listed view, as 1.1's Window menu did. A lock is a subscriber: it refuses a drag
 out of the locked main window and an indicator into it, and nothing of another, and marks the dock area locked
-(`setDockAreaLocked`, Controls' `KDDockWidgetsHelper.h`); the decorations ask `layoutChangesLockedAt` of the tab, the
+(`setDockAreaLocked`, Controls' `controls/KDDockWidgetsHelper.h`); the decorations ask `layoutChangesLockedAt` of the tab, the
 title bar or the strip a double click lands on - the whole layout locked, or the dock area it is in - so a double click
 floats nothing in a locked workspace and floats in a free one. The lock of a shell's only dock area is the whole
 layout's, as the classic window's lock always was: a floating window's drag refused too, and the indicators inhibited.

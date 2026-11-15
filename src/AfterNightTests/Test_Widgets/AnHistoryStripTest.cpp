@@ -105,8 +105,9 @@ TEST(HistoryStrip, TheCurrentStep)
         ASSERT_NE(other, nullptr);
         const an::ui::testing::RenderedPicture plain =
             an::ui::testing::RenderedPicture::ofWidget(*other, 1.0, t.layers.surface1);
-        an::tests::widgets::expectColour(plain.at(other->width() / 2.0, other->height() / 2.0), t.layers.surface1,
-                                         "an outlined step's inside");
+        // Left of the name, which starts a padding in: the middle of the chip is under its text.
+        an::tests::widgets::expectColour(plain.at(an::ui::parts::kHistoryChipPadding / 2.0, other->height() / 2.0),
+                                         t.layers.surface1, "an outlined step's inside");
         QAbstractButton* inherited = strip.chipForStep(0u);
         ASSERT_NE(inherited, nullptr);
         EXPECT_EQ(recordedText(*inherited, QStringLiteral("Inherited")).colour, t.colors.textTertiary);

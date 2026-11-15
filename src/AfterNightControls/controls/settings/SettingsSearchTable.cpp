@@ -185,6 +185,11 @@ std::vector<SettingsSearchPage> settingsSearchPages()
                                 {"Downsample", "General"},
                                 {"Timeout", "General"},
                                 {"Executable", "ASTAP"},
+#ifndef _WIN32
+                                // The local solver is Linux's alone, as the page makes its rows.
+                                {"Local solve-field", "Astrometry.net"},
+                                {"Local index files", "Astrometry.net"},
+#endif
                                 {"Web API key", "Astrometry.net"},
                             })});
 
