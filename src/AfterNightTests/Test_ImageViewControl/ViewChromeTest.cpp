@@ -901,7 +901,9 @@ TEST_F(ViewHistorySteps, JumpsToAStepAsTheWindowDoes)
 // The GUI thread's time in a frame of a pan - the view's offset moved, then the window's paint flushed - of a view
 // 3840 x 2160 showing a 6000 x 4000 image at 100 %, with the floating toolbar over the bottom of the view and without
 // it, the two in alternation, the median of nine rounds of twelve frames each. Measured, never asserted, and only when
-// AFTERNIGHT_TEST_TIMINGS=1 asks for it; the budget is 1 ms a frame over the view without the toolbar.
+// AFTERNIGHT_TEST_TIMINGS=1 asks for it; the budget is a frame under the toolbar within one frame of a 60 Hz display,
+// 16.7 ms. The suites' platform paints every frame whole; the native platform (`QT_QPA_PLATFORM=windows`, the window
+// kept off the screen) moves what was painted where nothing lies over the view, and is the one to read.
 TEST_F(Timing, PanUnderTheFloatingToolbar)
 {
     if (qEnvironmentVariable("AFTERNIGHT_TEST_TIMINGS") != QStringLiteral("1"))
@@ -966,7 +968,7 @@ TEST_F(Timing, PanUnderTheFloatingToolbar)
     const double withToolbar = median(under);
     const double without = median(bare);
     std::printf("\nPan of a 3840 x 2160 view at 100 %% over a 6000 x 4000 image, median of 9 rounds of 12 frames: "
-                "%.3f ms a frame under the floating toolbar, %.3f ms without it; %.3f ms more (budget 1 ms)\n",
+                "%.3f ms a frame under the floating toolbar (budget 16.7 ms), %.3f ms without it; %.3f ms more\n",
                 withToolbar, without, withToolbar - without);
     ::testing::Test::RecordProperty("underTheToolbarMs", std::to_string(withToolbar));
     ::testing::Test::RecordProperty("withoutTheToolbarMs", std::to_string(without));
