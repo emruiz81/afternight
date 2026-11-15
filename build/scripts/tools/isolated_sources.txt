@@ -1793,6 +1793,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/theme/AnDesignTokens.cpp
     unit     src/AfterNightControls/theme/AnProxyStyle.cpp
     unit     src/AfterNightControls/theme/AnProxyStyleObservatory.cpp
+    unit     src/AfterNightControls/theme/AnimationUtils.cpp
     unit     src/AfterNightControls/theme/ComponentParts.cpp
     unit     src/AfterNightControls/theme/Elevation.cpp
     unit     src/AfterNightControls/theme/KddwProxyStyle.cpp
@@ -2932,6 +2933,7 @@ sources Test_ThemeSystem
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/AnBreadcrumbTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnIconRailTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnChipTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnKeyHintTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnLabeledFieldTest.cpp
@@ -2974,6 +2976,9 @@ sources Test_Widgets
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/components/AnBreadcrumb.h
     header   src/AfterNightControls/components/AnChip.h
+    header   src/AfterNightControls/components/AnIconRail.h
+    header   src/AfterNightControls/components/AnTaskThumbnail.h
+    header   src/AfterNightControls/components/RailItem.h
     header   src/AfterNightControls/components/AnKeyHint.h
     header   src/AfterNightControls/components/AnLabeledField.h
     header   src/AfterNightControls/components/AnSegmentedControl.h

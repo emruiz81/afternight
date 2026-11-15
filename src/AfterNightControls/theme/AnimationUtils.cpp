@@ -5,8 +5,27 @@
 
 #include "theme/AnimationUtils.h"
 
+#include <atomic>
+
+namespace
+{
+
+/// Whether the interface animates: the user's Interface setting, read by every widget that animates.
+std::atomic<bool> g_animationsEnabled{true};
+
+} // namespace
+
 namespace an::ui
 {
-// Intentionally empty: AnimationUtils is header-only to avoid per-target linkage gaps.
+
+bool AnimationUtils::animationsEnabled()
+{
+    return g_animationsEnabled.load(std::memory_order_relaxed);
+}
+
+void AnimationUtils::setAnimationsEnabled(const bool enabled)
+{
+    g_animationsEnabled.store(enabled, std::memory_order_relaxed);
+}
 
 } // namespace an::ui

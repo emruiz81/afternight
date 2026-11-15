@@ -665,7 +665,9 @@ Utility for reassigning widget parents when transferring layouts.
 
 ## Animation Utilities (`AnimationUtils`)
 
-Header-only global toggle for all UI animations (accessibility support):
+The global toggle for all UI animations (accessibility support). The switch lives in the Controls library
+(`AnimationUtils.cpp`), so every library and executable that reads or sets it reaches the same one - a shell, a process
+or a suite turning animations off turns them off in every control:
 
 ```cpp
 #include "theme/AnimationUtils.h"
@@ -748,6 +750,8 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnLabeledField` | A field with its label beside it (in a column as wide as asked) or above it, and an optional hint; the row at least `metrics.control` high. The label names the field to assistive technology, the hint describes it, a click on the label focuses it |
 | `AnBreadcrumb` | Where the user is: parts with a chevron between, the last `textPrimary` semibold; short of room the last part is elided in the middle first, then the others, and the whole path is the tooltip; `partActivated(index)` |
 | `AnSnackbar` | A transient message: a `bgSnack` bar `metrics.controlLarge` high on its elevation, an icon, a text, a mono detail and one action in `accentOnImage`. `present()` shows it for its lifetime (6 s), which pauses under the pointer; `actionTriggered`, `dismissed`. The clock is injectable for the suites |
+| `AnIconRail` | The rail: places, tasks and foot items given as `RailItem`s (`components/RailItem.h`), the selected one with a 3 x 20 accent bar; badges, the overflow item and its list of every task, tooltips at an item's right, the keyboard, the menu request, the drag of a task with its ghost. A list to assistive technology (see [The rail](#the-rail)) |
+| `AnTaskThumbnail` | A task's 38 px box in the rail: its target's picture (in its Night form under Night), the run's ring - progress, or a quarter that turns - the process's glyph and the dot of an unseen result |
 | `AnStageList` | Rows of a status mark (never colour alone: ring, accent, check, exclamation, cross), a title and a mono line, an optional progress bar, the marks joined by a line; the selected row `accentContainer`. Up, Down and a click select; `selectedStageChanged(id)`. A list to assistive technology |
 
 Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
@@ -769,6 +773,22 @@ widgets lays them out with a Qt layout whose margins and spacing it marks `anKee
 and role, and a render case under dark, light and a tinted preset at both densities and four device pixel ratios
 (`Test_Widgets/RenderTestSupport.h`); `SmallParts.PaintNoGreenOrBlueAtNight` paints every part under Night, an icon of
 another colour handed to it.
+
+### The rail
+
+`AnIconRail` paints its items itself: a place or a foot item is a 36 px row with a 32 px square and a 20 px icon, a task
+a 42 px row with its `AnTaskThumbnail`, rows 2 px apart and 6 px from the rail's ends, the short hairline (24 px, the
+outline at 60 %) between the places and the tasks only when there are tasks. It knows nothing of what an item stands for:
+its owner hands it `RailItem`s (`setItems`, `updateItem`) and hears `itemActivated`, `itemMenuRequested` (a right click,
+the menu key, a press held 500 ms), and for a task `itemDragStarted`, `itemDragMoved`, `itemDragReleased` and
+`itemDragCancelled` (Esc); `endDrag()` clears a drag another hand took over. An item's tooltip and its name to assistive
+technology are `railItemDescription` - its text, and for a task where its run stands. The tooltip and the ghost are
+windows of the rail's own, painted from the tokens on their elevation. A run's progress repaints its row at most every
+100 ms and lays nothing out (`Rail.ProgressRepaintsAreCoalesced` counts it); a run without progress turns a quarter arc
+once in 1.2 s from the rail's clock (`setClock`), still when the animations are off. Icons are read by key from the
+product's files unless the owner sets a resolver (`setIconResolver`), and drawn in the rail's colours. Assistive
+technology reads a list through an interface the rail installs for its class (`AnIconRailAccessible`): its children are
+the items it shows, top to bottom, the overflow item among them.
 
 ### Small parts
 

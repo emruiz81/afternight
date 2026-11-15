@@ -236,6 +236,14 @@ state src/AfterNightControls/theme/AnDesignTokens.cpp g_themePreference
     synchronization  an atomic
     reason           The user's light, dark or system preference, which decides g_isDarkTheme.
 
+state src/AfterNightControls/theme/AnimationUtils.cpp g_animationsEnabled
+    scope            anonymous namespace
+    category         theme-service
+    owner            the Interface settings, at start and when the user changes them
+    lifetime         the whole process
+    synchronization  an atomic
+    reason           Every widget that animates asks whether the interface animates, in whichever library it lives.
+
 state src/AfterNightControls/theme/AnDesignTokens.cpp g_materialBackdropMode
     scope            anonymous namespace
     category         theme-service

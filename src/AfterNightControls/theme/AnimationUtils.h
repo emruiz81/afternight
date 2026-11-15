@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "AfterNightControlsExport.h"
+
 namespace an::ui
 {
 
@@ -14,33 +16,28 @@ namespace an::ui
 /// Usage in animated components:
 ///   m_animation->setDuration(AnimationUtils::duration(170)); // 170ms or 0
 ///   if (!AnimationUtils::animationsEnabled()) { applyInstantly(); return; }
-class AnimationUtils
+///
+/// The switch is the Controls library's own: every library and executable that reads or sets it reaches the one the
+/// settings set. (Kept in a header, each module would hold a copy of its own - a shell turning animations off would
+/// leave every control animating.)
+class AFTERNIGHTCONTROLS_API AnimationUtils
 {
 public:
     /// Returns true if UI animations are currently enabled (default: true).
-    [[nodiscard]] static bool animationsEnabled()
-    {
-        return s_enabled;
-    }
+    [[nodiscard]] static bool animationsEnabled();
 
     /// Enable or disable all UI animations globally.
     /// Call on app startup from persisted settings and whenever the user changes
     /// the Interface › Animations preference.
-    static void setAnimationsEnabled(const bool enabled)
-    {
-        s_enabled = enabled;
-    }
+    static void setAnimationsEnabled(bool enabled);
 
     /// Returns @p standardMs if animations are enabled, or 0 if disabled.
     /// Pass the return value as the QPropertyAnimation/QVariantAnimation duration
     /// so that all animated components immediately respect the global toggle.
     [[nodiscard]] static int duration(const int standardMs)
     {
-        return s_enabled ? standardMs : 0;
+        return animationsEnabled() ? standardMs : 0;
     }
-
-private:
-    static inline bool s_enabled = true;
 };
 
 } // namespace an::ui

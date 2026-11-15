@@ -85,6 +85,54 @@ inline constexpr int kStageProgress = 3;
 inline constexpr int kStageProgressGap = 4;
 inline constexpr int kStageConnector = 2;
 
+// The rail: place and foot items in 36 px rows, tasks in 42 px rows, 2 px apart, 6 px from the rail's ends.
+inline constexpr int kRailPadding = 6;
+inline constexpr int kRailGap = 2;
+inline constexpr int kRailPlaceRow = 36;
+inline constexpr int kRailTaskRow = 42;
+inline constexpr int kRailSquare = 32;
+inline constexpr int kRailIcon = 20;
+/// The selected item's bar at the rail's left edge, its right corners rounded.
+inline constexpr int kRailIndicatorWidth = 3;
+inline constexpr int kRailIndicatorHeight = 20;
+inline constexpr int kRailIndicatorRadius = 3;
+/// The short hairline between the places and the tasks, and its margins.
+inline constexpr int kRailHairlineWidth = 24;
+inline constexpr int kRailHairlineAbove = 5;
+inline constexpr int kRailHairlineBelow = 4;
+inline constexpr qreal kRailHairlineShare = 0.6;
+/// A workspace's digit and the console's count: 15 px high, ringed by the rail's surface.
+inline constexpr int kRailBadge = 15;
+inline constexpr int kRailBadgeRadius = 5;
+inline constexpr int kRailBadgeRing = 2;
+inline constexpr int kRailBadgeFont = 9;
+inline constexpr int kRailBadgePadding = 2;
+inline constexpr int kRailPillPadding = 3;
+/// How far a digit badge reaches past its square's lower right, and a count's pill past its upper right.
+inline constexpr int kRailBadgeOffset = 4;
+inline constexpr int kRailPillOffset = 3;
+/// The tooltip at an item's right: 28 px high, 2 px from the rail, 10 px of padding.
+inline constexpr int kRailTipHeight = 28;
+inline constexpr int kRailTipGap = 2;
+inline constexpr int kRailTipPadding = 10;
+/// A dragged thumbnail's ghost.
+inline constexpr qreal kRailGhostOpacity = 0.7;
+
+// A task's thumbnail: a 38 px box holding a 30 px picture, a ring 2 px thick, the process's glyph on a 14 px disc at
+// the lower right and the dot of an unseen result at the upper right.
+inline constexpr int kTaskBox = 38;
+inline constexpr int kTaskPicture = 30;
+inline constexpr int kTaskPictureRadius = 6;
+inline constexpr int kTaskRing = 2;
+inline constexpr int kTaskGlyphDisc = 14;
+inline constexpr int kTaskGlyph = 10;
+inline constexpr int kTaskTileGlyph = 16;
+inline constexpr int kTaskResultDot = 13;
+inline constexpr int kTaskResultGlyph = 9;
+inline constexpr int kTaskFailedRadius = 3;
+/// A floating task's picture is drawn at this share.
+inline constexpr qreal kTaskFloatingOpacity = 0.45;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.

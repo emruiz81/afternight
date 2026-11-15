@@ -50,7 +50,7 @@ struct NightImageWidget
 };
 
 /// The widgets that paint a picture, by source.
-inline constexpr std::array<NightImageWidget, 23u> kNightImageWidgets{{
+inline constexpr std::array<NightImageWidget, 25u> kNightImageWidgets{{
     {"ImageViewWidget", "widgets/ImageViewWidget.cpp", NightImageUse::Presentation,
      "The image's presentation, a preview's frames and the mask layer, mapped on the worker that presents them; under "
      "Night the lens magnifies what is painted and reads the image's own values."},
@@ -91,6 +91,10 @@ inline constexpr std::array<NightImageWidget, 23u> kNightImageWidgets{{
      "A filled button's icon, painted in the button's text colour under the Observatory profile."},
     {"Elevation", "theme/Elevation.cpp", NightImageUse::Colours,
      "A raised part's shadow, rendered in the shadow's colour and let go when the theme changes."},
+    {"AnIconRail", "components/AnIconRail.cpp", NightImageUse::Handed,
+     "Each task's target, handed to its thumbnail; the list of every task shows the form the thumbnail shows."},
+    {"AnTaskThumbnail", "components/AnTaskThumbnail.cpp", NightImageUse::Picture,
+     "A task's target in the rail, and in its dragged ghost, shown through a NightPicture."},
     {"paintIcon", "theme/ComponentParts.cpp", NightImageUse::Colours,
      "A small part's icon, its shape filled with the part's text colour from the tokens."},
     {"paintObservatoryDockTab", "theme/ObservatoryDock.cpp", NightImageUse::Icon,
