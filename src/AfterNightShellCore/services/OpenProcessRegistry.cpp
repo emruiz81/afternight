@@ -3,6 +3,8 @@
 
 #include "services/OpenProcessRegistry.h"
 
+#include <utility>
+
 namespace an::ui::shell
 {
 
@@ -14,14 +16,28 @@ void OpenProcessRegistry::add(TopLevelProcessBaseControl* window)
     {
         return;
     }
-    const std::lock_guard lock(m_mutex);
-    m_windows.insert(window);
+    bool added = false;
+    {
+        const std::lock_guard lock(m_mutex);
+        added = m_windows.insert(window).second;
+    }
+    if (added)
+    {
+        tell(window, true);
+    }
 }
 
 void OpenProcessRegistry::remove(TopLevelProcessBaseControl* window)
 {
-    const std::lock_guard lock(m_mutex);
-    m_windows.erase(window);
+    bool removed = false;
+    {
+        const std::lock_guard lock(m_mutex);
+        removed = m_windows.erase(window) > 0u;
+    }
+    if (removed)
+    {
+        tell(window, false);
+    }
 }
 
 bool OpenProcessRegistry::contains(const TopLevelProcessBaseControl* window) const
@@ -52,6 +68,42 @@ void OpenProcessRegistry::forEach(const std::function<void(TopLevelProcessBaseCo
     for (TopLevelProcessBaseControl* window : m_windows)
     {
         visit(window);
+    }
+}
+
+std::size_t OpenProcessRegistry::subscribe(Observer observer)
+{
+    const std::lock_guard lock(m_mutex);
+    const std::size_t token = m_nextToken++;
+    m_observers.emplace(token, std::move(observer));
+    return token;
+}
+
+void OpenProcessRegistry::unsubscribe(const std::size_t token)
+{
+    const std::lock_guard lock(m_mutex);
+    m_observers.erase(token);
+}
+
+void OpenProcessRegistry::tell(TopLevelProcessBaseControl* window, const bool added)
+{
+    // Told outside the lock: an observer may read the registry, or leave it, while it is told.
+    std::map<std::size_t, Observer> told;
+    {
+        const std::lock_guard lock(m_mutex);
+        told = m_observers;
+    }
+    for (const auto& [token, observer] : told)
+    {
+        bool stillThere = false;
+        {
+            const std::lock_guard lock(m_mutex);
+            stillThere = m_observers.contains(token);
+        }
+        if (observer && stillThere)
+        {
+            observer(window, added);
+        }
     }
 }
 

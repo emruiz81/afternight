@@ -1536,6 +1536,24 @@ settings and shows it there - when the person asked for it, at the saved place i
 now, never smaller than the window's minimum, and maximized otherwise - and `services/FileDropHandler` takes a drag
 carrying an image or a sequence and hands every local file a drop carries to the opener the shell names.
 
+The open processes are a shell's tasks (`tasks/TaskModel`), with no widget. `OpenProcessRegistry` tells its observers
+of each window it holds and forgets, on the GUI thread and outside its lock, and the model makes a task of each - in the
+order they were opened, the windows open when it is made among them - named by the descriptor the window states it was
+launched as (its name, its category, a glyph from the descriptor's icon, else its action's, else a generic one), and
+takes it away when the window goes. What a task's run is and which image it targets the shell's presenter tells it, as
+the window tells the presenter (`setRunState`, `setTarget`); `tasksOn` and `runningTaskOn` answer what a view shows of
+them. The current task is the one the person looks at; a run that succeeded or failed while its task was not current
+leaves an unseen result, which making the task current clears, the ended run with it: so a shell can mark a result the
+person has not seen without the model knowing what showing is. The model is a shell's, made over the core's registry
+by the presenter that feeds it. `views/ViewThumbnailService` makes the small picture of a view a task's item shows: the
+whole image as the view presents it - its stretch and its channel, what the view states when it is on screen and what
+it stated last when it is not - reduced for display and covering a 60-pixel square, in one operation on the thread pool
+admitted as `Preview` through `tryAdmit`, through the analysis the view keeps of the image or one measured when it keeps
+none, published only while its commit ticket commits; made again when the image is loaded or updated, asked for again a
+little later when the session refused it, and dropped with its view. Night is not applied there: the part that shows a
+thumbnail shows it in Night's form. A view going tells its listeners from a copy of their list, so the service and the
+presenter retire a follower they let go during that telling rather than delete it under the view's loop.
+
 `ApplicationContext` (`core/ApplicationContext.h`) is the application's side of `IAppContext`, made over the core and
 a shell, and naming no window: the settings, the process settings, the temporary files, the folders remembered, the
 thumbnails, the output intents, the RAW policy and the session (`ApplicationCore::setEngineSessionProvider`) are the
@@ -1573,7 +1591,10 @@ task's settled and interactive frames, the folds kept), `StatisticsCard.FiguresE
 `AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut`, `ReadoutSummaries.*` and `Timing.ReadoutUpdate`
 (the GUI thread's time in an update, measured when `AFTERNIGHT_TEST_TIMINGS=1` asks); `ViewChromeBinder.*` (real views
 of a session: a view's actions and history shown, another view bound, two views at once, two binders, a view that
-goes, More's menu). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
+goes, More's menu); `TaskModel.*` (process windows over real views, made inside launches of the case's descriptors: the
+names and the glyph, two tasks of one process, the running task on a view, the unseen result, a window gone, the
+observers in order) and `ViewThumbnailService.*` (the square through the view's stretch, a refusal while every thread is
+held and its retry, a new image, a view gone). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
 (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
 read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
 record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and

@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <set>
 #include <thread>
+#include <utility>
 #include <vector>
 
 class TopLevelProcessBaseControl;
@@ -120,3 +121,24 @@ TEST(OpenProcessRegistry, TakesWindowsFromSeveralThreadsAtOnce)
 }
 
 } // namespace
+
+// The open-process registry tells its observers of each window held and forgotten, once each.
+TEST(OpenProcessRegistry, TellsItsObserversOfEachWindowHeldAndForgotten)
+{
+    Windows windows;
+    OpenProcessRegistry registry;
+    TopLevelProcessBaseControl* const first = windows[0];
+    TopLevelProcessBaseControl* const second = windows[1];
+    std::vector<std::pair<TopLevelProcessBaseControl*, bool>> told;
+    const std::size_t token = registry.subscribe(
+        [&told](TopLevelProcessBaseControl* window, const bool added) { told.emplace_back(window, added); });
+    registry.add(first);
+    registry.add(first);
+    registry.add(second);
+    registry.remove(first);
+    registry.remove(first);
+    registry.unsubscribe(token);
+    registry.remove(second);
+    EXPECT_EQ(told, (std::vector<std::pair<TopLevelProcessBaseControl*, bool>>{
+                        {first, true}, {second, true}, {first, false}}));
+}
