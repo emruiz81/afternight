@@ -2142,6 +2142,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/ViewProcessingNotice.h
     header   src/AfterNightControls/components/AnFloatingToolbar.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightTests/fixtures/ObservatoryLook.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
