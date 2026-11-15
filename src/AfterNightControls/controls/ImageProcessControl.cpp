@@ -480,6 +480,11 @@ void ImageProcessControl::updateWindowTitle()
 void ImageProcessControl::notifyErrorMessage(const QString& title, const QString& text)
 {
     showProcessMessage(title, text, ProcessMessageTone::Error);
+    // A page says it in its banner and opens no dialog over the main window.
+    if (hasPageLayout())
+    {
+        return;
+    }
     if (auto* dialogService = process_utils::currentDialogService())
     {
         dialogService->notifyErrorMessage(nullptr, title, text);
@@ -494,6 +499,11 @@ void ImageProcessControl::notifyErrorMessageAsync(const QString& title, const QS
 void ImageProcessControl::notifyWarnMessage(const QString& title, const QString& text)
 {
     showProcessMessage(title, text, ProcessMessageTone::Warning);
+    // A page says it in its banner and opens no dialog over the main window.
+    if (hasPageLayout())
+    {
+        return;
+    }
     if (auto* dialogService = process_utils::currentDialogService())
     {
         dialogService->notifyWarnMessage(nullptr, title, text);
@@ -508,6 +518,11 @@ void ImageProcessControl::notifyWarnMessageAsync(const QString& title, const QSt
 void ImageProcessControl::notifyInfoMessage(const QString& title, const QString& text)
 {
     showProcessMessage(title, text, ProcessMessageTone::Info);
+    // A page says it in its banner and opens no dialog over the main window.
+    if (hasPageLayout())
+    {
+        return;
+    }
     if (auto* dialogService = process_utils::currentDialogService())
     {
         dialogService->notifyInfoMessage(nullptr, title, text);

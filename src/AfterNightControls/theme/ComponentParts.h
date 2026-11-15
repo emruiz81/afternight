@@ -71,6 +71,31 @@ inline constexpr int kSnackbarGap = 10;
 inline constexpr int kSnackbarActionPadding = 10;
 /// How much of its colour a transient message's detail is drawn in.
 inline constexpr qreal kSnackbarDetailOpacity = 0.72;
+/// How far above the status line a transient message stands, at the bottom centre of the centre.
+inline constexpr int kSnackbarAboveStatusLine = 16;
+
+// A process's page: its column's widths, standard and wide, and in a window under the narrow width; the run's row.
+inline constexpr int kPageColumnStandard = 360;
+inline constexpr int kPageColumnWide = 520;
+inline constexpr int kPageColumnStandardNarrow = 320;
+inline constexpr int kPageColumnWideNarrow = 440;
+inline constexpr int kPageNarrowWindow = 1200;
+inline constexpr int kPageRunSpinner = 14;
+inline constexpr int kPageRunSpinnerStroke = 2;
+/// The run's arc turns by a step every interval, in milliseconds.
+inline constexpr int kPageRunSpinnerStep = 80;
+inline constexpr int kPageRunSpinnerDegrees = 30;
+inline constexpr int kPageRunBar = 3;
+
+// A task's header: its target's thumbnail, the state's icon, its paddings; the bar of a run's progress under it.
+inline constexpr int kTaskHeaderThumbnail = 22;
+inline constexpr int kTaskHeaderThumbnailRadius = 5;
+inline constexpr int kTaskHeaderStateIcon = 13;
+inline constexpr int kTaskHeaderPaddingStart = 8;
+inline constexpr int kTaskHeaderPaddingEnd = 6;
+inline constexpr int kTaskHeaderRunBar = 2;
+/// The share of the header's width the bar of a run that cannot tell its progress slides across.
+inline constexpr qreal kTaskHeaderSlidingShare = 0.3;
 
 // A stage list's row: a status mark in a box, a title over one line, an optional progress.
 inline constexpr int kStageMark = 14;

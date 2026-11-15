@@ -9,6 +9,7 @@
 #include <QPointer>
 #include <QWidget>
 #include <QString>
+#include <memory>
 #include <optional>
 #include <stop_token>
 #include <string>
@@ -21,6 +22,12 @@ class QPaintEvent;
 class QResizeEvent;
 class QShowEvent;
 class QCloseEvent;
+
+namespace an::ui
+{
+class PageShortcutScope;
+class ProcessPageLayout;
+} // namespace an::ui
 
 class AFTERNIGHTCONTROLS_API TopLevelProcessBaseControl : public QWidget
 {
@@ -104,6 +111,44 @@ public:
     /// is on its way, so a report that lands after the run ended changes nothing. Any thread, as `setRunState`.
     void reportRunProgress(std::optional<double> progress, const QString& text = {});
 
+    // ---- A page
+
+    /// At the first show the shell's presenter is asked whether it takes the process into a page
+    /// (`IProcessPresenter::adopt`); with no presenter, or one that does not, nothing changes from a 1.1 window.
+    void setVisible(bool visible) override;
+
+    /// Whether the process is arranged as a page and lies in a page of the main window, its shortcuts the page's.
+    [[nodiscard]] bool isPresentedAsPage() const noexcept;
+
+    /// Whether the process is arranged as a page, in the main window or floated to a window of its own: its window
+    /// geometry is neither restored nor stored, its JSON settings still are, and Esc does not close it during a run.
+    [[nodiscard]] bool hasPageLayout() const noexcept;
+
+    /// Takes the process into `host` as a page: the first time, its page is arranged (`makePageLayout`); the window
+    /// flags are dropped, the process is laid into `host`'s layout and its shortcuts become the page's. No process
+    /// state is touched: its parameters, its preview, a run on its way and the lock on its target stay as they were.
+    ///
+    /// @return false, the process left as it was, for a process that cannot be arranged as a page.
+    bool attachToPage(QWidget& host);
+
+    /// Makes the process a window of its own again, its page kept whole inside it and its shortcuts live objects, as a
+    /// process window's are. Nothing for a process not arranged as a page.
+    void detachToWindow();
+
+    /// The page the process is arranged as; null for a process shown as a 1.1 window.
+    [[nodiscard]] an::ui::ProcessPageLayout* pageLayout() const noexcept;
+
+    /// Runs the process's primary action as its primary button does - Apply, or Ok - when the button is there, shown
+    /// and enabled and no run is on its way.
+    ///
+    /// @return whether it ran.
+    virtual bool triggerPrimaryAction();
+
+    /// Stops the run on its way, as a progress window's Cancel does: the image keeps the state it had before the run.
+    ///
+    /// @return false when no run is on its way, or the process cannot stop one.
+    virtual bool cancelRun();
+
     virtual ~TopLevelProcessBaseControl();
 
 protected:
@@ -126,6 +171,12 @@ protected:
     }
 
     virtual void deserialize_json_settings(const std::string& json_settings) {}
+
+    /// Arranges the process as a page, or answers null for a process that cannot be one; none can unless it says so.
+    [[nodiscard]] virtual std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout();
+
+    /// The process was arranged as a page: a part outside the page's own layout follows it - a preview view's chrome.
+    virtual void pageLayoutMade() {}
 
     /// Called after initializeModernProcessShell() replaces the top-level
     /// layout with the shell wrapper.  @p contentLayout is the new layout
@@ -151,6 +202,11 @@ private:
     an::ui::ProcessSurface m_Surface = an::ui::ProcessSurface::Window;
     an::ui::ProcessColumnWidth m_ColumnWidth = an::ui::ProcessColumnWidth::Standard;
     an::ui::ProcessRunState m_RunState;
+    std::unique_ptr<an::ui::ProcessPageLayout> m_Page;
+    an::ui::PageShortcutScope* m_PageShortcuts = nullptr;
+    Qt::WindowFlags m_WindowFlags;
+    bool m_PresenterAsked = false;
+    bool m_InPage = false;
 };
 
 namespace an::ui

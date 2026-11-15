@@ -32,6 +32,12 @@ class QCheckBox;
 class QDialogButtonBox;
 class WaitingSpinnerWidget;
 
+namespace an::ui
+{
+class ProcessPageLayout;
+struct ProcessStandardParts;
+} // namespace an::ui
+
 // 0 No preview, 1: Sync preview, 2 : Async preview, 3 : Take snapshot from preview
 enum class RTPreviewMode
 {
@@ -313,6 +319,21 @@ public:
     /// none: each ends at its next stop point and its result is refused.
     void onStopWorkInFlight() override;
 
+    /// Stops the Apply, the new image or the sequence run on its way, as its progress window's Cancel does: the image
+    /// keeps the state it had before it. False when none is on its way.
+    bool cancelRun() override;
+
+    /// Tells a listener, on the GUI thread, each time the preview view shows a frame - a frame of the body, the
+    /// target's own image for parameters that change nothing, or a result kept - and whether it was made while a
+    /// control was held; an empty listener tells nobody.
+    void setPreviewFrameListener(std::function<void(bool interactive)> listener);
+
+    /// How many frames the preview view has shown.
+    [[nodiscard]] std::uint64_t previewFramesShown() const;
+
+    /// The parts `initializeStandardProcess` was handed.
+    [[nodiscard]] const an::ui::ProcessStandardParts& standardParts() const;
+
     ~ImageRTPreviewControl() noexcept override;
 
 protected:
@@ -486,6 +507,13 @@ protected:
     virtual void previewControlClosed() {}
 
     void onContentLayoutReplaced(QBoxLayout* contentLayout) override;
+
+    /// A process built with `initializeStandardProcess` is arranged as a page from the parts it was handed: a splitter
+    /// of its controls and its preview, or a row of their two layouts. Null for one of another shape.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
+    /// The preview view, shown or made later, is the page's canvas and its toolbar floats outside it.
+    void pageLayoutMade() override;
 
     void enableProcessControls(bool enabled) override;
 

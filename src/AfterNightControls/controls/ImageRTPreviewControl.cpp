@@ -6,6 +6,7 @@
 #include "ImageViewControl.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewScrollArea.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/ProcessPreviewLayout.h"
 #include "controls/QSliderSpinBox.h"
 #include "controls/settings/ProcessingLimits.h"
@@ -894,6 +895,16 @@ struct ImageRTPreviewControl::Impl
 
     an::ui::RequestTracker m_Runs;
 
+    /// The stop of the Apply, new image or sequence run on its way that has no progress window: a page's Cancel.
+    std::stop_source m_RunCancel;
+
+    /// What `initializeStandardProcess` was handed, which a page is arranged from.
+    an::ui::ProcessStandardParts m_StandardParts;
+
+    /// Who is told of each frame the preview view shows, and how many it has shown.
+    std::function<void(bool)> m_FrameListener;
+    std::uint64_t m_FramesShown = 0u;
+
     ProcessRunTelemetry m_Telemetry;
 
     /// Last splitter proportions recorded before the preview was hidden,
@@ -986,6 +997,12 @@ void ImageRTPreviewControl::initializeStandardProcess(QLayout* mainLayout, QLayo
 
     m_MainHorizontalLayout = dynamic_cast<QBoxLayout*>(mainLayout);
     m_ImagePreviewLayout = previewLayout;
+    m_impl->m_StandardParts = an::ui::ProcessStandardParts{.mainLayout = mainLayout,
+                                                           .previewLayout = previewLayout,
+                                                           .previewCheckbox = previewCheckbox,
+                                                           .buttonBox = buttonBox,
+                                                           .targetSelector = targetSelector,
+                                                           .channelSelector = channelSelector};
 
     if (m_MainHorizontalLayout)
     {
@@ -1329,6 +1346,13 @@ void ImageRTPreviewControl::newSelectionFinished() {}
 /// explanation of the setFixedSize / deferred-unlock technique.
 void ImageRTPreviewControl::disableRTPreview()
 {
+    if (m_rt_preview_view_control && hasPageLayout())
+    {
+        cancelPreviews();
+        destroyPreviewControl();
+        enablePreview(false);
+        return;
+    }
     if (m_rt_preview_view_control)
     {
         int leftPaneWidth = -1;
@@ -1398,6 +1422,69 @@ void ImageRTPreviewControl::disableRTPreview()
     }
 }
 
+bool ImageRTPreviewControl::cancelRun()
+{
+    if (!m_ExecutionInProgress)
+    {
+        return false;
+    }
+    if (ProgressDialogControl* progress = currentProgressDialog())
+    {
+        progress->requestCancel();
+    }
+    m_impl->m_RunCancel.request_stop();
+    return true;
+}
+
+void ImageRTPreviewControl::setPreviewFrameListener(std::function<void(bool interactive)> listener)
+{
+    m_impl->m_FrameListener = std::move(listener);
+}
+
+std::uint64_t ImageRTPreviewControl::previewFramesShown() const
+{
+    return m_impl->m_FramesShown;
+}
+
+const an::ui::ProcessStandardParts& ImageRTPreviewControl::standardParts() const
+{
+    return m_impl->m_StandardParts;
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ImageRTPreviewControl::makePageLayout()
+{
+    const an::ui::ProcessStandardParts& parts = m_impl->m_StandardParts;
+    auto* const main = qobject_cast<QBoxLayout*>(parts.mainLayout);
+    if (main == nullptr || layout() == nullptr || parts.previewLayout == nullptr)
+    {
+        return nullptr;
+    }
+    // A splitter of the controls and the preview, or a row of their layouts: the shapes a page is arranged from.
+    const QSplitter* const splitter = an::ui::findMainProcessSplitter(main);
+    const bool splitterShape = splitter != nullptr && splitter->count() >= 2;
+    const bool rowShape = !splitterShape && main->indexOf(parts.previewLayout) >= 0;
+    if (!splitterShape && !rowShape)
+    {
+        return nullptr;
+    }
+    an::ui::ProcessPageLayout::Description description;
+    description.title = QString::fromUtf8(getProcessName());
+    description.description = property("anProcessDescription").toString();
+    description.columnWidth = processColumnWidth();
+    description.settingsKey = QStringLiteral("%1#page").arg(description.title);
+    description.hasPreview = parts.previewLayout != nullptr;
+    return std::make_unique<an::ui::ProcessPageLayout>(*this, parts, std::move(description));
+}
+
+void ImageRTPreviewControl::pageLayoutMade()
+{
+    if (m_rt_preview_view_control != nullptr)
+    {
+        m_rt_preview_view_control->setChromeMode(an::ui::ViewChromeMode::External);
+        pageLayout()->setPreviewView(m_rt_preview_view_control);
+    }
+}
+
 void ImageRTPreviewControl::onStopWorkInFlight()
 {
     ImageProcessControl::onStopWorkInFlight();
@@ -1424,6 +1511,20 @@ ImageRTPreviewControl::~ImageRTPreviewControl() noexcept
 
 void ImageRTPreviewControl::on_rt_preview_clicked(Qt::CheckState state)
 {
+    if (hasPageLayout())
+    {
+        // A page's preview is its canvas: no window is resized for it.
+        if (state == Qt::CheckState::Checked)
+        {
+            createPreviewControl();
+        }
+        else
+        {
+            cancelPreviews();
+            destroyPreviewControl();
+        }
+        return;
+    }
     if (state == Qt::CheckState::Checked)
     {
         // -----------------------------------------------------------
@@ -1662,6 +1763,8 @@ void ImageRTPreviewControl::applyProcess()
     const bool sequence = m_image_view_control->isSequence();
     // A run over a sequence counts its frames from none; one over an image says how far it is when its operation does.
     setRunState(an::ui::runningState(an::ui::applyingRunText(), sequence ? std::optional<double>(0.0) : std::nullopt));
+    // A page's Cancel stops a run that has no progress window of its own.
+    m_impl->m_RunCancel = std::stop_source();
     ProgressDialogControl* progress = getProgressDialogControl(sequence);
     if (sequence && !progress)
     {
@@ -1691,6 +1794,7 @@ void ImageRTPreviewControl::applyProcess()
         sequence ? an::ui::ProcessRunKind::SequenceFrame
                  : (createNewImage ? an::ui::ProcessRunKind::NewImage : an::ui::ProcessRunKind::Apply);
     std::shared_ptr<RunSnapshot> snapshot = snapshotRun(kind, getProcessParamsForExecution());
+    snapshot->cancel = m_impl->m_RunCancel.get_token();
     if (sequence)
     {
         runOverSequence(std::move(snapshot), progress, createNewImage, newImageName, closeAtEnd);
@@ -3442,6 +3546,11 @@ void ImageRTPreviewControl::startPreview(an::ui::PreviewFrameKind kind)
             {
                 const auto took =
                     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started);
+                ++m_impl->m_FramesShown;
+                if (m_impl->m_FrameListener)
+                {
+                    m_impl->m_FrameListener(shared->run.frameKind == an::ui::PreviewFrameKind::Interactive);
+                }
                 ++m_impl->m_Telemetry.previewsCommitted;
                 if (shared->run.frameKind == an::ui::PreviewFrameKind::Interactive)
                 {
@@ -3551,6 +3660,11 @@ bool ImageRTPreviewControl::showSharedPreview(const std::shared_ptr<const an::co
         m_HistogramPreview->setImage(image);
     }
     clearReportedPreviewFailure();
+    ++m_impl->m_FramesShown;
+    if (m_impl->m_FrameListener)
+    {
+        m_impl->m_FrameListener(false);
+    }
     return true;
 }
 
@@ -4658,6 +4772,11 @@ void ImageRTPreviewControl::createPreviewControl()
     }
 
     auto* previewControl = new ImageViewControl(this);
+    if (hasPageLayout())
+    {
+        // In a page the preview's toolbar floats over the canvas, outside the view.
+        previewControl->setChromeMode(an::ui::ViewChromeMode::External);
+    }
     previewControl->initialize(getWindowTitle(), ViewControlMode::rt_preview);
     if (startingDocument.has_value())
     {
@@ -4721,7 +4840,10 @@ void ImageRTPreviewControl::createPreviewControl()
     {
         m_ImagePreviewLayout->addWidget(m_rt_preview_view_control);
         m_rt_preview_view_control->show();
-        resize(m_DefaultSizePreview);
+        if (!hasPageLayout())
+        {
+            resize(m_DefaultSizePreview);
+        }
     }
 
     if (m_MainHorizontalLayout)
@@ -4769,6 +4891,11 @@ void ImageRTPreviewControl::createPreviewControl()
     refreshFramePeriod();
 
     m_FitToWindowRequested = true;
+
+    if (an::ui::ProcessPageLayout* page = pageLayout())
+    {
+        page->setPreviewView(m_rt_preview_view_control);
+    }
 
     previewControlStarted();
 
@@ -4844,7 +4971,11 @@ void ImageRTPreviewControl::destroyPreviewControl(bool processEnding)
             m_MainHorizontalLayout->setStretch(1, 0);
         }
 
-        if (!processEnding)
+        if (an::ui::ProcessPageLayout* page = pageLayout())
+        {
+            page->setPreviewView(nullptr);
+        }
+        else if (!processEnding)
         {
             adjustSize();
             resize(m_DefaultSizeNoPreview);

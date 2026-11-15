@@ -32,6 +32,9 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QIcon>
@@ -39,6 +42,8 @@
 #include <QPixmap>
 #include <QPointer>
 #include <QPushButton>
+#include <QLabel>
+#include <QSpinBox>
 #include <QSplitter>
 #include <QStringList>
 #include <QTemporaryDir>
@@ -184,6 +189,88 @@ private:
         return QCoreApplication::instance() != nullptr &&
                QThread::currentThread() == QCoreApplication::instance()->thread();
     }
+};
+
+/// A presenter that takes every process it is asked about into a page of a host window of its own - a stand-in for a
+/// shell's centre - kept off the screen, and keeps the run states it is told. The hosts go with the presenter, and the
+/// processes in them with the hosts: a case deletes its processes first.
+class PagePresenter final : public an::ui::IProcessPresenter
+{
+public:
+    /// A centre of the size a 1536 x 864 window leaves a page: the rail, the top bar and the status line taken.
+    static constexpr QSize kCentre{1492, 794};
+
+    explicit PagePresenter(QSize centre = kCentre) : m_centre(centre) {}
+
+    ~PagePresenter() override
+    {
+        for (QPointer<QWidget>& host : hosts)
+        {
+            delete host.data();
+        }
+    }
+
+    PagePresenter(const PagePresenter&) = delete;
+    PagePresenter& operator=(const PagePresenter&) = delete;
+
+    bool adopt(TopLevelProcessBaseControl& process) override
+    {
+        ++adoptions;
+        if (!adopting)
+        {
+            return false;
+        }
+        auto* host = new QWidget();
+        host->setObjectName(QStringLiteral("pageHost"));
+        // Kept off the screen under a platform that would show it; the suites' own show nothing, and a window kept off
+        // the screen is never made active there.
+        const QString platform = QGuiApplication::platformName();
+        if (platform != QLatin1String("minimal") && platform != QLatin1String("offscreen"))
+        {
+            host->setAttribute(Qt::WA_DontShowOnScreen, true);
+        }
+        auto* layout = new QVBoxLayout(host);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        host->resize(m_centre);
+        if (!process.attachToPage(*host))
+        {
+            delete host;
+            return false;
+        }
+        host->show();
+        hosts.emplace_back(host);
+        return true;
+    }
+
+    void runStateChanged(TopLevelProcessBaseControl& process, const an::ui::ProcessRunState& state) override
+    {
+        states.emplace_back(&process, state);
+    }
+
+    void targetChanged(TopLevelProcessBaseControl&, ImageViewControl*) override {}
+
+    /// The host a process lies in; null for one it does not.
+    [[nodiscard]] QWidget* hostOf(const TopLevelProcessBaseControl& process) const
+    {
+        for (const QPointer<QWidget>& host : hosts)
+        {
+            if (host && host->isAncestorOf(&process))
+            {
+                return host.data();
+            }
+        }
+        return nullptr;
+    }
+
+    /// Whether processes are taken into pages; false leaves every one a window.
+    bool adopting = true;
+    int adoptions = 0;
+    std::vector<QPointer<QWidget>> hosts;
+    std::vector<std::pair<const TopLevelProcessBaseControl*, an::ui::ProcessRunState>> states;
+
+private:
+    QSize m_centre;
 };
 
 /// An application context over one engine session, implementing what the framework and the viewer reach.
@@ -539,7 +626,8 @@ public:
         return m_temporary.path();
     }
 
-    // ---- IProcessRegistry and IProcessSettingsProvider: the open process windows, and no remembered geometry.
+    // ---- IProcessRegistry and IProcessSettingsProvider: the open process windows, and what the store keeps of each
+    // process, in memory.
 
     void registerProcessInstance(TopLevelProcessBaseControl* process) override
     {
@@ -549,19 +637,41 @@ public:
     {
         openProcesses.erase(std::remove(openProcesses.begin(), openProcesses.end(), process), openProcesses.end());
     }
-    bool upsert(const QString&, int, int, int, const QString&) override
+    bool upsert(const QString& processName, int state, int width, int height, const QString& json) override
     {
+        processSettings.insert(processName, StoredProcessSettings{state, width, height, json});
         return true;
     }
-    [[nodiscard]] bool select(const QString&, int&, int&, int&, QString&) override
+    [[nodiscard]] bool select(const QString& processName, int& state, int& width, int& height, QString& json) override
     {
-        return false;
+        const auto found = processSettings.constFind(processName);
+        if (found == processSettings.constEnd())
+        {
+            return false;
+        }
+        state = found->state;
+        width = found->width;
+        height = found->height;
+        json = found->json;
+        return true;
     }
 
     // ---- What the cases read and steer.
 
     /// The process windows registered and not yet unregistered.
     std::vector<TopLevelProcessBaseControl*> openProcesses;
+
+    /// What the process settings store keeps of a process: its window's state and size, and its JSON settings.
+    struct StoredProcessSettings
+    {
+        int state = 0;
+        int width = -1;
+        int height = -1;
+        QString json;
+    };
+
+    /// The process settings store, by process name.
+    QHash<QString, StoredProcessSettings> processSettings;
 
     /// The presenter the context lends; none, as in a shell that shows every process as a window, unless a case sets
     /// one.
@@ -862,6 +972,22 @@ struct TestProcessOptions
     bool closeAtEnd = false;
     bool progressDialog = false;
     bool supportStretch = false;
+
+    /// How many group boxes the controls hold, each titled "Group <n>" and holding a spin box, of a fixed height.
+    int groups = 0;
+
+    /// The fixed height of each group box.
+    int groupHeight = 120;
+
+    /// Whether the controls end in a form row naming the target image, as a builder that puts it at their foot does.
+    bool targetSelector = false;
+
+    /// Whether the window is a row of its controls' layout and its preview's, with no splitter.
+    bool row = false;
+
+    /// Whether the window restores what the process settings store keeps of it as it is made, as a launched process
+    /// does.
+    bool restoresSettings = false;
 };
 
 /// Multiplies a plane of any representation by a factor, through the samples' own type, rounding to it.
@@ -923,29 +1049,66 @@ public:
         : TypedProcessControl<TestParams>(target, name), m_options(options)
     {
         auto* mainLayout = new QHBoxLayout(this);
-        auto* splitter = new QSplitter(Qt::Horizontal);
-        splitter->setObjectName(QStringLiteral("mainSplitter"));
-        auto* controlsPanel = new QWidget(splitter);
-        auto* controlsLayout = new QVBoxLayout(controlsPanel);
-        auto* previewPanel = new QWidget(splitter);
-        auto* previewLayout = new QVBoxLayout(previewPanel);
-        mainLayout->addWidget(splitter);
+        QWidget* owner = this;
+        QVBoxLayout* previewLayout = nullptr;
+        if (options.row)
+        {
+            controlsLayout = new QVBoxLayout();
+            previewLayout = new QVBoxLayout();
+            mainLayout->addLayout(controlsLayout);
+            mainLayout->addLayout(previewLayout, 1);
+        }
+        else
+        {
+            auto* splitter = new QSplitter(Qt::Horizontal);
+            splitter->setObjectName(QStringLiteral("mainSplitter"));
+            controlsPanel = new QWidget(splitter);
+            controlsLayout = new QVBoxLayout(controlsPanel);
+            auto* previewPanel = new QWidget(splitter);
+            previewLayout = new QVBoxLayout(previewPanel);
+            mainLayout->addWidget(splitter);
+            owner = controlsPanel;
+        }
 
-        previewCheckbox = new QCheckBox(QStringLiteral("Preview"), controlsPanel);
+        previewCheckbox = new QCheckBox(QStringLiteral("Preview"), owner);
         previewCheckbox->setChecked(options.preview);
         controlsLayout->addWidget(previewCheckbox);
-        channelSelector = new QComboBox(controlsPanel);
+        channelSelector = new QComboBox(owner);
         controlsLayout->addWidget(channelSelector);
-        buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close | QDialogButtonBox::Reset,
-                                       controlsPanel);
+        for (int group = 1; group <= options.groups; ++group)
+        {
+            auto* box = new QGroupBox(QStringLiteral("Group %1").arg(group), owner);
+            box->setObjectName(QStringLiteral("group%1").arg(group));
+            box->setFixedHeight(options.groupHeight);
+            auto* inside = new QVBoxLayout(box);
+            auto* value = new QSpinBox(box);
+            value->setObjectName(QStringLiteral("groupValue%1").arg(group));
+            inside->addWidget(value);
+            controlsLayout->addWidget(box);
+        }
+        if (options.targetSelector)
+        {
+            auto* form = new QFormLayout();
+            targetLabel = new QLabel(QStringLiteral("Target image"), owner);
+            targetSelector = new QComboBox(owner);
+            form->addRow(targetLabel, targetSelector);
+            controlsLayout->addLayout(form);
+        }
+        buttons =
+            new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close | QDialogButtonBox::Reset, owner);
         controlsLayout->addWidget(buttons);
 
         ProcessInitOptions init;
         init.supportPerChannel = options.perChannel;
         init.previewAreaSelectionEnabled = options.previewArea;
-        initializeStandardProcess(mainLayout, previewLayout, previewCheckbox, buttons, nullptr, channelSelector, init);
+        initializeStandardProcess(mainLayout, previewLayout, previewCheckbox, buttons, targetSelector, channelSelector,
+                                  init);
         setExecutionAutostretchSupported(options.supportStretch);
         setupPreviewControl(options.previewArea, options.previewAreaSize, QStringLiteral("Preview area"));
+        if (options.restoresSettings)
+        {
+            initializeTopLevelProcess();
+        }
     }
 
     // ---- What the case steers.
@@ -1015,7 +1178,21 @@ public:
     using ImageRTPreviewControl::schedulePreviewProcessExecution;
     using ImageRTPreviewControl::selectedChannelScope;
 
+    /// What the process's JSON settings hold when they are stored, and what the store handed it as it was made.
+    std::string json = "{\"factor\":2}";
+    std::string restoredJson;
+
 protected:
+    std::string serialize_json_settings() override
+    {
+        return json;
+    }
+
+    void deserialize_json_settings(const std::string& settings) override
+    {
+        restoredJson = settings;
+    }
+
     [[nodiscard]] bool isPreviewEnabled() const override
     {
         return previewCheckbox != nullptr && previewCheckbox->isChecked();
@@ -1219,7 +1396,13 @@ private:
 public:
     QCheckBox* previewCheckbox = nullptr;
     QComboBox* channelSelector = nullptr;
+    QComboBox* targetSelector = nullptr;
+    QLabel* targetLabel = nullptr;
     QDialogButtonBox* buttons = nullptr;
+
+    /// The controls' pane, null in a row; and the controls' layout.
+    QWidget* controlsPanel = nullptr;
+    QVBoxLayout* controlsLayout = nullptr;
 
 private:
     TestProcessOptions m_options;

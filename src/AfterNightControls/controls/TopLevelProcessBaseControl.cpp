@@ -10,8 +10,10 @@
 #include "theme/AnDesignTokens.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
+#include "controls/PageShortcutScope.h"
 #include "controls/ProcessButtonIcons.h"
 #include "controls/ProcessLaunchScope.h"
+#include "controls/ProcessPageLayout.h"
 
 #include <QDialogButtonBox>
 #include <QFrame>
@@ -642,6 +644,7 @@ TopLevelProcessBaseControl::TopLevelProcessBaseControl(const std::string& proces
                                                          Qt::WindowMaximizeButtonHint),
       m_tl_process_name(processName)
 {
+    m_WindowFlags = windowFlags();
     this->setAttribute(Qt::WA_DeleteOnClose);
     this->setProperty("anProcessShell", true);
     setWindowSizeFitMultipliers(PROCESS_WINDOW_SIZE_MULTIPLIER_DEFAULT, PROCESS_WINDOW_SIZE_MULTIPLIER_DEFAULT);
@@ -798,7 +801,7 @@ void TopLevelProcessBaseControl::setModernShellEnabled(const bool enabled)
 
 void TopLevelProcessBaseControl::initializeModernProcessShell()
 {
-    if (findShellCard(this))
+    if (m_Page != nullptr || findShellCard(this))
     {
         return;
     }
@@ -1116,6 +1119,22 @@ void TopLevelProcessBaseControl::showProcessMessage(const QString& title, const 
                                                     const ProcessMessageTone tone,
                                                     const std::optional<double> progressPercent)
 {
+    if (m_Page != nullptr)
+    {
+        const QString trimmedTitle = title.trimmed();
+        const QString trimmedMessage = message.trimmed();
+        const QString merged =
+            trimmedTitle.isEmpty()
+                ? trimmedMessage
+                : (trimmedMessage.isEmpty() ? trimmedTitle
+                                            : QStringLiteral("%1: %2").arg(trimmedTitle, trimmedMessage));
+        const an::ui::PageMessageTone pageTone = tone == ProcessMessageTone::Error ? an::ui::PageMessageTone::Error
+                                                 : tone == ProcessMessageTone::Warning
+                                                     ? an::ui::PageMessageTone::Warning
+                                                     : an::ui::PageMessageTone::Info;
+        m_Page->showMessage(merged, pageTone, progressPercent);
+        return;
+    }
     initializeModernProcessShell();
 
     QWidget* infoBanner = findInfoBanner(this);
@@ -1166,6 +1185,11 @@ void TopLevelProcessBaseControl::showProcessMessage(const QString& title, const 
 
 void TopLevelProcessBaseControl::clearProcessMessage()
 {
+    if (m_Page != nullptr)
+    {
+        m_Page->showMessage(QString(), an::ui::PageMessageTone::Info, std::nullopt);
+        return;
+    }
     QWidget* infoBanner = findInfoBanner(this);
     QLabel* infoBannerMessage = findInfoBannerMessageLabel(this);
     if (!infoBanner || !infoBannerMessage)
@@ -1184,6 +1208,10 @@ void TopLevelProcessBaseControl::clearProcessMessage()
 
 QString TopLevelProcessBaseControl::processMessage() const
 {
+    if (m_Page != nullptr)
+    {
+        return m_Page->message();
+    }
     const auto* infoBanner = findChild<QWidget*>(QString::fromUtf8(PROCESS_BANNER_OBJECT_NAME));
     const auto* infoBannerMessage = findChild<QLabel*>(QString::fromUtf8(PROCESS_BANNER_MESSAGE_OBJECT_NAME));
     if (infoBanner == nullptr || infoBannerMessage == nullptr || infoBanner->isHidden())
@@ -1259,6 +1287,10 @@ void TopLevelProcessBaseControl::setRunState(const an::ui::ProcessRunState& stat
         return;
     }
     m_RunState = state;
+    if (m_Page != nullptr)
+    {
+        m_Page->setRunState(m_RunState);
+    }
     if (an::ui::IProcessPresenter* presenter = currentPresenter())
     {
         presenter->runStateChanged(*this, m_RunState);
@@ -1301,6 +1333,123 @@ void TopLevelProcessBaseControl::notifyTargetChanged(ImageViewControl* target)
     }
 }
 
+void TopLevelProcessBaseControl::setVisible(const bool visible)
+{
+    if (visible && !m_PresenterAsked && m_Page == nullptr)
+    {
+        // Asked once, before the first show: a presenter that takes the process lays it into a page here.
+        m_PresenterAsked = true;
+        if (an::ui::IProcessPresenter* presenter = currentPresenter())
+        {
+            (void)presenter->adopt(*this);
+        }
+    }
+    QWidget::setVisible(visible);
+}
+
+bool TopLevelProcessBaseControl::isPresentedAsPage() const noexcept
+{
+    return m_Page != nullptr && m_InPage;
+}
+
+bool TopLevelProcessBaseControl::hasPageLayout() const noexcept
+{
+    return m_Page != nullptr;
+}
+
+an::ui::ProcessPageLayout* TopLevelProcessBaseControl::pageLayout() const noexcept
+{
+    return m_Page.get();
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> TopLevelProcessBaseControl::makePageLayout()
+{
+    return nullptr;
+}
+
+bool TopLevelProcessBaseControl::attachToPage(QWidget& host)
+{
+    if (m_Page == nullptr)
+    {
+        std::unique_ptr<an::ui::ProcessPageLayout> made = makePageLayout();
+        if (made == nullptr)
+        {
+            return false;
+        }
+        m_Page = std::move(made);
+        // A window marked as of a fixed size fits and locks itself at every show; a page is sized by its host.
+        setProperty("anFixedSizeWindow", false);
+        m_Page->setHooks({.close = [this]() { close(); }, .cancelRun = [this]() { (void)cancelRun(); }});
+        m_Page->setRunState(m_RunState);
+        m_PageShortcuts = new an::ui::PageShortcutScope(*this);
+        // Ctrl+Enter is the page's primary action, from either Enter key.
+        m_PageShortcuts->addKeys({QKeySequence(Qt::CTRL | Qt::Key_Return), QKeySequence(Qt::CTRL | Qt::Key_Enter)},
+                                 [this]() { return triggerPrimaryAction(); });
+        pageLayoutMade();
+    }
+    const bool shown = isVisible();
+    // The window's state goes with its flags: a page is neither maximized nor minimized.
+    setWindowState(Qt::WindowNoState);
+    setParent(&host, Qt::Widget);
+    setMinimumSize(0, 0);
+    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    if (QLayout* const hostLayout = host.layout())
+    {
+        hostLayout->addWidget(this);
+    }
+    m_InPage = true;
+    m_PageShortcuts->setActive(true);
+    if (shown)
+    {
+        show();
+    }
+    m_Page->windowResized();
+    return true;
+}
+
+void TopLevelProcessBaseControl::detachToWindow()
+{
+    if (m_Page == nullptr)
+    {
+        return;
+    }
+    const QSize size = this->size();
+    m_InPage = false;
+    m_PageShortcuts->setActive(false);
+    QWidget* const owner = an::ui::appContext() != nullptr ? an::ui::appContext()->getMainWindow() : nullptr;
+    setParent(owner, m_WindowFlags);
+    resize(size);
+    show();
+    m_Page->windowResized();
+}
+
+bool TopLevelProcessBaseControl::triggerPrimaryAction()
+{
+    if (m_RunState.running())
+    {
+        return false;
+    }
+    const auto buttonBoxes = findChildren<QDialogButtonBox*>();
+    for (QDialogButtonBox* box : buttonBoxes)
+    {
+        for (const QDialogButtonBox::StandardButton which : {QDialogButtonBox::Apply, QDialogButtonBox::Ok})
+        {
+            QAbstractButton* const button = box->button(which);
+            if (button != nullptr && button->isEnabled() && !button->isHidden())
+            {
+                button->click();
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool TopLevelProcessBaseControl::cancelRun()
+{
+    return false;
+}
+
 QString an::ui::helpPathFor(const QWidget* widget)
 {
     for (; widget != nullptr; widget = widget->parentWidget())
@@ -1319,7 +1468,12 @@ void TopLevelProcessBaseControl::keyPressEvent(QKeyEvent* evt)
 {
     if (evt->key() == Qt::Key_Escape)
     {
-        close();
+        // A page closes when it is idle, and a run on its way ends by Cancel; a 1.1 window closes at once.
+        if (m_Page == nullptr || !m_RunState.running())
+        {
+            close();
+        }
+        evt->accept();
         return;
     }
     QWidget::keyPressEvent(evt);
@@ -1331,7 +1485,24 @@ void TopLevelProcessBaseControl::closeEvent(QCloseEvent* evt)
     m_WindowStop.request_stop();
     const QString json_settings = QString::fromStdString(serialize_json_settings());
 
-    if (shouldRememberWindowGeometry())
+    if (m_Page != nullptr)
+    {
+        // A page has no window geometry of its own: the stored one is kept for the window, and the settings stored.
+        int state = Qt::WindowNoState;
+        int width = -1;
+        int height = -1;
+        QString previous;
+        if (!an::ui::appContext()->getProcessSettings()->select(QString::fromUtf8(m_tl_process_name), state, width,
+                                                                height, previous))
+        {
+            state = Qt::WindowNoState;
+            width = -1;
+            height = -1;
+        }
+        an::ui::appContext()->getProcessSettings()->upsert(QString::fromUtf8(m_tl_process_name), state, width, height,
+                                                           json_settings);
+    }
+    else if (shouldRememberWindowGeometry())
     {
         QSize normalSize = normalGeometry().size();
         an::ui::appContext()->getProcessSettings()->upsert(QString::fromUtf8(m_tl_process_name), this->windowState(),
@@ -1348,6 +1519,11 @@ void TopLevelProcessBaseControl::showEvent(QShowEvent* evt)
 {
     refreshTheme();
     QWidget::showEvent(evt);
+    if (m_Page != nullptr)
+    {
+        // A page is sized by what holds it: nothing of a window's fitting applies.
+        return;
+    }
 
     const double widthMultiplier = windowSizeFitMultiplierX();
     const double heightMultiplier = windowSizeFitMultiplierY();

@@ -505,6 +505,7 @@ sources Test_ControlsProcessFramework
     unit     src/AfterNightTests/Test_ControlsProcessFramework/ProgressDialogTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/SequenceRunTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/RunStateTest.cpp
+    unit     src/AfterNightTests/Test_ControlsProcessFramework/ProcessPageTest.cpp
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -566,6 +567,13 @@ sources Test_ControlsProcessFramework
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnInfoBanner.h
+    header   src/AfterNightControls/controls/PageShortcutScope.h
+    header   src/AfterNightControls/controls/ProcessLaunchScope.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnimationUtils.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -3237,6 +3245,7 @@ sources Test_ThemeSystem
 # engine's fixture adapter makes, and the slider spin box.
 sources Test_Widgets
     unit     src/AfterNightTests/Test_Widgets/AnBreadcrumbTest.cpp
+    unit     src/AfterNightTests/Test_Widgets/AnTaskHeaderTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnCommandPaletteTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnIconRailTest.cpp
     unit     src/AfterNightTests/Test_Widgets/AnChipTest.cpp
@@ -3367,6 +3376,7 @@ sources Test_Widgets
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightTests/fixtures/ObservatoryLook.h
     header   src/AfterNightTests/fixtures/PaintRecorder.h
+    header   src/AfterNightControls/components/AnTaskHeader.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -5845,6 +5855,7 @@ sources Test_ImageIntegration
 # compiled here and every production unit linked from its library.
 sources Test_ProcessFramework
     unit     src/AfterNightTests/Test_ProcessFramework/ProcessCensusTest.cpp
+    unit     src/AfterNightTests/Test_ProcessFramework/ProcessPageSectionsTest.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/main.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_adjust_brightness_contrast_programmatic_ui.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_adjust_hsl_programmatic_ui.cpp
@@ -6247,3 +6258,4 @@ sources Test_ProcessFramework
     header   src/AfterNightTests/fixtures/RecordedActions.h
     header   src/AfterNightTests/fixtures/RecordedMenus.h
     header   src/AfterNightControls/theme/NightImage.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h

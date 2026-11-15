@@ -313,8 +313,8 @@ shows a process another way - inside another window, beside a view - is built on
   Narrowing the process's shortcuts to its widget and children leaves the pair ambiguous while the focus is inside
   the process; accepting Qt's shortcut-override event alone makes the key reach the focused widget, which does nothing
   with it. What works is all three together: the sequences taken off the process's actions and shortcuts, the
-  process widget accepting the shortcut-override event of a sequence it holds, and the action triggered from the key
-  press that follows. A text field inside the process still keeps the keys it edits with, because it accepts their
+  process widget accepting the shortcut-override event of a sequence it holds, and the action run as the override is
+  accepted ("A process shown as a page", below). A text field inside the process still keeps the keys it edits with, because it accepts their
   override before the process sees it.
 - **`Ctrl+Enter` is the keypad's Enter.** A key sequence written `Ctrl+Enter` is `Qt::Key_Enter`, the keypad's key;
   the main keyboard's Enter is `Qt::Key_Return`, written `Ctrl+Return`. Image Integration's Execute carries the
@@ -347,6 +347,53 @@ show every open process - as a task in a rail, over the image a run writes - wit
 - **The presenter.** The shell's `IProcessPresenter`, lent through `IAppContext::getProcessPresenter`, is told of both
   (`runStateChanged`, `targetChanged`); a shell that lends none - the classic shell - shows every process as the window
   it is, and nothing of it changes.
+
+### A process shown as a page (`controls/ProcessPageLayout.h`, `controls/PageShortcutScope.h`)
+
+A presenter may take a process into a page of the main window instead of showing its window. It is asked once, at the
+process's first `setVisible(true)` and before it is visible (`adopt`); taking it means `attachToPage(host)`, which
+arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A process that cannot be one
+answers no page and stays the window it was. The arrangement is generic, made from what the process already is:
+
+- **The standard parts.** `initializeStandardProcess` records the six parts it is handed (`ProcessStandardParts`):
+  nothing finds them by name, since the builders name them four ways. `ProcessPageLayout` reads them and moves by
+  reference: a splitter's two panes are reparented, a row's two layouts are taken out and given widgets of their own,
+  the preview's pane to the canvas and the controls into a body that scrolls. The main layout stays the process
+  widget's layout - its old items hidden - and holds the page, and the preview layout goes on receiving the preview
+  view, so everything the framework reads through them still holds. Nothing is deleted.
+- **The column.** Beside the canvas, 360 px wide or 520 px for a wide process, 320 and 440 px in a window under
+  1200 px wide: a slot for the shell's compact readout, the header (the category a shell names, the process's name with
+  its description as the tooltip, Close), the toggles (the process's own preview checkbox, moved; Preview area and
+  Compare, which act on the preview view's own checkbox and Switch image), the banner, the body and the footer.
+- **The body fits the column** by scrolling up and down only, with the footer always in view; by its top-level group
+  boxes as sections (`AnCollapsibleSection`, titled as the groups and in their order, none for a single group), whose
+  open states are kept in the process settings store under `<process name>#page`; by closing the section used longest
+  ago - opened or worked in - when opening another would push the body past its height; and by giving up the controls'
+  own side margins, which are its padding, when the controls would be wider than it. The height a section adds is read
+  after the hints up the chain from it are dropped: a widget's item keeps the size it last had until its widget asks
+  for a new geometry, and a section's change asks only when the event loop turns. Target image and Channel are moved,
+  with their labels, to a row at the body's head: the labels on one line and the fields on the next, so two fields lie
+  side by side whether each has a label.
+- **The footer shows what the button box holds** - Reset and Help at the left, a stretch, the others, Close, the
+  primary (Apply, Ok) - as buttons of its own that press the box's, follow its enabled state and leave its connections
+  as they were; the box is kept, out of sight. During a run Cancel takes the primary's place and stops the run as a
+  progress window's Cancel does (`cancelRun`): the image keeps the state it had.
+- **Page mode turns the window's code off.** The modern shell's header, banner and card are never built; `showEvent`
+  fits and locks nothing; the preview checkbox creates and removes the preview and resizes no window; a window's
+  geometry is neither restored onto the page nor stored from it - the stored one is kept for the window - while its
+  JSON settings are; a message, an error included, is said in the page's banner and opens no dialog; the run's own row
+  replaces the banner during a run, with the toggles, Reset, Close and the controls disabled. Esc closes an idle page
+  and does nothing during a run; Ctrl+Enter, from either Enter key, runs the primary action (`triggerPrimaryAction`).
+  `detachToWindow` makes the process a window of its own again with its page whole inside it, and `attachToPage` takes
+  it back; neither touches its parameters, its preview, a run on its way or the lock on its target.
+- **A page's own shortcuts win inside it** (`PageShortcutScope`), by the three parts the shortcut trial found: the
+  sequences taken off the process's actions and shortcuts, the shortcut override accepted by the process widget for a
+  sequence it holds, and the action run. It runs as the override is accepted, not at the key press that follows:
+  the press goes to the focused widget first, and a combo box takes any key with text for its keyboard search, so a
+  page waiting for the press would run nothing with the focus on one; the press that does reach the page is let go
+  by. A shortcut made for a widget and its children still runs only with the focus inside it; a field that edits with
+  a key accepts its override first and keeps it; with the focus outside the page the window's shortcut runs. Detached
+  to a window, the sequences are put back and the objects are live, as in a 1.1 window.
 
 ### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryCompanion.cpp`)
 
