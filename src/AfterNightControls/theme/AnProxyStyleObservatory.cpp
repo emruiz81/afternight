@@ -22,14 +22,18 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QEvent>
+#include <QFrame>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QGroupBox>
 #include <QLabel>
+#include <QLayout>
 #include <QMenu>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
 #include <QPushButton>
+#include <QScrollBar>
 #include <QStyleOption>
 #include <QTabBar>
 #include <QToolButton>
@@ -638,6 +642,48 @@ void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item
     painter->setPen(text);
     const QRectF textRect(textLeft, rect.top(), right - textLeft, rect.height());
     painter->drawText(visual(textRect), (rightToLeft ? Qt::AlignRight : Qt::AlignLeft) | alignment, label);
+}
+
+/// How wide a combo box's list needs to be for its rows to be shown whole. Each row is painted as a menu item
+/// (drawObservatoryMenuItem): the padding at each side, the check's column - as wide as the row's icon and 4 px, as the
+/// list's delegate hands it, and never narrower than the indicator - the gap, and the text, in the box's font. Around
+/// the rows are the list's frame and its window's, the window's margins and, when it has more items than it shows, its
+/// scroll bar.
+///
+/// @param box the combo box.
+/// @param listIcon the style's list view icon size, which a list with no icon size of its own decorates its rows at.
+int comboListWidth(const QComboBox& box, const int listIcon)
+{
+    QAbstractItemView* const view = box.view();
+    if (view == nullptr)
+    {
+        return 0;
+    }
+    const QFontMetricsF metrics(box.font());
+    qreal widest = 0.0;
+    for (int index = 0; index < box.count(); ++index)
+    {
+        widest = (std::max)(widest, metrics.horizontalAdvance(box.itemText(index)));
+    }
+    const int decoration = view->iconSize().isValid() ? view->iconSize().width() : listIcon;
+    const qreal column = (std::max)(static_cast<qreal>(decoration + 4), kIndicator);
+    int width = static_cast<int>(std::ceil(2.0 * kMenuItemPadding + column + kMenuItemGap + widest));
+
+    width += 2 * view->frameWidth();
+    if (const auto* window = qobject_cast<const QFrame*>(view->parentWidget()))
+    {
+        width += 2 * window->frameWidth();
+        if (const QLayout* layout = window->layout())
+        {
+            const QMargins margins = layout->contentsMargins();
+            width += margins.left() + margins.right();
+        }
+    }
+    if (box.count() > box.maxVisibleItems() && view->verticalScrollBar() != nullptr)
+    {
+        width += view->verticalScrollBar()->sizeHint().width();
+    }
+    return width;
 }
 
 // ── Item views ────────────────────────────────────────────────────────────
@@ -1779,8 +1825,16 @@ std::optional<QRect> AnProxyStyle::observatorySubControlRect(ComplexControl cont
             return visualRect(option->direction, r, QRect(left, r.top() + 1, arrow.left() - left, r.height() - 2));
         }
         case SC_ComboBoxFrame:
-        case SC_ComboBoxListBoxPopup:
             return r;
+        case SC_ComboBoxListBoxPopup: {
+            // The list is at least as wide as the box, and as wide as its widest row needs: Qt makes it only as wide as
+            // the box would be, and a row - a menu item - needs more room around its text than the box's field.
+            const auto* box = qobject_cast<const QComboBox*>(widget);
+            const int needed =
+                box != nullptr ? comboListWidth(*box, pixelMetric(PM_ListViewIconSize, option, widget)) : 0;
+            return visualRect(option->direction, r,
+                              QRect(r.left(), r.top(), (std::max)(r.width(), needed), r.height()));
+        }
         default:
             return std::nullopt;
         }

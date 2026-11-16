@@ -313,7 +313,10 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
   a scroll bar `scrollBar` thick. A control is never smaller than its contents need: a large icon grows it, and a
   combo box is as wide as its text field - past the border and the field's padding, short of the arrow's column - needs
   for its contents, a box sized to its items measuring each by the advance its label is elided by (Qt measures the
-  ink, which can be narrower), so no item it can show is cut. A line
+  ink, which can be narrower), so no item it can show is cut. Its list, opened, is at least as wide as the box and as
+  wide as its widest row needs (`SC_ComboBoxListBoxPopup`): a row is painted as a menu item - padding, the check's
+  column (the row's decoration, the list's icon size or `PM_ListViewIconSize`, and 4 px), a gap, the text, padding -
+  which Qt, sizing the list from the box, does not leave room for. A line
   edit with no frame is a spin box's or a combo box's text and keeps its own size. Every other answer is the
   `Classic` one; the drawing is not the density's.
 - **The type scale follows the density.** The body and the third heading are `fontBody`, the caption `fontCaption`,

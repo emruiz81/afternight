@@ -13,6 +13,7 @@
 #include "theme/AnProxyStyle.h"
 #include "theme/Elevation.h"
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
@@ -49,6 +50,7 @@
 #include <QToolTip>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QtTest/QTest>
 
 #include <gtest/gtest.h>
 
@@ -529,6 +531,71 @@ TEST(ProxyStyleObservatory, AComboBoxSizedToItsContentsShowsEveryItemWhole)
                     static_cast<int>(std::ceil(QFontMetricsF(combo.font()).horizontalAdvance(items[index])));
                 EXPECT_GE(field.width(), iconRoom + text)
                     << items[index].toStdString() << " is cut at " << combo.width() << " px";
+            }
+        }
+    });
+}
+
+// A combo box's list, opened, is as wide as its rows need: each row is painted as a menu item - 8 px of padding, the
+// check's column (the item's icon and 4 px, or the 16 px indicator), a 10 px gap, the text and the padding again - and
+// the list shows that much of every row, which a row laid out wider than the list does not tell, so none is cut, with
+// icons or without, and with a scroll bar when the list has more items than it shows.
+TEST(ProxyStyleObservatory, AComboBoxsListShowsEveryItemWhole)
+{
+    forEachLook([](ObservatoryStyleScope&, const DesignTokens& t) {
+        for (const int extra : {0, 14})
+        {
+            for (const bool withIcon : {false, true})
+            {
+                SCOPED_TRACE(std::string(withIcon ? "with icons" : "without icons") + (extra > 0 ? ", scrolling" : ""));
+                QComboBox combo;
+                combo.setSizeAdjustPolicy(QComboBox::AdjustToContents);
+                QStringList items = {QStringLiteral("Recent"), QStringLiteral("Name"), QStringLiteral("Type"),
+                                     QStringLiteral("Multiscale Linear Transform")};
+                for (int more = 0; more < extra; ++more)
+                {
+                    items << QStringLiteral("Choice %1").arg(more);
+                }
+                QPixmap glyph(16, 16);
+                glyph.fill(t.colors.textPrimary);
+                for (const QString& item : items)
+                {
+                    if (withIcon)
+                    {
+                        combo.addItem(QIcon(glyph), item);
+                    }
+                    else
+                    {
+                        combo.addItem(item);
+                    }
+                }
+                combo.setAttribute(Qt::WA_DontShowOnScreen);
+                combo.resize(combo.sizeHint());
+                combo.show();
+                // The list's window too is kept off the screen, under a platform that maps windows.
+                QAbstractItemView* const view = combo.view();
+                view->window()->setAttribute(Qt::WA_DontShowOnScreen);
+                combo.showPopup();
+                ASSERT_TRUE(QTest::qWaitFor([view]() { return view->isVisible(); }, 2000));
+                QCoreApplication::processEvents();
+                const QFontMetricsF metrics(combo.font());
+                // The row's decoration, which the list hands its delegate: its icon size, or the style's list icon.
+                const int decoration = view->iconSize().isValid()
+                                           ? view->iconSize().width()
+                                           : combo.style()->pixelMetric(QStyle::PM_ListViewIconSize, nullptr, view);
+                const int iconColumn = decoration + 4;
+                const int column = (std::max)(iconColumn, 16);
+                for (int row = 0; row < combo.count(); ++row)
+                {
+                    // What the list shows of the row: the viewport cuts a row laid out wider than it.
+                    const QRect place = view->visualRect(combo.model()->index(row, 0));
+                    const int shown = (std::min)(place.right(), view->viewport()->rect().right()) - place.left() + 1;
+                    const int needed =
+                        8 + column + 10 + static_cast<int>(std::ceil(metrics.horizontalAdvance(items[row]))) + 8;
+                    EXPECT_GE(shown, needed)
+                        << items[row].toStdString() << " is cut in a list " << view->window()->width() << " px wide";
+                }
+                combo.hidePopup();
             }
         }
     });
