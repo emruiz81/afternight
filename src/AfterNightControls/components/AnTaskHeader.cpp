@@ -9,6 +9,7 @@
 #include "theme/AnDesignTokens.h"
 #include "theme/AnimationUtils.h"
 #include "theme/ComponentParts.h"
+#include "theme/NightImage.h"
 
 #include <QCoreApplication>
 #include <QEvent>
@@ -77,6 +78,9 @@ namespace
 struct AnTaskHeader::Impl
 {
     QImage thumbnail;
+    /// The thumbnail shown under Night in its Night form, made off the GUI thread.
+    NightPicture picture;
+    qint64 pictureKey = 0;
     QString processName;
     QString targetName;
     State state = State::None;
@@ -136,6 +140,17 @@ AnTaskHeader::~AnTaskHeader()
 void AnTaskHeader::setThumbnail(const QImage& thumbnail)
 {
     m_impl->thumbnail = thumbnail;
+    if (thumbnail.isNull())
+    {
+        m_impl->picture.clear();
+        m_impl->pictureKey = 0;
+    }
+    else if (thumbnail.cacheKey() != m_impl->pictureKey)
+    {
+        // The same picture handed again keeps its Night form: the window hands it at every change of the task.
+        m_impl->pictureKey = thumbnail.cacheKey();
+        m_impl->picture.setPicture(thumbnail);
+    }
     update();
 }
 
@@ -341,13 +356,15 @@ void AnTaskHeader::paintEvent(QPaintEvent* /*event*/)
     frame.addRoundedRect(thumb, parts::kTaskHeaderThumbnailRadius, parts::kTaskHeaderThumbnailRadius);
     painter.save();
     painter.setClipPath(frame);
-    if (m_impl->thumbnail.isNull())
+    painter.fillPath(frame, t.colors.bgWell);
+    if (!m_impl->picture.isNull())
     {
-        painter.fillPath(frame, t.colors.bgWell);
-    }
-    else
-    {
-        painter.drawImage(thumb, m_impl->thumbnail);
+        // Under Night the picture is shown in its Night form; its place keeps the well's colour until that is made.
+        const QPixmap shown = m_impl->picture.shown(this, [this]() { update(); });
+        if (!shown.isNull())
+        {
+            painter.drawPixmap(thumb, shown, QRectF(QPointF(0, 0), QSizeF(shown.size())));
+        }
     }
     painter.restore();
     x += parts::kTaskHeaderThumbnail + gap;

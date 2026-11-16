@@ -11,12 +11,15 @@
 #include "components/AnTaskHeader.h"
 #include "theme/ComponentParts.h"
 
+#include <QFontMetrics>
+#include <QImage>
 #include <QSignalSpy>
 
 namespace
 {
 
 using an::tests::widgets::forEachLook;
+using an::tests::widgets::pumpFor;
 using an::tests::widgets::recordedText;
 using an::tests::widgets::showOffScreen;
 using an::ui::AnTaskHeader;
@@ -83,14 +86,61 @@ TEST(TaskHeader, ALongNameIsElidedInTheMiddle)
 {
     AnTaskHeader header;
     header.setProcessName(QStringLiteral("Curves Transformation"));
-    const QString longName = QStringLiteral("M20_trifid_nebula_integration_drizzle_2x_final_stretched_PNG_05");
-    header.setTargetName(longName);
     header.resize(1000, header.sizeHint().height());
+    // Long in the host's font: wider than the whole header, whatever a character measures there.
+    QString longName = QStringLiteral("M20_trifid_nebula");
+    const QFontMetrics metrics(header.font());
+    while (metrics.horizontalAdvance(longName) < 2 * header.width())
+    {
+        longName += QStringLiteral("_integration_drizzle_2x_final");
+    }
+    longName += QStringLiteral("_PNG_05");
+    header.setTargetName(longName);
     showOffScreen(header);
     const QString shown = header.shownTargetName();
     EXPECT_NE(shown, longName);
     EXPECT_TRUE(shown.startsWith(QStringLiteral("M20"))) << shown.toStdString();
     EXPECT_TRUE(shown.endsWith(QStringLiteral("05"))) << shown.toStdString();
+}
+
+// Under Night the header paints no green or blue, the target's picture too: it is shown in its Night form once that is
+// made off the GUI thread, and its place keeps the well's colour until then.
+TEST(TaskHeader, NightShowsTheThumbnailInItsNightForm)
+{
+    an::ui::testing::ObservatoryStyleScope scope(an::ui::testing::observatoryLooks()[2]);
+    scope.setNight(true);
+    AnTaskHeader header;
+    header.setProcessName(QStringLiteral("Curves Transformation"));
+    header.setTargetName(QStringLiteral("M20"));
+    header.setState(AnTaskHeader::State::UpToDate, QStringLiteral("preview up to date"));
+    header.setThumbnail(thumbnailOf(QColor(0, 255, 0)));
+    header.resize(900, header.sizeHint().height());
+    showOffScreen(header);
+
+    (void)an::ui::testing::RenderedPicture::ofWidget(header, 1.0, an::ui::tokens().layers.surface0);
+    pumpFor(300);
+    const an::ui::testing::RenderedPicture picture =
+        an::ui::testing::RenderedPicture::ofWidget(header, 1.0, an::ui::tokens().layers.surface0);
+    const QImage& image = picture.image();
+    int hued = 0;
+    for (int y = 0; y < image.height(); ++y)
+    {
+        for (int x = 0; x < image.width(); ++x)
+        {
+            const QColor pixel = image.pixelColor(x, y);
+            hued += pixel.green() != 0 || pixel.blue() != 0 ? 1 : 0;
+        }
+    }
+    EXPECT_EQ(hued, 0);
+
+    // The picture is there, in red: pure green's luma, 0.587 of 255, in the middle of the thumbnail.
+    const QPoint middle(an::ui::parts::kTaskHeaderPaddingStart + an::ui::parts::kTaskHeaderThumbnail / 2,
+                        header.height() / 2);
+    const QColor centre = image.pixelColor(middle);
+    EXPECT_EQ(centre.green(), 0);
+    EXPECT_EQ(centre.blue(), 0);
+    EXPECT_NEAR(centre.red(), 150, 2) << "the thumbnail's Night form, not the well's colour";
+    scope.setNight(false);
 }
 
 // The state in its colour: up to date in the secondary text, a run in the accent's text and semibold with the bar of

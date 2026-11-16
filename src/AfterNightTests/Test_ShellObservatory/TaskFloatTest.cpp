@@ -71,6 +71,12 @@ namespace shellIds = an::ui::observatory::ids;
 /// A process launched on an image, a page over a view of it.
 constexpr std::string_view kTargetProcess = "denoising.actionDeepSNR";
 
+/// Sizes a task window keeps on any screen that can show one: over what its page needs (its least size is 720 x 480,
+/// and the page a font's width and height more) and inside the smallest screen a platform gives (the suites' Linux
+/// platform has one of 800 x 800), so no screen bounds them and no content raises them.
+constexpr QSize kRemembered{760, 640};
+constexpr QSize kResized{780, 660};
+
 void settle()
 {
     for (int round = 0; round < 3; ++round)
@@ -221,7 +227,7 @@ TEST_F(TaskFloat, FloatingTakesThePageOutAtTheRememberedSizeAndDimsTheRailItem)
     const TaskId id = openTask(QStringLiteral("float-out"), &process);
     ASSERT_NE(id, 0u);
     ASSERT_NE(process, nullptr);
-    remember(*process, QSize(900, 640));
+    remember(*process, kRemembered);
     an::ui::observatory::TaskPage* const page = window().taskPage(id);
     ASSERT_NE(page, nullptr);
     ASSERT_TRUE(railItem(id).selected);
@@ -237,7 +243,7 @@ TEST_F(TaskFloat, FloatingTakesThePageOutAtTheRememberedSizeAndDimsTheRailItem)
     ASSERT_TRUE(floating->isOpen());
     EXPECT_EQ(floating->page(), page);
     ASSERT_NE(floating->window(), nullptr);
-    EXPECT_EQ(floating->window()->geometry().size(), QSize(900, 640)) << "the size the process was last given";
+    EXPECT_EQ(floating->window()->geometry().size(), kRemembered) << "the size the process was last given";
     const QPoint middle = floating->window()->geometry().center();
     EXPECT_LE((middle - centreOnScreen().center()).manhattanLength(), 2) << "over the main window's centre";
     EXPECT_TRUE(process->isVisible());
@@ -482,21 +488,43 @@ TEST_F(TaskFloat, TheWindowsSizeIsRememberedForTheNextFloat)
     TopLevelProcessBaseControl* process = nullptr;
     const TaskId id = openTask(QStringLiteral("float-size"), &process);
     ASSERT_NE(process, nullptr);
-    remember(*process, QSize(900, 640));
+    remember(*process, kRemembered);
     ASSERT_TRUE(window().floatTask(id));
     settle();
     QWidget* const frame = window().taskWindow(id)->window();
     ASSERT_NE(frame, nullptr);
-    frame->resize(940, 660);
+    frame->resize(kResized);
     settle();
     ASSERT_TRUE(window().attachTask(id));
     settle();
-    EXPECT_EQ(remembered(*process), QSize(940, 660));
+    EXPECT_EQ(remembered(*process), kResized);
 
     ASSERT_TRUE(window().floatTask(id));
     settle();
     ASSERT_NE(window().taskWindow(id), nullptr);
-    EXPECT_EQ(window().taskWindow(id)->window()->geometry().size(), QSize(940, 660));
+    EXPECT_EQ(window().taskWindow(id)->window()->geometry().size(), kResized);
+}
+
+// A window is held within the screen the main window is on, as a process window's remembered size is: a size given on a
+// larger screen is the screen's here. A screen too small for a task window's least size bounds nothing.
+TEST_F(TaskFloat, AWindowIsHeldWithinTheScreenItIsShownOn)
+{
+    const QScreen* const screen = window().screen();
+    ASSERT_NE(screen, nullptr);
+    const QSize available = screen->availableGeometry().size();
+    if (available.width() < an::ui::observatory::TaskWindow::kMinimumWidth ||
+        available.height() < an::ui::observatory::TaskWindow::kMinimumHeight)
+    {
+        GTEST_SKIP() << "the platform's screen is smaller than a task window's least size: nothing is bounded";
+    }
+    TopLevelProcessBaseControl* process = nullptr;
+    const TaskId id = openTask(QStringLiteral("float-screen"), &process);
+    ASSERT_NE(process, nullptr);
+    remember(*process, available + QSize(240, 160));
+    ASSERT_TRUE(window().floatTask(id));
+    settle();
+    ASSERT_NE(window().taskWindow(id), nullptr);
+    EXPECT_EQ(window().taskWindow(id)->window()->geometry().size(), available);
 }
 
 // A press on a task window's title bar leaves the dock library waiting for a drag; the window closed by its title bar

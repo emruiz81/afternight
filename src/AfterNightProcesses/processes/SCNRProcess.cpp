@@ -6,6 +6,7 @@
 #include "ProcessCommonUtils.h"
 #include "controls/ProcessButtonIcons.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 
 #include <fmt/format.h>
 
@@ -42,6 +43,15 @@ std::string SCNRProcess::getProcessNameStatic()
 bool SCNRProcess::requiresExclusiveAccessStatic()
 {
     return false;
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> SCNRProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        m_ui.amountSlider->setMinimumWidth(m_ui.amountSlider->sizeHint().width());
+    }
+    return ImageProcessControl::makePageLayout();
 }
 
 void SCNRProcess::refreshTheme()

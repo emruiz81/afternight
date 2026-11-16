@@ -64,6 +64,11 @@ protected:
     /// The selection is marked, and drawn, on the view the person works on: the target's view, or a mirror page's.
     void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
 
+    /// On a page the New Selection button lies across the readouts' whole width, not in the column of their fields
+    /// beside their labels: the two columns of the controls are wider than the column in a font wider than the
+    /// interface's.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 

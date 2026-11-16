@@ -1096,6 +1096,10 @@ std::unique_ptr<an::ui::ProcessPageLayout> MultiscaleLinearProcess::makePageLayo
     m_ui.rightPanelLayout->removeItem(m_ui.targetFormLayout);
     m_ui.targetFormLayout->setParent(nullptr);
     m_ui.leftPanelLayout->insertLayout(0, m_ui.targetFormLayout);
+
+    // Reset Biases under the two buttons that switch every layer: the three in a row are wider than the column in a
+    // font wider than the interface's.
+    an::ui::processes::wrapRowUnder(*m_ui.layerTreeLayout, {m_ui.resetBiasesButton});
     return ImageRTPreviewControl::makePageLayout();
 }
 

@@ -54,6 +54,10 @@ protected:
         return {};
     }
 
+    /// On a page the amount's slider keeps the width it prefers, not the 160 px its window gives it as a least: the
+    /// row of the label, the spin box and the slider is wider than the column in a font wider than the interface's.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
     void on_protectionType_currentTextChanged(const QString& text);

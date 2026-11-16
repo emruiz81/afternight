@@ -60,6 +60,10 @@ protected:
         return {};
     }
 
+    /// On a page the new size goes under the current size: the row of the two, each field with its least width, is
+    /// wider than the column in a font wider than the interface's.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 

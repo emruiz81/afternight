@@ -421,7 +421,11 @@ process already is:
   another image a colour tool reads is marked on that image's own view. Image coordinates are the same in both views,
   so a rectangle drawn on the page is the rectangle of the image a window would read. A closed task's view lets the
   image go. A process whose controls do not fit its column as the window lays them out arranges them before the page is
-  made, on the page only: the resamplers put the downsample mode under the factor, the photometric calibration lays its
+  made, on the page only: the resamplers put the downsample mode under the factor, Resize puts its new size under its
+  current size, Crop lays its New Selection button across the readouts' whole width, SCNR's amount slider keeps the width
+  it prefers and not the 160 px its window gives it as a least, Multiscale Linear Transform puts Reset Biases under the
+  other two layer buttons (each of the four is a few pixels wider than the column in a font wider than Segoe UI, which
+  `PageLayout.*FitsItsColumn` measures wherever the platform measures text), the photometric calibration lays its
   background check box across its form (`wrapRowUnder`, `spanFormRow` in `processes/ProcessCommonUtils.h`), the star
   profilers put the last three of the six buttons under their table on a row of their own, Profiled Starmask
   Recombination lays the two check boxes of its stars' filter under that row, and Pixel Math arranges itself whole - its expression tabs take every height the body leaves

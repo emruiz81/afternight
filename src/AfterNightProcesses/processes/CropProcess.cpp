@@ -6,6 +6,7 @@
 #include "controls/ProcessButtonIcons.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 
 #include <fmt/format.h>
 
@@ -144,6 +145,18 @@ void CropProcess::selectionAreaChanged() {}
 void CropProcess::newSelectionFinished()
 {
     m_ui.newSelectionButton->setChecked(false);
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> CropProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        if (QLayout* const readouts = m_ui.layoutWidget2->layout())
+        {
+            an::ui::processes::spanFormRow(*readouts, *m_ui.newSelectionButton);
+        }
+    }
+    return ImageProcessControl::makePageLayout();
 }
 
 void CropProcess::refreshTheme()

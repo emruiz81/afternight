@@ -6,6 +6,7 @@
 #include "controls/ProcessButtonIcons.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 
 #include <fmt/format.h>
 
@@ -109,6 +110,18 @@ void ResizeProcess::onViewControlChanged(ImageViewControl* oldCtrl, ImageViewCon
     ImageProcessControl::onViewControlChanged(oldCtrl, newCtrl);
 
     initialize();
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ResizeProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        if (auto* const column = qobject_cast<QBoxLayout*>(layout()))
+        {
+            an::ui::processes::wrapRowUnder(*column, {m_ui.newSizeLbl, m_ui.newSize});
+        }
+    }
+    return ImageProcessControl::makePageLayout();
 }
 
 void ResizeProcess::refreshTheme()
