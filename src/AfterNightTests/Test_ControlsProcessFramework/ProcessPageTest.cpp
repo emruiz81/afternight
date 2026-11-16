@@ -250,6 +250,41 @@ TEST(ProcessPageLayout, TheBodyScrollsWhenThePageIsShort)
         << "the footer is at the page's foot";
 }
 
+// The controls' side margins give way to what the controls need, whenever they need it: a control that grows wider
+// after the page's first fit - a style, a font or a text that settles later - takes the room the column lacks from the
+// margins, though the body has not changed and has no scroll bar to say so, so nothing of the controls lies past the
+// column.
+TEST(ProcessPageLayout, TheControlsMarginsGiveWayWhenTheControlsGrowAfterTheFirstFit)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{.groups = 1});
+    auto* const group = process->findChild<QGroupBox*>(QStringLiteral("group1"));
+    ASSERT_NE(group, nullptr);
+    group->parentWidget()->layout()->setContentsMargins(12, 12, 12, 12);
+    process->show();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    ASSERT_FALSE(page->body()->verticalScrollBar()->isVisible()) << "a tall page: the body needs no scroll bar";
+    const int column = page->body()->viewport()->width();
+    ASSERT_EQ(column, 360);
+
+    // The group grows to 12 px short of the column, which the margins' 24 px do not leave.
+    group->setMinimumWidth(column - 12);
+    group->updateGeometry();
+    pumpQuietly();
+    pumpQuietly();
+    EXPECT_LE(page->bodyContent()->minimumSizeHint().width(), page->body()->viewport()->width())
+        << "the controls are wider than the column";
+    EXPECT_EQ(page->body()->viewport()->width(), column) << "the body did not change";
+    const QPoint at = group->mapTo(page->bodyContent(), QPoint(0, 0));
+    EXPECT_GE(at.x(), 0);
+    EXPECT_LE(at.x() + group->width(), page->body()->viewport()->width()) << "the group lies within the column";
+    process.reset();
+}
+
 // The column is 360 px wide, 520 px for a wide process; 320 and 440 px in a window under 1200 px wide.
 TEST(ProcessPageLayout, TheColumnsWidths)
 {

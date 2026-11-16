@@ -657,6 +657,7 @@ struct ProcessPageLayout::Impl : public QObject
     std::map<const AnCollapsibleSection*, std::uint64_t> lastUse;
     std::uint64_t useClock = 0;
     bool fitting = false;
+    bool fitQueued = false;
 
     QPointer<ImageViewControl> preview;
     std::vector<QMetaObject::Connection> previewConnections;
@@ -777,6 +778,10 @@ struct ProcessPageLayout::Impl : public QObject
         else
         {
             arrangeCanvasAndControls(*canvasLayout);
+        }
+        if (controls != nullptr)
+        {
+            controls->installEventFilter(this);
         }
         leadWithSelectors();
         makeSections();
@@ -1377,6 +1382,24 @@ struct ProcessPageLayout::Impl : public QObject
         fitting = false;
     }
 
+    /// Fits the margins once the layout in progress is done. The controls' least width changes with no change of the
+    /// body - a style, a font or a text that settles after the first fit - and the body then has no resize to say so.
+    void queueBodyFit()
+    {
+        if (fitQueued)
+        {
+            return;
+        }
+        fitQueued = true;
+        QMetaObject::invokeMethod(
+            this,
+            [this]() {
+                fitQueued = false;
+                bodyResized();
+            },
+            Qt::QueuedConnection);
+    }
+
     bool eventFilter(QObject* watched, QEvent* event) override
     {
         const QEvent::Type type = event->type();
@@ -1387,6 +1410,10 @@ struct ProcessPageLayout::Impl : public QObject
         else if (body != nullptr && watched == body->viewport() && type == QEvent::Resize)
         {
             bodyResized();
+        }
+        else if (type == QEvent::LayoutRequest && controls != nullptr && watched == controls)
+        {
+            queueBodyFit();
         }
         else if (type == QEvent::EnabledChange || type == QEvent::ShowToParent || type == QEvent::HideToParent)
         {

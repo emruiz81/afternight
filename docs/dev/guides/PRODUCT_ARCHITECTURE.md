@@ -389,7 +389,10 @@ process already is:
   widget, a scroll area or a splitter, and made in the group's own place - whose
   open states are kept in the process settings store under `<process name>#page`; by closing the section used longest
   ago - opened or worked in - when opening another would push the body past its height; and by giving up the controls'
-  own side margins, which are its padding, when the controls would be wider than it. The height a section adds is read
+  own side margins, which are its padding, when the controls would be wider than it - fitted at every change of the
+  body's width and at every change of the controls' own layout, because their least width moves after the first fit
+  (a style, a font, a text that settles) with no change of the body, and a page whose body needs no scroll bar has no
+  second resize to say so. The height a section adds is read
   after the hints up the chain from it are dropped: a widget's item keeps the size it last had until its widget asks
   for a new geometry, and a section's change asks only when the event loop turns. Target image and Channel are moved,
   with their labels, to a row at the body's head: the labels on one line and the fields on the next, so two fields lie
