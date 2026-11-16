@@ -2002,7 +2002,15 @@ tell (`DockHooks`'s `dragAboutToStart` naming its dock widget, its window's move
 cursor, the rail or the centre, is covered by the attach overlay, drawn as the band over a view's landing place, and
 the rail marks the task's place with a line (`AnIconRail::setInsertionMark`). Released there the task attaches, once
 the library has finished with its drag; released over the top bar, the column, the status line or outside, it stays a
-window.
+window. Under Wayland the library drags a task's window as a `QDrag` - the window stays where it is - so the window's
+own place says nothing: the main window reads the drag's events instead (`ObservatoryWindow::taskWindowDragEvent`, an
+application filter, while a task's window is dragged there). Each move over the rail or the centre takes the drop and
+drives the overlay and the rail's mark; a move to another widget sends a leave and an enter at once, so the overlay goes
+only when no enter follows; over anything else the drop is not taken. The drop itself is ignored, so the library ends
+its drag as one not dropped on its own areas and tells so, and the task attaches from where it was dropped
+(`TaskDrag::windowDragEnded`); a drag that ends with no drop is `windowDragCancelled`. The points are the window's
+own, which is why its frame there is its client area. `setDragPlatform` lets a suite give the window another platform's
+answer, and `WaylandDrag.*` drives it with the drag's events.
 
 When the tasks do not fit the rail, its overflow item counts the hidden ones and opens a list of every task, one line
 each: its picture, its process and image, and where its run stands - running and how far, a result not seen, in a

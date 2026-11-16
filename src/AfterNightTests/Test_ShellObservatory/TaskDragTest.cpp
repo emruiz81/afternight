@@ -32,7 +32,12 @@
 #include <QApplication>
 #include <QCursor>
 #include <QEventLoop>
+#include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QGuiApplication>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QScreen>
@@ -392,6 +397,33 @@ TEST_F(TaskDrag, TheOverlayCoversOnlyTheZoneUnderTheCursor)
     drag.windowDragEnded(surface.outside());
 }
 
+// A drag that is over no zone any more - the pointer left the main window, or went over what nothing attaches to -
+// takes the overlay away and goes on; a drag that ends with no release over a zone attaches nothing.
+TEST_F(TaskDrag, ADragLeavingEveryZoneClearsTheOverlayAndACancelledOneAttachesNothing)
+{
+    FakeSurface surface;
+    Drag drag(surface);
+    drag.windowDragStarted(kTask);
+    drag.windowDragMoved(surface.overTheCentre());
+    ASSERT_EQ(drag.zone(), AttachZone::Centre);
+    drag.windowDragLeft();
+    EXPECT_EQ(drag.zone(), AttachZone::None);
+    EXPECT_EQ(surface.zones.back(), std::make_pair(AttachZone::None, TaskId{0}));
+    EXPECT_EQ(drag.phase(), Drag::Phase::Window) << "the drag goes on: the pointer may come back";
+
+    drag.windowDragMoved(surface.overTheRail());
+    ASSERT_EQ(drag.zone(), AttachZone::Rail);
+    drag.windowDragCancelled();
+    EXPECT_EQ(drag.phase(), Drag::Phase::Idle);
+    EXPECT_EQ(drag.zone(), AttachZone::None);
+    EXPECT_EQ(surface.zones.back(), std::make_pair(AttachZone::None, TaskId{0}));
+    EXPECT_TRUE(surface.attached.empty());
+
+    drag.windowDragLeft();
+    drag.windowDragCancelled();
+    EXPECT_EQ(drag.phase(), Drag::Phase::Idle) << "with no drag they change nothing";
+}
+
 // Where a window cannot follow the cursor the ghost goes on past the frame and the task floats where the button is
 // released outside; released back inside, nothing happens.
 TEST_F(TaskDrag, WithoutAWindowThatFollowsTheTaskFloatsAtRelease)
@@ -607,6 +639,224 @@ TEST_F(TaskDrag, InTheWindowAWindowReleasedOverTheCentreAttachesAndIsSelected)
     EXPECT_FALSE(railItem(id).floating);
     EXPECT_TRUE(railItem(id).selected);
     EXPECT_EQ(window().taskWindow(id), nullptr);
+}
+
+// ---- Where the compositor alone moves a window (Wayland)
+
+// There the dock library drags a task's window as a QDrag: the window stays where it is, and the drag's own events -
+// which reach the widgets of the main window under the pointer - are all that says where it stands. The cases make the
+// window answer as it does under Wayland and send those events as a compositor's drag would.
+class WaylandDrag : public TaskDragCase
+{
+protected:
+    void SetUp() override
+    {
+        TaskDragCase::SetUp();
+        window().setDragPlatform(QStringLiteral("wayland"));
+    }
+
+    void TearDown() override
+    {
+        window().setDragPlatform(QString());
+        TaskDragCase::TearDown();
+    }
+
+    /// A task of a process over a view, floating in its window, and the dock library's drag of the window begun.
+    TaskId floatAndBeginTheDrag()
+    {
+        ImageViewControl* const view = openView(QStringLiteral("wayland-drag"));
+        EXPECT_NE(view, nullptr);
+        TopLevelProcessBaseControl* const process = launch(kTargetProcess);
+        EXPECT_NE(process, nullptr);
+        const TaskId id = process != nullptr ? tasks().model().taskFor(process)->id : TaskId{0};
+        EXPECT_TRUE(window().floatTask(id));
+        settle();
+        an::ui::observatory::TaskWindow* const floating = window().taskWindow(id);
+        EXPECT_NE(floating, nullptr);
+        if (floating != nullptr)
+        {
+            EXPECT_TRUE(an::ui::shell::DockHooks::allowsDrag(
+                an::ui::shell::DockDrag{.mainWindow = nullptr, .dockWidget = floating->dockWidget()}));
+        }
+        EXPECT_EQ(window().taskDrag().phase(), Drag::Phase::Window);
+        return id;
+    }
+
+    /// The dock library reports its drag over, as it does once the QDrag it executes returns.
+    static void theLibraryEndsItsDrag(const TaskId id)
+    {
+        an::ui::observatory::TaskWindow* const floating = window().taskWindow(id);
+        ASSERT_NE(floating, nullptr);
+        an::ui::shell::DockHooks::tellDragEnded(
+            an::ui::shell::DockDrag{.mainWindow = nullptr, .dockWidget = floating->dockWidget()});
+        settle();
+    }
+
+    /// A drag's event of a kind, sent to a widget at a place on the screen. Whether the widget took it.
+    static bool dragEvent(QWidget& widget, const QEvent::Type type, const QPoint& global)
+    {
+        QMimeData mime;
+        const QPoint local = widget.mapFromGlobal(global);
+        switch (type)
+        {
+        case QEvent::DragEnter: {
+            QDragEnterEvent event(local, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            event.ignore();
+            QApplication::sendEvent(&widget, &event);
+            return event.isAccepted();
+        }
+        case QEvent::DragMove: {
+            QDragMoveEvent event(local, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            event.ignore();
+            QApplication::sendEvent(&widget, &event);
+            return event.isAccepted();
+        }
+        case QEvent::Drop: {
+            QDropEvent event(QPointF(local), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            event.ignore();
+            QApplication::sendEvent(&widget, &event);
+            return event.isAccepted();
+        }
+        default: {
+            QDragLeaveEvent event;
+            QApplication::sendEvent(&widget, &event);
+            return true;
+        }
+        }
+    }
+
+    [[nodiscard]] static QPoint overTheTopBar()
+    {
+        const QRect frame = onScreen(window());
+        return QPoint(frame.center().x(), frame.top() + 20);
+    }
+};
+
+// The pointer over the rail or the centre covers that zone with the overlay, marks the task's place in the rail and
+// takes the drop; over the top bar nothing is covered and the drop is not taken. A drop over a zone attaches the task
+// once the library has ended its drag: the task is the current one with its page shown.
+TEST_F(WaylandDrag, OverTheRailOrTheCentreTheOverlayShowsAndADropAttaches)
+{
+    const TaskId id = floatAndBeginTheDrag();
+    QWidget* const overlay = window().attachZoneOverlay();
+    ASSERT_NE(overlay, nullptr);
+    QWidget& rail = *window().rail();
+    QWidget& centre = *window().centre();
+
+    EXPECT_TRUE(dragEvent(rail, QEvent::DragEnter, onScreen(rail).center())) << "a drop over the rail is taken";
+    EXPECT_TRUE(overlay->isVisible());
+    EXPECT_EQ(onScreen(*overlay), onScreen(rail)) << "the overlay covers the rail alone";
+    EXPECT_EQ(window().rail()->insertionMark(), Window::railTaskId(id)) << "the rail marks the task's place";
+
+    EXPECT_TRUE(dragEvent(centre, QEvent::DragMove, onScreen(centre).center()));
+    EXPECT_EQ(onScreen(*overlay), onScreen(centre)) << "the overlay covers the centre alone";
+    EXPECT_EQ(window().rail()->insertionMark(), Window::railTaskId(id)) << "the rail marks the place over either zone";
+
+    EXPECT_FALSE(dragEvent(window(), QEvent::DragMove, overTheTopBar())) << "nothing attaches over the top bar";
+    EXPECT_FALSE(overlay->isVisible());
+    EXPECT_TRUE(window().rail()->insertionLineRect().isNull());
+
+    EXPECT_TRUE(dragEvent(centre, QEvent::DragMove, onScreen(centre).center()));
+    // Ignored, so the library ends its drag as one not dropped on its own areas, and tells so.
+    EXPECT_FALSE(dragEvent(centre, QEvent::Drop, onScreen(centre).center()));
+    EXPECT_NE(window().taskWindow(id), nullptr) << "the task attaches when the library has ended its drag";
+
+    theLibraryEndsItsDrag(id);
+    EXPECT_FALSE(overlay->isVisible());
+    EXPECT_TRUE(window().rail()->insertionLineRect().isNull());
+    EXPECT_EQ(window().taskDrag().phase(), Drag::Phase::Idle);
+    EXPECT_EQ(window().taskWindow(id), nullptr);
+    EXPECT_TRUE(window().isTaskPageShown());
+    EXPECT_EQ(window().shownTask(), id);
+    EXPECT_EQ(tasks().model().current(), id);
+    EXPECT_EQ(tasks().model().task(id)->presentation, TaskPresentation::Page);
+}
+
+// A drag the pointer leaves, or one the person cancels, ends with no drop: the overlay goes, the window stays a window.
+TEST_F(WaylandDrag, ADragThatEndsWithNoDropLeavesTheTaskAWindow)
+{
+    const TaskId id = floatAndBeginTheDrag();
+    QWidget* const overlay = window().attachZoneOverlay();
+    ASSERT_NE(overlay, nullptr);
+    QWidget& rail = *window().rail();
+
+    EXPECT_TRUE(dragEvent(rail, QEvent::DragEnter, onScreen(rail).center()));
+    ASSERT_TRUE(overlay->isVisible());
+    (void)dragEvent(rail, QEvent::DragLeave, onScreen(rail).center());
+    settle();
+    EXPECT_FALSE(overlay->isVisible()) << "the pointer left the main window";
+    EXPECT_TRUE(window().rail()->insertionLineRect().isNull());
+
+    theLibraryEndsItsDrag(id);
+    EXPECT_EQ(window().taskDrag().phase(), Drag::Phase::Idle);
+    ASSERT_NE(window().taskWindow(id), nullptr) << "nothing was dropped on a zone";
+    EXPECT_FALSE(window().isTaskPageShown());
+    EXPECT_EQ(tasks().model().task(id)->presentation, TaskPresentation::Window);
+}
+
+// Moving from one widget to another inside the zone sends a leave and an enter at once: the overlay does not go and
+// come back.
+TEST_F(WaylandDrag, MovingBetweenWidgetsOfAZoneDoesNotFlickerTheOverlay)
+{
+    const TaskId id = floatAndBeginTheDrag();
+    QWidget* const overlay = window().attachZoneOverlay();
+    ASSERT_NE(overlay, nullptr);
+    QWidget& centre = *window().centre();
+    EXPECT_TRUE(dragEvent(centre, QEvent::DragEnter, onScreen(centre).center()));
+    ASSERT_TRUE(overlay->isVisible());
+    int hides = 0;
+    struct Count final : QObject
+    {
+        int* hides = nullptr;
+        bool eventFilter(QObject*, QEvent* event) override
+        {
+            if (event->type() == QEvent::Hide)
+            {
+                ++*hides;
+            }
+            return false;
+        }
+    } count;
+    count.hides = &hides;
+    overlay->installEventFilter(&count);
+    (void)dragEvent(centre, QEvent::DragLeave, onScreen(centre).center());
+    EXPECT_TRUE(dragEvent(centre, QEvent::DragEnter, onScreen(centre).center() + QPoint(5, 5)));
+    settle();
+    EXPECT_EQ(hides, 0);
+    EXPECT_TRUE(overlay->isVisible());
+    overlay->removeEventFilter(&count);
+    theLibraryEndsItsDrag(id);
+}
+
+// Where the library moves the window itself (every platform but Wayland) the drag's events are not read: the window
+// follows the cursor and the library's own messages say where it stands.
+TEST_F(WaylandDrag, WhereAWindowFollowsTheCursorTheDragEventsAreNotRead)
+{
+    window().setDragPlatform(QStringLiteral("xcb"));
+    const TaskId id = floatAndBeginTheDrag();
+    QWidget* const overlay = window().attachZoneOverlay();
+    ASSERT_NE(overlay, nullptr);
+    QWidget& rail = *window().rail();
+    EXPECT_FALSE(dragEvent(rail, QEvent::DragEnter, onScreen(rail).center()));
+    EXPECT_FALSE(overlay->isVisible());
+    EXPECT_EQ(window().taskDrag().phase(), Drag::Phase::Window);
+    window().taskDrag().windowDragEnded(QPoint(-5000, -5000));
+    settle();
+    EXPECT_NE(window().taskWindow(id), nullptr);
+}
+
+// With no task's window being dragged, a drag over the main window is none of the window's task drag: nothing is
+// covered.
+TEST_F(WaylandDrag, WithNoTaskWindowDraggedADragOverTheWindowCoversNothing)
+{
+    QWidget& rail = *window().rail();
+    QWidget* const overlay = window().attachZoneOverlay();
+    ASSERT_NE(overlay, nullptr);
+    ASSERT_EQ(window().taskDrag().phase(), Drag::Phase::Idle);
+    (void)dragEvent(rail, QEvent::DragEnter, onScreen(rail).center());
+    (void)dragEvent(rail, QEvent::DragMove, onScreen(rail).center());
+    EXPECT_FALSE(overlay->isVisible());
+    EXPECT_TRUE(window().rail()->insertionLineRect().isNull());
 }
 
 // ---- A trial with a real mouse

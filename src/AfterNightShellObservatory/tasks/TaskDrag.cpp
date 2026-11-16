@@ -165,6 +165,24 @@ void TaskDrag::windowDragEnded(const QPoint globalPos)
     }
 }
 
+void TaskDrag::windowDragLeft()
+{
+    if (m_phase != Phase::Window)
+    {
+        return;
+    }
+    showZone(AttachZone::None);
+}
+
+void TaskDrag::windowDragCancelled()
+{
+    if (m_phase != Phase::Window)
+    {
+        return;
+    }
+    reset();
+}
+
 TaskDrag::Phase TaskDrag::phase() const noexcept
 {
     return m_phase;

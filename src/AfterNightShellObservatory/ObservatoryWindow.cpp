@@ -104,6 +104,8 @@
 #include <QContextMenuEvent>
 #include <QCursor>
 #include <QDragEnterEvent>
+#include <QDragLeaveEvent>
+#include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -126,6 +128,7 @@
 #include <cmath>
 #include <functional>
 #include <map>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -281,6 +284,12 @@ struct ObservatoryWindow::Impl
     std::map<an::ui::shell::TaskId, std::chrono::steady_clock::time_point> runStarted;
     std::map<an::ui::shell::TaskId, std::chrono::steady_clock::time_point> appliedAt;
     QTimer appliedTicker;
+    // Under Wayland a task's window is dragged as a QDrag: where the pointer was released over this window, the
+    // platform the drags decide by when a suite says one, and the leave a move to another widget sends before its
+    // enter.
+    std::optional<QPoint> taskDropAt;
+    QString dragPlatform;
+    QTimer taskDragLeave;
     // The transient message at the foot of the centre, and what its action does.
     an::ui::AnSnackbar* snackbar = nullptr;
     std::function<void()> snackbarAction;
@@ -338,6 +347,12 @@ struct ObservatoryWindow::Impl
 
 QRect ObservatoryWindow::DragSurface::frame() const
 {
+    if (!windowFollowsTheCursor())
+    {
+        // Where the window cannot be placed its frame is not where the drag's points are read: they are this window's
+        // own, as the rail's and the centre's are.
+        return QRect(m_window.mapToGlobal(QPoint(0, 0)), m_window.size());
+    }
     return m_window.frameGeometry();
 }
 
@@ -355,7 +370,8 @@ QRect ObservatoryWindow::DragSurface::centre() const
 
 bool ObservatoryWindow::DragSurface::windowFollowsTheCursor() const
 {
-    return an::ui::observatory::windowFollowsTheCursor(QGuiApplication::platformName());
+    const QString& named = m_window.m_impl->dragPlatform;
+    return an::ui::observatory::windowFollowsTheCursor(named.isEmpty() ? QGuiApplication::platformName() : named);
 }
 
 bool ObservatoryWindow::DragSurface::floatUnder(const an::ui::shell::TaskId id, const QPoint globalPos,
@@ -507,18 +523,41 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     dragHooks.dragAboutToStart = [this](const an::ui::shell::DockDrag& drag) {
         if (const an::ui::shell::TaskId id = taskOfDock(drag.dockWidget); id != 0u && m_impl->taskDrag)
         {
+            m_impl->taskDropAt.reset();
             m_impl->taskDrag->windowDragStarted(id);
         }
         return true;
     };
     dragHooks.dragEnded = [this](const an::ui::shell::DockDrag& drag) {
         const an::ui::shell::TaskId id = taskOfDock(drag.dockWidget);
-        if (id != 0u && m_impl->taskDrag && m_impl->taskDrag->task() == id)
+        if (id == 0u || !m_impl->taskDrag || m_impl->taskDrag->task() != id)
+        {
+            return;
+        }
+        m_impl->taskDragLeave.stop();
+        if (m_impl->dragSurface->windowFollowsTheCursor())
         {
             m_impl->taskDrag->windowDragEnded(QCursor::pos());
         }
+        else if (const std::optional<QPoint> dropped = std::exchange(m_impl->taskDropAt, std::nullopt))
+        {
+            // Under Wayland the cursor's place is not the application's to read: the drop said where it ended.
+            m_impl->taskDrag->windowDragEnded(*dropped);
+        }
+        else
+        {
+            m_impl->taskDrag->windowDragCancelled();
+        }
     };
     impl.taskDragHooks = an::ui::shell::DockHooks::subscribe(std::move(dragHooks));
+    impl.taskDragLeave.setSingleShot(true);
+    impl.taskDragLeave.setInterval(0);
+    QObject::connect(&impl.taskDragLeave, &QTimer::timeout, this, [this]() {
+        if (m_impl->taskDrag)
+        {
+            m_impl->taskDrag->windowDragLeft();
+        }
+    });
     // "applied 2.8 s ago" is told again each second while a task's page is shown, or floats.
     impl.appliedTicker.setInterval(1000);
     QObject::connect(&impl.appliedTicker, &QTimer::timeout, this, [this]() {
@@ -1678,6 +1717,20 @@ bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
     if (event == nullptr)
     {
         return QMainWindow::eventFilter(watched, event);
+    }
+    switch (event->type())
+    {
+    case QEvent::DragEnter:
+    case QEvent::DragMove:
+    case QEvent::DragLeave:
+    case QEvent::Drop:
+        if (taskWindowDragEvent(watched, event))
+        {
+            return true;
+        }
+        break;
+    default:
+        break;
     }
     // A tab's menu: the menu of the tab's view.
     if (event->type() == QEvent::ContextMenu)
@@ -3600,6 +3653,56 @@ TaskDrag& ObservatoryWindow::taskDrag() const noexcept
 QWidget* ObservatoryWindow::attachZoneOverlay() const noexcept
 {
     return m_impl->attachZone;
+}
+
+void ObservatoryWindow::setDragPlatform(const QString& platformName)
+{
+    m_impl->dragPlatform = platformName;
+}
+
+bool ObservatoryWindow::taskWindowDragEvent(QObject* watched, QEvent* event)
+{
+    Impl& impl = *m_impl;
+    if (!impl.taskDrag || impl.taskDrag->phase() != TaskDrag::Phase::Window ||
+        impl.dragSurface->windowFollowsTheCursor())
+    {
+        return false;
+    }
+    const auto* const widget = qobject_cast<const QWidget*>(watched);
+    if (widget == nullptr || widget->window() != this)
+    {
+        return false;
+    }
+    if (event->type() == QEvent::DragLeave)
+    {
+        // A move from one widget to another sends a leave and then an enter: the overlay goes only when no enter
+        // follows.
+        impl.taskDragLeave.start();
+        return true;
+    }
+    auto* const drag = static_cast<QDropEvent*>(event);
+    const QPoint at = widget->mapToGlobal(drag->position().toPoint());
+    impl.taskDragLeave.stop();
+    if (event->type() == QEvent::Drop)
+    {
+        // Ignored, so the dock library ends its drag as one not dropped on its own areas and tells so; the task
+        // attaches there, from where it was dropped.
+        impl.taskDropAt = at;
+        drag->setDropAction(Qt::IgnoreAction);
+        drag->ignore();
+        return true;
+    }
+    impl.taskDrag->windowDragMoved(at);
+    if (impl.taskDrag->zone() != AttachZone::None)
+    {
+        drag->setDropAction(Qt::MoveAction);
+        drag->accept();
+    }
+    else
+    {
+        drag->ignore();
+    }
+    return true;
 }
 
 bool ObservatoryWindow::floatTask(const an::ui::shell::TaskId id)

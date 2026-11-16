@@ -134,6 +134,14 @@ public:
     void windowDragMoved(QPoint globalPos);
     void windowDragEnded(QPoint globalPos);
 
+    /// The pointer is over no zone any more - it left the main window - and the drag goes on: the overlay goes, and the
+    /// rail's mark.
+    void windowDragLeft();
+
+    /// The drag ended with no release over the main window - it was cancelled, or nothing was dropped: the task stays a
+    /// window, and the overlay and the mark go.
+    void windowDragCancelled();
+
     [[nodiscard]] Phase phase() const noexcept;
     /// The task dragged; zero for none.
     [[nodiscard]] an::ui::shell::TaskId task() const noexcept;

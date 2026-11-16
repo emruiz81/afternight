@@ -170,6 +170,10 @@ public:
     /// there is none.
     [[nodiscard]] QWidget* attachZoneOverlay() const noexcept;
 
+    /// The platform's name the task drags decide by - whether a window can follow the cursor - which is the
+    /// application's own unless a suite says another, the empty name giving it back.
+    void setDragPlatform(const QString& platformName);
+
     /// The page of a task taken into one; null for a task shown as a window, or for none.
     [[nodiscard]] TaskPage* taskPage(an::ui::shell::TaskId id) const;
 
@@ -361,6 +365,10 @@ private:
     [[nodiscard]] an::ui::shell::TaskId taskOfDock(const KDDockWidgets::QtWidgets::DockWidget* dock) const;
     /// Covers a zone with the attach overlay, and marks a task's place in the rail.
     void showAttachZone(int zone, an::ui::shell::TaskId id);
+    /// Where the compositor alone moves a window (Wayland) the dock library drags a task's window as a QDrag: the
+    /// window stays where it is, and the drag's own events - which reach the widgets of this window under the pointer -
+    /// say where it stands. Reads them while a task's window is dragged there; true when the event was a task drag's.
+    [[nodiscard]] bool taskWindowDragEvent(QObject* watched, QEvent* event);
     /// The place the centre showed before the first task's page: a workspace while one has views, else Home.
     void showPlaceBeforeTask();
     /// Float as Window, Attach and Close Task follow the current task.
