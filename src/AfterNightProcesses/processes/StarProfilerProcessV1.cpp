@@ -10,6 +10,7 @@
 
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessButtonIcons.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/StarsFilterControlV1.h"
 #include "processes/ProcessCommonUtils.h"
 
@@ -63,6 +64,11 @@ StarProfilerProcessV1::StarProfilerProcessV1(ImageViewControl* control)
 }
 
 StarProfilerProcessV1::~StarProfilerProcessV1() = default;
+
+std::unique_ptr<an::ui::ProcessPageLayout> StarProfilerProcessV1::makePageLayout()
+{
+    return wrappedPageLayout(*m_ui.detectedStarsVerticalLayout, *m_ui.horizontalLayout_7);
+}
 
 std::string StarProfilerProcessV1::getProcessNameStatic()
 {

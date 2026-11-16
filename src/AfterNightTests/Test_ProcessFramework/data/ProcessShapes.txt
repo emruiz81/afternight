@@ -110,10 +110,10 @@ sharpening_enhancement.actionDark_Structure_Enhance | DarkStructureEnhanceProces
 sharpening_enhancement.actionMultiscale_Alpha_Sharpen | SharpenAlphaProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
 filters.actionGaussian_Blur | GaussianBlurProcess | ImageRTPreviewControl | row: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | yes | - | resizable | - | -
 sharpening_enhancement.actionHigh_Pass | HighPassFilterProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, preview pane, opens on | Apply, Close, Reset | 1 | - | - | resizable | - | -
-color.actionChannelComposition | ChannelCompositionProcess | TopLevelProcessBaseControl | - | - | Close, Ok | 3 | - | - | fixed size, without maximize button | - | -
+color.actionChannelComposition | ChannelCompositionProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, no view, opens on | Close, Ok | 3 | - | - | resizable | - | -
 sensor_calibration.actionDebayer | DebayerProcess | ImageProcessControl | - | - | Close, Ok | 1 | - | - | fixed size, without maximize button | - | -
 sensor_calibration.actionSplit_CFA | SplitCFAProcess | ImageProcessControl | - | - | Close, Ok | - | - | - | fixed size | - | -
-sensor_calibration.actionMerge_CFA | MergeCFAProcess | TopLevelProcessBaseControl | - | - | Close, Ok | 4 | - | - | fixed size, without maximize button | - | -
+sensor_calibration.actionMerge_CFA | MergeCFAProcess | ImageRTPreviewControl | splitter: controls, preview | checkbox, no view, opens on | Close, Ok | 4 | - | - | resizable | - | -
 geometry.actionResize | ResizeProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | - | -
 geometry.actionIntegerResample | IntegerResampleProcess | ImageProcessControl | - | - | Close, Ok, Reset | 1 | - | - | fixed size, without maximize button | - | -
 geometry.actionCFA_Integer_Resample | CFAIntegerResampleProcess | ImageProcessControl | - | - | Close, Ok, Reset | - | - | - | fixed size, without maximize button | - | -

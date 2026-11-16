@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QPushButton>
+#include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QCoreApplication>
 #include <QtWidgets/QDialogButtonBox>
@@ -16,6 +17,7 @@
 #include <QtWidgets/QWidget>
 
 #include "processes/FixedDialogUiSizing.h"
+#include "processes/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 
 namespace an::ui::processes
@@ -38,7 +40,16 @@ public:
     QHBoxLayout* horizontalLayout = nullptr;
     QLabel* label_5 = nullptr;
     QComboBox* patternSelector = nullptr;
+
+    /// Shows the joined mosaic in the preview's pane, once every plane is chosen.
+    QCheckBox* preview = nullptr;
     QDialogButtonBox* buttonBox = nullptr;
+
+    /// The window's row: the controls beside the preview, in the splitter between them.
+    QHBoxLayout* horizontalLayoutMain = nullptr;
+
+    /// The layout the preview view is added to.
+    QVBoxLayout* previewLayout = nullptr;
 
     void setupUi(QWidget* MergeCFAProcess)
     {
@@ -50,11 +61,16 @@ public:
 
         const auto& t = an::ui::tokens();
 
-        auto* rootLayout = new QVBoxLayout(MergeCFAProcess);
+        horizontalLayoutMain = new QHBoxLayout(MergeCFAProcess);
+        horizontalLayoutMain->setObjectName("horizontalLayoutMain");
+        horizontalLayoutMain->setSpacing(t.spacing.md);
+        horizontalLayoutMain->setSizeConstraint(QLayout::SetMinimumSize);
+        horizontalLayoutMain->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);
+
+        auto* rootLayout = new QVBoxLayout();
         rootLayout->setObjectName("rootLayout");
-        rootLayout->setContentsMargins(t.spacing.md, 0, t.spacing.md, t.spacing.md);
+        rootLayout->setContentsMargins(0, 0, 0, 0);
         rootLayout->setSpacing(t.spacing.md);
-        rootLayout->setSizeConstraint(QLayout::SetFixedSize);
 
         horizontalLayout = new QHBoxLayout();
         horizontalLayout->setObjectName("horizontalLayout");
@@ -90,7 +106,6 @@ public:
         cfa0Selector = new QComboBox(MergeCFAProcess);
         cfa0Selector->setObjectName("cfa0Selector");
         cfa0Selector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        cfa0Selector->setMinimumWidth(300);
         gridLayout->addWidget(cfa0Selector, 0, 1, 1, 1);
 
         channel0Label = new QLabel(MergeCFAProcess);
@@ -129,16 +144,28 @@ public:
         rootLayout->addLayout(gridLayout);
         rootLayout->addStretch(1);
 
+        preview = new QCheckBox(MergeCFAProcess);
+        preview->setObjectName("preview");
+        preview->setChecked(true);
+        rootLayout->addWidget(preview);
+
         buttonBox = new QDialogButtonBox(MergeCFAProcess);
         buttonBox->setObjectName("buttonBox");
         buttonBox->setStandardButtons(QDialogButtonBox::Close | QDialogButtonBox::Ok);
         rootLayout->addWidget(buttonBox);
 
+        const auto split = rt_preview_ui::buildMainProcessSplitter(horizontalLayoutMain, MergeCFAProcess);
+        split.controlsLayout->addLayout(rootLayout);
+        previewLayout = new QVBoxLayout();
+        previewLayout->setObjectName("previewLayout");
+        auto* previewHolder = new QWidget(split.previewPanel);
+        previewHolder->setObjectName("widget");
+        previewLayout->addWidget(previewHolder);
+        split.previewLayout->addLayout(previewLayout);
+
         fixed_dialog_ui::applyStandardControlHeights(MergeCFAProcess);
 
         retranslateUi(MergeCFAProcess);
-
-        MergeCFAProcess->adjustSize();
     } // setupUi
 
     void retranslateUi(QWidget* MergeCFAProcess)
@@ -149,6 +176,9 @@ public:
         label->setText(QCoreApplication::translate("MergeCFAProcess", "CFA0", nullptr));
         channel2Label->setText(QCoreApplication::translate("MergeCFAProcess", "CFA3", nullptr));
         label_5->setText(QCoreApplication::translate("MergeCFAProcess", "CFA Pattern", nullptr));
+        preview->setText(QCoreApplication::translate("MergeCFAProcess", "Preview", nullptr));
+        preview->setToolTip(QCoreApplication::translate(
+            "MergeCFAProcess", "Show the merged mosaic in the preview, as Ok will make it.", nullptr));
 
         cfa0Selector->setToolTip(
             QCoreApplication::translate("MergeCFAProcess", "Select the source image for CFA0.", nullptr));

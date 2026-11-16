@@ -1454,7 +1454,7 @@ const an::ui::ProcessStandardParts& ImageRTPreviewControl::standardParts() const
 std::unique_ptr<an::ui::ProcessPageLayout> ImageRTPreviewControl::makePageLayout()
 {
     const an::ui::ProcessStandardParts& parts = m_impl->m_StandardParts;
-    if (parts.previewLayout == nullptr)
+    if (parts.previewLayout == nullptr || processSurface() == an::ui::ProcessSurface::FullPage)
     {
         // A process of the framework with no preview is arranged as one of no preview is: a mirror page, when its
         // descriptor states one.

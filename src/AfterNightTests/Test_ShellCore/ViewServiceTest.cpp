@@ -307,4 +307,30 @@ TEST_F(ViewServiceTest, TheSubjectAndTheLookingViewAreTheActiveViewUnlessATaskSe
     EXPECT_EQ(views.subjectView(), views.getActiveImageViewControl());
 }
 
+// A task with no single target - a process launched on no image, which chooses every image it reads - leaves the image
+// actions nothing to act on while it is shown, and its canvas is what the looking actions act on.
+TEST_F(ViewServiceTest, ATaskWithNoTargetLeavesTheImageActionsNoSubject)
+{
+    ImageViewControl* active = processView(QStringLiteral("active"));
+    ImageViewControl* canvas = processView(QStringLiteral("canvas"));
+    ASSERT_NE(active, nullptr);
+    ASSERT_NE(canvas, nullptr);
+    ViewService& views = m_core.viewService();
+    views.setActiveImageViewControl(active);
+
+    views.setTaskSubject(nullptr, canvas);
+    EXPECT_TRUE(views.hasTaskSubject());
+    EXPECT_EQ(views.subjectView(), nullptr) << "the active view is not the task's";
+    EXPECT_EQ(views.lookingView(), canvas);
+
+    // Until its inputs are chosen the page shows no canvas either: nothing to look at.
+    views.setTaskSubject(nullptr, nullptr);
+    EXPECT_EQ(views.subjectView(), nullptr);
+    EXPECT_EQ(views.lookingView(), nullptr);
+
+    views.clearTaskSubject();
+    EXPECT_EQ(views.subjectView(), active);
+    EXPECT_EQ(views.lookingView(), active);
+}
+
 } // namespace

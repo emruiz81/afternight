@@ -195,6 +195,13 @@ struct ImageProcessControl::Impl
     /// A mirror page's view of the target, and what keeps it fitted; null while the process is a window.
     QPointer<ImageViewControl> m_Mirror;
     MirrorFit* m_MirrorFit = nullptr;
+
+    /// The stop of the run that took one last (`beginRunStop`), and whether one did.
+    std::stop_source m_RunStop;
+    bool m_RunStopTaken = false;
+
+    /// The images the process still needs, by their names in its controls.
+    QStringList m_MissingInputs;
 };
 
 ImageProcessControl::ImageProcessControl(ImageViewControl* control, const std::string& name)
@@ -233,6 +240,10 @@ ImageViewControl* ImageProcessControl::interactionView() const
 
 std::unique_ptr<an::ui::ProcessPageLayout> ImageProcessControl::makePageLayout()
 {
+    if (processSurface() == an::ui::ProcessSurface::FullPage)
+    {
+        return TopLevelProcessBaseControl::makePageLayout();
+    }
     return makeMirrorPageLayout(false);
 }
 
@@ -258,9 +269,47 @@ std::unique_ptr<an::ui::ProcessPageLayout> ImageProcessControl::makeMirrorPageLa
     return std::make_unique<an::ui::ProcessPageLayout>(*this, parts, std::move(description));
 }
 
+std::stop_token ImageProcessControl::beginRunStop()
+{
+    m_impl->m_RunStop = std::stop_source();
+    m_impl->m_RunStopTaken = true;
+    return m_impl->m_RunStop.get_token();
+}
+
+bool ImageProcessControl::cancelRun()
+{
+    if (!runState().running() || !m_impl->m_RunStopTaken)
+    {
+        return false;
+    }
+    return m_impl->m_RunStop.request_stop();
+}
+
+const QStringList& ImageProcessControl::missingInputs() const
+{
+    return m_impl->m_MissingInputs;
+}
+
+void ImageProcessControl::setMissingInputs(QStringList inputs)
+{
+    if (inputs == m_impl->m_MissingInputs)
+    {
+        return;
+    }
+    m_impl->m_MissingInputs = std::move(inputs);
+    if (an::ui::ProcessPageLayout* const page = pageLayout())
+    {
+        page->setMissingInputs(m_impl->m_MissingInputs);
+    }
+}
+
 void ImageProcessControl::pageLayoutMade()
 {
     an::ui::ProcessPageLayout* const page = pageLayout();
+    if (page != nullptr)
+    {
+        page->setMissingInputs(m_impl->m_MissingInputs);
+    }
     if (page == nullptr || processSurface() != an::ui::ProcessSurface::MirrorPage || m_impl->m_Mirror)
     {
         return;

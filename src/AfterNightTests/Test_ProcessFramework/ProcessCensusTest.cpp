@@ -49,6 +49,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QScrollBar>
+#include <QSet>
 #include <QShortcut>
 #include <QSplitter>
 #include <QString>
@@ -57,10 +58,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -888,5 +891,114 @@ TEST(ProcessSurfaces, EveryPreviewProcessWithATargetIsAPage)
     }
     EXPECT_GT(previews, 0);
     EXPECT_TRUE(windows.isEmpty()) << "preview processes launched on an image that are not pages: "
+                                   << windows.join(QStringLiteral(", ")).toStdString();
+}
+
+namespace
+{
+
+/// The record of the surfaces, from the repository's root.
+constexpr const char* kProcessSurfacesPath = "src/AfterNightTests/Test_ProcessFramework/data/ProcessSurfaces.txt";
+
+/// The record's one section.
+constexpr const char* kSurfacesSection = "surfaces";
+
+/// The processes of the integration workflow: whole windows of their own, each with its own way through its frames,
+/// which are not yet arranged as full pages.
+constexpr std::array<std::string_view, 6> kIntegrationWorkflowWindows = {
+    "sensor_calibration.actionImage_Calibration",    "multi_image_stacking.actionImage_Stacking",
+    "multi_image_stacking.actionImage_Registration", "multi_image_stacking.actionImage_List_Analyzer",
+    "multi_image_stacking.actionImage_Integration",  "multi_image_stacking.actionImage_Integration_Lite",
+};
+
+/// The comment the record of the surfaces opens with.
+[[nodiscard]] QStringList processSurfacesPreamble()
+{
+    return {
+        QStringLiteral("Where every registered process is shown when a shell's presenter takes it, and the width of"),
+        QStringLiteral("its page's column, in the registry's order, extensions left out:"),
+        QStringLiteral("  id | surface | column"),
+        QString(),
+        QStringLiteral("surface   `preview page`, `mirror page`, `full page` or `window`."),
+        QStringLiteral("column    `standard` or `wide` for a page with a column; `-` for a full page and a window."),
+        QString(),
+        QStringLiteral("A descriptor the record of the shapes shows opening no process window says so, whatever its"),
+        QStringLiteral("descriptor states."),
+        QString(),
+        QStringLiteral("ProcessSurfaces.MatchTheRecord in Test_ProcessFramework compares every descriptor with this"),
+        QStringLiteral("record, and holds every process that opens a window to a page but the integration workflow's."),
+        QStringLiteral(
+            "An entry is edited by the change that means to move it; the record is not written again whole."),
+    };
+}
+
+/// A surface as the record names it.
+[[nodiscard]] QString surfaceName(const an::ui::ProcessSurface surface)
+{
+    switch (surface)
+    {
+    case an::ui::ProcessSurface::PreviewPage:
+        return QStringLiteral("preview page");
+    case an::ui::ProcessSurface::MirrorPage:
+        return QStringLiteral("mirror page");
+    case an::ui::ProcessSurface::FullPage:
+        return QStringLiteral("full page");
+    case an::ui::ProcessSurface::Window:
+        break;
+    }
+    return QStringLiteral("window");
+}
+
+} // namespace
+
+// Every descriptor states the surface and the column the record holds for it, and every process that opens a window of
+// its own is a page - a preview page, a mirror page or a full page - but the integration workflow's: none is a window.
+TEST(ProcessSurfaces, MatchTheRecord)
+{
+    // Which descriptors open a process window, as the record of the shapes says.
+    const an::tests::fixtures::BaselineRecord shapes(QString::fromLatin1(kProcessShapesPath), processShapesPreamble());
+    QSet<QString> opensNoWindow;
+    for (const QString& entry : shapes.entries(QString::fromLatin1(kShapesSection)))
+    {
+        const QStringList fields = an::tests::fixtures::baselineFields(entry);
+        if (fields.size() == 2)
+        {
+            opensNoWindow.insert(fields[0]);
+        }
+    }
+    ASSERT_FALSE(opensNoWindow.isEmpty()) << "the record of the shapes is read";
+
+    QStringList entries;
+    QStringList windows;
+    for (const ProcessDescriptor& descriptor : an::ui::process_registry::ProcessRegistry::instance().all())
+    {
+        if (descriptor.is_extension_process)
+        {
+            continue;
+        }
+        const QString id = QString::fromStdString(descriptor.id);
+        if (opensNoWindow.contains(id))
+        {
+            entries.append(an::tests::fixtures::baselineEntry({id, QStringLiteral("opens no process window")}));
+            continue;
+        }
+        const bool column = descriptor.surface == an::ui::ProcessSurface::PreviewPage ||
+                            descriptor.surface == an::ui::ProcessSurface::MirrorPage;
+        const QString width = !column                                                      ? QString()
+                              : descriptor.columnWidth == an::ui::ProcessColumnWidth::Wide ? QStringLiteral("wide")
+                                                                                           : QStringLiteral("standard");
+        entries.append(an::tests::fixtures::baselineEntry({id, surfaceName(descriptor.surface), width}));
+        const bool integrationWorkflow =
+            std::find(kIntegrationWorkflowWindows.begin(), kIntegrationWorkflowWindows.end(), descriptor.id) !=
+            kIntegrationWorkflowWindows.end();
+        if (descriptor.surface == an::ui::ProcessSurface::Window && !integrationWorkflow)
+        {
+            windows.append(id);
+        }
+    }
+
+    an::tests::fixtures::BaselineRecord record(QString::fromLatin1(kProcessSurfacesPath), processSurfacesPreamble());
+    EXPECT_TRUE(record.matches(QString::fromLatin1(kSurfacesSection), entries));
+    EXPECT_TRUE(windows.isEmpty()) << "processes that open a window of their own: "
                                    << windows.join(QStringLiteral(", ")).toStdString();
 }

@@ -95,7 +95,8 @@ public:
     [[nodiscard]] ImageViewControl* lookingView();
 
     /// Names the target and the canvas of the task a shell shows; both stay the subject and the looking view until the
-    /// shell clears them, or one of them goes.
+    /// shell clears them, or one of them goes. A task with no single target names none: the image actions act on no
+    /// view while it is shown, and the looking actions on its canvas alone.
     void setTaskSubject(ImageViewControl* target, ImageViewControl* canvas);
 
     /// The subject and the looking view are the active view again.

@@ -386,6 +386,42 @@ TEST_F(TaskModel, ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget)
     EXPECT_EQ(later.taskFor(unlaunched)->target.data(), view);
 }
 
+// A process launched on no image chooses every image it reads: its task has no single target, whatever image the
+// process tells it works on, so it is named by its process alone and shows no image's thumbnail.
+TEST_F(TaskModel, AProcessLaunchedOnNoImageHasNoTarget)
+{
+    const RegistryKept kept;
+    ProcessDescriptor composition =
+        descriptorOf("tests.composition", "Channel Composition", "color", "actionChannelComposition");
+    composition.launch_mode = an::ui::process_registry::ProcessLaunchMode::TopLevel;
+    composition.launch_single_image = nullptr;
+    composition.launch_top_level = []() {};
+    ASSERT_TRUE(ProcessRegistry::instance().registerProcess(composition));
+    ImageViewControl* view = viewOf(QStringLiteral("red"));
+    ASSERT_NE(view, nullptr);
+
+    Model& tasks = model();
+    ImageProcessControl* process = processOn(view, "Channel Composition", &composition);
+    ASSERT_EQ(tasks.tasks().size(), 1u);
+    const Task& task = tasks.tasks().front();
+    EXPECT_FALSE(task.singleTarget);
+    EXPECT_TRUE(task.target.isNull()) << "the image its first input is read from is not its target";
+    EXPECT_TRUE(task.targetName.isEmpty());
+    tasks.setTarget(*process, view);
+    EXPECT_TRUE(tasks.tasks().front().target.isNull());
+    EXPECT_TRUE(tasks.tasksOn(view).empty());
+
+    // A process launched on an image keeps its target.
+    const ProcessDescriptor curves =
+        descriptorOf("tests.curves", "Curves Transformation", "transforms", "actionCurves_Transformation");
+    ASSERT_TRUE(ProcessRegistry::instance().registerProcess(curves));
+    ImageProcessControl* const second = processOn(view, "Curves", &curves);
+    tasks.setTarget(*second, view);
+    ASSERT_EQ(tasks.tasks().size(), 2u);
+    EXPECT_TRUE(tasks.tasks()[1].singleTarget);
+    EXPECT_EQ(tasks.tasks()[1].target.data(), view);
+}
+
 // The same process opened over two images is two tasks, each on its own view.
 TEST_F(TaskModel, TheSameProcessOnTwoImagesIsTwoTasks)
 {

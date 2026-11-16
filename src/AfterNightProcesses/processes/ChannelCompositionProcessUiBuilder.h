@@ -18,6 +18,7 @@
 #include <QWidget>
 
 #include "processes/FixedDialogUiSizing.h"
+#include "processes/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 
 namespace an::ui::processes
@@ -27,6 +28,10 @@ struct ChannelCompositionProcessUiElements
 {
     static constexpr int kLabelColumnWidth = 130;
 
+    /// The window's row: the controls beside the preview, in the splitter between them.
+    QHBoxLayout* horizontalLayoutMain = nullptr;
+
+    /// The controls.
     QVBoxLayout* verticalLayout = nullptr;
     QComboBox* colorSpace = nullptr;
     QLabel* channel0Label = nullptr;
@@ -36,7 +41,13 @@ struct ChannelCompositionProcessUiElements
     QComboBox* greenChannel = nullptr;
     QComboBox* blueChannel = nullptr;
     QCheckBox* linearMatchCheckBox = nullptr;
+
+    /// Shows the composed image in the preview's pane, once the first component is chosen.
+    QCheckBox* preview = nullptr;
     QDialogButtonBox* buttonBox = nullptr;
+
+    /// The layout the preview view is added to.
+    QVBoxLayout* previewLayout = nullptr;
 };
 
 inline ChannelCompositionProcessUiElements buildChannelCompositionProcessUi(QWidget* parent)
@@ -54,11 +65,16 @@ inline ChannelCompositionProcessUiElements buildChannelCompositionProcessUi(QWid
     parent->resize(470, 250);
     parent->setMinimumSize(QSize(420, 240));
 
-    ui.verticalLayout = new QVBoxLayout(parent);
+    ui.horizontalLayoutMain = new QHBoxLayout(parent);
+    ui.horizontalLayoutMain->setObjectName(QStringLiteral("horizontalLayoutMain"));
+    ui.horizontalLayoutMain->setSpacing(t.spacing.md);
+    ui.horizontalLayoutMain->setSizeConstraint(QLayout::SetMinimumSize);
+    ui.horizontalLayoutMain->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);
+
+    ui.verticalLayout = new QVBoxLayout();
     ui.verticalLayout->setObjectName(QStringLiteral("verticalLayout"));
-    ui.verticalLayout->setContentsMargins(t.spacing.md, 0, t.spacing.md, t.spacing.md);
+    ui.verticalLayout->setContentsMargins(0, 0, 0, 0);
     ui.verticalLayout->setSpacing(t.spacing.md);
-    ui.verticalLayout->setSizeConstraint(QLayout::SetFixedSize);
 
     auto* colorSpaceLayout = new QHBoxLayout();
     colorSpaceLayout->setObjectName(QStringLiteral("colorSpaceLayout"));
@@ -97,7 +113,6 @@ inline ChannelCompositionProcessUiElements buildChannelCompositionProcessUi(QWid
     ui.redChannel = new QComboBox(parent);
     ui.redChannel->setObjectName(QStringLiteral("redChannel"));
     ui.redChannel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    ui.redChannel->setMinimumWidth(300);
     channelsGrid->addWidget(ui.redChannel, 0, 1, 1, 1);
 
     ui.channel1Label = new QLabel(parent);
@@ -143,15 +158,27 @@ inline ChannelCompositionProcessUiElements buildChannelCompositionProcessUi(QWid
     ui.verticalLayout->addLayout(linearMatchRow);
     ui.verticalLayout->addStretch(1);
 
+    ui.preview = new QCheckBox(QStringLiteral("Preview"), parent);
+    ui.preview->setObjectName(QStringLiteral("preview"));
+    ui.preview->setChecked(true);
+    ui.verticalLayout->addWidget(ui.preview);
+
     ui.buttonBox = new QDialogButtonBox(QDialogButtonBox::Close | QDialogButtonBox::Ok, parent);
     ui.buttonBox->setObjectName(QStringLiteral("buttonBox"));
     ui.verticalLayout->addWidget(ui.buttonBox);
 
+    const auto split = rt_preview_ui::buildMainProcessSplitter(ui.horizontalLayoutMain, parent);
+    split.controlsLayout->addLayout(ui.verticalLayout);
+    ui.previewLayout = new QVBoxLayout();
+    ui.previewLayout->setObjectName(QStringLiteral("previewLayout"));
+    auto* previewHolder = new QWidget(split.previewPanel);
+    previewHolder->setObjectName(QStringLiteral("widget"));
+    ui.previewLayout->addWidget(previewHolder);
+    split.previewLayout->addLayout(ui.previewLayout);
+
     fixed_dialog_ui::applyStandardControlHeights(parent);
 
     parent->setWindowTitle(QCoreApplication::translate("ChannelCompositionProcess", "Channel Composition", nullptr));
-
-    parent->adjustSize();
 
     ui.colorSpace->setToolTip(QCoreApplication::translate(
         "ChannelCompositionProcess", "Select the color space used for channel composition.", nullptr));
@@ -163,6 +190,8 @@ inline ChannelCompositionProcessUiElements buildChannelCompositionProcessUi(QWid
         "ChannelCompositionProcess", "Select source image for channel 3 in the selected color space.", nullptr));
     ui.linearMatchCheckBox->setToolTip(QCoreApplication::translate(
         "ChannelCompositionProcess", "Apply linear matching between channels before composition.", nullptr));
+    ui.preview->setToolTip(QCoreApplication::translate(
+        "ChannelCompositionProcess", "Show the composed image in the preview, as Ok will make it.", nullptr));
 
     if (auto* btn = ui.buttonBox->button(QDialogButtonBox::Close))
         btn->setToolTip(QCoreApplication::translate("ChannelCompositionProcess",

@@ -129,6 +129,8 @@ struct ViewService::Impl
 
     /// The task's target and canvas a shell named, while it shows the task.
     bool taskSubjectSet = false;
+    /// Whether the task names a target: a task with no single target leaves the image actions none.
+    bool taskNamesTarget = false;
     QPointer<ImageViewControl> taskTarget;
     QPointer<ImageViewControl> taskCanvas;
 };
@@ -217,6 +219,10 @@ ImageViewControl* ViewService::subjectView()
     {
         return m_impl->taskTarget.data();
     }
+    if (m_impl->taskSubjectSet && !m_impl->taskNamesTarget)
+    {
+        return nullptr;
+    }
     return m_impl->manager.getActiveImageViewControl();
 }
 
@@ -226,12 +232,17 @@ ImageViewControl* ViewService::lookingView()
     {
         return m_impl->taskCanvas.data();
     }
+    if (m_impl->taskSubjectSet && !m_impl->taskNamesTarget)
+    {
+        return nullptr;
+    }
     return m_impl->manager.getActiveImageViewControl();
 }
 
 void ViewService::setTaskSubject(ImageViewControl* target, ImageViewControl* canvas)
 {
     m_impl->taskSubjectSet = true;
+    m_impl->taskNamesTarget = target != nullptr;
     m_impl->taskTarget = target;
     m_impl->taskCanvas = canvas;
 }
@@ -244,6 +255,7 @@ bool ViewService::hasTaskSubject() const
 void ViewService::clearTaskSubject()
 {
     m_impl->taskSubjectSet = false;
+    m_impl->taskNamesTarget = false;
     m_impl->taskTarget = nullptr;
     m_impl->taskCanvas = nullptr;
 }

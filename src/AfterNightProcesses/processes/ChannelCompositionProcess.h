@@ -10,9 +10,8 @@
 
 #include "AfterNightProcessesExport.h"
 
-#include "app/AfterNightAppListener.h"
 #include "controls/ProcessExecution.h"
-#include "controls/TopLevelProcessBaseControl.h"
+#include "controls/TypedProcessControl.h"
 #include "processes/ChannelCompositionProcessUiBuilder.h"
 #include "session/ExecutionScope.h"
 #include "session/ImageDocument.h"
@@ -21,6 +20,7 @@
 
 #include <AfterNightEngine/Core/Result.h>
 
+#include <QRect>
 #include <QString>
 
 #include <array>
@@ -29,6 +29,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 class ImageViewControl;
 class QAbstractButton;
@@ -95,11 +96,35 @@ composeChannelImages(const an::ui::ExecutionScope& scope, const CompositionReque
 
 } // namespace an::ui::processes::channel_composition_detail
 
-/// Channel Composition: a top-level window naming three grey views and a colour space; Ok composes them on the thread
-/// pool under one admitted operation - a still image into a new view beside the first component, three sequences
-/// frame by frame into a new sequence - and the window closes when the result is shown.
-class AFTERNIGHTPROCESSES_API ChannelCompositionProcess : public TopLevelProcessBaseControl,
-                                                          public AfterNightAppListener
+/// What one composition reads, snapshotted on the GUI thread when it is asked for: the first component is the run's
+/// target, the second and third are read beside it.
+struct ChannelCompositionParams
+{
+    /// The second and third components' images; null for a zero plane.
+    std::array<std::shared_ptr<const an::consumer::ImageAsset>, 2u> others;
+
+    /// The names of the three components' views, for the record; `-` for none.
+    std::array<std::string, 3u> names{"-", "-", "-"};
+
+    an::ui::processes::channel_composition_detail::ColourSpace space =
+        an::ui::processes::channel_composition_detail::ColourSpace::Rgb;
+
+    /// Whether the second and third components are matched to the first.
+    bool linearMatch = false;
+
+    /// The preview's area in the first component's pixels, which the others are cut to as the framework cuts the
+    /// target; empty for the whole image.
+    QRect previewArea;
+
+    /// What an Apply does once its operation is admitted and before it reads anything; empty in the product.
+    std::function<void(an::ui::ExecutionScope&)> admitted;
+};
+
+/// Channel Composition: a window naming three grey views and a colour space, launched on no image. The first component
+/// is its target: the preview shows the composed image, and Ok composes the three on the thread pool under one admitted
+/// operation into a new view beside the first - the preview framework's run - after which the window closes. Three
+/// sequences are composed frame by frame into a new sequence by a run of the window's own.
+class AFTERNIGHTPROCESSES_API ChannelCompositionProcess : public an::ui::TypedProcessControl<ChannelCompositionParams>
 {
 public:
     explicit ChannelCompositionProcess(QWidget* parent = nullptr);
@@ -112,10 +137,10 @@ public:
                               const ImageViewControl* ctrl) override;
     void onViewControlUpdated(const ImageViewControl* ctrl) override;
 
-    void refreshTheme() override;
+    void onApplicationClose() override;
 
     /// Whether a composition is on its way.
-    [[nodiscard]] bool isRunning() const noexcept;
+    [[nodiscard]] bool isRunning() const;
 
     /// How many compositions published a view since the window opened.
     [[nodiscard]] std::uint64_t runsPublished() const noexcept;
@@ -139,7 +164,25 @@ protected:
         return {};
     }
 
+    an::Status executeTypedProcessImpl(const an::ui::ProcessSource& source, an::ui::ProcessDestination& destination,
+                                       const an::ui::ProcessRun& run, const ChannelCompositionParams& params,
+                                       an::ui::ExecutionScope& scope) override;
+    [[nodiscard]] an::ui::ProcessStep describeTypedProcessStep(const ChannelCompositionParams& params) const override;
+    [[nodiscard]] an::ui::PreviewScaling previewScaling() const override;
+    [[nodiscard]] std::vector<std::shared_ptr<const an::consumer::ImageAsset>>
+    typedImagesRead(const ChannelCompositionParams& params) const override;
+    void executeProcessCompletedImpl(RTPreviewMode previewMode, bool sequenceMode) override;
+    void executeProcessEndedImpl(RTPreviewMode previewMode, bool sequenceMode) override;
+
 private:
+    void refreshTheme() override;
+    [[nodiscard]] bool isPreviewEnabled() const override;
+    void enablePreview(bool enabled) override;
+    void settingsUpdatedImpl() override;
+    void getBatchExecutionParameters(bool& createNewImage, bool& closeAtEnd, bool& executeInBackground,
+                                     std::string& newImageName) override;
+    [[nodiscard]] ChannelCompositionParams getParams() const override;
+
     void on_dialog_box_button_clicked(QAbstractButton* button);
     void on_colorSpace_currentTextChanged(const QString& text);
 
@@ -148,7 +191,9 @@ private:
     void addViewToSelectors(const ImageViewControl* ctrl);
     void removeViewFromSelectors(const QString& name);
     [[nodiscard]] bool isComponentViewSupported(const ImageViewControl* ctrl) const;
-    void finishRun(an::Status outcome, bool published);
+    [[nodiscard]] std::optional<an::ui::processes::channel_composition_detail::ColourSpace> chosenSpace() const;
+    void composeSequences();
+    void finishSequences(an::Status outcome, bool published);
 
     an::ui::processes::ChannelCompositionProcessUiElements m_ui;
 

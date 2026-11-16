@@ -40,6 +40,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -229,6 +230,10 @@ struct GeometryRunWords
 
     /// The sentence that leads a failure's text: "An error occurred when executing the crop process".
     std::string errorLead;
+
+    /// The process window whose page says a failure in its banner, opening no dialog, while it is arranged as a page;
+    /// a run of a window, or of none, says it in a message box. A run fills it from its request's process.
+    QPointer<TopLevelProcessBaseControl> page;
 };
 
 /// An image made of one image.
@@ -256,6 +261,9 @@ struct InPlaceRunRequest
     /// Cancel stops the run, and the operation's own progress reports move it. A run that may take long - one that
     /// waits on another program - asks for it; a geometry step does not.
     bool progressWindow = false;
+
+    /// The run's own stop, for a run over a still image that shows no progress window: a page's Cancel requests it.
+    std::stop_token stop;
 
     /// The window's count of runs in flight, held until the run has landed.
     std::shared_ptr<void> inFlight;
@@ -324,6 +332,9 @@ struct NewViewsRunRequest
     /// Cancel stops the run, and the operation's own progress reports move it.
     bool progressWindow = false;
 
+    /// The run's own stop, for a run over a still image that shows no progress window: a page's Cancel requests it.
+    std::stop_token stop;
+
     /// The window's count of runs in flight, held until the run has landed.
     std::shared_ptr<void> inFlight;
 
@@ -354,7 +365,8 @@ struct NewViewsRunRequest
 /// @param done told what the run came to; may be empty.
 AFTERNIGHTPROCESSES_API void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryRunDone done);
 
-/// Reports a run's failure under its words and in the log; a stop the user asked for and a busy view say nothing.
+/// Reports a run's failure under its words and in the log; a stop the user asked for and a busy view say nothing. A
+/// run whose words name a process arranged as a page says it in the page's banner and opens no dialog.
 ///
 /// @param parent the window the message belongs to, or null.
 /// @param words the run's words.

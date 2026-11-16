@@ -65,6 +65,10 @@ struct Task
     /// The process window; null for an External task.
     QPointer<TopLevelProcessBaseControl> process;
 
+    /// Whether the process works on one image, the one it was launched on: false for a process launched on no image,
+    /// which chooses every image it reads in its controls and has no target, whatever image it reads.
+    bool singleTarget = true;
+
     /// The image the process runs on; null for a process with no single target.
     QPointer<ImageViewControl> target;
 

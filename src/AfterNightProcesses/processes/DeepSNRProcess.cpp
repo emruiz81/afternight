@@ -157,7 +157,10 @@ void DeepSNRProcess::startExecution()
         }
         return std::move(*answers->image);
     };
-    request.progressWindow = true;
+    // A window shows the run in a progress window of its own, whose Cancel stops the program; a page shows it in
+    // the page, whose Cancel stops it through the run's own stop.
+    request.progressWindow = !hasPageLayout();
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

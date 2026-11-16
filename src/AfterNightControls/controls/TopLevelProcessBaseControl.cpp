@@ -1364,7 +1364,17 @@ an::ui::ProcessPageLayout* TopLevelProcessBaseControl::pageLayout() const noexce
 
 std::unique_ptr<an::ui::ProcessPageLayout> TopLevelProcessBaseControl::makePageLayout()
 {
-    return nullptr;
+    if (m_Surface != an::ui::ProcessSurface::FullPage || layout() == nullptr)
+    {
+        return nullptr;
+    }
+    an::ui::ProcessPageLayout::Description description;
+    description.title = QString::fromStdString(m_tl_process_name);
+    description.description = property(PROCESS_DESCRIPTION_PROPERTY).toString();
+    description.hasPreview = false;
+    description.fullPage = true;
+    return std::make_unique<an::ui::ProcessPageLayout>(*this, an::ui::ProcessStandardParts{.mainLayout = layout()},
+                                                       std::move(description));
 }
 
 bool TopLevelProcessBaseControl::attachToPage(QWidget& host)

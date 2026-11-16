@@ -17,6 +17,7 @@
 
 #include <QEvent>
 #include <QLayout>
+#include <QMenu>
 #include <QResizeEvent>
 #include <QVBoxLayout>
 
@@ -97,6 +98,14 @@ void TaskPage::dress(TopLevelProcessBaseControl& process, std::function<void(Ima
     {
         return;
     }
+    if (page->canvas() == nullptr)
+    {
+        // A full page: the process whole, its own menus under the header's button.
+        m_readout->hide();
+        m_strip->hide();
+        m_header->setMenuButtonVisible(!page->menus().isEmpty());
+        return;
+    }
     if (QLayout* const foot = page->canvasFoot()->layout())
     {
         foot->addWidget(m_strip);
@@ -126,6 +135,23 @@ void TaskPage::bindViews(ImageViewControl* canvas, ImageViewControl* target)
     m_binder->bindToolbar(canvas);
     m_binder->bindHistory(target);
     placeToolbar();
+}
+
+QMenu* TaskPage::makeProcessMenu(QWidget* parent) const
+{
+    auto* menu = new QMenu(parent);
+    menu->setObjectName(QStringLiteral("observatoryTaskProcessMenu"));
+    const an::ui::ProcessPageLayout* const page = m_process ? m_process->pageLayout() : nullptr;
+    if (page == nullptr)
+    {
+        return menu;
+    }
+    for (QMenu* const processMenu : page->menus())
+    {
+        // The process's own menu, so each entry is the process's action and acts as it does in its menu bar.
+        menu->addMenu(processMenu);
+    }
+    return menu;
 }
 
 QRect TaskPage::canvasArea() const

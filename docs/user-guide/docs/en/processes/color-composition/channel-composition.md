@@ -8,7 +8,7 @@ summary: >-
 data_in: either
 data_out: either
 destructive: false
-preview: none
+preview: real-time
 sequences: true
 masks: none
 external: none
@@ -90,8 +90,8 @@ pins:
 
 ## Controls
 
-The window has no preview, no histogram and no Channel box, and reads no
-[mask](../../reference/glossary.md#mask). Its controls are read when you press **OK**.
+The window has no histogram and no Channel box, and reads no [mask](../../reference/glossary.md#mask). Its preview
+shows the composed image once the first box names an image. Its controls are read when you press **OK**.
 
 ```controls
 window: Channel Composition
@@ -146,13 +146,21 @@ controls:
     scope: Working copies of the second and third components, for this run. The images in their views are not changed.
     persistence: Until the window closes. Each new window opens with it off.
     note: Its scale is always positive, so a component that runs against the first is scaled, never turned over. It costs a pass over each plane, the statistics of each pair and a copy of each matched component.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the composed image beside the controls, as **OK** makes it, once the first box names an image. A change of a box, of **Color Space** or of **Linear Match** shows it again.
+    enabled: Disabled until the first box names an image.
+    tradeoff: The preview composes the whole of the three images at each change, as **OK** does, and holds a color result as large as an image, three times a grayscale one.
+    scope: "The window only. **Preview area** shows what **OK** makes of that area of the three images. Three sequences show the composition of the frames their views show."
+    persistence: Until the window closes.
   - name: OK
     kind: button
     default: ""
     effect: Composes the three components as the window stands and opens the result beside the first component, as a new image or a new sequence of three channels, without alpha. The window then closes. A failure shows "Error running Channel Composition" with the reason, and the window stays open.
     enabled: While the first box names an image and no run works. During a run **OK** and **Close** are disabled and the other controls are not, and a change made then reaches the next run only.
     tradeoff: A full image of three channels in memory, a working copy of each component, and for sequences a second copy on disk. The work is spread over the processor's threads.
-    scope: The whole of each image. No preview, preview area or mask plays a part.
+    scope: The whole of each image, whatever the preview's area. No mask plays a part.
     persistence: "The new image is unsaved and named after the color space: `RGB`, `CIE XYZ`, `CIE L*a*b`, `CIE L*c*h`, `HSL`, `HSV`, `HSI` or `YCbCr`, with `_1`, `_2` and so on added when the name is taken. A new sequence is named after its temporary file. The history starts with a step that reads `ChannelComposition: created from image channels R:'<red>' G:'<green> B:'<blue>'`, with `-` for an empty box and the model's component names, such as L, a and b, in place of R, G and B. It does not say whether Linear Match was on, nor give its scale and offset."
     note: "The header is built from the components. The exposure is the light they hold together: the sum, over the distinct acquisitions, of each one's `TOTEXP`, else its `LIVETIME`, else its exposure times its `STACKCNT`, else `NCOMBINE`, else one. Components that state the same exposure start are one acquisition, such as an image, its starless image and a channel taken from it, and count once with the largest integration and frame count any of them states. A component that states no start counts on its own, so one view in two boxes counts once only when it states a start. One component keeps its own exposure. The components' `EXPOSURE` and `EXPTIME` cards are dropped, and the result states its own `EXPTIME` and `TOTEXP`, `LIVETIME` when a component states one, and `STACKCNT` and `NCOMBINE` summed the same way, each when a component states it. The observation start is the earliest, with its `DATE-OBS`, `DATE-LOC`, `MJD-OBS`, `DATE-BEG`, `MJD-BEG` and `TIME-OBS` together. The object, instrument, telescope, observer, filter, sensor temperature, gain and binning are kept when every component states the same, and so is every other card. The first component's pointing cards `RA`, `DEC`, `OBJCTRA`, `OBJCTDEC`, `OBJRA`, `OBJDEC`, `TELRA` and `TELDEC` are kept, and so are its WCS and SIP cards and its plate solution, without a check that the others share its grid. No processing-state or file identity card of a component is kept."
 ```

@@ -15,8 +15,10 @@
 #include "controls/ProcessPresentation.h"
 
 #include <QDialogButtonBox>
+#include <QList>
 #include <QPointer>
 #include <QString>
+#include <QStringList>
 
 #include <cstdint>
 #include <functional>
@@ -29,6 +31,7 @@ class QAbstractButton;
 class QCheckBox;
 class QComboBox;
 class QLayout;
+class QMenu;
 class QScrollArea;
 class QWidget;
 
@@ -90,6 +93,18 @@ enum class PageMessageTone : std::uint8_t
 /// moved whole into the body, in order, the window's margins its padding, and the canvas shows the view of the target
 /// its process lays there (`setCanvasView`). It has no toggles row.
 ///
+/// **The canvas with nothing to show** says why: the images the process still needs, by their names in its controls,
+/// while some are not chosen (`setMissingInputs`) - a process launched on no image chooses every image it reads; what
+/// the canvas holds is hidden meanwhile - and that the preview is off otherwise. A canvas shows something when it
+/// holds a view, or a widget of the process's own that marks itself as the canvas's content with the dynamic property
+/// `anCanvasContent` (a grid of previews).
+///
+/// **A full page** (`Description::fullPage`) is the process whole, with no canvas and no column: what its window laid
+/// out is moved, in order, into a scroll area that fills the page and scrolls only when the page is smaller than the
+/// process's least size. Its own menu bar is hidden there and its menus offered (`menus`) for a shell to put under a
+/// button. The parts of a column - the header, the body, the footer, the canvas - are null on a full page, and what
+/// would show in them is kept and shows nowhere.
+///
 /// **The body fits its column** by three means: it scrolls up and down, never sideways, the footer staying in view;
 /// the controls' top-level group boxes are sections that open and close, titled as the groups, in order - none when the
 /// controls have one group; and the controls' own side margins, which are the body's padding, give way when the
@@ -125,6 +140,9 @@ public:
         /// Whether the controls take every height the body leaves them, so a part of them that stretches - an editor -
         /// grows with the column; otherwise they keep their own height at the body's top.
         bool controlsFillTheBody = false;
+
+        /// Whether the page is the process whole, with no canvas and no column.
+        bool fullPage = false;
     };
 
     /// Arranges `process` - whose layout is the window's main layout or holds it - as a page.
@@ -171,6 +189,13 @@ public:
     /// The parts the page was arranged from.
     [[nodiscard]] const ProcessStandardParts& parts() const noexcept;
 
+    /// A full page's scroll area, which holds the process whole; null on a page with a column.
+    [[nodiscard]] QScrollArea* fullArea() const noexcept;
+
+    /// A full page's menus: the menus of the process's own menu bar, in its order, which the page hides; none for a
+    /// process with no menu bar and on a page with a column.
+    [[nodiscard]] QList<QMenu*> menus() const;
+
     /// The footer's button for a standard button of the box; null for one the box does not hold.
     [[nodiscard]] QAbstractButton* footerButton(QDialogButtonBox::StandardButton which) const;
 
@@ -211,6 +236,14 @@ public:
 
     /// Tells a listener, on the GUI thread, each time the view the canvas shows is made or goes: the view, or null.
     void setPreviewViewListener(std::function<void(ImageViewControl*)> listener);
+
+    /// The images the process still needs, by their names in its controls - "Star image" - which the canvas names while
+    /// it shows no view; none once every one is chosen.
+    void setMissingInputs(const QStringList& inputs);
+
+    /// What the canvas says while it shows no view - the images still to choose, or that the preview is off - its lines
+    /// joined by a line break; empty while it shows one, and on a full page.
+    [[nodiscard]] QString canvasMessage() const;
 
     /// The process's message, as `TopLevelProcessBaseControl::showProcessMessage` states it; empty hides the banner.
     void showMessage(const QString& text, PageMessageTone tone, std::optional<double> progressPercent);

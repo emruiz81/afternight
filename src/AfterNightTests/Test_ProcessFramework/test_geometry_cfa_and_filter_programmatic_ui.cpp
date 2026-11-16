@@ -190,6 +190,10 @@ TEST(MergeCFAProgrammaticUiTest, ConstructorDefaultsMatchContract)
     ASSERT_NE(ui.cfa1Selector, nullptr);
     ASSERT_NE(ui.cfa2Selector, nullptr);
     ASSERT_NE(ui.cfa3Selector, nullptr);
+    ASSERT_NE(ui.horizontalLayoutMain, nullptr);
+    ASSERT_NE(ui.previewLayout, nullptr);
+    ASSERT_NE(ui.preview, nullptr);
+    EXPECT_TRUE(ui.preview->isChecked()) << "the mosaic is previewed once every plane is chosen";
 
     EXPECT_GE(host.minimumSize().width(), 380);
     EXPECT_GE(host.minimumSize().height(), 220);

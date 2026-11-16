@@ -12,6 +12,7 @@
 #include "app/GaiaCatalogSettings.h"
 #include "app/ObservationEpochUtils.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/ImageViewFiles.h"
 #include "controls/ProcessButtonIcons.h"
 #include "controls/StarsFilterControlV2.h"
@@ -112,6 +113,11 @@ StarProfilerProcessV2::StarProfilerProcessV2(ImageViewControl* control)
 }
 
 StarProfilerProcessV2::~StarProfilerProcessV2() = default;
+
+std::unique_ptr<an::ui::ProcessPageLayout> StarProfilerProcessV2::makePageLayout()
+{
+    return wrappedPageLayout(*m_ui.detectedStarsVerticalLayout, *m_ui.horizontalLayout_7);
+}
 
 std::string StarProfilerProcessV2::getProcessNameStatic()
 {

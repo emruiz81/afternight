@@ -362,7 +362,13 @@ on an image is a page (`ProcessSurfaces.EveryPreviewProcessWithATargetIsAPage` r
 processes with no preview launched on an image are mirror pages (`ProcessSurface::MirrorPage`): the geometry and
 filter-array processes (Crop, Rotate, Resize, Integer Resample and CFA Integer Resample, Debayer, Split CFA, Extract
 Sequence), the colour tools (Color Calibration, Background Neutralization, Linear Match, SCNR), the photometric and
-spectrophotometric calibrations and Pixel Math. A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
+spectrophotometric calibrations, Pixel Math, the external tools (StarNet, its star mask, DeepSNR) and the two star
+profilers. The processes launched on no image, which choose every image they read in their controls, are preview pages
+with no single target: Channel Composition, Merge CFA, the two Starmask recombinations and the Narrowband Palette
+Composer. The integration workflow's windows (Image Integration and its Lite front end, Image Calibration, Image
+Registration, Image Stacking, Image List Analyzer) are the only processes that stay windows of their own; they become
+full pages (`ProcessSurface::FullPage`) when their pages are built. Every descriptor's surface and column is held to a
+record (`ProcessSurfaces.MatchTheRecord`, `Test_ProcessFramework/data/ProcessSurfaces.txt`). A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
 `attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
 process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
 process already is:
@@ -416,11 +422,39 @@ process already is:
   so a rectangle drawn on the page is the rectangle of the image a window would read. A closed task's view lets the
   image go. A process whose controls do not fit its column as the window lays them out arranges them before the page is
   made, on the page only: the resamplers put the downsample mode under the factor, the photometric calibration lays its
-  background check box across its form (`wrapRowUnder`, `spanFormRow` in `processes/ProcessCommonUtils.h`), and Pixel
-  Math arranges itself whole - its expression tabs take every height the body leaves
+  background check box across its form (`wrapRowUnder`, `spanFormRow` in `processes/ProcessCommonUtils.h`), the star
+  profilers put the last three of the six buttons under their table on a row of their own, Profiled Starmask
+  Recombination lays the two check boxes of its stars' filter under that row, and Pixel Math arranges itself whole - its expression tabs take every height the body leaves
   (`ProcessPageLayout::Description::controlsFillTheBody`) and keep at least a third of it, the first tab's function,
   operator and symbol tables become one group under the expressions, which the page makes a section and which serves
   the expression of whichever tab is shown, and the Settings group's row of sizes and formats wraps in two.
+- **An external tool runs in its page.** On a page StarNet, its star mask and DeepSNR show no progress window of their
+  own: the run's state carries the program's progress (the geometry support's run moves it with the operation's
+  reports), the page's run row and the task show it, and the page's Cancel stops the program through a stop of the
+  run's own (`ImageProcessControl::beginRunStop`, `cancelRun`; `InPlaceRunRequest::stop`, `NewViewsRunRequest::stop`).
+  A run of the geometry support that fails on a page - any of its mirror pages - is said in the page's banner and opens
+  no dialog (`GeometryRunWords::page`). The star profilers draw their stars on `interactionView()` and hear a click on a
+  star there, and centre a selected star there; the target's own view shows nothing of them.
+- **A page with no single target.** A process launched on no image chooses every image it reads: it has no target, so
+  its task has none (`Task::singleTarget`, from the descriptor's launch mode), its header names the process alone, its
+  rail item is its glyph on a tile, and while its page is shown the image actions act on no image
+  (`ViewService::setTaskSubject` with no target) and the looking actions on its canvas alone. The image a process reads
+  first is still its target inside the framework - its preview is made over it - but no task's. The canvas shows the
+  process's preview - the Palette Composer's grid of previews, which marks itself as the canvas's content with the
+  dynamic property `anCanvasContent` - or, while images are still to choose, names them
+  (`ImageProcessControl::setMissingInputs`, `ProcessPageLayout::setMissingInputs`), what it holds hidden meanwhile.
+  Channel Composition and Merge CFA show their result in a preview of their own: they are processes of the typed
+  framework whose target is their first input, the others read beside it as the Starmask recombinations read theirs, in
+  every frame over the whole of every input (`PreviewScaling::FullOnly`: Merge CFA's mosaic is twice a plane's size, so
+  it has no preview area; Channel Composition's match measures the whole of each component); their result opens beside
+  the first input. Three or four sequences are still composed frame by frame by a run of the window's own, which the
+  framework's Apply - one target frame at a time - cannot express. These processes hand their button box to the
+  framework so a page's footer shows it, and answer Ok themselves.
+- **A full page** (`ProcessPageLayout::Description::fullPage`, the default arrangement of a process whose descriptor
+  states one) is the process whole, with no canvas and no column: what its window laid out is moved into a scroll area
+  that fills the page and scrolls only when the page is smaller than the least the process takes. Its own menu bar is
+  hidden there and its menus offered (`ProcessPageLayout::menus`); the Observatory shell lists them under the task
+  header's menu button, each entry the process's own action.
 - **Compare names what it shows.** The toggles row's Compare shows the preview's alternate in place of what the canvas
   shows: "Processed" and "Original" for a process, whose alternate is the image before it. Image Compare's alternate is
   its second image, so it names the two "Image 1" and "Image 2" (`ProcessPageLayout::setCompareNames`); its one
@@ -1514,7 +1548,8 @@ the name it had), maximized and restored, and home once the last one goes - and 
 shell keeps its place on screen. The file workflows are handed `userViews()`, a factory whose views are the person's
 (`ViewOrigin::User`), and the shell is asked to show its views right after it hears of one. `subjectView()` is the
 view the image actions act on and `lookingView()` the one the looking actions act on: the active view, unless a shell
-showing a task names the task's target and canvas (`setTaskSubject`), until it clears them or one of them goes.
+showing a task names the task's target and canvas (`setTaskSubject`), until it clears them or one of them goes. A task
+with no single target names none: the image actions then act on no view and the looking ones on its canvas alone.
 `services/ProcessLaunchService.h` launches the registry's processes - one that acts on an image acts on the subject
 view - prepares an extension's environment before it launches the extension's process, and lists the extensions once
 each, by name (`extensionFamilies`). `services/ExtensionService.h` is the installed extensions: it registers the
@@ -1639,7 +1674,8 @@ of each window it holds and forgets, on the GUI thread and outside its lock, and
 order they were opened, the windows open when it is made among them - named by the descriptor the window states it was
 launched as (its name, its category, a glyph from the descriptor's icon, else its action's, else a generic one), and
 takes it away when the window goes. What a task's run is and which image it targets the shell's presenter tells it, as
-the window tells the presenter (`setRunState`, `setTarget`); `tasksOn` and `runningTaskOn` answer what a view shows of
+the window tells the presenter (`setRunState`, `setTarget`) - a task of a process launched on no image has no single
+target (`Task::singleTarget`), whatever image the process reads, and takes none; `tasksOn` and `runningTaskOn` answer what a view shows of
 them. The current task is the one the person looks at; a run that succeeded or failed while its task was not current
 leaves an unseen result, which making the task current clears, the ended run with it: so a shell can mark a result the
 person has not seen without the model knowing what showing is. The model is a shell's, made over the core's registry
@@ -1870,8 +1906,8 @@ open and close it; whether it is open, its height and whether it floats are kept
 back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
 
 Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes a process whose
-descriptor states a preview page or a mirror page into a page of the centre (below) and leaves every other the window it
-was, and it
+descriptor states a page - a preview, a mirror or a full page - into a page of the centre (below) and leaves a process
+whose descriptor states a window the window it was, and it
 keeps the shell core's `TaskModel`, fed by what the windows tell it, and a `ViewThumbnailService` that follows the
 tasks' targets. The rail lists the tasks under the places, in
 the order they were opened, under a hairline drawn only while there are any: each its target's thumbnail with the
@@ -1894,7 +1930,9 @@ task's header (`AnTaskHeader`: its image's thumbnail, the process and the image,
 process arranged as a page ("A process shown as a page", above), whose canvas carries the page's floating toolbar over
 the preview view and the target's history strip under it, and whose readout slot carries the compact readout. A mirror
 page's canvas is its view of the target, which the floating toolbar serves and the looking actions act on, and it
-carries no compact readout, having no preview to read. Showing
+carries no compact readout, having no preview to read. A page with no single target names its process alone in its
+header. A full page has no canvas and no column: the process lies whole under the header, whose menu button lists the
+process's own menus (`TaskPage::makeProcessMenu`). Showing
 a task's page makes its target the active view and names the target and the preview to the view service
 (`setTaskSubject`): the image actions act on the target and the looking ones - the zoom, the fit - on the canvas
 (`ImageOperationsCoordinator::Dependencies::lookingViewControl`); Close, Close All Others and Maximize View are

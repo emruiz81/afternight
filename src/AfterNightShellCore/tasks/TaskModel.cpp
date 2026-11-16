@@ -129,7 +129,10 @@ struct TaskModel::Impl
         task.iconKey = glyphOf(descriptor);
         task.surface = process->processSurface();
         task.run = process->runState();
-        if (ImageViewControl* target = process->processTarget())
+        // A process launched on no image chooses every image it reads: none is its target.
+        task.singleTarget =
+            descriptor == nullptr || descriptor->launch_mode == process_registry::ProcessLaunchMode::SingleImage;
+        if (ImageViewControl* target = task.singleTarget ? process->processTarget() : nullptr)
         {
             task.target = target;
             task.targetName = QString::fromStdString(target->getUniqueName());
@@ -285,7 +288,7 @@ void TaskModel::setRunState(const TopLevelProcessBaseControl& process, const Pro
 void TaskModel::setTarget(const TopLevelProcessBaseControl& process, ImageViewControl* target)
 {
     Task* task = m_impl->findFor(&process);
-    if (task == nullptr)
+    if (task == nullptr || !task->singleTarget)
     {
         return;
     }

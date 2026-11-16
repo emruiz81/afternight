@@ -3,9 +3,10 @@
 
 /// @file
 /// Tasks in the Observatory window, as a person meets them: every process opened is a task in the rail - its target's
-/// thumbnail, its process's glyph, a window of its own - which a target change, a run's progress and a result seen
-/// elsewhere move; its menu; the notice over an image a run writes and the Show it offers, while another view goes on
-/// as usual; the glyph on the tab of a task's image; and the pending step of the image's history.
+/// thumbnail, its process's glyph, a page of the centre or a window of its own - which a target change, a run's
+/// progress and a result seen elsewhere move; its menu; the notice over an image a run writes and the Show it offers,
+/// while another view goes on as usual; the glyph on the tab of a task's image; and the pending step of the image's
+/// history.
 
 #include "ObservatoryWindowCase.h"
 
@@ -55,8 +56,11 @@ using an::ui::shell::Task;
 using an::ui::shell::TaskId;
 using Phase = ProcessRunState::Phase;
 
-/// A process whose descriptor states no page: it opens as a window of its own.
-constexpr std::string_view kWindowProcess = "denoising.actionDeepSNR";
+/// A process launched on an image, a page over a view of it.
+constexpr std::string_view kTargetProcess = "denoising.actionDeepSNR";
+
+/// A process of the integration workflow, launched on no image: it opens as a window of its own.
+constexpr std::string_view kWindowProcess = "multi_image_stacking.actionImage_Stacking";
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
 
 /// Lets the window settle: posted work delivered, the deletions done, the layouts applied.
@@ -193,8 +197,9 @@ class HistoryStrip : public TaskCase
 
 } // namespace
 
-// A process opened is a task in the rail, in a window of its own, named by its process and its image, with its glyph
-// and its image's thumbnail; it goes with its window.
+// A process opened is a task in the rail: a page of the centre, named by its process and its image, with its glyph and
+// its image's thumbnail; a process of the integration workflow in a window of its own, floating, its glyph on a tile;
+// a process launched on no image named alone, its glyph on a tile. Each goes with its process.
 TEST_F(Tasks, TheRailGainsAndLosesItems)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-gain"));
@@ -202,19 +207,19 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     ASSERT_TRUE(taskItems(*window().rail()).empty());
     EXPECT_FALSE(window().rail()->hairlineRect().isValid()) << "no hairline without tasks";
 
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
-    EXPECT_TRUE(process->isWindow()) << "a process of no page is a window of its own";
+    EXPECT_TRUE(process->isPresentedAsPage()) << "a process of a page is a page of the centre";
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
-    EXPECT_EQ(task->descriptorId, kWindowProcess);
+    EXPECT_EQ(task->descriptorId, kTargetProcess);
     const std::vector<an::ui::RailItem> items = taskItems(*window().rail());
     ASSERT_EQ(items.size(), 1u);
     const an::ui::RailItem& item = items.front();
     EXPECT_EQ(item.id, Window::railTaskId(task->id));
     EXPECT_EQ(item.text, QStringLiteral("DeepSNR - tasks-gain"));
     EXPECT_EQ(item.glyphKey, task->iconKey);
-    EXPECT_TRUE(item.floating) << "a task in a window floats";
+    EXPECT_FALSE(item.floating) << "a task in a page does not float";
     EXPECT_EQ(item.runPhase, an::ui::RailRunPhase::None);
     EXPECT_TRUE(window().rail()->hairlineRect().isValid());
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
@@ -230,12 +235,22 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     EXPECT_TRUE(taskItems(*window().rail())[1].thumbnail.isNull());
     EXPECT_EQ(taskItems(*window().rail())[1].text, QStringLiteral("Channel Composition"));
 
+    // A window of the integration workflow floats.
+    TopLevelProcessBaseControl* const stacking = launch(kWindowProcess);
+    ASSERT_NE(stacking, nullptr);
+    EXPECT_TRUE(stacking->isWindow()) << "a process of no page is a window of its own";
+    ASSERT_EQ(taskItems(*window().rail()).size(), 3u);
+    EXPECT_TRUE(taskItems(*window().rail())[2].floating) << "a task in a window floats";
+    EXPECT_TRUE(taskItems(*window().rail())[2].thumbnail.isNull());
+
     const QPointer<TopLevelProcessBaseControl> closing(process);
     process->close();
     settle();
     ASSERT_TRUE(closing.isNull());
-    ASSERT_EQ(taskItems(*window().rail()).size(), 1u);
+    ASSERT_EQ(taskItems(*window().rail()).size(), 2u);
     EXPECT_EQ(taskItems(*window().rail())[0].text, QStringLiteral("Channel Composition"));
+    stacking->close();
+    settle();
 }
 
 // A process pointed at another image moves its task there: the thumbnail and the tooltip name the new image.
@@ -245,7 +260,7 @@ TEST_F(Tasks, ATargetChangeUpdatesTheThumbnailAndTheTooltip)
     ImageViewControl* const second = openView(QStringLiteral("tasks-second"), 0.9f);
     ASSERT_TRUE(first != nullptr && second != nullptr);
     core().viewService().setActiveImageViewControl(first);
-    auto* const process = dynamic_cast<ImageProcessControl*>(launch(kWindowProcess));
+    auto* const process = dynamic_cast<ImageProcessControl*>(launch(kTargetProcess));
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -271,7 +286,7 @@ TEST_F(Tasks, TheArcFollowsTheProgress)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-arc"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     const QString id = Window::railTaskId(taskOf(process)->id);
 
@@ -290,7 +305,7 @@ TEST_F(Tasks, TheResultDotOfARunThatEndedElsewhereClearsOnShow)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-dot"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -403,7 +418,7 @@ TEST_F(BlockedView, TheNoticeNamesTheProcessAndTheProgress)
 {
     ImageViewControl* const view = openView(QStringLiteral("blocked-notice"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
 
     // The framework takes the lock first and states the run after it, as an Apply does.
@@ -431,7 +446,7 @@ TEST_F(BlockedView, ARunBlocksItsViewWithoutTheLock)
 {
     ImageViewControl* const view = openView(QStringLiteral("blocked-unlocked"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     ASSERT_EQ(noticeOf(*view), nullptr) << "an image is not blocked because a task is open on it";
 
@@ -452,7 +467,7 @@ TEST_F(BlockedView, ShowRaisesTheTask)
 {
     ImageViewControl* const view = openView(QStringLiteral("blocked-show"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     const TaskId taskId = taskOf(process)->id;
     activateMainWindow();
@@ -481,16 +496,19 @@ TEST_F(BlockedView, AnotherViewTakesAProcessMeanwhile)
     ImageViewControl* const free = openView(QStringLiteral("blocked-other"));
     ASSERT_TRUE(blocked != nullptr && free != nullptr);
     core().viewService().setActiveImageViewControl(blocked);
-    TopLevelProcessBaseControl* const running = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const running = launch(kTargetProcess);
     ASSERT_NE(running, nullptr);
     running->setRunState(an::ui::runningState());
     ASSERT_TRUE(blocked->tryRequestLockForProcessing());
     settle();
     ASSERT_NE(noticeOf(*blocked), nullptr);
 
+    // The person goes back to the images, and works on another.
+    window().showViews();
+    settle();
     core().viewService().setActiveImageViewControl(free);
     settle();
-    TopLevelProcessBaseControl* const other = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const other = launch(kTargetProcess);
     ASSERT_NE(other, nullptr);
     EXPECT_EQ(other->processTarget(), free);
     EXPECT_EQ(noticeOf(*free), nullptr);
@@ -510,7 +528,7 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     ASSERT_NE(view, nullptr);
     ASSERT_NE(view->getDockWidget(), nullptr);
     EXPECT_EQ(an::ui::tabAdornment(view->getDockWidget()), nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     const Task* task = taskOf(process);
     ASSERT_NE(task, nullptr);
@@ -562,7 +580,7 @@ TEST_F(HistoryStrip, PendingChipFollowsTheTask)
     ASSERT_NE(strip(), nullptr);
     EXPECT_FALSE(strip()->pendingStep().has_value());
 
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = launch(kTargetProcess);
     ASSERT_NE(process, nullptr);
     core().viewService().setActiveImageViewControl(target);
     settle();

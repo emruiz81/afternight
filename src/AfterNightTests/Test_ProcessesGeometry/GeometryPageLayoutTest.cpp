@@ -14,7 +14,10 @@
 
 #include "app/FileCompanions.h"
 #include "controls/ImageProcessControl.h"
+#include "controls/ImageRTPreviewControl.h"
+#include "processes/CfaProcessSupport.h"
 
+#include <QPointer>
 #include <QPushButton>
 #include <QTemporaryDir>
 
@@ -24,6 +27,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace
 {
@@ -358,4 +362,165 @@ TEST(Rotate, TargetViewShowsNoSelectionInPageMode)
         context->presenter = nullptr;
     }
     dropView(*context, target.view);
+}
+
+namespace
+{
+
+/// The four planes of the family's mosaic as views of their own, cfa0 to cfa3, made active in turn.
+[[nodiscard]] std::vector<ViewHandle> mergePlanes(ProcessTestContext& context)
+{
+    std::vector<ViewHandle> planes;
+    const std::optional<an::consumer::ImageAsset> mosaic = sceneAsset(context.engineSession(), "mosaic-rggb-uint16");
+    EXPECT_TRUE(mosaic.has_value());
+    if (!mosaic.has_value())
+    {
+        return planes;
+    }
+    an::Result<an::ui::ExecutionScope> scope = an::ui::ExecutionScope::admit(
+        context.engineSession(), an::ui::ExecutionRequest{.purpose = an::consumer::OperationPurpose::Apply}, {});
+    an::Result<an::consumer::AssetReadLease> lease = mosaic->read();
+    EXPECT_TRUE(scope.hasValue() && lease.hasValue());
+    if (!scope.hasValue() || !lease.hasValue())
+    {
+        return planes;
+    }
+    an::Result<std::vector<an::consumer::ImageAsset>> split =
+        an::ui::processes::splitMosaicPlanes(*scope, an::ui::ProcessSource::of(*lease));
+    EXPECT_TRUE(split.hasValue());
+    lease->release();
+    scope->finish(an::Status::success());
+    if (!split.hasValue())
+    {
+        return planes;
+    }
+    for (std::size_t plane = 0u; plane < 4u; ++plane)
+    {
+        planes.push_back(assetView(std::move((*split)[plane]), "cfa" + std::to_string(plane)));
+        activate(context, *planes.back());
+    }
+    return planes;
+}
+
+/// Chooses the four planes in a Merge CFA window or page.
+void choosePlanes(QWidget& window, const std::vector<ViewHandle>& planes)
+{
+    for (std::size_t plane = 0u; plane < planes.size(); ++plane)
+    {
+        const std::string selector = "cfa" + std::to_string(plane) + "Selector";
+        setComboText(window, selector.c_str(), QString::fromStdString(planes[plane]->getUniqueName()));
+    }
+    pumpQuietly();
+}
+
+constexpr const char* kMergeCfa = "sensor_calibration.actionMerge_CFA";
+
+} // namespace
+
+// Merge CFA's page, launched on no image, in its column at 600 px of height in both densities: its canvas names the
+// planes still to choose.
+TEST(PageLayout, MergeCfaFitsItsColumn)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    std::vector<ViewHandle> planes = mergePlanes(*context);
+    ASSERT_EQ(planes.size(), 4u);
+    const bool measured =
+        shared::expectPageFitsItsColumn(kMergeCfa, *planes[0], *context, an::ui::ProcessSurface::PreviewPage);
+    for (ViewHandle& plane : planes)
+    {
+        dropView(*context, plane);
+    }
+    if (!measured && !::testing::Test::HasFailure())
+    {
+        GTEST_SKIP() << "Tab reaches every control; whether anything is clipped is measured under the native platform, "
+                        "where text is as wide as the interface draws it";
+    }
+}
+
+// The four planes chosen in Merge CFA's page give the mosaic its window gives.
+TEST(PageLayout, MergeCfaAppliesAsInAWindow)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    std::vector<ViewHandle> planes = mergePlanes(*context);
+    ASSERT_EQ(planes.size(), 4u);
+    std::optional<fixtures::FixtureSamples> results[2];
+    for (const bool asPage : {false, true})
+    {
+        SCOPED_TRACE(asPage ? "in a page" : "in a window");
+        PagePresenter presenter;
+        presenter.adopting = asPage;
+        context->presenter = &presenter;
+        auto* const process = dynamic_cast<ImageRTPreviewControl*>(shared::launchWindowOf(kMergeCfa, *planes[0]));
+        ASSERT_NE(process, nullptr);
+        EXPECT_EQ(process->hasPageLayout(), asPage);
+        choosePlanes(*process, planes);
+        if (asPage)
+        {
+            EXPECT_TRUE(process->pageLayout()->canvasMessage().isEmpty()) << "every plane is chosen";
+        }
+        const std::size_t made = context->madeViews.size();
+        const QPointer<ImageRTPreviewControl> guard(process);
+        ASSERT_TRUE(pumpUntil([&guard]() { return guard.isNull() || guard->triggerPrimaryAction(); }));
+        ASSERT_TRUE(pumpUntil([&guard]() { return guard.isNull() || guard->isProcessIdle(); }));
+        ASSERT_EQ(context->madeViews.size(), made + 1u) << "the Apply made the mosaic";
+        ImageViewControl* const mosaic = context->madeViews.back();
+        ASSERT_TRUE(pumpUntil([mosaic]() { return mosaic->isWorkIdle(); }));
+        results[asPage ? 1 : 0] = documentSamples(mosaic->document());
+        shared::closeOpenedProcessWindows();
+        context->presenter = nullptr;
+    }
+    ASSERT_TRUE(results[0].has_value() && results[1].has_value());
+    EXPECT_TRUE(fixtures::sameSamples(*results[0], *results[1])) << "the page's mosaic is the window's";
+    for (ViewHandle& plane : planes)
+    {
+        dropView(*context, plane);
+    }
+}
+
+// Merge CFA's preview, once its four planes are chosen, is the mosaic Ok makes of them.
+TEST(MergeCfa, ThePreviewIsTheResult)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    std::vector<ViewHandle> planes = mergePlanes(*context);
+    ASSERT_EQ(planes.size(), 4u);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(shared::launchWindowOf(kMergeCfa, *planes[0]));
+    ASSERT_NE(process, nullptr);
+    EXPECT_EQ(process->previewView(), nullptr) << "no preview until every plane is chosen";
+    choosePlanes(*process, planes);
+    ASSERT_TRUE(pumpUntil([process]() {
+        return process->previewView() != nullptr && process->runTelemetry().previewsCommitted >= 1u &&
+               process->isProcessIdle();
+    })) << "the preview shows the mosaic";
+    const std::optional<fixtures::FixtureSamples> shown = documentSamples(process->previewView()->document());
+    ASSERT_TRUE(shown.has_value());
+
+    const std::size_t made = context->madeViews.size();
+    const QPointer<ImageRTPreviewControl> guard(process);
+    ASSERT_TRUE(guard->triggerPrimaryAction());
+    ASSERT_TRUE(pumpUntil([&guard]() { return guard.isNull() || guard->isProcessIdle(); }));
+    ASSERT_EQ(context->madeViews.size(), made + 1u);
+    ImageViewControl* const mosaic = context->madeViews.back();
+    ASSERT_TRUE(pumpUntil([mosaic]() { return mosaic->isWorkIdle(); }));
+    const std::optional<fixtures::FixtureSamples> applied = documentSamples(mosaic->document());
+    ASSERT_TRUE(applied.has_value());
+    EXPECT_EQ(shown->width(), applied->width()) << "the preview is the whole mosaic, twice a plane's size";
+    EXPECT_EQ(shown->height(), applied->height());
+    EXPECT_TRUE(fixtures::sameSamples(*shown, *applied)) << "the preview is the mosaic Ok makes";
+    shared::closeOpenedProcessWindows();
+    for (ViewHandle& plane : planes)
+    {
+        dropView(*context, plane);
+    }
 }

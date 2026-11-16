@@ -107,7 +107,7 @@ public:
         verticalLayout->setContentsMargins(-1, t.spacing.md, -1, -1);
         groupBox = new QGroupBox(horizontalLayoutWidget_4);
         groupBox->setObjectName("groupBox");
-        groupBox->setMinimumSize(QSize(580, 100));
+        groupBox->setMinimumHeight(100);
         auto groupBoxLayout = new QVBoxLayout(groupBox);
         groupBoxLayout->setSpacing(t.spacing.sm);
         groupBoxLayout->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);
@@ -147,7 +147,7 @@ public:
 
         groupBox_2 = new QGroupBox(horizontalLayoutWidget_4);
         groupBox_2->setObjectName("groupBox_2");
-        groupBox_2->setMinimumSize(QSize(580, 350));
+        groupBox_2->setMinimumHeight(350);
         auto groupBox2Layout = new QVBoxLayout(groupBox_2);
         groupBox2Layout->setSpacing(t.spacing.md);
         groupBox2Layout->setContentsMargins(t.spacing.md, t.spacing.md, t.spacing.md, t.spacing.md);

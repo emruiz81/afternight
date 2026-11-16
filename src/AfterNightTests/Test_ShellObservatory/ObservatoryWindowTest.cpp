@@ -46,9 +46,10 @@ namespace
 
 using ObservatoryWindow = ObservatoryWindowCase;
 
-/// The processes the cases launch over the active image: one shown as a page, one that stays a window of its own.
+/// The processes the cases launch: one over the active image, shown as a page; one of the integration workflow, which
+/// stays a window of its own.
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
-constexpr std::string_view kWindowProcess = "denoising.actionDeepSNR";
+constexpr std::string_view kWindowProcess = "multi_image_stacking.actionImage_Stacking";
 
 /// A widget's place inside the window's central widget.
 [[nodiscard]] QRect placeIn(const QWidget& widget, const QWidget& ancestor)
@@ -144,8 +145,8 @@ TEST_F(ObservatoryWindow, NoViewsShowsHome)
     EXPECT_TRUE(window().isHomeShown());
 }
 
-// A process launched over the active image opens as a window of its own, as every process does in this shell for
-// now: a top-level window outside the window's regions, registered among the open processes.
+// A process whose descriptor states a window - one of the integration workflow - opens as a window of its own: a
+// top-level window outside the window's regions, registered among the open processes.
 TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
 {
     ImageViewControl* const view = openView(QStringLiteral("process-opens-as-a-window"));
@@ -168,7 +169,7 @@ TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
     EXPECT_TRUE(process->isWindow());
     EXPECT_FALSE(window().isAncestorOf(process));
     EXPECT_EQ(core().openProcesses().size(), openBefore + 1);
-    // The shell lends its presenter, which takes no process into a page yet: the process stays a window.
+    // The shell lends its presenter, which leaves a process of a window one.
     ASSERT_NE(shell().processPresenter(), nullptr);
     EXPECT_FALSE(shell().processPresenter()->adopt(*process));
 }

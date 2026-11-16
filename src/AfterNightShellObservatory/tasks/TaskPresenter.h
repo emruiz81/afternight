@@ -34,10 +34,10 @@ class ViewThumbnailService;
 namespace an::ui::observatory
 {
 
-/// The Observatory shell's process presenter. It takes a process whose descriptor states a preview page into a page of
-/// the window (`Hooks::adoptPage`) and leaves every other a window of its own; and it keeps the shell's tasks: the
-/// model of the open processes, told where each run stands and which image each process targets, and the thumbnails of
-/// their targets.
+/// The Observatory shell's process presenter. It takes a process whose descriptor states a page into a page of the
+/// window (`Hooks::adoptPage`) and leaves a process whose descriptor states a window a window of its own; and it keeps
+/// the shell's tasks: the model of the open processes, told where each run stands and which image each process targets,
+/// and the thumbnails of their targets.
 ///
 /// **What it shows.** A view a run writes - its processing lock taken - carries the notice that names the running task
 /// and how far it has come, with `Show`; the tab of a view a task is open on carries the task's glyph, locked during a
@@ -75,8 +75,8 @@ public:
 
     // ---- IProcessPresenter
 
-    /// Takes a process whose surface is a preview page into a page of the window, and shows it there; any other is left
-    /// a window.
+    /// Takes a process whose surface is a page - a preview, a mirror or a full page - into a page of the window, and
+    /// shows it there; a process whose surface is a window is left one.
     bool adopt(TopLevelProcessBaseControl& process) override;
     void runStateChanged(TopLevelProcessBaseControl& process, const an::ui::ProcessRunState& state) override;
     void targetChanged(TopLevelProcessBaseControl& process, ImageViewControl* target) override;

@@ -741,7 +741,8 @@ std::vector<CombinationsProcess> makeProcesses()
     processes.back().changingMode = "-";
     processes.back().changingStep = "";
 
-    // The channel composition is a top-level window of its own, not a preview window: Ok runs it to a new image.
+    // The channel composition is launched on no image and composes the components chosen in it: its preview shows the
+    // composed image once the first is chosen, and Ok runs it to a new image - three sequences by a run of its own.
     CombinationsProcess composition;
     composition.name = "ChannelComposition";
     composition.action = "actionChannelComposition";
@@ -752,7 +753,7 @@ std::vector<CombinationsProcess> makeProcesses()
     composition.stateOperation = "";
     composition.landing = ResultLanding::NewView;
     composition.topLevel = true;
-    composition.realtimePreview = false;
+    composition.realtimePreview = true;
     composition.scene = "scene-rgb-float32";
     composition.changingMode = "-";
     composition.openSides = [](ProcessTestContext& context, const fixtures::FixtureSamples& scene, const std::string&) {
@@ -760,7 +761,7 @@ std::vector<CombinationsProcess> makeProcesses()
     };
     composition.open = &openTopLevel<ChannelCompositionProcess>;
     composition.openStopping = &openTopLevel<StoppingComposition>;
-    composition.previewBox = false;
+    composition.previewBox = true;
     composition.configure = configureComposition;
     composition.apply = [](QWidget& window) {
         if (auto* process = dynamic_cast<ChannelCompositionProcess*>(&window))

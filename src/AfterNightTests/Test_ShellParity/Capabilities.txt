@@ -420,13 +420,13 @@ capability process.multi-input
     title        Processes with several inputs
     shared       CombinationsProcessCase.ImageCompareOffersOnlyViewsOfTheTargetsSize, CombinationsProcessCase.CompositionNarrowsToTheHighestInputAndFillsAMissingComponentWithZero, CombinationsChangingTest.TheCardsEverySourceStatesAndTheFirstSourcesSolutionAreKept
     classic
-    observatory  pending
+    observatory  TargetlessPage.TheHeaderNamesTheProcessAlone, TargetlessPage.TheCanvasNamesTheMissingInputsUntilEveryOneIsChosen, TargetlessPage.TheImageActionsAreDisabledWhileThereIsNoTarget
 
 capability process.external-tools
     title        StarNet, DeepSNR
     shared       ExternalToolsWindowTest.TheRegisteredActionOpensTheWindow, ExternalToolsSmokeTest.StarNetRemovesTheStarsOfASyntheticField, ExternalToolsSmokeTest.DeepSnrQuietensANoisyGradient
     classic
-    observatory  pending
+    observatory  Tasks.TheArcFollowsTheProgress, BlockedView.TheNoticeNamesTheProcessAndTheProgress, BlockedView.ARunBlocksItsViewWithoutTheLock
 
 capability process.extensions
     title        Extension processes with their own interface

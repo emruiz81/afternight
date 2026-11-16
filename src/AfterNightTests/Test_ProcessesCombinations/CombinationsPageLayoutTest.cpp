@@ -17,6 +17,7 @@
 #include "widgets/SplitComparisonDisplayModule.h"
 
 #include <QAbstractButton>
+#include <QCheckBox>
 #include <QScrollArea>
 #include <QStringList>
 #include <QTableWidget>
@@ -96,7 +97,11 @@ void appliesAsInAWindow(std::string_view action)
     // let go, each run opening a target of its own.
     Targets sides = openScene(*context, *process);
     ASSERT_NE(sides.target, nullptr);
-    dropView(*context, sides.target);
+    // A process launched on no image reads the scene's view as one of its images, and keeps it.
+    if (!process->topLevel)
+    {
+        dropView(*context, sides.target);
+    }
     shared::PageApply how;
     how.configure = [process, &sides](ImageRTPreviewControl& window) {
         process->configure(window, sides, process->changingMode);
@@ -137,6 +142,60 @@ AN_COMBINATIONS_PAGE_APPLIES(NBRGBCombination, "actionNBRGB_Combination")
 AN_COMBINATIONS_PAGE_FITS(NBColorMapper, "actionNBColorMapper")
 AN_COMBINATIONS_PAGE_APPLIES(NBColorMapper, "actionNBColorMapper")
 AN_COMBINATIONS_PAGE_FITS(ImageCompare, "actionImage_Compare")
+
+// The processes launched on no image, which choose every image they read in their controls.
+AN_COMBINATIONS_PAGE_FITS(StarmaskRecombination, "actionStarmask_Recombination")
+AN_COMBINATIONS_PAGE_APPLIES(StarmaskRecombination, "actionStarmask_Recombination")
+AN_COMBINATIONS_PAGE_FITS(ProfiledStarmaskRecombination, "actionProfiled_Starmask_Recombination")
+AN_COMBINATIONS_PAGE_APPLIES(ProfiledStarmaskRecombination, "actionProfiled_Starmask_Recombination")
+AN_COMBINATIONS_PAGE_FITS(NarrowbandPaletteComposer, "actionNarrowbandPaletteComposer")
+AN_COMBINATIONS_PAGE_APPLIES(NarrowbandPaletteComposer, "actionNarrowbandPaletteComposer")
+AN_COMBINATIONS_PAGE_FITS(ChannelComposition, "actionChannelComposition")
+AN_COMBINATIONS_PAGE_APPLIES(ChannelComposition, "actionChannelComposition")
+
+// Channel Composition's preview, once its first component is chosen, is the image Ok makes of the components chosen:
+// in red, green and blue, and matched to the first, and in another colour space.
+TEST(ChannelComposition, ThePreviewIsTheResult)
+{
+    const CombinationsProcess* process = familyProcess("actionChannelComposition");
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    for (const char* mode : {"-", "linear-match", "cie-lab"})
+    {
+        SCOPED_TRACE(mode);
+        Targets scene = openScene(*context, *process);
+        ASSERT_NE(scene.target, nullptr);
+        WindowHandle window = process->open(nullptr);
+        auto* const preview = dynamic_cast<ImageRTPreviewControl*>(window.get());
+        ASSERT_NE(preview, nullptr);
+        // The suite opens its windows with their preview off; a person sees it on.
+        auto* const box = window->findChild<QCheckBox*>(QStringLiteral("preview"));
+        ASSERT_NE(box, nullptr);
+        box->setChecked(true);
+        EXPECT_EQ(preview->previewView(), nullptr) << "no preview until the first component is chosen";
+        process->configure(*window, scene, mode);
+        ASSERT_TRUE(pumpUntil([preview]() {
+            return preview->previewView() != nullptr && preview->runTelemetry().previewsCommitted >= 1u &&
+                   preview->isProcessIdle();
+        })) << "the preview shows the composition";
+        const std::optional<an::tests::fixtures::FixtureSamples> shown =
+            documentSamples(preview->previewView()->document());
+        ASSERT_TRUE(shown.has_value());
+        EXPECT_EQ(shown->channelCount(), 3u) << "the preview is the colour image";
+
+        const std::optional<an::tests::fixtures::FixtureSamples> applied =
+            applyAndRead(*context, *process, *window, scene);
+        ASSERT_TRUE(applied.has_value());
+        ASSERT_EQ(shown->channelCount(), applied->channelCount());
+        EXPECT_LE(largestDifference(*shown, *applied), 1.0e-6) << "the preview is the image Ok makes";
+        window.reset();
+        dropTargets(*context, scene);
+    }
+}
 
 // Image Compare applies nothing: it compares. On its page as in its window the second image chosen in its column is the
 // canvas's alternate, and a split chosen in the column lays the second image over the canvas; on the page the toggles

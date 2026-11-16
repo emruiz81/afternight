@@ -133,6 +133,8 @@ protected:
     [[nodiscard]] an::ui::ProcessStep
     describeTypedProcessStep(const ProfiledStarmaskRecombinationParams& params) const override;
     [[nodiscard]] an::ui::PreviewScaling previewScaling() const override;
+    /// On a page, the row of the stars' filter lays its two check boxes on a row of their own under it.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
     [[nodiscard]] std::uint32_t
     typedPreviewRegionMargin(const ProfiledStarmaskRecombinationParams& params) const override;
     [[nodiscard]] std::vector<std::shared_ptr<const an::consumer::ImageAsset>>

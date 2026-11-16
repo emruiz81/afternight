@@ -186,7 +186,10 @@ void StarnetStarMaskProcess::startExecution()
     };
     request.readDemosaiced = m_image_view_control->isSequenceAutodebayerEnabled();
     request.showDemosaiced = false;
-    request.progressWindow = true;
+    // A window shows the run in a progress window of its own, whose Cancel stops the program; a page shows it in
+    // the page, whose Cancel stops it through the run's own stop.
+    request.progressWindow = !hasPageLayout();
+    request.stop = beginRunStop();
     request.inFlight = beginRunInFlight();
     request.process = this;
     request.admissionHook = admissionHook();

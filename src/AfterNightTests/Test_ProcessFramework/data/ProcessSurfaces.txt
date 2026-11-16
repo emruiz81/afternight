@@ -1,0 +1,137 @@
+# Where every registered process is shown when a shell's presenter takes it, and the width of
+# its page's column, in the registry's order, extensions left out:
+#   id | surface | column
+#
+# surface   `preview page`, `mirror page`, `full page` or `window`.
+# column    `standard` or `wide` for a page with a column; `-` for a full page and a window.
+#
+# A descriptor the record of the shapes shows opening no process window says so, whatever its
+# descriptor states.
+#
+# ProcessSurfaces.MatchTheRecord in Test_ProcessFramework compares every descriptor with this
+# record, and holds every process that opens a window to a page but the integration workflow's.
+# An entry is edited by the change that means to move it; the record is not written again whole.
+
+[surfaces]
+non_interactive.actionExtract_Frame | opens no process window
+multi_image_stacking.actionExtract_Sequence | mirror page | standard
+non_interactive.actionExtract_Red_Channel | opens no process window
+non_interactive.actionExtract_Green_Channel | opens no process window
+non_interactive.actionExtract_Blue_Channel | opens no process window
+non_interactive.actionExtract_RGB_Channels | opens no process window
+non_interactive.actionExtract_CIE_L | opens no process window
+non_interactive.actionExtract_CIE_a | opens no process window
+non_interactive.actionExtract_CIE_b | opens no process window
+non_interactive.actionExtract_CIE_c | opens no process window
+non_interactive.actionExtract_CIE_h | opens no process window
+non_interactive.actionExtract_CIE_L_c_h | opens no process window
+non_interactive.actionExtract_CIE_a_b | opens no process window
+non_interactive.actionExtract_CIE_L_a_b | opens no process window
+non_interactive.actionExtract_CIE_X | opens no process window
+non_interactive.actionExtract_CIE_Y | opens no process window
+non_interactive.actionExtract_CIE_Z | opens no process window
+non_interactive.actionExtract_CIE_X_Y_Z | opens no process window
+non_interactive.actionExtract_HSL_Hue | opens no process window
+non_interactive.actionExtract_HSL_Saturation | opens no process window
+non_interactive.actionExtract_HSL_Lightness | opens no process window
+non_interactive.actionExtract_HSL | opens no process window
+non_interactive.actionExtract_HSV_Hue | opens no process window
+non_interactive.actionExtract_HSV_Saturation | opens no process window
+non_interactive.actionExtract_HSV_Value | opens no process window
+non_interactive.actionExtract_HSV | opens no process window
+non_interactive.actionExtract_HSI_Hue | opens no process window
+non_interactive.actionExtract_HSI_Saturation | opens no process window
+non_interactive.actionExtract_HSI_Intensity | opens no process window
+non_interactive.actionExtract_HSI | opens no process window
+non_interactive.actionExtract_YCbCr_Luminance | opens no process window
+non_interactive.actionExtract_YCbCr_Blue_Chrominance | opens no process window
+non_interactive.actionExtract_YCbCr_Red_Chrominance | opens no process window
+non_interactive.actionExtract_YCbCr | opens no process window
+non_interactive.actionConvert_to_8_bit | opens no process window
+non_interactive.actionConvert_to_signed_16_bit | opens no process window
+non_interactive.actionConvert_to_unsigned_16_bit | opens no process window
+non_interactive.actionConvert_to_signed_32_bit | opens no process window
+non_interactive.actionConvert_to_unsigned_32_bit | opens no process window
+non_interactive.actionConvert_to_32_bit_float | opens no process window
+non_interactive.actionConvert_to_64_bit_float | opens no process window
+non_interactive.actionConvert_to_SER | opens no process window
+non_interactive.actionConvert_to_Image_List | opens no process window
+non_interactive.actionExport | opens no process window
+non_interactive.actionConvert_to_FITS | opens no process window
+tone_brightness.actionAdjustBrightness_Contrast | preview page | wide
+tone_brightness.actionGamma_Correction | preview page | wide
+tone_brightness.actionExposure | preview page | wide
+tone_brightness.actionAdjustHSL | preview page | wide
+tone_brightness.actionAdjustLightness_Chroma_Hue | preview page | wide
+tone_brightness.actionArcSinh_Stretch | preview page | wide
+tone_brightness.actionHistogram_Transformation | preview page | wide
+transforms.actionGeneralized_Hyperbolic_Transformation | preview page | wide
+transforms.actionCurves_Transformation | preview page | wide
+star_object.actionStarnet | mirror page | standard
+multi_image_stacking.actionStarmask_Recombination | preview page | standard
+multi_image_stacking.actionProfiled_Starmask_Recombination | preview page | wide
+star_object.actionStar_Reduction | preview page | standard
+color.actionSCNR | mirror page | standard
+filters.actionMedian_Filter | preview page | standard
+denoising.actionDeepSNR | mirror page | standard
+denoising.actionNon_Local_Bayes_Filter | preview page | standard
+denoising.actionWavelet_Denoise_Filter | preview page | standard
+denoising.actionPatch_PCA_Filter | preview page | wide
+sharpening_enhancement.actionLocal_Histogram_Equalization | preview page | wide
+sharpening_enhancement.actionLocal_Contrast_Enhancement | preview page | wide
+sharpening_enhancement.actionDark_Structure_Enhance | preview page | standard
+sharpening_enhancement.actionMultiscale_Alpha_Sharpen | preview page | standard
+filters.actionGaussian_Blur | preview page | standard
+sharpening_enhancement.actionHigh_Pass | preview page | wide
+color.actionChannelComposition | preview page | standard
+sensor_calibration.actionDebayer | mirror page | standard
+sensor_calibration.actionSplit_CFA | mirror page | standard
+sensor_calibration.actionMerge_CFA | preview page | standard
+geometry.actionResize | mirror page | standard
+geometry.actionIntegerResample | mirror page | wide
+geometry.actionCFA_Integer_Resample | mirror page | wide
+geometry.actionCrop | mirror page | standard
+geometry.actionRotate | mirror page | standard
+mask_generation.actionMask_Drawing | preview page | standard
+sensor_calibration.actionRange_Selection | preview page | wide
+non_interactive.actionSelect_Mask | opens no process window
+non_interactive.actionRemove_Mask | opens no process window
+star_object.actionStar_Mask | preview page | wide
+star_object.actionStarnet_Star_Mask | mirror page | standard
+sharpening_enhancement.actionCLA_Histogram_Equalization | preview page | wide
+color.actionColor_Saturation | preview page | wide
+color.actionColor_Calibration_2 | mirror page | wide
+color.actionPhotometric_Color_Calibration | mirror page | standard
+color.actionSpectrophotometric_Color_Calibration | mirror page | standard
+color.actionBackground_Neutralization | mirror page | standard
+background_extraction.actionBackground_Extraction | preview page | wide
+background_extraction.actionAuto_Gradient_Removal | preview page | standard
+transforms.actionMultiscale_Linear_Transform | preview page | standard
+filters.actionMorphological_Transformation | preview page | wide
+sharpening_enhancement.actionTighten_Edges | preview page | standard
+denoising.actionGRAYCstoration_Filter | preview page | wide
+filters.actionCosmetic_Correction_Filter | preview page | wide
+filters.actionBanding_Reduction_Filter | preview page | standard
+filters.actionBilateral_Filter | preview page | standard
+star_object.actionStar_Profiler_v1 | mirror page | wide
+star_object.actionStar_Profiler_v2 | mirror page | wide
+tone_brightness.actionStatistical_Stretch | preview page | wide
+sharpening_enhancement.actionUnsharp_Mask | preview page | standard
+filters.actionNoise_Generator | preview page | wide
+denoising.actionTotal_Variation_Denoise_Filter | preview page | standard
+multi_image_stacking.actionImage_Compare | preview page | wide
+multi_image_stacking.actionImage_Blend | preview page | wide
+multi_image_stacking.actionImage_List_Analyzer | window | -
+color.actionLRGB_Combination | preview page | wide
+color.actionNBRGB_Combination | preview page | wide
+color.actionNBColorMapper | preview page | wide
+color.actionNarrowbandPaletteComposer | preview page | wide
+color.actionColorize | preview page | wide
+sensor_calibration.actionImage_Calibration | window | -
+multi_image_stacking.actionImage_Stacking | window | -
+multi_image_stacking.actionImage_Registration | window | -
+multi_image_stacking.actionImage_Integration | window | -
+multi_image_stacking.actionImage_Integration_Lite | window | -
+color.actionLinear_Match | mirror page | standard
+transforms.actionPixel_Math_2 | mirror page | wide
+sensor_calibration.actionBinarize | preview page | wide

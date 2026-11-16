@@ -305,8 +305,7 @@ bool TaskPresenter::adopt(TopLevelProcessBaseControl& process)
 {
     Impl& impl = *m_impl;
     const an::ui::ProcessSurface surface = process.processSurface();
-    if ((surface != an::ui::ProcessSurface::PreviewPage && surface != an::ui::ProcessSurface::MirrorPage) ||
-        !impl.hooks.adoptPage)
+    if (surface == an::ui::ProcessSurface::Window || !impl.hooks.adoptPage)
     {
         return false;
     }

@@ -273,6 +273,20 @@ constexpr PageSurface kPageSurfaces[] = {
     {"actionColor_Calibration_2", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
     {"actionIntegerResample", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
     {"actionPixel_Math_2", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    // The external tools, over a view of their target, the run telling how far the program has come. The star
+    // profilers mark their stars on the page's view; the row of buttons under their table wraps in the wide column.
+    {"actionDeepSNR", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionStarnet", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionStarnet_Star_Mask", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionStar_Profiler_v1", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    {"actionStar_Profiler_v2", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    // The processes launched on no image, which choose every image they read in their controls: the canvas is their
+    // preview - the Palette Composer's grid of previews - and names the inputs still to choose until every one is.
+    {"actionChannelComposition", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionMerge_CFA", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionStarmask_Recombination", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    {"actionNarrowbandPaletteComposer", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionProfiled_Starmask_Recombination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

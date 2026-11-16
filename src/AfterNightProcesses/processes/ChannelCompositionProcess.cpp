@@ -13,6 +13,7 @@
 #include "controls/ImageSelectorTooltipBuilder.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessCompanions.h"
+#include "controls/ProcessButtonIcons.h"
 #include "controls/ProgressDialogControl.h"
 #include "processes/CombinationProcessSupport.h"
 #include "processes/MaskProcessUtils.h"
@@ -45,6 +46,7 @@
 #include <QDialogButtonBox>
 #include <QPointer>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QThreadPool>
 
 #include <atomic>
@@ -530,35 +532,54 @@ an::Result<an::consumer::ImageAsset> composeChannelImages(const an::ui::Executio
 /// A composition on its way: what it reads, the stop the window and the dialog share, and what it came to.
 struct ChannelCompositionProcess::Run
 {
+    /// Whether the window's own run - three sequences frame by frame - is on its way.
     bool running = false;
     std::uint64_t published = 0u;
     std::uint64_t failed = 0u;
     std::stop_source stop;
+
+    /// Whether the framework's Apply ending now published its view.
+    bool publishedNow = false;
 };
 
 ChannelCompositionProcess::ChannelCompositionProcess(QWidget* parent)
-    : TopLevelProcessBaseControl(getProcessNameStatic()), AfterNightAppListener(process_utils::currentAppEventBus()),
+    : an::ui::TypedProcessControl<ChannelCompositionParams>(nullptr, getProcessNameStatic()),
       m_run(std::make_unique<Run>())
 {
     Q_UNUSED(parent);
 
-    setFixedSizeWindow(true);
-
     m_ui = an::ui::processes::buildChannelCompositionProcessUi(this);
+    setProcessDescription(QStringLiteral(
+        "Compose a color image from grayscale channel sources using selectable target color-space mappings."));
 
+    m_SupportTargetViewControlSelection = false;
+    m_SupportPerChannelProcessing = false;
+    m_ShowWaitingSpinner = true;
+    m_SupportMasking = false;
+    // The result opens beside the first input.
+    m_CreatedViewControlsAreNeighbour = true;
+    m_ImagePreviewLayout = m_ui.previewLayout;
+    m_MainHorizontalLayout = m_ui.horizontalLayoutMain;
+
+    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.previewLayout, m_ui.preview, m_ui.buttonBox, nullptr,
+                              nullptr, {.supportPerChannel = false, .showWaitingSpinner = true});
+    // Ok composes three sequences by a run of the window's own, so the box is answered here and not by the framework.
+    QObject::disconnect(m_ui.buttonBox, &QDialogButtonBox::clicked, this, nullptr);
     QObject::connect(m_ui.buttonBox, &QDialogButtonBox::clicked, this,
                      &ChannelCompositionProcess::on_dialog_box_button_clicked);
     for (QComboBox* selector : {m_ui.redChannel, m_ui.greenChannel, m_ui.blueChannel})
     {
-        QObject::connect(selector, &QComboBox::currentTextChanged, this,
-                         [this](const QString&) { validateSelectedImages(); });
+        QObject::connect(selector, &QComboBox::currentTextChanged, this, [this](const QString&) {
+            validateSelectedImages();
+            settingsUpdated();
+        });
     }
     QObject::connect(m_ui.colorSpace, &QComboBox::currentTextChanged, this,
                      &ChannelCompositionProcess::on_colorSpace_currentTextChanged);
+    QObject::connect(m_ui.linearMatchCheckBox, &QCheckBox::checkStateChanged, this,
+                     [this](Qt::CheckState) { settingsUpdated(); });
 
-    setWindowTitle("Channel Composition");
-    setProcessDescription(QStringLiteral(
-        "Compose a color image from grayscale channel sources using selectable target color-space mappings."));
+    setWindowTitle(QStringLiteral("Channel Composition"));
 
     const auto iconManager = process_utils::currentIconProvider();
     for (const SpaceEntry& entry : kSpaces)
@@ -567,8 +588,9 @@ ChannelCompositionProcess::ChannelCompositionProcess(QWidget* parent)
     }
     m_ui.colorSpace->setCurrentText(QLatin1String(kSpaces.front().label));
 
+    setExecutionAutostretchSupported(true);
+    refreshTheme();
     initialize();
-    initializeTopLevelProcess();
 }
 
 ChannelCompositionProcess::~ChannelCompositionProcess()
@@ -583,12 +605,16 @@ std::string ChannelCompositionProcess::getProcessNameStatic()
 
 void ChannelCompositionProcess::refreshTheme()
 {
-    TopLevelProcessBaseControl::refreshTheme();
+    ImageProcessControl::refreshTheme();
+    if (auto iconProvider = process_utils::currentIconProvider())
+    {
+        process_utils::applyDialogButtonBoxIcons(m_ui.buttonBox, iconProvider.get());
+    }
 }
 
-bool ChannelCompositionProcess::isRunning() const noexcept
+bool ChannelCompositionProcess::isRunning() const
 {
-    return m_run->running;
+    return m_run->running || m_ExecutionInProgress;
 }
 
 std::uint64_t ChannelCompositionProcess::runsPublished() const noexcept
@@ -604,6 +630,12 @@ std::uint64_t ChannelCompositionProcess::runsFailed() const noexcept
 void ChannelCompositionProcess::requestStop()
 {
     m_run->stop.request_stop();
+    (void)cancelRun();
+}
+
+void ChannelCompositionProcess::onApplicationClose()
+{
+    close();
 }
 
 bool ChannelCompositionProcess::isComponentViewSupported(const ImageViewControl* ctrl) const
@@ -687,6 +719,17 @@ void ChannelCompositionProcess::onViewControlUpdated(const ImageViewControl* ctr
         removeViewFromSelectors(QString::fromUtf8(ctrl->getUniqueName()));
     }
     validateSelectedImages();
+    const QString name = QString::fromUtf8(ctrl->getUniqueName());
+    if (ctrl == m_image_view_control || m_ui.greenChannel->currentText() == name ||
+        m_ui.blueChannel->currentText() == name)
+    {
+        settingsUpdated();
+    }
+}
+
+std::optional<composition_detail::ColourSpace> ChannelCompositionProcess::chosenSpace() const
+{
+    return composition_detail::colourSpaceFromLabel(m_ui.colorSpace->currentText());
 }
 
 void ChannelCompositionProcess::on_colorSpace_currentTextChanged(const QString& text)
@@ -700,12 +743,15 @@ void ChannelCompositionProcess::on_colorSpace_currentTextChanged(const QString& 
     m_ui.channel0Label->setText(QLatin1String(names[0]));
     m_ui.channel1Label->setText(QLatin1String(names[1]));
     m_ui.channel2Label->setText(QLatin1String(names[2]));
+    validateSelectedImages();
+    settingsUpdated();
 }
 
 void ChannelCompositionProcess::initialize()
 {
     for (QComboBox* selector : {m_ui.redChannel, m_ui.greenChannel, m_ui.blueChannel})
     {
+        const QSignalBlocker blocker(selector);
         selector->addItem(NO_IMAGE_STR);
     }
     for (auto* viewControl : process_utils::listViewControls())
@@ -719,17 +765,188 @@ void ChannelCompositionProcess::initialize()
     {
         selector->setCurrentText(NO_IMAGE_STR);
     }
-    m_ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    validateSelectedImages();
+    adjustSize();
+    resize(m_DefaultSizeNoPreview);
 }
 
 void ChannelCompositionProcess::validateSelectedImages()
 {
-    const QString redStr = m_ui.redChannel->currentText();
-    m_ui.buttonBox->button(QDialogButtonBox::Ok)
-        ->setEnabled(!m_run->running && redStr != NO_IMAGE_STR && !redStr.isEmpty());
+    // The first component is the window's target: the preview composes over it, and the result opens beside it.
+    const QString first = m_ui.redChannel->currentText();
+    ImageViewControl* const firstView =
+        first == NO_IMAGE_STR || first.isEmpty() ? nullptr : process_utils::findViewControlByName(first);
+    if (firstView != nullptr && firstView != m_image_view_control)
+    {
+        changeTargetViewControl(firstView);
+    }
+    const bool ready = firstView != nullptr && firstView == m_image_view_control && firstView->hasImage();
+    // Only the first component is needed: a missing second or third is a zero plane.
+    setMissingInputs(ready ? QStringList()
+                           : QStringList{QStringLiteral("%1 component").arg(m_ui.channel0Label->text())});
+    m_ui.preview->setEnabled(ready);
+    if (ready)
+    {
+        if (isPreviewEnabled())
+        {
+            createPreviewControl();
+        }
+    }
+    else if (isPreviewEnabled())
+    {
+        destroyPreviewControl();
+    }
+    m_ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!isRunning() && ready);
 }
 
-void ChannelCompositionProcess::finishRun(an::Status outcome, bool published)
+bool ChannelCompositionProcess::isPreviewEnabled() const
+{
+    return m_ui.preview->isChecked();
+}
+
+void ChannelCompositionProcess::enablePreview(bool enabled)
+{
+    m_ui.preview->setChecked(enabled);
+}
+
+void ChannelCompositionProcess::settingsUpdatedImpl() {}
+
+void ChannelCompositionProcess::getBatchExecutionParameters(bool& createNewImage, bool& closeAtEnd,
+                                                            bool& executeInBackground, std::string& newImageName)
+{
+    createNewImage = true;
+    closeAtEnd = true;
+    executeInBackground = true;
+    const std::optional<composition_detail::ColourSpace> space = chosenSpace();
+    newImageName = composition_detail::composedImageName(space.value_or(composition_detail::ColourSpace::Rgb));
+}
+
+ChannelCompositionParams ChannelCompositionProcess::getParams() const
+{
+    ChannelCompositionParams params;
+    std::size_t index = 0u;
+    for (QComboBox* selector : {m_ui.redChannel, m_ui.greenChannel, m_ui.blueChannel})
+    {
+        const QString text = selector->currentText();
+        if (text != NO_IMAGE_STR && !text.isEmpty())
+        {
+            params.names[index] = text.toStdString();
+            if (index > 0u)
+            {
+                if (ImageViewControl* view = process_utils::findViewControlByName(text);
+                    view != nullptr && view->hasImage())
+                {
+                    params.others[index - 1u] = view->document().asset();
+                }
+            }
+        }
+        ++index;
+    }
+    params.space = chosenSpace().value_or(composition_detail::ColourSpace::Rgb);
+    params.linearMatch = m_ui.linearMatchCheckBox->isChecked();
+    params.previewArea = previewArea();
+    params.admitted = admissionHook();
+    return params;
+}
+
+an::Status ChannelCompositionProcess::executeTypedProcessImpl(const an::ui::ProcessSource& source,
+                                                              an::ui::ProcessDestination& destination,
+                                                              const an::ui::ProcessRun& run,
+                                                              const ChannelCompositionParams& params,
+                                                              an::ui::ExecutionScope& scope)
+{
+    if (params.admitted && !run.isForPreview())
+    {
+        params.admitted(scope);
+    }
+    if (scope.stopRequested())
+    {
+        return refusal(an::ErrorCode::Cancelled, "the composition was stopped");
+    }
+    const std::optional<an::ImageDescriptor> firstDescribed = source.descriptor();
+    if (!firstDescribed.has_value())
+    {
+        return refusal(an::ErrorCode::NotInitialized, "the first channel component holds nothing");
+    }
+    // The second and third components, cut to the part of the first the run reads.
+    std::array<std::optional<process_utils::LeasedImage>, 2u> others;
+    std::array<std::optional<an::ui::ProcessSource>, 2u> sources;
+    composition_detail::CompositionRequest request;
+    request.components[0] = &source;
+    request.names = params.names;
+    request.space = params.space;
+    request.linearMatch = params.linearMatch;
+    for (std::size_t index = 0u; index < 2u; ++index)
+    {
+        if (!params.others[index])
+        {
+            continue;
+        }
+        an::Result<process_utils::LeasedImage> leased =
+            process_utils::LeasedImage::read(scope, *params.others[index], run, params.previewArea, *firstDescribed);
+        if (!leased.hasValue())
+        {
+            return leased.status();
+        }
+        others[index].emplace(std::move(*leased));
+        sources[index].emplace(others[index]->source());
+        request.components[index + 1u] = &*sources[index];
+    }
+    an::Result<an::consumer::ImageAsset> composed = composition_detail::composeChannelImages(scope, request);
+    if (!composed.hasValue())
+    {
+        return composed.status();
+    }
+    return destination.replace(std::move(*composed));
+}
+
+an::ui::PreviewScaling ChannelCompositionProcess::previewScaling() const
+{
+    // The match of the second and third components to the first measures the whole of each: every frame runs over the
+    // real images.
+    return an::ui::PreviewScaling::FullOnly;
+}
+
+an::ui::ProcessStep ChannelCompositionProcess::describeTypedProcessStep(const ChannelCompositionParams& params) const
+{
+    composition_detail::CompositionRequest named;
+    named.space = params.space;
+    named.names = params.names;
+    return an::ui::ProcessStep{.name = getProcessName(),
+                               .description = composition_detail::compositionDescription(named)};
+}
+
+// The second and third components: other views' images the body reads, leased before the run is admitted.
+std::vector<std::shared_ptr<const an::consumer::ImageAsset>>
+ChannelCompositionProcess::typedImagesRead(const ChannelCompositionParams& params) const
+{
+    return {params.others[0], params.others[1]};
+}
+
+void ChannelCompositionProcess::executeProcessCompletedImpl(const RTPreviewMode previewMode,
+                                                            const bool /*sequenceMode*/)
+{
+    if (previewMode == RTPreviewMode::NoPreview)
+    {
+        ++m_run->published;
+        m_run->publishedNow = true;
+    }
+}
+
+void ChannelCompositionProcess::executeProcessEndedImpl(const RTPreviewMode previewMode, const bool /*sequenceMode*/)
+{
+    if (previewMode == RTPreviewMode::NoPreview)
+    {
+        if (!m_run->publishedNow)
+        {
+            ++m_run->failed;
+        }
+        m_run->publishedNow = false;
+    }
+    validateSelectedImages();
+}
+
+void ChannelCompositionProcess::finishSequences(an::Status outcome, bool published)
 {
     m_run->running = false;
     setRunState(an::ui::endedRunState(outcome, published));
@@ -750,7 +967,7 @@ void ChannelCompositionProcess::finishRun(an::Status outcome, bool published)
             const std::string text =
                 fmt::format("An error occurred when executing the Channel Composition process:\n{}", outcome.message());
             LOG_WARNING("{}", text);
-            process_utils::notifyErrorMessage(this, "Error running Channel Composition", QString::fromUtf8(text));
+            notifyErrorMessage(QStringLiteral("Error running Channel Composition"), QString::fromUtf8(text));
         }
         return;
     }
@@ -762,73 +979,85 @@ void ChannelCompositionProcess::finishRun(an::Status outcome, bool published)
 
 void ChannelCompositionProcess::executeChannelComposition()
 {
-    if (m_run->running)
+    if (isRunning())
     {
         return;
     }
-    // What the run reads is chosen here: the components' assets, or their sequences, and the names it records.
+    // Every chosen component is checked here; images go to the framework's run, three sequences to the window's own.
+    bool anySequence = false;
+    bool anyImage = false;
+    bool first = true;
+    for (QComboBox* selector : {m_ui.redChannel, m_ui.greenChannel, m_ui.blueChannel})
+    {
+        const QString text = selector->currentText();
+        const bool chosen = text != NO_IMAGE_STR && !text.isEmpty();
+        ImageViewControl* view = chosen ? process_utils::findViewControlByName(text) : nullptr;
+        if (chosen && (view == nullptr || !view->hasImage()))
+        {
+            notifyErrorMessage(QStringLiteral("Error running Channel Composition"),
+                               QStringLiteral("The channel component '%1' is not available").arg(text));
+            ++m_run->failed;
+            return;
+        }
+        if (first && view == nullptr)
+        {
+            notifyErrorMessage(QStringLiteral("Error running Channel Composition"),
+                               QStringLiteral("The first channel component is required"));
+            ++m_run->failed;
+            return;
+        }
+        if (view != nullptr)
+        {
+            anySequence = anySequence || view->isSequence();
+            anyImage = anyImage || !view->isSequence();
+        }
+        first = false;
+    }
+    if (anySequence && anyImage)
+    {
+        notifyErrorMessage(QStringLiteral("Error running Channel Composition"),
+                           QStringLiteral("All the selected images must be either sequences or images"));
+        ++m_run->failed;
+        return;
+    }
+    if (anySequence)
+    {
+        composeSequences();
+        return;
+    }
+    m_IgnoreLastImageUpdatedEvent = true;
+    applyProcess();
+}
+
+void ChannelCompositionProcess::composeSequences()
+{
+    // What the run reads is chosen here: the components' sequences, and the names it records.
     struct Component
     {
         std::string name = "-";
-        std::shared_ptr<const an::consumer::ImageAsset> asset;
         std::optional<an::ui::DocumentSequence> sequence;
         ImageViewControl* view = nullptr;
     };
     std::array<Component, 3u> components;
-    bool anySequence = false;
     std::size_t index = 0u;
     for (QComboBox* selector : {m_ui.redChannel, m_ui.greenChannel, m_ui.blueChannel})
     {
         const QString text = selector->currentText();
         if (text != NO_IMAGE_STR && !text.isEmpty())
         {
-            ImageViewControl* view = process_utils::findViewControlByName(text);
-            if (view == nullptr || !view->hasImage())
+            if (ImageViewControl* view = process_utils::findViewControlByName(text); view != nullptr)
             {
-                process_utils::notifyErrorMessage(
-                    this, "Error running Channel Composition",
-                    QStringLiteral("The channel component '%1' is not available").arg(text));
-                ++m_run->failed;
-                return;
+                components[index].name = text.toStdString();
+                components[index].sequence = view->document().sequence();
+                components[index].view = view;
             }
-            components[index].name = text.toStdString();
-            components[index].asset = view->document().asset();
-            components[index].sequence = view->document().sequence();
-            components[index].view = view;
-            anySequence = anySequence || view->isSequence();
         }
         ++index;
     }
-    if (!components[0].asset)
-    {
-        process_utils::notifyErrorMessage(this, "Error running Channel Composition",
-                                          QStringLiteral("The first channel component is required"));
-        ++m_run->failed;
-        return;
-    }
-    if (anySequence)
-    {
-        for (const Component& component : components)
-        {
-            if (component.asset && !component.sequence.has_value())
-            {
-                process_utils::notifyErrorMessage(
-                    this, "Error running Channel Composition",
-                    QStringLiteral("All the selected images must be either sequences or images"));
-                ++m_run->failed;
-                return;
-            }
-        }
-    }
-    const std::optional<composition_detail::ColourSpace> space =
-        composition_detail::colourSpaceFromLabel(m_ui.colorSpace->currentText());
-    if (!space.has_value())
-    {
-        return;
-    }
+    const std::optional<composition_detail::ColourSpace> space = chosenSpace();
     auto* context = an::ui::appContext();
     an::ui::IEngineSessionProvider* provider = context ? context->getEngineSessionProvider() : nullptr;
-    if (provider == nullptr)
+    if (!space.has_value() || provider == nullptr || !components[0].sequence.has_value())
     {
         return;
     }
@@ -839,58 +1068,36 @@ void ChannelCompositionProcess::executeChannelComposition()
     m_ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     m_ui.buttonBox->button(QDialogButtonBox::Close)->setEnabled(false);
 
-    ProgressDialogControl* progress = nullptr;
-    setRunState(an::ui::runningState({}, anySequence ? std::optional<double>(0.0) : std::nullopt));
-    if (anySequence)
-    {
-        progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Channel Composition");
-        progress->setText("Executing Channel Composition");
-        progress->setProgressBarRange(0, 100);
-        progress->show();
-    }
+    setRunState(an::ui::runningState({}, std::optional<double>(0.0)));
+    auto* progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Channel Composition");
+    progress->setText("Executing Channel Composition");
+    progress->setProgressBarRange(0, 100);
+    progress->show();
     QPointer<ChannelCompositionProcess> guard(this);
     QPointer<ProgressDialogControl> dialog(progress);
     const std::stop_token windowStop = m_run->stop.get_token();
-    const std::stop_token dialogStop = progress ? progress->stopToken() : std::stop_token{};
+    const std::stop_token dialogStop = progress->stopToken();
     const bool linearMatch = m_ui.linearMatchCheckBox->isChecked();
     const composition_detail::ColourSpace chosen = *space;
     ImageViewControl* neighbour = components[0].view;
-    const std::string tempPath =
-        anySequence ? process_utils::createTempSequenceFilePath(components[0].sequence->descriptor.format)
-                    : std::string();
+    const std::string tempPath = process_utils::createTempSequenceFilePath(components[0].sequence->descriptor.format);
     const std::function<void(an::ui::ExecutionScope&)> hook = admissionHook();
 
     const std::stop_token processStop = windowStopToken();
     QThreadPool::globalInstance()->start([session, components, guard, dialog, windowStop, dialogStop, processStop,
-                                          linearMatch, chosen, neighbour, anySequence, tempPath, hook]() {
+                                          linearMatch, chosen, tempPath, hook]() {
         // One stop for the run's Stop, the window's going and the dialog's Cancel.
         std::stop_source stop;
         const std::stop_callback windowCallback(windowStop, [&stop]() { stop.request_stop(); });
         const std::stop_callback processCallback(processStop, [&stop]() { stop.request_stop(); });
         const std::stop_callback dialogCallback(dialogStop, [&stop]() { stop.request_stop(); });
 
-        std::shared_ptr<an::consumer::ImageAsset> still;
         std::optional<an::ui::DocumentSequence> written;
         an::Status outcome = an::Status::success();
-        // A still composition's components are other views' images, leased before it is admitted, one lease per view
-        // however many channels it fills: an edit of a view holds its writer while it waits to be admitted.
-        an::ui::ImageReads reads;
-        if (!anySequence)
-        {
-            for (const auto& component : components)
-            {
-                reads.name(component.asset);
-            }
-        }
-        outcome = reads.take(stop.get_token());
-        an::Result<an::ui::ExecutionScope> admitted =
-            outcome.failed() ? an::Result<an::ui::ExecutionScope>(outcome)
-                             : an::ui::ExecutionScope::admit(
-                                   *session,
-                                   an::ui::ExecutionRequest{.purpose = an::consumer::OperationPurpose::Apply,
-                                                            .stopToken = stop.get_token(),
-                                                            .reads = &reads},
-                                   an::ui::ExecutionObserver{});
+        an::Result<an::ui::ExecutionScope> admitted = an::ui::ExecutionScope::admit(
+            *session,
+            an::ui::ExecutionRequest{.purpose = an::consumer::OperationPurpose::Apply, .stopToken = stop.get_token()},
+            an::ui::ExecutionObserver{});
         if (!admitted.hasValue())
         {
             outcome = admitted.status();
@@ -909,18 +1116,67 @@ void ChannelCompositionProcess::executeChannelComposition()
             {
                 request.names[index] = components[index].name;
             }
-            if (!anySequence)
+            // Three sequences frame by frame, a frame missing from a shorter one a zero plane, written into a new
+            // sequence beside the first component's, published only when every frame is written.
+            std::array<std::unique_ptr<an::ui::IProcessFrameReader>, 3u> readers;
+            std::uint64_t total = 0u;
+            for (std::size_t index = 0u; index < 3u && outcome.ok(); ++index)
             {
+                if (!components[index].sequence.has_value())
+                {
+                    continue;
+                }
+                an::Result<std::unique_ptr<an::ui::IProcessFrameReader>> reader =
+                    an::ui::openProcessFrames(*session, *components[index].sequence, false);
+                if (!reader.hasValue())
+                {
+                    outcome = reader.status();
+                    break;
+                }
+                readers[index] = std::move(*reader);
+                total = (std::max)(total, readers[index]->frameCount());
+            }
+            std::unique_ptr<an::ui::IProcessFrameWriter> writer;
+            if (outcome.ok())
+            {
+                an::Result<std::unique_ptr<an::ui::IProcessFrameWriter>> made = an::ui::createProcessFrameOutput(
+                    *session, *components[0].sequence, QString::fromStdString(tempPath));
+                if (!made.hasValue())
+                {
+                    outcome = made.status();
+                }
+                else
+                {
+                    writer = std::move(*made);
+                }
+            }
+            for (std::uint64_t frame = 0u; outcome.ok() && readers[0]; ++frame)
+            {
+                std::array<std::optional<an::consumer::ImageAsset>, 3u> frames;
                 std::array<std::optional<an::consumer::AssetReadLease>, 3u> leases;
                 std::array<std::optional<an::ui::ProcessSource>, 3u> sources;
-                for (std::size_t index = 0u; index < 3u && outcome.ok(); ++index)
+                bool ended = false;
+                for (std::size_t index = 0u; index < 3u; ++index)
                 {
-                    if (!components[index].asset)
+                    request.components[index] = nullptr;
+                    if (!readers[index])
                     {
                         continue;
                     }
-                    an::Result<an::consumer::AssetReadLease> lease =
-                        an::ui::readBeside(scope, *components[index].asset, scope.execution().stopToken());
+                    an::Result<std::optional<an::ui::ProcessSequenceFrame>> next =
+                        readers[index]->next(scope.engine(), scope.execution());
+                    if (!next.hasValue())
+                    {
+                        outcome = next.status();
+                        break;
+                    }
+                    if (!next->has_value())
+                    {
+                        ended = ended || index == 0u;
+                        continue;
+                    }
+                    frames[index].emplace(std::move((*next)->asset));
+                    an::Result<an::consumer::AssetReadLease> lease = frames[index]->read(scope.execution().stopToken());
                     if (!lease.hasValue())
                     {
                         outcome = lease.status();
@@ -930,138 +1186,49 @@ void ChannelCompositionProcess::executeChannelComposition()
                     sources[index].emplace(an::ui::ProcessSource::of(*leases[index]));
                     request.components[index] = &*sources[index];
                 }
-                if (outcome.ok())
+                if (outcome.failed() || ended)
                 {
-                    an::Result<an::consumer::ImageAsset> composed =
-                        composition_detail::composeChannelImages(scope, request);
-                    if (!composed.hasValue())
-                    {
-                        outcome = composed.status();
-                    }
-                    else
-                    {
-                        still = std::make_shared<an::consumer::ImageAsset>(std::move(*composed));
-                    }
+                    break;
+                }
+                an::Result<an::consumer::ImageAsset> composed =
+                    composition_detail::composeChannelImages(scope, request);
+                if (!composed.hasValue())
+                {
+                    outcome = composed.status();
+                    break;
+                }
+                an::Result<an::consumer::AssetReadLease> composedLease = composed->read(scope.execution().stopToken());
+                if (!composedLease.hasValue())
+                {
+                    outcome = composedLease.status();
+                    break;
+                }
+                outcome = writer->write(scope.engine(), scope.execution(), frame, composedLease->image());
+                if (total > 0u)
+                {
+                    const int percent = static_cast<int>(((frame + 1u) * 100u) / total);
+                    postToGui([dialog, guard, percent]() {
+                        if (dialog)
+                        {
+                            dialog->setValue(percent);
+                        }
+                        if (guard)
+                        {
+                            guard->reportRunProgress(static_cast<double>(percent) / 100.0);
+                        }
+                    });
                 }
             }
-            else
+            if (outcome.ok() && writer)
             {
-                // Three sequences frame by frame, a frame missing from a shorter one a zero plane, written into a new
-                // sequence beside the first component's, published only when every frame is written.
-                std::array<std::unique_ptr<an::ui::IProcessFrameReader>, 3u> readers;
-                std::uint64_t total = 0u;
-                for (std::size_t index = 0u; index < 3u && outcome.ok(); ++index)
+                an::Result<an::ui::DocumentSequence> finished = writer->finish(scope.engine(), scope.execution());
+                if (!finished.hasValue())
                 {
-                    if (!components[index].sequence.has_value())
-                    {
-                        continue;
-                    }
-                    an::Result<std::unique_ptr<an::ui::IProcessFrameReader>> reader =
-                        an::ui::openProcessFrames(*session, *components[index].sequence, false);
-                    if (!reader.hasValue())
-                    {
-                        outcome = reader.status();
-                        break;
-                    }
-                    readers[index] = std::move(*reader);
-                    total = (std::max)(total, readers[index]->frameCount());
+                    outcome = finished.status();
                 }
-                std::unique_ptr<an::ui::IProcessFrameWriter> writer;
-                if (outcome.ok())
+                else
                 {
-                    an::Result<std::unique_ptr<an::ui::IProcessFrameWriter>> made = an::ui::createProcessFrameOutput(
-                        *session, *components[0].sequence, QString::fromStdString(tempPath));
-                    if (!made.hasValue())
-                    {
-                        outcome = made.status();
-                    }
-                    else
-                    {
-                        writer = std::move(*made);
-                    }
-                }
-                for (std::uint64_t frame = 0u; outcome.ok() && readers[0]; ++frame)
-                {
-                    std::array<std::optional<an::consumer::ImageAsset>, 3u> frames;
-                    std::array<std::optional<an::consumer::AssetReadLease>, 3u> leases;
-                    std::array<std::optional<an::ui::ProcessSource>, 3u> sources;
-                    bool ended = false;
-                    for (std::size_t index = 0u; index < 3u; ++index)
-                    {
-                        request.components[index] = nullptr;
-                        if (!readers[index])
-                        {
-                            continue;
-                        }
-                        an::Result<std::optional<an::ui::ProcessSequenceFrame>> next =
-                            readers[index]->next(scope.engine(), scope.execution());
-                        if (!next.hasValue())
-                        {
-                            outcome = next.status();
-                            break;
-                        }
-                        if (!next->has_value())
-                        {
-                            ended = ended || index == 0u;
-                            continue;
-                        }
-                        frames[index].emplace(std::move((*next)->asset));
-                        an::Result<an::consumer::AssetReadLease> lease =
-                            frames[index]->read(scope.execution().stopToken());
-                        if (!lease.hasValue())
-                        {
-                            outcome = lease.status();
-                            break;
-                        }
-                        leases[index].emplace(std::move(*lease));
-                        sources[index].emplace(an::ui::ProcessSource::of(*leases[index]));
-                        request.components[index] = &*sources[index];
-                    }
-                    if (outcome.failed() || ended)
-                    {
-                        break;
-                    }
-                    an::Result<an::consumer::ImageAsset> composed =
-                        composition_detail::composeChannelImages(scope, request);
-                    if (!composed.hasValue())
-                    {
-                        outcome = composed.status();
-                        break;
-                    }
-                    an::Result<an::consumer::AssetReadLease> composedLease =
-                        composed->read(scope.execution().stopToken());
-                    if (!composedLease.hasValue())
-                    {
-                        outcome = composedLease.status();
-                        break;
-                    }
-                    outcome = writer->write(scope.engine(), scope.execution(), frame, composedLease->image());
-                    if (total > 0u)
-                    {
-                        const int percent = static_cast<int>(((frame + 1u) * 100u) / total);
-                        postToGui([dialog, guard, percent]() {
-                            if (dialog)
-                            {
-                                dialog->setValue(percent);
-                            }
-                            if (guard)
-                            {
-                                guard->reportRunProgress(static_cast<double>(percent) / 100.0);
-                            }
-                        });
-                    }
-                }
-                if (outcome.ok() && writer)
-                {
-                    an::Result<an::ui::DocumentSequence> finished = writer->finish(scope.engine(), scope.execution());
-                    if (!finished.hasValue())
-                    {
-                        outcome = finished.status();
-                    }
-                    else
-                    {
-                        written.emplace(std::move(*finished));
-                    }
+                    written.emplace(std::move(*finished));
                 }
             }
             if (outcome.ok() && stop.stop_requested())
@@ -1084,10 +1251,8 @@ void ChannelCompositionProcess::executeChannelComposition()
                 sequenceDocument.emplace(std::move(*opened));
             }
         }
-        auto landing = std::make_shared<
-            std::pair<std::shared_ptr<an::consumer::ImageAsset>, std::optional<an::ui::ImageDocument>>>(
-            std::move(still), std::move(sequenceDocument));
-        postToGui([guard, dialog, outcome, landing, chosen, neighbour, components]() {
+        auto landing = std::make_shared<std::optional<an::ui::ImageDocument>>(std::move(sequenceDocument));
+        postToGui([guard, dialog, outcome, landing, chosen, components]() {
             if (dialog)
             {
                 dialog->closeAsync();
@@ -1097,7 +1262,7 @@ void ChannelCompositionProcess::executeChannelComposition()
                 return;
             }
             bool published = false;
-            if (outcome.ok())
+            if (outcome.ok() && landing->has_value())
             {
                 composition_detail::CompositionRequest named;
                 named.space = chosen;
@@ -1107,47 +1272,29 @@ void ChannelCompositionProcess::executeChannelComposition()
                 }
                 const std::string description = composition_detail::compositionDescription(named);
                 an::ui::IViewFactory* factory = process_utils::currentViewFactory();
-                ImageViewControl* beside =
-                    neighbour != nullptr && process_utils::findViewControlByName(
-                                                QString::fromStdString(components[0].name)) == neighbour
-                        ? neighbour
-                        : nullptr;
-                if (factory != nullptr && landing->first)
-                {
-                    an::Result<an::ui::ImageDocument> document = an::ui::ImageDocument::create(
-                        std::move(*landing->first),
-                        an::ui::DocumentNames{.displayName =
-                                                  QLatin1String(composition_detail::composedImageName(chosen))});
-                    if (document.hasValue())
-                    {
-                        published = factory->createNewImageViewControlFromImage(nullptr, std::move(*document), nullptr,
-                                                                                description, ViewControlMode::standard,
-                                                                                beside) != nullptr;
-                    }
-                }
-                else if (factory != nullptr && landing->second.has_value())
+                ImageViewControl* beside = components[0].view != nullptr &&
+                                                   process_utils::findViewControlByName(
+                                                       QString::fromStdString(components[0].name)) == components[0].view
+                                               ? components[0].view
+                                               : nullptr;
+                if (factory != nullptr)
                 {
                     published = factory->createNewImageViewControlFromSequence(
-                                    nullptr, std::move(*landing->second), nullptr, false, description,
+                                    nullptr, std::move(**landing), nullptr, false, description,
                                     ViewControlMode::standard, beside) != nullptr;
                 }
             }
-            guard->finishRun(published
-                                 ? an::Status::success()
-                                 : (outcome.ok() ? refusal(an::ErrorCode::Internal, "no view could be made") : outcome),
-                             published);
+            guard->finishSequences(
+                published ? an::Status::success()
+                          : (outcome.ok() ? refusal(an::ErrorCode::Internal, "no view could be made") : outcome),
+                published);
         });
     });
 }
 
 void ChannelCompositionProcess::on_dialog_box_button_clicked(QAbstractButton* button)
 {
-    QDialogButtonBox* buttonBox = qobject_cast<QDialogButtonBox*>(sender());
-    if (!buttonBox)
-    {
-        return;
-    }
-    const QDialogButtonBox::StandardButton sb = buttonBox->standardButton(button);
+    const QDialogButtonBox::StandardButton sb = m_ui.buttonBox->standardButton(button);
     if (sb == QDialogButtonBox::Ok)
     {
         executeChannelComposition();

@@ -3028,6 +3028,18 @@ bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
             (void)guarded->close();
         }
     });
+    // A full page's own menus, under the header's button.
+    QPointer<TaskPage> shown(page);
+    QObject::connect(header, &an::ui::AnTaskHeader::menuRequested, this, [shown]() {
+        if (shown.isNull())
+        {
+            return;
+        }
+        QMenu* const menu = shown->makeProcessMenu(shown.data());
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        const QWidget* const button = shown->header()->menuButton();
+        menu->popup(button->mapToGlobal(QPoint(0, button->height())));
+    });
     impl.taskPages[id] = page;
     refreshTaskHeader(id);
     return true;

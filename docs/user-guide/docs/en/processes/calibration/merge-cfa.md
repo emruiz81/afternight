@@ -8,7 +8,7 @@ summary: >-
 data_in: linear
 data_out: cfa
 destructive: false
-preview: none
+preview: real-time
 sequences: true
 masks: none
 external: none
@@ -80,7 +80,8 @@ pins:
 
 ## Controls
 
-The window has no preview, no **Target Image** and no **Reset**. What every process window shares is on
+The window has no **Target Image** and no **Reset**. Its preview shows the merged mosaic once the four plane boxes
+name images. What every process window shares is on
 [Process Windows](../../interface/process-windows.md).
 
 ```controls
@@ -131,6 +132,14 @@ controls:
     range: The same list as **CFA0**.
     tradeoff: A wrong plane is joined into the mosaic without a warning.
     scope: OK.
+    persistence: Until the window closes.
+  - name: Preview
+    kind: check
+    default: "On"
+    effect: Shows the merged mosaic beside the controls, as **OK** makes it, once the four plane boxes name images. A change of a box or of **CFA Pattern** shows it again.
+    enabled: Disabled until the four plane boxes name images.
+    tradeoff: The preview joins the whole of the four planes at each change, as **OK** does, and holds a mosaic four times a plane.
+    scope: "The window only. It offers no **Preview area**: the mosaic is twice as wide and twice as high as a plane. Four sequences show the mosaic of the frames their views show."
     persistence: Until the window closes.
   - name: OK
     kind: button

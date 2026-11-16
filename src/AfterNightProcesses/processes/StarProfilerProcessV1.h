@@ -44,6 +44,7 @@ protected:
     void fillRow(TableWidget& table, int row, const an::DetectedStar& star) const override;
     [[nodiscard]] an::ui::StarList orderedBy(an::ui::StarList stars, int column, bool descending) const override;
     [[nodiscard]] StarsFilterControlBase* makeStarsFilter() override;
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
 
 private:
     void refreshTheme() override;

@@ -67,10 +67,13 @@
 #include <QFileInfo>
 #include <QFontMetrics>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPointer>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QStackedWidget>
+#include <QVBoxLayout>
 #include <QtTest/QTest>
 
 #include <gtest/gtest.h>
@@ -78,6 +81,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <memory>
 #include <string_view>
 #include <vector>
 
@@ -978,6 +982,192 @@ TEST_F(MirrorPage, ApplyBlocksTheTargetAndShowsTheResult)
     EXPECT_EQ(mirror->document().asset(), view->document().asset()) << "the page shows the result";
     EXPECT_EQ(noticeOf(*view), nullptr) << "the notice went with the lock";
     EXPECT_TRUE(process->isPresentedAsPage()) << "SCNR stays open on its page";
+}
+
+namespace
+{
+
+/// A process launched on no image, which chooses the three images it reads in its controls.
+constexpr std::string_view kStarmaskRecombination = "multi_image_stacking.actionStarmask_Recombination";
+
+/// The cases of a page with no single target.
+class TargetlessPage : public TaskPageCase
+{
+protected:
+    /// Chooses an image in a selector of a process by its object name.
+    static void choose(QWidget& process, const char* selector, const QString& image)
+    {
+        auto* combo = process.findChild<QComboBox*>(QString::fromLatin1(selector));
+        ASSERT_NE(combo, nullptr) << selector;
+        ASSERT_GE(combo->findText(image), 0) << image.toStdString() << " is offered";
+        combo->setCurrentText(image);
+        settle();
+    }
+};
+
+/// A process window of a menu bar of its own, launched as a full page: what an integration workflow's window is.
+class MenuBarProcess final : public TopLevelProcessBaseControl
+{
+public:
+    MenuBarProcess() : TopLevelProcessBaseControl("Menu Bar Process")
+    {
+        auto* layout = new QVBoxLayout(this);
+        auto* bar = new QMenuBar(this);
+        bar->setNativeMenuBar(false);
+        QMenu* frames = bar->addMenu(QStringLiteral("Frames"));
+        addFrames = frames->addAction(QStringLiteral("Add Frames"));
+        QMenu* run = bar->addMenu(QStringLiteral("Run"));
+        execute = run->addAction(QStringLiteral("Execute"));
+        layout->addWidget(bar);
+        auto* body = new QWidget(this);
+        body->setMinimumSize(400, 300);
+        layout->addWidget(body);
+        QObject::connect(addFrames, &QAction::triggered, this, [this]() { ++framesAdded; });
+        QObject::connect(execute, &QAction::triggered, this, [this]() { ++executed; });
+    }
+
+    QAction* addFrames = nullptr;
+    QAction* execute = nullptr;
+    int framesAdded = 0;
+    int executed = 0;
+};
+
+class FullPage : public TaskPageCase
+{
+};
+
+} // namespace
+
+// A page with no single target names the process alone - in its header and in the rail, whose item is the process's
+// glyph on a tile - whatever image the process reads.
+TEST_F(TargetlessPage, TheHeaderNamesTheProcessAlone)
+{
+    ImageViewControl* const starless = openView(QStringLiteral("targetless-starless"), 0.2f);
+    ImageViewControl* const stars = openView(QStringLiteral("targetless-stars"), 0.4f);
+    ASSERT_TRUE(starless != nullptr && stars != nullptr);
+    TopLevelProcessBaseControl* const process = launch(kStarmaskRecombination);
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    const Task* task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    EXPECT_FALSE(task->singleTarget);
+    EXPECT_EQ(page->header()->processName(), QStringLiteral("Starmask Recombination"));
+    EXPECT_TRUE(page->header()->targetName().isEmpty()) << "the header names the process alone";
+
+    choose(*process, "starlessImage", QString::fromStdString(starless->getUniqueName()));
+    choose(*process, "starmaskImage", QString::fromStdString(stars->getUniqueName()));
+    task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    EXPECT_TRUE(task->target.isNull()) << "the image it reads first is not its target";
+    EXPECT_TRUE(page->header()->targetName().isEmpty());
+    const an::ui::RailItem item =
+        railItem(*window().rail(), an::ui::observatory::ObservatoryWindow::railTaskId(task->id));
+    EXPECT_EQ(item.text, QStringLiteral("Starmask Recombination"));
+    EXPECT_TRUE(item.thumbnail.isNull()) << "the rail shows the process's glyph on a tile";
+    EXPECT_EQ(item.glyphKey, task->iconKey);
+}
+
+// Until every image it needs is chosen, the canvas names the ones still to choose; once they are, it shows the preview
+// of the result.
+TEST_F(TargetlessPage, TheCanvasNamesTheMissingInputsUntilEveryOneIsChosen)
+{
+    ImageViewControl* const starless = openView(QStringLiteral("missing-starless"), 0.2f);
+    ImageViewControl* const stars = openView(QStringLiteral("missing-stars"), 0.4f);
+    ASSERT_TRUE(starless != nullptr && stars != nullptr);
+    TopLevelProcessBaseControl* const process = launch(kStarmaskRecombination);
+    ASSERT_NE(process, nullptr);
+    an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    ASSERT_NE(layout, nullptr);
+
+    QString said = layout->canvasMessage();
+    EXPECT_TRUE(said.contains(QStringLiteral("Starless Image"))) << said.toStdString();
+    EXPECT_TRUE(said.contains(QStringLiteral("Stars Image"))) << said.toStdString();
+    EXPECT_FALSE(said.contains(QStringLiteral("Mask"))) << "the mask is optional";
+    EXPECT_EQ(layout->previewView(), nullptr);
+
+    choose(*process, "starlessImage", QString::fromStdString(starless->getUniqueName()));
+    said = layout->canvasMessage();
+    EXPECT_FALSE(said.contains(QStringLiteral("Starless Image"))) << said.toStdString();
+    EXPECT_TRUE(said.contains(QStringLiteral("Stars Image"))) << said.toStdString();
+
+    choose(*process, "starmaskImage", QString::fromStdString(stars->getUniqueName()));
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return layout->previewView() != nullptr; }))
+        << "the canvas shows the preview";
+    ASSERT_TRUE(idle(process));
+    EXPECT_TRUE(layout->canvasMessage().isEmpty()) << layout->canvasMessage().toStdString();
+    EXPECT_TRUE(layout->previewView()->isVisibleTo(layout->canvas()));
+}
+
+// While a page with no single target is shown the image actions have no image to act on, and they are given back to
+// the active image when the page is left.
+TEST_F(TargetlessPage, TheImageActionsAreDisabledWhileThereIsNoTarget)
+{
+    ImageViewControl* const view = openView(QStringLiteral("targetless-actions"));
+    ASSERT_NE(view, nullptr);
+    QAction* const saveAs = core().actions().action(actionIds::kSaveAs);
+    ASSERT_NE(saveAs, nullptr);
+    settle();
+    ASSERT_TRUE(saveAs->isEnabled()) << "an image is open";
+
+    TopLevelProcessBaseControl* const process = launch(kStarmaskRecombination);
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(window().isTaskPageShown());
+    EXPECT_EQ(core().viewService().subjectView(), nullptr);
+    EXPECT_FALSE(saveAs->isEnabled()) << "Save as has no image to save";
+    choose(*process, "starlessImage", QString::fromStdString(view->getUniqueName()));
+    EXPECT_FALSE(saveAs->isEnabled()) << "the image it reads is not its target";
+
+    window().showViews();
+    settle();
+    EXPECT_TRUE(saveAs->isEnabled()) << "the actions are the active image's again";
+}
+
+// A full page is the process whole under the task header, whose menu button lists the process's own menus - its menu
+// bar hidden on the page - and each entry acts as it does in the menu bar.
+TEST_F(FullPage, TheMenuButtonListsTheProcessMenusAndEachEntryActs)
+{
+    an::ui::process_registry::ProcessDescriptor descriptor;
+    descriptor.id = "tests.full_page";
+    descriptor.display_name = "Menu Bar Process";
+    descriptor.process_name = "Menu Bar Process";
+    descriptor.category = "multi_image_stacking";
+    descriptor.action_object_name = "actionNoSuchFullPage";
+    descriptor.launch_mode = an::ui::process_registry::ProcessLaunchMode::TopLevel;
+    descriptor.surface = an::ui::ProcessSurface::FullPage;
+    MenuBarProcess* process = nullptr;
+    {
+        const an::ui::ProcessLaunchScope launch(descriptor);
+        process = new MenuBarProcess();
+    }
+    process->show();
+    settle();
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    EXPECT_EQ(process->pageLayout()->canvas(), nullptr) << "a full page has no canvas";
+    EXPECT_EQ(process->pageLayout()->column(), nullptr) << "and no column";
+    EXPECT_FALSE(process->findChild<QMenuBar*>()->isVisibleTo(process)) << "its menu bar is under the button";
+    ASSERT_TRUE(page->header()->menuButton()->isVisibleTo(page));
+
+    std::unique_ptr<QMenu> menu(page->makeProcessMenu(nullptr));
+    QStringList titles;
+    for (const QAction* entry : menu->actions())
+    {
+        titles.append(entry->text());
+    }
+    EXPECT_EQ(titles, (QStringList{QStringLiteral("Frames"), QStringLiteral("Run")}));
+    ASSERT_EQ(menu->actions().size(), 2);
+    ASSERT_NE(menu->actions()[0]->menu(), nullptr);
+    ASSERT_NE(menu->actions()[1]->menu(), nullptr);
+    menu->actions()[0]->menu()->actions().front()->trigger();
+    menu->actions()[1]->menu()->actions().front()->trigger();
+    EXPECT_EQ(process->framesAdded, 1);
+    EXPECT_EQ(process->executed, 1);
+
+    process->close();
+    settle();
 }
 
 } // namespace an::tests::observatory

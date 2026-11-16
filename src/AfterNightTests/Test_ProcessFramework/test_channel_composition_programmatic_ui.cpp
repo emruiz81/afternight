@@ -32,6 +32,9 @@ TEST(ChannelCompositionProgrammaticUiTest, ConstructorDefaultsMatchContract)
     ASSERT_NE(ui.channel2Label, nullptr);
     ASSERT_NE(ui.linearMatchCheckBox, nullptr);
     ASSERT_NE(ui.buttonBox, nullptr);
+    ASSERT_NE(ui.horizontalLayoutMain, nullptr);
+    ASSERT_NE(ui.previewLayout, nullptr);
+    ASSERT_NE(ui.preview, nullptr);
 
     EXPECT_EQ(host.windowTitle(), QStringLiteral("Channel Composition"));
     EXPECT_EQ(host.windowModality(), Qt::NonModal);
@@ -43,6 +46,7 @@ TEST(ChannelCompositionProgrammaticUiTest, ConstructorDefaultsMatchContract)
     EXPECT_EQ(ui.channel2Label->text(), QStringLiteral("Blue"));
     EXPECT_EQ(ui.linearMatchCheckBox->text(), QStringLiteral("Linear Match"));
     EXPECT_FALSE(ui.linearMatchCheckBox->isChecked());
+    EXPECT_TRUE(ui.preview->isChecked()) << "the composed image is previewed once the first component is chosen";
 
     EXPECT_NE(ui.buttonBox->button(QDialogButtonBox::Ok), nullptr);
     EXPECT_NE(ui.buttonBox->button(QDialogButtonBox::Close), nullptr);

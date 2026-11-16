@@ -1321,11 +1321,14 @@ TEST_F(GeometryProcessCaseAtWidthOne, MergeCfaWaitingForAnEditsWriterHoldsNoThre
     }
     WindowHandle window(new MergeCFAProcess());
     window->setAttribute(Qt::WA_DeleteOnClose, false);
+    // The case is about Ok's run: the preview's frames, runs of their own, are left out.
+    setChecked(*window, "preview", false);
     for (std::size_t plane = 0u; plane < 4u; ++plane)
     {
         const std::string selector = "cfa" + std::to_string(plane) + "Selector";
         setComboText(*window, selector.c_str(), QString::fromStdString(planes[plane]->getUniqueName()));
     }
+    ASSERT_TRUE(settleWindow(context(), *window));
     const std::size_t before = context().madeViews.size();
 
     an::tests::viewer::EditHoldingTheWriter edit(*planes[1]);

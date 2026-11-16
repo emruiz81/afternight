@@ -607,8 +607,10 @@ TEST(ProcessWindowLayoutTest, ChannelCompositionColorSaturationAndLrgbUseTokenSp
     QWidget channelHost;
     const auto channelUi = an::ui::processes::buildChannelCompositionProcessUi(&channelHost);
     ASSERT_NE(channelUi.verticalLayout, nullptr);
+    ASSERT_NE(channelUi.horizontalLayoutMain, nullptr);
     EXPECT_EQ(channelUi.verticalLayout->spacing(), t.spacing.md);
-    EXPECT_EQ(channelUi.verticalLayout->contentsMargins().left(), t.spacing.md);
+    EXPECT_EQ(channelUi.horizontalLayoutMain->spacing(), t.spacing.md);
+    EXPECT_EQ(channelUi.horizontalLayoutMain->contentsMargins().left(), t.spacing.md);
 
     QWidget saturationHost;
     const auto saturationUi = an::ui::processes::buildColorSaturationProcessUi(&saturationHost);

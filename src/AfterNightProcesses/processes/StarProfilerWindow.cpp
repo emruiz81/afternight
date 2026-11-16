@@ -11,6 +11,7 @@
 #include "controls/ImageViewControl.h"
 #include "controls/ProfiledStarMaskCreatorControl.h"
 #include "controls/ProgressDialogControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/ProcessCommonUtils.h"
 #include "session/ImageDocument.h"
 
@@ -104,12 +105,7 @@ void StarProfilerWindow::attachWidgets(const an::ui::processes::StarProfilerWidg
     QObject::connect(m_widgets.zoom, &QDoubleSpinBox::valueChanged, this,
                      &StarProfilerWindow::on_zoomDetectedStarsValueChanged);
 
-    if (m_image_view_control != nullptr)
-    {
-        m_selection = std::make_unique<ImageStarSelectionController>(m_image_view_control->getScrollArea(), this);
-        m_selection->setListenerEnabled(true);
-        m_selection->attachToViewWidget(m_image_view_control->getViewWidget());
-    }
+    drawStarsOn(interactionView());
     m_widgets.table->setListener(this);
     initializeTable();
     updateControls();
@@ -126,6 +122,61 @@ void StarProfilerWindow::initializeTable()
 }
 
 void StarProfilerWindow::detectionStarting(std::stop_source&) {}
+
+void StarProfilerWindow::drawStarsOn(ImageViewControl* view)
+{
+    // The drawing on the view the person worked on goes before the next is made: a controller turns its view's quick
+    // zoom back on as it goes.
+    QPointF highlighted;
+    if (m_selection)
+    {
+        highlighted = m_selection->getHighlightStarSelection();
+        m_selection->detachFromViewWidget();
+        m_selection.reset();
+    }
+    if (view == nullptr)
+    {
+        return;
+    }
+    m_selection = std::make_unique<ImageStarSelectionController>(view->getScrollArea(), this);
+    m_selection->setListenerEnabled(true);
+    m_selection->attachToViewWidget(view->getViewWidget());
+    if (!m_stars->empty())
+    {
+        m_selection->updateStarSelection(m_stars);
+        m_selection->setHighlightStarSelection(highlighted);
+    }
+}
+
+void StarProfilerWindow::interactionViewChanged(ImageViewControl* /*previous*/, ImageViewControl* now)
+{
+    if (now != nullptr)
+    {
+        drawStarsOn(now);
+    }
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> StarProfilerWindow::wrappedPageLayout(QBoxLayout& stars, QBoxLayout& buttons)
+{
+    // Only a mirror page is arranged: its six buttons under the table go on two rows of three.
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        std::vector<QWidget*> second;
+        for (int index = 0; index < buttons.count(); ++index)
+        {
+            if (QWidget* const widget = buttons.itemAt(index)->widget())
+            {
+                second.push_back(widget);
+            }
+        }
+        if (second.size() > 3u)
+        {
+            second.erase(second.begin(), second.begin() + 3);
+            an::ui::processes::wrapRowUnder(stars, second);
+        }
+    }
+    return ImageProcessControl::makePageLayout();
+}
 
 void StarProfilerWindow::onStarSelected(const size_t idx)
 {
@@ -677,10 +728,10 @@ void StarProfilerWindow::updateControls()
 
 void StarProfilerWindow::centerStar(const double x, const double y)
 {
-    if (m_image_view_control != nullptr)
+    if (ImageViewControl* const view = interactionView())
     {
-        m_image_view_control->zoomAndCenterOn(static_cast<int>(std::floor(x)), static_cast<int>(std::floor(y)),
-                                              static_cast<float>(m_widgets.zoom->value()));
+        view->zoomAndCenterOn(static_cast<int>(std::floor(x)), static_cast<int>(std::floor(y)),
+                              static_cast<float>(m_widgets.zoom->value()));
     }
 }
 

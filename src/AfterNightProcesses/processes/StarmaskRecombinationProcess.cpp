@@ -49,9 +49,10 @@ StarmaskRecombinationProcess::StarmaskRecombinationProcess(QWidget* parent)
     m_ImagePreviewLayout = m_ui.verticalLayout_2;
     m_MainHorizontalLayout = m_ui.horizontalLayoutMain;
 
-    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, m_ui.preview, nullptr, nullptr, nullptr,
-                              {.supportPerChannel = false, .showWaitingSpinner = true});
-
+    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, m_ui.preview, m_ui.buttonBox, nullptr,
+                              nullptr, {.supportPerChannel = false, .showWaitingSpinner = true});
+    // The box is handed over for a page's footer; Ok and Close are answered here.
+    QObject::disconnect(m_ui.buttonBox, &QDialogButtonBox::clicked, this, nullptr);
     QObject::connect(m_ui.buttonBox, &QDialogButtonBox::clicked, this,
                      &StarmaskRecombinationProcess::on_dialog_box_button_clicked);
     for (QComboBox* selector : {m_ui.starmaskImage, m_ui.starlessImage, m_ui.maskImage})
@@ -200,6 +201,16 @@ void StarmaskRecombinationProcess::validateSelectedImages()
     m_ui.invertMask->setEnabled(hasMask);
 
     const bool ready = starless != nullptr && starless == m_image_view_control && stars != nullptr && stars->hasImage();
+    QStringList missing;
+    if (starless == nullptr)
+    {
+        missing.append(m_ui.label->text());
+    }
+    if (stars == nullptr || !stars->hasImage())
+    {
+        missing.append(m_ui.label_2->text());
+    }
+    setMissingInputs(missing);
     m_ui.preview->setEnabled(ready);
     if (ready)
     {

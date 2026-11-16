@@ -24,6 +24,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QFontMetrics>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -31,6 +32,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
@@ -75,7 +78,8 @@ protected:
     }
 };
 
-/// The canvas: the colour behind an image; with no preview in it, it says so.
+/// The canvas: the colour behind an image; with no view in it, it says why - the images still to choose, or that the
+/// preview is off.
 class PageCanvas final : public QWidget
 {
 public:
@@ -84,22 +88,69 @@ public:
         setObjectName(QStringLiteral("pageCanvas"));
     }
 
+    /// The images still to choose, by their names in the controls.
+    QStringList missing;
+
+    /// Whether the canvas shows something: a view, or a widget that marks itself as the canvas's content.
+    [[nodiscard]] bool showsAView() const
+    {
+        for (const QWidget* child : findChildren<QWidget*>())
+        {
+            const bool content =
+                dynamic_cast<const ImageViewControl*>(child) != nullptr || child->property("anCanvasContent").toBool();
+            if (content && child->isVisibleTo(this))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// What the canvas says with no view: its heading and, with images still to choose, the line that names them.
+    [[nodiscard]] QStringList message() const
+    {
+        if (missing.isEmpty())
+        {
+            return {translated("The preview is off")};
+        }
+        return {translated("Choose the images to see the result"),
+                translated("Still to choose: %1").arg(missing.join(QStringLiteral(", ")))};
+    }
+
 protected:
     void paintEvent(QPaintEvent* /*event*/) override
     {
         const DesignTokens& t = tokens();
         QPainter painter(this);
         painter.fillRect(rect(), t.colors.bgCanvas);
-        for (const QWidget* child : findChildren<QWidget*>())
+        if (showsAView())
         {
-            if (dynamic_cast<const ImageViewControl*>(child) != nullptr && child->isVisibleTo(this))
-            {
-                return;
-            }
+            return;
         }
+        const QStringList lines = message();
+        if (lines.size() == 1)
+        {
+            painter.setPen(t.colors.textSecondary);
+            painter.setFont(parts::sizedFont(t.typography.body, t.metrics.fontSmall));
+            painter.drawText(rect(), Qt::AlignCenter, lines.front());
+            return;
+        }
+        // The heading over the images still to choose, the two centred together.
+        const QFont heading = parts::sizedFont(t.typography.body, t.metrics.fontBody, QFont::DemiBold);
+        const QFont detail = parts::sizedFont(t.typography.body, t.metrics.fontSmall);
+        const int headingHeight = QFontMetrics(heading).height();
+        const int detailHeight = QFontMetrics(detail).height();
+        const int top = (height() - headingHeight - t.metrics.gap - detailHeight) / 2;
+        const QRect headingRect(t.metrics.pad, top, width() - 2 * t.metrics.pad, headingHeight);
+        const QRect detailRect(t.metrics.pad, top + headingHeight + t.metrics.gap, width() - 2 * t.metrics.pad,
+                               detailHeight);
+        painter.setPen(t.colors.textPrimary);
+        painter.setFont(heading);
+        painter.drawText(headingRect, Qt::AlignCenter, lines[0]);
         painter.setPen(t.colors.textSecondary);
-        painter.setFont(parts::sizedFont(t.typography.body, t.metrics.fontSmall));
-        painter.drawText(rect(), Qt::AlignCenter, translated("The preview is off"));
+        painter.setFont(detail);
+        painter.drawText(detailRect, Qt::AlignCenter,
+                         QFontMetrics(detail).elidedText(lines[1], Qt::ElideRight, detailRect.width()));
     }
 };
 
@@ -480,6 +531,8 @@ struct ProcessPageLayout::Impl : public QObject
     Hooks hooks;
 
     QWidget* page = nullptr;
+    QScrollArea* fullArea = nullptr;
+    QPointer<QMenuBar> menuBar;
     PageCanvas* canvas = nullptr;
     QWidget* canvasFoot = nullptr;
     PageColumn* column = nullptr;
@@ -525,6 +578,11 @@ struct ProcessPageLayout::Impl : public QObject
 
     void build()
     {
+        if (description.fullPage)
+        {
+            buildFullPage();
+            return;
+        }
         QLayout* const root = processWidget.layout();
         // A process with no preview - a mirror page's - is its window's contents whole: they are the controls.
         QWidget* const windowContents = standard.previewLayout == nullptr ? takeWindowContents(*root) : nullptr;
@@ -640,6 +698,44 @@ struct ProcessPageLayout::Impl : public QObject
         QObject::connect(qApp, &QApplication::focusChanged, this,
                          [this](QWidget* /*old*/, QWidget* now) { focusMoved(now); });
         columnResized();
+    }
+
+    /// The process whole in a scroll area that fills the page: what its window laid out is moved into it, its menu bar
+    /// hidden there and its menus offered by the page.
+    void buildFullPage()
+    {
+        QLayout* const root = processWidget.layout();
+        menuBar = qobject_cast<QMenuBar*>(root->menuBar());
+        QWidget* const contents = takeWindowContents(*root);
+        contents->setObjectName(QStringLiteral("pageFullContents"));
+        if (menuBar.isNull())
+        {
+            const QList<QMenuBar*> bars = contents->findChildren<QMenuBar*>();
+            menuBar = bars.isEmpty() ? nullptr : bars.front();
+        }
+        if (menuBar)
+        {
+            menuBar->hide();
+        }
+        root->setContentsMargins(0, 0, 0, 0);
+        root->setSpacing(0);
+        root->setSizeConstraint(QLayout::SetNoConstraint);
+
+        page = new QWidget(&processWidget);
+        page->setObjectName(QStringLiteral("processPage"));
+        auto* pageLayout = new QVBoxLayout(page);
+        pageLayout->setContentsMargins(0, 0, 0, 0);
+        pageLayout->setSpacing(0);
+        // The area gives the process all the page's room, and scrolls only when the page is smaller than the least the
+        // process takes.
+        fullArea = new QScrollArea(page);
+        fullArea->setObjectName(QStringLiteral("pageFullArea"));
+        fullArea->setFrameShape(QFrame::NoFrame);
+        fullArea->setWidgetResizable(true);
+        fullArea->setWidget(contents);
+        contents->show();
+        pageLayout->addWidget(fullArea);
+        root->addWidget(page);
     }
 
     /// What a window with no preview laid out, moved whole, in order and with its stretches, into a widget of its own:
@@ -1159,6 +1255,10 @@ struct ProcessPageLayout::Impl : public QObject
 
     void columnResized()
     {
+        if (column == nullptr)
+        {
+            return;
+        }
         const int windowWidth = page->window() != nullptr ? page->window()->width() : 0;
         const int wanted = pageColumnWidth(description.columnWidth, windowWidth);
         if (column->width() != wanted || column->minimumWidth() != wanted)
@@ -1194,7 +1294,7 @@ struct ProcessPageLayout::Impl : public QObject
         {
             columnResized();
         }
-        else if (watched == body->viewport() && type == QEvent::Resize)
+        else if (body != nullptr && watched == body->viewport() && type == QEvent::Resize)
         {
             bodyResized();
         }
@@ -1220,6 +1320,11 @@ struct ProcessPageLayout::Impl : public QObject
     void applyRun(const ProcessRunState& state)
     {
         run = state;
+        if (column == nullptr)
+        {
+            // A full page shows its run in what holds it.
+            return;
+        }
         const bool running = state.running();
         runRow->setVisible(running);
         if (running)
@@ -1329,6 +1434,28 @@ const ProcessStandardParts& ProcessPageLayout::parts() const noexcept
     return m_impl->standard;
 }
 
+QScrollArea* ProcessPageLayout::fullArea() const noexcept
+{
+    return m_impl->fullArea;
+}
+
+QList<QMenu*> ProcessPageLayout::menus() const
+{
+    QList<QMenu*> menus;
+    if (m_impl->menuBar.isNull())
+    {
+        return menus;
+    }
+    for (QAction* const action : m_impl->menuBar->actions())
+    {
+        if (QMenu* const menu = action->menu())
+        {
+            menus.append(menu);
+        }
+    }
+    return menus;
+}
+
 QAbstractButton* ProcessPageLayout::footerButton(const QDialogButtonBox::StandardButton which) const
 {
     QDialogButtonBox* const box = m_impl->standard.buttonBox;
@@ -1350,7 +1477,7 @@ QAbstractButton* ProcessPageLayout::cancelButton() const noexcept
 
 QAbstractButton* ProcessPageLayout::headerCloseButton() const noexcept
 {
-    return m_impl->header->close;
+    return m_impl->header != nullptr ? m_impl->header->close : nullptr;
 }
 
 QAbstractButton* ProcessPageLayout::previewAreaToggle() const noexcept
@@ -1365,30 +1492,42 @@ QAbstractButton* ProcessPageLayout::compareToggle() const noexcept
 
 int ProcessPageLayout::columnWidth() const
 {
-    return m_impl->column->width();
+    return m_impl->column != nullptr ? m_impl->column->width() : 0;
 }
 
 void ProcessPageLayout::setCategory(const QString& category)
 {
+    if (m_impl->header == nullptr)
+    {
+        return;
+    }
     m_impl->header->eyebrow->setText(category);
     m_impl->header->eyebrow->setVisible(!category.isEmpty());
 }
 
 QString ProcessPageLayout::category() const
 {
-    return m_impl->header->eyebrow->text();
+    return m_impl->header != nullptr ? m_impl->header->eyebrow->text() : QString();
 }
 
 void ProcessPageLayout::setCompareNames(const QString& shown, const QString& alternate, const QString& toolTip)
 {
     m_impl->compareShown = shown;
     m_impl->compareAlternate = alternate;
+    if (m_impl->compare == nullptr)
+    {
+        return;
+    }
     m_impl->compare->setToolTip(toolTip);
     m_impl->refreshCompare();
 }
 
 void ProcessPageLayout::setPreviewView(ImageViewControl* preview)
 {
+    if (m_impl->canvas == nullptr)
+    {
+        return;
+    }
     m_impl->bindPreview(preview);
     m_impl->canvas->update();
     if (m_impl->previewListener)
@@ -1399,6 +1538,10 @@ void ProcessPageLayout::setPreviewView(ImageViewControl* preview)
 
 void ProcessPageLayout::setCanvasView(ImageViewControl* view)
 {
+    if (m_impl->canvas == nullptr)
+    {
+        return;
+    }
     QLayout* const canvasLayout = m_impl->canvas->layout();
     if (ImageViewControl* const shown = m_impl->preview.data(); shown != nullptr && shown != view)
     {
@@ -1423,11 +1566,43 @@ void ProcessPageLayout::setPreviewViewListener(std::function<void(ImageViewContr
     m_impl->previewListener = std::move(listener);
 }
 
+void ProcessPageLayout::setMissingInputs(const QStringList& inputs)
+{
+    if (m_impl->canvas == nullptr || m_impl->canvas->missing == inputs)
+    {
+        return;
+    }
+    m_impl->canvas->missing = inputs;
+    // What the canvas holds is hidden while images are still to choose, so the canvas says which.
+    QLayout* const canvasLayout = m_impl->canvas->layout();
+    for (int index = 0; index < canvasLayout->count(); ++index)
+    {
+        if (QWidget* const held = canvasLayout->itemAt(index)->widget())
+        {
+            held->setVisible(inputs.isEmpty());
+        }
+    }
+    m_impl->canvas->update();
+}
+
+QString ProcessPageLayout::canvasMessage() const
+{
+    if (m_impl->canvas == nullptr || m_impl->canvas->showsAView())
+    {
+        return {};
+    }
+    return m_impl->canvas->message().join(QLatin1Char('\n'));
+}
+
 void ProcessPageLayout::showMessage(const QString& text, const PageMessageTone tone,
                                     const std::optional<double> progressPercent)
 {
     Impl& impl = *m_impl;
     impl.message = text;
+    if (impl.banner == nullptr)
+    {
+        return;
+    }
     if (text.isEmpty())
     {
         impl.banner->hide();

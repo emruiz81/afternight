@@ -18,6 +18,7 @@
 
 class ImageViewControl;
 class QEvent;
+class QMenu;
 class QResizeEvent;
 class TopLevelProcessBaseControl;
 
@@ -51,8 +52,9 @@ namespace an::ui::observatory
 ///
 /// The process is laid into `processHost()` (`TopLevelProcessBaseControl::attachToPage`) and dressed (`dress`): the
 /// history strip goes under its canvas, the compact readout at the head of its column, the toolbar floats over its
-/// canvas, 12 px above its foot, and shows the preview view; the strip shows the target's history. Used on the GUI
-/// thread.
+/// canvas, 12 px above its foot, and shows the preview view; the strip shows the target's history. A full page has no
+/// canvas and no column: it is the process whole under the header, whose menu button lists the process's own menus
+/// when it has any. Used on the GUI thread.
 class AFTERNIGHTSHELLOBSERVATORY_API TaskPage final : public QWidget
 {
 public:
@@ -85,8 +87,12 @@ public:
     /// The view the toolbar shows - the process's preview - and the view whose history the strip shows - its target.
     void bindViews(ImageViewControl* canvas, ImageViewControl* target);
 
-    /// The canvas, in the page's coordinates: what the toolbar floats over.
+    /// The canvas, in the page's coordinates: what the toolbar floats over; empty on a full page.
     [[nodiscard]] QRect canvasArea() const;
+
+    /// The menu of a full page's own menus, as the header's menu button shows it: one entry a menu, each opening the
+    /// process's menu. Made each time it is asked for; the caller owns it.
+    [[nodiscard]] QMenu* makeProcessMenu(QWidget* parent) const;
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

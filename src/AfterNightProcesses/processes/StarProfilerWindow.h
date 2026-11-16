@@ -41,6 +41,7 @@ class ImageViewControl;
 class ProfiledStarMaskCreatorControl;
 class QCheckBox;
 class QCloseEvent;
+class QBoxLayout;
 class QDialogButtonBox;
 class QDoubleSpinBox;
 class QLabel;
@@ -197,9 +198,18 @@ protected:
     // Told when a detection starts, with the stop it runs under; a case stops it there.
     virtual void detectionStarting(std::stop_source& stop);
 
+    // The stars are drawn, and clicked, on the view the person works on: the page's view of the target once the
+    // profiler is a page.
+    void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
+
+    // Arranges a mirror page with the row of buttons under the table wrapped in two rows of three; `stars` is the
+    // layout of the table's group, `buttons` the row.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> wrappedPageLayout(QBoxLayout& stars, QBoxLayout& buttons);
+
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    void drawStarsOn(ImageViewControl* view);
     void initializeTable();
     void updateControls();
     void showStars();

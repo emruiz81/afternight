@@ -22,6 +22,7 @@
 #include <QMetaObject>
 #include <QPointer>
 #include <QString>
+#include <QStringList>
 #include <QThreadPool>
 #include <QtWidgets/QDialog>
 
@@ -31,6 +32,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <stop_token>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -130,6 +132,17 @@ public:
     /// when the last one lands. A continuation that starts a run of its own holds the ones after it until that run
     /// has landed too. The GUI thread waits for a run this way, never blocked.
     void whenRunIdle(std::function<void()> continuation);
+
+    /// Stops the run on its way that took the process's run stop (`beginRunStop`): a page's Cancel, for a run that
+    /// shows no progress window of its own.
+    ///
+    /// @return false when no run is on its way, or the one on its way took no stop.
+    bool cancelRun() override;
+
+    /// The images the process still needs before it can show its result, by the names its controls give them - "Star
+    /// image" - in its controls' order; none once every one is chosen. A page whose canvas has nothing to show names
+    /// them there. GUI thread.
+    [[nodiscard]] const QStringList& missingInputs() const;
 
     /// Stops the run on its way as closing the window does - its progress cancelled, nothing it ends with shown - and
     /// waits for nothing; the window's stop token is requested before it is called.
@@ -276,6 +289,13 @@ protected:
     ///
     /// @return the token; whatever carries the run's work and its completion holds a copy.
     [[nodiscard]] std::shared_ptr<void> beginRunInFlight();
+
+    /// A stop of its own for the run that starts now, which `cancelRun` - a page's Cancel - requests: a run that shows
+    /// no progress window takes it, so the page can stop it. Each call begins a new one. GUI thread.
+    [[nodiscard]] std::stop_token beginRunStop();
+
+    /// States the images the process still needs before it can show its result (`missingInputs`), and tells its page.
+    void setMissingInputs(QStringList inputs);
 
     /// Runs `work` on a worker and `done(result)` on the GUI thread, while the window lives. The work is a run in
     /// flight from now until its completion has run or been dropped.

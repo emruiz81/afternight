@@ -928,6 +928,11 @@ NarrowbandPaletteComposerProcess::NarrowbandPaletteComposerProcess(QWidget* pare
 
     initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.previewLayout, nullptr, m_ui.buttonBox, nullptr, nullptr,
                               ImageRTPreviewControl::ProcessInitOptions{.previewAreaSelectionEnabled = false});
+    // The grid of previews is what a page's canvas shows.
+    if (m_ui.previewStack != nullptr)
+    {
+        m_ui.previewStack->setProperty("anCanvasContent", true);
+    }
     setExecutionAutostretchSupported(true);
     m_DefaultSizePreview = QSize(an::ui::processes::kNarrowbandPaletteComposerInitialWindowWidth,
                                  an::ui::processes::kNarrowbandPaletteComposerInitialWindowHeight);
@@ -1349,6 +1354,22 @@ void NarrowbandPaletteComposerProcess::validateSelections()
     {
         changeTargetViewControl(reference);
     }
+    // The palettes need OIII and Ha or SII; a one-shot-colour source gives both.
+    const auto chosen = [](const QComboBox* selector) {
+        const QString text = selector != nullptr ? selector->currentText() : QString();
+        return !text.isEmpty() && text != NO_IMAGE_STR && process_utils::findViewControlByName(text) != nullptr;
+    };
+    const bool osc = chosen(m_ui.osc1SourceSelector) || chosen(m_ui.osc2SourceSelector);
+    QStringList missing;
+    if (!osc && !chosen(m_ui.oiiiSourceSelector))
+    {
+        missing.append(QStringLiteral("OIII"));
+    }
+    if (!osc && !chosen(m_ui.haSourceSelector) && !chosen(m_ui.siiSourceSelector))
+    {
+        missing.append(QStringLiteral("Ha or SII"));
+    }
+    setMissingInputs(missing);
 }
 
 void NarrowbandPaletteComposerProcess::refreshPaletteGridItems()

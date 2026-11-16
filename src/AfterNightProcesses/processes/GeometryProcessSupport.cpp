@@ -1050,11 +1050,18 @@ void reportRunFailure(QWidget* parent, const GeometryRunWords& words, const an::
     }
     const std::string text = fmt::format("{}:\n{}", words.errorLead, status.message());
     LOG_WARNING("{}", text);
+    if (words.page && words.page->hasPageLayout())
+    {
+        words.page->showProcessMessage(words.errorTitle, QString::fromStdString(text),
+                                       TopLevelProcessBaseControl::ProcessMessageTone::Error);
+        return;
+    }
     process_utils::notifyErrorMessage(parent, words.errorTitle, QString::fromStdString(text));
 }
 
 void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDone done)
 {
+    request.words.page = request.process;
     done = endingRunState(request.process, std::move(done));
     const an::consumer::EngineSession* session = lentEngineSession();
     if (session == nullptr)
@@ -1074,8 +1081,11 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
         // own stop - a document changed or closed under it - reaches the operation through the scope.
         ProgressDialogControl* progress = request.progressWindow ? showProgress(request.words) : nullptr;
         const QPointer<ProgressDialogControl> progressGuard(progress);
+        // A run that shows no progress window stops at its own stop - a page's Cancel - when it has one.
         const std::optional<std::stop_token> windowStop =
-            progress != nullptr ? std::optional<std::stop_token>(progress->stopToken()) : std::nullopt;
+            progress != nullptr            ? std::optional<std::stop_token>(progress->stopToken())
+            : request.stop.stop_possible() ? std::optional<std::stop_token>(request.stop)
+                                           : std::nullopt;
         an::ui::ExecutionObserver observer = an::ui::withRunProgress(
             progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{}, request.process.data());
         // The images the operation reads beside the view's own are leased by the edit, with the view's writer and in
@@ -1240,6 +1250,7 @@ void runInPlace(ImageViewControl& view, InPlaceRunRequest request, GeometryRunDo
 
 void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryRunDone done)
 {
+    request.words.page = request.process;
     done = endingRunState(request.process, std::move(done));
     const an::consumer::EngineSession* session = lentEngineSession();
     const auto refuse = [&request, &done](an::Status status) {
@@ -1283,7 +1294,7 @@ void runToNewViews(ImageViewControl& view, NewViewsRunRequest request, GeometryR
         startRunState(request.process, false);
         runThenLand(
             [session, held, operation = request.operation, hook = request.admissionHook,
-             stop = progress != nullptr ? progress->stopToken() : std::stop_token{},
+             stop = progress != nullptr ? progress->stopToken() : request.stop,
              observer = an::ui::withRunProgress(
                  progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{}, request.process.data()),
              reads = readsOf(request.reads)]() -> an::Result<std::vector<an::consumer::ImageAsset>> {

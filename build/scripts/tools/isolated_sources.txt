@@ -507,6 +507,7 @@ sources Test_ControlsProcessFramework
     unit     src/AfterNightTests/Test_ControlsProcessFramework/RunStateTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/ProcessPageTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/MirrorPageTest.cpp
+    unit     src/AfterNightTests/Test_ControlsProcessFramework/FullPageTest.cpp
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -4456,6 +4457,8 @@ sources Test_ProcessesGeometry
     header   src/AfterNightControls/controls/ProcessPageLayout.h
     header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
     header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
+    header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
+    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
 
 # The colour calibration tools - background neutralization, colour calibration, linear match and SCNR - and
 # the support they share, run against the processes library, which the suite links, launched through the library's
@@ -4724,6 +4727,7 @@ sources Test_ProcessesExternalTools
     unit     src/AfterNightTests/Test_ProcessesExternalTools/ExternalToolsUnitsTest.cpp
     unit     src/AfterNightTests/Test_ProcessesExternalTools/ExternalToolsWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesExternalTools/ExternalToolsSmokeTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesExternalTools/ExternalToolsPageTest.cpp
     unit     src/AfterNightTests/Test_ProcessesChannels/ChannelsTestSupport.cpp
     unit     src/AfterNightTests/fixtures/common/CombinationCases.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureCatalogue.cpp
@@ -4836,6 +4840,13 @@ sources Test_ProcessesExternalTools
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    header   src/AfterNightControls/controls/ProcessLaunchScope.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
 
 # The photometric and spectrophotometric colour calibrations - the two windows, the SPCC readiness and its panel, the
 # response repository and catalog readers, the integration hand-off and the support both calibrations share - run
@@ -5128,6 +5139,7 @@ sources Test_ProcessesStarProfilers
     unit     src/AfterNightTests/Test_ProcessesStarProfilers/StarProfilerTestSupport.cpp
     unit     src/AfterNightTests/Test_ProcessesStarProfilers/StarProfilerUnitsTest.cpp
     unit     src/AfterNightTests/Test_ProcessesStarProfilers/StarProfilerWindowTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesStarProfilers/StarProfilerPageTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -5217,6 +5229,16 @@ sources Test_ProcessesStarProfilers
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
+    header   src/AfterNightTests/fixtures/common/FixtureImage.h
+    header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
 
 # The standalone workflow tools - Image Calibration, Image Stacking, Image Registration and the Image List Analyzer -
 # with the file list, the calibration, stacking and registration runs and the registration records they share with the

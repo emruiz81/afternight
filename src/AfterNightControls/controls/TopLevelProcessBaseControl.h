@@ -172,7 +172,8 @@ protected:
 
     virtual void deserialize_json_settings(const std::string& json_settings) {}
 
-    /// Arranges the process as a page, or answers null for a process that cannot be one; none can unless it says so.
+    /// Arranges the process as a page, or answers null for a process that cannot be one: a process whose descriptor
+    /// states a full page is arranged whole as one; no other can be a page unless it says so.
     [[nodiscard]] virtual std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout();
 
     /// The process was arranged as a page: a part outside the page's own layout follows it - a preview view's chrome.

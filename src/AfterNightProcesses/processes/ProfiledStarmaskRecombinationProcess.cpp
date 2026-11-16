@@ -12,6 +12,7 @@
 #include "controls/ImageSelectorTooltipBuilder.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessButtonIcons.h"
+#include "controls/ProcessPageLayout.h"
 #include "controls/StarsFilterControlV2.h"
 #include "processes/CombinationProcessSupport.h"
 #include "processes/ProcessCommonUtils.h"
@@ -175,9 +176,10 @@ ProfiledStarmaskRecombinationProcess::ProfiledStarmaskRecombinationProcess(QWidg
     m_ImagePreviewLayout = m_ui.verticalLayout_2;
     m_MainHorizontalLayout = m_ui.horizontalLayoutMain;
 
-    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, m_ui.preview, nullptr, nullptr, nullptr,
-                              {.supportPerChannel = false, .showWaitingSpinner = true});
-
+    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.verticalLayout_2, m_ui.preview, m_ui.buttonBox, nullptr,
+                              nullptr, {.supportPerChannel = false, .showWaitingSpinner = true});
+    // The box is handed over for a page's footer; Ok, Close and Reset are answered here.
+    QObject::disconnect(m_ui.buttonBox, &QDialogButtonBox::clicked, this, nullptr);
     QObject::connect(m_ui.buttonBox, &QDialogButtonBox::clicked, this,
                      &ProfiledStarmaskRecombinationProcess::on_dialog_box_button_clicked);
     for (QComboBox* selector : {m_ui.starmaskImage, m_ui.starlessImage})
@@ -429,6 +431,16 @@ void ProfiledStarmaskRecombinationProcess::validateSelectedImages()
                                   ? nullptr
                                   : process_utils::findViewControlByName(starmaskStr);
     const bool ready = starless != nullptr && starless == m_image_view_control && stars != nullptr && stars->hasImage();
+    QStringList missing;
+    if (starless == nullptr)
+    {
+        missing.append(m_ui.label->text());
+    }
+    if (stars == nullptr || !stars->hasImage())
+    {
+        missing.append(m_ui.label_2->text());
+    }
+    setMissingInputs(missing);
     m_ui.preview->setEnabled(ready);
     if (ready)
     {
@@ -810,6 +822,16 @@ an::Status ProfiledStarmaskRecombinationProcess::executeTypedProcessImpl(
         return composed.status();
     }
     return destination.replace(std::move(*composed));
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ProfiledStarmaskRecombinationProcess::makePageLayout()
+{
+    // The row of the stars' filter and its choices is wider than the wide column: its two check boxes go under it.
+    if (auto* const profile = qobject_cast<QBoxLayout*>(m_ui.groupBox_2->layout()))
+    {
+        an::ui::processes::wrapRowUnder(*profile, {m_ui.showStarProfiles, m_ui.invertSelection});
+    }
+    return ImageRTPreviewControl::makePageLayout();
 }
 
 an::ui::PreviewScaling ProfiledStarmaskRecombinationProcess::previewScaling() const
