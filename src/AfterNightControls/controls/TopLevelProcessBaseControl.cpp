@@ -1325,6 +1325,25 @@ void TopLevelProcessBaseControl::reportRunProgress(const std::optional<double> p
     setRunState(moved);
 }
 
+void TopLevelProcessBaseControl::reportFrameProgress(const std::optional<double> progress)
+{
+    if (!onGuiThread())
+    {
+        QMetaObject::invokeMethod(this, [this, progress]() { reportFrameProgress(progress); }, Qt::QueuedConnection);
+        return;
+    }
+    // A frame's progress is a run over a sequence's alone, and lands only while that run is on its way.
+    if (!m_RunState.running() || !m_RunState.sequence)
+    {
+        return;
+    }
+    an::ui::ProcessRunState moved = m_RunState;
+    moved.frameProgress = progress.has_value() && std::isfinite(*progress)
+                              ? std::optional<double>((std::clamp)(*progress, 0.0, 1.0))
+                              : std::nullopt;
+    setRunState(moved);
+}
+
 void TopLevelProcessBaseControl::notifyTargetChanged(ImageViewControl* target)
 {
     if (an::ui::IProcessPresenter* presenter = currentPresenter())

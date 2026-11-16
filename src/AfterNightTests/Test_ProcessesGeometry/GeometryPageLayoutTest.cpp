@@ -16,6 +16,7 @@
 #include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "processes/CfaProcessSupport.h"
+#include "processes/MergeCFAProcess.h"
 
 #include <QPointer>
 #include <QPushButton>
@@ -483,6 +484,65 @@ TEST(PageLayout, MergeCfaAppliesAsInAWindow)
     {
         dropView(*context, plane);
     }
+}
+
+// Merge CFA joining four sequences on a page shows its run in the page's row - Overall and Processing - and opens no
+// progress window; the page's Cancel stops the join, and nothing is published.
+TEST(MergeCfa, ASequencePageOpensNoProgressWindowAndCancels)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    std::vector<ImageViewControl*> planes;
+    for (int plane = 0; plane < 4; ++plane)
+    {
+        const QString path =
+            writeSceneSequence(context->engineSession(), directory, {"mosaic-rggb-uint16", "mosaic-rggb-uint16"},
+                               an::SequenceFormat::ImageList, QStringLiteral("plane%1").arg(plane));
+        ImageViewControl* const view =
+            openSequenceView(*context, path, an::SequenceFormat::ImageList, "plane-sequence-" + std::to_string(plane));
+        ASSERT_NE(view, nullptr);
+        ASSERT_TRUE(view->isSequence());
+        planes.push_back(view);
+    }
+    PagePresenter presenter;
+    context->presenter = &presenter;
+    auto* const process = dynamic_cast<MergeCFAProcess*>(shared::launchWindowOf(kMergeCfa, *planes[0]));
+    ASSERT_NE(process, nullptr);
+    an::ui::ProcessPageLayout* const page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    for (std::size_t plane = 0u; plane < planes.size(); ++plane)
+    {
+        const std::string selector = "cfa" + std::to_string(plane) + "Selector";
+        setComboText(*process, selector.c_str(), QString::fromStdString(planes[plane]->getUniqueName()));
+    }
+    ASSERT_TRUE(pumpUntil([process]() { return process->isProcessIdle(); }));
+    const std::size_t made = context->madeViews.size();
+
+    const ProgressWindowsShown windows;
+    {
+        PoolHold hold;
+        ASSERT_TRUE(hold.held());
+        ASSERT_TRUE(process->triggerPrimaryAction()) << "Ok joins the sequences";
+        QCoreApplication::processEvents();
+        EXPECT_TRUE(process->isRunning());
+        EXPECT_TRUE(process->runState().sequence);
+        EXPECT_EQ(page->runBars(), 2) << "Overall and Processing";
+        ASSERT_TRUE(page->cancelButton()->isVisible());
+        page->cancelButton()->click();
+    }
+    ASSERT_TRUE(pumpUntil([process]() { return !process->isRunning(); }));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+    EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
+    EXPECT_EQ(context->madeViews.size(), made) << "nothing published";
+    EXPECT_EQ(process->runsPublished(), 0u);
+    shared::closeOpenedProcessWindows();
+    context->presenter = nullptr;
 }
 
 // Merge CFA's preview, once its four planes are chosen, is the mosaic Ok makes of them.

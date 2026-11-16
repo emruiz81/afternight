@@ -188,6 +188,47 @@ template <typename WindowT> void starsMarkedOnThePageGiveTheWindowsResult(StarPr
     EXPECT_LT(std::hypot(selected.positionX - star.x, selected.positionY - star.y), 1.0) << "the row is the star's";
 }
 
+/// A profiler launched as a page detects with no progress window: the detection shows in the page's row, whose Cancel
+/// stops it, and nothing is published.
+template <typename WindowT> void aPageDetectsWithNoProgressWindow(StarProfilerPages& test, const char* descriptorId)
+{
+    SCOPED_TRACE(descriptorId);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    ViewHandle view = test.target("detection target");
+    ASSERT_NE(view, nullptr);
+    test.context().addViewControl(view.get());
+    test.context().setActiveImageViewControl(view.get());
+    {
+        PagePresenter presenter;
+        test.context().presenter = &presenter;
+        auto* const process = dynamic_cast<WindowT*>(shared::launchWindowOf(descriptorId, *view));
+        ASSERT_NE(process, nullptr);
+        an::ui::ProcessPageLayout* const page = process->pageLayout();
+        ASSERT_NE(page, nullptr);
+        const ProgressWindowsShown windows;
+        {
+            PoolHold hold;
+            ASSERT_TRUE(hold.held());
+            ASSERT_TRUE(process->detectStars());
+            QCoreApplication::processEvents();
+            EXPECT_TRUE(process->runState().running());
+            EXPECT_EQ(page->runBars(), 1);
+            ASSERT_TRUE(page->cancelButton()->isVisible());
+            page->cancelButton()->click();
+        }
+        ASSERT_TRUE(pumpUntil([process]() { return !process->isDetecting(); }));
+        QCoreApplication::processEvents();
+        EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+        EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
+        EXPECT_TRUE(heldStars(*process).empty()) << "nothing published";
+        test.context().answerYes = true;
+        shared::closeOpenedProcessWindows();
+        test.context().presenter = nullptr;
+    }
+    test.context().removeViewControl(view.get(), false);
+}
+
 } // namespace
 
 TEST_F(PageLayout, StarProfilerV1FitsItsColumn)
@@ -206,4 +247,12 @@ TEST_F(StarProfiler, StarsMarkedOnThePageGiveTheWindowsResult)
 {
     starsMarkedOnThePageGiveTheWindowsResult<StarProfilerProcessV1>(*this, kFirstProfiler);
     starsMarkedOnThePageGiveTheWindowsResult<StarProfilerProcessV2>(*this, kSecondProfiler);
+}
+
+// On a page a detection opens no progress window: its run shows in the page's row, whose Cancel stops it with nothing
+// published. Both profilers.
+TEST_F(StarProfiler, APageDetectsWithNoProgressWindowAndItsCancelStops)
+{
+    aPageDetectsWithNoProgressWindow<StarProfilerProcessV1>(*this, kFirstProfiler);
+    aPageDetectsWithNoProgressWindow<StarProfilerProcessV2>(*this, kSecondProfiler);
 }

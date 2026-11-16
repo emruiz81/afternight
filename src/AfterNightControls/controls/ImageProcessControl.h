@@ -407,4 +407,10 @@ namespace an::ui
 /// @return the observer.
 [[nodiscard]] AFTERNIGHTCONTROLS_API ExecutionObserver withRunProgress(ExecutionObserver observer,
                                                                        TopLevelProcessBaseControl* process);
+
+/// An observer that tells a process how far the frame a run over a sequence is processing has come - the run's
+/// Processing, `reportFrameProgress` - as well as what `observer` shows. Reports go to the GUI thread as
+/// `withRunProgress`'s do.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExecutionObserver withFrameProgress(ExecutionObserver observer,
+                                                                         TopLevelProcessBaseControl* process);
 } // namespace an::ui

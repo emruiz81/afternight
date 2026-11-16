@@ -111,6 +111,10 @@ public:
     /// is on its way, so a report that lands after the run ended changes nothing. Any thread, as `setRunState`.
     void reportRunProgress(std::optional<double> progress, const QString& text = {});
 
+    /// How far the frame a run over a sequence is processing has come, from 0 to 1; nothing for a run that is not over
+    /// a sequence, or once it has ended. Any thread, as `setRunState`.
+    void reportFrameProgress(std::optional<double> progress);
+
     // ---- A page
 
     /// At the first show the shell's presenter is asked whether it takes the process into a page

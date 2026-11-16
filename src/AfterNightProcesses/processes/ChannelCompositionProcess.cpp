@@ -633,6 +633,17 @@ void ChannelCompositionProcess::requestStop()
     (void)cancelRun();
 }
 
+bool ChannelCompositionProcess::cancelRun()
+{
+    // A composition over sequences runs on its own stop, which a page's Cancel reaches here.
+    if (m_run->running)
+    {
+        m_run->stop.request_stop();
+        return true;
+    }
+    return an::ui::TypedProcessControl<ChannelCompositionParams>::cancelRun();
+}
+
 void ChannelCompositionProcess::onApplicationClose()
 {
     close();
@@ -1068,15 +1079,20 @@ void ChannelCompositionProcess::composeSequences()
     m_ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     m_ui.buttonBox->button(QDialogButtonBox::Close)->setEnabled(false);
 
-    setRunState(an::ui::runningState({}, std::optional<double>(0.0)));
-    auto* progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Channel Composition");
-    progress->setText("Executing Channel Composition");
-    progress->setProgressBarRange(0, 100);
-    progress->show();
+    setRunState(an::ui::sequenceRunningState());
+    // A page shows the run in its own row, Overall and Processing: no progress window opens.
+    ProgressDialogControl* progress = nullptr;
+    if (!hasPageLayout())
+    {
+        progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Channel Composition");
+        progress->setText("Executing Channel Composition");
+        progress->setProgressBarRange(0, 100);
+        progress->show();
+    }
     QPointer<ChannelCompositionProcess> guard(this);
     QPointer<ProgressDialogControl> dialog(progress);
     const std::stop_token windowStop = m_run->stop.get_token();
-    const std::stop_token dialogStop = progress->stopToken();
+    const std::stop_token dialogStop = progress != nullptr ? progress->stopToken() : std::stop_token();
     const bool linearMatch = m_ui.linearMatchCheckBox->isChecked();
     const composition_detail::ColourSpace chosen = *space;
     ImageViewControl* neighbour = components[0].view;

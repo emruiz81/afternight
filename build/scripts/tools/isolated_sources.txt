@@ -2751,6 +2751,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TasksTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskDragTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskFloatTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
     header   src/AfterNightControls/widgets/StructuredElementWidget.h
     header   src/AfterNightControls/widgets/StructuringElementGrid.h
     include  src/AfterNightTests
@@ -2912,6 +2913,8 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/tasks/TaskPresenter.h
     header   src/AfterNightShellObservatory/tasks/TaskDrag.h
     header   src/AfterNightShellObservatory/tasks/TaskWindow.h
+    header   src/AfterNightControls/app/FileCompanions.h
+    header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/components/AnCompactReadout.h
     header   src/AfterNightControls/components/AnSnackbar.h
     header   src/AfterNightControls/components/AnTaskHeader.h
@@ -3558,6 +3561,7 @@ sources Test_ProcessesShared
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessLauncherTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessRegistryTest.cpp
     unit     src/AfterNightTests/Test_ProcessesShared/ProcessUiInventoryTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesShared/SequenceApplyTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -3602,6 +3606,7 @@ sources Test_ProcessesShared
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
     header   src/AfterNightControls/controls/ProcessCompanions.h
     header   src/AfterNightControls/controls/ProcessExecution.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
     header   src/AfterNightControls/controls/ProgressDialogControl.h
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/SequenceContainers.h
@@ -5114,6 +5119,7 @@ sources Test_ProcessesCombinations
     header   src/AfterNightTests/Test_ControlsViewer/EditHoldingTheWriter.h
     header   src/AfterNightTests/Test_ProcessesCombinations/CombinationsTestSupport.h
     header   src/AfterNightTests/Test_ProcessesShared/ProcessesSharedTestSupport.h
+    header   src/AfterNightControls/app/FileCompanions.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/components/AnCollapsibleSection.h

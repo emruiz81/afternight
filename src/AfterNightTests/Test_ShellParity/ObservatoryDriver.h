@@ -223,11 +223,26 @@ public:
 
     bool runInProgress(QWidget& process) override
     {
+        // A page shows its run in its row and opens no progress window.
+        if (const an::ui::ProcessPageLayout* const page = pageOf(process))
+        {
+            return page->runBanner()->isVisible();
+        }
         return progressWindow(process) != nullptr;
     }
 
     bool cancelRun(QWidget& process) override
     {
+        if (const an::ui::ProcessPageLayout* const page = pageOf(process))
+        {
+            QAbstractButton* const cancel = page->cancelButton();
+            if (cancel == nullptr || !cancel->isVisible() || !cancel->isEnabled())
+            {
+                return false;
+            }
+            cancel->click();
+            return true;
+        }
         ProgressDialogControl* const progress = progressWindow(process);
         if (progress == nullptr)
         {
@@ -411,6 +426,13 @@ private:
     }
 
     /// The progress window a run of the process shows while it is in progress.
+    /// The page a process is arranged as; null for a process shown as a window of its own.
+    [[nodiscard]] static const an::ui::ProcessPageLayout* pageOf(QWidget& process)
+    {
+        const auto* const control = dynamic_cast<const TopLevelProcessBaseControl*>(&process);
+        return control != nullptr && control->isPresentedAsPage() ? control->pageLayout() : nullptr;
+    }
+
     [[nodiscard]] static ProgressDialogControl* progressWindow(QWidget& process)
     {
         // The window declares no meta-object of its own, so it is told by its dynamic type.

@@ -177,6 +177,9 @@ public:
 
     /// The run's own row: shown in the banner's place during a run.
     [[nodiscard]] QWidget* runBanner() const noexcept;
+
+    /// How many bars the run's row shows: none outside a run, one, or two over a sequence - Overall and Processing.
+    [[nodiscard]] int runBars() const;
     [[nodiscard]] QScrollArea* body() const noexcept;
 
     /// The widget the body scrolls.

@@ -151,6 +151,9 @@ public:
     /// Asks the composition on its way to stop; nothing is published.
     void requestStop();
 
+    /// Stops a composition over sequences, the window's own run, as its Stop does; else the framework's run.
+    bool cancelRun() override;
+
     /// Composes as the Ok button does.
     void executeChannelComposition();
 

@@ -75,6 +75,13 @@ struct ProcessRunState
     /// What the run is doing - "applying", "Frame 3 of 9" - or, once it failed, why.
     QString text;
 
+    /// Whether the run goes over the frames of a sequence: how far the whole has come (`progress`) and how far the
+    /// frame on its way has (`frameProgress`) are told apart - a page's Overall and Processing.
+    bool sequence = false;
+
+    /// How far the frame on its way has come, from 0 to 1, when the run can tell; a run over a sequence's alone.
+    std::optional<double> frameProgress;
+
     [[nodiscard]] bool operator==(const ProcessRunState&) const = default;
 
     /// Whether the run is on its way.
@@ -99,6 +106,11 @@ struct ProcessRunState
 /// @param progress how far it has come, when it can tell from the start.
 [[nodiscard]] AFTERNIGHTCONTROLS_API ProcessRunState runningState(const QString& text = {},
                                                                   std::optional<double> progress = std::nullopt);
+
+/// A run over the frames of a sequence that starts: none of them done, the first one's progress not told yet.
+///
+/// @param text what it does; "applying" when empty.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ProcessRunState sequenceRunningState(const QString& text = {});
 
 /// How a run ended, from what it came to: succeeded when its result was shown; cancelled when it was stopped, or when
 /// it came to nothing it failed for - its image changed or closed under it; failed, with the status's message as its

@@ -48,6 +48,7 @@
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QThread>
+#include <QSemaphore>
 #include <QThreadPool>
 #include <QVBoxLayout>
 
@@ -1475,5 +1476,85 @@ using ProcessHandle = std::unique_ptr<TestProcess, ProcessDeleter>;
         return session.memory().counters(an::consumer::MemoryCategory::PendingSnapshots).entries == 0u;
     });
 }
+
+/// Holds every thread of the pool until it goes, so a run started meanwhile waits, its state on screen.
+class PoolHold
+{
+public:
+    PoolHold() : m_state(std::make_shared<State>()), m_threads(QThreadPool::globalInstance()->maxThreadCount())
+    {
+        for (int thread = 0; thread < m_threads; ++thread)
+        {
+            QThreadPool::globalInstance()->start([state = m_state]() {
+                state->started.release();
+                state->letGo.acquire();
+            });
+        }
+        m_held = pumpUntil([this]() { return m_state->started.available() >= m_threads; });
+    }
+
+    ~PoolHold()
+    {
+        m_state->letGo.release(m_threads);
+    }
+
+    PoolHold(const PoolHold&) = delete;
+    PoolHold& operator=(const PoolHold&) = delete;
+    PoolHold(PoolHold&&) = delete;
+    PoolHold& operator=(PoolHold&&) = delete;
+
+    /// Whether every thread of the pool is held.
+    [[nodiscard]] bool held() const noexcept
+    {
+        return m_held;
+    }
+
+private:
+    struct State
+    {
+        QSemaphore started;
+        QSemaphore letGo;
+    };
+    std::shared_ptr<State> m_state;
+    int m_threads = 0;
+    bool m_held = false;
+};
+
+/// Counts the progress windows shown while it lives: a page shows its run in its own row and opens none.
+class ProgressWindowsShown final : public QObject
+{
+public:
+    ProgressWindowsShown()
+    {
+        qApp->installEventFilter(this);
+    }
+    ~ProgressWindowsShown() override
+    {
+        qApp->removeEventFilter(this);
+    }
+
+    ProgressWindowsShown(const ProgressWindowsShown&) = delete;
+    ProgressWindowsShown& operator=(const ProgressWindowsShown&) = delete;
+    ProgressWindowsShown(ProgressWindowsShown&&) = delete;
+    ProgressWindowsShown& operator=(ProgressWindowsShown&&) = delete;
+
+    [[nodiscard]] int count() const noexcept
+    {
+        return m_count;
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() == QEvent::Show && dynamic_cast<ProgressDialogControl*>(watched) != nullptr)
+        {
+            ++m_count;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    int m_count = 0;
+};
 
 } // namespace an::tests::processes

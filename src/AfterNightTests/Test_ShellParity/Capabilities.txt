@@ -402,7 +402,7 @@ capability process.sequence-apply
     title        Applying to a sequence: two bars, Cancel
     shared       ProgressDialogUiTest.SequenceProgressCardExists, ProgressDialogTest.OneStepOfSeveralIsShownAsTheWholesProgress, SequenceRunTest.CancelStopsTheRunAndPublishesNothing
     classic      ShellScenario.ARunOverASequenceIsCancelled/classic
-    observatory  pending
+    observatory  SequenceApply.PageShowsTwoBarsAndCancels, ShellScenario.ARunOverASequenceIsCancelled/observatory
 
 capability process.several
     title        Several process windows; a process pointed at another image

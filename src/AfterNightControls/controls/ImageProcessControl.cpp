@@ -1151,4 +1151,28 @@ ExecutionObserver withRunProgress(ExecutionObserver observer, TopLevelProcessBas
     };
     return observer;
 }
+
+ExecutionObserver withFrameProgress(ExecutionObserver observer, TopLevelProcessBaseControl* process)
+{
+    if (process == nullptr)
+    {
+        return observer;
+    }
+    if (observer.receiver.isNull())
+    {
+        observer.receiver = process;
+    }
+    QPointer<TopLevelProcessBaseControl> guard(process);
+    observer.progress = [shown = std::move(observer.progress), guard](const ExecutionProgress& report) {
+        if (shown)
+        {
+            shown(report);
+        }
+        if (guard && report.total > 0u)
+        {
+            guard->reportFrameProgress(static_cast<double>(report.completed) / static_cast<double>(report.total));
+        }
+    };
+    return observer;
+}
 } // namespace an::ui

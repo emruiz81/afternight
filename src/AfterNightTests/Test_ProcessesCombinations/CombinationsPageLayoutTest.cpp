@@ -10,7 +10,11 @@
 
 #include "Test_ProcessesCombinations/CombinationsTestSupport.h"
 #include "Test_ProcessesShared/PageLayoutCheck.h"
+#include "Test_ControlsViewer/ControlsViewerTestSupport.h"
 
+#include "app/FileCompanions.h"
+#include "controls/ProcessPageLayout.h"
+#include "processes/ChannelCompositionProcess.h"
 #include "components/AnCollapsibleSection.h"
 #include "processes/ImageCompareProcess.h"
 #include "widgets/ImageViewWidget.h"
@@ -19,6 +23,7 @@
 #include <QAbstractButton>
 #include <QCheckBox>
 #include <QScrollArea>
+#include <QTemporaryDir>
 #include <QStringList>
 #include <QTableWidget>
 #include <QToolButton>
@@ -195,6 +200,76 @@ TEST(ChannelComposition, ThePreviewIsTheResult)
         window.reset();
         dropTargets(*context, scene);
     }
+}
+
+// Composed over sequences on a page, Channel Composition shows its run in the page's row - Overall and Processing -
+// and opens no progress window; the page's Cancel stops it, and nothing is published.
+TEST(ChannelComposition, ASequencePageOpensNoProgressWindowAndCancels)
+{
+    const CombinationsProcess* process = familyProcess("actionChannelComposition");
+    ASSERT_NE(process, nullptr);
+    std::unique_ptr<ProcessTestContext> context = openProcessContext(4u);
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    const shared::RegistrySnapshot snapshot;
+    const shared::ClosesOpenedWindows closesWindows;
+    constexpr std::uint32_t kWidth = 8u;
+    constexpr std::uint32_t kHeight = 6u;
+    QTemporaryDir recordings;
+    ASSERT_TRUE(recordings.isValid());
+    const char* names[3] = {"red", "green", "blue"};
+    Targets targets;
+    for (std::uint32_t component = 0u; component < 3u; ++component)
+    {
+        const QString path = recordings.filePath(QStringLiteral("%1.ser").arg(QLatin1String(names[component])));
+        an::tests::viewer::writeSerFile(context->engineSession(), path, kWidth, kHeight, 2u,
+                                        [component](std::uint32_t frame, std::uint32_t x, std::uint32_t) {
+                                            return static_cast<float>(0.1 * component + 0.05 * frame + 0.01 * x);
+                                        });
+        an::Result<an::ui::ImageDocument> document =
+            an::ui::openSequenceDocument(context->engineSession(), path, an::SequenceFormat::Ser, {});
+        ASSERT_TRUE(document.hasValue()) << document.status().message();
+        ViewHandle view(new ImageViewControl());
+        view->initialize(names[component], ViewControlMode::standard);
+        view->resize(640, 480);
+        view->setSequenceDocument(std::move(*document), false);
+        view->initializeNewImageHistory("Sequence opened");
+        ASSERT_TRUE(settleView(*view));
+        context->addViewControl(view.get());
+        targets.sides.push_back(SideView{.name = names[component], .view = std::move(view)});
+    }
+    PagePresenter presenter;
+    context->presenter = &presenter;
+    auto* const composition = dynamic_cast<ChannelCompositionProcess*>(
+        shared::launchWindowOf("color.actionChannelComposition", *targets.sides.front().view));
+    ASSERT_NE(composition, nullptr);
+    an::ui::ProcessPageLayout* const page = composition->pageLayout();
+    ASSERT_NE(page, nullptr);
+    process->configure(*composition, targets, "-");
+    ASSERT_TRUE(pumpUntil([composition]() { return composition->isProcessIdle(); }));
+    const std::size_t made = context->madeViews.size();
+
+    const ProgressWindowsShown windows;
+    {
+        PoolHold hold;
+        ASSERT_TRUE(hold.held());
+        composition->executeChannelComposition();
+        QCoreApplication::processEvents();
+        EXPECT_TRUE(composition->isRunning());
+        EXPECT_TRUE(composition->runState().sequence);
+        EXPECT_EQ(page->runBars(), 2) << "Overall and Processing";
+        ASSERT_TRUE(page->cancelButton()->isVisible());
+        page->cancelButton()->click();
+    }
+    ASSERT_TRUE(pumpUntil([composition]() { return !composition->isRunning(); }));
+    QCoreApplication::processEvents();
+    EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+    EXPECT_EQ(composition->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
+    EXPECT_EQ(context->madeViews.size(), made) << "nothing published";
+    EXPECT_EQ(composition->runsPublished(), 0u);
+    shared::closeOpenedProcessWindows();
+    context->presenter = nullptr;
+    dropTargets(*context, targets);
 }
 
 // Image Compare applies nothing: it compares. On its page as in its window the second image chosen in its column is the

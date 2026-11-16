@@ -240,7 +240,9 @@ protected:
 };
 
 /// The run's row in the banner's place: the accent's container, a turning arc, what the run does and how far it has
-/// come in the monospace, a thin bar; and under it, that the task keeps running when the page is left.
+/// come in the monospace, a thin bar; and under it, that the task keeps running when the page is left. Over a sequence
+/// the container holds two bars under what the run does, each with its caption and its share: Overall, how far the
+/// frames are, and Processing, how far the frame on its way is - a slice that slides while the frame tells nothing.
 class RunRow final : public QWidget
 {
 public:
@@ -254,12 +256,25 @@ public:
         });
     }
 
-    void setRun(const QString& text, const std::optional<double> progress)
+    void setRun(const QString& text, const std::optional<double> progress, const bool sequence = false,
+                const std::optional<double> frameProgress = std::nullopt)
     {
+        const bool reshaped = sequence != m_sequence;
         m_text = text;
         m_progress = progress;
-        updateGeometry();
+        m_sequence = sequence;
+        m_frameProgress = frameProgress;
+        if (reshaped)
+        {
+            updateGeometry();
+        }
         update();
+    }
+
+    /// How many bars the row shows: two over a sequence, one otherwise.
+    [[nodiscard]] int bars() const noexcept
+    {
+        return m_sequence ? 2 : 1;
     }
 
     [[nodiscard]] QString text() const
@@ -271,7 +286,8 @@ public:
     {
         const DesignTokens& t = tokens();
         const QFontMetrics line(parts::sizedFont(t.typography.body, t.metrics.fontCaption));
-        return QSize(parts::kPageColumnStandard, t.metrics.controlSmall + line.height() + t.metrics.gap);
+        return QSize(parts::kPageColumnStandard,
+                     t.metrics.controlSmall + barsHeight(t) + line.height() + t.metrics.gap);
     }
 
     [[nodiscard]] QSize minimumSizeHint() const override
@@ -302,8 +318,10 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing);
         const int pad = t.metrics.pad;
         const QRect row(pad, t.metrics.gap / 2, width() - 2 * pad, t.metrics.controlSmall);
+        // Over a sequence the container holds the two bars under the row.
+        const QRect container = row.adjusted(0, 0, 0, barsHeight(t));
         QPainterPath fill;
-        fill.addRoundedRect(QRectF(row), t.radius.sm, t.radius.sm);
+        fill.addRoundedRect(QRectF(container), t.radius.sm, t.radius.sm);
         painter.fillPath(fill, t.colors.accentContainer);
 
         // The turning arc.
@@ -321,7 +339,11 @@ protected:
         painter.drawText(QRect(textLeft, row.top(), row.width(), row.height()), Qt::AlignVCenter | Qt::AlignLeft,
                          label);
         int barLeft = textLeft + metrics.horizontalAdvance(label) + t.metrics.gap;
-        if (m_progress.has_value())
+        if (m_sequence)
+        {
+            paintSequenceBars(painter, t, container, row.bottom() + 1);
+        }
+        else if (m_progress.has_value())
         {
             painter.setFont(parts::sizedFont(t.typography.monospace, t.metrics.fontSmall));
             const QString percent = QStringLiteral("%1 %").arg(static_cast<int>(std::lround(*m_progress * 100.0)));
@@ -330,7 +352,7 @@ protected:
             barLeft += QFontMetrics(painter.font()).horizontalAdvance(percent) + t.metrics.gap;
         }
         const int barRight = row.right() - t.metrics.gap;
-        if (barRight > barLeft)
+        if (!m_sequence && barRight > barLeft)
         {
             const QRect track(barLeft, row.center().y() - parts::kPageRunBar / 2, barRight - barLeft,
                               parts::kPageRunBar);
@@ -343,14 +365,82 @@ protected:
         // The line under it.
         painter.setFont(parts::sizedFont(t.typography.body, t.metrics.fontCaption));
         painter.setPen(t.colors.textSecondary);
-        painter.drawText(QRect(pad, row.bottom() + 1, width() - 2 * pad, height() - row.bottom() - 1),
+        painter.drawText(QRect(pad, container.bottom() + 1, width() - 2 * pad, height() - container.bottom() - 1),
                          Qt::AlignVCenter | Qt::AlignLeft,
                          translated("The task keeps running if you leave this page."));
     }
 
 private:
+    /// The height the two bars of a run over a sequence add to the container: a line each, and a gap under them.
+    [[nodiscard]] int barsHeight(const DesignTokens& t) const
+    {
+        if (!m_sequence)
+        {
+            return 0;
+        }
+        const QFontMetrics small(parts::sizedFont(t.typography.body, t.metrics.fontSmall));
+        return 2 * small.height() + t.metrics.gap;
+    }
+
+    /// Overall and Processing, each a caption, a bar and its share, a line each under the row.
+    void paintSequenceBars(QPainter& painter, const DesignTokens& t, const QRect& container, const int top) const
+    {
+        const QFont captionFont = parts::sizedFont(t.typography.body, t.metrics.fontSmall);
+        const QFont shareFont = parts::sizedFont(t.typography.monospace, t.metrics.fontSmall);
+        const QFontMetrics captions(captionFont);
+        const QFontMetrics shares(shareFont);
+        const QString overall = translated("Overall");
+        const QString processing = translated("Processing");
+        const int captionWidth =
+            (std::max)(captions.horizontalAdvance(overall), captions.horizontalAdvance(processing));
+        const int shareWidth = shares.horizontalAdvance(QStringLiteral("100 %"));
+        const int left = container.left() + t.metrics.gap;
+        const int right = container.right() - t.metrics.gap;
+        const int lineHeight = captions.height();
+        const auto line = [&](const int index, const QString& caption, const std::optional<double> share) {
+            const QRect bounds(left, top + index * lineHeight, right - left, lineHeight);
+            painter.setFont(captionFont);
+            painter.setPen(t.colors.textOnAccentContainer);
+            painter.drawText(QRect(bounds.left(), bounds.top(), captionWidth, bounds.height()),
+                             Qt::AlignVCenter | Qt::AlignLeft, caption);
+            const int barLeft = bounds.left() + captionWidth + t.metrics.gap;
+            const int barRight = bounds.right() - shareWidth - t.metrics.gap;
+            if (barRight > barLeft)
+            {
+                const QRect track(barLeft, bounds.center().y() - parts::kPageRunBar / 2, barRight - barLeft,
+                                  parts::kPageRunBar);
+                painter.fillRect(track, t.colors.accentTrack);
+                if (share.has_value())
+                {
+                    painter.fillRect(
+                        QRect(track.left(), track.top(), static_cast<int>(track.width() * *share), track.height()),
+                        t.colors.accentPrimary);
+                }
+                else
+                {
+                    // Nothing told yet: a slice slides along the track as the arc turns.
+                    const int slice = track.width() / 3;
+                    const int offset = static_cast<int>((track.width() - slice) * (m_angle / 360.0));
+                    painter.fillRect(QRect(track.left() + offset, track.top(), slice, track.height()),
+                                     t.colors.accentPrimary);
+                }
+            }
+            if (share.has_value())
+            {
+                painter.setFont(shareFont);
+                painter.drawText(QRect(bounds.right() - shareWidth, bounds.top(), shareWidth, bounds.height()),
+                                 Qt::AlignVCenter | Qt::AlignRight,
+                                 QStringLiteral("%1 %").arg(static_cast<int>(std::lround(*share * 100.0))));
+            }
+        };
+        line(0, overall, m_progress);
+        line(1, processing, m_frameProgress);
+    }
+
     QString m_text;
     std::optional<double> m_progress;
+    bool m_sequence = false;
+    std::optional<double> m_frameProgress;
     QTimer m_turn;
     int m_angle = 0;
 };
@@ -1329,7 +1419,8 @@ struct ProcessPageLayout::Impl : public QObject
         runRow->setVisible(running);
         if (running)
         {
-            runRow->setRun(state.text.isEmpty() ? applyingRunText() : state.text, state.progress);
+            runRow->setRun(state.text.isEmpty() ? applyingRunText() : state.text, state.progress, state.sequence,
+                           state.frameProgress);
         }
         banner->setVisible(!running && !message.isEmpty());
         toggles->setEnabled(!running);
@@ -1402,6 +1493,16 @@ QWidget* ProcessPageLayout::toggles() const noexcept
 AnInfoBanner* ProcessPageLayout::banner() const noexcept
 {
     return m_impl->banner;
+}
+
+int ProcessPageLayout::runBars() const
+{
+    const Impl& impl = *m_impl;
+    if (impl.column == nullptr || impl.runRow == nullptr || !impl.run.running())
+    {
+        return 0;
+    }
+    return impl.runRow->bars();
 }
 
 QWidget* ProcessPageLayout::runBanner() const noexcept

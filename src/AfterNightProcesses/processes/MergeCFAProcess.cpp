@@ -145,6 +145,17 @@ void MergeCFAProcess::requestStop()
     (void)cancelRun();
 }
 
+bool MergeCFAProcess::cancelRun()
+{
+    // A join of sequences runs on its own stop, which a page's Cancel reaches here.
+    if (m_run->running)
+    {
+        m_run->stop.request_stop();
+        return true;
+    }
+    return an::ui::TypedProcessControl<MergeCfaParams>::cancelRun();
+}
+
 void MergeCFAProcess::onApplicationClose()
 {
     close();
@@ -600,18 +611,23 @@ void MergeCFAProcess::joinSequences()
     m_ui.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     m_ui.buttonBox->button(QDialogButtonBox::Close)->setEnabled(false);
 
-    setRunState(an::ui::runningState({}, std::optional<double>(0.0)));
-    auto* progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Merge CFA");
-    progress->setText("Executing Merge CFA");
-    progress->setProgressBarRange(0, 100);
-    progress->show();
+    setRunState(an::ui::sequenceRunningState());
+    // A page shows the run in its own row, Overall and Processing: no progress window opens.
+    ProgressDialogControl* progress = nullptr;
+    if (!hasPageLayout())
+    {
+        progress = new ProgressDialogControl(process_utils::currentMainWindow(), "Merge CFA");
+        progress->setText("Executing Merge CFA");
+        progress->setProgressBarRange(0, 100);
+        progress->show();
+    }
     const std::string description =
         fmt::format("MergeCFA: created '{}' pattern from sequence channels CFA0:'{}' CFA1:'{}' CFA2:'{} CFA3:'{}'",
                     patternText.toStdString(), planes[0].name, planes[1].name, planes[2].name, planes[3].name);
     QPointer<MergeCFAProcess> guard(this);
     QPointer<ProgressDialogControl> dialog(progress);
     const std::stop_token windowStop = m_run->stop.get_token();
-    const std::stop_token dialogStop = progress->stopToken();
+    const std::stop_token dialogStop = progress != nullptr ? progress->stopToken() : std::stop_token();
     ImageViewControl* neighbour = planes[0].view;
     const std::string tempPath = process_utils::createTempSequenceFilePath(planes[0].sequence->descriptor.format);
     const an::ui::processes::AdmissionHook hook = admissionHook();

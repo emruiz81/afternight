@@ -281,13 +281,18 @@ bool StarProfilerWindow::detectStars()
     m_runStop = std::make_shared<std::stop_source>();
     detectionStarting(*m_runStop);
 
-    auto* progress = new ProgressDialogControl(
-        this, QString::fromUtf8(fmt::format("{} <{}>", getProcessName(), view->getUniqueName())));
-    progress->setProgressBarRange(0, 0);
-    progress->setValue(0);
-    progress->setText(QStringLiteral("Detecting stars..."));
-    progress->show();
-    registerNewProgressDialog(progress);
+    // A page shows the detection in its own row, which its Cancel stops: no progress window opens.
+    ProgressDialogControl* progress = nullptr;
+    if (!hasPageLayout())
+    {
+        progress = new ProgressDialogControl(
+            this, QString::fromUtf8(fmt::format("{} <{}>", getProcessName(), view->getUniqueName())));
+        progress->setProgressBarRange(0, 0);
+        progress->setValue(0);
+        progress->setText(QStringLiteral("Detecting stars..."));
+        progress->show();
+        registerNewProgressDialog(progress);
+    }
     const QPointer<ProgressDialogControl> progressGuard(progress);
 
     m_detecting = true;
@@ -297,8 +302,9 @@ bool StarProfilerWindow::detectStars()
 
     const std::stop_token windowStop = m_runStop->get_token();
     const std::stop_token processStop = windowStopToken();
-    const std::stop_token dialogStop = progress->stopToken();
-    an::ui::ExecutionObserver observer = an::ui::withRunProgress(progress->observer(), this);
+    const std::stop_token dialogStop = progress != nullptr ? progress->stopToken() : beginRunStop();
+    an::ui::ExecutionObserver observer =
+        an::ui::withRunProgress(progress != nullptr ? progress->observer() : an::ui::ExecutionObserver{}, this);
     auto timer = std::make_shared<QElapsedTimer>();
     timer->start();
     runThenPublish(

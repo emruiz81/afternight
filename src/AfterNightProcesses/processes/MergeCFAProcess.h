@@ -73,6 +73,9 @@ public:
     /// Asks the join on its way to stop.
     void requestStop();
 
+    /// Stops a join of sequences, the window's own run, as its Stop does; else the framework's run.
+    bool cancelRun() override;
+
     ~MergeCFAProcess() override;
 
 protected:

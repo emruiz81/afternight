@@ -373,7 +373,9 @@ void postSequenceProgress(const QPointer<ProgressDialogControl>& dialog,
             }
             if (process)
             {
+                // A frame starts: the share of the frames done, and the new frame's from none.
                 process->reportRunProgress(static_cast<double>(value) / 100.0);
+                process->reportFrameProgress(0.0);
             }
         },
         Qt::QueuedConnection);
@@ -1768,12 +1770,15 @@ void ImageRTPreviewControl::applyProcess()
     enableProcessControls(false);
 
     const bool sequence = m_image_view_control->isSequence();
-    // A run over a sequence counts its frames from none; one over an image says how far it is when its operation does.
-    setRunState(an::ui::runningState(an::ui::applyingRunText(), sequence ? std::optional<double>(0.0) : std::nullopt));
+    // A run over a sequence counts its frames from none, and its frame's progress apart; one over an image says how far
+    // it is when its operation does.
+    setRunState(sequence ? an::ui::sequenceRunningState(an::ui::applyingRunText())
+                         : an::ui::runningState(an::ui::applyingRunText()));
     // A page's Cancel stops a run that has no progress window of its own.
     m_impl->m_RunCancel = std::stop_source();
-    ProgressDialogControl* progress = getProgressDialogControl(sequence);
-    if (sequence && !progress)
+    // A page shows its run in its own row, Overall and Processing over a sequence: no progress window opens.
+    ProgressDialogControl* progress = hasPageLayout() ? nullptr : getProgressDialogControl(sequence);
+    if (sequence && !progress && !hasPageLayout())
     {
         progress = new ProgressDialogControl(
             this, QString::fromUtf8(fmt::format("{} <{}>", getProcessName(), m_image_view_control->getUniqueName())));
@@ -4407,6 +4412,8 @@ void ImageRTPreviewControl::runOverSequence(std::shared_ptr<RunSnapshot> snapsho
         shared->cancel = progress->stopToken();
         shared->progressDialog = progress;
     }
+    // The frame's progress is the run's Processing, beside a progress window's or in place of it.
+    shared->observer = an::ui::withFrameProgress(std::move(shared->observer), this);
     // The frames the run reads are the ones the player shows; it holds still until the run lands.
     if (an::ui::IViewSequencePlayer* player = m_image_view_control->sequencePlayer())
     {

@@ -30,6 +30,13 @@ ProcessRunState runningState(const QString& text, const std::optional<double> pr
     return state;
 }
 
+ProcessRunState sequenceRunningState(const QString& text)
+{
+    ProcessRunState state = runningState(text, 0.0);
+    state.sequence = true;
+    return state;
+}
+
 ProcessRunState endedRunState(const an::Status& status, const bool published)
 {
     ProcessRunState state;

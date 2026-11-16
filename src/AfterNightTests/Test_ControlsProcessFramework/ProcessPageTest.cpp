@@ -743,6 +743,45 @@ TEST(PageMode, ARunShowsItsRowAndCancelStopsIt)
     EXPECT_FALSE(target->isLockedForProcessing());
 }
 
+// A run's row shows one bar for a run of one step, and two over a sequence - Overall, how far the frames are, and
+// Processing, how far the frame on its way is - which follow what the run tells; it is taller then, and none shows
+// outside a run.
+TEST(PageMode, ARunOverASequenceShowsTwoBars)
+{
+    PagedContext paged;
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = showProcess(*target, TestProcessOptions{});
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    EXPECT_EQ(page->runBars(), 0);
+
+    process->setRunState(an::ui::runningState({}, 0.4));
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 1);
+    const int oneBar = page->runBanner()->sizeHint().height();
+
+    process->setRunState(an::ui::sequenceRunningState());
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 2);
+    EXPECT_GT(page->runBanner()->sizeHint().height(), oneBar) << "two bars take more room";
+    process->reportRunProgress(1.0 / 3.0);
+    process->reportFrameProgress(0.5);
+    EXPECT_NEAR(*process->runState().progress, 1.0 / 3.0, 1e-9);
+    ASSERT_TRUE(process->runState().frameProgress.has_value());
+    EXPECT_DOUBLE_EQ(*process->runState().frameProgress, 0.5);
+    process->reportRunProgress(2.0 / 3.0);
+    EXPECT_DOUBLE_EQ(*process->runState().frameProgress, 0.5) << "the overall share keeps the frame's";
+
+    // A frame's progress means nothing outside a run over a sequence.
+    process->setRunState(an::ui::runningState());
+    process->reportFrameProgress(0.5);
+    EXPECT_FALSE(process->runState().frameProgress.has_value());
+    process->setRunState(an::ui::ProcessRunState{.phase = Phase::Cancelled});
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 0);
+}
+
 // A run that fails says why in the banner, in the error tone, and opens no dialog.
 TEST(PageMode, AFailureIsSaidInTheBanner)
 {

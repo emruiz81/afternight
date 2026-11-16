@@ -96,6 +96,7 @@
 #include <kddockwidgets/core/DockWidget.h>
 #include <kddockwidgets/core/TabBar.h>
 
+#include <QAccessible>
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
@@ -3366,6 +3367,31 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
     }
     const an::ui::ProcessRunState now = task->process->runState();
     const auto at = std::chrono::steady_clock::now();
+    // The end of a run is said to assistive technology: applied, politely; failed, with why, at once; stopped.
+    if (before.running() && now.ended())
+    {
+        QString message;
+        auto politeness = QAccessible::AnnouncementPoliteness::Polite;
+        if (now.phase == an::ui::ProcessRunState::Phase::Succeeded)
+        {
+            message = task->targetName.isEmpty() ? tr("%1 applied").arg(task->displayName)
+                                                 : tr("%1 applied to %2").arg(task->displayName, task->targetName);
+        }
+        else if (now.phase == an::ui::ProcessRunState::Phase::Failed)
+        {
+            message = now.text.isEmpty() ? tr("%1 failed").arg(task->displayName)
+                                         : tr("%1 failed: %2").arg(task->displayName, now.text);
+            politeness = QAccessible::AnnouncementPoliteness::Assertive;
+        }
+        else
+        {
+            message = tr("%1 stopped").arg(task->displayName);
+        }
+        QObject* const teller = taskPage(id) != nullptr ? static_cast<QObject*>(taskPage(id)) : this;
+        QAccessibleAnnouncementEvent announcement(teller, message);
+        announcement.setPoliteness(politeness);
+        QAccessible::updateAccessibility(&announcement);
+    }
     if (now.running() && !before.running())
     {
         impl.runStarted[id] = at;

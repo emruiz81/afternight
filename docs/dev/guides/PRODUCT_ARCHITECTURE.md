@@ -450,6 +450,16 @@ process already is:
   the first input. Three or four sequences are still composed frame by frame by a run of the window's own, which the
   framework's Apply - one target frame at a time - cannot express. These processes hand their button box to the
   framework so a page's footer shows it, and answer Ok themselves.
+- **A run on a page opens no progress window.** The preview framework's Apply asks a process for its progress window
+  (`getProgressDialogControl`) only in a window of its own; on a page the run shows in the page's run row, which the
+  operation's reports move (`withRunProgress`), and the page's Cancel stops it through the run's own stop. A run over a
+  sequence states itself as one (`ProcessRunState::sequence`, `sequenceRunningState`): its progress is the share of
+  the frames done and `frameProgress` the frame's own, which the frame's operation reports (`withFrameProgress`,
+  `TopLevelProcessBaseControl::reportFrameProgress`) and each frame's start sets back to nought, and the run row shows
+  them as two bars, Overall and Processing, a slice sliding along Processing while the frame tells nothing
+  (`ProcessPageLayout::runBars`). The runs a window keeps of its own do the same on a page: Channel Composition's and
+  Merge CFA's over sequences - whose `cancelRun` stops that run, so the page's Cancel reaches it - and the star
+  profilers' detection, on a stop the page's Cancel requests (`beginRunStop`).
 - **A full page** (`ProcessPageLayout::Description::fullPage`, the default arrangement of a process whose descriptor
   states one) is the process whole, with no canvas and no column: what its window laid out is moved into a scroll area
   that fills the page and scrolls only when the page is smaller than the least the process takes. Its own menu bar is
@@ -1989,6 +1999,13 @@ cursor, the rail or the centre, is covered by the attach overlay, drawn as the b
 the rail marks the task's place with a line (`AnIconRail::setInsertionMark`). Released there the task attaches, once
 the library has finished with its drag; released over the top bar, the column, the status line or outside, it stays a
 window.
+
+When the tasks do not fit the rail, its overflow item counts the hidden ones and opens a list of every task, one line
+each: its picture, its process and image, and where its run stands - running and how far, a result not seen, in a
+window of its own (`railItemDescription`); choosing one shows it as a click on its item does. The end of a run is said
+to assistive technology as an announcement from the task's page, or the window for a task with none
+(`QAccessibleAnnouncementEvent`): "Curves Transformation applied to M20" politely, "... failed: why" at once
+(`AnnouncementPoliteness::Assertive`), and "... stopped".
 
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
