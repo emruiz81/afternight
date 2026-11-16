@@ -897,6 +897,53 @@ TEST(HomeRecentGrid, TheGridAndTheListShowTheSameItems)
     EXPECT_EQ(shown().size(), inGrid.size());
 }
 
+// The grid or the list is remembered, in the dashboard's settings and their format: chosen in one Home, it is how the
+// next shows the recent files; a stored word is read in its canonical form, one that names neither is the grid, and a
+// choice of another format is set aside with the dashboard's other settings.
+TEST(HomeRecentGrid, TheArrangementIsRemembered)
+{
+    DashboardApplication::instance()->resetForTest();
+    const QString key = QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT);
+    {
+        HomeRecentGrid home;
+        showAndSettle(home, QSize(1300, 700));
+        EXPECT_EQ(home.arrangement(), HomeRecentGrid::Arrangement::Grid);
+        QTest::mouseClick(home.listButton(), Qt::LeftButton);
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT), QStringLiteral("list"));
+    }
+    {
+        HomeRecentGrid home;
+        showAndSettle(home, QSize(1300, 700));
+        EXPECT_EQ(home.arrangement(), HomeRecentGrid::Arrangement::List);
+        EXPECT_TRUE(home.listButton()->isChecked());
+        EXPECT_FALSE(home.gridButton()->isChecked());
+        QTest::mouseClick(home.gridButton(), Qt::LeftButton);
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT), QStringLiteral("grid"));
+    }
+
+    store(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT, QStringLiteral(" List "));
+    {
+        HomeRecentGrid home;
+        EXPECT_EQ(home.arrangement(), HomeRecentGrid::Arrangement::List);
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT), QStringLiteral("list"));
+    }
+    store(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT, QStringLiteral("tiles"));
+    {
+        HomeRecentGrid home;
+        EXPECT_EQ(home.arrangement(), HomeRecentGrid::Arrangement::Grid);
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT), QStringLiteral("grid"));
+    }
+
+    DashboardApplication::instance()->resetForTest();
+    store(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION, QStringLiteral("3"));
+    store(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT, QStringLiteral("list"));
+    {
+        HomeRecentGrid home;
+        EXPECT_EQ(home.arrangement(), HomeRecentGrid::Arrangement::Grid);
+        EXPECT_EQ(settings().select(key + QStringLiteral(".format3")), QStringLiteral("list"));
+    }
+}
+
 // A sequence's tile is marked as one - a film glyph in its tag - and says how many frames it holds; an image's says its
 // size. The count above the tiles names the images and the sequences.
 TEST(HomeRecentGrid, ASequencesTileShowsItsFilmGlyphAndFrameCount)

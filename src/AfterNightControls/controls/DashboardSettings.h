@@ -56,6 +56,13 @@ AFTERNIGHTCONTROLS_API void storeRecentSortMode(int sortMode);
 /// Keeps the recent files' search, trimmed.
 AFTERNIGHTCONTROLS_API void storeRecentSearchText(const QString& text);
 
+/// How Home shows the recent files - `DashboardPreferences::RECENT_ARRANGEMENT_*` - stored again in its canonical form
+/// when it was not.
+[[nodiscard]] AFTERNIGHTCONTROLS_API int loadRecentArrangement();
+
+/// Keeps how Home shows the recent files.
+AFTERNIGHTCONTROLS_API void storeRecentArrangement(int arrangement);
+
 /// Records the last action taken from the dashboard or Home, by its words; blank words record nothing.
 AFTERNIGHTCONTROLS_API void recordDashboardLastAction(const QString& action);
 

@@ -60,7 +60,8 @@ void clickRail(an::ui::AnIconRail& rail, const char* id)
     QCoreApplication::processEvents();
 }
 
-// An image opened shows the workspace and, beside it, the readout of that image: the column names the view.
+// An image opened shows the workspace and, beside it, the readout of that image: the column names the view. Home,
+// reached by the rail with the image still open, shows no readout; the workspace shows it again.
 TEST_F(ObservatoryWindow, OpenImageShowsTheWorkspaceAndTheReadout)
 {
     EXPECT_FALSE(window().rightColumn()->isVisible()) << "the readout shows beside Home with no image open";
@@ -74,8 +75,12 @@ TEST_F(ObservatoryWindow, OpenImageShowsTheWorkspaceAndTheReadout)
         return window().readoutColumn()->viewName() == QString::fromUtf8(view->getUniqueName());
     })) << "the readout names "
         << window().readoutColumn()->viewName().toStdString();
-    // Beside Home too, while the image is open.
-    window().showHome();
+    // Not beside Home, though the image is open.
+    clickRail(*window().rail(), an::ui::observatory::ObservatoryWindow::kRailHome);
+    ASSERT_TRUE(window().isHomeShown());
+    EXPECT_FALSE(window().rightColumn()->isVisible()) << "the readout shows beside Home";
+    clickRail(*window().rail(), an::ui::observatory::ObservatoryWindow::kRailWorkspace);
+    ASSERT_TRUE(window().isWorkspaceShown());
     EXPECT_TRUE(window().rightColumn()->isVisible());
 }
 

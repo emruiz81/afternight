@@ -227,6 +227,25 @@ inline QString serializeRecentSortMode(int sortMode)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Recent arrangement: how Home shows the recent files
+// ---------------------------------------------------------------------------
+
+constexpr int RECENT_ARRANGEMENT_GRID = 0;
+constexpr int RECENT_ARRANGEMENT_LIST = 1;
+
+inline QString serializeRecentArrangement(int arrangement)
+{
+    return arrangement == RECENT_ARRANGEMENT_LIST ? QStringLiteral("list") : QStringLiteral("grid");
+}
+
+/// The arrangement a stored word names, case and space aside; a word that names neither is the grid.
+inline int deserializeRecentArrangement(const QString& persistedValue)
+{
+    return persistedValue.trimmed().toLower() == QStringLiteral("list") ? RECENT_ARRANGEMENT_LIST
+                                                                        : RECENT_ARRANGEMENT_GRID;
+}
+
 inline int deserializeRecentSortMode(const QString& persistedValue)
 {
     const QString normalized = persistedValue.trimmed().toLower();

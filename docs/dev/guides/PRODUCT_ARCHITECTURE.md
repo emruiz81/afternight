@@ -1855,14 +1855,15 @@ and facts are read off the GUI thread (`readHomeRecentFile`): the thumbnail deco
 as background work a busy session refuses. Home reads the recent files when the window says they changed - where the
 file manager told the dashboard - never because it is shown, so changing place asks the engine for nothing. A tile, and
 the sequence's card, read again when their thumbnail changes - a file is a recent file before its thumbnail is written -
-and when a busy session left the facts of a file on disk unread. The grid or list choice lasts the run; no setting
-keeps it.
+and when a busy session left the facts of a file on disk unread. The grid or list choice is one of the dashboard's
+settings (`interface/dashboardRecentArrangement`), so the next Home shows the recent files as the last one did.
 
 The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
 Integration, which opens Image Integration - and at its foot the Session Console, which it opens and closes, and
 Settings; the place on screen is the one marked. The column right of the centre is the readout (`AnReadoutColumn`) fed
-by the shell core's `ReadoutController`, which follows the active view: it is shown beside the workspace, and beside
-Home while an image is open, and is told the window's size at every resize so it narrows and folds as the window does.
+by the shell core's `ReadoutController`, which follows the active view: it is shown beside the workspace only - Home
+is no place to read an image, so the column is hidden there even while one is open - and is told the window's size at
+every resize so it narrows and folds as the window does.
 The status line (`chrome/StatusLine`) writes what the classic status bar writes of the active image - its facts, its
 zoom, the position under the cursor - from the same functions (`widgets/ImageStatusTexts.h`, which the classic
 `ImageInfoStatusBarWidget` writes through too), "RA -" and "Dec -" in the tertiary colour while there is no position. The

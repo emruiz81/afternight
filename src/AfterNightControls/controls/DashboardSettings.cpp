@@ -38,7 +38,8 @@ constexpr const char* kDashboardKeys[] = {
     SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION, SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER,
     SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS,          SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS,
     SettingsKeys::INTERFACE_DASHBOARD_PINNED_HERO_FILE,        SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE,
-    SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT,      SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION};
+    SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT,      SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION,
+    SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT};
 
 IGlobalSettingsProvider* globalSettings()
 {
@@ -227,6 +228,33 @@ void storeRecentSearchText(const QString& text)
         return;
     }
     upsertSetting(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT, text.trimmed());
+}
+
+int loadRecentArrangement()
+{
+    ensureDashboardSettingsFormat();
+    if (globalSettings() == nullptr)
+    {
+        return DashboardPreferences::RECENT_ARRANGEMENT_GRID;
+    }
+    const QString stored = selectSetting(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT);
+    const int arrangement = DashboardPreferences::deserializeRecentArrangement(stored);
+    const QString canonical = DashboardPreferences::serializeRecentArrangement(arrangement);
+    if (stored != canonical)
+    {
+        upsertSetting(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT, canonical);
+    }
+    return arrangement;
+}
+
+void storeRecentArrangement(const int arrangement)
+{
+    if (globalSettings() == nullptr)
+    {
+        return;
+    }
+    upsertSetting(SettingsKeys::INTERFACE_DASHBOARD_RECENT_ARRANGEMENT,
+                  DashboardPreferences::serializeRecentArrangement(arrangement));
 }
 
 void recordDashboardLastAction(const QString& action)

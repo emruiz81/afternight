@@ -85,6 +85,8 @@ inline constexpr auto INTERFACE_DASHBOARD_PINNED_RECENTS = "interface/dashboardP
 inline constexpr auto INTERFACE_DASHBOARD_PINNED_HERO_FILE = "interface/dashboardPinnedHeroFile";
 inline constexpr auto INTERFACE_DASHBOARD_RECENT_SORT_MODE = "interface/dashboardRecentSortMode";
 inline constexpr auto INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT = "interface/dashboardRecentSearchText";
+/// How Home shows the recent files: `grid` or `list`.
+inline constexpr auto INTERFACE_DASHBOARD_RECENT_ARRANGEMENT = "interface/dashboardRecentArrangement";
 inline constexpr auto INTERFACE_DASHBOARD_LAST_ACTION = "interface/dashboardLastAction";
 inline constexpr auto INTERFACE_RECENT_PROCESS_IDS = "interface/recentProcessIds";
 inline constexpr auto INTERFACE_FAVORITE_PROCESS_IDS = "interface/favoriteProcessIds";

@@ -1959,9 +1959,8 @@ void ObservatoryWindow::placeChanged()
     {
         leaveTaskPage();
     }
-    // The readout is beside the workspace, and beside Home while an image is open.
-    const bool viewsOpen = !impl.core.viewService().getListOfViewControls().empty();
-    const bool column = isWorkspaceShown() || (isHomeShown() && viewsOpen);
+    // The readout is beside the workspace only: Home is no place to read an image, whether one is open or not.
+    const bool column = isWorkspaceShown();
     if (impl.rightColumn->isVisibleTo(this) != column)
     {
         impl.rightColumn->setVisible(column);

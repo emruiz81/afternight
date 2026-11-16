@@ -644,6 +644,11 @@ HomeRecentGrid::HomeRecentGrid(QWidget* parent) : QWidget(parent), m_impl(std::m
         m_impl->search->setText(loadRecentSearchText());
         m_impl->sort->setCurrentIndex((std::max)(0, m_impl->sort->findData(loadRecentSortMode())));
     }
+    // The grid or the list, as it was last chosen; no tile is made yet.
+    m_impl->arrangement = loadRecentArrangement() == DashboardPreferences::RECENT_ARRANGEMENT_LIST ? Arrangement::List
+                                                                                                   : Arrangement::Grid;
+    m_impl->grid->setChecked(m_impl->arrangement == Arrangement::Grid);
+    m_impl->list->setChecked(m_impl->arrangement == Arrangement::List);
     QObject::connect(m_impl->search, &QLineEdit::textChanged, this, [this]() {
         storeRecentSearchText(m_impl->search->text());
         m_impl->settle->start();
@@ -774,6 +779,8 @@ void HomeRecentGrid::setArrangement(const Arrangement arrangement)
         return;
     }
     m_impl->arrangement = arrangement;
+    storeRecentArrangement(arrangement == Arrangement::List ? DashboardPreferences::RECENT_ARRANGEMENT_LIST
+                                                            : DashboardPreferences::RECENT_ARRANGEMENT_GRID);
     const HomeRecentTile::Shape shape =
         arrangement == Arrangement::List ? HomeRecentTile::Shape::Row : HomeRecentTile::Shape::Tile;
     for (HomeRecentTile* tile : std::as_const(m_impl->tiles))

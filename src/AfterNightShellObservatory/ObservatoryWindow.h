@@ -120,8 +120,8 @@ public:
     [[nodiscard]] an::ui::AnIconRail* rail() const noexcept;
     /// The centre: a page per place, kept alive while another is shown.
     [[nodiscard]] QStackedWidget* centre() const noexcept;
-    /// The column right of the centre, which holds the readout: shown on the workspace, and on Home while an image is
-    /// open.
+    /// The column right of the centre, which holds the readout: shown on the workspace only, not on Home even while an
+    /// image is open.
     [[nodiscard]] QWidget* rightColumn() const noexcept;
     [[nodiscard]] an::ui::AnReadoutColumn* readoutColumn() const noexcept;
     [[nodiscard]] StatusLine* statusLine() const noexcept;

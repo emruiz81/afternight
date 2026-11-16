@@ -5,10 +5,10 @@
 
 /// @file
 /// Home's recent images and sequences: the recent files as tiles - each its thumbnail with its format's tag, its name
-/// and a line of facts, a sequence's tag with a film glyph and its facts with its frames - in a grid or a list,
-/// searched and sorted as the dashboard's grid searches and sorts them (the same order, the same settings) with the
-/// pinned files first; a tile's click opens its file and its menu is the dashboard thumbnail's: Open, Pin to top, Show
-/// in File Browser, Copy path, Remove from recent files. A tile's picture and facts are read off the GUI thread.
+/// and a line of facts, a sequence's tag with a film glyph and its facts with its frames - in a grid or a list, as last
+/// chosen, searched and sorted as the dashboard's grid searches and sorts them (the same order, the same settings) with
+/// the pinned files first; a tile's click opens its file and its menu is the dashboard thumbnail's: Open, Pin to top,
+/// Show in File Browser, Copy path, Remove from recent files. A tile's picture and facts are read off the GUI thread.
 
 #include "AfterNightControlsExport.h"
 #include "app/ShowInFileBrowser.h"
@@ -137,6 +137,8 @@ public:
     /// Puts the search field's text in the keyboard's focus, selected.
     void focusSearch();
 
+    /// Shows the recent files as a grid or a list, and keeps the choice in the dashboard's settings: the next Home
+    /// shows them so.
     void setArrangement(Arrangement arrangement);
     [[nodiscard]] Arrangement arrangement() const noexcept;
 
