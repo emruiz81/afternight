@@ -469,6 +469,52 @@ TEST(ProcessPageLayout, ATargetInAGridLeadsTheBodyWithItsLabel)
     EXPECT_GE(grid->indexOf(other), 0);
 }
 
+// The controls' groups are sections wherever the controls lay them out - inside a plain container of the controls too,
+// as a builder that gives its groups a widget of their own lays them out - each in its group's place and order.
+TEST(ProcessPageLayout, GroupsInAContainerOfTheControlsAreSections)
+{
+    PagedContext paged;
+    ASSERT_NE(paged.context, nullptr);
+    QWidget process;
+    auto* const mainLayout = new QHBoxLayout(&process);
+    auto* const splitter = new QSplitter(Qt::Horizontal);
+    splitter->setObjectName(QStringLiteral("mainSplitter"));
+    auto* const controls = new QWidget(splitter);
+    auto* const controlsLayout = new QVBoxLayout(controls);
+    auto* const previewLayout = new QVBoxLayout(new QWidget(splitter));
+    mainLayout->addWidget(splitter);
+    auto* const container = new QWidget(controls);
+    auto* const containerLayout = new QVBoxLayout(container);
+    std::vector<QGroupBox*> groups;
+    for (int index = 1; index <= 2; ++index)
+    {
+        auto* const group = new QGroupBox(QStringLiteral("Group %1").arg(index), container);
+        auto* const inside = new QVBoxLayout(group);
+        inside->addWidget(new QComboBox(group));
+        containerLayout->addWidget(group);
+        groups.push_back(group);
+    }
+    controlsLayout->addWidget(container);
+    auto* const buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, controls);
+    controlsLayout->addWidget(buttons);
+
+    const an::ui::ProcessStandardParts parts{
+        .mainLayout = mainLayout, .previewLayout = previewLayout, .buttonBox = buttons};
+    ProcessPageLayout page(process, parts, ProcessPageLayout::Description{.title = QStringLiteral("Container")});
+    process.resize(PagePresenter::kCentre);
+    process.show();
+    pumpQuietly();
+    const std::vector<an::ui::AnCollapsibleSection*>& sections = page.sections();
+    ASSERT_EQ(sections.size(), 2u);
+    for (std::size_t index = 0; index < 2u; ++index)
+    {
+        EXPECT_EQ(sections[index]->title(), QStringLiteral("Group %1").arg(index + 1));
+        EXPECT_TRUE(sections[index]->isAncestorOf(groups[index]));
+        EXPECT_TRUE(container->isAncestorOf(sections[index])) << "in its group's place";
+    }
+    EXPECT_LT(topIn(*sections[0], *page.bodyContent()), topIn(*sections[1], *page.bodyContent()));
+}
+
 // In a shell with no readout to give, the readout slot is empty.
 TEST(ProcessPageLayout, TheReadoutSlotIsEmptyWithoutAShell)
 {

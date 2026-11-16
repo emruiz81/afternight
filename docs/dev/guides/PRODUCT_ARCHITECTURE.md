@@ -354,8 +354,11 @@ A presenter may take a process into a page of the main window instead of showing
 pages, and which column each takes, is stated where they are registered (`kPageSurfaces` in
 `app/ProcessRegistryBuiltins.cpp`, read into `ProcessDescriptor::surface` and `columnWidth`): the pointwise and tone
 processes and the stretching processes, every one in the wide column, since the one row of the histogram's toolbar
-under their controls - and Curves Transformation's 350 px curve editor - is wider than the standard one; and the
-spatial and noise processes and the mask, star and background processes, each in the column its widest row needs. It
+under their controls - and Curves Transformation's 350 px curve editor - is wider than the standard one; the
+spatial and noise processes and the mask, star and background processes, each in the column its widest row needs; and
+the combinations launched on an image (Image Blend, Image Compare, LRGB and NBRGB Combination, NB Color Mapper), every
+one in the wide column for its histogram's 380 px chart and toolbar row. Every process with a preview that is launched
+on an image is a page (`ProcessSurfaces.EveryPreviewProcessWithATargetIsAPage` reads the census record for it). It
 is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
 `attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
 process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
@@ -372,7 +375,9 @@ process already is:
   its description as the tooltip, Close), the toggles (the process's own preview checkbox, moved; Preview area and
   Compare, which act on the preview view's own checkbox and Switch image), the banner, the body and the footer.
 - **The body fits the column** by scrolling up and down only, with the footer always in view; by its top-level group
-  boxes as sections (`AnCollapsibleSection`, titled as the groups and in their order, none for a single group), whose
+  boxes as sections (`AnCollapsibleSection`, titled as the groups and in their order, none for a single group) - found
+  through the controls' layouts and the layouts of the plain containers they lay out, never inside a group, a tab
+  widget, a scroll area or a splitter, and made in the group's own place - whose
   open states are kept in the process settings store under `<process name>#page`; by closing the section used longest
   ago - opened or worked in - when opening another would push the body past its height; and by giving up the controls'
   own side margins, which are its padding, when the controls would be wider than it. The height a section adds is read
@@ -387,7 +392,14 @@ process already is:
   whole, so its override moves them into its controls - the selected layer's group under the layers it is chosen from,
   its name on a row of its own, the preview's mode a labelled row of the target's form - and takes its global settings
   out of the scroll area of their own the window gives them, with the 480 px least width that area's content was given
-  for the window's wider pane, before the generic arrangement runs.
+  for the window's wider pane, before the generic arrangement runs. NB Color Mapper scrolls all its controls in a scroll
+  area of their own beside its preview; its override takes them out of it, so the body scrolls them and its seven
+  groups are the page's sections, and disables them during a run where they now are. A scroll area hides how wide its
+  content is, which is why the census measured the mapper narrower than it is: as arranged its controls take 508 px.
+- **Compare names what it shows.** The toggles row's Compare shows the preview's alternate in place of what the canvas
+  shows: "Processed" and "Original" for a process, whose alternate is the image before it. Image Compare's alternate is
+  its second image, so it names the two "Image 1" and "Image 2" (`ProcessPageLayout::setCompareNames`); its one
+  button, Close, is the framework's like every other process's, so the page's footer holds it.
 - **The footer shows what the button box holds** - Reset and Help at the left, a stretch, the others, Close, the
   primary (Apply, Ok) - as buttons of its own that press the box's, follow its enabled state and leave its connections
   as they were; the box is kept, out of sight. During a run Cancel takes the primary's place and stops the run as a

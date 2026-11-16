@@ -104,8 +104,11 @@ protected:
 
     [[nodiscard]] std::shared_ptr<const an::consumer::ImageAsset> getAlternateAsset() const override;
 
+    /// The page of a comparison: its preview's alternate is the second image, so the toggles row's Compare names the
+    /// two images rather than a result and the image before it.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
-    void on_dialog_box_button_clicked(QAbstractButton* button);
     void on_secondImageSelector_currentTextChanged(const QString& str);
     void on_compareModeChanged(int modeId);
 

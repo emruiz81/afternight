@@ -4951,6 +4951,7 @@ sources Test_ProcessesCombinations
     unit     src/AfterNightTests/Test_ProcessesCombinations/CombinationsWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesCombinations/CombinationsProcessCasesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesCombinations/CombinationsRegionFrameTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesCombinations/CombinationsPageLayoutTest.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureCatalogue.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureDigest.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
@@ -5059,6 +5060,13 @@ sources Test_ProcessesCombinations
     header   src/AfterNightTests/Test_ControlsViewer/EditHoldingTheWriter.h
     header   src/AfterNightTests/Test_ProcessesCombinations/CombinationsTestSupport.h
     header   src/AfterNightTests/Test_ProcessesShared/ProcessesSharedTestSupport.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls

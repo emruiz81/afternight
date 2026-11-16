@@ -13,6 +13,7 @@
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewScrollArea.h"
 #include "controls/ProcessButtonIcons.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/ProcessCommonUtils.h"
 #include "session/ExecutionScope.h"
 #include "session/IEngineSessionProvider.h"
@@ -97,11 +98,11 @@ ImageCompareProcess::ImageCompareProcess(ImageViewControl* control)
     setProcessDescription(
         QStringLiteral("Compare two images with synchronized histogram preview and alternate-image inspection."));
 
-    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.previewLayout, nullptr, nullptr, m_ui.targetImageSelector,
-                              nullptr, {.supportPerChannel = false, .showWaitingSpinner = false});
+    // Its one button, Close, is the framework's: a page shows it in its footer.
+    initializeStandardProcess(m_ui.horizontalLayoutMain, m_ui.previewLayout, nullptr, m_ui.buttonBox,
+                              m_ui.targetImageSelector, nullptr,
+                              {.supportPerChannel = false, .showWaitingSpinner = false});
 
-    QObject::connect(m_ui.buttonBox, &QDialogButtonBox::clicked, this,
-                     &ImageCompareProcess::on_dialog_box_button_clicked);
     QObject::connect(m_ui.secondImageSelector, &QComboBox::currentTextChanged, this,
                      &ImageCompareProcess::on_secondImageSelector_currentTextChanged);
     QObject::connect(m_ui.compareModeGroup, &QButtonGroup::idClicked, this,
@@ -631,17 +632,16 @@ void ImageCompareProcess::onAlternateImageDisabled(ImageViewControl* ctrl)
     updateCompareHistogramPreview();
 }
 
-void ImageCompareProcess::on_dialog_box_button_clicked(QAbstractButton* button)
+std::unique_ptr<an::ui::ProcessPageLayout> ImageCompareProcess::makePageLayout()
 {
-    QDialogButtonBox* buttonBox = qobject_cast<QDialogButtonBox*>(sender());
-    if (!buttonBox)
+    std::unique_ptr<an::ui::ProcessPageLayout> page = TypedProcessControl<std::monostate>::makePageLayout();
+    if (page != nullptr)
     {
-        return;
+        page->setCompareNames(QCoreApplication::translate("ImageCompareProcess", "Image 1"),
+                              QCoreApplication::translate("ImageCompareProcess", "Image 2"),
+                              QCoreApplication::translate("ImageCompareProcess", "Show the other image (Space)"));
     }
-    if (buttonBox->standardButton(button) == QDialogButtonBox::Close)
-    {
-        this->close();
-    }
+    return page;
 }
 
 void ImageCompareProcess::on_secondImageSelector_currentTextChanged(const QString& str)

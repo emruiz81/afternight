@@ -6,9 +6,10 @@
 /// @file
 /// A family's process held to its page: in its column at 600 px of height, in both densities of the Observatory look,
 /// every control is in the column and reached by Tab - none left beside the preview in the canvas - Target image and
-/// Channel lead the body, no group is left empty and, where the platform measures text as the interface does, nothing
-/// in the body lies past the column's side; and the same parameters applied through the page give the window's result,
-/// whether it lands in the target or in a new image.
+/// Channel lead the body, no group is left empty, no button box is left among the controls (the window's buttons are
+/// the footer's) and, where the platform measures text as the interface does, nothing in the body lies past the
+/// column's side; and the same parameters applied through the page give the window's result, whether it lands in the
+/// target or in a new image.
 ///
 /// Whether nothing is clipped depends on how wide text is, and the suites' own platform draws text in a box font about
 /// twice the interface's width: there the case asserts what holds whatever the font and is reported skipped for the
@@ -29,6 +30,7 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QComboBox>
+#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFontMetrics>
 #include <QGroupBox>
@@ -234,6 +236,18 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
             }
         }
         EXPECT_TRUE(empty.isEmpty()) << "groups left empty: " << empty.join(QStringLiteral(", ")).toStdString();
+
+        // The window's buttons are the footer's: no button box is left among the controls.
+        QStringList boxes;
+        for (const QDialogButtonBox* box : page->bodyContent()->findChildren<QDialogButtonBox*>())
+        {
+            if (box->isVisibleTo(process))
+            {
+                boxes.append(widgetPath(*box, *process));
+            }
+        }
+        EXPECT_TRUE(boxes.isEmpty()) << "button boxes left in the body: "
+                                     << boxes.join(QStringLiteral(", ")).toStdString();
 
         if (measured)
         {

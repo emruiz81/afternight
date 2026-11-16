@@ -246,6 +246,14 @@ constexpr PageSurface kPageSurfaces[] = {
     {"actionRange_Selection", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionStar_Mask", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionStar_Reduction", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
+    // The combinations launched on an image, each reading the images it combines beside its target: the histogram's
+    // toolbar row and its 380 px chart set their width. NB Color Mapper arranges its page itself: its controls leave
+    // the scroll area its window gives them, which hid how wide they are.
+    {"actionImage_Blend", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionImage_Compare", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionLRGB_Combination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionNBRGB_Combination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    {"actionNBColorMapper", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

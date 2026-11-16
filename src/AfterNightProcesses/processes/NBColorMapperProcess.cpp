@@ -12,6 +12,7 @@
 #include "controls/ImageSelectorTooltipBuilder.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessButtonIcons.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/CombinationProcessSupport.h"
 #include "processes/PointwiseProcessUtils.h"
 #include "processes/ProcessCommonUtils.h"
@@ -21,6 +22,7 @@
 #include <AfterNightEngine/Runtime/EngineContext.h>
 #include <AfterNightEngine/Runtime/ExecutionContext.h>
 
+#include <QBoxLayout>
 #include <QDialogButtonBox>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -304,6 +306,28 @@ NBColorMapperProcess::NBColorMapperProcess(ImageViewControl* control)
 }
 
 NBColorMapperProcess::~NBColorMapperProcess() = default;
+
+std::unique_ptr<an::ui::ProcessPageLayout> NBColorMapperProcess::makePageLayout()
+{
+    // The controls without the scroll area the window gives them beside its preview: the page's body scrolls them, and
+    // a second scroll area inside it would scroll them apart from the body.
+    auto* const pane = m_ui.controlsScrollArea->parentWidget();
+    auto* const paneLayout = pane != nullptr ? qobject_cast<QBoxLayout*>(pane->layout()) : nullptr;
+    if (paneLayout != nullptr)
+    {
+        const int place = paneLayout->indexOf(m_ui.controlsScrollArea);
+        if (place >= 0 && m_ui.controlsScrollArea->widget() == m_ui.controlsContents)
+        {
+            (void)m_ui.controlsScrollArea->takeWidget();
+            paneLayout->removeWidget(m_ui.controlsScrollArea);
+            m_ui.controlsScrollArea->hide();
+            m_ui.controlsContents->setParent(pane);
+            paneLayout->insertWidget(place, m_ui.controlsContents, 1);
+            m_ui.controlsContents->show();
+        }
+    }
+    return ImageRTPreviewControl::makePageLayout();
+}
 
 std::string NBColorMapperProcess::getProcessNameStatic()
 {
@@ -690,6 +714,7 @@ void NBColorMapperProcess::settingsUpdatedImpl()
 void NBColorMapperProcess::enableProcessControlsImpl(bool enabled)
 {
     m_ui.controlsScrollArea->setEnabled(enabled);
+    m_ui.controlsContents->setEnabled(enabled);
     m_ui.buttonBox->button(QDialogButtonBox::Apply)->setEnabled(enabled);
     m_ui.buttonBox->button(QDialogButtonBox::Reset)->setEnabled(enabled);
     m_ui.buttonBox->button(QDialogButtonBox::Close)->setEnabled(enabled);

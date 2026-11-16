@@ -311,6 +311,15 @@ struct Slot
     int index = -1;
 };
 
+/// Whether a widget is a plain container of the controls - a `QWidget` that only lays out what it holds - whose layout
+/// is searched as the controls' own.
+[[nodiscard]] bool isPlainContainer(const QWidget& widget)
+{
+    return QString::fromLatin1(widget.metaObject()->className()) == QLatin1String("QWidget");
+}
+
+/// Where a widget lies in a layout: its child layouts searched, and the layouts of the plain containers it lays out,
+/// as the controls' groups are collected.
 [[nodiscard]] Slot slotOf(QLayout* layout, const QWidget* widget)
 {
     if (layout == nullptr)
@@ -324,9 +333,14 @@ struct Slot
         {
             return Slot{qobject_cast<QBoxLayout*>(layout), index};
         }
-        if (QLayout* const child = item->layout())
+        QLayout* searched = item->layout();
+        if (searched == nullptr && item->widget() != nullptr && isPlainContainer(*item->widget()))
         {
-            const Slot found = slotOf(child, widget);
+            searched = item->widget()->layout();
+        }
+        if (searched != nullptr)
+        {
+            const Slot found = slotOf(searched, widget);
             if (found.layout != nullptr || found.index >= 0)
             {
                 return found;
@@ -397,7 +411,7 @@ void collectGroups(QLayout* layout, std::vector<QGroupBox*>& groups)
         {
             continue;
         }
-        if (QString::fromLatin1(widget->metaObject()->className()) == QLatin1String("QWidget"))
+        if (isPlainContainer(*widget))
         {
             collectGroups(widget->layout(), groups);
         }
@@ -481,6 +495,10 @@ struct ProcessPageLayout::Impl : public QObject
     QPushButton* cancel = nullptr;
     QCheckBox* previewArea = nullptr;
     QPushButton* compare = nullptr;
+
+    /// What Compare names the image the canvas shows and its alternate: the process's result and the image before it.
+    QString compareShown = translated("Processed");
+    QString compareAlternate = translated("Original");
 
     /// The controls: the pane of a splitter, or the widget the row's controls layout was moved into; and the layout
     /// whose side margins are the body's padding, with the margins it came with.
@@ -944,7 +962,7 @@ struct ProcessPageLayout::Impl : public QObject
         previewArea->hide();
         row->addWidget(previewArea);
         row->addStretch(1);
-        compare = new QPushButton(translated("Processed"), toggles);
+        compare = new QPushButton(compareShown, toggles);
         compare->setObjectName(QStringLiteral("pageCompare"));
         compare->setCheckable(true);
         compare->setToolTip(translated("Compare with the original (Space)"));
@@ -1082,7 +1100,7 @@ struct ProcessPageLayout::Impl : public QObject
                               preview->getViewWidget()->isAlternateImageRenderEnabled();
         const QSignalBlocker blocker(compare);
         compare->setChecked(original);
-        compare->setText(original ? translated("Original") : translated("Processed"));
+        compare->setText(original ? compareAlternate : compareShown);
     }
 
     // ---- Fitting the column
@@ -1302,6 +1320,14 @@ void ProcessPageLayout::setCategory(const QString& category)
 QString ProcessPageLayout::category() const
 {
     return m_impl->header->eyebrow->text();
+}
+
+void ProcessPageLayout::setCompareNames(const QString& shown, const QString& alternate, const QString& toolTip)
+{
+    m_impl->compareShown = shown;
+    m_impl->compareAlternate = alternate;
+    m_impl->compare->setToolTip(toolTip);
+    m_impl->refreshCompare();
 }
 
 void ProcessPageLayout::setPreviewView(ImageViewControl* preview)

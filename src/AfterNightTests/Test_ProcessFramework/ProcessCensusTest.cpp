@@ -850,3 +850,43 @@ TEST(ProcessCensus, EveryProcessStatesItsShape)
     an::tests::fixtures::BaselineRecord record(QString::fromLatin1(kProcessShapesPath), processShapesPreamble());
     EXPECT_TRUE(record.matches(QString::fromLatin1(kShapesSection), entries));
 }
+
+// Every process the record shows with its preview beside its controls, and that is launched on an image, is a page: its
+// descriptor states a preview page, in the column its controls need. A process launched on no image, which chooses
+// every image it reads itself, and a process with no preview are pages of other kinds.
+TEST(ProcessSurfaces, EveryPreviewProcessWithATargetIsAPage)
+{
+    const an::tests::fixtures::BaselineRecord record(QString::fromLatin1(kProcessShapesPath), processShapesPreamble());
+    const QStringList entries = record.entries(QString::fromLatin1(kShapesSection));
+    ASSERT_FALSE(entries.isEmpty()) << "the record holds the processes' shapes";
+    int previews = 0;
+    QStringList windows;
+    for (const QString& entry : entries)
+    {
+        const QStringList fields = an::tests::fixtures::baselineFields(entry);
+        if (fields.size() < 4)
+        {
+            continue;
+        }
+        const QString& layout = fields[3];
+        if (!layout.startsWith(QStringLiteral("splitter:")) && !layout.startsWith(QStringLiteral("row:")))
+        {
+            continue;
+        }
+        const ProcessDescriptor* const descriptor =
+            an::ui::process_registry::ProcessRegistry::instance().find(fields[0].toStdString());
+        ASSERT_NE(descriptor, nullptr) << fields[0].toStdString() << " is registered";
+        if (descriptor->launch_mode != ProcessLaunchMode::SingleImage)
+        {
+            continue;
+        }
+        ++previews;
+        if (descriptor->surface != an::ui::ProcessSurface::PreviewPage)
+        {
+            windows.append(fields[0]);
+        }
+    }
+    EXPECT_GT(previews, 0);
+    EXPECT_TRUE(windows.isEmpty()) << "preview processes launched on an image that are not pages: "
+                                   << windows.join(QStringLiteral(", ")).toStdString();
+}

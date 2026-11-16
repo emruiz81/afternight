@@ -44,6 +44,8 @@ struct NBColorMapperProcessUiElements
 {
     QHBoxLayout* horizontalLayoutMain = nullptr;
     QScrollArea* controlsScrollArea = nullptr;
+    /// The controls the scroll area scrolls in a window; a page's body scrolls them instead.
+    QWidget* controlsContents = nullptr;
     QVBoxLayout* previewLayout = nullptr;
 
     QScrollArea* chartScrollArea = nullptr;
@@ -325,6 +327,7 @@ inline NBColorMapperProcessUiElements buildNBColorMapperProcessUi(QWidget* paren
     controlsLayout->setContentsMargins(t.spacing.sm, t.spacing.sm, t.spacing.sm, t.spacing.sm);
     controlsLayout->setSpacing(t.spacing.sm);
     ui.controlsScrollArea->setWidget(controlsScrollContents);
+    ui.controlsContents = controlsScrollContents;
     outerControlsLayout->addWidget(ui.controlsScrollArea);
 
     ui.histogramControlsGroup = new QGroupBox(QStringLiteral("Histogram Controls"), controlsScrollContents);

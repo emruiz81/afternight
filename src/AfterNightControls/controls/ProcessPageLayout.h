@@ -181,6 +181,11 @@ public:
     void setCategory(const QString& category);
     [[nodiscard]] QString category() const;
 
+    /// What the toggles row's Compare names the image the canvas shows and the alternate it shows instead, and its
+    /// tooltip: "Processed" and "Original" for a process's result and the image before it; a process whose alternate is
+    /// another image names the two.
+    void setCompareNames(const QString& shown, const QString& alternate, const QString& toolTip);
+
     /// The preview view the toggles row's Preview area and Compare act on; null while the preview is off.
     void setPreviewView(ImageViewControl* preview);
 

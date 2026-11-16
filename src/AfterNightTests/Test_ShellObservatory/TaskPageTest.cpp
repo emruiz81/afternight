@@ -9,7 +9,8 @@
 /// makes landing in a workspace while the page stays. And what the window's actions act on while a page is shown: the
 /// looking actions on its canvas, the image actions on its target, Close and Maximize View withdrawn, Apply from the
 /// rail. And the controls of other families a page holds: a structuring element's grid edited in the column, a
-/// chooser of a second image following the images open.
+/// chooser of a second image following the images open, a histogram and its toolbar acting in the column; and the
+/// image's floor beside the wide column of every combination.
 
 #include "ObservatoryWindowCase.h"
 
@@ -43,12 +44,17 @@
 #include "views/ViewChromeBinder.h"
 #include "views/ViewService.h"
 #include "widgets/CurvesWidget.h"
+#include "widgets/HistogramWidget.h"
 #include "widgets/ImageViewWidget.h"
 #include "widgets/StructuredElementWidget.h"
 #include "widgets/StructuringElementGrid.h"
 #include "widgets/ToneCurveModel.h"
 
+#include <AfterNightConsumerRuntime/ImageAsset.h>
 #include <AfterNightEngine/Algorithms/Pointwise/ToneCurve.h>
+#include <AfterNightEngine/Core/ImageExtent.h>
+#include <AfterNightEngine/Image/Image.h>
+#include <AfterNightEngine/Image/ImageDescriptor.h>
 
 #include <QAbstractButton>
 #include <QAction>
@@ -60,6 +66,8 @@
 #include <QFontMetrics>
 #include <QLabel>
 #include <QPointer>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QStackedWidget>
 #include <QtTest/QTest>
 
@@ -86,6 +94,11 @@ namespace actionIds = an::ui::shell::ids;
 constexpr std::string_view kCurves = "transforms.actionCurves_Transformation";
 constexpr std::string_view kMorphology = "filters.actionMorphological_Transformation";
 constexpr std::string_view kStarReduction = "star_object.actionStar_Reduction";
+constexpr std::string_view kImageBlend = "multi_image_stacking.actionImage_Blend";
+constexpr std::string_view kImageCompare = "multi_image_stacking.actionImage_Compare";
+constexpr std::string_view kLrgbCombination = "color.actionLRGB_Combination";
+constexpr std::string_view kNbrgbCombination = "color.actionNBRGB_Combination";
+constexpr std::string_view kNbColorMapper = "color.actionNBColorMapper";
 
 /// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
 /// character one width.
@@ -211,6 +224,90 @@ protected:
     [[nodiscard]] static std::size_t currentStep(const ImageViewControl& view)
     {
         return view.viewHistory() != nullptr ? view.viewHistory()->steps().current : 0u;
+    }
+
+    /// Opens a colour image of a gentle gradient as the active view, for the processes that combine colour images.
+    static ImageViewControl* openColourView(const QString& name)
+    {
+        constexpr std::uint32_t kWidth = 32u;
+        constexpr std::uint32_t kHeight = 24u;
+        an::Result<an::consumer::SessionHold> hold = session().hold();
+        EXPECT_TRUE(hold.hasValue());
+        if (!hold.hasValue())
+        {
+            return nullptr;
+        }
+        const std::optional<an::ImageExtent> extent =
+            an::ImageExtent::create(kWidth, kHeight, 3u, hold->engine().limits());
+        const std::optional<an::ImageDescriptor> descriptor =
+            extent.has_value() ? an::ImageDescriptor::create(
+                                     an::ImageDescriptorRequest{.extent = *extent,
+                                                                .sampleType = an::SampleType::Float32,
+                                                                .channelSchema = an::ChannelSchema::Rgb,
+                                                                .colorSpace = an::ColorSpace::Unspecified,
+                                                                .numericDomain = an::NumericDomain::NormalizedLinear,
+                                                                .cfa = an::CfaDescriptor{},
+                                                                .coordinateOrigin = an::CoordinateOrigin::TopLeft,
+                                                                .pixelAspectRatio = 1.0})
+                               : std::nullopt;
+        EXPECT_TRUE(descriptor.has_value());
+        if (!descriptor.has_value())
+        {
+            return nullptr;
+        }
+        an::Result<an::Image<float>> image = an::Image<float>::create(
+            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed);
+        EXPECT_TRUE(image.hasValue());
+        if (!image.hasValue())
+        {
+            return nullptr;
+        }
+        {
+            std::optional<an::ImageWriteAccess<float>> access = image->write();
+            EXPECT_TRUE(access.has_value());
+            if (!access.has_value())
+            {
+                return nullptr;
+            }
+            for (std::uint32_t c = 0u; c < 3u; ++c)
+            {
+                for (std::uint32_t y = 0u; y < kHeight; ++y)
+                {
+                    auto row = access->view().row(c, y);
+                    if (!row.has_value())
+                    {
+                        return nullptr;
+                    }
+                    for (std::uint32_t x = 0u; x < kWidth; ++x)
+                    {
+                        (*row)[x] = 0.1f + 0.02f * static_cast<float>(x + y + 4u * c) / 4.0f;
+                    }
+                }
+            }
+        }
+        an::Result<an::consumer::ImageAsset> asset =
+            an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage(std::move(*image)));
+        EXPECT_TRUE(asset.hasValue());
+        if (!asset.hasValue())
+        {
+            return nullptr;
+        }
+        an::Result<an::ui::ImageDocument> document = an::ui::ImageDocument::create(
+            std::move(*asset), an::ui::DocumentNames{.displayName = name, .sourcePath = {}});
+        EXPECT_TRUE(document.hasValue());
+        if (!document.hasValue())
+        {
+            return nullptr;
+        }
+        ImageViewControl* const view = core().viewService().userViews().createNewImageViewControlFromImage(
+            nullptr, std::move(*document), nullptr, name.toStdString());
+        EXPECT_NE(view, nullptr);
+        if (view != nullptr)
+        {
+            core().viewService().setActiveImageViewControl(view);
+            settle();
+        }
+        return view;
     }
 
     void TearDown() override
@@ -480,6 +577,72 @@ TEST_F(TaskPage, TheImageKeepsItsFloor)
     ASSERT_NE(narrow->pageLayout(), nullptr);
     EXPECT_EQ(narrow->pageLayout()->columnWidth(), 360);
     EXPECT_GE(narrow->pageLayout()->canvas()->width(), 1130);
+}
+
+// In a window 1536 px wide each process of the wide column keeps 970 px of image, however wide its controls were built:
+// the combinations' rows are wider than the column until their side margins give way, and the column keeps its width.
+TEST_F(TaskPage, AWideColumnKeeps970PixelsOfImage)
+{
+    ImageViewControl* const view = openColourView(QStringLiteral("page-wide-floor"));
+    ASSERT_NE(view, nullptr);
+    ASSERT_EQ(window().width(), 1536);
+    for (const std::string_view id : {kImageBlend, kImageCompare, kLrgbCombination, kNbrgbCombination, kNbColorMapper})
+    {
+        SCOPED_TRACE(std::string(id));
+        TopLevelProcessBaseControl* const process = launch(id);
+        ASSERT_NE(process, nullptr);
+        settle();
+        ASSERT_TRUE(process->isPresentedAsPage());
+        an::ui::ProcessPageLayout* const layout = process->pageLayout();
+        ASSERT_NE(layout, nullptr);
+        EXPECT_EQ(layout->columnWidth(), 520);
+        EXPECT_EQ(layout->column()->width(), 520) << "the column keeps its width";
+        EXPECT_GE(layout->canvas()->width(), 970);
+        (void)process->close();
+        settle();
+    }
+}
+
+// A process's histogram and its toolbar are in its column, the histogram the width the column gives it: Zoom In zooms
+// the histogram inside its own frame, which scrolls, while the column keeps its width and never scrolls sideways; the
+// grid button draws the grid.
+TEST_F(TaskPage, TheHistogramToolbarActsInTheColumn)
+{
+    ImageViewControl* const view = openColourView(QStringLiteral("page-histogram"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageRTPreviewControl*>(launch(kLrgbCombination));
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    ASSERT_TRUE(idle(process));
+    settle();
+    an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    ASSERT_NE(layout, nullptr);
+    auto* const chart = process->findChild<QScrollArea*>(QStringLiteral("chartScrollArea"));
+    ASSERT_NE(chart, nullptr);
+    auto* const histogram = dynamic_cast<HistogramWidget*>(chart->widget());
+    ASSERT_NE(histogram, nullptr);
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(chart)) << "the histogram is in the column";
+    ASSERT_TRUE(chart->isVisible());
+    EXPECT_LE(chart->mapTo(layout->bodyContent(), QPoint(chart->width(), 0)).x(), layout->body()->viewport()->width())
+        << "the histogram lies in the column";
+    auto* const zoomIn = process->findChild<QAbstractButton*>(QStringLiteral("zoomIn"));
+    auto* const grid = process->findChild<QAbstractButton*>(QStringLiteral("gridButton"));
+    ASSERT_TRUE(zoomIn != nullptr && grid != nullptr);
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(zoomIn)) << "the toolbar is in the column";
+
+    const int before = histogram->width();
+    const int column = layout->column()->width();
+    zoomIn->click();
+    settle();
+    EXPECT_GT(histogram->width(), before) << "the histogram zoomed";
+    EXPECT_GT(histogram->width(), chart->viewport()->width()) << "it scrolls inside its own frame";
+    EXPECT_EQ(layout->column()->width(), column) << "the column keeps its width";
+    EXPECT_FALSE(layout->body()->horizontalScrollBar()->isVisible()) << "the body never scrolls sideways";
+
+    const bool gridShown = histogram->getGridEnabled();
+    grid->click();
+    settle();
+    EXPECT_NE(histogram->getGridEnabled(), gridShown) << "the grid button draws the grid or takes it away";
 }
 
 // The compact readout shows the settled preview's figures and their change against the image.

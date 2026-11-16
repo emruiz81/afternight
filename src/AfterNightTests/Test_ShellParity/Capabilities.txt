@@ -384,7 +384,7 @@ capability process.histogram-tools
     title        Histogram toolbar inside a process
     shared       BuildHistogramToolbar.DefaultOptionsCreateAllButtons, BuildHistogramToolbar.IncludingTransferCurveCreatesButton, RTPreviewHistogramTest.ThePlotResolutionsOfferedAreTheHistogramsAndTheOneChosenIsCounted
     classic
-    observatory  pending
+    observatory  TaskPage.TheHistogramToolbarActsInTheColumn
 
 capability process.target
     title        Target Image, Channel, Preview

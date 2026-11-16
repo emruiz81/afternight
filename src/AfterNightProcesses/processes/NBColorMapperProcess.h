@@ -107,6 +107,10 @@ protected:
     void executeProcessStarted(RTPreviewMode previewMode, bool sequenceMode) override;
     void executeProcessCompletedImpl(RTPreviewMode previewMode, bool sequenceMode) override;
 
+    /// A page whose body scrolls the controls: they leave the scroll area of their own the window gives them beside its
+    /// preview, so the generic arrangement finds their groups and the column never holds a second scroll area.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     [[nodiscard]] bool isPreviewEnabled() const override;
     void enablePreview(bool enabled) override;
