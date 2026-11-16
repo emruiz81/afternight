@@ -2749,6 +2749,8 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ConsoleDrawerTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/WorkspacesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TasksTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TaskDragTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/TaskFloatTest.cpp
     header   src/AfterNightControls/widgets/StructuredElementWidget.h
     header   src/AfterNightControls/widgets/StructuringElementGrid.h
     include  src/AfterNightTests
@@ -2908,6 +2910,8 @@ sources Test_ShellObservatory
     header   src/AfterNightShellCore/tasks/TaskModel.h
     header   src/AfterNightShellCore/views/ViewThumbnailService.h
     header   src/AfterNightShellObservatory/tasks/TaskPresenter.h
+    header   src/AfterNightShellObservatory/tasks/TaskDrag.h
+    header   src/AfterNightShellObservatory/tasks/TaskWindow.h
     header   src/AfterNightControls/components/AnCompactReadout.h
     header   src/AfterNightControls/components/AnSnackbar.h
     header   src/AfterNightControls/components/AnTaskHeader.h

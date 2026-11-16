@@ -662,6 +662,38 @@ TEST(Rail, DragThresholdAndSignals)
     EXPECT_EQ(activated.count(), 0);
 }
 
+// While a task's window is dragged over the main window, the rail marks the place its thumbnail goes back to: a line of
+// the accent, 2 px high and as wide as a task's box, in the gap above the task's row. A mark on an item that is not a
+// task, or on none, draws nothing.
+TEST(Rail, InsertionLine)
+{
+    forEachLook([](const DesignTokens& t) {
+        ShownRail shown(ordinaryRail());
+        AnIconRail& rail = shown.rail;
+        EXPECT_TRUE(rail.insertionLineRect().isNull()) << "no line before a mark";
+
+        rail.setInsertionMark(QStringLiteral("t2"));
+        EXPECT_EQ(rail.insertionMark(), QStringLiteral("t2"));
+        const QRect row = rail.itemRect(QStringLiteral("t2"));
+        const QRect line = rail.insertionLineRect();
+        ASSERT_FALSE(line.isNull());
+        EXPECT_EQ(line.size(), QSize(kTaskBox, kRailInsertionLine));
+        EXPECT_EQ(line.bottom(), row.top() - 1) << "in the gap above the row";
+        EXPECT_EQ(line.left(), row.left() + (row.width() - kTaskBox) / 2) << "centred as the task's box is";
+        forEachRatio(rail, t.layers.surface0, [&](const RenderedPicture& p) {
+            expectColour(p.at(line.center().x() + 0.5, line.top() + 1.0), t.colors.accentPrimary, "the line");
+            expectColour(p.at(line.center().x() + 0.5, line.top() - 3.0), t.layers.surface1, "above the line");
+        });
+
+        rail.setInsertionMark(QString());
+        EXPECT_TRUE(rail.insertionLineRect().isNull()) << "an empty mark clears it";
+        rail.setInsertionMark(QStringLiteral("home"));
+        EXPECT_TRUE(rail.insertionLineRect().isNull()) << "a place takes no line";
+        rail.setInsertionMark(QStringLiteral("no-such-item"));
+        EXPECT_TRUE(rail.insertionLineRect().isNull());
+    });
+}
+
 // Assistive technology reads a list whose items are named as their tooltips are, the selected one selected and a
 // disabled one unavailable.
 TEST(Rail, AccessibleNames)

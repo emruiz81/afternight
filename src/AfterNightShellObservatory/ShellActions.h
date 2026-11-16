@@ -40,6 +40,9 @@ inline constexpr std::string_view kRenameWorkspace = "actionRename_Workspace";
 inline constexpr std::string_view kMoveWorkspaceToNewWindow = "actionMove_Workspace_To_New_Window";
 inline constexpr std::string_view kCloseWorkspace = "actionClose_Workspace";
 inline constexpr std::string_view kApplyTask = "actionApply_Task";
+inline constexpr std::string_view kFloatTask = "actionFloat_Task";
+inline constexpr std::string_view kAttachTask = "actionAttach_Task";
+inline constexpr std::string_view kCloseTask = "actionClose_Task";
 } // namespace ids
 
 /// One action of the shell's table.
@@ -56,7 +59,8 @@ struct ShellActionSpec
 /// The shell's own actions: Home, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`), the two
 /// densities, which are exclusive, the workspace's: New Workspace, Rename Workspace..., Move Workspace to New Window
 /// and Close Workspace, and the current task's: Apply (`Ctrl+Enter`, from either Enter key), which runs its primary
-/// action - inside a page the page answers the key itself. They are children of the window and its own, so their
+/// action - inside a page the page answers the key itself - and, in the Window menu, Float as Window, Attach and Close
+/// Task. They are children of the window and its own, so their
 /// shortcuts work wherever the focus is in it; the window connects what each does. The classic shell holds none of
 /// them, so its records of the actions, the menus and the shortcuts stay as they are.
 class AFTERNIGHTSHELLOBSERVATORY_API ShellActions final

@@ -14,6 +14,8 @@
 #include "views/WorkspaceModel.h"
 
 #include <QMainWindow>
+#include <QRect>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 
@@ -31,6 +33,11 @@ class QShowEvent;
 class QStackedWidget;
 
 class TopLevelProcessBaseControl;
+
+namespace KDDockWidgets::QtWidgets // NOLINT(readability-identifier-naming): the dock library's own namespace.
+{
+class DockWidget;
+} // namespace KDDockWidgets::QtWidgets
 
 namespace an::ui
 {
@@ -59,8 +66,10 @@ class HomePage;
 class MenuBarOnAlt;
 class ShellActions;
 class StatusLine;
+class TaskDrag;
 class TaskPage;
 class TaskPresenter;
+class TaskWindow;
 class TopBar;
 class WorkspaceHost;
 class WorkspacePage;
@@ -69,8 +78,9 @@ class WorkspaceToolbar;
 /// The Observatory shell's main window. It is what only a window can answer for the application core's services -
 /// where a view goes, what the status line shows, whether the Session Console is on screen - and the window a person
 /// works in: Home when no image is open, the workspace that holds the views otherwise. Every process is a task in the
-/// rail (`TaskPresenter`): one whose descriptor states a preview page opens as a page of the centre (`TaskPage`), the
-/// others as windows of their own.
+/// rail (`TaskPresenter`): one whose descriptor states a page opens as a page of the centre (`TaskPage`), the others as
+/// windows of their own. A page floats in a window of its own and attaches again (`TaskWindow`), from its header, its
+/// rail menu, the palette, or by dragging (`TaskDrag`).
 ///
 /// **A task's page.** While it is shown, the image actions act on the task's target and the looking actions on its
 /// canvas (`ViewService::setTaskSubject`); Close, Close All Others and Maximize View are withdrawn; the compact readout
@@ -136,9 +146,29 @@ public:
     /// The shell's process presenter, which keeps its tasks; null once the window is on its way out.
     [[nodiscard]] TaskPresenter* taskPresenter() const noexcept;
 
-    /// A task's menu: Show, Attach or Float as Window (neither offered yet: a task stays where it opened), Close
-    /// (disabled during a run), acting on that task.
+    /// A task's menu: Show, Float as Window - Attach for a floating task, neither offered for a process shown as a
+    /// window of its own - and Close (disabled during a run), acting on that task.
     void buildTaskMenu(QMenu& menu, an::ui::shell::TaskId id);
+
+    /// Floats a task's page in a window of its own - Float as Window - at the size its process's window was last given,
+    /// over the centre; the rail's item dims and, when the page was shown, the main window shows the place it showed
+    /// before the task. Its process, its run and its lock on the image are untouched. False for a task that is no page
+    /// in the centre.
+    bool floatTask(an::ui::shell::TaskId id);
+
+    /// Brings a floating task's page back into the centre - Attach - as the current task, the focus in it; its window's
+    /// size is kept as its process's. False for a task that does not float.
+    bool attachTask(an::ui::shell::TaskId id);
+
+    /// The window of a floating task; null for a task that does not float.
+    [[nodiscard]] TaskWindow* taskWindow(an::ui::shell::TaskId id) const;
+
+    /// What decides a task's drags between the rail and a window of its own.
+    [[nodiscard]] TaskDrag& taskDrag() const noexcept;
+
+    /// The overlay laid over the zone a dragged task's window would attach to - the rail or the centre - hidden while
+    /// there is none.
+    [[nodiscard]] QWidget* attachZoneOverlay() const noexcept;
 
     /// The page of a task taken into one; null for a task shown as a window, or for none.
     [[nodiscard]] TaskPage* taskPage(an::ui::shell::TaskId id) const;
@@ -315,6 +345,29 @@ private:
     void applyCurrentTask();
     void applyCaptionColour();
     void placePaletteScrim();
+    /// Floats a task's page in its window, over a place on the screen; an empty one places it over the centre.
+    bool floatTaskAt(an::ui::shell::TaskId id, const QRect& geometry);
+    /// The size a task's window opens at: the size its process's window was last given, within the screen, or the
+    /// centre's least it can be.
+    [[nodiscard]] QSize floatingSizeOf(const an::ui::shell::Task& task) const;
+    /// Keeps a floating task's window size as its process's.
+    void rememberFloatingSize(an::ui::shell::TaskId id);
+    /// The compact readout of a floating task's page follows its preview, and stops.
+    void followFloatingReadout(an::ui::shell::TaskId id);
+    void stopFloatingReadout(an::ui::shell::TaskId id);
+    /// The person closed a floating task's window by its title bar.
+    void taskWindowCloseRequested(an::ui::shell::TaskId id);
+    /// The task whose window holds a dock widget; zero for none.
+    [[nodiscard]] an::ui::shell::TaskId taskOfDock(const KDDockWidgets::QtWidgets::DockWidget* dock) const;
+    /// Covers a zone with the attach overlay, and marks a task's place in the rail.
+    void showAttachZone(int zone, an::ui::shell::TaskId id);
+    /// The place the centre showed before the first task's page: a workspace while one has views, else Home.
+    void showPlaceBeforeTask();
+    /// Float as Window, Attach and Close Task follow the current task.
+    void updateTaskActions();
+
+    class DragSurface;
+    friend class DragSurface;
 
     struct Impl;
     std::unique_ptr<Impl> m_impl;

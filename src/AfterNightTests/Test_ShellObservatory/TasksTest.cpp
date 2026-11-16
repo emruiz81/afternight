@@ -341,7 +341,8 @@ TEST_F(Tasks, TheResultDotOfARunThatEndedElsewhereClearsOnShow)
     EXPECT_TRUE(railItem(*window().rail(), id).unseenResult);
 }
 
-// A task's menu: Show; Attach, which a process shown as a window cannot do yet; Close, refused during a run.
+// A task's menu: Show; Attach, which a process shown as a window of its own cannot do, having no page; Close, refused
+// during a run.
 TEST_F(Tasks, TheMenusEntries)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-menu"));

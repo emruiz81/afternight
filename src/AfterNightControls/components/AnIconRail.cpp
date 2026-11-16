@@ -894,6 +894,10 @@ void AnIconRail::paintEvent(QPaintEvent* /*event*/)
     {
         paintOverflow(painter, m_layout.overflow);
     }
+    if (const QRect line = insertionLineRect(); !line.isNull())
+    {
+        painter.fillRect(line, t.colors.accentPrimary);
+    }
 }
 
 void AnIconRail::paintPlace(QPainter& painter, const RailItem& item, const QRect& row) const
@@ -1182,6 +1186,40 @@ void AnIconRail::endDrag()
     }
     m_pressed.clear();
     m_holdFired = false;
+}
+
+void AnIconRail::setInsertionMark(const QString& id)
+{
+    if (id == m_insertionMark)
+    {
+        return;
+    }
+    const QRect before = insertionLineRect();
+    m_insertionMark = id;
+    update(before);
+    update(insertionLineRect());
+}
+
+QString AnIconRail::insertionMark() const
+{
+    return m_insertionMark;
+}
+
+QRect AnIconRail::insertionLineRect() const
+{
+    const RailItem* const item = find(m_insertionMark);
+    if (item == nullptr || item->section != RailSection::Task)
+    {
+        return {};
+    }
+    const QRect row = itemRect(item->id);
+    if (row.isNull())
+    {
+        return {};
+    }
+    // In the gap above the row, centred as the task's box is.
+    return QRect(row.left() + (row.width() - parts::kTaskBox) / 2, row.top() - parts::kRailInsertionLine,
+                 parts::kTaskBox, parts::kRailInsertionLine);
 }
 
 bool AnIconRail::eventFilter(QObject* watched, QEvent* event)

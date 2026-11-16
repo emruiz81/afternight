@@ -612,7 +612,7 @@ capability new.tasks
     title        Tasks in the rail; float, attach, drag
     shared       TaskModel.ARegisteredProcessIsATaskWithItsDescriptorsNamesAndItsTarget, ViewThumbnailService.ASixtyPixelSquareThroughTheViewsDisplay, RunState.AnApplyGoesFromIdleToRunningToSucceeded
     classic
-    observatory  Tasks.TheArcFollowsTheProgress, Tasks.TheResultDotOfARunThatEndedElsewhereClearsOnShow, HistoryStrip.PendingChipFollowsTheTask
+    observatory  Tasks.TheArcFollowsTheProgress, TaskFloat.AttachingBringsItBackAsTheCurrentFocusedTask, TaskDrag.InTheWindowAThumbnailPulledAcrossTheFrameFloatsItsTask
 
 capability new.workspaces
     title        Several workspaces

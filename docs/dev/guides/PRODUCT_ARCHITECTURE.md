@@ -1914,8 +1914,9 @@ the order they were opened, under a hairline drawn only while there are any: eac
 process's glyph, or the glyph on a tile for a process with no single target; dimmed with the window glyph, since a
 task in a window floats; the ring and its arc while the run is on its way and says how far it is; a result's dot for a
 run that ended while its task was not the one looked at - the task whose window is active - which showing the task
-clears. A click, and the task menu's Show, raise and activate its window or show its page; the menu's Attach and Float
-as Window are not offered yet - a task stays where it opened - and Close is refused while the run is on its way. A view a run writes
+clears. A click, and the task menu's Show, raise and activate its window or show its page; the menu's Float as Window
+floats a page and its Attach brings it back (below), neither offered for a process shown as a window of its own, and
+Close is refused while the run is on its way. A view a run writes
 carries the notice that names the running task and how far it has come, with Show, set as its processing lock is taken
 and as the run moves on - the lock is taken before the run is stated, so the notice names the task once it is - and
 cleared as the lock is let go and the run ends; a task's run on the view blocks it even without the lock, since an edit
@@ -1949,6 +1950,45 @@ the shell's own action, `Ctrl+Enter` from either Enter key) runs the current tas
 anywhere in the window; inside the page the page answers the key itself. A view a process makes while a page is shown
 (`ViewPlacement::origin`, `ViewOrigin::Process`) lands in a workspace and leaves the person on the page: the snackbar
 says where and offers Show. When a task's process closes, its page goes and the place shown before it comes back.
+
+A page floats in a window of its own and attaches again (`tasks/TaskWindow`): from its header's button, its rail menu,
+the palette (`actionFloat_Task`, `actionAttach_Task`, `actionClose_Task`, the shell's own, in the Window menu) or by
+dragging. The window is a floating window of the dock library holding the whole page - header, canvas, column - under
+the title "process - image", rather than a window of the product's own, so it gets the decorations and the drag of
+every other floating window: its dock widget has the affinity `an.task`, which no workspace and no image's window shares,
+so it docks nowhere and nothing docks into it; the layout saver skips it; it asks before it exists for one title bar and
+no tab strip, the system's where the library uses it; the library parents it to the anchor that shares its affinity,
+which keeps it above the shell's window whatever workspace is shown. It is a window (`FloatingWindowFlag::UseQtWindow`)
+and not a tool window, because Qt runs the parent window's shortcuts in an active tool window and a floating task must
+answer its own keys only - the page's, `Ctrl+Enter` and `Esc` among them. Its least size, 720 x 480, is given to the page
+while it floats, since the library takes a window's least size from what it holds. It opens over the centre of the
+place now shown - laid out first, since the workspace's column takes its share back as the page leaves - at the size
+its process's window was last given, from the process settings where a 1.1 window keeps its size, within the screen
+when the screen can hold the least size; the size it is given is kept there when the task attaches or closes. The rail's
+item stays, dimmed with the window glyph; a click raises the window, and the task whose window is active is the current
+one. The page's compact readout keeps reading the preview while it floats, through a readout controller of its own.
+Closing the window by its title bar is not the library's to do: the page refuses the close the library hands it and
+the window asks the task to close, which a run refuses; and the press on the title bar that closed it is ended there and
+then with a release the library hears, or the library would start a drag of the window on its way out at the next move
+of the mouse over anything it drags by. Attach takes the page back into the centre as the current task, then - once
+the window it floated in has gone, which takes the activation with it - activates the main window and gives the focus
+to the page. Floating and attaching move the page only: the process, its parameters, its preview, a run on its way and
+its lock on the image are the same objects. At the application's exit the floating windows go after the processes, which
+are stopped, drained and deleted while their windows still hold them, as every process window's are.
+
+The drags are decided by `tasks/TaskDrag` from where the cursor stands against the main window - its frame, its rail,
+its centre - which a `TaskDrag::Surface` answers (the window's, or a suite's with an injected cursor and geometry). A
+task's rail thumbnail pressed and moved the drag distance shows its ghost (the rail draws it); inside the frame nothing
+else happens and a release there changes nothing. Leaving the frame floats the task with its window's top under the
+cursor and hands the press to the library (`Core::DockWidget::startDragging`), which follows the cursor until the
+release - the system's move on Windows, the library's own moves on X11 - and the rail's ghost ends. Under Wayland,
+whose compositor alone moves a window (`windowFollowsTheCursor`), the ghost goes on and the task floats where the
+button is released. While a task's window is dragged - pulled out of the rail, or by its title bar, as the dock hooks
+tell (`DockHooks`'s `dragAboutToStart` naming its dock widget, its window's moves, `dragEnded`) - the zone under the
+cursor, the rail or the centre, is covered by the attach overlay, drawn as the band over a view's landing place, and
+the rail marks the task's place with a line (`AnIconRail::setInsertionMark`). Released there the task attaches, once
+the library has finished with its drag; released over the top bar, the column, the status line or outside, it stays a
+window.
 
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the

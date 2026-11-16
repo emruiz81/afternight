@@ -257,6 +257,17 @@ struct TaskPresenter::Impl
             return true;
         }
         TopLevelProcessBaseControl* process = task->process.data();
+        if (!process->isWindow())
+        {
+            // A page floating in a window of its own: the window is raised.
+            if (!hooks.showWindow)
+            {
+                return false;
+            }
+            hooks.showWindow(id);
+            (void)model.setCurrent(id);
+            return true;
+        }
         if (process->isMinimized())
         {
             process->showNormal();
@@ -409,7 +420,9 @@ void TaskPresenter::activeWindowChanged(QWidget* window)
     const an::ui::shell::Task* active = nullptr;
     for (const an::ui::shell::Task& task : model.tasks())
     {
-        if (window != nullptr && task.process.data() == window)
+        // A task in a window: the process's own, or the window its page floats in. A page in the main window is not.
+        if (window != nullptr && !task.process.isNull() &&
+            task.presentation == an::ui::shell::TaskPresentation::Window && task.process->window() == window)
         {
             active = &task;
             break;

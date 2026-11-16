@@ -95,6 +95,12 @@ const std::vector<ShellActionSpec>& ShellActions::table()
          QKeySequence(), "close", false},
         {ids::kApplyTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Apply"),
          QKeySequence(Qt::CTRL | Qt::Key_Return), "check", false},
+        {ids::kFloatTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Float as Window"), QKeySequence(),
+         "open_in_new", false},
+        {ids::kAttachTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Attach"), QKeySequence(), "window",
+         false},
+        {ids::kCloseTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Task"), QKeySequence(), "close",
+         false},
     };
     return kTable;
 }

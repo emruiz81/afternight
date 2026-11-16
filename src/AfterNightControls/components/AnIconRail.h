@@ -60,7 +60,8 @@ class AnIconRailAccessible;
 /// which opens a list of every task. A click activates an item (`itemActivated`); a right click, the menu key or a
 /// press held 500 ms asks for its menu (`itemMenuRequested`). A task's thumbnail pressed and moved the platform's drag
 /// distance is dragged: `itemDragStarted`, `itemDragMoved` and `itemDragReleased` with global points, a ghost of the
-/// thumbnail under the cursor meanwhile; Esc cancels (`itemDragCancelled`). Hovered for 400 ms an item shows its
+/// thumbnail under the cursor meanwhile; Esc cancels (`itemDragCancelled`). While a task's window is dragged over the
+/// main window its owner marks the task's place with a line (`setInsertionMark`). Hovered for 400 ms an item shows its
 /// tooltip at its right (`railItemDescription`). The rail is one stop for the keyboard - Up, Down, Home and End move
 /// through the items, Enter and Space activate - and a list to assistive technology, each item named as its tooltip.
 ///
@@ -126,6 +127,14 @@ public:
     /// Ends a drag without a word: what the rail's owner calls when another hand took the drag over - the dock
     /// library's, which then takes the release.
     void endDrag();
+
+    /// Marks the place a task's thumbnail goes back to while its window is dragged over the main window: a line of the
+    /// accent, 2 px high and as wide as a task's box, in the gap above the task's row. An empty id, or one that is no
+    /// task shown, marks nothing.
+    void setInsertionMark(const QString& id);
+    [[nodiscard]] QString insertionMark() const;
+    /// Where the line is drawn; empty while nothing is marked.
+    [[nodiscard]] QRect insertionLineRect() const;
 
     /// Whether a turning arc is being turned.
     [[nodiscard]] bool isTurning() const;
@@ -208,6 +217,7 @@ private:
     bool m_keyboardFocus = false;
     std::chrono::steady_clock::time_point m_menuKeyHandled;
 
+    QString m_insertionMark;
     QString m_pressed;
     QPoint m_pressGlobal;
     bool m_holdFired = false;

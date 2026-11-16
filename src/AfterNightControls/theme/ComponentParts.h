@@ -142,6 +142,8 @@ inline constexpr int kRailTipGap = 2;
 inline constexpr int kRailTipPadding = 10;
 /// A dragged thumbnail's ghost.
 inline constexpr qreal kRailGhostOpacity = 0.7;
+/// The line that marks where a dragged task's thumbnail goes back to: in the gap above its row.
+inline constexpr int kRailInsertionLine = 2;
 
 // A task's thumbnail: a 38 px box holding a 30 px picture, a ring 2 px thick, the process's glyph on a 14 px disc at
 // the lower right and the dot of an unseen result at the upper right.

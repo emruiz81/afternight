@@ -15,8 +15,10 @@
 #include "pages/HomePage.h"
 #include "pages/TaskPage.h"
 #include "pages/WorkspacePage.h"
+#include "tasks/TaskDrag.h"
 #include "tasks/TaskPresenter.h"
 #include "tasks/TaskReadoutSource.h"
+#include "tasks/TaskWindow.h"
 #include "workspaces/FloatingViewChrome.h"
 #include "workspaces/RenameWorkspaceDialog.h"
 #include "workspaces/WorkspaceHost.h"
@@ -44,6 +46,7 @@
 #include "services/RecentFilesModel.h"
 #include "services/WindowGeometryStore.h"
 #include "tasks/TaskModel.h"
+#include "views/DockHooks.h"
 #include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
@@ -86,6 +89,7 @@
 #include "controls/settings/SettingsKeys.h"
 #include "theme/AnProxyStyle.h"
 #include "theme/ComponentParts.h"
+#include "theme/ObservatoryDock.h"
 
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
@@ -97,6 +101,7 @@
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QCursor>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QGuiApplication>
@@ -109,6 +114,7 @@
 #include <QPainter>
 #include <QResizeEvent>
 #include <QScopedValueRollback>
+#include <QScreen>
 #include <QShowEvent>
 #include <QToolButton>
 #include <QSignalBlocker>
@@ -175,7 +181,46 @@ protected:
     }
 };
 
+/// The overlay laid over the zone a dragged task's window would attach to: the accent's soft share inside a 2 px accent
+/// border, as the band over the place a dragged view would land.
+class AttachZoneOverlay final : public QWidget
+{
+public:
+    explicit AttachZoneOverlay(QWidget* parent) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("observatoryAttachZone"));
+        setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        hide();
+    }
+
+protected:
+    void paintEvent(QPaintEvent* /*event*/) override
+    {
+        QPainter painter(this);
+        an::ui::paintObservatoryDropBand(painter, rect());
+    }
+};
+
 } // namespace
+
+/// What a task's drag reads of the window, and does to it.
+class ObservatoryWindow::DragSurface final : public TaskDrag::Surface
+{
+public:
+    explicit DragSurface(ObservatoryWindow& window) : m_window(window) {}
+
+    [[nodiscard]] QRect frame() const override;
+    [[nodiscard]] QRect rail() const override;
+    [[nodiscard]] QRect centre() const override;
+    [[nodiscard]] bool windowFollowsTheCursor() const override;
+    bool floatUnder(an::ui::shell::TaskId id, QPoint globalPos, bool follow) override;
+    void attach(an::ui::shell::TaskId id) override;
+    void showAttachZone(AttachZone zone, an::ui::shell::TaskId id) override;
+    void endRailDrag() override;
+
+private:
+    ObservatoryWindow& m_window;
+};
 
 struct ObservatoryWindow::Impl
 {
@@ -209,6 +254,21 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<ViewFollower> follower;
     // The shell's process presenter: the tasks, what their views show of them.
     std::unique_ptr<TaskPresenter> tasks;
+    // The windows of the floating tasks; each floating page's compact readout, which follows its preview; the
+    // processes' names, whose settings keep a window's size; what decides the tasks' drags, and the overlay of an
+    // attach zone.
+    struct FloatingReadout
+    {
+        std::unique_ptr<TaskReadoutSource> source;
+        std::unique_ptr<an::ui::shell::ReadoutController> controller;
+    };
+    std::map<an::ui::shell::TaskId, std::unique_ptr<TaskWindow>> taskWindows;
+    std::map<an::ui::shell::TaskId, FloatingReadout> floatingReadouts;
+    std::map<an::ui::shell::TaskId, QString> floatingProcessNames;
+    std::unique_ptr<DragSurface> dragSurface;
+    std::unique_ptr<TaskDrag> taskDrag;
+    an::ui::shell::DockHooks::Subscription taskDragHooks;
+    QWidget* attachZone = nullptr;
     // The pages of the tasks taken into one, by their tasks; the task whose page the centre shows, and the place it
     // showed before the first task's page.
     std::map<an::ui::shell::TaskId, QPointer<TaskPage>> taskPages;
@@ -272,6 +332,74 @@ struct ObservatoryWindow::Impl
         return icons ? icons->getIcon(QString::fromUtf8(name)) : QIcon();
     }
 };
+
+// ---- What a task's drag reads and does
+
+QRect ObservatoryWindow::DragSurface::frame() const
+{
+    return m_window.frameGeometry();
+}
+
+QRect ObservatoryWindow::DragSurface::rail() const
+{
+    const QWidget* const rail = m_window.m_impl->rail;
+    return QRect(rail->mapToGlobal(QPoint(0, 0)), rail->size());
+}
+
+QRect ObservatoryWindow::DragSurface::centre() const
+{
+    const QWidget* const centre = m_window.m_impl->centre;
+    return QRect(centre->mapToGlobal(QPoint(0, 0)), centre->size());
+}
+
+bool ObservatoryWindow::DragSurface::windowFollowsTheCursor() const
+{
+    return an::ui::observatory::windowFollowsTheCursor(QGuiApplication::platformName());
+}
+
+bool ObservatoryWindow::DragSurface::floatUnder(const an::ui::shell::TaskId id, const QPoint globalPos,
+                                                const bool follow)
+{
+    const an::ui::shell::Task* const task = m_window.m_impl->tasks ? m_window.m_impl->tasks->model().task(id) : nullptr;
+    if (task == nullptr)
+    {
+        return false;
+    }
+    // The window's top under the cursor, within its title.
+    const QSize size = m_window.floatingSizeOf(*task);
+    const QRect geometry(globalPos - QPoint(size.width() / 2, TaskWindow::kGripOffset), size);
+    if (!m_window.floatTaskAt(id, geometry) || !follow)
+    {
+        return false;
+    }
+    // The press goes on as the dock library's drag of the window.
+    TaskWindow* const window = m_window.taskWindow(id);
+    return window != nullptr && window->dockWidget()->dockWidget()->startDragging();
+}
+
+void ObservatoryWindow::DragSurface::attach(const an::ui::shell::TaskId id)
+{
+    // The dock library is still ending its drag of the window: the page leaves it once the library is done.
+    QPointer<ObservatoryWindow> window(&m_window);
+    QTimer::singleShot(0, &m_window, [window, id]() {
+        if (window)
+        {
+            (void)window->attachTask(id);
+        }
+    });
+}
+
+void ObservatoryWindow::DragSurface::showAttachZone(const AttachZone zone, const an::ui::shell::TaskId id)
+{
+    m_window.showAttachZone(static_cast<int>(zone), id);
+}
+
+void ObservatoryWindow::DragSurface::endRailDrag()
+{
+    m_window.m_impl->rail->endDrag();
+}
+
+// ---- The window
 
 ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     : QMainWindow(nullptr), m_impl(std::make_unique<Impl>(core))
@@ -347,20 +475,59 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
         refreshTaskPages();
         updateRail();
         refreshPendingChips();
+        updateTaskActions();
     };
     taskHooks.viewChanged = [this](ImageViewControl* /*view*/) { refreshPendingChips(); };
     taskHooks.adoptPage = [this](TopLevelProcessBaseControl& process) { return adoptTaskPage(process); };
     taskHooks.showPage = [this](const an::ui::shell::TaskId id) { showTaskPage(id); };
+    taskHooks.showWindow = [this](const an::ui::shell::TaskId id) {
+        if (TaskWindow* const floating = taskWindow(id))
+        {
+            floating->raiseAndActivate();
+        }
+    };
     taskHooks.runChanged = [this](const an::ui::shell::TaskId id, const an::ui::ProcessRunState& before) {
         taskRunChanged(id, before);
     };
     impl.tasks->setHooks(std::move(taskHooks));
-    // "applied 2.8 s ago" is told again each second while a task's page is shown.
+
+    // A task's drags: of its thumbnail out of the rail, and of its window by its title bar, which the dock library
+    // tells.
+    impl.dragSurface = std::make_unique<DragSurface>(*this);
+    impl.taskDrag = std::make_unique<TaskDrag>(*impl.dragSurface);
+    impl.taskDrag->followRail(*impl.rail, [](const QString& itemId) {
+        const QString prefix = railTaskId(0u).chopped(1);
+        bool numbered = false;
+        const an::ui::shell::TaskId task =
+            itemId.startsWith(prefix) ? itemId.mid(prefix.size()).toULongLong(&numbered) : 0u;
+        return numbered ? task : an::ui::shell::TaskId{0};
+    });
+    an::ui::shell::DockHooks::Subscriber dragHooks;
+    dragHooks.dragAboutToStart = [this](const an::ui::shell::DockDrag& drag) {
+        if (const an::ui::shell::TaskId id = taskOfDock(drag.dockWidget); id != 0u && m_impl->taskDrag)
+        {
+            m_impl->taskDrag->windowDragStarted(id);
+        }
+        return true;
+    };
+    dragHooks.dragEnded = [this](const an::ui::shell::DockDrag& drag) {
+        const an::ui::shell::TaskId id = taskOfDock(drag.dockWidget);
+        if (id != 0u && m_impl->taskDrag && m_impl->taskDrag->task() == id)
+        {
+            m_impl->taskDrag->windowDragEnded(QCursor::pos());
+        }
+    };
+    impl.taskDragHooks = an::ui::shell::DockHooks::subscribe(std::move(dragHooks));
+    // "applied 2.8 s ago" is told again each second while a task's page is shown, or floats.
     impl.appliedTicker.setInterval(1000);
     QObject::connect(&impl.appliedTicker, &QTimer::timeout, this, [this]() {
         if (m_impl->shownTask != 0u)
         {
             refreshTaskHeader(m_impl->shownTask);
+        }
+        for (const auto& [id, floating] : m_impl->taskWindows)
+        {
+            refreshTaskHeader(id);
         }
     });
     // The task whose window is active is the one the person looks at.
@@ -392,6 +559,21 @@ ObservatoryWindow::~ObservatoryWindow()
         impl.readout->setCompactReadout(nullptr);
     }
     impl.readoutSource.reset();
+    // The floating pages' readouts let go of their processes, and the drags of the windows.
+    for (auto& [id, floating] : impl.floatingReadouts)
+    {
+        if (floating.controller)
+        {
+            floating.controller->followTask(nullptr);
+            floating.controller->setCompactReadout(nullptr);
+        }
+        floating.controller.reset();
+        floating.source.reset();
+    }
+    impl.floatingReadouts.clear();
+    impl.taskDragHooks.reset();
+    impl.taskDrag.reset();
+    impl.dragSurface.reset();
     impl.shownTask = 0;
     core.viewService().clearTaskSubject();
     // The tasks go first: what the process windows tell as they go reaches no presenter.
@@ -452,6 +634,10 @@ ObservatoryWindow::~ObservatoryWindow()
     const std::vector<TopLevelProcessBaseControl*> open = core.openProcesses().snapshot();
     std::vector<QPointer<TopLevelProcessBaseControl>> openProcesses(open.begin(), open.end());
     an::ui::destroyProcessWindowsAtExit(openProcesses);
+    // A floating task's window goes after its process, as a process window's own window would: the process was stopped,
+    // the work drained and the process deleted while the window still held it.
+    impl.taskWindows.clear();
+    impl.floatingProcessNames.clear();
 
     // The stores go after the windows that read them.
     core.closeStores();
@@ -565,6 +751,8 @@ void ObservatoryWindow::buildRegions()
     impl.snackbar = new an::ui::AnSnackbar(central);
     impl.snackbar->setObjectName(QStringLiteral("observatorySnackbar"));
     impl.snackbar->hide();
+    // The zone a dragged task's window would attach to, over everything there.
+    impl.attachZone = new AttachZoneOverlay(central);
     QObject::connect(impl.snackbar, &an::ui::AnSnackbar::actionTriggered, this, [this]() {
         if (const std::function<void()> act = m_impl->snackbarAction)
         {
@@ -1735,6 +1923,7 @@ void ObservatoryWindow::placeChanged()
     closeLeftEmptyWorkspaces();
     updateRail();
     updateBreadcrumb();
+    updateTaskActions();
 }
 
 void ObservatoryWindow::activeViewChanged(ImageViewControl* view)
@@ -2612,6 +2801,34 @@ void ObservatoryWindow::bindShellActions()
         process->addAction(actions.action(ids::kApplyTask));
     }
 
+    // The current task's place, in the Window menu: the page shown floats; the task whose window is active attaches.
+    QObject::connect(actions.action(ids::kFloatTask), &QAction::triggered, this, [this]() {
+        if (isTaskPageShown())
+        {
+            (void)floatTask(m_impl->shownTask);
+        }
+    });
+    QObject::connect(actions.action(ids::kAttachTask), &QAction::triggered, this, [this]() {
+        if (m_impl->tasks)
+        {
+            (void)attachTask(m_impl->tasks->model().current());
+        }
+    });
+    QObject::connect(actions.action(ids::kCloseTask), &QAction::triggered, this, [this]() {
+        if (m_impl->tasks)
+        {
+            (void)m_impl->tasks->close(m_impl->tasks->model().current());
+        }
+    });
+    if (QMenu* const window = impl.menuBar->menu("menuWindow"))
+    {
+        window->addSeparator();
+        window->addAction(actions.action(ids::kFloatTask));
+        window->addAction(actions.action(ids::kAttachTask));
+        window->addAction(actions.action(ids::kCloseTask));
+    }
+    updateTaskActions();
+
     // The palette offers them with the window's other views.
     std::unique_ptr<an::ui::shell::ICommandProvider> provider = actions.commandProvider();
     impl.shellCommands = provider.get();
@@ -2878,12 +3095,13 @@ void ObservatoryWindow::buildTaskMenu(QMenu& menu, const an::ui::shell::TaskId i
             (void)m_impl->tasks->show(id);
         }
     });
-    // A task in a window is attached to a page of this window; a process shown as a window has none yet.
+    // A page floats in a window of its own and attaches again; a process shown as a window of its own has no page.
     const bool floats = task->presentation == an::ui::shell::TaskPresentation::Window;
     QAction* const place = menu.addAction(floats ? tr("Attach") : tr("Float as Window"));
     place->setObjectName(QStringLiteral("actionPlaceTask"));
-    // A task stays where it opened: a page in the centre, a process of no page in its window.
-    place->setEnabled(false);
+    place->setEnabled(taskPage(id) != nullptr);
+    QObject::connect(place, &QAction::triggered, this,
+                     [this, id, floats]() { (void)(floats ? attachTask(id) : floatTask(id)); });
     menu.addSeparator();
     QAction* const close = menu.addAction(tr("Close"));
     close->setObjectName(QStringLiteral("actionCloseTask"));
@@ -3020,7 +3238,9 @@ bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
         }
     }
     an::ui::AnTaskHeader* const header = page->header();
-    header->floatButton()->setEnabled(false);
+    // Float as window, or Attach in a floating task.
+    QObject::connect(header, &an::ui::AnTaskHeader::floatRequested, this,
+                     [this, id]() { (void)(taskWindow(id) != nullptr ? attachTask(id) : floatTask(id)); });
     QPointer<TopLevelProcessBaseControl> guarded(&process);
     QObject::connect(header, &an::ui::AnTaskHeader::closeRequested, this, [guarded]() {
         if (guarded && !guarded->runState().running())
@@ -3091,6 +3311,7 @@ void ObservatoryWindow::showTaskPage(const an::ui::shell::TaskId id)
     impl.core.actionState().updateActiveImageActions();
     impl.appliedTicker.start();
     refreshTaskHeader(id);
+    updateTaskActions();
     refreshPendingChips();
     placeChanged();
     if (canvas != nullptr)
@@ -3108,7 +3329,10 @@ void ObservatoryWindow::leaveTaskPage()
         return;
     }
     impl.shownTask = 0u;
-    impl.appliedTicker.stop();
+    if (impl.taskWindows.empty())
+    {
+        impl.appliedTicker.stop();
+    }
     impl.core.viewService().clearTaskSubject();
     if (impl.readout)
     {
@@ -3147,10 +3371,15 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         impl.runStarted[id] = at;
         impl.appliedAt.erase(id);
     }
+    // A page's run that succeeded is told in its header for a minute, floating or not, and in the snackbar of the
+    // window it is in.
+    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && taskPage(id) != nullptr)
+    {
+        impl.appliedAt[id] = at;
+    }
     if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() &&
         task->presentation == an::ui::shell::TaskPresentation::Page)
     {
-        impl.appliedAt[id] = at;
         const auto started = impl.runStarted.find(id);
         const double seconds =
             started != impl.runStarted.end() ? std::chrono::duration<double>(at - started->second).count() : 0.0;
@@ -3169,6 +3398,7 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
                      });
     }
     refreshTaskHeader(id);
+    updateTaskActions();
 }
 
 void ObservatoryWindow::refreshTaskPages()
@@ -3191,25 +3421,21 @@ void ObservatoryWindow::refreshTaskPages()
         entry = impl.taskPages.erase(entry);
         impl.runStarted.erase(id);
         impl.appliedAt.erase(id);
+        // A floating task's window goes once its process has: the readout first, the size kept as its process's.
+        if (const auto floating = impl.taskWindows.find(id); floating != impl.taskWindows.end())
+        {
+            stopFloatingReadout(id);
+            rememberFloatingSize(id);
+            TaskWindow* const gone = floating->second.release();
+            impl.taskWindows.erase(floating);
+            impl.floatingProcessNames.erase(id);
+            gone->deleteLater();
+        }
         const bool shown = !page.isNull() && impl.centre->currentWidget() == page.data();
         if (shown || impl.shownTask == id)
         {
             leaveTaskPage();
-            // The place shown before the task comes back: a workspace while one has views, else Home.
-            QWidget* const before = impl.placeBeforeTask.data();
-            if (before != nullptr && dynamic_cast<TaskPage*>(before) == nullptr && impl.centre->indexOf(before) >= 0)
-            {
-                impl.centre->setCurrentWidget(before);
-                placeChanged();
-            }
-            else if (impl.core.viewService().getListOfViewControls().empty())
-            {
-                showHome();
-            }
-            else
-            {
-                showViews();
-            }
+            showPlaceBeforeTask();
         }
         if (!page.isNull())
         {
@@ -3233,6 +3459,13 @@ void ObservatoryWindow::refreshTaskHeader(const an::ui::shell::TaskId id)
     header->setThumbnail(task->thumbnail);
     header->setProcessName(task->displayName);
     header->setTargetName(task->targetName);
+    header->setFloating(task->presentation == an::ui::shell::TaskPresentation::Window);
+    if (TaskWindow* const floating = taskWindow(id))
+    {
+        floating->setTitle(task->targetName.isEmpty()
+                               ? task->displayName
+                               : QStringLiteral("%1 - %2").arg(task->displayName, task->targetName));
+    }
     const an::ui::ProcessRunState& run = task->process->runState();
     header->closeButton()->setEnabled(!run.running());
     if (run.running())
@@ -3322,6 +3555,335 @@ void ObservatoryWindow::arrangementChanged()
     if (m_impl->core.viewService().getListOfViewControls().empty())
     {
         showHome();
+    }
+}
+
+// ---- Floating tasks
+
+TaskWindow* ObservatoryWindow::taskWindow(const an::ui::shell::TaskId id) const
+{
+    const auto found = m_impl->taskWindows.find(id);
+    return found != m_impl->taskWindows.end() ? found->second.get() : nullptr;
+}
+
+TaskDrag& ObservatoryWindow::taskDrag() const noexcept
+{
+    return *m_impl->taskDrag;
+}
+
+QWidget* ObservatoryWindow::attachZoneOverlay() const noexcept
+{
+    return m_impl->attachZone;
+}
+
+bool ObservatoryWindow::floatTask(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    if (task == nullptr)
+    {
+        return false;
+    }
+    // Over the main window's centre as it is once the page has left it.
+    return floatTaskAt(id, QRect());
+}
+
+bool ObservatoryWindow::floatTaskAt(const an::ui::shell::TaskId id, const QRect& geometry)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    TaskPage* const page = taskPage(id);
+    if (task == nullptr || page == nullptr || task->process.isNull() ||
+        task->presentation != an::ui::shell::TaskPresentation::Page || taskWindow(id) != nullptr)
+    {
+        return false;
+    }
+    // The page leaves the centre; the centre shows the place it showed before the task.
+    if (impl.centre->currentWidget() == page)
+    {
+        leaveTaskPage();
+        showPlaceBeforeTask();
+    }
+    impl.centre->removeWidget(page);
+    QRect placed = geometry;
+    if (placed.isNull())
+    {
+        // Over the centre of the place now shown, laid out first: the workspace's column takes its share again.
+        if (QLayout* const layout = centralWidget()->layout())
+        {
+            layout->activate();
+        }
+        placed = QRect(QPoint(0, 0), floatingSizeOf(*task));
+        placed.moveCenter(QRect(impl.centre->mapToGlobal(QPoint(0, 0)), impl.centre->size()).center());
+    }
+
+    TaskWindow::Hooks hooks;
+    hooks.closeRequested = [this, id]() { taskWindowCloseRequested(id); };
+    hooks.moved = [this, id]() {
+        if (m_impl->taskDrag && m_impl->taskDrag->phase() == TaskDrag::Phase::Window && m_impl->taskDrag->task() == id)
+        {
+            m_impl->taskDrag->windowDragMoved(QCursor::pos());
+        }
+    };
+    auto window = std::make_unique<TaskWindow>(id, std::move(hooks));
+    TaskWindow* const floating = window.get();
+    impl.taskWindows[id] = std::move(window);
+    impl.floatingProcessNames[id] = QString::fromStdString(task->process->processName());
+    floating->show(*page, placed);
+    impl.tasks->model().setPresentation(id, an::ui::shell::TaskPresentation::Window);
+    refreshTaskHeader(id);
+    followFloatingReadout(id);
+    impl.appliedTicker.start();
+    floating->raiseAndActivate();
+    updateTaskActions();
+    return true;
+}
+
+bool ObservatoryWindow::attachTask(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    const auto found = impl.taskWindows.find(id);
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    if (found == impl.taskWindows.end() || task == nullptr)
+    {
+        return false;
+    }
+    // The window's size is the process's from now on; the page's readout is the main window's again.
+    rememberFloatingSize(id);
+    stopFloatingReadout(id);
+    TaskPage* const page = found->second->takePage();
+    TaskWindow* const gone = found->second.release();
+    impl.taskWindows.erase(found);
+    impl.floatingProcessNames.erase(id);
+    gone->deleteLater();
+    if (page == nullptr)
+    {
+        return false;
+    }
+    impl.centre->addWidget(page);
+    impl.tasks->model().setPresentation(id, an::ui::shell::TaskPresentation::Page);
+    // The current task, its page shown; the main window active and the focus in the page once the window it floated
+    // in has gone, which would otherwise take the activation with it.
+    (void)impl.tasks->show(id);
+    updateTaskActions();
+    QPointer<TopLevelProcessBaseControl> process(task->process.data());
+    QTimer::singleShot(0, this, [this, process]() {
+        if (process.isNull() || !process->isVisible())
+        {
+            return;
+        }
+        activateWindow();
+        raise();
+        // The widget of the process that last had the focus, else its first in the order Tab takes.
+        QWidget* focus = process->focusWidget();
+        const auto takes = [&process](const QWidget* widget) {
+            return widget != nullptr && process->isAncestorOf(widget) && widget->isVisibleTo(process) &&
+                   widget->isEnabled() && (widget->focusPolicy() & Qt::TabFocus) != 0;
+        };
+        for (QWidget* next = process->nextInFocusChain(); !takes(focus) && next != nullptr && next != process.data();
+             next = next->nextInFocusChain())
+        {
+            focus = next;
+        }
+        (takes(focus) ? focus : static_cast<QWidget*>(process.data()))->setFocus(Qt::OtherFocusReason);
+    });
+    return true;
+}
+
+QSize ObservatoryWindow::floatingSizeOf(const an::ui::shell::Task& task) const
+{
+    const Impl& impl = *m_impl;
+    QSize size;
+    if (!task.process.isNull() && impl.core.context() != nullptr)
+    {
+        int state = Qt::WindowNoState;
+        int width = -1;
+        int height = -1;
+        QString json;
+        if (impl.core.context()->getProcessSettings()->select(QString::fromStdString(task.process->processName()),
+                                                              state, width, height, json) &&
+            width > 0 && height > 0)
+        {
+            size = QSize(width, height);
+        }
+    }
+    if (!size.isValid())
+    {
+        // Never given a size: three quarters of the centre.
+        size = impl.centre->size() * 3 / 4;
+    }
+    // Within the screen the main window is on, as a process window's remembered size is, and never under the window's
+    // least size: a screen that cannot hold that bounds nothing.
+    const QSize least(TaskWindow::kMinimumWidth, TaskWindow::kMinimumHeight);
+    if (const QScreen* const screen = this->screen())
+    {
+        const QSize available = screen->availableGeometry().size();
+        if (available.width() >= least.width() && available.height() >= least.height())
+        {
+            size = size.boundedTo(available);
+        }
+    }
+    return size.expandedTo(least);
+}
+
+void ObservatoryWindow::rememberFloatingSize(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    const TaskWindow* const floating = taskWindow(id);
+    const auto named = impl.floatingProcessNames.find(id);
+    if (floating == nullptr || named == impl.floatingProcessNames.end() || impl.core.context() == nullptr)
+    {
+        return;
+    }
+    const QSize size = floating->size();
+    if (!size.isValid())
+    {
+        return;
+    }
+    an::ui::IProcessSettingsProvider* const settings = impl.core.context()->getProcessSettings();
+    int state = Qt::WindowNoState;
+    int width = -1;
+    int height = -1;
+    QString json;
+    if (!settings->select(named->second, state, width, height, json))
+    {
+        state = Qt::WindowNoState;
+        json.clear();
+    }
+    // Where a process window's size is kept: its settings stay as they are.
+    (void)settings->upsert(named->second, state, size.width(), size.height(), json);
+}
+
+void ObservatoryWindow::followFloatingReadout(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    const an::ui::shell::Task* const task = impl.tasks ? impl.tasks->model().task(id) : nullptr;
+    TaskPage* const page = taskPage(id);
+    auto* const preview = task != nullptr ? dynamic_cast<ImageRTPreviewControl*>(task->process.data()) : nullptr;
+    if (page == nullptr || preview == nullptr || preview->processSurface() != an::ui::ProcessSurface::PreviewPage)
+    {
+        return;
+    }
+    // The page's compact readout reads the task's preview while it floats, as it does in the centre.
+    Impl::FloatingReadout readout;
+    readout.source = std::make_unique<TaskReadoutSource>(*preview);
+    readout.controller = std::make_unique<an::ui::shell::ReadoutController>(impl.core);
+    readout.controller->setCompactReadout(page->compactReadout());
+    readout.controller->followTask(readout.source.get());
+    impl.floatingReadouts[id] = std::move(readout);
+}
+
+void ObservatoryWindow::stopFloatingReadout(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    const auto found = impl.floatingReadouts.find(id);
+    if (found == impl.floatingReadouts.end())
+    {
+        return;
+    }
+    if (found->second.controller)
+    {
+        found->second.controller->followTask(nullptr);
+        found->second.controller->setCompactReadout(nullptr);
+    }
+    found->second.controller.reset();
+    found->second.source.reset();
+    impl.floatingReadouts.erase(found);
+}
+
+void ObservatoryWindow::taskWindowCloseRequested(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    // Closing the window closes the task, as its Close does: not during a run, when the window stays.
+    if (impl.tasks && taskWindow(id) != nullptr && impl.tasks->canClose(id))
+    {
+        rememberFloatingSize(id);
+        (void)impl.tasks->close(id);
+    }
+}
+
+an::ui::shell::TaskId ObservatoryWindow::taskOfDock(const KDDockWidgets::QtWidgets::DockWidget* dock) const
+{
+    if (dock == nullptr)
+    {
+        return 0u;
+    }
+    for (const auto& [id, floating] : m_impl->taskWindows)
+    {
+        if (floating && floating->dockWidget() == dock)
+        {
+            return id;
+        }
+    }
+    return 0u;
+}
+
+void ObservatoryWindow::showAttachZone(const int zone, const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    QWidget* over = nullptr;
+    if (zone == static_cast<int>(AttachZone::Rail))
+    {
+        over = impl.rail;
+    }
+    else if (zone == static_cast<int>(AttachZone::Centre))
+    {
+        over = impl.centre;
+    }
+    if (over == nullptr)
+    {
+        impl.attachZone->hide();
+    }
+    else
+    {
+        impl.attachZone->setGeometry(QRect(over->mapTo(centralWidget(), QPoint(0, 0)), over->size()));
+        impl.attachZone->show();
+        impl.attachZone->raise();
+    }
+    impl.rail->setInsertionMark(id != 0u && over != nullptr ? railTaskId(id) : QString());
+}
+
+void ObservatoryWindow::showPlaceBeforeTask()
+{
+    Impl& impl = *m_impl;
+    // The place shown before the task comes back: a workspace while one has views, else Home.
+    QWidget* const before = impl.placeBeforeTask.data();
+    if (before != nullptr && dynamic_cast<TaskPage*>(before) == nullptr && impl.centre->indexOf(before) >= 0)
+    {
+        impl.centre->setCurrentWidget(before);
+        placeChanged();
+    }
+    else if (impl.core.viewService().getListOfViewControls().empty())
+    {
+        showHome();
+    }
+    else
+    {
+        showViews();
+    }
+}
+
+void ObservatoryWindow::updateTaskActions()
+{
+    Impl& impl = *m_impl;
+    if (!impl.shellActions || !impl.tasks)
+    {
+        return;
+    }
+    const an::ui::shell::TaskModel& model = impl.tasks->model();
+    const an::ui::shell::Task* const current = model.task(model.current());
+    const bool floats = current != nullptr && taskWindow(current->id) != nullptr;
+    if (QAction* const floatAction = impl.shellActions->action(ids::kFloatTask))
+    {
+        floatAction->setEnabled(isTaskPageShown() && impl.shownTask != 0u);
+    }
+    if (QAction* const attach = impl.shellActions->action(ids::kAttachTask))
+    {
+        attach->setEnabled(floats);
+    }
+    if (QAction* const closeTask = impl.shellActions->action(ids::kCloseTask))
+    {
+        closeTask->setEnabled(current != nullptr && impl.tasks->canClose(current->id));
     }
 }
 

@@ -45,7 +45,8 @@ namespace an::ui::observatory
 /// items are the window's, made from the model.
 ///
 /// **Showing a task.** A task in a page is shown by the window (`Hooks::showPage`); a task in a window by raising and
-/// activating its window, the task whose window is active being the current one. Used on the GUI thread.
+/// activating its window - its process's own, or the window its page floats in (`Hooks::showWindow`) - the task whose
+/// window is active being the current one. Used on the GUI thread.
 class AFTERNIGHTSHELLOBSERVATORY_API TaskPresenter final : public an::ui::IProcessPresenter
 {
 public:
@@ -59,6 +60,8 @@ public:
         std::function<bool(TopLevelProcessBaseControl& process)> adoptPage;
         /// Shows a task's page in the centre.
         std::function<void(an::ui::shell::TaskId id)> showPage;
+        /// Raises and activates the window of a task whose page floats in a window of its own.
+        std::function<void(an::ui::shell::TaskId id)> showWindow;
         /// A task's run moved on, from where it stood.
         std::function<void(an::ui::shell::TaskId id, const an::ui::ProcessRunState& before)> runChanged;
     };
@@ -108,7 +111,8 @@ public:
     /// Follows a view the shell shows: its processing lock, for the notice. A view followed already changes nothing.
     void watch(ImageViewControl& view);
 
-    /// The window that shows a process is now the active one, or none is a process's: the current task follows.
+    /// The window that shows a process - the process's own, or the one its page floats in - is now the active one, or
+    /// none is a process's: the current task follows.
     void activeWindowChanged(QWidget* window);
 
 private:
