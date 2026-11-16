@@ -358,8 +358,11 @@ under their controls - and Curves Transformation's 350 px curve editor - is wide
 spatial and noise processes and the mask, star and background processes, each in the column its widest row needs; and
 the combinations launched on an image (Image Blend, Image Compare, LRGB and NBRGB Combination, NB Color Mapper), every
 one in the wide column for its histogram's 380 px chart and toolbar row. Every process with a preview that is launched
-on an image is a page (`ProcessSurfaces.EveryPreviewProcessWithATargetIsAPage` reads the census record for it). It
-is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
+on an image is a page (`ProcessSurfaces.EveryPreviewProcessWithATargetIsAPage` reads the census record for it). The
+processes with no preview launched on an image are mirror pages (`ProcessSurface::MirrorPage`): the geometry and
+filter-array processes (Crop, Rotate, Resize, Integer Resample and CFA Integer Resample, Debayer, Split CFA, Extract
+Sequence), the colour tools (Color Calibration, Background Neutralization, Linear Match, SCNR), the photometric and
+spectrophotometric calibrations and Pixel Math. A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
 `attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
 process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
 process already is:
@@ -396,6 +399,28 @@ process already is:
   area of their own beside its preview; its override takes them out of it, so the body scrolls them and its seven
   groups are the page's sections, and disables them during a run where they now are. A scroll area hides how wide its
   content is, which is why the census measured the mapper narrower than it is: as arranged its controls take 508 px.
+- **A process with no preview is a mirror page.** Its parts are its window's: its layout, the button box nearest it that
+  holds a button a footer shows, and the target and channel selectors it recorded (`initializeTargetViewControlComboBox`,
+  `initializeListOfSupportedChannelslComboBox`); `ImageProcessControl::makePageLayout` hands them over, and a process of
+  the typed framework with no preview layout is arranged the same way. What the window laid out is moved whole, in
+  order and with its stretches, into the body, the window's margins its padding; there is no toggles row. The canvas is
+  a view of the target (`ProcessPageLayout::setCanvasView`): a view in `ViewControlMode::st_preview`, its toolbar
+  outside it, over the target's own image shared (`ImageDocument::share`) - never copied, never written, since a shared
+  document hands out no writer - presented as the target's view presents it, kept fitted until the person zooms it, and
+  shown again whenever the target is edited or another target is chosen, before the process reads it. It is the view
+  the person works on, `ImageProcessControl::interactionView()`, which is the target's own view while the process is a
+  window: a process that marks something on its view - Crop's and Rotate's rectangle and Rotate's turn, the colour
+  tools' and the photometric calibration's areas of the target, the photometric calibration's matched stars - marks it
+  there, told by `interactionViewChanged` when the page is made, and leaves nothing on the target's view; an area of
+  another image a colour tool reads is marked on that image's own view. Image coordinates are the same in both views,
+  so a rectangle drawn on the page is the rectangle of the image a window would read. A closed task's view lets the
+  image go. A process whose controls do not fit its column as the window lays them out arranges them before the page is
+  made, on the page only: the resamplers put the downsample mode under the factor, the photometric calibration lays its
+  background check box across its form (`wrapRowUnder`, `spanFormRow` in `processes/ProcessCommonUtils.h`), and Pixel
+  Math arranges itself whole - its expression tabs take every height the body leaves
+  (`ProcessPageLayout::Description::controlsFillTheBody`) and keep at least a third of it, the first tab's function,
+  operator and symbol tables become one group under the expressions, which the page makes a section and which serves
+  the expression of whichever tab is shown, and the Settings group's row of sizes and formats wraps in two.
 - **Compare names what it shows.** The toggles row's Compare shows the preview's alternate in place of what the canvas
   shows: "Processed" and "Original" for a process, whose alternate is the image before it. Image Compare's alternate is
   its second image, so it names the two "Image 1" and "Image 2" (`ProcessPageLayout::setCompareNames`); its one
@@ -1845,7 +1870,8 @@ open and close it; whether it is open, its height and whether it floats are kept
 back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
 
 Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes a process whose
-descriptor states a preview page into a page of the centre (below) and leaves every other the window it was, and it
+descriptor states a preview page or a mirror page into a page of the centre (below) and leaves every other the window it
+was, and it
 keeps the shell core's `TaskModel`, fed by what the windows tell it, and a `ViewThumbnailService` that follows the
 tasks' targets. The rail lists the tasks under the places, in
 the order they were opened, under a hairline drawn only while there are any: each its target's thumbnail with the
@@ -1856,7 +1882,8 @@ clears. A click, and the task menu's Show, raise and activate its window or show
 as Window are not offered yet - a task stays where it opened - and Close is refused while the run is on its way. A view a run writes
 carries the notice that names the running task and how far it has come, with Show, set as its processing lock is taken
 and as the run moves on - the lock is taken before the run is stated, so the notice names the task once it is - and
-cleared as the lock is let go; another view goes on as usual. The tab of a view a task is open on carries the task's
+cleared as the lock is let go and the run ends; a task's run on the view blocks it even without the lock, since an edit
+of a still image takes the image's writer rather than the view's lock. Another view goes on as usual. The tab of a view a task is open on carries the task's
 glyph, its tool tip naming the task and, during a run, that the image is locked until the run ends; its click shows the
 task. The history strip of the view a workspace's chrome shows adds the pending step of the task open on it,
 "writing" while the run writes it. The presenter watches every view the window is told of (`IViewHost::viewAdded`), for
@@ -1865,7 +1892,9 @@ its lock and its name, and goes first as the window goes, so what the process wi
 A process taken into a page lives in a `pages/TaskPage` of the centre, kept alive while another place is shown: the
 task's header (`AnTaskHeader`: its image's thumbnail, the process and the image, where its run stands, Close) over the
 process arranged as a page ("A process shown as a page", above), whose canvas carries the page's floating toolbar over
-the preview view and the target's history strip under it, and whose readout slot carries the compact readout. Showing
+the preview view and the target's history strip under it, and whose readout slot carries the compact readout. A mirror
+page's canvas is its view of the target, which the floating toolbar serves and the looking actions act on, and it
+carries no compact readout, having no preview to read. Showing
 a task's page makes its target the active view and names the target and the preview to the view service
 (`setTaskSubject`): the image actions act on the target and the looking ones - the zoom, the fit - on the canvas
 (`ImageOperationsCoordinator::Dependencies::lookingViewControl`); Close, Close All Others and Maximize View are

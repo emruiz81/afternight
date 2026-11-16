@@ -18,6 +18,7 @@
 
 #include "Test_ProcessesShared/ObservatoryWindowCheck.h"
 
+#include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -49,6 +50,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace an::tests::processes::shared
 {
@@ -125,10 +127,11 @@ inline constexpr int kPageCheckHeight = 600;
     return process != nullptr && process->pageLayout() != nullptr ? process : nullptr;
 }
 
-/// Holds a descriptor's page to its column at 600 px of height in both densities. Answers whether text was measured,
-/// so the case knows whether everything it holds was asserted.
+/// Holds a descriptor's page to its column at 600 px of height in both densities: a preview page, or a mirror page when
+/// `surface` says so. Answers whether text was measured, so the case knows whether everything it holds was asserted.
 inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewControl& target,
-                                    ProcessTestContext& context)
+                                    ProcessTestContext& context,
+                                    an::ui::ProcessSurface surface = an::ui::ProcessSurface::PreviewPage)
 {
     using an::ui::testing::ObservatoryLook;
     using an::ui::testing::observatoryLooks;
@@ -139,7 +142,7 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
     {
         return false;
     }
-    EXPECT_EQ(descriptor->surface, an::ui::ProcessSurface::PreviewPage) << descriptorId << " is a page";
+    EXPECT_EQ(descriptor->surface, surface) << descriptorId << " is a page of its kind";
     const bool measured = textIsMeasured();
     for (const ObservatoryLook* look : {&observatoryLooks()[0], &observatoryLooks()[3]})
     {
@@ -199,24 +202,33 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
         EXPECT_TRUE(inCanvas.isEmpty()) << "left in the canvas: " << inCanvas.join(QStringLiteral(", ")).toStdString();
 
         // Target image and Channel lead the body, outside every group of the controls; and no group is left empty.
-        if (const auto* const framed = dynamic_cast<const ImageRTPreviewControl*>(process))
+        const an::ui::ProcessStandardParts& parts = page->parts();
+        for (const QComboBox* selector : {parts.targetSelector, parts.channelSelector})
         {
-            const an::ui::ProcessStandardParts& parts = framed->standardParts();
-            for (const QComboBox* selector : {parts.targetSelector, parts.channelSelector})
+            if (selector == nullptr || !selector->isVisibleTo(process))
             {
-                if (selector == nullptr || !selector->isVisibleTo(process))
-                {
-                    continue;
-                }
-                const QGroupBox* group = nullptr;
-                for (const QWidget* at = selector->parentWidget(); at != nullptr && group == nullptr;
-                     at = at->parentWidget())
-                {
-                    group = qobject_cast<const QGroupBox*>(at);
-                }
-                EXPECT_EQ(group, nullptr)
-                    << widgetPath(*selector, *process).toStdString() << " is left in a group of the controls";
+                continue;
             }
+            const QGroupBox* group = nullptr;
+            for (const QWidget* at = selector->parentWidget(); at != nullptr && group == nullptr;
+                 at = at->parentWidget())
+            {
+                group = qobject_cast<const QGroupBox*>(at);
+            }
+            EXPECT_EQ(group, nullptr) << widgetPath(*selector, *process).toStdString()
+                                      << " is left in a group of the controls";
+        }
+        if (surface == an::ui::ProcessSurface::MirrorPage)
+        {
+            // The canvas is a view of the target, which the process works on.
+            const auto* const mirrored = dynamic_cast<const ImageProcessControl*>(process);
+            EXPECT_NE(mirrored, nullptr);
+            EXPECT_NE(page->previewView(), nullptr) << "the canvas shows the target";
+            if (mirrored != nullptr)
+            {
+                EXPECT_EQ(mirrored->interactionView(), page->previewView());
+            }
+            EXPECT_FALSE(page->toggles()->isVisibleTo(process)) << "a mirror page has no toggles";
         }
         QStringList empty;
         for (const QGroupBox* group : page->bodyContent()->findChildren<QGroupBox*>())
@@ -419,6 +431,115 @@ inline void expectPageAppliesAsTheWindow(const std::string& descriptorId, Proces
         EXPECT_EQ(result->height(), original->height());
         EXPECT_EQ(result->channelCount(), original->channelCount());
         EXPECT_FALSE(an::tests::fixtures::sameSamples(*result, *original)) << descriptorId << " changed the image";
+    }
+}
+
+/// How a family applies a process of a mirror page: what it sets as a person sets it, and where the result lands.
+struct MirrorApply
+{
+    /// Sets the process's parameters as a person sets them; nothing when empty.
+    std::function<void(QWidget&)> configure;
+
+    /// Whether the result is new images beside the target - every one compared - rather than a step of the target's
+    /// history.
+    bool resultIsANewImage = false;
+};
+
+/// Whether a process of no preview has ended its run: no run on its way and its target's work landed.
+[[nodiscard]] inline bool mirrorRunEnded(const QPointer<ImageProcessControl>& process, ImageViewControl& target)
+{
+    return (process.isNull() || (process->isRunIdle() && !process->runState().running())) && target.isWorkIdle();
+}
+
+/// Applies a descriptor's process of no preview with its parameters set, in a window of its own and, over a second
+/// target of the same image, through its mirror page, each by its primary button as soon as it is offered; holds the
+/// two results to be the same, sample for sample - the target's next step, or every image the run made. A process that
+/// closes after its run may close in either.
+inline void expectMirrorPageAppliesAsTheWindow(const std::string& descriptorId, ProcessTestContext& context,
+                                               const std::function<ViewHandle()>& makeTarget,
+                                               const MirrorApply& how = {})
+{
+    using Samples = std::vector<an::tests::fixtures::FixtureSamples>;
+    const auto applyIn = [&](const bool asPage) -> std::optional<Samples> {
+        ViewHandle target = makeTarget();
+        EXPECT_NE(target, nullptr);
+        if (target == nullptr)
+        {
+            return std::nullopt;
+        }
+        context.addViewControl(target.get());
+        context.setActiveImageViewControl(target.get());
+        PagePresenter presenter;
+        presenter.adopting = asPage;
+        context.presenter = &presenter;
+        QWidget* const opened = launchWindowOf(descriptorId, *target);
+        const QPointer<ImageProcessControl> process = dynamic_cast<ImageProcessControl*>(opened);
+        EXPECT_NE(process, nullptr) << descriptorId;
+        std::optional<Samples> samples;
+        if (process != nullptr)
+        {
+            const char* const where = asPage ? "in a page" : "in a window";
+            EXPECT_EQ(process->hasPageLayout(), asPage) << where;
+            pumpQuietly();
+            if (how.configure)
+            {
+                how.configure(*process);
+                pumpQuietly();
+            }
+            const std::size_t steps = target->viewHistory() != nullptr ? target->viewHistory()->steps().current : 0u;
+            const std::size_t made = context.madeViews.size();
+            EXPECT_TRUE(pumpUntil([&process]() { return process.isNull() || process->triggerPrimaryAction(); }))
+                << "the primary button is offered " << where;
+            EXPECT_TRUE(pumpUntil([&]() { return mirrorRunEnded(process, *target); }));
+            pumpQuietly();
+            Samples results;
+            std::vector<std::shared_ptr<const an::consumer::ImageAsset>> assets;
+            if (how.resultIsANewImage)
+            {
+                EXPECT_GT(context.madeViews.size(), made) << "the Apply ran " << where << " and made images";
+                for (std::size_t index = made; index < context.madeViews.size(); ++index)
+                {
+                    ImageViewControl* const result = context.madeViews[index];
+                    (void)pumpUntil([result]() { return result->isWorkIdle(); });
+                    assets.push_back(result->document().asset());
+                }
+            }
+            else
+            {
+                EXPECT_EQ(target->viewHistory()->steps().current, steps + 1u) << "the Apply ran " << where;
+                assets.push_back(target->document().asset());
+            }
+            for (const std::shared_ptr<const an::consumer::ImageAsset>& asset : assets)
+            {
+                if (asset == nullptr)
+                {
+                    continue;
+                }
+                std::string error;
+                std::optional<an::tests::fixtures::FixtureSamples> read =
+                    an::tests::fixtures::engine::readAssetSamples(*asset, error);
+                EXPECT_TRUE(read.has_value()) << error;
+                if (read.has_value())
+                {
+                    results.push_back(std::move(*read));
+                }
+            }
+            samples = std::move(results);
+        }
+        closeOpenedProcessWindows();
+        context.presenter = nullptr;
+        context.removeViewControl(target.get(), false);
+        return samples;
+    };
+    const std::optional<Samples> window = applyIn(false);
+    const std::optional<Samples> page = applyIn(true);
+    ASSERT_TRUE(window.has_value() && page.has_value());
+    ASSERT_FALSE(window->empty()) << descriptorId << " made a result";
+    ASSERT_EQ(window->size(), page->size()) << descriptorId << ": the page made what the window made";
+    for (std::size_t index = 0u; index < window->size(); ++index)
+    {
+        EXPECT_TRUE(an::tests::fixtures::sameSamples((*window)[index], (*page)[index]))
+            << descriptorId << ": the page's result " << index << " is the window's";
     }
 }
 

@@ -254,6 +254,25 @@ constexpr PageSurface kPageSurfaces[] = {
     {"actionLRGB_Combination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionNBRGB_Combination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionNBColorMapper", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    // The processes with no preview, launched on an image: a view of their target is the canvas, where those that mark
+    // a rectangle mark it. The standard column holds most; Color Calibration's two references and the resamplers' rows
+    // of choices take the wide one. Pixel Math arranges its page itself: its expressions take the body's height and its
+    // reference tables a section.
+    {"actionBackground_Neutralization", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionCrop", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionDebayer", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionExtract_Sequence", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionLinear_Match", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionPhotometric_Color_Calibration", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionResize", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionRotate", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionSCNR", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionSpectrophotometric_Color_Calibration", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionSplit_CFA", ProcessSurface::MirrorPage, ProcessColumnWidth::Standard},
+    {"actionCFA_Integer_Resample", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    {"actionColor_Calibration_2", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    {"actionIntegerResample", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
+    {"actionPixel_Math_2", ProcessSurface::MirrorPage, ProcessColumnWidth::Wide},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

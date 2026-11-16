@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "CFAIntegerResampleProcess.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/CfaProcessSupport.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ProcessButtonIcons.h"
@@ -66,6 +67,18 @@ CFAIntegerResampleProcess::CFAIntegerResampleProcess(ImageViewControl* control)
 
     initialize();
     refreshTheme();
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> CFAIntegerResampleProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        if (auto* resample = qobject_cast<QBoxLayout*>(m_ui.groupBox_2->layout()))
+        {
+            an::ui::processes::wrapRowUnder(*resample, {m_ui.label_6, m_ui.downsampleMode});
+        }
+    }
+    return ImageProcessControl::makePageLayout();
 }
 
 std::string CFAIntegerResampleProcess::getProcessNameStatic()

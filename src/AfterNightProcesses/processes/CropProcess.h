@@ -61,6 +61,9 @@ protected:
         return {};
     }
 
+    /// The selection is marked, and drawn, on the view the person works on: the target's view, or a mirror page's.
+    void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 
@@ -72,6 +75,9 @@ private:
     void on_newSelectionClicked(bool checked);
 
 private:
+    /// Marks the selection on a view: its controller there, and nothing left where it was before.
+    void attachSelection(ImageViewControl& view);
+
     void initialize();
     void refreshSourceImageData();
     void recalculateNewSize();

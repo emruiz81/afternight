@@ -75,7 +75,8 @@ enum class PageMessageTone : std::uint8_t
 ///
 /// ```
 /// process widget
-/// |- canvas pane (stretch 1)   the preview view, and the canvas's foot under it (a shell's history strip)
+/// |- canvas pane (stretch 1)   the preview view - a mirror page's view of its target - and the canvas's foot under it
+/// |                            (a shell's history strip)
 /// '- column (fixed width)
 ///     |- readout slot          a shell's compact readout; empty in a shell that has none
 ///     |- header                the category as an eyebrow, the process's name (its description as the tooltip), Close
@@ -84,6 +85,10 @@ enum class PageMessageTone : std::uint8_t
 ///     |- body                  scrolls: Target image and Channel first, the controls' top-level groups as sections
 ///     '- footer                Reset . stretch . Close . Apply; Cancel in place of Apply during a run
 /// ```
+///
+/// **A process with no preview** - no preview layout among its parts - is a mirror page: what its window laid out is
+/// moved whole into the body, in order, the window's margins its padding, and the canvas shows the view of the target
+/// its process lays there (`setCanvasView`). It has no toggles row.
 ///
 /// **The body fits its column** by three means: it scrolls up and down, never sideways, the footer staying in view;
 /// the controls' top-level group boxes are sections that open and close, titled as the groups, in order - none when the
@@ -116,6 +121,10 @@ public:
 
         /// Whether the process has a preview, and so the toggles row.
         bool hasPreview = true;
+
+        /// Whether the controls take every height the body leaves them, so a part of them that stretches - an editor -
+        /// grows with the column; otherwise they keep their own height at the body's top.
+        bool controlsFillTheBody = false;
     };
 
     /// Arranges `process` - whose layout is the window's main layout or holds it - as a page.
@@ -159,6 +168,9 @@ public:
     /// The controls' top-level groups as sections, in order; none for controls of one group.
     [[nodiscard]] const std::vector<AnCollapsibleSection*>& sections() const noexcept;
 
+    /// The parts the page was arranged from.
+    [[nodiscard]] const ProcessStandardParts& parts() const noexcept;
+
     /// The footer's button for a standard button of the box; null for one the box does not hold.
     [[nodiscard]] QAbstractButton* footerButton(QDialogButtonBox::StandardButton which) const;
 
@@ -189,10 +201,15 @@ public:
     /// The preview view the toggles row's Preview area and Compare act on; null while the preview is off.
     void setPreviewView(ImageViewControl* preview);
 
-    /// The preview view the page shows now; null while the preview is off.
+    /// Lays a view in the canvas, filling it, and makes it the view the page shows (`previewView`): a mirror page's
+    /// view of its target. The canvas's layout holds it; null takes it out.
+    void setCanvasView(ImageViewControl* view);
+
+    /// The view the canvas shows now - the preview, or a mirror page's view of its target; null while the preview is
+    /// off.
     [[nodiscard]] ImageViewControl* previewView() const;
 
-    /// Tells a listener, on the GUI thread, each time the preview view is made or goes: the view, or null.
+    /// Tells a listener, on the GUI thread, each time the view the canvas shows is made or goes: the view, or null.
     void setPreviewViewListener(std::function<void(ImageViewControl*)> listener);
 
     /// The process's message, as `TopLevelProcessBaseControl::showProcessMessage` states it; empty hides the banner.

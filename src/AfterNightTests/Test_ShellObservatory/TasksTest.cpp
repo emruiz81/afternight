@@ -56,7 +56,7 @@ using an::ui::shell::TaskId;
 using Phase = ProcessRunState::Phase;
 
 /// A process whose descriptor states no page: it opens as a window of its own.
-constexpr std::string_view kWindowProcess = "geometry.actionResize";
+constexpr std::string_view kWindowProcess = "denoising.actionDeepSNR";
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
 
 /// Lets the window settle: posted work delivered, the deletions done, the layouts applied.
@@ -212,7 +212,7 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     ASSERT_EQ(items.size(), 1u);
     const an::ui::RailItem& item = items.front();
     EXPECT_EQ(item.id, Window::railTaskId(task->id));
-    EXPECT_EQ(item.text, QStringLiteral("Resize - tasks-gain"));
+    EXPECT_EQ(item.text, QStringLiteral("DeepSNR - tasks-gain"));
     EXPECT_EQ(item.glyphKey, task->iconKey);
     EXPECT_TRUE(item.floating) << "a task in a window floats";
     EXPECT_EQ(item.runPhase, an::ui::RailRunPhase::None);
@@ -257,7 +257,7 @@ TEST_F(Tasks, ATargetChangeUpdatesTheThumbnailAndTheTooltip)
 
     process->changeTargetViewControl(second);
     settle();
-    EXPECT_EQ(railItem(*window().rail(), id).text, QStringLiteral("Resize - tasks-second"));
+    EXPECT_EQ(railItem(*window().rail(), id).text, QStringLiteral("DeepSNR - tasks-second"));
     EXPECT_TRUE(window().rail()->itemToolTip(id).contains(QStringLiteral("tasks-second")));
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
         const QImage shown = railItem(*window().rail(), id).thumbnail;
@@ -413,7 +413,7 @@ TEST_F(BlockedView, TheNoticeNamesTheProcessAndTheProgress)
     process->setRunState(an::ui::runningState({}, 0.42));
     const an::ui::ViewProcessingNotice* notice = noticeOf(*view);
     ASSERT_NE(notice, nullptr);
-    EXPECT_EQ(notice->notice().text, QStringLiteral("Resize is applying"));
+    EXPECT_EQ(notice->notice().text, QStringLiteral("DeepSNR is applying"));
     EXPECT_EQ(notice->notice().progress, std::optional<double>(0.42));
     EXPECT_EQ(notice->notice().actionLabel, QStringLiteral("Show"));
     process->reportRunProgress(0.75);
@@ -423,6 +423,28 @@ TEST_F(BlockedView, TheNoticeNamesTheProcessAndTheProgress)
     view->releaseLockForProcessing();
     settle();
     EXPECT_EQ(noticeOf(*view), nullptr);
+}
+
+// A run that writes its image without taking the view's lock - an edit of a still image takes the image's writer -
+// blocks the view all the same, for as long as it runs.
+TEST_F(BlockedView, ARunBlocksItsViewWithoutTheLock)
+{
+    ImageViewControl* const view = openView(QStringLiteral("blocked-unlocked"));
+    ASSERT_NE(view, nullptr);
+    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    ASSERT_NE(process, nullptr);
+    ASSERT_EQ(noticeOf(*view), nullptr) << "an image is not blocked because a task is open on it";
+
+    process->setRunState(an::ui::runningState({}, 0.3));
+    ASSERT_FALSE(view->isLockedForProcessing());
+    const an::ui::ViewProcessingNotice* notice = noticeOf(*view);
+    ASSERT_NE(notice, nullptr);
+    EXPECT_EQ(notice->notice().text, QStringLiteral("DeepSNR is applying"));
+    EXPECT_EQ(notice->notice().progress, std::optional<double>(0.3));
+
+    process->setRunState(ProcessRunState{.phase = Phase::Succeeded});
+    settle();
+    EXPECT_EQ(noticeOf(*view), nullptr) << "the notice goes as the run ends";
 }
 
 // The notice's Show goes to the task: its window raised, and the task the current one.
@@ -497,7 +519,7 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     const an::ui::TabAdornment* glyph = an::ui::tabAdornment(view->getDockWidget());
     ASSERT_NE(glyph, nullptr);
     EXPECT_EQ(glyph->iconKey, task->iconKey);
-    EXPECT_EQ(glyph->toolTip, QStringLiteral("Resize is open on this image. Click to go to the task"));
+    EXPECT_EQ(glyph->toolTip, QStringLiteral("DeepSNR is open on this image. Click to go to the task"));
     EXPECT_FALSE(glyph->locked);
 
     process->setRunState(an::ui::runningState());
@@ -506,8 +528,9 @@ TEST_F(TabGlyph, ATaskMarksItsImagesTab)
     glyph = an::ui::tabAdornment(view->getDockWidget());
     ASSERT_NE(glyph, nullptr);
     EXPECT_TRUE(glyph->locked);
-    EXPECT_EQ(glyph->toolTip, QStringLiteral("Resize is applying to this image: it is locked until the run ends. Click "
-                                             "to go to the task"));
+    EXPECT_EQ(glyph->toolTip,
+              QStringLiteral("DeepSNR is applying to this image: it is locked until the run ends. Click "
+                             "to go to the task"));
     process->setRunState(ProcessRunState{.phase = Phase::Cancelled});
     view->releaseLockForProcessing();
     settle();
@@ -545,7 +568,7 @@ TEST_F(HistoryStrip, PendingChipFollowsTheTask)
     settle();
     ASSERT_EQ(window().workspacePage()->binder().historyView(), target);
     ASSERT_TRUE(strip()->pendingStep().has_value());
-    EXPECT_EQ(strip()->pendingStep()->processName, QStringLiteral("Resize"));
+    EXPECT_EQ(strip()->pendingStep()->processName, QStringLiteral("DeepSNR"));
     EXPECT_FALSE(strip()->pendingStep()->writing);
     ASSERT_NE(strip()->pendingChip(), nullptr);
 

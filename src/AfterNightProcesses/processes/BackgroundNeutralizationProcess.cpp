@@ -155,7 +155,7 @@ void BackgroundNeutralizationProcess::selectionAreaUpdated()
     m_IgnoreLastCropMoveEvent = true;
     if (curentCropStatus == 2)
     {
-        auto targetControl = getViewControlFromSelectedImage(m_ui.backgroundReferenceImageSelector->currentText());
+        auto targetControl = selectionViewOf(m_ui.backgroundReferenceImageSelector->currentText());
         if (!targetControl)
         {
             m_IgnoreLastCropMoveEvent = false;
@@ -246,7 +246,7 @@ void BackgroundNeutralizationProcess::on_backgroundRoiSelectionButtonClicked(boo
     {
         curentCropStatus = 2;
 
-        auto targetControl = getViewControlFromSelectedImage(m_ui.backgroundReferenceImageSelector->currentText());
+        auto targetControl = selectionViewOf(m_ui.backgroundReferenceImageSelector->currentText());
         if (!targetControl)
         {
             curentCropStatus = 0;
@@ -522,6 +522,28 @@ void BackgroundNeutralizationProcess::updateSelectionArea()
             QRect(m_ui.backgroundRoiLeftValue->value(), m_ui.backgroundRoiTopValue->value(),
                   m_ui.backgroundRoiWidthValue->value(), m_ui.backgroundRoiHeightValue->value()));
     }
+}
+
+ImageViewControl* BackgroundNeutralizationProcess::selectionViewOf(const QString& reference) const
+{
+    ImageViewControl* view = getViewControlFromSelectedImage(reference);
+    return view != nullptr && view == m_image_view_control ? interactionView() : view;
+}
+
+void BackgroundNeutralizationProcess::interactionViewChanged(ImageViewControl* /*previous*/, ImageViewControl* now)
+{
+    // An area being marked on the target is marked on the view the person works on now.
+    if (!m_CropController || curentCropStatus != 2 || now == nullptr ||
+        getViewControlFromSelectedImage(m_ui.backgroundReferenceImageSelector->currentText()) != m_image_view_control)
+    {
+        return;
+    }
+    destroyCropController();
+    m_CropController = std::make_unique<ImageCropController>(now->getScrollArea(), this);
+    m_CropController->setListenerEnabled(true);
+    m_CropController->enableOneClickMove(true);
+    now->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::AREA_SELECTION_STYLE);
+    updateSelectionArea();
 }
 
 void BackgroundNeutralizationProcess::destroyCropController()

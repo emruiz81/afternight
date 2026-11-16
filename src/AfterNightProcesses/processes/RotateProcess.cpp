@@ -92,14 +92,9 @@ RotateProcess::RotateProcess(ImageViewControl* control) : ImageProcessControl(co
     m_SupportTargetViewControlSelection = true;
     initializeTargetViewControlComboBox(m_ui.targetImageSelector);
 
-    m_CropController = std::make_unique<ImageCropController>(control->getScrollArea(), this);
-    m_CropController->setListenerEnabled(false);
-
     an::ui::processes::fillInterpolationChoices(m_ui.interpolation, an::ui::processes::rotationAutoInterpolationText());
 
-    m_image_view_control->getViewWidget()->enableRotationPreview(true);
-    m_image_view_control->getViewWidget()->setRotationPreviewAngle(0.0);
-    m_image_view_control->getViewWidget()->setRotationPreviewResizeArea(m_ui.resizeImage->isChecked());
+    attachRotation(*control);
 
     initialize();
     setCropEnabled(false);
@@ -130,25 +125,63 @@ void RotateProcess::onViewControlChanged(ImageViewControl* oldCtrl, ImageViewCon
 {
     ImageProcessControl::onViewControlChanged(oldCtrl, newCtrl);
 
-    oldCtrl->getViewWidget()->setRotationPreviewAngle(0.0);
-    oldCtrl->getViewWidget()->setRotationPreviewResizeArea(false);
-    oldCtrl->getViewWidget()->enableRotationPreview(false);
+    // A window draws the turn on its target's view, which is another one now; a page draws it on its own view still.
+    if (oldCtrl != nullptr && oldCtrl != interactionView())
+    {
+        clearRotation(*oldCtrl);
+    }
 
     initialize();
     setCropEnabled(false);
 
-    m_CropController->destroy();
-    m_CropController = std::make_unique<ImageCropController>(newCtrl->getScrollArea(), this);
-    m_CropController->setListenerEnabled(false);
-
-    newCtrl->getViewWidget()->enableRotationPreview(true);
-    newCtrl->getViewWidget()->setRotationPreviewAngle(0.0);
-    newCtrl->getViewWidget()->setRotationPreviewResizeArea(m_ui.resizeImage->isChecked());
+    if (ImageViewControl* view = interactionView())
+    {
+        attachRotation(*view);
+    }
 
     refreshSourceImageData();
     recalculateNewSize();
     checkChangesPending();
     updateSelectionArea();
+}
+
+void RotateProcess::interactionViewChanged(ImageViewControl* previous, ImageViewControl* now)
+{
+    if (previous != nullptr && previous != now)
+    {
+        clearRotation(*previous);
+    }
+    if (now != nullptr)
+    {
+        attachRotation(*now);
+        updateSelectionArea();
+    }
+}
+
+void RotateProcess::attachRotation(ImageViewControl& view)
+{
+    // The crop's controller where the turn was drawn goes first, so nothing of its selection is left there.
+    if (m_CropController)
+    {
+        m_CropController->destroy();
+        m_CropController.reset();
+    }
+    m_CropController = std::make_unique<ImageCropController>(view.getScrollArea(), this);
+    m_CropController->setListenerEnabled(m_ui.groupBox->isChecked());
+    ImageViewWidget* widget = view.getViewWidget();
+    widget->enableRotationPreview(true);
+    widget->setRotationPreviewAngle(rotationAngleControl->getValue());
+    widget->setRotationPreviewResizeArea(m_ui.resizeImage->isChecked());
+    widget->setImageViewSelectionStyle(ImageViewSelectionStyle::CROP_STYLE);
+}
+
+void RotateProcess::clearRotation(ImageViewControl& view)
+{
+    ImageViewWidget* widget = view.getViewWidget();
+    widget->setRotationPreviewAngle(0.0);
+    widget->setRotationPreviewResizeArea(false);
+    widget->enableRotationPreview(false);
+    widget->update();
 }
 
 RotateProcess::Settings RotateProcess::settings() const
@@ -185,7 +218,7 @@ std::string RotateProcess::stepDescription(const Settings& settings)
 void RotateProcess::selectionAreaUpdated()
 {
     m_IgnoreLastMoveEvent = true;
-    auto selArea = m_image_view_control->getViewWidget()->getCurrentSelectionArea();
+    auto selArea = interactionView()->getViewWidget()->getCurrentSelectionArea();
     m_ui.targetPosX->setValue(selArea.x());
     m_ui.targetPosY->setValue(selArea.y());
     m_ui.targetWidth->setValue(selArea.width());
@@ -212,7 +245,7 @@ RotateProcess::~RotateProcess() {}
 
 void RotateProcess::on_rotationAngleChanged(double value)
 {
-    m_image_view_control->getViewWidget()->setRotationPreviewAngle(value);
+    interactionView()->getViewWidget()->setRotationPreviewAngle(value);
     refreshSourceImageData();
     recalculateNewSize();
     checkChangesPending();
@@ -226,7 +259,7 @@ void RotateProcess::on_CropChanged(bool checked)
 
 void RotateProcess::on_ResizeImageChanged(Qt::CheckState state)
 {
-    m_image_view_control->getViewWidget()->setRotationPreviewResizeArea(state == Qt::Checked);
+    interactionView()->getViewWidget()->setRotationPreviewResizeArea(state == Qt::Checked);
 
     refreshSourceImageData();
     recalculateNewSize();
@@ -314,7 +347,7 @@ void RotateProcess::setCropEnabled(bool enabled)
     checkChangesPending();
     updateSelectionArea();
     m_CropController->setListenerEnabled(enabled);
-    m_image_view_control->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::CROP_STYLE);
+    interactionView()->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::CROP_STYLE);
 }
 
 void RotateProcess::refreshSourceImageData()
@@ -485,10 +518,10 @@ void RotateProcess::finishRun(const an::ui::processes::GeometryRunOutcome& outco
 
 void RotateProcess::closeEvent(QCloseEvent* event)
 {
-    m_image_view_control->getViewWidget()->enableRotationPreview(false);
-    m_image_view_control->getViewWidget()->setRotationPreviewAngle(0.0);
-    m_image_view_control->getViewWidget()->setRotationPreviewResizeArea(false);
-    m_image_view_control->getViewWidget()->update();
+    if (ImageViewControl* view = interactionView())
+    {
+        clearRotation(*view);
+    }
     m_CropController->destroy();
     ImageProcessControl::closeEvent(event);
 }

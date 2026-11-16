@@ -1454,8 +1454,14 @@ const an::ui::ProcessStandardParts& ImageRTPreviewControl::standardParts() const
 std::unique_ptr<an::ui::ProcessPageLayout> ImageRTPreviewControl::makePageLayout()
 {
     const an::ui::ProcessStandardParts& parts = m_impl->m_StandardParts;
+    if (parts.previewLayout == nullptr)
+    {
+        // A process of the framework with no preview is arranged as one of no preview is: a mirror page, when its
+        // descriptor states one.
+        return ImageProcessControl::makePageLayout();
+    }
     auto* const main = qobject_cast<QBoxLayout*>(parts.mainLayout);
-    if (main == nullptr || layout() == nullptr || parts.previewLayout == nullptr)
+    if (main == nullptr || layout() == nullptr)
     {
         return nullptr;
     }
@@ -1483,6 +1489,7 @@ void ImageRTPreviewControl::pageLayoutMade()
         m_rt_preview_view_control->setChromeMode(an::ui::ViewChromeMode::External);
         pageLayout()->setPreviewView(m_rt_preview_view_control);
     }
+    ImageProcessControl::pageLayoutMade();
 }
 
 void ImageRTPreviewControl::onStopWorkInFlight()

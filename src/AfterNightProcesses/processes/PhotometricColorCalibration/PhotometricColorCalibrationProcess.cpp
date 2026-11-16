@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "PhotometricColorCalibrationProcess.h"
+#include "controls/ProcessPageLayout.h"
 
 #include "app/GaiaCatalogSettings.h"
 #include "app/GaiaCatalogSource.h"
@@ -320,7 +321,7 @@ void PhotometricColorCalibrationProcess::selectionAreaUpdated()
     }
 
     m_IgnoreLastCropMoveEvent = true;
-    const auto selection = m_image_view_control->getViewWidget()->getCurrentSelectionArea();
+    const auto selection = interactionView()->getViewWidget()->getCurrentSelectionArea();
     m_ui.backgroundRoiLeftValue->setValue(selection.x());
     m_ui.backgroundRoiTopValue->setValue(selection.y());
     m_ui.backgroundRoiWidthValue->setValue(selection.width());
@@ -802,12 +803,12 @@ void PhotometricColorCalibrationProcess::onBackgroundRoiSelectionButtonClicked(c
         destroyCropController();
         resetBackgroundRoiValues();
 
-        m_CropController = std::make_unique<ImageCropController>(m_image_view_control->getScrollArea(), this);
+        ImageViewControl* const view = interactionView();
+        m_CropController = std::make_unique<ImageCropController>(view->getScrollArea(), this);
         m_CropController->setListenerEnabled(true);
         m_CropController->enableOneClickMove(true);
         m_CropController->startNewSelection();
-        m_image_view_control->getViewWidget()->setImageViewSelectionStyle(
-            ImageViewSelectionStyle::AREA_SELECTION_STYLE);
+        view->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::AREA_SELECTION_STYLE);
         updateSelectionArea();
     }
     else
@@ -1032,8 +1033,39 @@ void PhotometricColorCalibrationProcess::attachOverlayToMainView()
     if (!m_starOverlay && m_image_view_control)
     {
         m_starOverlay = std::make_unique<PccMatchedStarOverlay>();
-        m_starOverlay->attachToViewWidget(m_image_view_control->getViewWidget());
+        m_starOverlay->attachToViewWidget(interactionView()->getViewWidget());
         m_starOverlay->enableDisplayModule(m_ui.showMatchedStars->isChecked());
+    }
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> PhotometricColorCalibrationProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage && layout() != nullptr)
+    {
+        an::ui::processes::spanFormRow(*layout(), *m_ui.backgroundNeutralizationCheck);
+    }
+    return ImageProcessControl::makePageLayout();
+}
+
+void PhotometricColorCalibrationProcess::interactionViewChanged(ImageViewControl* /*previous*/, ImageViewControl* now)
+{
+    if (now == nullptr)
+    {
+        return;
+    }
+    // The matched stars and an area being marked are drawn on the view the person works on now.
+    if (m_starOverlay)
+    {
+        m_starOverlay->attachToViewWidget(now->getViewWidget());
+    }
+    if (m_CropController)
+    {
+        destroyCropController();
+        m_CropController = std::make_unique<ImageCropController>(now->getScrollArea(), this);
+        m_CropController->setListenerEnabled(true);
+        m_CropController->enableOneClickMove(true);
+        now->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::AREA_SELECTION_STYLE);
+        updateSelectionArea();
     }
 }
 

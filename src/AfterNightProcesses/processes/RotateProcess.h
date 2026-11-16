@@ -69,6 +69,9 @@ protected:
         return {};
     }
 
+    /// The turn and the crop are drawn on the view the person works on: the target's view, or a mirror page's.
+    void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 
@@ -84,6 +87,12 @@ private:
     void on_targetHeightChanged(int value);
 
 private:
+    /// Draws the turn and marks the crop on a view, nothing of them left where they were before.
+    void attachRotation(ImageViewControl& view);
+
+    /// Takes the turn off a view.
+    static void clearRotation(ImageViewControl& view);
+
     void initialize();
     void setCropEnabled(bool enabled);
     void refreshSourceImageData();

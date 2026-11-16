@@ -53,10 +53,7 @@ CropProcess::CropProcess(ImageViewControl* control) : ImageProcessControl(contro
     m_SupportTargetViewControlSelection = true;
     initializeTargetViewControlComboBox(m_ui.targetImageSelector);
 
-    m_CropController = std::make_unique<ImageCropController>(control->getScrollArea(), this);
-    m_CropController->setListenerEnabled(true);
-    m_CropController->enableOneClickMove(true);
-    m_image_view_control->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::CROP_STYLE);
+    attachSelection(*control);
 
     initialize();
     refreshTheme();
@@ -99,18 +96,41 @@ void CropProcess::onViewControlChanged(ImageViewControl* oldCtrl, ImageViewContr
 {
     ImageProcessControl::onViewControlChanged(oldCtrl, newCtrl);
 
-    m_CropController->destroy();
-    m_CropController = std::make_unique<ImageCropController>(newCtrl->getScrollArea(), this);
-    m_CropController->setListenerEnabled(true);
-    m_CropController->enableOneClickMove(true);
+    if (ImageViewControl* view = interactionView())
+    {
+        attachSelection(*view);
+    }
 
     initialize();
+}
+
+void CropProcess::interactionViewChanged(ImageViewControl* /*previous*/, ImageViewControl* now)
+{
+    if (now != nullptr)
+    {
+        attachSelection(*now);
+        updateSelectionArea();
+    }
+}
+
+void CropProcess::attachSelection(ImageViewControl& view)
+{
+    // What was drawn where the selection was marked goes first, so nothing of it is left there.
+    if (m_CropController)
+    {
+        m_CropController->destroy();
+        m_CropController.reset();
+    }
+    m_CropController = std::make_unique<ImageCropController>(view.getScrollArea(), this);
+    m_CropController->setListenerEnabled(true);
+    m_CropController->enableOneClickMove(true);
+    view.getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::CROP_STYLE);
 }
 
 void CropProcess::selectionAreaUpdated()
 {
     m_IgnoreLastMoveEvent = true;
-    auto selArea = m_image_view_control->getViewWidget()->getCurrentSelectionArea();
+    auto selArea = interactionView()->getViewWidget()->getCurrentSelectionArea();
     m_ui.targetPosX->setValue(selArea.x());
     m_ui.targetPosY->setValue(selArea.y());
     m_ui.targetWidth->setValue(selArea.width());

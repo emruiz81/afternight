@@ -202,7 +202,7 @@ void ColorCalibrationProcess::selectionAreaUpdated()
     m_IgnoreLastCropMoveEvent = true;
     if (curentCropStatus == 1)
     {
-        if (auto* targetControl = getViewControlFromSelectedImage(m_ui.whiteReferenceImageSelector->currentText()))
+        if (auto* targetControl = selectionViewOf(m_ui.whiteReferenceImageSelector->currentText()))
         {
             const QRect selArea = targetControl->getViewWidget()->getCurrentSelectionArea();
             m_ui.whiteRoiLeftValue->setValue(selArea.x());
@@ -213,7 +213,7 @@ void ColorCalibrationProcess::selectionAreaUpdated()
     }
     else if (curentCropStatus == 2)
     {
-        if (auto* targetControl = getViewControlFromSelectedImage(m_ui.backgroundReferenceImageSelector->currentText()))
+        if (auto* targetControl = selectionViewOf(m_ui.backgroundReferenceImageSelector->currentText()))
         {
             const QRect selArea = targetControl->getViewWidget()->getCurrentSelectionArea();
             m_ui.backgroundRoiLeftValue->setValue(selArea.x());
@@ -349,7 +349,7 @@ void ColorCalibrationProcess::on_whiteRoiSelectionButtonClicked(bool checked)
         curentCropStatus = 1;
         m_ui.backgroundRoiSelectionButton->setChecked(false);
 
-        auto targetControl = getViewControlFromSelectedImage(m_ui.whiteReferenceImageSelector->currentText());
+        auto targetControl = selectionViewOf(m_ui.whiteReferenceImageSelector->currentText());
         if (!targetControl)
         {
             curentCropStatus = 0;
@@ -391,7 +391,7 @@ void ColorCalibrationProcess::on_backgroundRoiSelectionButtonClicked(bool checke
         curentCropStatus = 2;
         m_ui.whiteRoiSelectionButton->setChecked(false);
 
-        auto targetControl = getViewControlFromSelectedImage(m_ui.backgroundReferenceImageSelector->currentText());
+        auto targetControl = selectionViewOf(m_ui.backgroundReferenceImageSelector->currentText());
         if (!targetControl)
         {
             curentCropStatus = 0;
@@ -873,6 +873,33 @@ void ColorCalibrationProcess::updateManualWhiteBalanceAvailability()
     m_ui.whiteRoiTopValue->setEnabled(whiteRoiEnabled);
     m_ui.whiteRoiWidthValue->setEnabled(whiteRoiEnabled);
     m_ui.whiteRoiHeightValue->setEnabled(whiteRoiEnabled);
+}
+
+ImageViewControl* ColorCalibrationProcess::selectionViewOf(const QString& reference) const
+{
+    ImageViewControl* view = getViewControlFromSelectedImage(reference);
+    return view != nullptr && view == m_image_view_control ? interactionView() : view;
+}
+
+void ColorCalibrationProcess::interactionViewChanged(ImageViewControl* /*previous*/, ImageViewControl* now)
+{
+    // An area being marked on the target is marked on the view the person works on now.
+    if (!m_CropController || curentCropStatus == 0 || now == nullptr)
+    {
+        return;
+    }
+    const QComboBox* selector =
+        curentCropStatus == 1 ? m_ui.whiteReferenceImageSelector : m_ui.backgroundReferenceImageSelector;
+    if (getViewControlFromSelectedImage(selector->currentText()) != m_image_view_control)
+    {
+        return;
+    }
+    destroyCropController();
+    m_CropController = std::make_unique<ImageCropController>(now->getScrollArea(), this);
+    m_CropController->setListenerEnabled(true);
+    m_CropController->enableOneClickMove(true);
+    now->getViewWidget()->setImageViewSelectionStyle(ImageViewSelectionStyle::AREA_SELECTION_STYLE);
+    updateSelectionArea();
 }
 
 void ColorCalibrationProcess::destroyCropController()

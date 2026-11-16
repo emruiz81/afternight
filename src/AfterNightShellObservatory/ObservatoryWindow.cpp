@@ -3054,7 +3054,9 @@ void ObservatoryWindow::showTaskPage(const an::ui::shell::TaskId id)
     impl.shownTask = id;
     ImageViewControl* const target = task->target.data();
     auto* const preview = dynamic_cast<ImageRTPreviewControl*>(task->process.data());
-    ImageViewControl* const canvas = preview != nullptr ? preview->previewView() : nullptr;
+    // The canvas is the page's view: the preview, or a mirror page's view of the target.
+    const an::ui::ProcessPageLayout* const layout = task->process ? task->process->pageLayout() : nullptr;
+    ImageViewControl* const canvas = layout != nullptr ? layout->previewView() : nullptr;
     // The image actions act on the target, the looking ones on the canvas.
     if (target != nullptr && impl.core.viewService().getActiveImageViewControl() != target)
     {
@@ -3067,7 +3069,7 @@ void ObservatoryWindow::showTaskPage(const an::ui::shell::TaskId id)
     {
         impl.readout->followTask(nullptr);
         impl.readoutSource.reset();
-        if (preview != nullptr)
+        if (preview != nullptr && task->process->processSurface() == an::ui::ProcessSurface::PreviewPage)
         {
             impl.readoutSource = std::make_unique<TaskReadoutSource>(*preview);
             impl.readout->setCompactReadout(page->compactReadout());

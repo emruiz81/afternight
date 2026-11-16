@@ -64,6 +64,14 @@ protected:
     /// the result's lineage so the run can be told apart.
     [[nodiscard]] virtual std::uint64_t drawRandomSeed() const;
 
+    /// On a mirror page Pixel Math is arranged its own way before the page is made of it: its expression editor takes
+    /// the height the body leaves and keeps at least a third of it, its function, operator and symbol tables are one
+    /// group - a section of the column, under the expressions - serving whichever expression is shown, and the Settings
+    /// group's row of sizes and formats wraps in two.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
+    void pageLayoutMade() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 
@@ -81,6 +89,9 @@ private:
     void on_exportButtonPushed();
 
 private:
+    /// Arranges the window's widgets for a page, as `makePageLayout` says.
+    void arrangeForPage();
+
     void initialize();
 
     void initializeFunctionTable(TableWidget* functionTable, const QStringList& functions);

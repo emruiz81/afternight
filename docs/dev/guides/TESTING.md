@@ -192,7 +192,14 @@ results, the target's or the new image's; a process that draws its result at ran
 Generator - is held instead to changing the image in both, and Image Compare, which applies nothing, to comparing on its
 page as in its window (`PageLayout.ImageCompareComparesAsInAWindow`). Which processes must be pages is held by
 `ProcessSurfaces.EveryPreviewProcessWithATargetIsAPage` (`Test_ProcessFramework`), from the census record: every one
-recorded with its preview beside its controls and launched on an image.
+recorded with its preview beside its controls and launched on an image. A mirror page is held the same way, its surface
+named to the check (`expectPageFitsItsColumn(..., ProcessSurface::MirrorPage)`), which also holds its canvas to be the
+view the process works on; its Apply is compared by `expectMirrorPageAppliesAsTheWindow`, which presses the primary
+button as soon as it is offered and compares the target's next step or every image the run made. A process that marks
+a rectangle on its view is held to marking it on the page's view of the target -
+`<Process>.SelectionOnThePageGivesTheWindowsResult` and `<Process>.TargetViewShowsNoSelectionInPageMode` - by a drag
+sent to the view's viewport at 100 % (`Test_ProcessesShared/SelectionDrag.h`), where a point of the image is a point of
+the viewport, offset, in a window and on a page alike.
 
 A record is made once. With `AFTERNIGHT_WRITE_BASELINE_RECORDS` naming a folder a case writes its section there
 instead of comparing - the only case in which it writes, and never beside the suite - and a person reads what was

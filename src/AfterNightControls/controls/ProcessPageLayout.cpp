@@ -526,6 +526,8 @@ struct ProcessPageLayout::Impl : public QObject
     void build()
     {
         QLayout* const root = processWidget.layout();
+        // A process with no preview - a mirror page's - is its window's contents whole: they are the controls.
+        QWidget* const windowContents = standard.previewLayout == nullptr ? takeWindowContents(*root) : nullptr;
         // Everything the window laid out is hidden; its layout is kept, and holds the page alone.
         for (int index = 0; index < root->count(); ++index)
         {
@@ -615,7 +617,19 @@ struct ProcessPageLayout::Impl : public QObject
         footer = new PaddedRow(QStringLiteral("pageFooter"), column);
         columnLayout->addWidget(footer);
 
-        arrangeCanvasAndControls(*canvasLayout);
+        if (windowContents != nullptr)
+        {
+            controls = windowContents;
+            controls->setParent(bodyContent);
+            bodyLayout->addWidget(controls, description.controlsFillTheBody ? 1 : 0);
+            controls->show();
+            controlsLayout = controls->layout();
+            controlsMargins = controlsLayout->contentsMargins();
+        }
+        else
+        {
+            arrangeCanvasAndControls(*canvasLayout);
+        }
         leadWithSelectors();
         makeSections();
         makeToggles();
@@ -626,6 +640,44 @@ struct ProcessPageLayout::Impl : public QObject
         QObject::connect(qApp, &QApplication::focusChanged, this,
                          [this](QWidget* /*old*/, QWidget* now) { focusMoved(now); });
         columnResized();
+    }
+
+    /// What a window with no preview laid out, moved whole, in order and with its stretches, into a widget of its own:
+    /// the window's layout is left empty, and its margins become the controls' own, which are the body's padding. A
+    /// widget keeps whether it was hidden. Nothing is deleted but the items that held the widgets.
+    [[nodiscard]] QWidget* takeWindowContents(QLayout& root)
+    {
+        auto* contents = new QWidget(&processWidget);
+        contents->setObjectName(QStringLiteral("pageControls"));
+        auto* box = new QVBoxLayout(contents);
+        box->setContentsMargins(root.contentsMargins());
+        if (root.spacing() >= 0)
+        {
+            box->setSpacing(root.spacing());
+        }
+        auto* const rootBox = qobject_cast<QBoxLayout*>(&root);
+        while (root.count() > 0)
+        {
+            const int stretch = rootBox != nullptr ? rootBox->stretch(0) : 0;
+            QLayoutItem* const item = root.takeAt(0);
+            if (QWidget* const widget = item->widget())
+            {
+                const Qt::Alignment alignment = item->alignment();
+                delete item;
+                box->addWidget(widget, stretch, alignment);
+            }
+            else if (QLayout* const layout = item->layout())
+            {
+                layout->setParent(nullptr);
+                box->addLayout(layout, stretch);
+            }
+            else
+            {
+                box->addItem(item);
+                box->setStretch(box->count() - 1, stretch);
+            }
+        }
+        return contents;
     }
 
     /// The preview to the canvas and the controls into the body: a splitter's panes reparented, a row's two layouts
@@ -1272,6 +1324,11 @@ const std::vector<AnCollapsibleSection*>& ProcessPageLayout::sections() const no
     return m_impl->sections;
 }
 
+const ProcessStandardParts& ProcessPageLayout::parts() const noexcept
+{
+    return m_impl->standard;
+}
+
 QAbstractButton* ProcessPageLayout::footerButton(const QDialogButtonBox::StandardButton which) const
 {
     QDialogButtonBox* const box = m_impl->standard.buttonBox;
@@ -1338,6 +1395,22 @@ void ProcessPageLayout::setPreviewView(ImageViewControl* preview)
     {
         m_impl->previewListener(preview);
     }
+}
+
+void ProcessPageLayout::setCanvasView(ImageViewControl* view)
+{
+    QLayout* const canvasLayout = m_impl->canvas->layout();
+    if (ImageViewControl* const shown = m_impl->preview.data(); shown != nullptr && shown != view)
+    {
+        canvasLayout->removeWidget(shown);
+    }
+    if (view != nullptr && canvasLayout->indexOf(view) < 0)
+    {
+        view->setParent(m_impl->canvas);
+        canvasLayout->addWidget(view);
+        view->show();
+    }
+    setPreviewView(view);
 }
 
 ImageViewControl* ProcessPageLayout::previewView() const

@@ -506,6 +506,7 @@ sources Test_ControlsProcessFramework
     unit     src/AfterNightTests/Test_ControlsProcessFramework/SequenceRunTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/RunStateTest.cpp
     unit     src/AfterNightTests/Test_ControlsProcessFramework/ProcessPageTest.cpp
+    unit     src/AfterNightTests/Test_ControlsProcessFramework/MirrorPageTest.cpp
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -4320,6 +4321,7 @@ sources Test_ProcessesChannels
     qt       core gui widgets
 
 sources Test_ProcessesGeometry
+    unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryPageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/main.cpp
     unit     src/AfterNightTests/Test_ProcessesGeometry/GeometryTestSupport.cpp
@@ -4451,11 +4453,15 @@ sources Test_ProcessesGeometry
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
 
 # The colour calibration tools - background neutralization, colour calibration, linear match and SCNR - and
 # the support they share, run against the processes library, which the suite links, launched through the library's
 # registry and entry points, with the channel actions' suite's support for its scenes, sequences and waits.
 sources Test_ProcessesColorTools
+    unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsPageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsObservatoryWindowTest.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/main.cpp
     unit     src/AfterNightTests/Test_ProcessesColorTools/ColorToolsCasesTest.cpp
@@ -4577,12 +4583,16 @@ sources Test_ProcessesColorTools
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
 
 # The PixelMath window and the support it runs - the dialog as a value, the binding policy, each expression lowered to
 # the fused pointwise program or run through the evaluator, the symbols and the settings file - run against the
 # processes library, which the suite links, launched through the library's registry and entry points, with the channel
 # actions' suite's support for its scenes, sequences and waits.
 sources Test_ProcessesPixelMath
+    unit     src/AfterNightTests/Test_ProcessesPixelMath/PixelMathPageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesPixelMath/main.cpp
     unit     src/AfterNightTests/Test_ProcessesPixelMath/PixelMathTestSupport.cpp
     unit     src/AfterNightTests/Test_ProcessesPixelMath/PixelMathRecordTest.cpp
@@ -4694,6 +4704,13 @@ sources Test_ProcessesPixelMath
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
 
 # The external tools - StarNet, StarNet's star mask and DeepSNR - and the support they share: the engine's hand-off
 # around a program that runs as a separate process, the program's progress through the operation and the answers
@@ -4825,6 +4842,14 @@ sources Test_ProcessesExternalTools
 # against the processes library, which the suite links, launched through the library's registry and entry points; the
 # hand-off reads a registration database the case writes through the library.
 sources Test_ProcessesPhotometric
+    unit     src/AfterNightTests/fixtures/common/FixtureCatalogue.cpp
+    unit     src/AfterNightTests/fixtures/common/FixtureDigest.cpp
+    unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
+    unit     src/AfterNightTests/fixtures/common/FixtureFits.cpp
+    unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
+    unit     src/AfterNightTests/fixtures/common/FixtureStatistics.cpp
+    unit     src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.cpp
+    unit     src/AfterNightTests/Test_ProcessesPhotometric/PhotometricPageLayoutTest.cpp
     unit     src/AfterNightTests/Test_ProcessesPhotometric/main.cpp
     unit     src/AfterNightTests/Test_ProcessesPhotometric/PhotometricTestSupport.cpp
     unit     src/AfterNightTests/Test_ProcessesPhotometric/PhotometricWindowTest.cpp
@@ -4939,6 +4964,20 @@ sources Test_ProcessesPhotometric
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets sql
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightTests/fixtures/common/FixtureCatalogue.h
+    header   src/AfterNightTests/fixtures/common/FixtureDigest.h
+    header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
+    header   src/AfterNightTests/fixtures/common/FixtureFits.h
+    header   src/AfterNightTests/fixtures/common/FixtureImage.h
+    header   src/AfterNightTests/fixtures/common/FixtureStatistics.h
+    header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
 
 # The combination processes - the image blend, the LRGB, NBRGB and channel compositions, the narrowband colour mapper,
 # the narrowband palette composer and its preview grid, the two star-mask recombinations and the image comparison - and

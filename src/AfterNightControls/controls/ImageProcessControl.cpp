@@ -6,13 +6,20 @@
 #include "ImageSelectorTooltipBuilder.h"
 #include "ImageViewControl.h"
 #include "controls/IAppContext.h"
+#include "controls/ImageViewScrollArea.h"
+#include "controls/ProcessPageLayout.h"
+#include "controls/ViewChrome.h"
 #include "app/AppContextHelpers.h"
 #include "app/ProcessRegistry.h"
 #include "session/IEngineSessionProvider.h"
+#include "widgets/ImageViewWidget.h"
 
 #include <AfterNightEngine/Core/ErrorCode.h>
 
 #include <QCloseEvent>
+#include <QDialogButtonBox>
+#include <QEvent>
+#include <QTimer>
 #include <QVariant>
 
 #include <vector>
@@ -54,6 +61,103 @@ private:
     bool m_writesEverySample = false;
 };
 
+/// Keeps a mirror page's view fitted to the canvas - when it is first shown, when it shows an image of another size and
+/// whenever the canvas is resized - until the person zooms it.
+class MirrorFit final : public QObject, public ImageViewControlListener
+{
+public:
+    explicit MirrorFit(ImageViewControl& mirror)
+        : QObject(&mirror), ImageViewControlListener(&mirror), m_mirror(&mirror)
+    {
+        if (mirror.getScrollArea() != nullptr && mirror.getScrollArea()->viewport() != nullptr)
+        {
+            mirror.getScrollArea()->viewport()->installEventFilter(this);
+        }
+    }
+
+    /// The image shown changed: fitted again when it is another size and the person has not zoomed.
+    void shown()
+    {
+        const ImageViewWidget* widget = m_mirror->getViewWidget();
+        const QSize size = widget != nullptr ? widget->imageSize() : QSize();
+        if (size != m_size)
+        {
+            m_size = size;
+            queueFit();
+        }
+    }
+
+    void onImageViewScaled(ImageViewControl* /*ctrl*/) override
+    {
+        if (!m_fitting)
+        {
+            m_fitted = false;
+        }
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (m_fitted && (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+        {
+            queueFit();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    /// Fits once the layout the event belongs to has settled.
+    void queueFit()
+    {
+        QTimer::singleShot(0, this, [this]() { fitNow(); });
+    }
+
+    void fitNow()
+    {
+        if (!m_fitted || !m_mirror->hasImage() || !m_mirror->isVisible())
+        {
+            return;
+        }
+        m_fitting = true;
+        m_mirror->fitToWindow();
+        m_fitting = false;
+    }
+
+    ImageViewControl* m_mirror;
+    QSize m_size;
+    bool m_fitted = true;
+    bool m_fitting = false;
+};
+
+/// The button box a process window lays its buttons in: of the boxes it holds, the one nearest the window that holds a
+/// standard button a page's footer shows.
+[[nodiscard]] QDialogButtonBox* processButtonBox(const QWidget& process)
+{
+    QDialogButtonBox* nearest = nullptr;
+    int nearestDepth = 0;
+    for (QDialogButtonBox* box : process.findChildren<QDialogButtonBox*>())
+    {
+        const bool holdsOne =
+            box->button(QDialogButtonBox::Apply) != nullptr || box->button(QDialogButtonBox::Ok) != nullptr ||
+            box->button(QDialogButtonBox::Close) != nullptr || box->button(QDialogButtonBox::Cancel) != nullptr;
+        if (!holdsOne)
+        {
+            continue;
+        }
+        int depth = 0;
+        for (const QWidget* at = box; at != nullptr && at != &process; at = at->parentWidget())
+        {
+            ++depth;
+        }
+        if (nearest == nullptr || depth < nearestDepth)
+        {
+            nearest = box;
+            nearestDepth = depth;
+        }
+    }
+    return nearest;
+}
+
 } // namespace
 
 struct ImageProcessControl::Impl
@@ -87,6 +191,10 @@ struct ImageProcessControl::Impl
 
     /// Whether the target view let the process go because it is closing.
     bool m_DetachedFromView = false;
+
+    /// A mirror page's view of the target, and what keeps it fitted; null while the process is a window.
+    QPointer<ImageViewControl> m_Mirror;
+    MirrorFit* m_MirrorFit = nullptr;
 };
 
 ImageProcessControl::ImageProcessControl(ImageViewControl* control, const std::string& name)
@@ -114,6 +222,108 @@ ImageViewControl* ImageProcessControl::processTarget() const
     return m_image_view_control;
 }
 
+ImageViewControl* ImageProcessControl::interactionView() const
+{
+    if (m_image_view_control == nullptr)
+    {
+        return nullptr;
+    }
+    return m_impl->m_Mirror ? m_impl->m_Mirror.data() : m_image_view_control;
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ImageProcessControl::makePageLayout()
+{
+    return makeMirrorPageLayout(false);
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ImageProcessControl::makeMirrorPageLayout(const bool controlsFillTheBody)
+{
+    if (processSurface() != an::ui::ProcessSurface::MirrorPage || layout() == nullptr)
+    {
+        return nullptr;
+    }
+    const an::ui::ProcessStandardParts parts{.mainLayout = layout(),
+                                             .previewLayout = nullptr,
+                                             .previewCheckbox = nullptr,
+                                             .buttonBox = processButtonBox(*this),
+                                             .targetSelector = m_UiListOfSupportedViewControls,
+                                             .channelSelector = m_UiListOfSupportedChannels};
+    an::ui::ProcessPageLayout::Description description;
+    description.title = QString::fromUtf8(getProcessName());
+    description.description = property("anProcessDescription").toString();
+    description.columnWidth = processColumnWidth();
+    description.settingsKey = QStringLiteral("%1#page").arg(description.title);
+    description.hasPreview = false;
+    description.controlsFillTheBody = controlsFillTheBody;
+    return std::make_unique<an::ui::ProcessPageLayout>(*this, parts, std::move(description));
+}
+
+void ImageProcessControl::pageLayoutMade()
+{
+    an::ui::ProcessPageLayout* const page = pageLayout();
+    if (page == nullptr || processSurface() != an::ui::ProcessSurface::MirrorPage || m_impl->m_Mirror)
+    {
+        return;
+    }
+    // The canvas shows the target in a view of its own, whose toolbar floats over the canvas, outside the view.
+    auto* mirror = new ImageViewControl(page->canvas());
+    mirror->setObjectName(QStringLiteral("pageMirrorView"));
+    mirror->setChromeMode(an::ui::ViewChromeMode::External);
+    mirror->initialize(getWindowTitle(), ViewControlMode::st_preview);
+    mirror->setUniqueName(getWindowTitle());
+    m_impl->m_Mirror = mirror;
+    m_impl->m_MirrorFit = new MirrorFit(*mirror);
+    page->setCanvasView(mirror);
+    showTargetInMirror(true);
+    interactionViewChanged(m_image_view_control, mirror);
+}
+
+void ImageProcessControl::showTargetInMirror(const bool asTheTargetShowsIt)
+{
+    ImageViewControl* const mirror = m_impl->m_Mirror.data();
+    if (mirror == nullptr)
+    {
+        return;
+    }
+    ImageViewControl* const target = m_image_view_control;
+    std::shared_ptr<const an::consumer::ImageAsset> asset =
+        target != nullptr && target->hasImage() ? target->document().asset() : nullptr;
+    if (asset == nullptr)
+    {
+        if (mirror->hasImage())
+        {
+            mirror->clear();
+        }
+        return;
+    }
+    if (!mirror->hasImage() || mirror->document().asset() != asset)
+    {
+        // The target's own image, shared: never copied, and never written through the mirror's document.
+        an::Result<an::ui::ImageDocument> shared = an::ui::ImageDocument::share(
+            std::move(asset), an::ui::DocumentNames{.displayName = QString::fromUtf8(target->getUniqueName())});
+        if (!shared.hasValue())
+        {
+            LOG_WARNING("'{}': the page cannot show its target: {}", m_ProcessName, shared.status().message());
+            mirror->clear();
+            return;
+        }
+        mirror->setDocument(std::move(*shared));
+    }
+    if (asTheTargetShowsIt)
+    {
+        if (ImageViewWidget* const widget = mirror->getViewWidget())
+        {
+            widget->setAutostretchSettings(target->getAutostretchSettings(), false);
+        }
+        mirror->setViewMode(target->isAutoStretchEnabled() ? ImageViewMode::AUTOSTRETCH_MODE
+                                                           : ImageViewMode::LINEAR_MODE);
+    }
+    if (m_impl->m_MirrorFit != nullptr)
+    {
+        m_impl->m_MirrorFit->shown();
+    }
+}
+
 void ImageProcessControl::changeTargetViewControl(ImageViewControl* control)
 {
     if (!control)
@@ -137,6 +347,9 @@ void ImageProcessControl::changeTargetViewControl(ImageViewControl* control)
 
     updateWindowTitle();
 
+    // A mirror page shows the new target before the process reads it, so what the process draws lies on its image.
+    showTargetInMirror(true);
+
     notifyTargetChanged(m_image_view_control);
 
     onViewControlChanged(old, m_image_view_control);
@@ -149,6 +362,10 @@ void ImageProcessControl::onImageRenamed(ImageViewControl* ctrl)
 
 void ImageProcessControl::onImageLoaded(ImageViewControl* ctrl)
 {
+    if (ctrl == m_image_view_control)
+    {
+        showTargetInMirror(false);
+    }
     if (m_SupportPerChannelProcessing && ctrl == m_image_view_control)
     {
         refreshListOfSupportedChannels();
@@ -159,6 +376,9 @@ void ImageProcessControl::onImageUpdated(ImageViewControl* ctrl)
 {
     if (ctrl == m_image_view_control)
     {
+        // A mirror page follows each edit of its target: it shows the image the target holds now.
+        showTargetInMirror(false);
+
         if (m_SupportTargetViewControlSelection && !isViewControlSupported(m_image_view_control))
         {
             auto stdtitle = fmt::format("{}", getProcessName());
@@ -220,6 +440,7 @@ void ImageProcessControl::onImageViewControlDestroyed(ImageViewControl* ctrl)
         }
 
         m_image_view_control = nullptr;
+        showTargetInMirror(false);
         notifyTargetChanged(nullptr);
         close();
     }
@@ -464,6 +685,11 @@ void ImageProcessControl::closeEvent(QCloseEvent* event)
     }
 
     TopLevelProcessBaseControl::closeEvent(event);
+    if (event->isAccepted() && m_impl->m_Mirror && m_impl->m_Mirror->hasImage())
+    {
+        // A closed task holds nothing of its target: its page's view lets the target's image go.
+        m_impl->m_Mirror->clear();
+    }
 }
 
 std::string ImageProcessControl::getWindowTitle() const

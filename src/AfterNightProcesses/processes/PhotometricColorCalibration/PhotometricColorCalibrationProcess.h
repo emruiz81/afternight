@@ -130,6 +130,14 @@ protected:
     /// its own run overrides it.
     virtual void calibrationStarting(std::stop_source& stop) {}
 
+    /// The matched stars and the area of the sky are drawn on the view the person works on: the target's view, or a
+    /// mirror page's.
+    void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
+
+    /// On a page the background neutralization's check box takes the form's whole width: beside the form's labels it is
+    /// wider than the standard column.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     struct RunOutcome;
 

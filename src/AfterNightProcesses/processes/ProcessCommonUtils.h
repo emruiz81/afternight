@@ -32,6 +32,7 @@
 #include <AfterNightEngine/IO/SequenceDescriptor.h>
 
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QHeaderView>
 #include <QProcess>
 #include <QSizePolicy>
@@ -765,3 +766,71 @@ private:
 };
 
 } // namespace process_utils
+
+namespace an::ui::processes
+{
+
+/// Moves widgets of a row of a column to a row of their own under it, in their order, as a page wraps a row wider than
+/// its column; the row they leave keeps the rest. Nothing when no row of the column holds the first of them.
+///
+/// @param column the layout whose rows are searched.
+/// @param widgets what moves, the first of them the one the row is found by.
+inline void wrapRowUnder(QBoxLayout& column, const std::vector<QWidget*>& widgets)
+{
+    if (widgets.empty())
+    {
+        return;
+    }
+    for (int index = 0; index < column.count(); ++index)
+    {
+        auto* const row = qobject_cast<QBoxLayout*>(column.itemAt(index)->layout());
+        if (row == nullptr || row->indexOf(widgets.front()) < 0)
+        {
+            continue;
+        }
+        auto* const wrapped = new QHBoxLayout();
+        wrapped->setSpacing(row->spacing());
+        for (QWidget* widget : widgets)
+        {
+            row->removeWidget(widget);
+            wrapped->addWidget(widget);
+        }
+        wrapped->addStretch(1);
+        column.insertLayout(index + 1, wrapped);
+        return;
+    }
+}
+
+/// Lays a field of a form found among a layout's rows across the form's whole width, its label - empty for a check box
+/// that names itself - let go, as a page does with a field that is wider than its column beside the labels. Nothing
+/// when no form of the layout holds it.
+///
+/// @param layout the layout whose forms are searched.
+/// @param field the field.
+inline void spanFormRow(QLayout& layout, QWidget& field)
+{
+    for (int index = 0; index < layout.count(); ++index)
+    {
+        auto* const form = qobject_cast<QFormLayout*>(layout.itemAt(index)->layout());
+        int row = -1;
+        QFormLayout::ItemRole role = QFormLayout::FieldRole;
+        if (form == nullptr || (form->getWidgetPosition(&field, &row, &role), row < 0))
+        {
+            continue;
+        }
+        QFormLayout::TakeRowResult taken = form->takeRow(row);
+        if (taken.labelItem != nullptr)
+        {
+            if (QWidget* const label = taken.labelItem->widget())
+            {
+                label->hide();
+            }
+            delete taken.labelItem;
+        }
+        delete taken.fieldItem;
+        form->insertRow(row, &field);
+        return;
+    }
+}
+
+} // namespace an::ui::processes

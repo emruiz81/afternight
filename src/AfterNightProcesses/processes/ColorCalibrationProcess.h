@@ -99,6 +99,9 @@ protected:
         return {};
     }
 
+    /// An area of the target is marked on the view the person works on: the target's view, or a mirror page's.
+    void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 
@@ -139,6 +142,10 @@ private:
     void updateSelectionArea();
     void updateManualWhiteBalanceAvailability();
     void destroyCropController();
+
+    /// The view an area of a reference is marked on: the view the person works on for the target - a mirror page's -
+    /// and the reference's own view for another image; null for none.
+    [[nodiscard]] ImageViewControl* selectionViewOf(const QString& reference) const;
     void resetWhiteRoiValues();
     void resetBackgroundRoiValues();
 

@@ -3,6 +3,7 @@
 
 #include "stdafx.hpp"
 #include "IntegerResampleProcess.h"
+#include "controls/ProcessPageLayout.h"
 #include "ProcessCommonUtils.h"
 #include "controls/ProcessButtonIcons.h"
 #include "controls/ImageViewControl.h"
@@ -69,6 +70,18 @@ IntegerResampleProcess::IntegerResampleProcess(ImageViewControl* control)
 
     initialize();
     refreshTheme();
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> IntegerResampleProcess::makePageLayout()
+{
+    if (processSurface() == an::ui::ProcessSurface::MirrorPage)
+    {
+        if (auto* resample = qobject_cast<QBoxLayout*>(m_ui.groupBox_2->layout()))
+        {
+            an::ui::processes::wrapRowUnder(*resample, {m_ui.label_6, m_ui.downsampleMode});
+        }
+    }
+    return ImageProcessControl::makePageLayout();
 }
 
 std::string IntegerResampleProcess::getProcessNameStatic()

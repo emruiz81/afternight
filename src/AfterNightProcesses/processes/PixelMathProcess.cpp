@@ -5,8 +5,15 @@
 #include "PixelMathProcess.h"
 #include "controls/ImageViewControl.h"
 #include "controls/PixelMathVocabulary.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/ProcessCommonUtils.h"
 #include "theme/AnDesignTokens.h"
+
+#include <QEvent>
+#include <QGridLayout>
+#include <QHeaderView>
+#include <QScrollArea>
+#include <QTabBar>
 
 #include <fmt/format.h>
 
@@ -17,6 +24,58 @@
 
 namespace
 {
+
+/// How many rows of a reference table a page shows before the table scrolls.
+constexpr int kReferenceRows = 6;
+
+/// The height that shows a table's header and a number of its rows.
+[[nodiscard]] int heightForRows(const QTableWidget& table, const int rows)
+{
+    const QHeaderView* rowsHeader = table.verticalHeader();
+    const int row = (std::max)(rowsHeader->defaultSectionSize(), rowsHeader->minimumSectionSize());
+    return table.horizontalHeader()->sizeHint().height() + row * rows + 2 * table.frameWidth();
+}
+
+/// Keeps a page's expression tabs at least a third of the body's height besides what their bar and a tab's margins
+/// take, so the editor in a tab keeps it: set again whenever the body is resized. What the tabs take besides the editor
+/// is read from their hints, never from sizes that may be in the middle of a resize.
+class EditorHeight final : public QObject
+{
+public:
+    EditorHeight(QWidget& viewport, QTabWidget& tabs) : QObject(&tabs), m_viewport(&viewport), m_tabs(&tabs)
+    {
+        viewport.installEventFilter(this);
+        apply();
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (watched == m_viewport && (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+        {
+            apply();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    void apply()
+    {
+        int chrome = m_tabs->tabBar()->sizeHint().height();
+        if (const QWidget* page = m_tabs->currentWidget(); page != nullptr && page->layout() != nullptr)
+        {
+            chrome += page->layout()->contentsMargins().top() + page->layout()->contentsMargins().bottom();
+        }
+        const int wanted = (m_viewport->height() + 2) / 3 + chrome;
+        if (m_tabs->minimumHeight() != wanted)
+        {
+            m_tabs->setMinimumHeight(wanted);
+        }
+    }
+
+    QWidget* m_viewport;
+    QTabWidget* m_tabs;
+};
 
 /// The words a run says itself in.
 [[nodiscard]] an::ui::processes::GeometryRunWords runWords(const ImageViewControl& view)
@@ -265,6 +324,77 @@ void PixelMathProcess::onRowDoubleClicked(TableWidget* sender, int row)
 }
 
 PixelMathProcess::~PixelMathProcess() {}
+
+std::unique_ptr<an::ui::ProcessPageLayout> PixelMathProcess::makePageLayout()
+{
+    if (processSurface() != an::ui::ProcessSurface::MirrorPage)
+    {
+        return ImageProcessControl::makePageLayout();
+    }
+    arrangeForPage();
+    return makeMirrorPageLayout(true);
+}
+
+void PixelMathProcess::pageLayoutMade()
+{
+    ImageProcessControl::pageLayoutMade();
+    if (an::ui::ProcessPageLayout* page = pageLayout())
+    {
+        new EditorHeight(*page->body()->viewport(), *m_ui.tabWidget);
+    }
+}
+
+void PixelMathProcess::arrangeForPage()
+{
+    // The expressions take the height the body leaves: their row stretches, and the tabs share the column, each tab no
+    // wider than its title.
+    m_ui.tabWidget->setMinimumSize(0, 0);
+    m_ui.tabWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_ui.tabWidget->tabBar()->setProperty("anTabMinWidth", QVariant());
+    m_ui.tabWidget->tabBar()->setUsesScrollButtons(true);
+    m_ui.verticalLayout->setStretchFactor(m_ui.horizontalLayout, 1);
+
+    // One set of tables serves the expression of whichever tab is shown: the first tab's, in a group of their own under
+    // the expressions, which the page makes a section; the other tabs keep none.
+    auto* reference = new QGroupBox(tr("Functions, operators and symbols"), m_ui.verticalLayoutWidget);
+    reference->setObjectName(QStringLiteral("pixelMathReference"));
+    auto* referenceLayout = new QGridLayout(reference);
+    TableWidget* const functions = m_ui.functionsTableWidget1;
+    TableWidget* const operators = m_ui.operatorsTableWidget1;
+    TableWidget* const symbols = m_ui.symbolsTableWidget1;
+    for (TableWidget* table : {functions, operators, symbols})
+    {
+        m_ui.verticalLayout_2->removeWidget(table);
+        table->setMinimumWidth(0);
+        table->setMaximumSize(QWIDGETSIZE_MAX, heightForRows(*table, kReferenceRows));
+        table->horizontalHeader()->setStretchLastSection(true);
+    }
+    referenceLayout->addWidget(functions, 0, 0);
+    referenceLayout->addWidget(operators, 0, 1);
+    referenceLayout->addWidget(symbols, 1, 0, 1, 2);
+    for (TableWidget* table : {m_ui.functionsTableWidget2, m_ui.operatorsTableWidget2, m_ui.symbolsTableWidget2,
+                               m_ui.functionsTableWidget3, m_ui.operatorsTableWidget3, m_ui.symbolsTableWidget3,
+                               m_ui.functionsTableWidget4, m_ui.operatorsTableWidget4, m_ui.symbolsTableWidget4})
+    {
+        table->hide();
+    }
+    m_ui.verticalLayout->insertWidget(m_ui.verticalLayout->indexOf(m_ui.horizontalLayout_2) + 1, reference);
+
+    // The Settings group's row of sizes and formats wraps: the colour space and the format on a row of their own.
+    if (auto* settings = qobject_cast<QBoxLayout*>(m_ui.groupBox->layout()))
+    {
+        auto* formats = new QHBoxLayout();
+        formats->setObjectName(QStringLiteral("formatsLayout"));
+        for (QWidget* widget : std::initializer_list<QWidget*>{m_ui.label_6, m_ui.colorSpaceSelector, m_ui.label_8,
+                                                               m_ui.colorFormatSelector})
+        {
+            m_ui.horizontalLayout_10->removeWidget(widget);
+            formats->addWidget(widget);
+        }
+        formats->addStretch(1);
+        settings->insertLayout(settings->indexOf(m_ui.horizontalLayout_10) + 1, formats);
+    }
+}
 
 void PixelMathProcess::on_useSingleRGBKExpression_clicked(Qt::CheckState state)
 {

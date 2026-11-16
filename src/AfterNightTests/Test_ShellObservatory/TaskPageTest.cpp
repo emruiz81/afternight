@@ -30,12 +30,14 @@
 #include "components/AnSnackbar.h"
 #include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
+#include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessLaunchScope.h"
 #include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
+#include "controls/ViewProcessingNotice.h"
 #include "core/ApplicationCore.h"
 #include "processes/CurvesTransformationProcess.h"
 #include "readout/ReadoutController.h"
@@ -99,6 +101,7 @@ constexpr std::string_view kImageCompare = "multi_image_stacking.actionImage_Com
 constexpr std::string_view kLrgbCombination = "color.actionLRGB_Combination";
 constexpr std::string_view kNbrgbCombination = "color.actionNBRGB_Combination";
 constexpr std::string_view kNbColorMapper = "color.actionNBColorMapper";
+constexpr std::string_view kScnr = "color.actionSCNR";
 
 /// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
 /// character one width.
@@ -339,6 +342,24 @@ class TaskPage : public TaskPageCase
 class TaskSubject : public TaskPageCase
 {
 };
+
+/// The page of a process with no preview: a view of its target in the canvas.
+class MirrorPage : public TaskPageCase
+{
+};
+
+/// The notice a view shows now; null while it shows none.
+[[nodiscard]] const an::ui::ViewProcessingNotice* noticeOf(const ImageViewControl& view)
+{
+    for (const an::ui::ViewProcessingNotice* notice : view.findChildren<an::ui::ViewProcessingNotice*>())
+    {
+        if (notice->isVisibleTo(&view))
+        {
+            return notice;
+        }
+    }
+    return nullptr;
+}
 
 } // namespace
 
@@ -914,6 +935,49 @@ TEST_F(TaskSubject, LeavingThePageGivesTheActionsBack)
     EXPECT_FALSE(core().viewService().hasTaskSubject());
     EXPECT_EQ(core().viewService().lookingView(), core().viewService().getActiveImageViewControl());
     EXPECT_EQ(core().viewService().subjectView(), core().viewService().getActiveImageViewControl());
+}
+
+// A process with no preview opens as a mirror page: its canvas is a view of its target, which the looking actions act
+// on and the floating toolbar serves, with no compact readout. Its Apply blocks the target - the target's view is
+// locked and says a task writes it - and the page's view shows the result once the run has landed.
+TEST_F(MirrorPage, ApplyBlocksTheTargetAndShowsTheResult)
+{
+    ImageViewControl* const view = openColourView(QStringLiteral("mirror-apply"));
+    ASSERT_NE(view, nullptr);
+    auto* const process = dynamic_cast<ImageProcessControl*>(launch(kScnr));
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    ImageViewControl* const mirror = process->interactionView();
+    ASSERT_NE(mirror, nullptr);
+    ASSERT_NE(mirror, view);
+    EXPECT_EQ(process->pageLayout()->previewView(), mirror);
+    EXPECT_TRUE(page->isAncestorOf(mirror));
+    EXPECT_EQ(core().viewService().subjectView(), view) << "the image actions act on the target";
+    EXPECT_EQ(core().viewService().lookingView(), mirror) << "the looking actions act on the page's view";
+    EXPECT_EQ(page->binder().toolbarView(), mirror) << "the floating toolbar serves the page's view";
+    EXPECT_FALSE(page->compactReadout()->isVisibleTo(page)) << "a mirror page reads no preview";
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return mirror->hasImage() && mirror->isWorkIdle(); }));
+    const std::shared_ptr<const an::consumer::ImageAsset> before = view->document().asset();
+    EXPECT_EQ(mirror->document().asset(), before) << "the page shows the target";
+    const std::size_t steps = currentStep(*view);
+
+    ASSERT_TRUE(process->triggerPrimaryAction());
+    EXPECT_TRUE(process->runState().running());
+    const an::ui::ViewProcessingNotice* const notice = noticeOf(*view);
+    ASSERT_NE(notice, nullptr) << "the run blocks its target: the target's view says a task writes it";
+    EXPECT_EQ(notice->notice().actionLabel, QStringLiteral("Show"));
+
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([&]() { return !process->runState().running() && view->isWorkIdle(); }));
+    settle();
+    EXPECT_EQ(currentStep(*view), steps + 1u) << "one step in the target's history";
+    EXPECT_NE(view->document().asset(), before);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return mirror->isWorkIdle(); }));
+    EXPECT_EQ(mirror->document().asset(), view->document().asset()) << "the page shows the result";
+    EXPECT_EQ(noticeOf(*view), nullptr) << "the notice went with the lock";
+    EXPECT_TRUE(process->isPresentedAsPage()) << "SCNR stays open on its page";
 }
 
 } // namespace an::tests::observatory

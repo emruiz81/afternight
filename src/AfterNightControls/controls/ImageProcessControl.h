@@ -90,6 +90,13 @@ public:
     /// The view the process runs on; null once it has closed.
     [[nodiscard]] ImageViewControl* processTarget() const override;
 
+    /// The view the person marks the process's selections on - an area, a rectangle to keep - and looks at the target
+    /// in: the target's own view while the process is a window; in a mirror page, the page's view of the target, a view
+    /// in `ViewControlMode::st_preview` over the target's image, shared and never written, which follows each edit of
+    /// the target and goes when the process closes. The target's view then shows nothing of the process. Null once the
+    /// target has closed. GUI thread.
+    [[nodiscard]] ImageViewControl* interactionView() const;
+
     // The view's attachment
 
     /// The process's name, which is unique among the processes attached to one view.
@@ -173,6 +180,29 @@ protected:
 
     /// Closes the window, or hides it and closes it when its last run lands.
     void closeEvent(QCloseEvent* event) override;
+
+    /// A process whose descriptor states a mirror page is arranged as one: what its window laid out in the body, the
+    /// selectors and the button box it recorded (`initializeTargetViewControlComboBox`,
+    /// `initializeListOfSupportedChannelslComboBox`, the window's own box), and a view of its target in the canvas.
+    /// Any other answers null, as a process that cannot be a page does.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
+    /// Arranges the process as a mirror page when its descriptor states one, as `makePageLayout` does; a process that
+    /// arranges its controls itself first calls it once they are arranged.
+    ///
+    /// @param controlsFillTheBody whether the controls take every height the body leaves them, for a part that grows
+    ///        with the column.
+    /// @return the page, or null for a process whose descriptor states no mirror page.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makeMirrorPageLayout(bool controlsFillTheBody);
+
+    /// A mirror page's view of the target is made and laid in the canvas, and the process told its interaction view
+    /// changed.
+    void pageLayoutMade() override;
+
+    /// The view the process marks its selections on changed - from the target's view to a mirror page's when its page
+    /// is made - and nothing of the process is to be left on `previous`: a process that draws on its view moves what it
+    /// draws to `now`. Nothing by default.
+    virtual void interactionViewChanged(ImageViewControl* previous, ImageViewControl* now) {}
 
     virtual void on_targetImageSelector_currentTextChangedInternal(const QString& text) {}
     virtual void on_channelSelector_currentTextChangedInternal(const QString& text) {}
@@ -317,6 +347,10 @@ protected:
 
 private:
     void endRun();
+
+    /// Shows the target's image in a mirror page's view, shared, when it shows another; and, when asked, presents it as
+    /// the target's view presents it - its display mode and its stretch. Nothing while the process is a window.
+    void showTargetInMirror(bool asTheTargetShowsIt);
 
     /// Logs a work of `runThenPublish` that threw, whose completion runs with a failure when `recovered`, and is
     /// dropped otherwise. Any thread.

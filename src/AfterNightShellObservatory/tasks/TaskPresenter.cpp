@@ -193,7 +193,9 @@ struct TaskPresenter::Impl
         {
             return;
         }
-        const bool locked = view->isLockedForProcessing();
+        // A view is blocked while a run writes it: its processing lock, or a task's run on it - an edit of a still
+        // image takes the image's writer, not the view's lock.
+        const bool locked = view->isLockedForProcessing() || model.runningTaskOn(view) != nullptr;
         const an::ui::shell::Task* task = taskOn(view);
         if (locked)
         {
@@ -302,7 +304,9 @@ void TaskPresenter::setHooks(Hooks hooks)
 bool TaskPresenter::adopt(TopLevelProcessBaseControl& process)
 {
     Impl& impl = *m_impl;
-    if (process.processSurface() != an::ui::ProcessSurface::PreviewPage || !impl.hooks.adoptPage)
+    const an::ui::ProcessSurface surface = process.processSurface();
+    if ((surface != an::ui::ProcessSurface::PreviewPage && surface != an::ui::ProcessSurface::MirrorPage) ||
+        !impl.hooks.adoptPage)
     {
         return false;
     }

@@ -105,6 +105,8 @@ void TaskPage::dress(TopLevelProcessBaseControl& process, std::function<void(Ima
     {
         slot->addWidget(m_readout);
     }
+    // The compact readout reads the task's preview: a mirror page has none, and shows no readout.
+    m_readout->setVisible(process.processSurface() != an::ui::ProcessSurface::MirrorPage);
     m_canvas = page->canvas();
     m_canvas->installEventFilter(this);
     page->setPreviewViewListener([this, previewChanged = std::move(previewChanged)](ImageViewControl* preview) {

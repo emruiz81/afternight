@@ -48,7 +48,7 @@ using ObservatoryWindow = ObservatoryWindowCase;
 
 /// The processes the cases launch over the active image: one shown as a page, one that stays a window of its own.
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
-constexpr std::string_view kWindowProcess = "geometry.actionResize";
+constexpr std::string_view kWindowProcess = "denoising.actionDeepSNR";
 
 /// A widget's place inside the window's central widget.
 [[nodiscard]] QRect placeIn(const QWidget& widget, const QWidget& ancestor)

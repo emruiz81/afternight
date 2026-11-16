@@ -59,6 +59,9 @@ protected:
         return {};
     }
 
+    /// On a page the downsample mode goes under the resample factor: the row of the two is wider than the wide column.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
 
