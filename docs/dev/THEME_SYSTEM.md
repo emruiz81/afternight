@@ -310,7 +310,10 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
   button and a push button with no text a `control` square; a tab `strip` high, or `controlSmall` in a tab bar with
   `anTabCompact` (a panel's tabs); a row of a table, a list or a tree, and a table's header, `rowTable` high (the
   vertical header's default section size included); a menu's item, and so a combo box's popup row, `rowDense` high;
-  a scroll bar `scrollBar` thick. A control is never smaller than its contents need: a large icon grows it. A line
+  a scroll bar `scrollBar` thick. A control is never smaller than its contents need: a large icon grows it, and a
+  combo box is as wide as its text field - past the border and the field's padding, short of the arrow's column - needs
+  for its contents, a box sized to its items measuring each by the advance its label is elided by (Qt measures the
+  ink, which can be narrower), so no item it can show is cut. A line
   edit with no frame is a spin box's or a combo box's text and keeps its own size. Every other answer is the
   `Classic` one; the drawing is not the density's.
 - **The type scale follows the density.** The body and the third heading are `fontBody`, the caption `fontCaption`,

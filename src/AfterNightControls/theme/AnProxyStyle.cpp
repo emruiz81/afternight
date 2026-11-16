@@ -24,6 +24,7 @@
 #include <QDialogButtonBox>
 #include <QDockWidget>
 #include <QFontMetrics>
+#include <QFontMetricsF>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -52,6 +53,7 @@
 
 #include <QPointer>
 
+#include <cmath>
 #include <algorithm>
 #include <optional>
 #include <vector>
@@ -501,6 +503,10 @@ constexpr int kObservatoryBorder = 1;
 
 /// The narrowest a spin box is, as under the Classic profile: room for a decimal value.
 constexpr int kMinimumSpinBoxWidth = 70;
+
+/// The width of the combo box a size is measured on, to learn what its text field leaves around the text: wider than
+/// any combo box's padding and arrow.
+constexpr int kComboProbeWidth = 1000;
 
 /// A slider's handle: the knob's halo fits it, along and across.
 constexpr int kObservatorySliderHandle = 22;
@@ -1855,9 +1861,40 @@ QSize AnProxyStyle::sizeFromContents(ContentsType type, const QStyleOption* opti
 {
     if (observatoryProfile() && observatorySizes(type))
     {
-        return observatorySizeFromContents(type, option, contentsSize,
-                                           QProxyStyle::sizeFromContents(type, option, contentsSize, widget), *m_tokens,
-                                           widget);
+        QSize size = observatorySizeFromContents(type, option, contentsSize,
+                                                 QProxyStyle::sizeFromContents(type, option, contentsSize, widget),
+                                                 *m_tokens, widget);
+        if (const auto* combo = qstyleoption_cast<const QStyleOptionComboBox*>(option); type == CT_ComboBox && combo)
+        {
+            // The label is painted in the text field - past the border and the field's padding, short of the arrow's
+            // column - an icon's gap after its icon, none of which the base style measured: the box is as wide as its
+            // contents need in that field, so no item it can show is cut.
+            QStyleOptionComboBox probe = *combo;
+            probe.rect = QRect(0, 0, kComboProbeWidth, size.height());
+            const QRect field = subControlRect(CC_ComboBox, &probe, SC_ComboBoxEditField, widget);
+            const int around = probe.rect.width() - field.width();
+            const int iconGap = m_tokens->spacing.xs + m_tokens->spacing.xs / 2 + 1;
+            int needed = contentsSize.width() + (combo->currentIcon.isNull() ? 0 : iconGap);
+            // A box sized to its items measured each by its ink; the label is elided by its advance, which can be
+            // wider.
+            const auto* box = qobject_cast<const QComboBox*>(widget);
+            if (box != nullptr && (box->sizeAdjustPolicy() == QComboBox::AdjustToContents ||
+                                   box->sizeAdjustPolicy() == QComboBox::AdjustToContentsOnFirstShow))
+            {
+                const QFontMetricsF metrics(box->font());
+                for (int index = 0; index < box->count(); ++index)
+                {
+                    int item = static_cast<int>(std::ceil(metrics.horizontalAdvance(box->itemText(index))));
+                    if (!box->itemIcon(index).isNull())
+                    {
+                        item += box->iconSize().width() + iconGap;
+                    }
+                    needed = (std::max)(needed, item);
+                }
+            }
+            size.setWidth((std::max)(size.width(), needed + around));
+        }
+        return size;
     }
 
     switch (type)

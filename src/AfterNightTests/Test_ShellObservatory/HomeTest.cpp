@@ -48,6 +48,8 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QStyleOption>
+#include <QFontMetricsF>
 #include <QTemporaryDir>
 #include <QThreadPool>
 #include <QUrl>
@@ -56,6 +58,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 
 namespace an::tests::observatory
@@ -498,6 +501,31 @@ TEST_F(Home, TheRecentImagesAndSequencesAreSearchedSortedAndShownAsAGridOrAList)
     QTest::mouseClick(grid.gridButton(), Qt::LeftButton);
     grid.sortBox()->setCurrentIndex(grid.sortBox()->findData(DashboardPreferences::RECENT_SORT_RECENT));
     grid.searchField()->clear();
+}
+
+// The sort box beside the search shows each of its choices whole: its text field holds Recent, Name and Type.
+TEST_F(Home, TheSortBoxShowsEachChoiceWhole)
+{
+    const QString image = writeImage(QStringLiteral("home-sort-box.fits"));
+    openFiles({image});
+    showHomeAndSettle();
+    QComboBox& sort = *home().recentGrid()->sortBox();
+    ASSERT_TRUE(sort.isVisible());
+    const int chosen = sort.currentIndex();
+    for (int index = 0; index < sort.count(); ++index)
+    {
+        sort.setCurrentIndex(index);
+        QStyleOptionComboBox option;
+        option.initFrom(&sort);
+        option.currentText = sort.currentText();
+        option.frame = sort.hasFrame();
+        const QRect field =
+            sort.style()->subControlRect(QStyle::CC_ComboBox, &option, QStyle::SC_ComboBoxEditField, &sort);
+        const int text = static_cast<int>(std::ceil(QFontMetricsF(sort.font()).horizontalAdvance(sort.currentText())));
+        EXPECT_GE(field.width(), text) << sort.currentText().toStdString() << " is cut in a sort box " << sort.width()
+                                       << " px wide";
+    }
+    sort.setCurrentIndex(chosen);
 }
 
 // A tile's menu pins its file to the top of the recent images and removes it from the recent files.

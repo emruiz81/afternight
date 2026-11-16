@@ -22,6 +22,7 @@
 #include <QDialogButtonBox>
 #include <QFontMetrics>
 #include <QFrame>
+#include <QIcon>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -38,6 +39,7 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QPixmap>
 #include <QStyleOption>
 #include <QTabBar>
 #include <QTabWidget>
@@ -50,6 +52,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <string>
@@ -484,6 +487,50 @@ TEST(ProxyStyleObservatory, ComboBoxAndSpinBoxArrowsHaveTheirColumns)
         expectColour(hovered.at(up.left() + 3, up.top() + 3), layered(c.stateLayer, kHover, c.bgInput),
                      "the hovered button");
         expectColour(hovered.at(down.left() + 3, down.bottom() - 3), c.bgInput, "the other button");
+    });
+}
+
+// A combo box is as wide as what it shows needs: at its size hint, sized to its contents, the text field between the
+// field's padding and the arrow's column holds the widest item whole, with an icon before it or without, so no item it
+// can show is cut - a short choice beside a label ("Recent", "Name", "Type") as much as a long one.
+TEST(ProxyStyleObservatory, AComboBoxSizedToItsContentsShowsEveryItemWhole)
+{
+    forEachLook([](ObservatoryStyleScope& scope, const DesignTokens& t) {
+        for (const bool withIcon : {false, true})
+        {
+            SCOPED_TRACE(withIcon ? "with an icon" : "without an icon");
+            Probed<QComboBox> combo;
+            combo.setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            const QStringList items = {QStringLiteral("Recent"), QStringLiteral("Name"), QStringLiteral("Type"),
+                                       QStringLiteral("A rather longer choice")};
+            QPixmap glyph(16, 16);
+            glyph.fill(t.colors.textPrimary);
+            for (const QString& item : items)
+            {
+                if (withIcon)
+                {
+                    combo.addItem(QIcon(glyph), item);
+                }
+                else
+                {
+                    combo.addItem(item);
+                }
+            }
+            combo.resize(combo.sizeHint());
+            for (int index = 0; index < combo.count(); ++index)
+            {
+                combo.setCurrentIndex(index);
+                QStyleOptionComboBox option;
+                combo.initStyleOption(&option);
+                const QRect field =
+                    scope.style()->subControlRect(QStyle::CC_ComboBox, &option, QStyle::SC_ComboBoxEditField, &combo);
+                const int iconRoom = withIcon ? combo.iconSize().width() + t.spacing.xs + t.spacing.xs / 2 + 1 : 0;
+                const int text =
+                    static_cast<int>(std::ceil(QFontMetricsF(combo.font()).horizontalAdvance(items[index])));
+                EXPECT_GE(field.width(), iconRoom + text)
+                    << items[index].toStdString() << " is cut at " << combo.width() << " px";
+            }
+        }
     });
 }
 
