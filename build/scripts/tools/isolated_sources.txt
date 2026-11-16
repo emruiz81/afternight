@@ -2238,6 +2238,16 @@ sources Test_MainDashboard
     unit     src/AfterNightTests/Test_MainDashboard/main.cpp
     unit     src/AfterNightTests/Test_MainDashboard/test_main_dashboard.cpp
     unit     src/AfterNightTests/Test_MainDashboard/test_dashboard_theme_tokens.cpp
+    unit     src/AfterNightTests/Test_MainDashboard/HomePartsTest.cpp
+    header   src/AfterNightControls/app/ShowInFileBrowser.h
+    header   src/AfterNightControls/controls/DashboardPreferences.h
+    header   src/AfterNightControls/controls/EngineVersionReport.h
+    header   src/AfterNightControls/controls/HomeContinueRow.h
+    header   src/AfterNightControls/controls/HomeParts.h
+    header   src/AfterNightControls/controls/HomeQuickActions.h
+    header   src/AfterNightControls/controls/HomeRecentGrid.h
+    header   src/AfterNightControls/controls/HomeWelcome.h
+    header   src/AfterNightControls/widgets/FeaturedFileCard.h
     header   src/AfterNightTests/Test_MainDashboard/DashboardApplication.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/UiStyleTokens.h
@@ -2541,6 +2551,7 @@ sources Test_ShellClassic
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/RawPolicyCases.cpp
+    header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightControls/app/ActionLookup.h
     header   src/AfterNightShellCore/actions/ActionBindings.h
@@ -2752,6 +2763,14 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TaskDragTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskFloatTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
+    header   src/AfterNightControls/app/ShowInFileBrowser.h
+    header   src/AfterNightControls/controls/DashboardPreferences.h
+    header   src/AfterNightControls/controls/HomeContinueRow.h
+    header   src/AfterNightControls/controls/HomeParts.h
+    header   src/AfterNightControls/controls/HomeQuickActions.h
+    header   src/AfterNightControls/controls/HomeRecentGrid.h
+    header   src/AfterNightControls/controls/HomeWelcome.h
     header   src/AfterNightControls/widgets/StructuredElementWidget.h
     header   src/AfterNightControls/widgets/StructuringElementGrid.h
     include  src/AfterNightTests
@@ -2864,6 +2883,7 @@ sources Test_ShellObservatory
     header   src/AfterNightShellCore/services/FavoriteProcessesModel.h
     header   src/AfterNightShellCore/services/OpenProcessRegistry.h
     header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/services/RecentFilesModel.h
     header   src/AfterNightShellCore/views/DockHooks.h
     header   src/AfterNightShellCore/views/DockLayoutOperations.h
     header   src/AfterNightShellCore/views/ViewChromeBinder.h

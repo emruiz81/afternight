@@ -72,37 +72,37 @@ capability home.featured
     title        Featured file card with Continue and pin
     shared       MainDashboardInteraction.FeaturedCardShowsMostRecentFileAndMetadata, MainDashboardInteraction.FeaturedContinueButtonEmitsOpenRecentFileRequested, MainDashboardInteraction.FeaturedPinButtonClearsPersistedPinnedHeroPath
     classic
-    observatory  pending
+    observatory  Home.TheContinueRowShowsTheLastImageAndContinues
 
 capability home.quick-actions
     title        Quick actions and their overflow
     shared       MainDashboardInteraction.ToolbarExposesPrimaryAndOverflowActions, MainDashboardInteraction.PrimaryOpenFileButtonClickEmitsOpenFileRequested, MainDashboardInteraction.SystemInfoOverflowActionEnabledAndClickable
     classic
-    observatory  pending
+    observatory  Home.TheQuickActionsLaunchWhatTheDashboardsLaunch, ObservatoryWindow.HomeOpensANewSequence
 
 capability home.customize-actions
     title        Customize quick actions (move, hide, reset)
     shared       MainDashboardInteraction.ActionContextMenuMoveLaterReordersAndPersists, MainDashboardInteraction.ActionContextMenuHideAndRevealActionPersists, MainDashboardInteraction.ActionLayoutPreferencesApplyPersistedOrderAndHiddenActions
     classic
-    observatory  pending
+    observatory  Home.TheQuickActionsAreCustomizedAsOnTheDashboard
 
 capability home.recent
     title        Recent files: search, sort, thumbnails
     shared       MainDashboardRecents.SearchFiltersRecentFilesByName, MainDashboardRecents.SortByNameReordersRecentFilesAlphabetically, MainDashboardRecents.ThumbnailCardsExposeMetadataChips
     classic
-    observatory  pending
+    observatory  Home.TheRecentImagesAndSequencesAreSearchedSortedAndShownAsAGridOrAList
 
 capability home.recent-menu
     title        Recent thumbnail menu
     shared       MainDashboardRecents.PinningRecentFileMovesItToTop
     classic
-    observatory  pending
+    observatory  Home.ATilesMenuPinsAndRemoves
 
 capability home.first-run
     title        First-run panel
     shared       MainDashboardInteraction.EmptyStateShowsFeatureHighlightsInsteadOfActionButtons, MainDashboardInteraction.EmptyStateFeatureCardsUseUniformColumnsWithoutOverflow, DashboardThemeTokens.DashboardOnboardingPanel_ConstructionDoesNotCrash
     classic
-    observatory  pending
+    observatory  Home.WithNoRecentFileShowsTheWelcomeAndWithSomeItsRows
 
 # ---- Main window
 
@@ -654,6 +654,7 @@ capability new.change-against-original
 #   a dock.
 # window.main-toolbar, window.dock-toolbar, dock.group-split-fit: the classic cases trigger the actions the toolbars
 #   hold, not the toolbar buttons.
-# home.recent-menu: the case pins through the model; nothing opens the thumbnail's menu.
+# home.recent-menu: the classic case pins through the model and nothing opens the thumbnail's menu; the Observatory
+#   case opens the tile's menu.
 # view.display-mode, view.overlays: proved through the static preview, which shares the view's toolbar.
 # The window-geometry cases named under `classic` do not build the main window; they test its size rules.

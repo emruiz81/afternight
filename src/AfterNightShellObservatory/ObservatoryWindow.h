@@ -267,7 +267,7 @@ protected:
 
 private:
     void buildRegions();
-    void connectDashboard();
+    void connectHome();
     void makeUnits();
     void bindServices();
     void readyFiles();

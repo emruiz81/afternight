@@ -10,15 +10,21 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QFont>
+#include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 #include <QWidget>
 
+#include "controls/DashboardPreferences.h"
 #include "theme/AnDesignTokens.h"
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
+#include <vector>
 
 namespace DashboardUtils
 {
@@ -98,6 +104,56 @@ namespace DashboardUtils
     }
 
     return cleanLocalPath(trimmedPath);
+}
+
+/// The recent files as the dashboard shows them: those whose path or name holds the search, case aside, in the sort's
+/// order - most recent first, by name, or by type and then name - with the pinned files first, each group keeping that
+/// order. The dashboard's grid and Home's recent files order them so.
+///
+/// @param recentFiles the recent files, most recent first.
+/// @param search the search; an empty one keeps every file.
+/// @param sortMode a `DashboardPreferences::RECENT_SORT_*`.
+/// @param pinned the pinned files, normalized.
+[[nodiscard]] inline QStringList visibleRecentFileOrder(const std::deque<QString>& recentFiles, const QString& search,
+                                                        const int sortMode, const QSet<QString>& pinned)
+{
+    std::vector<QString> shown;
+    shown.reserve(recentFiles.size());
+    for (const QString& filePath : recentFiles)
+    {
+        if (search.isEmpty() || filePath.contains(search, Qt::CaseInsensitive) ||
+            QFileInfo(filePath).fileName().contains(search, Qt::CaseInsensitive))
+        {
+            shown.push_back(filePath);
+        }
+    }
+
+    if (sortMode == DashboardPreferences::RECENT_SORT_NAME)
+    {
+        std::stable_sort(shown.begin(), shown.end(), [](const QString& lhs, const QString& rhs) {
+            return QString::localeAwareCompare(QFileInfo(lhs).fileName(), QFileInfo(rhs).fileName()) < 0;
+        });
+    }
+    else if (sortMode == DashboardPreferences::RECENT_SORT_TYPE)
+    {
+        std::stable_sort(shown.begin(), shown.end(), [](const QString& lhs, const QString& rhs) {
+            const QFileInfo left(lhs);
+            const QFileInfo right(rhs);
+            const QString leftSuffix = left.suffix().toLower();
+            const QString rightSuffix = right.suffix().toLower();
+            if (leftSuffix != rightSuffix)
+            {
+                return leftSuffix < rightSuffix;
+            }
+            return QString::localeAwareCompare(left.fileName(), right.fileName()) < 0;
+        });
+    }
+
+    std::stable_partition(shown.begin(), shown.end(), [&pinned](const QString& filePath) {
+        const QString normalized = normalizeRecentFilePath(filePath);
+        return !normalized.isEmpty() && pinned.contains(normalized);
+    });
+    return QStringList(shown.cbegin(), shown.cend());
 }
 
 /// Whether a path names a file on another machine: a Windows network path in either spelling - `\\server\share\...`

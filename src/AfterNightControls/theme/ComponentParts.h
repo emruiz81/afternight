@@ -332,6 +332,53 @@ inline constexpr int kNoticeButtonPadding = 10;
 inline constexpr int kNoticeButtonGap = 4;
 inline constexpr qreal kNoticeButtonOutlineShare = 0.40;
 
+// Home: a page 28 px from the centre's sides and 20 px under the top bar, its sections 20 px apart; the date in caps
+// over a 22 px heading; a quick action's shortcut 8 px after its text. The Continue row is 228 px high: the featured
+// image takes what the side cards leave, each side card 312 px wide with 14 px of padding and corners of 10, the cards
+// 12 px apart. A recent tile is at least 260 px wide, the tiles 12 px apart: a 108 px picture over its name and its
+// facts, 10 px of padding, corners of 8; in the list a row 56 px high with a 72 x 44 picture. The welcome is at most
+// 1040 px wide: a 72 px logo over a 26 px title, three cards of 248 x 112 with 36 px icons, a drop zone 768 px wide and
+// 72 px high outlined in dashes with corners of 12, and the six things AfterNight does in a row, their icons 20 px.
+inline constexpr int kHomePagePaddingSide = 28;
+inline constexpr int kHomePagePaddingTop = 20;
+inline constexpr int kHomeSectionGap = 20;
+inline constexpr int kHomeHeadingFont = 22;
+inline constexpr int kHomeDisplayFont = 26;
+inline constexpr int kHomeSectionFont = 17;
+inline constexpr int kHomeActionKeysGap = 8;
+inline constexpr int kHomeActionIcon = 16;
+inline constexpr int kHomeContinueRowHeight = 228;
+inline constexpr int kHomeSideCardWidth = 312;
+inline constexpr int kHomeCardPadding = 14;
+inline constexpr int kHomeCardRadius = 10;
+inline constexpr int kHomeCardGap = 12;
+inline constexpr int kHomeTileMinWidth = 260;
+inline constexpr int kHomeTileGap = 12;
+inline constexpr int kHomeTilePicture = 108;
+inline constexpr int kHomeTilePadding = 10;
+inline constexpr int kHomeTileRadius = 8;
+inline constexpr int kHomeTileTagInset = 8;
+inline constexpr int kHomeListRow = 56;
+inline constexpr int kHomeListPictureWidth = 72;
+inline constexpr int kHomeListPictureHeight = 44;
+inline constexpr int kHomeSearchWidth = 280;
+inline constexpr int kHomeWelcomeWidth = 1040;
+inline constexpr int kHomeWelcomeLogo = 72;
+inline constexpr int kHomeWelcomeCardWidth = 248;
+inline constexpr int kHomeWelcomeCardHeight = 112;
+inline constexpr int kHomeWelcomeCardIcon = 36;
+inline constexpr int kHomeDropZoneWidth = 768;
+inline constexpr int kHomeDropZoneHeight = 72;
+inline constexpr int kHomeDropZoneRadius = 12;
+inline constexpr int kHomeDropZoneIcon = 22;
+inline constexpr int kHomeFeatureIcon = 20;
+/// The dash of the drop zone's outline, in its pen's widths: dash, then gap.
+inline constexpr qreal kHomeDropZoneDash = 4.0;
+/// The welcome's quiet star field: a star for every so many square pixels, drawn in the tertiary text at most at this
+/// share of its opacity.
+inline constexpr int kHomeStarArea = 7000;
+inline constexpr qreal kHomeStarShare = 0.45;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.

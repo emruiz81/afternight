@@ -314,7 +314,7 @@ another, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachE
 
 The Observatory shell, `namespace an::ui::observatory`, drawn in the Observatory style profile: `ObservatoryWindow`
 (QMainWindow) of regions sized from the density's metrics - `chrome/TopBar`, the rail (`AnIconRail`), the centre's
-pages (`pages/HomePage`, the dashboard; a `pages/WorkspacePage` each over the dock areas of the workspaces
+pages (`pages/HomePage`, Home, of Controls' Home parts; a `pages/WorkspacePage` each over the dock areas of the workspaces
 `workspaces/WorkspaceHost` makes), the
 column and `chrome/StatusLine` - implementing `IViewHost` and `IStatusDisplay`; `ObservatoryShell` behind `IShell`, and
 `observatoryShellDescriptor()` how the application registers it (`observatory`; `--shell=observatory`). The rail selects

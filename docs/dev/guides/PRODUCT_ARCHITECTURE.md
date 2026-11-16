@@ -1822,8 +1822,8 @@ profile. `ObservatoryWindow` (a `QMainWindow`, at least 1024 x 640) is made of r
 metrics: the top bar across the window (`chrome/TopBar`, `MetricTokens::barTop`), the rail under it at the left
 (`AnIconRail`, `MetricTokens::rail`), the centre - a stack of one page per place, each kept alive while another is
 shown, so changing place computes nothing - the column right of the centre, and the status line along the bottom right
-of the rail (`chrome/StatusLine`, `MetricTokens::statusLine`). Home is `pages/HomePage`, today's dashboard in a page
-that scrolls; the workspaces' place is a stack of their pages (`WorkspaceHost::stack`), each a `pages/WorkspacePage`
+of the rail (`chrome/StatusLine`, `MetricTokens::statusLine`). Home is `pages/HomePage`, a page that scrolls, made of
+Controls' Home parts (below); the workspaces' place is a stack of their pages (`WorkspaceHost::stack`), each a `pages/WorkspacePage`
 over the dock area `workspaces/WorkspaceHost` makes for it. A dock area is a main window of the dock library, named
 `an.workspace.<id>`, made with the shell's window as its parent and handed to its page (made under the page it would
 stay a window of its own), drawn by the decorations' factory and a `KddwProxyStyle` of its own, and joined to the dock
@@ -1835,6 +1835,28 @@ is parented to. A view is docked beside its neighbour, in the neighbour's worksp
 screen; maximized, it covers its workspace's page while its dock keeps a stand-in, the layout locked while it is unless
 the person had locked it already. With no image open the window shows Home, and the workspace once one is. Processes open as windows of their own:
 the shell has no process presenter yet.
+
+Home's parts are Controls', and hold no shell: `controls/HomeQuickActions` (the dashboard's quick actions as a row, Open
+file the accent's and each with its shortcut, the others in More, and the customization in More and on the row's
+right-click), `controls/HomeContinueRow` (the dashboard's `FeaturedFileCard` and `FeaturedFilePresenter` over the recent
+images - a sequence is never the featured image - and the last sequence's card with its Resume),
+`controls/HomeRecentGrid` (a tile per recent file, as a grid or a list, with its format's tag, a sequence's with a film
+glyph and its frame count, and the tile's menu, the dashboard thumbnail's five entries) and `controls/HomeWelcome` (with
+no recent file: the logo and the version, three cards to start with, the drop zone with Open file, and the first-run
+panel's six things AfterNight does, `dashboardFeatures()`). The page asks for what they ask in the dashboard's signals,
+which the window answers as it answered the dashboard. Home and the classic dashboard read and write the same settings,
+through `controls/DashboardSettings.h`: the quick actions' order and hidden ones (`DashboardQuickActionLayout`, whose
+customization menu is the dashboard's), the pinned recent files and the pinned featured file, the sort and the search -
+each loader bringing the settings to their format first, so that no part reads settings of another format whichever
+part reads first - and the recent files are ordered by one function, `DashboardUtils::visibleRecentFileOrder`, which the
+dashboard's `RecentFilesGrid` uses too: what a person arranged in one shell is what the other shows. A tile's picture
+and facts are read off the GUI thread (`readHomeRecentFile`): the thumbnail decoded on the thread pool, and the facts by
+`probeHomeRecentFile` - an image's description, or a sequence's container and frame count (`probeDashboardSequence`) -
+as background work a busy session refuses. Home reads the recent files when the window says they changed - where the
+file manager told the dashboard - never because it is shown, so changing place asks the engine for nothing. A tile, and
+the sequence's card, read again when their thumbnail changes - a file is a recent file before its thumbnail is written -
+and when a busy session left the facts of a file on disk unread. The grid or list choice lasts the run; no setting
+keeps it.
 
 The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
 Integration, which opens Image Integration - and at its foot the Session Console, which it opens and closes, and

@@ -322,51 +322,9 @@ void RecentFilesGrid::refreshRecentListView()
 
     const QString searchText = m_SearchFilter;
 
-    std::vector<QString> filtered;
-    filtered.reserve(m_AllRecentFilePaths.size());
-    for (const auto& filePath : m_AllRecentFilePaths)
-    {
-        if (searchText.isEmpty())
-        {
-            filtered.push_back(filePath);
-            continue;
-        }
-
-        const QFileInfo info(filePath);
-        const bool matchesPath = filePath.contains(searchText, Qt::CaseInsensitive);
-        const bool matchesName = info.fileName().contains(searchText, Qt::CaseInsensitive);
-        if (matchesPath || matchesName)
-        {
-            filtered.push_back(filePath);
-        }
-    }
-
-    if (m_SortMode == DashboardPreferences::RECENT_SORT_NAME)
-    {
-        std::stable_sort(filtered.begin(), filtered.end(), [](const QString& lhs, const QString& rhs) {
-            const QString leftName = QFileInfo(lhs).fileName();
-            const QString rightName = QFileInfo(rhs).fileName();
-            return QString::localeAwareCompare(leftName, rightName) < 0;
-        });
-    }
-    else if (m_SortMode == DashboardPreferences::RECENT_SORT_TYPE)
-    {
-        std::stable_sort(filtered.begin(), filtered.end(), [](const QString& lhs, const QString& rhs) {
-            const QFileInfo leftInfo(lhs);
-            const QFileInfo rightInfo(rhs);
-            const QString leftSuffix = leftInfo.suffix().toLower();
-            const QString rightSuffix = rightInfo.suffix().toLower();
-            if (leftSuffix != rightSuffix)
-            {
-                return leftSuffix < rightSuffix;
-            }
-
-            return QString::localeAwareCompare(leftInfo.fileName(), rightInfo.fileName()) < 0;
-        });
-    }
-
-    std::stable_partition(filtered.begin(), filtered.end(),
-                          [this](const QString& filePath) { return isRecentFilePinned(filePath); });
+    // The order Home's recent files share.
+    const QStringList filtered =
+        DashboardUtils::visibleRecentFileOrder(m_AllRecentFilePaths, searchText, m_SortMode, m_PinnedRecentFiles);
 
     m_VisibleRecentFileOrder.clear();
     m_VisibleRecentFileOrder.reserve(static_cast<qsizetype>(filtered.size()));

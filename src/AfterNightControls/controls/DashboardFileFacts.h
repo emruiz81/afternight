@@ -16,6 +16,7 @@
 #include <QSize>
 #include <QString>
 
+#include <cstdint>
 #include <optional>
 
 namespace an::consumer
@@ -90,5 +91,44 @@ probeDashboardFile(const an::consumer::EngineSession& session, const QString& pa
 /// @param facts what the probe read.
 /// @return the line; empty when the file states none of them.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString compactDashboardSummary(const DashboardFileFacts& facts);
+
+/// What a recent sequence's card says about it beyond its name: its container, the size of a frame and how many frames
+/// it holds, as its container states them.
+struct DashboardSequenceFacts
+{
+    /// The container, as a card names it: "SER", "Image list", "AVI", "MP4" or "Video".
+    QString container;
+
+    /// A frame's width and height in pixels; invalid when the frames describe themselves one by one.
+    QSize frameSize;
+
+    /// How many frames it holds; absent when the container does not state it.
+    std::optional<std::uint64_t> frameCount;
+};
+
+/// Whether a file is a sequence the product reads - a SER, an image list or a video - by the container its name says,
+/// case aside.
+///
+/// @param path the file.
+/// @return true when it names a sequence the product opens.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool isDashboardSequence(const QString& path);
+
+/// Probes a sequence file's container in a session, as background work that never waits: refused when the session has
+/// no thread free. The container is opened, its description read and it is closed; no frame is decoded.
+///
+/// Thread-safe.
+///
+/// @param session the process's session.
+/// @param path the file.
+/// @return the facts, or nothing when the session refused, the file is no sequence the product reads or cannot be
+///         opened.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<DashboardSequenceFacts>
+probeDashboardSequence(const an::consumer::EngineSession& session, const QString& path);
+
+/// Probes a sequence file in the session the application context lends, when it lends one.
+///
+/// @param path the file.
+/// @return the facts, or nothing as `probeDashboardSequence` answers, and nothing where no session is lent.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<DashboardSequenceFacts> probeDashboardSequence(const QString& path);
 
 } // namespace an::ui

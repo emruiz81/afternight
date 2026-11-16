@@ -11,6 +11,7 @@
 #include "controls/DashboardToolbar.h"
 #include "controls/RecentFilesGrid.h"
 #include "controls/DashboardPreferences.h"
+#include "controls/DashboardSettings.h"
 #include "controls/DashboardUtils.h"
 #include "controls/settings/SettingsKeys.h"
 #include "components/AnButtonGroup.h"
@@ -50,25 +51,12 @@
 
 W_OBJECT_IMPL(MainDashboard)
 
-using DashboardPreferences::ACTION_ID_ABOUT;
 using DashboardPreferences::ACTION_ID_CLEAR_RECENTS;
 using DashboardPreferences::ACTION_ID_EXTENSION_MANAGER;
-using DashboardPreferences::ACTION_ID_HELP;
 using DashboardPreferences::ACTION_ID_IMAGE_INTEGRATION;
 using DashboardPreferences::ACTION_ID_NEW_SEQUENCE;
 using DashboardPreferences::ACTION_ID_OPEN_FILE;
-using DashboardPreferences::ACTION_ID_SETTINGS;
 using DashboardPreferences::ACTION_ID_SYSTEM_INFO;
-using DashboardPreferences::actionTitleForId;
-using DashboardPreferences::canonicalizeActionOrder;
-using DashboardPreferences::canonicalizeHiddenActionIds;
-using DashboardPreferences::dashboardActionIds;
-using DashboardPreferences::deserializeActionIdList;
-using DashboardPreferences::deserializeRecentSortMode;
-using DashboardPreferences::hiddenActionIdsInCanonicalOrder;
-using DashboardPreferences::normalizeActionIdToken;
-using DashboardPreferences::serializeActionIdList;
-using DashboardPreferences::serializeRecentSortMode;
 
 using DashboardUtils::normalizeRecentFilePath;
 using DashboardUtils::scaledPixels;
@@ -89,31 +77,6 @@ constexpr int RECENT_SECTION_SLIDE_OFFSET_PX = 12;
 constexpr int RECENT_SORT_RECENT = DashboardPreferences::RECENT_SORT_RECENT;
 constexpr int RECENT_SORT_NAME = DashboardPreferences::RECENT_SORT_NAME;
 constexpr int RECENT_SORT_TYPE = DashboardPreferences::RECENT_SORT_TYPE;
-constexpr int DASHBOARD_SETTINGS_SCHEMA_VERSION = 4;
-constexpr auto DASHBOARD_SETTINGS_SCHEMA_VERSION_KEY = SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION;
-constexpr auto DASHBOARD_ACTION_ORDER_KEY = SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER;
-constexpr auto DASHBOARD_HIDDEN_ACTIONS_KEY = SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS;
-constexpr auto DASHBOARD_PINNED_HERO_FILE_KEY = SettingsKeys::INTERFACE_DASHBOARD_PINNED_HERO_FILE;
-constexpr auto DASHBOARD_RECENT_SORT_MODE_KEY = SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE;
-constexpr auto DASHBOARD_RECENT_SEARCH_TEXT_KEY = SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT;
-constexpr auto DASHBOARD_LAST_ACTION_KEY = SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION;
-
-/// Every setting the dashboard's format governs, the format itself among them.
-constexpr const char* DASHBOARD_SETTINGS_KEYS[] = {
-    DASHBOARD_SETTINGS_SCHEMA_VERSION_KEY, DASHBOARD_ACTION_ORDER_KEY,
-    DASHBOARD_HIDDEN_ACTIONS_KEY,          SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS,
-    DASHBOARD_PINNED_HERO_FILE_KEY,        DASHBOARD_RECENT_SORT_MODE_KEY,
-    DASHBOARD_RECENT_SEARCH_TEXT_KEY,      DASHBOARD_LAST_ACTION_KEY};
-
-an::ui::IGlobalSettingsProvider* globalSettings()
-{
-    if (auto* context = an::ui::appContext())
-    {
-        return context->getGlobalSettings();
-    }
-
-    return nullptr;
-}
 
 an::ui::IIconProviderPtr iconProvider()
 {
@@ -143,24 +106,6 @@ an::ui::IThumbnailPathProvider* thumbnailPathProvider()
     }
 
     return nullptr;
-}
-
-QString selectGlobalSetting(const QString& key, const QString& defaultValue = {})
-{
-    if (auto* settings = globalSettings())
-    {
-        return settings->select(key, defaultValue);
-    }
-
-    return defaultValue;
-}
-
-void upsertGlobalSetting(const QString& key, const QString& value)
-{
-    if (auto* settings = globalSettings())
-    {
-        settings->upsert(key, value);
-    }
 }
 
 QIcon monoSvgIcon(const QString& resourcePath, const QSize& size)
@@ -206,8 +151,7 @@ void openDroppedFilesViaContext(const QStringList& files)
 struct MainDashboard::Impl
 {
     QVBoxLayout* m_MainLayout = nullptr;
-    QStringList m_ActionOrderPreference;
-    QSet<QString> m_HiddenActionIds;
+    an::ui::DashboardQuickActionLayout m_QuickActions;
     an::ui::DashboardIdentityBar* m_DashboardIdentityBar = nullptr;
     an::ui::DashboardToolbar* m_DashboardToolbar = nullptr;
 
@@ -396,127 +340,23 @@ QString MainDashboard::actionTitleForId(const QString& actionId) const
 
 void MainDashboard::applyActionLayoutPreferences()
 {
-    const QStringList allActionIds = dashboardActionIds();
-    m_Impl->m_ActionOrderPreference = canonicalizeActionOrder(allActionIds, m_Impl->m_ActionOrderPreference);
-    m_Impl->m_HiddenActionIds = canonicalizeHiddenActionIds(
-        allActionIds, hiddenActionIdsInCanonicalOrder(allActionIds, m_Impl->m_HiddenActionIds));
-
     if (!m_Impl->m_DashboardToolbar)
     {
         return;
     }
 
-    m_Impl->m_DashboardToolbar->setActionOrder(m_Impl->m_ActionOrderPreference);
-    m_Impl->m_DashboardToolbar->setHiddenActionIds(m_Impl->m_HiddenActionIds);
+    m_Impl->m_DashboardToolbar->setActionOrder(m_Impl->m_QuickActions.order());
+    m_Impl->m_DashboardToolbar->setHiddenActionIds(m_Impl->m_QuickActions.hidden());
     m_Impl->m_DashboardToolbar->setActionEnabled(QString::fromUtf8(ACTION_ID_CLEAR_RECENTS),
                                                  !m_Impl->m_AllRecentFilePaths.empty());
 }
 
 void MainDashboard::populateQuickActionCustomizationMenu(QMenu& menu)
 {
-    const QStringList allActionIds = dashboardActionIds();
-    QMenu* customizeMenu = menu.addMenu(tr("Customize quick actions"));
-    if (!customizeMenu)
-    {
-        return;
-    }
-
-    int visibleActionCount = 0;
-    for (const QString& actionId : m_Impl->m_ActionOrderPreference)
-    {
-        if (!m_Impl->m_HiddenActionIds.contains(actionId))
-        {
-            ++visibleActionCount;
-        }
-    }
-
-    const auto applyAndPersist = [this, allActionIds]() {
+    // The layout is the dashboard's settings, which Home shares; a choice keeps it and the toolbar follows.
+    m_Impl->m_QuickActions.addCustomizationMenu(menu, this, [this]() {
         applyActionLayoutPreferences();
-        persistActionLayoutPreferences(allActionIds);
         update();
-    };
-
-    for (const QString& actionId : m_Impl->m_ActionOrderPreference)
-    {
-        const int actionIndex = m_Impl->m_ActionOrderPreference.indexOf(actionId);
-        QMenu* actionMenu = customizeMenu->addMenu(actionTitleForId(actionId));
-        if (!actionMenu)
-        {
-            continue;
-        }
-
-        QAction* moveEarlierAction = actionMenu->addAction(tr("Move earlier"));
-        QAction* moveLaterAction = actionMenu->addAction(tr("Move later"));
-        moveEarlierAction->setEnabled(actionIndex > 0);
-        moveLaterAction->setEnabled(actionIndex >= 0 && actionIndex < (m_Impl->m_ActionOrderPreference.size() - 1));
-
-        const bool isHidden = m_Impl->m_HiddenActionIds.contains(actionId);
-        QAction* hideOrShowAction = actionMenu->addAction(isHidden ? tr("Show action") : tr("Hide action"));
-        hideOrShowAction->setEnabled(isHidden || visibleActionCount > 1);
-
-        connect(moveEarlierAction, &QAction::triggered, this, [this, actionIndex, applyAndPersist]() {
-            if (actionIndex <= 0)
-            {
-                return;
-            }
-            m_Impl->m_ActionOrderPreference.swapItemsAt(actionIndex, actionIndex - 1);
-            applyAndPersist();
-        });
-        connect(moveLaterAction, &QAction::triggered, this, [this, actionIndex, applyAndPersist]() {
-            if (actionIndex < 0 || actionIndex >= (m_Impl->m_ActionOrderPreference.size() - 1))
-            {
-                return;
-            }
-            m_Impl->m_ActionOrderPreference.swapItemsAt(actionIndex, actionIndex + 1);
-            applyAndPersist();
-        });
-        connect(hideOrShowAction, &QAction::triggered, this,
-                [this, actionId, isHidden, visibleActionCount, applyAndPersist]() {
-                    if (isHidden)
-                    {
-                        m_Impl->m_HiddenActionIds.remove(actionId);
-                        applyAndPersist();
-                        return;
-                    }
-
-                    if (visibleActionCount <= 1)
-                    {
-                        return;
-                    }
-
-                    m_Impl->m_HiddenActionIds.insert(actionId);
-                    applyAndPersist();
-                });
-    }
-
-    QMenu* hiddenActionsMenu = customizeMenu->addMenu(tr("Show hidden action"));
-    hiddenActionsMenu->setEnabled(!m_Impl->m_HiddenActionIds.isEmpty());
-    for (const QString& actionId : m_Impl->m_ActionOrderPreference)
-    {
-        if (!m_Impl->m_HiddenActionIds.contains(actionId))
-        {
-            continue;
-        }
-
-        QAction* revealAction = hiddenActionsMenu->addAction(actionTitleForId(actionId));
-        connect(revealAction, &QAction::triggered, this, [this, actionId, applyAndPersist]() {
-            m_Impl->m_HiddenActionIds.remove(actionId);
-            applyAndPersist();
-        });
-    }
-
-    customizeMenu->addSeparator();
-    QAction* resetLayoutAction = customizeMenu->addAction(tr("Reset quick actions"));
-    connect(resetLayoutAction, &QAction::triggered, this, [this, allActionIds, applyAndPersist]() {
-        const QStringList canonicalOrder = canonicalizeActionOrder(allActionIds, allActionIds);
-        if (m_Impl->m_ActionOrderPreference == canonicalOrder && m_Impl->m_HiddenActionIds.isEmpty())
-        {
-            return;
-        }
-
-        m_Impl->m_ActionOrderPreference = canonicalOrder;
-        m_Impl->m_HiddenActionIds.clear();
-        applyAndPersist();
     });
 }
 
@@ -605,8 +445,7 @@ void MainDashboard::synchronizeRecentSectionVisualState()
 
 void MainDashboard::initializeActionButtonsSection()
 {
-    const QStringList allActionIds = dashboardActionIds();
-    loadActionLayoutPreferences(allActionIds);
+    loadActionLayoutPreferences(DashboardPreferences::dashboardActionIds());
 
     m_Impl->m_DashboardToolbar = new an::ui::DashboardToolbar(this);
     connect(m_Impl->m_DashboardToolbar, &an::ui::DashboardToolbar::openFileRequested, this, [this]() {
@@ -1294,90 +1133,17 @@ void MainDashboard::updateThemeStyles()
 
 void MainDashboard::ensureDashboardSettingsSchema()
 {
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QString formatKey = QString::fromUtf8(DASHBOARD_SETTINGS_SCHEMA_VERSION_KEY);
-    const QString current = QString::number(DASHBOARD_SETTINGS_SCHEMA_VERSION);
-    const QString stated = selectGlobalSetting(formatKey, QString()).trimmed();
-    if (stated == current)
-    {
-        return;
-    }
-
-    // Settings of another format - older, newer, or keys that state none - are never read: each one stored is set aside
-    // under its own name with the format it states beside it, and the dashboard starts from its defaults.
-    bool numbered = false;
-    const int statedFormat = stated.toInt(&numbered);
-    const QString suffix =
-        numbered && statedFormat > 0 ? QStringLiteral(".format%1").arg(statedFormat) : QStringLiteral(".unversioned");
-    QStringList setAside;
-    for (const char* key : DASHBOARD_SETTINGS_KEYS)
-    {
-        const QString name = QString::fromUtf8(key);
-        const QString value = selectGlobalSetting(name, QString());
-        if (value.isEmpty())
-        {
-            continue;
-        }
-        upsertGlobalSetting(name + suffix, value);
-        upsertGlobalSetting(name, QString());
-        setAside << name;
-    }
-    if (!setAside.isEmpty())
-    {
-        LOG_WARNING("MainDashboard: the dashboard's settings {}; this version of AfterNight reads format {}. They were "
-                    "set aside under their names with '{}' beside them, and the dashboard starts from its defaults.",
-                    numbered && statedFormat > 0 ? fmt::format("were written in format {}", statedFormat)
-                                                 : std::string("state no format version"),
-                    DASHBOARD_SETTINGS_SCHEMA_VERSION, suffix.toStdString());
-    }
-    upsertGlobalSetting(formatKey, current);
+    an::ui::ensureDashboardSettingsFormat();
 }
 
-void MainDashboard::loadActionLayoutPreferences(const QStringList& allActionIds)
+void MainDashboard::loadActionLayoutPreferences(const QStringList& /*allActionIds*/)
 {
-    m_Impl->m_ActionOrderPreference = canonicalizeActionOrder(allActionIds, allActionIds);
-    m_Impl->m_HiddenActionIds.clear();
-
-    ensureDashboardSettingsSchema();
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QString serializedOrder = selectGlobalSetting(QString::fromUtf8(DASHBOARD_ACTION_ORDER_KEY), QString());
-    const QString serializedHidden = selectGlobalSetting(QString::fromUtf8(DASHBOARD_HIDDEN_ACTIONS_KEY), QString());
-
-    const QStringList canonicalOrder = canonicalizeActionOrder(allActionIds, deserializeActionIdList(serializedOrder));
-    const QSet<QString> canonicalHidden =
-        canonicalizeHiddenActionIds(allActionIds, deserializeActionIdList(serializedHidden));
-    const QStringList canonicalHiddenOrder = hiddenActionIdsInCanonicalOrder(allActionIds, canonicalHidden);
-
-    m_Impl->m_ActionOrderPreference = canonicalOrder;
-    m_Impl->m_HiddenActionIds = canonicalHidden;
-
-    const QString normalizedOrder = serializeActionIdList(canonicalOrder);
-    const QString normalizedHidden = serializeActionIdList(canonicalHiddenOrder);
-    if (serializedOrder != normalizedOrder || serializedHidden != normalizedHidden)
-    {
-        persistActionLayoutPreferences(allActionIds);
-    }
+    m_Impl->m_QuickActions.load();
 }
 
-void MainDashboard::persistActionLayoutPreferences(const QStringList& allActionIds) const
+void MainDashboard::persistActionLayoutPreferences(const QStringList& /*allActionIds*/) const
 {
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QStringList canonicalOrder = canonicalizeActionOrder(allActionIds, m_Impl->m_ActionOrderPreference);
-    const QStringList canonicalHiddenOrder = hiddenActionIdsInCanonicalOrder(allActionIds, m_Impl->m_HiddenActionIds);
-    upsertGlobalSetting(QString::fromUtf8(DASHBOARD_ACTION_ORDER_KEY), serializeActionIdList(canonicalOrder));
-    upsertGlobalSetting(QString::fromUtf8(DASHBOARD_HIDDEN_ACTIONS_KEY), serializeActionIdList(canonicalHiddenOrder));
+    m_Impl->m_QuickActions.store();
 }
 
 void MainDashboard::loadRecentSortPreference()
@@ -1387,21 +1153,7 @@ void MainDashboard::loadRecentSortPreference()
         return;
     }
 
-    ensureDashboardSettingsSchema();
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QString persistedValue = selectGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SORT_MODE_KEY), QString());
-    const int sortMode = deserializeRecentSortMode(persistedValue);
-    const QString canonicalValue = serializeRecentSortMode(sortMode);
-    if (persistedValue.trimmed().toLower() != canonicalValue)
-    {
-        upsertGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SORT_MODE_KEY), canonicalValue);
-    }
-
-    const int comboIndex = m_Impl->m_RecentSortCombo->findData(sortMode);
+    const int comboIndex = m_Impl->m_RecentSortCombo->findData(an::ui::loadRecentSortMode());
     if (comboIndex >= 0 && comboIndex != m_Impl->m_RecentSortCombo->currentIndex())
     {
         const QSignalBlocker blocker(m_Impl->m_RecentSortCombo);
@@ -1411,13 +1163,12 @@ void MainDashboard::loadRecentSortPreference()
 
 void MainDashboard::persistRecentSortPreference() const
 {
-    if (!m_Impl->m_RecentSortCombo || !globalSettings())
+    if (!m_Impl->m_RecentSortCombo)
     {
         return;
     }
 
-    const int sortMode = m_Impl->m_RecentSortCombo->currentData().toInt();
-    upsertGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SORT_MODE_KEY), serializeRecentSortMode(sortMode));
+    an::ui::storeRecentSortMode(m_Impl->m_RecentSortCombo->currentData().toInt());
 }
 
 void MainDashboard::loadRecentSearchPreference()
@@ -1427,49 +1178,27 @@ void MainDashboard::loadRecentSearchPreference()
         return;
     }
 
-    ensureDashboardSettingsSchema();
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QString persistedSearch = selectGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SEARCH_TEXT_KEY), QString());
-    const QString normalizedSearch = persistedSearch.trimmed();
-    if (persistedSearch != normalizedSearch)
-    {
-        upsertGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SEARCH_TEXT_KEY), normalizedSearch);
-    }
-
-    if (m_Impl->m_RecentSearchInput->text() != normalizedSearch)
+    const QString search = an::ui::loadRecentSearchText();
+    if (m_Impl->m_RecentSearchInput->text() != search)
     {
         const QSignalBlocker blocker(m_Impl->m_RecentSearchInput);
-        m_Impl->m_RecentSearchInput->setText(normalizedSearch);
+        m_Impl->m_RecentSearchInput->setText(search);
     }
 }
 
 void MainDashboard::persistRecentSearchPreference() const
 {
-    if (!m_Impl->m_RecentSearchInput || !globalSettings())
+    if (!m_Impl->m_RecentSearchInput)
     {
         return;
     }
 
-    upsertGlobalSetting(QString::fromUtf8(DASHBOARD_RECENT_SEARCH_TEXT_KEY),
-                        m_Impl->m_RecentSearchInput->text().trimmed());
+    an::ui::storeRecentSearchText(m_Impl->m_RecentSearchInput->text());
 }
 
 void MainDashboard::recordDashboardLastAction(const QString& actionText)
 {
-    const QString trimmedAction = actionText.trimmed();
-    if (trimmedAction.isEmpty())
-    {
-        return;
-    }
-
-    if (globalSettings())
-    {
-        upsertGlobalSetting(QString::fromUtf8(DASHBOARD_LAST_ACTION_KEY), trimmedAction);
-    }
+    an::ui::recordDashboardLastAction(actionText);
 }
 
 void MainDashboard::refreshFeaturedFileCard()
@@ -1589,82 +1318,22 @@ void MainDashboard::promoteRecentFileToFront(const QString& filePath)
 
 void MainDashboard::loadPinnedRecentFilesPreference()
 {
-    m_Impl->m_PinnedRecentFiles.clear();
-
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    const QString serializedPinned =
-        selectGlobalSetting(QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS), QString());
-    if (serializedPinned.isEmpty())
-    {
-        return;
-    }
-
-    const QStringList entries = serializedPinned.split('\n', Qt::SkipEmptyParts);
-    for (const QString& entry : entries)
-    {
-        const QString normalizedPath = normalizeRecentFilePath(entry);
-        if (!normalizedPath.isEmpty())
-        {
-            m_Impl->m_PinnedRecentFiles.insert(normalizedPath);
-        }
-    }
+    m_Impl->m_PinnedRecentFiles = an::ui::loadPinnedRecentFiles();
 }
 
 void MainDashboard::persistPinnedRecentFilesPreference() const
 {
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    QStringList serializedEntries;
-    serializedEntries.reserve(m_Impl->m_PinnedRecentFiles.size());
-    for (const QString& path : m_Impl->m_PinnedRecentFiles)
-    {
-        serializedEntries.push_back(path);
-    }
-
-    std::sort(serializedEntries.begin(), serializedEntries.end(),
-              [](const QString& lhs, const QString& rhs) { return QString::localeAwareCompare(lhs, rhs) < 0; });
-
-    upsertGlobalSetting(QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS),
-                        serializedEntries.join('\n'));
+    an::ui::storePinnedRecentFiles(m_Impl->m_PinnedRecentFiles);
 }
 
 void MainDashboard::loadPinnedHeroFilePreference()
 {
-    m_Impl->m_PinnedHeroFilePath.clear();
-
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    // Only normalized: a file that is gone is shown as missing where the card is drawn, so no stat is made here on
-    // every dashboard open.
-    const QString persistedPinnedHeroPath =
-        selectGlobalSetting(QString::fromUtf8(DASHBOARD_PINNED_HERO_FILE_KEY), QString());
-    const QString normalizedPinnedHeroPath = normalizeRecentFilePath(persistedPinnedHeroPath);
-
-    m_Impl->m_PinnedHeroFilePath = normalizedPinnedHeroPath;
-    if (persistedPinnedHeroPath.trimmed() != normalizedPinnedHeroPath)
-    {
-        persistPinnedHeroFilePreference();
-    }
+    m_Impl->m_PinnedHeroFilePath = an::ui::loadPinnedFeaturedFile();
 }
 
 void MainDashboard::persistPinnedHeroFilePreference() const
 {
-    if (!globalSettings())
-    {
-        return;
-    }
-
-    upsertGlobalSetting(QString::fromUtf8(DASHBOARD_PINNED_HERO_FILE_KEY), m_Impl->m_PinnedHeroFilePath.trimmed());
+    an::ui::storePinnedFeaturedFile(m_Impl->m_PinnedHeroFilePath);
 }
 
 void MainDashboard::setPinnedHeroFile(const QString& filePath, const bool pinned)
@@ -2052,25 +1721,14 @@ void MainDashboard::applyToolbarIcons()
         const QSize featureIconSize(28, 28);
         const QSize actionIconSize(36, 36);
 
-        // Feature card icons (accent-tinted)
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            0, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/image_filled.svg"),
-                                                   featureIconSize, accentColor)));
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            1, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/exposure.svg"),
-                                                   featureIconSize, accentColor)));
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            2, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/star.svg"), featureIconSize,
-                                                   accentColor)));
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            3, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/stack.svg"), featureIconSize,
-                                                   accentColor)));
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            4, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/area_chart.svg"),
-                                                   featureIconSize, accentColor)));
-        m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
-            5, QIcon(provider->loadSvgFileAsPixmap(QStringLiteral(":/AfterNight/icons/SVG/hq.svg"), featureIconSize,
-                                                   accentColor)));
+        // Feature card icons (accent-tinted), as the first-run panel's table names them.
+        int featureIndex = 0;
+        for (const an::ui::DashboardFeature& feature : an::ui::dashboardFeatures())
+        {
+            m_Impl->m_EmptyStateOnboardingPanel->setFeatureIcon(
+                featureIndex++,
+                QIcon(provider->loadSvgFileAsPixmap(QString::fromUtf8(feature.icon), featureIconSize, accentColor)));
+        }
 
         // Action card icons (accent-tinted)
         m_Impl->m_EmptyStateOnboardingPanel->setActionIcons(

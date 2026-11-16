@@ -18,12 +18,25 @@
 #include <QWidget>
 #include <verdigris/wobjectdefs.h>
 
+#include <array>
 #include <memory>
 
 class QResizeEvent;
 
 namespace an::ui
 {
+
+/// One thing AfterNight does, as the first-run panel's feature cards say it: a title and a line under it - each to be
+/// translated in the panel's context, `an::ui::DashboardOnboardingPanel` - and the icon's resource.
+struct DashboardFeature
+{
+    const char* title;
+    const char* description;
+    const char* icon;
+};
+
+/// The six things AfterNight does that the first-run panel shows, in its order; Home's welcome shows the same.
+[[nodiscard]] AFTERNIGHTCONTROLS_API const std::array<DashboardFeature, 6>& dashboardFeatures();
 
 class AFTERNIGHTCONTROLS_API DashboardOnboardingPanel : public QWidget
 {

@@ -17,11 +17,13 @@
 #include "components/RailItem.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
-#include "controls/MainDashboard.h"
+#include "controls/DashboardPreferences.h"
+#include "controls/HomeQuickActions.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 
+#include <QAbstractButton>
 #include <QApplication>
 #include <QFileDialog>
 #include <QMenuBar>
@@ -148,9 +150,10 @@ TEST_F(ObservatoryWindow, ShortcutsWorkWithTheMenuBarHidden)
 TEST_F(ObservatoryWindow, HomeOpensANewSequence)
 {
     ASSERT_TRUE(window().isHomeShown());
-    MainDashboard* const dashboard = window().homePage()->dashboard();
-    ASSERT_NE(dashboard, nullptr);
-    dashboard->newSequenceRequested();
+    QAbstractButton* const button = window().homePage()->quickActions()->actionButton(
+        QString::fromUtf8(DashboardPreferences::ACTION_ID_NEW_SEQUENCE));
+    ASSERT_NE(button, nullptr);
+    QTest::mouseClick(button, Qt::LeftButton);
     NewSequenceControl* opened = nullptr;
     EXPECT_TRUE(an::tests::app::processEventsUntil([&opened]() {
         for (QWidget* widget : QApplication::topLevelWidgets())

@@ -50,7 +50,7 @@ struct NightImageWidget
 };
 
 /// The widgets that paint a picture, by source.
-inline constexpr std::array<NightImageWidget, 26u> kNightImageWidgets{{
+inline constexpr std::array<NightImageWidget, 30u> kNightImageWidgets{{
     {"ImageViewWidget", "widgets/ImageViewWidget.cpp", NightImageUse::Presentation,
      "The image's presentation, a preview's frames and the mask layer, mapped on the worker that presents them; under "
      "Night the lens magnifies what is painted and reads the image's own values."},
@@ -74,6 +74,14 @@ inline constexpr std::array<NightImageWidget, 26u> kNightImageWidgets{{
      "The application's logo, in a NightPictureLabel."},
     {"DashboardOnboardingPanel", "controls/DashboardOnboardingPanel.cpp", NightImageUse::Picture,
      "The welcome's art, through NightPictures, and the logo in a NightPictureLabel; the cards' icons are tinted."},
+    {"HomeWelcome", "controls/HomeWelcome.cpp", NightImageUse::Picture,
+     "Home's welcome: the logo in a NightPictureLabel; its star field and its icons are drawn in the tokens' colours."},
+    {"HomeRecentTile", "controls/HomeRecentGrid.cpp", NightImageUse::Picture,
+     "A recent file's thumbnail on its tile, through a NightPicture."},
+    {"PictureWell", "controls/HomeContinueRow.cpp", NightImageUse::Picture,
+     "The last sequence's thumbnail, through a NightPicture; the featured image is the FeaturedFileCard's."},
+    {"paintHomePicture", "controls/HomeParts.cpp", NightImageUse::Handed,
+     "A recent file's picture in its place, handed in the form its owner's NightPicture shows."},
     {"ImageHistoryControl", "controls/ImageHistoryControl.cpp", NightImageUse::Picture,
      "A step's preview, in an ImagePreviewWidget."},
     {"NewSequenceControl", "controls/NewSequenceControl.cpp", NightImageUse::Picture,

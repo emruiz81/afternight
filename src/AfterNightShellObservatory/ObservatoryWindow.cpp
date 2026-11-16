@@ -81,7 +81,6 @@
 #include "controls/ImageViewControlManager.h"
 #include "controls/KDDockWidgetsHelper.h"
 #include "controls/ViewChrome.h"
-#include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -142,7 +141,7 @@ namespace an::ui::observatory
 namespace
 {
 
-/// The Image Integration process, which the dashboard's button opens.
+/// The Image Integration process, which Home's quick action opens.
 constexpr char kImageIntegrationProcess[] = "multi_image_stacking.actionImage_Integration";
 
 /// Hears which view is active and which views go, for the window's chrome.
@@ -304,9 +303,8 @@ struct ObservatoryWindow::Impl
     QKeySequence closeShortcutBefore;
     bool fillingSelector = false;
 
-    // What the window's units read through a pointer to a pointer: the dashboard, the dock area, the lock's button
-    // (this window has none).
-    MainDashboard* dashboard = nullptr;
+    // What the window's units read through a pointer to a pointer: the dock area, the lock's button (this window has
+    // none).
     KDDockWidgets::QtWidgets::MainWindow* dockArea = nullptr;
     QToolButton* lockButton = nullptr;
 
@@ -800,9 +798,8 @@ void ObservatoryWindow::buildRegions()
         }
     });
 
-    // Home: the dashboard.
+    // Home: Controls' Home parts on a page.
     impl.homePage = new HomePage(impl.centre);
-    impl.dashboard = impl.homePage->dashboard();
     impl.centre->addWidget(impl.homePage);
 
     // The view's menu fills the toolbars' More: the menus it shares are the menu bar's.
@@ -864,7 +861,7 @@ void ObservatoryWindow::buildRegions()
     setAcceptDrops(true);
 
     impl.centre->setCurrentWidget(impl.homePage);
-    connectDashboard();
+    connectHome();
 
     // The command palette over the core's index of commands, and its scrim over the centre and the column.
     impl.topBar->setIconProvider([this](const QString& name) { return m_impl->icon(name.toStdString()); });
@@ -918,46 +915,40 @@ void ObservatoryWindow::buildRegions()
     placeChanged();
 }
 
-void ObservatoryWindow::connectDashboard()
+void ObservatoryWindow::connectHome()
 {
-    MainDashboard* const dashboard = m_impl->dashboard;
-    QObject::connect(dashboard, &MainDashboard::openFileRequested, this, [this]() { openFile(); });
-    QObject::connect(dashboard, &MainDashboard::newSequenceRequested, this, [this]() { newSequence(); });
-    QObject::connect(dashboard, &MainDashboard::imageIntegrationRequested, this, [this]() { openImageIntegration(); });
-    QObject::connect(dashboard, &MainDashboard::openExtensionManagerRequested, this,
+    // Home asks in the dashboard's signals; the window answers as it answered the dashboard.
+    HomePage* const home = m_impl->homePage;
+    QObject::connect(home, &HomePage::openFileRequested, this, [this]() { openFile(); });
+    QObject::connect(home, &HomePage::newSequenceRequested, this, [this]() { newSequence(); });
+    QObject::connect(home, &HomePage::imageIntegrationRequested, this, [this]() { openImageIntegration(); });
+    QObject::connect(home, &HomePage::openExtensionManagerRequested, this,
                      [this]() { openSettingsAt(an::ui::shell::ExtensionService::managerPageTitle()); });
-    QObject::connect(dashboard, &MainDashboard::clearRecentFilesRequested, this, [this]() {
+    QObject::connect(home, &HomePage::clearRecentFilesRequested, this, [this]() {
         if (m_impl->fileManager)
         {
             m_impl->fileManager->clearRecentFilesList();
         }
     });
-    QObject::connect(dashboard, &MainDashboard::openSettingsRequested, this, [this]() { openSettings(); });
-    QObject::connect(dashboard, &MainDashboard::systemInformationRequested, this, [this]() {
+    QObject::connect(home, &HomePage::systemInformationRequested, this, [this]() {
         if (m_impl->dialogs)
         {
             m_impl->dialogs->systemInformation();
         }
     });
-    QObject::connect(dashboard, &MainDashboard::aboutRequested, this, [this]() {
-        if (m_impl->dialogs)
-        {
-            m_impl->dialogs->about();
-        }
-    });
-    QObject::connect(dashboard, &MainDashboard::openHelpRequested, this, [this]() {
+    QObject::connect(home, &HomePage::openHelpRequested, this, [this]() {
         if (m_impl->dialogs)
         {
             m_impl->dialogs->openHelp();
         }
     });
-    QObject::connect(dashboard, &MainDashboard::openRecentFileRequested, this, [this](const QString& filePath) {
+    QObject::connect(home, &HomePage::openRecentFileRequested, this, [this](const QString& filePath) {
         if (m_impl->fileManager)
         {
             m_impl->fileManager->openRecentSingleFile(filePath);
         }
     });
-    QObject::connect(dashboard, &MainDashboard::removeRecentFileRequested, this, [this](const QString& filePath) {
+    QObject::connect(home, &HomePage::removeRecentFileRequested, this, [this](const QString& filePath) {
         if (m_impl->fileManager)
         {
             m_impl->fileManager->removeRecentFile(filePath.toStdString());
@@ -989,7 +980,6 @@ void ObservatoryWindow::makeUnits()
         icons->loadIcons(QStringLiteral(":/AfterNight/icons/PNG"));
     };
     themeDeps.setActionIcons = [this]() { setActionIcons(); };
-    themeDeps.mainDashboard = &impl.dashboard;
     themeDeps.toolbarLockLayout = &impl.lockButton;
     themeDeps.isLayoutLocked = [this]() { return m_impl->core.dockLayout().isLocked(dockTarget()); };
     themeDeps.imageViewControlManager = viewManager;
@@ -1009,15 +999,15 @@ void ObservatoryWindow::makeUnits()
     fileDeps.recentFilesLimit = [this]() { return m_impl->core.recentFiles().limit(); };
     fileDeps.saveRecentFiles = [this]() { m_impl->core.recentFiles().save(); };
     fileDeps.reloadRecentFilesThumbnails = [this]() {
-        if (m_impl->dashboard != nullptr)
+        if (m_impl->homePage != nullptr)
         {
-            m_impl->dashboard->reloadRecentFilesThumbnails();
+            m_impl->homePage->reloadRecentFiles();
         }
     };
     fileDeps.notifyRecentFilesListDeleted = [this]() {
-        if (m_impl->dashboard != nullptr)
+        if (m_impl->homePage != nullptr)
         {
-            m_impl->dashboard->notifyRecentFilesListDeleted();
+            m_impl->homePage->recentFilesCleared();
         }
     };
     fileDeps.rawOpenPolicy = [this]() { return m_impl->core.rawOpenPolicy(); };
@@ -1065,7 +1055,6 @@ void ObservatoryWindow::makeUnits()
     dialogDeps.extensionBackgroundWorkCancellationToken = core.extensions().cancellationToken();
     dialogDeps.globalSettingsPersistence = [this]() { return m_impl->core.globalSettingsStore(); };
     dialogDeps.recentFiles = &core.recentFiles().entriesForEdit();
-    dialogDeps.mainDashboard = &impl.dashboard;
     dialogDeps.getRecentFilesLimit = [this]() { return m_impl->core.recentFiles().limit(); };
     dialogDeps.iconProvider = [this](const std::string& iconName) { return m_impl->icon(iconName); };
     dialogDeps.removeRecentFileThumbnail = [this](const std::string& fileName) {
@@ -1080,6 +1069,11 @@ void ObservatoryWindow::makeUnits()
         if (m_impl->fileManager)
         {
             m_impl->fileManager->updateRecentFilesMenuEntries();
+        }
+        // The settings changed the recent files: Home reads them again.
+        if (m_impl->homePage != nullptr)
+        {
+            m_impl->homePage->reloadRecentFiles();
         }
     };
     impl.dialogs = std::make_unique<an::ui::DialogOrchestrationCoordinator>(dialogDeps);
@@ -1838,6 +1832,10 @@ void ObservatoryWindow::setActionIcons()
         return;
     }
     m_impl->core.actionBindings().setActionIcons([&icons](const QString& key) { return icons->getIcon(key); });
+    if (m_impl->homePage != nullptr)
+    {
+        m_impl->homePage->refreshIcons();
+    }
 }
 
 void ObservatoryWindow::openFile()

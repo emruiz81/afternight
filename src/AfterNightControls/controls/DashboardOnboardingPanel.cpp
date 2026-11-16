@@ -435,6 +435,31 @@ private:
 // DashboardOnboardingPanel implementation
 // ═══════════════════════════════════════════════════════════════════════
 
+const std::array<an::ui::DashboardFeature, 6>& an::ui::dashboardFeatures()
+{
+    static constexpr std::array<DashboardFeature, 6> features = {{
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Multi-Format Support"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "FITS, XISF, TIFF, RAW, JPEG and PNG"),
+         ":/AfterNight/icons/SVG/image_filled.svg"},
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Frame Calibration"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Bias, dark and flat-field correction"),
+         ":/AfterNight/icons/SVG/exposure.svg"},
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Star Alignment"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Sub-exposure registration and alignment"),
+         ":/AfterNight/icons/SVG/star.svg"},
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Image Stacking"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Sigma clipping, averaging and drizzle"),
+         ":/AfterNight/icons/SVG/stack.svg"},
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Background Extraction"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Gradient removal and sky modelling"),
+         ":/AfterNight/icons/SVG/area_chart.svg"},
+        {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Enhancement"),
+         QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Noise reduction, sharpening and curves"),
+         ":/AfterNight/icons/SVG/hq.svg"},
+    }};
+    return features;
+}
+
 struct an::ui::DashboardOnboardingPanel::Impl
 {
     qreal dpiScale = 1.0;
@@ -591,19 +616,7 @@ void an::ui::DashboardOnboardingPanel::buildFeatureCardsSection(QVBoxLayout* par
     }
 
     // Six features initially arranged in three columns; narrow dashboards reflow to fewer columns.
-    struct FeatureInfo
-    {
-        const char* title;
-        const char* description;
-    };
-    constexpr std::array<FeatureInfo, 6> features = {{
-        {QT_TR_NOOP("Multi-Format Support"), QT_TR_NOOP("FITS, XISF, TIFF, RAW, JPEG and PNG")},
-        {QT_TR_NOOP("Frame Calibration"), QT_TR_NOOP("Bias, dark and flat-field correction")},
-        {QT_TR_NOOP("Star Alignment"), QT_TR_NOOP("Sub-exposure registration and alignment")},
-        {QT_TR_NOOP("Image Stacking"), QT_TR_NOOP("Sigma clipping, averaging and drizzle")},
-        {QT_TR_NOOP("Background Extraction"), QT_TR_NOOP("Gradient removal and sky modelling")},
-        {QT_TR_NOOP("Enhancement"), QT_TR_NOOP("Noise reduction, sharpening and curves")},
-    }};
+    const std::array<DashboardFeature, 6>& features = dashboardFeatures();
 
     for (int i = 0; i < 6; ++i)
     {

@@ -10,7 +10,9 @@
 #include "controls/DashboardFileFacts.h"
 #include "controls/FeaturedFilePresenter.h"
 #include "controls/ImageViewFiles.h"
+#include "controls/SequenceContainers.h"
 
+#include <AfterNightConsumerRuntime/ImageAsset.h>
 #include <AfterNightConsumerRuntime/OperationScope.h>
 
 #include <AfterNightEngine/Image/OutputIntent.h>
@@ -189,6 +191,50 @@ TEST_F(DashboardFileFactsTest, TheFeaturedFileLeavesOutATargetTheHeaderLeftAsAPl
 
     EXPECT_FALSE(text.contains(QStringLiteral("N/A"))) << text.toStdString();
     EXPECT_TRUE(text.contains(QStringLiteral("Ha"))) << text.toStdString();
+}
+
+// A recent sequence's card says how many frames it holds and how large a frame is, read from its container as
+// background work; a file of no sequence container is no sequence and has no sequence facts.
+TEST_F(DashboardFileFactsTest, ASequenceProbeReadsItsFrameCountAndFrameSize)
+{
+    const QString path = directory.path(QStringLiteral("planet.ser"));
+    std::optional<an::ui::ImageDocument> document = makeCardDocument(context->engineSession(), {});
+    ASSERT_TRUE(document.has_value());
+    {
+        an::Result<an::ui::SequenceWriter> writer = an::ui::SequenceWriter::create(
+            path, an::ui::SequenceWriteSettings{.container = an::SequenceFormat::Ser, .frameCount = 3u});
+        ASSERT_TRUE(writer.hasValue()) << writer.status().message();
+        an::Result<an::consumer::OperationScope> scope = context->engineSession().admit(
+            an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Apply});
+        ASSERT_TRUE(scope.hasValue()) << scope.status().message();
+        an::Result<an::consumer::AssetReadLease> lease = document->asset()->read();
+        ASSERT_TRUE(lease.hasValue()) << lease.status().message();
+        for (int frame = 0; frame < 3; ++frame)
+        {
+            const an::Status appended = writer->append(scope->engine(), scope->execution(), lease->image());
+            ASSERT_TRUE(appended.ok()) << appended.message();
+        }
+        an::Result<an::SequenceDescriptor> published = writer->finish(scope->execution());
+        ASSERT_TRUE(published.hasValue()) << published.status().message();
+    }
+
+    EXPECT_TRUE(an::ui::isDashboardSequence(path));
+    EXPECT_TRUE(an::ui::isDashboardSequence(QStringLiteral("C:/captures/Jupiter.SER")));
+    const std::optional<an::ui::DashboardSequenceFacts> facts =
+        an::ui::probeDashboardSequence(context->engineSession(), path);
+    ASSERT_TRUE(facts.has_value());
+    EXPECT_EQ(facts->frameSize, QSize(16, 12));
+    EXPECT_EQ(facts->frameCount, std::optional<std::uint64_t>(3u));
+    EXPECT_EQ(facts->container, QStringLiteral("SER"));
+    // The context's session is the one Home probes in.
+    const std::optional<an::ui::DashboardSequenceFacts> lent = an::ui::probeDashboardSequence(path);
+    ASSERT_TRUE(lent.has_value());
+    EXPECT_EQ(lent->frameCount, facts->frameCount);
+
+    const QString image = directory.path(QStringLiteral("light.fits"));
+    writeFitsWithCards(context->engineSession(), {}, image);
+    EXPECT_FALSE(an::ui::isDashboardSequence(image));
+    EXPECT_FALSE(an::ui::probeDashboardSequence(context->engineSession(), image).has_value());
 }
 
 } // namespace

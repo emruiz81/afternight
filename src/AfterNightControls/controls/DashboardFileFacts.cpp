@@ -8,6 +8,7 @@
 #include "controls/DashboardFileFacts.h"
 
 #include "controls/IAppContext.h"
+#include "controls/SequenceContainers.h"
 #include "session/IEngineSessionProvider.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -15,6 +16,7 @@
 
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecMetadataProjection.h>
+#include <AfterNightEngine/IO/SequenceSelection.h>
 #include <AfterNightEngine/Image/AcquisitionMetadata.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
 
@@ -141,6 +143,78 @@ QString dashboardExposureText(const double seconds)
                              : QStringLiteral("%1m").arg(minutes);
     }
     return QStringLiteral("%1s").arg(seconds, 0, 'g', 4);
+}
+
+bool isDashboardSequence(const QString& path)
+{
+    const std::optional<an::SequenceFormat> format = an::sequenceFormatForPath(path.toUtf8().toStdString());
+    return format.has_value() && isReadableSequenceContainer(*format);
+}
+
+std::optional<DashboardSequenceFacts> probeDashboardSequence(const an::consumer::EngineSession& session,
+                                                             const QString& path)
+{
+    const std::optional<an::SequenceFormat> format = an::sequenceFormatForPath(path.toUtf8().toStdString());
+    if (!format.has_value() || !isReadableSequenceContainer(*format))
+    {
+        return std::nullopt;
+    }
+    // Background work: it runs when a thread is free and is never waited for.
+    an::Result<an::consumer::OperationScope> scope =
+        session.tryAdmit(an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Background});
+    if (!scope.hasValue())
+    {
+        return std::nullopt;
+    }
+    an::Result<OpenedSequence> opened = openSequenceSource(scope->engine(), scope->execution(), path, *format);
+    if (!opened.hasValue())
+    {
+        return std::nullopt;
+    }
+
+    DashboardSequenceFacts facts;
+    switch (*format)
+    {
+    case an::SequenceFormat::Ser:
+        facts.container = QStringLiteral("SER");
+        break;
+    case an::SequenceFormat::ImageList:
+        facts.container = QObject::tr("Image list");
+        break;
+    case an::SequenceFormat::Avi:
+        facts.container = QStringLiteral("AVI");
+        break;
+    case an::SequenceFormat::Mp4:
+        facts.container = QStringLiteral("MP4");
+        break;
+    default:
+        facts.container = QObject::tr("Video");
+        break;
+    }
+    facts.frameCount = opened->descriptor.frameCount;
+    if (opened->descriptor.fixedFrame.has_value())
+    {
+        const std::uint64_t width = opened->descriptor.fixedFrame->extent().width();
+        const std::uint64_t height = opened->descriptor.fixedFrame->extent().height();
+        if (width > 0u && height > 0u && width <= static_cast<std::uint64_t>((std::numeric_limits<int>::max)()) &&
+            height <= static_cast<std::uint64_t>((std::numeric_limits<int>::max)()))
+        {
+            facts.frameSize = QSize(static_cast<int>(width), static_cast<int>(height));
+        }
+    }
+    (void)opened->source.close();
+    return facts;
+}
+
+std::optional<DashboardSequenceFacts> probeDashboardSequence(const QString& path)
+{
+    auto* context = appContext();
+    IEngineSessionProvider* provider = context ? context->getEngineSessionProvider() : nullptr;
+    if (provider == nullptr)
+    {
+        return std::nullopt;
+    }
+    return probeDashboardSequence(provider->engineSession(), path);
 }
 
 QString compactDashboardSummary(const DashboardFileFacts& facts)
