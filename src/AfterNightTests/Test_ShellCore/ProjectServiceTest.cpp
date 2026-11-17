@@ -724,3 +724,57 @@ TEST(ProjectServiceSource, OwnsNoWidgetAndShowsNoDialog)
         }
     }
 }
+
+// An image's record follows its file to another name, and an image that already was that file gives way to it.
+TEST_F(ProjectServiceCase, AnImagesRecordFollowsItsFile)
+{
+    ASSERT_TRUE(m_service->create(requestFor(QStringLiteral("Follows"), root())).ok());
+    const QString first = under(QStringLiteral("sky/M42.fits"));
+    const QString second = under(QStringLiteral("sky/M31.fits"));
+    const ProjectImage* added = m_service->addImage(first, ProjectImageKind::Image);
+    ASSERT_NE(added, nullptr);
+    const QString id = added->id;
+    added = m_service->addImage(second, ProjectImageKind::Image);
+    ASSERT_NE(added, nullptr);
+    const QString otherId = added->id;
+    ASSERT_NE(m_service->image(id), nullptr);
+    EXPECT_EQ(m_service->image(id)->path, first);
+    EXPECT_EQ(m_service->image(QStringLiteral("no-such-image")), nullptr);
+    m_changes.clear();
+
+    // Saved under another name: the same image, at another path, found by it and no longer by the one it left.
+    const QString renamed = under(QStringLiteral("sky/final/M42-final.fits"));
+    ASSERT_TRUE(m_service->setImagePath(id, renamed));
+    EXPECT_EQ(m_changes, std::vector<Change>{Change::Images});
+    ASSERT_NE(m_service->image(id), nullptr);
+    EXPECT_EQ(m_service->image(id)->path, renamed);
+    EXPECT_EQ(m_service->image(id)->relativePath,
+              an::ui::shell::projectRelativePath(m_service->currentFolder(), renamed));
+    ASSERT_NE(m_service->imageFor(renamed), nullptr);
+    EXPECT_EQ(m_service->imageFor(renamed)->id, id);
+    EXPECT_EQ(m_service->imageFor(first), nullptr);
+    EXPECT_EQ(m_service->historyDirectoryFor(id),
+              QDir(m_service->currentFolder()).filePath(QStringLiteral("history/") + id));
+    EXPECT_EQ(m_service->current()->images.size(), 2u);
+
+    // Saved over another image of the project: that image's record goes, and the file is this image.
+    ASSERT_TRUE(m_service->setImagePath(id, second));
+    ASSERT_EQ(m_service->current()->images.size(), 1u);
+    EXPECT_EQ(m_service->image(otherId), nullptr);
+    ASSERT_NE(m_service->imageFor(second), nullptr);
+    EXPECT_EQ(m_service->imageFor(second)->id, id);
+
+    // What is written is what a later session reads.
+    const QString folder = m_service->currentFolder();
+    ASSERT_TRUE(m_service->close());
+    ASSERT_TRUE(m_service->open(folder).ok());
+    ASSERT_NE(m_service->image(id), nullptr);
+    EXPECT_EQ(m_service->image(id)->path, second);
+
+    // Nothing follows nowhere, and no image is none.
+    EXPECT_FALSE(m_service->setImagePath(id, QString()));
+    EXPECT_FALSE(m_service->setImagePath(QStringLiteral("no-such-image"), first));
+    ASSERT_TRUE(m_service->close());
+    EXPECT_FALSE(m_service->setImagePath(id, first));
+    EXPECT_EQ(m_service->image(id), nullptr);
+}

@@ -14,6 +14,7 @@ class GlobalSettingsPersistence;
 class PathPickerWidget;
 class QCheckBox;
 class QComboBox;
+class QSpinBox;
 
 namespace an::ui
 {
@@ -21,8 +22,9 @@ namespace an::ui
 /// What a new project starts from, and how a history is written: the folder a new project is offered in; whether an
 /// integration job run with no project open makes one in its output folder; how the steps of a history are compressed
 /// - LZ4, none or Zstandard - which every history written from then on takes, in a project or not, and which the New
-/// Project dialog starts from; and whether the project used last is opened as the application starts. A note says what
-/// holds without a project: the history is kept in the temporary folder and cleared on exit.
+/// Project dialog starts from; above how many gigabytes a project's history is asked to be compacted; and whether the
+/// project used last is opened as the application starts. A note says what holds without a project: the history is
+/// kept in the temporary folder and cleared on exit.
 ///
 /// The page shows what the settings store states (`readProjectSettings`) and stores what it shows
 /// (`writeProjectSettings`); a location that is empty or is no folder's path is refused when the dialog applies.
@@ -54,6 +56,7 @@ public:
     [[nodiscard]] PathPickerWidget* locationPicker() const noexcept;
     [[nodiscard]] QCheckBox* createForIntegrationJobsCheck() const noexcept;
     [[nodiscard]] QComboBox* compressionCombo() const noexcept;
+    [[nodiscard]] QSpinBox* compactAskThresholdSpin() const noexcept;
     [[nodiscard]] QCheckBox* openLastOnStartupCheck() const noexcept;
 
 private:
@@ -64,6 +67,7 @@ private:
     PathPickerWidget* m_location = nullptr;
     QCheckBox* m_createForJobs = nullptr;
     QComboBox* m_compression = nullptr;
+    QSpinBox* m_compactThreshold = nullptr;
     QCheckBox* m_openLast = nullptr;
 };
 

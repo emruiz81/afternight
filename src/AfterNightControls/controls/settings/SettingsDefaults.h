@@ -95,6 +95,7 @@ inline constexpr bool PROJECTS_OPEN_LAST_ON_STARTUP = false;
 inline constexpr auto PROJECTS_RECENT = ""; // none
 inline constexpr auto PROJECTS_LAST = ""; // none
 inline constexpr auto HISTORY_COMPRESSION = "lz4";
+inline constexpr int PROJECTS_COMPACT_ASK_THRESHOLD_GB = 10;
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

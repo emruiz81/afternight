@@ -3,7 +3,7 @@
 
 /// @file
 /// The history's backup writer: the bounded queue of step snapshots copied at registration and written, one at a time,
-/// through the history's step codec to a directory the history owns.
+/// through the history's step codec to the directory the history keeps its steps in.
 ///
 /// A step is a copy of an image taken under a lease when the step is registered, so nothing that happens to the shown
 /// image afterwards reaches it. The copy waits in memory until the writer has written it, and that memory is the
@@ -11,10 +11,12 @@
 /// holds its admission until the writer lets it go. A snapshot is what the queue's codec writes
 /// (`ImageHistoryStepCodec.h`) - samples, every metadata object, the validity mask and the identity the history gave
 /// it - published whole or not at all, and read back only when its identity is the one the history wrote it for. A
-/// queue given no codec writes the engine's image snapshot.
+/// queue given no codec writes through the history's (`historyStepCodec`).
 ///
 /// Nothing here waits on the thread that registers a step: `tryReserve` answers at once, and `reserve`, which waits for
-/// room, is for a worker.
+/// room, is for a worker. A queue ends in one of two ways: `close` discards what waits and stops the write in progress,
+/// for a history whose steps go with it; `finish` writes what waits first, for a history whose steps stay, and is for
+/// a worker.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -29,6 +31,7 @@
 #include <AfterNightEngine/Core/Status.h>
 #include <AfterNightEngine/IO/ArtifactIdentity.h>
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -62,10 +65,12 @@ enum class SnapshotState
 /// @param path the file, as UTF-8.
 /// @param identity the identity the snapshot is written for.
 /// @param stop stops the write; a stopped write leaves no file.
+/// @param durability whether the bytes are on the device before the file takes its name.
 /// @return success once the snapshot is whole at `path`, or why nothing was published there.
 [[nodiscard]] AFTERNIGHTCONTROLS_API an::Status
 writeHistorySnapshot(const an::consumer::EngineSession& session, const an::consumer::AssetReadLease& image,
-                     const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop);
+                     const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop,
+                     StepDurability durability = StepDurability::CloseOnly);
 
 /// What the snapshot codec reads: a snapshot the history wrote, back as a new asset of the session, with a new
 /// identity.
@@ -116,11 +121,28 @@ public:
     /// A snapshot written to `path` for `identity`; `label` names it in a failure.
     Snapshot(std::string path, std::string label, an::ArtifactIdentity identity, std::uint64_t bytes);
 
+    /// A snapshot an earlier history wrote: its file is at `path`, written for `identity`, and takes `fileBytes`.
+    [[nodiscard]] static std::shared_ptr<Snapshot> written(std::string path, std::string label,
+                                                           an::ArtifactIdentity identity, std::uint64_t fileBytes);
+
     Snapshot(const Snapshot&) = delete;
     Snapshot& operator=(const Snapshot&) = delete;
 
-    /// The file the snapshot is written to.
-    [[nodiscard]] const std::string& path() const;
+    /// The file the snapshot is in: where it was asked to be written until it is, then where the codec wrote it, and
+    /// where the history moved it since.
+    [[nodiscard]] std::string path() const;
+
+    /// Says the snapshot's file is at another path now: the history moved it.
+    void moveTo(std::string path);
+
+    /// The size of the snapshot's file; zero until it is written.
+    [[nodiscard]] std::uint64_t fileBytes() const;
+
+    /// Says no step restores the snapshot any more: its file goes, now or when its write ends.
+    void drop() noexcept;
+
+    /// Whether no step restores the snapshot any more.
+    [[nodiscard]] bool dropped() const noexcept;
 
     /// What the snapshot is of, for a person reading a failure.
     [[nodiscard]] const std::string& label() const;
@@ -153,17 +175,19 @@ public:
 private:
     friend class BackupQueue;
 
-    void settle(SnapshotState state, std::string failure);
+    void settle(SnapshotState state, std::string failure, std::string path = {}, std::uint64_t fileBytes = 0u);
 
-    const std::string m_Path;
     const std::string m_Label;
     const an::ArtifactIdentity m_Identity;
     const std::uint64_t m_Bytes;
 
     mutable std::mutex m_Mutex;
     mutable std::condition_variable_any m_Settled;
+    std::string m_Path;
+    std::uint64_t m_FileBytes = 0u;
     SnapshotState m_State = SnapshotState::Pending;
     std::string m_Failure;
+    std::atomic<bool> m_Dropped{false};
 };
 
 using SnapshotPtr = std::shared_ptr<Snapshot>;
@@ -180,11 +204,11 @@ public:
     using SettledListener = std::function<void(const Snapshot& snapshot)>;
 
     /// A queue writing through `codec` for the histories of `session`, which must outlive it; no codec is the
-    /// snapshot codec.
-    explicit BackupQueue(const an::consumer::EngineSession& session, StepCodecPtr codec = snapshotStepCodec(),
+    /// history's.
+    explicit BackupQueue(const an::consumer::EngineSession& session, StepCodecPtr codec = historyStepCodec(),
                          SettledListener onSettled = {});
 
-    /// Closes the queue as `close` does.
+    /// Closes the queue as `close` does, unless it was finished.
     ~BackupQueue();
 
     BackupQueue(const BackupQueue&) = delete;
@@ -193,8 +217,12 @@ public:
     /// The session whose allowance the queue admits against.
     [[nodiscard]] const an::consumer::EngineSession& session() const;
 
-    /// The codec every snapshot of the queue is written through, and read back through.
-    [[nodiscard]] const StepCodec& codec() const;
+    /// The codec a snapshot queued from now on is written through, and every snapshot is read back through.
+    [[nodiscard]] StepCodecPtr codec() const;
+
+    /// Writes the snapshots queued from now on through another codec: the history's steps are kept elsewhere, under
+    /// that place's compression. A null codec changes nothing.
+    void setCodec(StepCodecPtr codec);
 
     /// Admits a copy's bytes now, or says why not. Never waits.
     ///
@@ -234,6 +262,10 @@ public:
     /// end. Nothing is admitted or queued afterwards. Closing twice closes once.
     void close();
 
+    /// Lets the writer write everything queued, then ends it and waits for it. Nothing is admitted or queued once it
+    /// is called. For a worker: it blocks for as long as the writes take.
+    void finish();
+
     /// The snapshots queued and not yet written, the one being written included.
     [[nodiscard]] std::size_t pendingSnapshots() const;
 
@@ -249,24 +281,28 @@ private:
         SnapshotPtr snapshot;
         std::shared_ptr<an::consumer::ImageAsset> copy;
         an::consumer::MemoryReservation room;
+        // The codec the snapshot was queued under.
+        StepCodecPtr codec;
     };
 
     void runWriter(std::stop_token stop);
 
     const an::consumer::EngineSession& m_Session;
-    const StepCodecPtr m_Codec;
     const SettledListener m_OnSettled;
 
     mutable std::mutex m_Mutex;
     std::condition_variable m_WorkAvailable;
     std::condition_variable_any m_RoomAvailable;
+    StepCodecPtr m_Codec;
     std::deque<Entry> m_Queue;
     std::size_t m_PendingSnapshots = 0;
     std::size_t m_PeakPendingSnapshots = 0;
     std::size_t m_AdmissionWaits = 0;
     // Moves whenever a copy gives its room back, so a waiting `reserve` asks the allowance again.
     std::uint64_t m_RoomGeneration = 0;
+    // Nothing is admitted or queued once either is set; `m_Finishing` lets the writer drain first.
     bool m_Closed = false;
+    bool m_Finishing = false;
 
     std::jthread m_WriterThread;
 };

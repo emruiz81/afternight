@@ -14,17 +14,24 @@
 #include "app/MessageBoxes.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
+#include "controls/ImageViewControl.h"
 #include "controls/settings/ProjectSettings.h"
 #include "controls/settings/ProjectsSettingsPage.h"
 #include "dialogs/NewProjectDialog.h"
 
 #include <QAction>
+#include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QPushButton>
 
+#include <atomic>
+#include <memory>
 #include <utility>
 
 namespace an::ui::observatory
@@ -34,7 +41,6 @@ namespace
 {
 
 using an::ui::shell::ProjectFolderState;
-using an::ui::shell::ProjectImageKind;
 using an::ui::shell::ProjectLockPolicy;
 using an::ui::shell::ProjectOutcome;
 using an::ui::shell::ProjectRefusal;
@@ -122,7 +128,18 @@ void ProjectFlows::newProject()
     an::ui::NewProjectOptions options;
     options.location = stored.defaultLocation;
     options.compression = stored.historyCompression;
-    options.openImages = m_hooks.openImages ? static_cast<int>(m_hooks.openImages().size()) : 0;
+    const std::vector<OpenImage> open = m_hooks.openImages ? m_hooks.openImages() : std::vector<OpenImage>();
+    options.openImages = static_cast<int>(open.size());
+    if (!open.empty())
+    {
+        // What moving their undo history into the project moves: the files of their steps.
+        std::vector<ImageViewControl*> views;
+        for (const OpenImage& image : open)
+        {
+            views.push_back(image.view.data());
+        }
+        options.openHistoryBytes = static_cast<qint64>(an::ui::shell::ProjectHistoryBinder::historyBytesOf(views));
+    }
     options.folderState = [](const QString& folder) { return dialogStateOf(folder); };
 
     // Over the window, and answered when the person answers it: nothing waits meanwhile.
@@ -165,11 +182,56 @@ void ProjectFlows::accepted(const an::ui::NewProjectChoice& choice)
         say(made);
         return;
     }
+    // Each image is the project's from here on; the steps it has go into the project or stay with the session.
+    const an::ui::history::StepsMove move =
+        choice.moveHistory ? an::ui::history::StepsMove::Move : an::ui::history::StepsMove::Leave;
     for (const OpenImage& image : open)
     {
-        (void)m_core.projects().addImage(image.filePath,
-                                         image.sequence ? ProjectImageKind::Sequence : ProjectImageKind::Image);
+        if (image.view.isNull())
+        {
+            continue;
+        }
+        (void)m_core.projectHistory().join(*image.view, move, choice.moveHistory ? moveProgress() : nullptr);
     }
+}
+
+an::ui::shell::ProjectHistoryBinder::Progress ProjectFlows::moveProgress()
+{
+    // Told on a worker. On one volume the steps are renamed and it is over at once; across volumes they are copied,
+    // and the window says how far that is, a second apart at most, once it has taken a second.
+    struct Pace
+    {
+        QElapsedTimer started;
+        std::atomic<qint64> lastSaidMs{0};
+    };
+    auto pace = std::make_shared<Pace>();
+    pace->started.start();
+    const QPointer<ProjectFlows> self(this);
+    return [self, pace](const std::uint64_t moved, const std::uint64_t total) {
+        const qint64 now = pace->started.elapsed();
+        if (now < 1000 || now - pace->lastSaidMs.load() < 1000)
+        {
+            return;
+        }
+        pace->lastSaidMs.store(now);
+        QMetaObject::invokeMethod(
+            QCoreApplication::instance(),
+            [self, moved, total]() {
+                if (self.isNull() || !self->m_hooks.snackbar)
+                {
+                    return;
+                }
+                const QLocale locale;
+                self->m_hooks.snackbar(tr("Moving the undo history into the project"),
+                                       tr("%1 of %2")
+                                           .arg(locale.formattedDataSize(static_cast<qint64>(moved), 1,
+                                                                         QLocale::DataSizeTraditionalFormat),
+                                                locale.formattedDataSize(static_cast<qint64>(total), 1,
+                                                                         QLocale::DataSizeTraditionalFormat)),
+                                       QString(), {});
+            },
+            Qt::QueuedConnection);
+    };
 }
 
 void ProjectFlows::openProject()
@@ -243,15 +305,6 @@ void ProjectFlows::sayRestoreRefusal()
     m_restoreRefusal.reset();
     m_hooks.snackbar(tr("The project %1 was not opened").arg(QFileInfo(folder).fileName()), why, tr("Open..."),
                      [this, folder]() { openProjectFolder(folder); });
-}
-
-void ProjectFlows::viewAdded(const QString& filePath, const bool sequence)
-{
-    if (filePath.isEmpty() || !m_core.projects().isOpen())
-    {
-        return;
-    }
-    (void)m_core.projects().addImage(filePath, sequence ? ProjectImageKind::Sequence : ProjectImageKind::Image);
 }
 
 void ProjectFlows::fillSwitcherMenu(QMenu& menu)

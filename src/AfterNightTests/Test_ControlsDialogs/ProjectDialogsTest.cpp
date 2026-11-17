@@ -27,6 +27,7 @@
 #include <QLineEdit>
 #include <QLocale>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTest>
 
@@ -78,7 +79,7 @@ using an::ui::history::StepCompression;
 // ---- The stored settings
 
 // With nothing stored the settings are their defaults: the documents' AfterNight Projects, a project for every
-// integration job, LZ4, and no project opened at the start.
+// integration job, LZ4, a history asked to be compacted above ten gigabytes, and no project opened at the start.
 TEST(ProjectSettings, NothingStoredReadsAsTheDefaults)
 {
     const ProjectSettings defaults = an::ui::readProjectSettings(readerOf({}));
@@ -88,6 +89,7 @@ TEST(ProjectSettings, NothingStoredReadsAsTheDefaults)
     EXPECT_TRUE(QDir::isAbsolutePath(defaults.defaultLocation));
     EXPECT_TRUE(defaults.createForIntegrationJobs);
     EXPECT_EQ(defaults.historyCompression, StepCompression::Lz4);
+    EXPECT_EQ(defaults.compactAskThresholdGb, 10);
     EXPECT_FALSE(defaults.openLastOnStartup);
     EXPECT_EQ(an::ui::readProjectSettings({}), defaults) << "no store reads as the defaults";
 
@@ -95,6 +97,8 @@ TEST(ProjectSettings, NothingStoredReadsAsTheDefaults)
     EXPECT_TRUE(SettingsDefaults::PROJECTS_CREATE_FOR_INTEGRATION_JOBS);
     EXPECT_FALSE(SettingsDefaults::PROJECTS_OPEN_LAST_ON_STARTUP);
     EXPECT_STREQ(SettingsDefaults::HISTORY_COMPRESSION, "lz4");
+    EXPECT_EQ(SettingsDefaults::PROJECTS_COMPACT_ASK_THRESHOLD_GB, 10);
+    EXPECT_STREQ(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB, "projects/compactAskThresholdGb");
     EXPECT_STREQ(SettingsDefaults::PROJECTS_RECENT, "");
     EXPECT_STREQ(SettingsDefaults::PROJECTS_LAST, "");
     EXPECT_STREQ(SettingsKeys::PROJECTS_DEFAULT_LOCATION, "projects/defaultLocation");
@@ -112,25 +116,38 @@ TEST(ProjectSettings, StoredValuesAreReadAndWrittenBack)
         readerOf({{key(SettingsKeys::PROJECTS_DEFAULT_LOCATION), QStringLiteral("D:\\Astro\\Projects\\")},
                   {key(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS), QStringLiteral("0")},
                   {key(SettingsKeys::HISTORY_COMPRESSION), QStringLiteral(" ZSTD ")},
+                  {key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QStringLiteral(" 25 ")},
                   {key(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), QStringLiteral("1")}}));
     EXPECT_EQ(stored.defaultLocation, QStringLiteral("D:/Astro/Projects"));
     EXPECT_FALSE(stored.createForIntegrationJobs);
     EXPECT_EQ(stored.historyCompression, StepCompression::Zstd);
+    EXPECT_EQ(stored.compactAskThresholdGb, 25);
     EXPECT_TRUE(stored.openLastOnStartup);
 
     std::map<QString, QString> written;
     an::ui::writeProjectSettings(stored,
                                  [&written](const QString& name, const QString& value) { written[name] = value; });
-    EXPECT_EQ(written.size(), 4u);
+    EXPECT_EQ(written.size(), 5u);
     EXPECT_EQ(written[key(SettingsKeys::HISTORY_COMPRESSION)], QStringLiteral("zstd"));
+    EXPECT_EQ(written[key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB)], QStringLiteral("25"));
     EXPECT_EQ(an::ui::readProjectSettings(readerOf(written)), stored);
 
     const ProjectSettings broken = an::ui::readProjectSettings(
         readerOf({{key(SettingsKeys::PROJECTS_DEFAULT_LOCATION), QStringLiteral("   ")},
                   {key(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS), QStringLiteral("maybe")},
                   {key(SettingsKeys::HISTORY_COMPRESSION), QStringLiteral("gzip")},
+                  {key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QStringLiteral("a lot")},
                   {key(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), QStringLiteral("yes")}}));
     EXPECT_EQ(broken, an::ui::readProjectSettings(readerOf({})));
+    // A threshold is a whole number of gigabytes, at least one.
+    for (const char* none : {"0", "-3", "2.5", ""})
+    {
+        EXPECT_EQ(an::ui::readProjectSettings(
+                      readerOf({{key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QString::fromLatin1(none)}}))
+                      .compactAskThresholdGb,
+                  10)
+            << '"' << none << '"';
+    }
 }
 
 // A compression is stated by the name the history's codec gives it.
@@ -188,6 +205,10 @@ TEST(ProjectsSettingsPage, ItStatesTheSettingsAndTheirDefaults)
     EXPECT_EQ(page.compressionCombo()->itemText(1), QStringLiteral("None"));
     EXPECT_EQ(page.compressionCombo()->itemText(2), QStringLiteral("Zstandard (smallest)"));
     EXPECT_EQ(page.compressionCombo()->currentData().toString(), QStringLiteral("lz4"));
+    // "Ask to compact a history above 10 GB".
+    EXPECT_EQ(page.compactAskThresholdSpin()->value(), 10);
+    EXPECT_EQ(page.compactAskThresholdSpin()->suffix(), QStringLiteral(" GB"));
+    EXPECT_EQ(page.compactAskThresholdSpin()->minimum(), 1);
     EXPECT_FALSE(page.openLastOnStartupCheck()->isChecked());
     EXPECT_EQ(page.openLastOnStartupCheck()->text(), QStringLiteral("Open the last project on startup"));
     EXPECT_EQ(page.shownSettings(), an::ui::readProjectSettings({}));
@@ -215,6 +236,8 @@ TEST(ProjectsSettingsPage, SavingStoresWhatItShows)
         page.locationPicker()->setPath(QDir::toNativeSeparators(location));
         page.createForIntegrationJobsCheck()->setChecked(false);
         page.compressionCombo()->setCurrentIndex(2);
+        EXPECT_FALSE(page.compactAskThresholdSpin()->signalsBlocked());
+        page.compactAskThresholdSpin()->setValue(40);
         page.openLastOnStartupCheck()->setChecked(true);
         EXPECT_TRUE(page.hasUnsavedChanges());
         ASSERT_TRUE(page.validateSettings().isValid);
@@ -225,6 +248,8 @@ TEST(ProjectsSettingsPage, SavingStoresWhatItShows)
     EXPECT_EQ(store.stored(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS),
               std::optional<QString>(QStringLiteral("0")));
     EXPECT_EQ(store.stored(SettingsKeys::HISTORY_COMPRESSION), std::optional<QString>(QStringLiteral("zstd")));
+    EXPECT_EQ(store.stored(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB),
+              std::optional<QString>(QStringLiteral("40")));
     EXPECT_EQ(store.stored(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), std::optional<QString>(QStringLiteral("1")));
 
     ProjectsSettingsPage again(store.persistence());
@@ -233,6 +258,7 @@ TEST(ProjectsSettingsPage, SavingStoresWhatItShows)
     EXPECT_EQ(shown.defaultLocation, location);
     EXPECT_FALSE(shown.createForIntegrationJobs);
     EXPECT_EQ(shown.historyCompression, StepCompression::Zstd);
+    EXPECT_EQ(shown.compactAskThresholdGb, 40);
     EXPECT_TRUE(shown.openLastOnStartup);
 
     // Reset Page shows the defaults again, to be saved or discarded.

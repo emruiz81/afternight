@@ -286,8 +286,9 @@ the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBi
 tab's menus), `commands/` (`CommandIndex`, every command the palette searches, with no widget, and its
 providers), `readout/ReadoutController` (what the readout column and a task's compact readout show, measured on the
 thread pool as a preview that never waits, never on the GUI thread), `projects/` (`ProjectDocument`, a project folder's
-`project.anproj` read and written whole, and `ProjectService`, the project that is open, its lock and the ones used
-last: no widget, no dialog), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
+`project.anproj` read and written whole, `ProjectService`, the project that is open, its lock and the ones used
+last, and `ProjectHistoryBinder`, which keeps the undo history of a project's images in its folder: no widget, no
+dialog), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
 `views/DockLayoutOperations` (group, split, fit, lock, on a workspace or the only dock area), `views/WorkspaceModel`
 (a shell's workspaces, no widget), `views/ViewChromeBinder` (a floating toolbar and a history strip
 bound to a view whose toolbar is outside it), `services/WindowGeometryStore` and `services/FileDropHandler` -

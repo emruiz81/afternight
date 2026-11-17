@@ -55,6 +55,13 @@ public:
     /// Whether a mosaic frame of the sequence is demosaiced as the view shows it.
     [[nodiscard]] virtual bool historyAutoDebayer() const = 0;
 
+    /// Whether what the view shows is what its file holds: it was read from the file or written to it, and nothing
+    /// changed since. A view that is no file's answers false.
+    [[nodiscard]] virtual bool historyShowsItsFile() const
+    {
+        return false;
+    }
+
     /// Shows `image`, which a restore read, in place of the image shown now, and says whether it did.
     ///
     /// @param image the restored image, a new asset of the session.

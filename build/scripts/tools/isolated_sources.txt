@@ -835,6 +835,7 @@ sources Test_ImageRTPreviewControl
 # reaches it through and the window over it. Its cases link the Controls library and compile nothing of it.
 sources Test_ControlsHistory
     unit     src/AfterNightTests/Test_ControlsHistory/HistorySnapshotTest.cpp
+    unit     src/AfterNightTests/Test_ControlsHistory/ProjectHistoryTest.cpp
     unit     src/AfterNightTests/Test_ControlsHistory/StepCodecCostTest.cpp
     unit     src/AfterNightTests/Test_ControlsHistory/StepCodecFidelityTest.cpp
     unit     src/AfterNightTests/Test_ControlsHistory/StepCodecHistoryTest.cpp
@@ -901,6 +902,8 @@ sources Test_ControlsHistory
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
+    header   src/AfterNightControls/controls/settings/SettingsKeys.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -1684,6 +1687,7 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/WorkspaceModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/TasksTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProjectDocumentTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ProjectHistoryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProjectServiceTest.cpp
     header   src/AfterNightControls/components/AnIconButton.h
     header   src/AfterNightControls/theme/ComponentParts.h
@@ -1844,6 +1848,8 @@ sources Test_ShellCore
     header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
     header   src/AfterNightControls/controls/settings/ProjectSettings.h
     header   src/AfterNightControls/app/FilePolicies.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
+    header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -2248,6 +2254,7 @@ sources Test_ImageViewControl
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightTests/fixtures/ScopedNightMode.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -2772,6 +2779,7 @@ sources Test_ShellClassic
     external tbb
     qt       core gui widgets sql svg network testlib
     header   src/AfterNightTests/fixtures/WindowDriving.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
 
 # The Observatory shell's suite: its window driven as a person drives it - its regions, its places, its pages and its
 # chrome - started and ended in the application's order by the suite's fixture, linked against the Observatory shell
@@ -2992,6 +3000,8 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/CurvesTransformationProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
+    header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.

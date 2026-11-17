@@ -252,9 +252,10 @@ private:
             return m_Snapshot->fileExtension();
         }
 
-        [[nodiscard]] an::Status write(const an::consumer::EngineSession& session,
-                                       const an::consumer::AssetReadLease& image, const std::string& path,
-                                       const an::ArtifactIdentity& identity, std::stop_token stop) const override
+        [[nodiscard]] an::Result<std::string> write(const an::consumer::EngineSession& session,
+                                                    const an::consumer::AssetReadLease& image, const std::string& path,
+                                                    const an::ArtifactIdentity& identity,
+                                                    std::stop_token stop) const override
         {
             if (m_Gate.pass(path, stop))
             {
@@ -515,7 +516,7 @@ inline bool recordEdit(ImageHistoryTracker& tracker, an::consumer::ImageAsset& r
     return tracker.registerEditBeforePublishing(stepName, "", edited);
 }
 
-/// The history snapshots a directory holds, below it at any depth.
+/// The history steps a directory holds, below it at any depth: the files of either kind a history's codec writes.
 inline std::set<std::string> historyFilesIn(const std::filesystem::path& directory)
 {
     std::set<std::string> files;
@@ -523,7 +524,8 @@ inline std::set<std::string> historyFilesIn(const std::filesystem::path& directo
     for (std::filesystem::recursive_directory_iterator entry(directory, error), end; !error && entry != end;
          entry.increment(error))
     {
-        if (entry->path().extension() == ".ansnap")
+        const std::string extension = entry->path().extension().string();
+        if (extension == an::ui::history::kSnapshotStepExtension || extension == an::ui::history::kXisfStepExtension)
         {
             files.insert(entry->path().string());
         }

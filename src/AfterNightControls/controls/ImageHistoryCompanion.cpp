@@ -3,17 +3,21 @@
 
 /// @file
 /// The history the image view reaches through its companion seam: `createViewHistory`, the view as the tracker sees it,
-/// and the windows over the history the view opens.
+/// the windows over the history the view opens, and where the history keeps its steps, as what gives it a home
+/// reaches it.
 
 #include "stdafx.hpp"
 
 #include "controls/IAppContext.h"
 #include "controls/ImageHistoryControl.h"
 #include "controls/ImageHistoryHost.h"
+#include "controls/ImageHistoryIndex.h"
 #include "controls/ImageHistoryTracker.h"
 #include "controls/ImageHistoryTrackerUtils.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewControlListener.h"
+#include "controls/settings/ProjectSettings.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
 
@@ -62,6 +66,12 @@ public:
     [[nodiscard]] bool historyAutoDebayer() const override
     {
         return m_View.isSequenceAutodebayerEnabled();
+    }
+
+    [[nodiscard]] bool historyShowsItsFile() const override
+    {
+        // Read from a file or written to one, and nothing changed since.
+        return !m_View.isSequence() && !m_View.getFileName().empty() && !m_View.hasPendingChanges();
     }
 
     void restoreHistoryImage(an::consumer::ImageAsset&& image, an::ui::history::RestoreDone done) override
@@ -140,13 +150,34 @@ private:
     ImageViewControl& m_View;
 };
 
+/// The compression the settings state for a history's steps, read now; LZ4 where nothing states one.
+[[nodiscard]] an::ui::history::StepCompression settingsStepCompression()
+{
+    auto* context = an::ui::appContext();
+    an::ui::IGlobalSettingsProvider* settings = context != nullptr ? context->getGlobalSettings() : nullptr;
+    if (settings == nullptr)
+    {
+        return an::ui::history::StepCompression::Lz4;
+    }
+    return an::ui::readProjectSettings(
+               [settings](const QString& key, const QString& fallback) { return settings->select(key, fallback); })
+        .historyCompression;
+}
+
 /// A view's undo history: its tracker, the windows over it the view opened, and the listeners of its steps, which it
-/// tells of every change the tracker tells its own listeners of.
-class ViewHistory final : public an::ui::IViewHistory, private ImageHistoryTrackerListener
+/// tells of every change the tracker tells its own listeners of. It hears of the view's saves, so the history knows
+/// which of its steps the view's file equals, and is what a home is given through.
+class ViewHistory final : public an::ui::IViewHistory,
+                          public an::ui::history::IHistoryPlacement,
+                          private ImageHistoryTrackerListener,
+                          private ImageViewControlListener
 {
 public:
+    /// Every history is made with the one codec, under the compression the settings state when the view is made.
     ViewHistory(ImageViewControl& view, const an::consumer::EngineSession& session)
-        : m_View(view), m_Host(view), m_Tracker(std::make_shared<ImageHistoryTracker>(m_Host, session))
+        : ImageViewControlListener(&view), m_View(view), m_Host(view),
+          m_Tracker(std::make_shared<ImageHistoryTracker>(m_Host, session,
+                                                          an::ui::history::historyStepCodec(settingsStepCompression())))
     {
         m_Tracker->addListener(this);
     }
@@ -283,7 +314,50 @@ public:
         std::erase_if(m_StepsListeners, [token](const auto& each) { return each.first == token; });
     }
 
+    // ---- IHistoryPlacement
+
+    void enterHome(const an::ui::history::HistoryHome& home, const an::ui::history::StepsMove move, EnterDone done,
+                   MoveProgress progress) override
+    {
+        m_Tracker->enterHome(home, move, std::move(done), std::move(progress));
+    }
+
+    void leaveHome() override
+    {
+        m_Tracker->leaveHome();
+    }
+
+    [[nodiscard]] std::optional<an::ui::history::HistoryHome> home() const override
+    {
+        return m_Tracker->home();
+    }
+
+    [[nodiscard]] std::uint64_t stepFileBytes() const override
+    {
+        return m_Tracker->stepFileBytes();
+    }
+
+    [[nodiscard]] an::ui::history::HistoryCompactionResult
+    planCompaction(const an::ui::history::HistoryCompaction& what) const override
+    {
+        return m_Tracker->planCompaction(what);
+    }
+
+    an::ui::history::HistoryCompactionResult compact(const an::ui::history::HistoryCompaction& what) override
+    {
+        return m_Tracker->compact(what);
+    }
+
 private:
+    // The view was written to a file: the step it shows is the one that file equals.
+    void onImageSaved(ImageViewControl* view) override
+    {
+        if (view == &m_View && !m_View.isSequence())
+        {
+            m_Tracker->fileSaved(QString::fromStdString(m_View.getFileName()));
+        }
+    }
+
     void onImageHistoryUpdated() override
     {
         // A listener may remove itself, or another, while it is told: each is looked up again before it is told.
@@ -314,6 +388,18 @@ private:
 };
 
 } // namespace
+
+namespace an::ui::history
+{
+
+IHistoryPlacement* historyPlacementOf(::ImageViewControl& view)
+{
+    // A sequence's states are its file and the frames changed in it, not files that stand alone: it is given no home.
+    auto* history = dynamic_cast<ViewHistory*>(view.viewHistory());
+    return history != nullptr && !view.isSequence() ? history : nullptr;
+}
+
+} // namespace an::ui::history
 
 namespace an::ui
 {

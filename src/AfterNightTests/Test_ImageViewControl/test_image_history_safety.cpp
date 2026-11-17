@@ -378,8 +378,8 @@ TEST_F(ImageHistorySnapshot, AStepIsWrittenInTheHistorysOwnDirectory)
     for (const auto& step : {tracker->getInitialStep(), tracker->getImageHistorySteps().at(0)})
     {
         ASSERT_TRUE(step->m_Snapshot);
-        const std::filesystem::path written =
-            std::filesystem::path(std::u8string(step->m_Snapshot->path().begin(), step->m_Snapshot->path().end()));
+        const std::string file = step->m_Snapshot->path();
+        const std::filesystem::path written = std::filesystem::path(std::u8string(file.begin(), file.end()));
         EXPECT_EQ(written.parent_path(), own);
         EXPECT_TRUE(std::filesystem::exists(written));
     }

@@ -3,8 +3,9 @@
 
 /// @file
 /// The settings a project starts from, as the settings store holds them: where a new project is offered, whether an
-/// integration job makes one, how a history's steps are compressed and whether the project used last is opened at the
-/// start. The Projects page shows and stores them; the New Project dialog and the project service read them.
+/// integration job makes one, how a history's steps are compressed, above what size a project's history is asked to
+/// be compacted, and whether the project used last is opened at the start. The Projects page shows and stores them;
+/// the New Project dialog, the project service and every view's history read them.
 #pragma once
 
 #include "AfterNightControlsExport.h"
@@ -45,6 +46,9 @@ struct ProjectSettings
     /// How a history's steps are compressed, which a new project starts from.
     history::StepCompression historyCompression = history::StepCompression::Lz4;
 
+    /// Above how many gigabytes of undo history a project asks to compact it; at least one.
+    int compactAskThresholdGb = 10;
+
     /// Whether the project used last is opened as the application starts.
     bool openLastOnStartup = false;
 
@@ -53,8 +57,8 @@ struct ProjectSettings
 };
 
 /// Reads the project settings: a location that is empty or blank reads as `defaultProjectsLocation()`, a compression
-/// that is none of the three names as LZ4, and a switch that is neither `1` nor `0` as its default. No store reads as
-/// the defaults.
+/// that is none of the three names as LZ4, a threshold that is no whole number of at least one as ten, and a switch
+/// that is neither `1` nor `0` as its default. No store reads as the defaults.
 ///
 /// @param read the settings store.
 /// @return the settings.

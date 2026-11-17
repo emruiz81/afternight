@@ -622,7 +622,7 @@ capability new.workspaces
 
 capability new.projects
     title        Projects
-    shared       ProjectServiceCase.CreateMakesTheFoldersLayoutUnderTheRoot, ProjectDocument.RoundTrip, NewProjectDialog.ANonEmptyFolderIsRefusedAndAnExistingProjectIsOfferedToOpen
+    shared       ProjectServiceCase.CreateMakesTheFoldersLayoutUnderTheRoot, ProjectDocument.RoundTrip, NewProjectDialog.ANonEmptyFolderIsRefusedAndAnExistingProjectIsOfferedToOpen, ProjectHistory.ReopenShowsTheFileWithTheSavedStepCurrent, ProjectHistory.AnImageWithNoFileJoinsAtItsFirstSave, ProjectHistory.MoveInKeepsEveryStep
     classic
     observatory  ProjectSwitcher.NewProjectMakesAProjectTheSwitcherNamesAndFindsAgain, ProjectSwitcher.ALockHeldElsewhereIsSaidNamingItsHolderAndOpenAnywayTakesIt, ProjectSwitcher.TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo
 

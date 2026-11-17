@@ -78,6 +78,7 @@ class OpenProcessRegistry;
 class ShellRegistry;
 class ProcessLaunchService;
 class ProcessMenuModel;
+class ProjectHistoryBinder;
 class ProjectService;
 class RecentFilesModel;
 class RecentProcessesModel;
@@ -215,6 +216,9 @@ public:
     /// open. A shell that offers projects opens the one used last as it is built, when the settings ask for it; the
     /// project still open when the core goes is closed with it.
     [[nodiscard]] ProjectService& projects() noexcept;
+
+    /// What keeps the undo history of the open project's images in the project's folder.
+    [[nodiscard]] ProjectHistoryBinder& projectHistory() noexcept;
 
     // ---- The services
 

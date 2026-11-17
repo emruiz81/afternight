@@ -6,17 +6,23 @@
 #include "projects/ProjectService.h"
 
 #include "controls/IAppContext.h"
+#include "controls/ImageHistoryIndex.h"
 #include "controls/settings/ProjectSettings.h"
 #include "controls/settings/SettingsKeys.h"
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLockFile>
+#include <QMetaObject>
+#include <QSet>
+#include <QStorageInfo>
+#include <QThreadPool>
 #include <QUuid>
 
 #include <algorithm>
@@ -125,6 +131,62 @@ constexpr char kContext[] = "an::ui::shell::ProjectService";
     return QString::fromUtf8(QJsonDocument(stored).toJson(QJsonDocument::Compact));
 }
 
+/// The bytes of everything below a directory.
+[[nodiscard]] std::uint64_t bytesBelow(const QString& directory)
+{
+    std::uint64_t bytes = 0;
+    QDirIterator entries(directory, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
+    while (entries.hasNext())
+    {
+        entries.next();
+        bytes += static_cast<std::uint64_t>(entries.fileInfo().size());
+    }
+    return bytes;
+}
+
+/// What a project's folder takes on disk. For a worker: it reads the folder.
+[[nodiscard]] ProjectStorageReport measureStorage(const QString& folder, const std::vector<ProjectImage>& images)
+{
+    ProjectStorageReport report;
+    report.folder = folder;
+    if (folder.isEmpty())
+    {
+        return report;
+    }
+    const QDir project(folder);
+    const QDir histories(project.filePath(QString::fromLatin1(kProjectHistoryFolder)));
+    QSet<QString> named;
+    for (const ProjectImage& image : images)
+    {
+        const an::ui::history::StoredHistorySize size =
+            an::ui::history::measureStoredHistory(histories.filePath(image.id));
+        ProjectImageStorage storage;
+        storage.imageId = image.id;
+        storage.path = image.path;
+        storage.steps = size.steps;
+        storage.historyBytes = size.bytes;
+        storage.detachedBytes = size.detachedBytes;
+        report.historyBytes += size.bytes + size.detachedBytes;
+        report.images.push_back(std::move(storage));
+        named.insert(image.id);
+    }
+    const QStringList folders = histories.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& name : folders)
+    {
+        if (!named.contains(name))
+        {
+            report.unlistedHistoryBytes += bytesBelow(histories.filePath(name));
+        }
+    }
+    report.integrationBytes = bytesBelow(project.filePath(QString::fromLatin1(kProjectIntegrationFolder)));
+    const std::uint64_t whole = bytesBelow(folder);
+    const std::uint64_t counted = report.historyBytes + report.unlistedHistoryBytes + report.integrationBytes;
+    report.otherBytes = whole > counted ? whole - counted : 0;
+    const QStorageInfo drive(folder);
+    report.freeBytes = drive.isValid() && drive.isReady() ? drive.bytesAvailable() : -1;
+    return report;
+}
+
 /// What taking a project's lock came to.
 struct LockAttempt
 {
@@ -197,6 +259,9 @@ struct ProjectService::Impl
 
     std::map<std::size_t, Observer> observers;
     std::size_t nextToken = 1;
+
+    // Says, to a report measured on a worker, whether the service is still there to be told.
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     void tell(const Change change) const
     {
@@ -339,6 +404,7 @@ ProjectService::ProjectService() : m_impl(std::make_unique<Impl>()) {}
 
 ProjectService::~ProjectService()
 {
+    m_impl->alive.reset();
     m_impl->observers.clear();
     (void)m_impl->release();
 }
@@ -659,6 +725,51 @@ const ProjectImage* ProjectService::imageFor(const QString& filePath) const
     return index < 0 ? nullptr : &m_impl->document->images[static_cast<std::size_t>(index)];
 }
 
+const ProjectImage* ProjectService::image(const QString& imageId) const
+{
+    const qsizetype index = m_impl->indexOfId(imageId);
+    return index < 0 ? nullptr : &m_impl->document->images[static_cast<std::size_t>(index)];
+}
+
+bool ProjectService::setImagePath(const QString& imageId, const QString& filePath)
+{
+    Impl& impl = *m_impl;
+    const QString path = cleaned(filePath);
+    qsizetype index = impl.indexOfId(imageId);
+    if (index < 0 || path.isEmpty())
+    {
+        return false;
+    }
+    ProjectDocument changed = *impl.document;
+    // An image that already was that file gives way to the one saved over it.
+    const qsizetype other = impl.indexOfFile(path);
+    if (other >= 0 && other != index)
+    {
+        const QString otherId = changed.images[static_cast<std::size_t>(other)].id;
+        changed.images.erase(changed.images.begin() + other);
+        for (ProjectWorkspace& workspace : changed.workspaces)
+        {
+            workspace.views.erase(
+                std::remove_if(workspace.views.begin(), workspace.views.end(),
+                               [&otherId](const ProjectWorkspaceView& view) { return view.image == otherId; }),
+                workspace.views.end());
+        }
+        if (other < index)
+        {
+            --index;
+        }
+    }
+    ProjectImage& moved = changed.images[static_cast<std::size_t>(index)];
+    moved.path = path;
+    moved.relativePath = projectRelativePath(impl.folder, path);
+    if (!impl.commit(std::move(changed)))
+    {
+        return false;
+    }
+    impl.tell(Change::Images);
+    return true;
+}
+
 QString ProjectService::locateImage(const QString& imageId)
 {
     Impl& impl = *m_impl;
@@ -698,6 +809,35 @@ QString ProjectService::historyDirectoryFor(const QString& imageId) const
         return {};
     }
     return QDir(m_impl->folder).filePath(QString::fromLatin1(kProjectHistoryFolder) + QLatin1Char('/') + imageId);
+}
+
+void ProjectService::storageReport(StorageDone done) const
+{
+    if (!done)
+    {
+        return;
+    }
+    const QString folder = m_impl->folder;
+    std::vector<ProjectImage> images =
+        m_impl->document.has_value() ? m_impl->document->images : std::vector<ProjectImage>();
+    const std::weak_ptr<bool> stillThere = m_impl->alive;
+    QThreadPool::globalInstance()->start([folder, images = std::move(images), done = std::move(done), stillThere]() {
+        auto report = std::make_shared<ProjectStorageReport>(measureStorage(folder, images));
+        QCoreApplication* const application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [report, done, stillThere]() {
+                if (!stillThere.expired())
+                {
+                    done(*report);
+                }
+            },
+            Qt::QueuedConnection);
+    });
 }
 
 std::size_t ProjectService::subscribe(Observer observer)

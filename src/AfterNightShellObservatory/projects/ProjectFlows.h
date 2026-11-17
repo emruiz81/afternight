@@ -9,6 +9,7 @@
 
 #include "AfterNightShellObservatoryExport.h"
 
+#include "projects/ProjectHistoryBinder.h"
 #include "projects/ProjectService.h"
 
 #include <QIcon>
@@ -21,6 +22,7 @@
 #include <optional>
 #include <vector>
 
+class ImageViewControl;
 class QMenu;
 class QMessageBox;
 class QWidget;
@@ -47,8 +49,10 @@ class TopBar;
 /// project is open, fills the switcher's menu, and says what the service refuses.
 ///
 /// - **New Project...** opens the New Project dialog over the window, from the settings - the default location and
-///   the history's compression - and the open images that show a file. Accepted, the project is made and opened, and
-///   those images join it when the person kept the choice; a folder that is a project already is opened instead.
+///   the history's compression - the open images that show a file, and the size of their undo history. Accepted, the
+///   project is made and opened, and those images join it when the person kept the choice, their undo steps moved
+///   into the project or left with the session as the person chose; a folder that is a project already is opened
+///   instead.
 /// - **Open Project...** asks for a project's folder and opens it. **Switch Project...** opens the switcher's menu:
 ///   the open project, checked; the projects used last; then New project..., Open project... and Close project.
 /// - **Close Project** closes the open project; the images stay open, with no project.
@@ -58,17 +62,19 @@ class TopBar;
 /// and the application that hold it, with `Open anyway`, which takes the lock. No dialog blocks: each is opened over
 /// the window and answered when the person answers it.
 ///
-/// While a project is open, an image opened from a file joins it. As the window starts, the project used last is
-/// opened when the settings ask for it; one that cannot be opened is said in the window's transient message once the
-/// window shows, with `Open...` to try it as Open Project does.
+/// As the window starts, the project used last is opened when the settings ask for it; one that cannot be opened is
+/// said in the window's transient message once the window shows, with `Open...` to try it as Open Project does. That
+/// an image opened while a project is open joins it is the shell core's (`ProjectHistoryBinder`), which the window
+/// tells of each view.
 ///
 /// The window owns the unit and lets go of it before the top bar and the core's services go.
 class AFTERNIGHTSHELLOBSERVATORY_API ProjectFlows final : public QObject
 {
 public:
-    /// An open image a project can take: the file a view shows.
+    /// An open image a project can take: the view, and the file it shows.
     struct OpenImage
     {
+        QPointer<ImageViewControl> view;
         QString filePath;
         bool sequence = false;
     };
@@ -115,9 +121,6 @@ public:
     /// Says what kept the start's project from opening, once; nothing when it opened or none was asked for.
     void sayRestoreRefusal();
 
-    /// A view was added: while a project is open, the file it shows joins it.
-    void viewAdded(const QString& filePath, bool sequence);
-
     /// Where Open Project... asks for a folder: the application's folder dialog, unless a suite gives its own.
     void setFolderChooser(FolderChooser chooser);
 
@@ -138,6 +141,8 @@ private:
     void accepted(const an::ui::NewProjectChoice& choice);
     /// Says what the service refused.
     void say(const an::ui::shell::ProjectOutcome& outcome);
+    /// What says, while steps are copied into a project on another volume, how far the move is.
+    [[nodiscard]] an::ui::shell::ProjectHistoryBinder::Progress moveProgress();
 
     QWidget& m_window;
     an::ui::shell::ApplicationCore& m_core;

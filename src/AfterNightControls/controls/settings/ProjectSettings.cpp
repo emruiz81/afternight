@@ -13,6 +13,8 @@
 #include <QDir>
 #include <QStandardPaths>
 
+#include <algorithm>
+
 namespace an::ui
 {
 
@@ -100,6 +102,7 @@ ProjectSettings readProjectSettings(const SettingReader& read)
     settings.defaultLocation = defaultProjectsLocation();
     settings.createForIntegrationJobs = SettingsDefaults::PROJECTS_CREATE_FOR_INTEGRATION_JOBS;
     settings.openLastOnStartup = SettingsDefaults::PROJECTS_OPEN_LAST_ON_STARTUP;
+    settings.compactAskThresholdGb = SettingsDefaults::PROJECTS_COMPACT_ASK_THRESHOLD_GB;
     if (!read)
     {
         return settings;
@@ -119,6 +122,13 @@ ProjectSettings readProjectSettings(const SettingReader& read)
         stepCompressionFromName(read(QString::fromLatin1(SettingsKeys::HISTORY_COMPRESSION),
                                      QString::fromLatin1(SettingsDefaults::HISTORY_COMPRESSION)))
             .value_or(history::StepCompression::Lz4);
+    bool whole = false;
+    const int threshold =
+        read(QString::fromLatin1(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QString()).trimmed().toInt(&whole);
+    if (whole && threshold >= 1)
+    {
+        settings.compactAskThresholdGb = threshold;
+    }
     return settings;
 }
 
@@ -135,6 +145,8 @@ void writeProjectSettings(const ProjectSettings& settings, const SettingWriter& 
     const std::string_view compression = history::stepCompressionName(settings.historyCompression);
     write(QString::fromLatin1(SettingsKeys::HISTORY_COMPRESSION),
           QString::fromLatin1(compression.data(), static_cast<qsizetype>(compression.size())));
+    write(QString::fromLatin1(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB),
+          QString::number((std::max)(settings.compactAskThresholdGb, 1)));
 }
 
 } // namespace an::ui

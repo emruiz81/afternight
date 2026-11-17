@@ -49,7 +49,8 @@ inline void PrintTo(const CodecCase& codec, std::ostream* stream)
     *stream << codec.name;
 }
 
-/// Every codec a history can be given: the snapshot, and XISF with each compression.
+/// Every codec a history can be given: the snapshot, XISF with each compression, and the one every history is made
+/// with, in a project or not.
 [[nodiscard]] inline std::vector<CodecCase> everyStepCodec()
 {
     using an::ui::history::StepCompression;
@@ -58,6 +59,7 @@ inline void PrintTo(const CodecCase& codec, std::ostream* stream)
         {"XisfUncompressed", [] { return an::ui::history::xisfStepCodec(StepCompression::None); }},
         {"XisfLz4", [] { return an::ui::history::xisfStepCodec(StepCompression::Lz4); }},
         {"XisfZstd", [] { return an::ui::history::xisfStepCodec(StepCompression::Zstd); }},
+        {"History", [] { return an::ui::history::historyStepCodec(StepCompression::Lz4); }},
     };
 }
 
@@ -75,10 +77,12 @@ inline void PrintTo(const CodecCase& codec, std::ostream* stream)
 /// A session of two threads whose context reads and writes XISF and FITS files, as the application's does - the first
 /// for the steps, the second for the cases that hold a step to another format's file; fails the case when it cannot
 /// be opened.
-[[nodiscard]] inline std::optional<TestSessionProvider> openStepCodecSession()
+[[nodiscard]] inline std::optional<TestSessionProvider>
+openStepCodecSession(const an::consumer::MemoryAllowances& memory = {})
 {
     an::consumer::EngineSessionSettings settings;
     settings.maxConcurrency = 2u;
+    settings.memory = memory;
     settings.codecRegistry = []() -> an::Result<std::shared_ptr<const an::CodecRegistry>> {
         an::Result<std::shared_ptr<const an::ImageCodec>> fits = an::createFitsCodec();
         if (!fits.hasValue())
@@ -337,6 +341,55 @@ inline void expectSameStep(const StepState& original, const StepState& restored)
     EXPECT_EQ(original.maskWidth, restored.maskWidth);
     EXPECT_EQ(original.maskHeight, restored.maskHeight);
     EXPECT_TRUE(original.mask == restored.mask) << "a bit of the mask changed";
+}
+
+/// An eight-bit grey image of zeros whose mask has no pattern at all, so its bits are what its record weighs. The
+/// width must fill its last byte. Nothing, with the case failed, when it cannot be made.
+[[nodiscard]] inline std::optional<an::consumer::ImageAsset>
+patternlessMaskImage(const an::consumer::EngineSession& session, const std::uint32_t width, const std::uint32_t height)
+{
+    an::Result<an::consumer::SessionHold> hold = session.hold();
+    if (!hold.hasValue())
+    {
+        ADD_FAILURE() << hold.status().message();
+        return std::nullopt;
+    }
+    const std::optional<an::ImageDescriptor> descriptor =
+        an::tests::viewer::describeImage(hold->engine(), an::SampleType::UInt8, width, height,
+                                         an::tests::viewer::Channels::Grey, an::NumericDomain::RawSensorCode);
+    if (!descriptor.has_value())
+    {
+        ADD_FAILURE() << "the image could not be described";
+        return std::nullopt;
+    }
+    an::Result<an::Image<std::uint8_t>> image = an::Image<std::uint8_t>::create(
+        hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed);
+    an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(
+        hold->engine(), *an::ImageExtent::create(width, height, 1u, hold->engine().limits()));
+    if (!image.hasValue() || !mask.hasValue())
+    {
+        ADD_FAILURE() << "the image or its mask could not be made";
+        return std::nullopt;
+    }
+    {
+        const auto view = mask->view();
+        for (std::uint32_t y = 0u; y < height; ++y)
+        {
+            std::uint8_t* const row = view->data() + y * view->rowStrideBytes();
+            for (std::uint32_t byte = 0u; byte < width / 8u; ++byte)
+            {
+                row[byte] = static_cast<std::uint8_t>(mixedBits(byte, y, 0u, 31u));
+            }
+        }
+    }
+    an::Result<an::consumer::ImageAsset> asset =
+        an::consumer::ImageAsset::adopt(session, an::consumer::AnyImage{std::move(*image)}, std::move(*mask));
+    if (!asset.hasValue())
+    {
+        ADD_FAILURE() << asset.status().message();
+        return std::nullopt;
+    }
+    return std::move(*asset);
 }
 
 /// The identity a case writes its step for.

@@ -72,11 +72,12 @@ std::vector<SettingsSearchPage> settingsSearchPages()
     pages.push_back(SettingsSearchPage{
         text(kProjects, "Projects"),
         texts(kProjects, {"Projects", "Project", "Location", "Folder", "Integration", "History", "Undo", "Steps",
-                          "XISF", "Compression", "LZ4", "Zstandard", "Startup", "Last project"}),
+                          "XISF", "Compression", "LZ4", "Zstandard", "Compact", "Startup", "Last project"}),
         rows(kProjects, {
                             {"Default location", "New Projects"},
                             {"Create a project for every integration job", "New Projects"},
                             {"History compression", "Undo History"},
+                            {"Ask to compact a history above", "Undo History"},
                             {"Open the last project on startup", "Startup"},
                         })});
 

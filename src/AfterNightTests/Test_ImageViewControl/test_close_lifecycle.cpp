@@ -82,16 +82,13 @@ using an::ui::history::SnapshotState;
 /// Removes every snapshot a history wrote below a directory, and says how many it removed.
 std::size_t removeSnapshotsIn(const std::filesystem::path& directory)
 {
+    // A history's steps, of either kind its codec writes.
     std::vector<std::filesystem::path> found;
-    std::error_code error;
-    for (std::filesystem::recursive_directory_iterator entry(directory, error), end; !error && entry != end;
-         entry.increment(error))
+    for (const std::string& step : historyFilesIn(directory))
     {
-        if (entry->path().extension() == ".ansnap")
-        {
-            found.push_back(entry->path());
-        }
+        found.emplace_back(step);
     }
+    std::error_code error;
     std::size_t removed = 0u;
     for (const std::filesystem::path& file : found)
     {

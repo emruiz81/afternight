@@ -3,7 +3,8 @@
 
 /// @file
 /// The undo history of one view: the timeline, the edit preparation that runs on an edit's worker, the restores read on
-/// a worker and shown on the GUI thread, and the directory the history's snapshots live in.
+/// a worker and shown on the GUI thread, the directory the history's snapshots live in, and the home a project gives
+/// it: entered, attached to what it holds, indexed, left.
 
 #include "stdafx.hpp"
 #include "ImageHistoryTracker.h"
@@ -16,14 +17,20 @@
 #include <AfterNightEngine/Core/ErrorCode.h>
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
+#include <QFileInfo>
 #include <QMetaObject>
 #include <QThreadPool>
 #include <QUuid>
 
+#include <algorithm>
+#include <atomic>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <unordered_map>
 #include <utility>
 
@@ -60,10 +67,101 @@ namespace
     return std::string(text.begin(), text.end());
 }
 
+[[nodiscard]] std::filesystem::path pathOfUtf8(const std::string& path)
+{
+    return std::filesystem::path(std::u8string(path.begin(), path.end()));
+}
+
+[[nodiscard]] QString qtPathOf(const std::filesystem::path& path)
+{
+    const std::u8string text = path.generic_u8string();
+    return QString::fromUtf8(reinterpret_cast<const char*>(text.data()), static_cast<qsizetype>(text.size()));
+}
+
+/// A directory as two spellings of one place compare equal: normalized, and without case where the host has none.
+[[nodiscard]] std::string placeKey(const std::filesystem::path& directory)
+{
+    QString text = QDir::cleanPath(qtPathOf(directory));
+#ifdef Q_OS_WIN
+    text = text.toLower();
+#endif
+    return text.toStdString();
+}
+
 void removeFile(const std::string& path)
 {
     std::error_code ignored;
-    std::filesystem::remove(std::filesystem::path(std::u8string(path.begin(), path.end())), ignored);
+    std::filesystem::remove(pathOfUtf8(path), ignored);
+}
+
+/// One step as the GUI thread drafts the index: what the index says of it, and the snapshot whose file it names.
+struct DraftStep
+{
+    HistoryIndexStep listed;
+    SnapshotPtr snapshot;
+};
+
+/// What the index is written from: the steps in order, the step shown, the step the file equals, and the file.
+struct IndexDraft
+{
+    std::vector<DraftStep> steps;
+    QString current;
+    QString saved;
+    QString file;
+    std::optional<FileIdentity> identity;
+};
+
+/// The index a draft comes to now, for a directory: the inherited steps, and the steps whose files are written there.
+[[nodiscard]] HistoryIndex indexOf(const IndexDraft& draft, const std::filesystem::path& directory)
+{
+    const std::string place = placeKey(directory);
+    HistoryIndex index;
+    index.current = draft.current;
+    index.saved = draft.saved;
+    index.file = draft.file;
+    index.identity = draft.identity;
+    for (const DraftStep& step : draft.steps)
+    {
+        HistoryIndexStep listed = step.listed;
+        if (!listed.inherited)
+        {
+            if (!step.snapshot || step.snapshot->state() != SnapshotState::Written)
+            {
+                continue;
+            }
+            const std::filesystem::path file = pathOfUtf8(step.snapshot->path());
+            if (placeKey(file.parent_path()) != place)
+            {
+                continue;
+            }
+            listed.file = qtPathOf(file.filename());
+            listed.run = QString::fromStdString(step.snapshot->identity().runId());
+            listed.bytes = step.snapshot->fileBytes();
+        }
+        index.steps.push_back(std::move(listed));
+    }
+    return index;
+}
+
+/// Sets a kept history aside: everything directly in its directory goes into a folder of its own under `detached`,
+/// where its steps still open as images.
+[[nodiscard]] bool setHistoryAside(const QString& directory)
+{
+    const QDir home(directory);
+    const QString aside =
+        home.filePath(QString::fromLatin1(kDetachedHistoryFolder) + QLatin1Char('/') +
+                      QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz")));
+    if (!QDir().mkpath(aside))
+    {
+        return false;
+    }
+    bool moved = true;
+    const QStringList files = home.entryList(QDir::Files | QDir::Hidden);
+    for (const QString& name : files)
+    {
+        moved = QFile::rename(home.filePath(name), QDir(aside).filePath(name)) && moved;
+    }
+    return moved;
 }
 
 /// Reports a failure the user has to hear of, from any thread: the log, and a message the dialog service shows on the
@@ -122,14 +220,15 @@ void reportFromAnyThread(const std::string& message)
 
 } // namespace
 
-/// What one history shares with the workers it starts: the session, the backup writer, its own directory, and the edits
-/// prepared on their workers. Thread-safe.
-class HistoryStore
+/// What one history shares with the workers it starts: the session, the backup writer, the directory its steps are
+/// written in - its own, or a home's - the index of a home, and the edits prepared on their workers. Thread-safe.
+class HistoryStore : public std::enable_shared_from_this<HistoryStore>
 {
 public:
     HistoryStore(const an::consumer::EngineSession& session, StepCodecPtr codec, const QString& baseDirectory)
-        : m_Session(session), m_RunId(newToken()), m_Directory(pathOf(baseDirectory) / ("AN_HISTORY_" + m_RunId)),
-          m_Queue(session, std::move(codec), [this](const Snapshot& snapshot) { onSettled(snapshot); })
+        : m_Session(session), m_RunId(newToken()), m_OwnDirectory(pathOf(baseDirectory) / ("AN_HISTORY_" + m_RunId)),
+          m_OutsideCodec(codec ? std::move(codec) : historyStepCodec()), m_Directory(m_OwnDirectory),
+          m_Queue(session, m_OutsideCodec, [this](const Snapshot& snapshot) { onSettled(snapshot); })
     {
     }
 
@@ -146,13 +245,27 @@ public:
         return m_Queue;
     }
 
-    [[nodiscard]] std::string directory() const
+    /// The directory a step recorded now is written in.
+    [[nodiscard]] std::filesystem::path directory() const
     {
-        return utf8Of(m_Directory);
+        std::lock_guard lock(m_Mutex);
+        return m_Directory;
     }
 
-    /// A new path in the history's directory and the identity the snapshot written there is for; nothing once the
-    /// history is closed.
+    /// The directory of the history's own, which goes with it.
+    [[nodiscard]] const std::filesystem::path& ownDirectory() const
+    {
+        return m_OwnDirectory;
+    }
+
+    /// Held shared while a step's file is read and alone while one is moved, so a read never meets half a move.
+    [[nodiscard]] std::shared_mutex& files()
+    {
+        return m_Files;
+    }
+
+    /// A new path in the directory steps are written in and the identity the snapshot written there is for; nothing
+    /// once the history is closed.
     [[nodiscard]] std::optional<std::pair<std::string, an::ArtifactIdentity>> newSnapshot()
     {
         std::lock_guard lock(m_Mutex);
@@ -160,7 +273,7 @@ public:
         {
             return std::nullopt;
         }
-        if (!m_DirectoryMade)
+        if (m_MadeDirectories.count(placeKey(m_Directory)) == 0u)
         {
             std::error_code error;
             std::filesystem::create_directories(m_Directory, error);
@@ -168,7 +281,7 @@ public:
             {
                 return std::nullopt;
             }
-            m_DirectoryMade = true;
+            m_MadeDirectories.insert(placeKey(m_Directory));
         }
         std::string artifactId = newToken();
         an::Result<an::ArtifactIdentity> identity = an::ArtifactIdentity::create(artifactId, m_RunId);
@@ -176,7 +289,8 @@ public:
         {
             return std::nullopt;
         }
-        return std::make_pair(utf8Of(m_Directory / (artifactId + std::string(m_Queue.codec().fileExtension()))),
+        const StepCodecPtr codec = m_Queue.codec();
+        return std::make_pair(utf8Of(m_Directory / (artifactId + std::string(codec->fileExtension()))),
                               std::move(*identity));
     }
 
@@ -212,27 +326,149 @@ public:
         }
     }
 
+    /// Removes a step's file, unless it is in a home the history has left: what a home holds when it is left stays.
+    void removeStepFile(const std::string& path)
+    {
+        if (path.empty())
+        {
+            return;
+        }
+        {
+            std::lock_guard lock(m_Mutex);
+            if (m_LeftPlaces.count(placeKey(pathOfUtf8(path).parent_path())) != 0u)
+            {
+                return;
+            }
+        }
+        removeFile(path);
+    }
+
     /// Lets a snapshot no step uses go: off the queue if it has not started, and its file removed now or as soon as
     /// its write ends.
     void orphan(const SnapshotPtr& snapshot)
     {
+        snapshot->drop();
         m_Queue.discard(snapshot);
+        if (snapshot->state() != SnapshotState::Pending)
         {
-            std::lock_guard lock(m_Mutex);
-            if (snapshot->state() == SnapshotState::Pending)
-            {
-                m_Orphans.insert(snapshot->path());
-                return;
-            }
+            removeStepFile(snapshot->path());
         }
-        removeFile(snapshot->path());
     }
 
-    /// Whether the history is gone and its directory reclaimed.
+    /// Whether the history is gone.
     [[nodiscard]] bool closed() const
     {
         std::lock_guard lock(m_Mutex);
         return m_Closed;
+    }
+
+    // ---- A home
+
+    /// Whether the steps are kept in a home.
+    [[nodiscard]] bool kept() const
+    {
+        std::lock_guard lock(m_Mutex);
+        return m_Kept;
+    }
+
+    /// Writes the steps recorded from now on into a home, through its codec. The home's index is not written until
+    /// `openIndex`: what the home held is read first.
+    ///
+    /// @param claim what says the home is this history's, held until the history has left it.
+    void enter(const std::filesystem::path& home, StepCodecPtr codec, std::shared_ptr<void> claim)
+    {
+        {
+            std::lock_guard lock(m_Mutex);
+            m_Directory = home;
+            m_Kept = true;
+            m_IndexOpen = false;
+            m_IndexClosed = false;
+            m_LeftPlaces.erase(placeKey(home));
+            m_HomeClaim = std::move(claim);
+        }
+        m_Queue.setCodec(std::move(codec));
+    }
+
+    /// Lets the home's index be written, and writes it.
+    void openIndex()
+    {
+        {
+            std::lock_guard lock(m_Mutex);
+            if (!m_Kept)
+            {
+                return;
+            }
+            m_IndexOpen = true;
+        }
+        scheduleIndexWrite();
+    }
+
+    /// What the index is written from, from now on. Never waits: the index is written on a worker.
+    void publish(IndexDraft draft)
+    {
+        bool write = false;
+        {
+            std::lock_guard lock(m_Mutex);
+            m_Draft = std::move(draft);
+            write = m_Kept && m_IndexOpen && !m_Closed;
+        }
+        if (write)
+        {
+            scheduleIndexWrite();
+        }
+    }
+
+    /// Writes the steps recorded from now on into the history's own directory again. The home keeps what it holds:
+    /// the steps still on their way there are written, its index is written a last time after them, on a worker, and
+    /// nothing of it is removed by this history afterwards.
+    void leave()
+    {
+        std::filesystem::path home;
+        IndexDraft draft;
+        bool indexed = false;
+        std::shared_ptr<void> claim;
+        {
+            std::lock_guard lock(m_Mutex);
+            if (!m_Kept)
+            {
+                return;
+            }
+            home = m_Directory;
+            draft = m_Draft;
+            indexed = m_IndexOpen;
+            m_LeftPlaces.insert(placeKey(home));
+            m_Directory = m_OwnDirectory;
+            m_Kept = false;
+            m_IndexOpen = false;
+            claim = std::move(m_HomeClaim);
+        }
+        m_Queue.setCodec(m_OutsideCodec);
+        if (!indexed)
+        {
+            // Nothing of this history was listed there: the home is free at once, as the claim goes.
+            return;
+        }
+        // The home stays this history's until its last write there has landed.
+        const QString directory = qtPathOf(home);
+        detail::noteHistoryClosing(directory);
+        QThreadPool::globalInstance()->start([self = shared_from_this(), home, directory, draft]() {
+            const std::string place = placeKey(home);
+            for (const DraftStep& step : draft.steps)
+            {
+                if (step.snapshot && placeKey(pathOfUtf8(step.snapshot->path()).parent_path()) == place)
+                {
+                    (void)step.snapshot->waitUntilSettled();
+                }
+            }
+            {
+                std::lock_guard index(self->m_IndexWrite);
+                if (!writeHistoryIndex(directory, indexOf(draft, home)))
+                {
+                    LOG_WARNING("Image history: the index of '{}' could not be written", directory.toStdString());
+                }
+            }
+            detail::noteHistoryClosed(directory);
+        });
     }
 
     /// Stops the writer and reclaims the history's own directory - nothing else.
@@ -244,43 +480,139 @@ public:
         }
         m_Queue.close();
         std::error_code ignored;
-        std::filesystem::remove_all(m_Directory, ignored);
+        std::filesystem::remove_all(m_OwnDirectory, ignored);
+    }
+
+    /// Ends a history whose steps are kept: nothing more is recorded, the steps still waiting are written, the index
+    /// is written after the last of them, and the history's own directory goes - all on a worker, behind the caller.
+    void closeKept()
+    {
+        std::filesystem::path home;
+        {
+            std::lock_guard lock(m_Mutex);
+            m_Closed = true;
+            home = m_Directory;
+        }
+        const QString directory = qtPathOf(home);
+        detail::noteHistoryClosing(directory);
+        QThreadPool::globalInstance()->start([self = shared_from_this(), directory]() {
+            self->m_Queue.finish();
+            self->writeIndex(true);
+            std::error_code ignored;
+            std::filesystem::remove_all(self->m_OwnDirectory, ignored);
+            detail::noteHistoryClosed(directory);
+        });
+    }
+
+    /// Removes the history's own directory if it holds nothing: its steps moved into a home.
+    void reclaimOwnDirectoryIfEmpty()
+    {
+        std::error_code error;
+        if (std::filesystem::is_directory(m_OwnDirectory, error) && std::filesystem::is_empty(m_OwnDirectory, error) &&
+            !error)
+        {
+            std::filesystem::remove(m_OwnDirectory, error);
+            std::lock_guard lock(m_Mutex);
+            m_MadeDirectories.erase(placeKey(m_OwnDirectory));
+        }
     }
 
 private:
+    void scheduleIndexWrite()
+    {
+        // One write waiting is enough: it writes whatever the draft is when it runs.
+        if (m_IndexWriteWaiting.exchange(true))
+        {
+            return;
+        }
+        QThreadPool::globalInstance()->start([self = shared_from_this()]() { self->writeIndex(false); });
+    }
+
+    /// Writes the home's index from the draft as it is now; `last` closes it, so a write still waiting writes nothing
+    /// over what a later history writes there.
+    void writeIndex(const bool last)
+    {
+        m_IndexWriteWaiting.store(false);
+        std::lock_guard index(m_IndexWrite);
+        IndexDraft draft;
+        std::filesystem::path home;
+        {
+            std::lock_guard lock(m_Mutex);
+            if (!m_Kept || !m_IndexOpen || m_IndexClosed)
+            {
+                return;
+            }
+            draft = m_Draft;
+            home = m_Directory;
+            m_IndexClosed = last;
+        }
+        const QString directory = qtPathOf(home);
+        if (!writeHistoryIndex(directory, indexOf(draft, home)))
+        {
+            LOG_WARNING("Image history: the index of '{}' could not be written", directory.toStdString());
+        }
+    }
+
     // Called on the writer's thread once a snapshot's write has ended.
     void onSettled(const Snapshot& snapshot)
     {
-        bool orphaned = false;
         bool closed = false;
+        bool kept = false;
         {
             std::lock_guard lock(m_Mutex);
-            orphaned = m_Orphans.erase(snapshot.path()) > 0u;
             closed = m_Closed;
+            kept = m_Kept;
         }
-        if (orphaned)
+        if (snapshot.dropped())
         {
-            removeFile(snapshot.path());
+            removeStepFile(snapshot.path());
             return;
         }
-        if (!closed && snapshot.state() == SnapshotState::Failed)
+        if (snapshot.state() == SnapshotState::Failed && !closed)
         {
             // The step stays, and says it cannot be restored.
             reportFromAnyThread(fmt::format(
                 "Could NOT keep the snapshot of {}; undo and redo cannot restore that step. Error message: {}",
                 snapshot.label(), snapshot.failure()));
         }
+        else if (snapshot.state() == SnapshotState::Failed && kept)
+        {
+            // Behind a view that closed there is nobody to tell: the step is not in the home, and its index says so
+            // by not listing it. An application that is closing admits no work, so a step still waiting then ends
+            // here.
+            LOG_WARNING("Image history: the snapshot of {} was not kept after its view closed: {}", snapshot.label(),
+                        snapshot.failure());
+        }
+        if (kept)
+        {
+            // The step's file has landed: the index lists it.
+            writeIndex(false);
+        }
     }
 
     const an::consumer::EngineSession& m_Session;
     const std::string m_RunId;
-    const std::filesystem::path m_Directory;
+    const std::filesystem::path m_OwnDirectory;
+    const StepCodecPtr m_OutsideCodec;
 
     mutable std::mutex m_Mutex;
-    bool m_DirectoryMade = false;
+    std::filesystem::path m_Directory;
+    bool m_Kept = false;
+    bool m_IndexOpen = false;
+    bool m_IndexClosed = false;
     bool m_Closed = false;
+    std::set<std::string> m_MadeDirectories;
+    std::set<std::string> m_LeftPlaces;
     std::unordered_map<std::uint64_t, std::weak_ptr<void>> m_Prepared;
-    std::set<std::string> m_Orphans;
+    IndexDraft m_Draft;
+    // What says the home is this history's.
+    std::shared_ptr<void> m_HomeClaim;
+
+    // One index is written at a time, and one write waits at most.
+    std::mutex m_IndexWrite;
+    std::atomic<bool> m_IndexWriteWaiting{false};
+
+    std::shared_mutex m_Files;
 
     // Last, so the writer - which calls back into this store - ends before anything else here goes.
     BackupQueue m_Queue;
@@ -311,7 +643,8 @@ struct PreparedEdit
 
     ~PreparedEdit()
     {
-        if (const std::shared_ptr<HistoryStore> held = store.lock())
+        const std::shared_ptr<HistoryStore> held = store.lock();
+        if (held)
         {
             held->forgetPrepared(editedIdentity);
         }
@@ -322,7 +655,15 @@ struct PreparedEdit
             {
                 if (*written)
                 {
-                    removeFile((*written)->path());
+                    (*written)->drop();
+                    if (held)
+                    {
+                        held->removeStepFile((*written)->path());
+                    }
+                    else
+                    {
+                        removeFile((*written)->path());
+                    }
                 }
             }
         }
@@ -376,6 +717,36 @@ struct ImageHistoryTracker::Restore
     std::optional<an::ui::DocumentSequence> otherSequence;
     std::uint64_t frameIndex = 0u;
     std::stop_source stop;
+};
+
+/// One entry into a home, from the call to its outcome.
+struct ImageHistoryTracker::Entry
+{
+    an::ui::history::HistoryHome home;
+    an::ui::history::StepsMove move = an::ui::history::StepsMove::Move;
+    an::ui::history::IHistoryPlacement::EnterDone done;
+    an::ui::history::IHistoryPlacement::MoveProgress progress;
+    an::ui::history::HistoryEntry outcome;
+    std::stop_source stop;
+};
+
+/// What a home holds when it is entered, as a worker read it.
+struct ImageHistoryTracker::HomeContents
+{
+    /// The index of the history kept there; nothing when there is none, or when it was set aside.
+    std::optional<an::ui::history::HistoryIndex> index;
+
+    /// For each step of the index, whether its file is there; an inherited step is.
+    std::vector<bool> present;
+
+    /// The identity of the image's file now.
+    std::optional<an::ui::history::FileIdentity> identity;
+
+    /// What says the home is this history's from here on; it gives the home back when the entry is given up.
+    std::shared_ptr<void> claim;
+
+    bool detached = false;
+    QString problem;
 };
 
 ImageHistoryStep::ImageHistoryStep(const std::string& uuid, const std::string& stepName, const std::string& stepDesc)
@@ -436,6 +807,23 @@ void ImageHistoryTracker::registerInitialStep(const std::string& historyDesc)
     {
         releaseDroppedSteps({previous});
     }
+    // Whether this state is the one a file holds is known once what made the view has returned: a view is told it
+    // shows its file after it is given its image.
+    const std::shared_ptr<ImageHistoryTracker*> self = m_Self;
+    if (QCoreApplication* application = QCoreApplication::instance())
+    {
+        QMetaObject::invokeMethod(
+            application,
+            [self]() {
+                if (*self != nullptr && (*self)->m_ImageHistory.empty())
+                {
+                    (*self)->noteStateTheFileEquals();
+                    (*self)->publishIndex();
+                }
+            },
+            Qt::QueuedConnection);
+    }
+    publishIndex();
     // The initial state is not in the list of steps.
     notifyHistoryUpdated();
 }
@@ -834,8 +1222,10 @@ ImageHistoryTracker::StepReader ImageHistoryTracker::stepReader(const size_t ste
                     an::ErrorCode::InvalidState,
                     fmt::format("the snapshot of step '{}' was not kept: {}", name, snapshot->failure()));
             }
-            return store->queue().codec().read(store->session(), snapshot->path(), snapshot->identity(),
-                                               std::move(stop));
+            // A step's file is not moved while it is read.
+            const std::shared_lock files(store->files());
+            return store->queue().codec()->read(store->session(), snapshot->path(), snapshot->identity(),
+                                                std::move(stop));
         }
         if (sequence.has_value())
         {
@@ -912,6 +1302,7 @@ bool ImageHistoryTracker::removeStep(const size_t stepIndex)
     m_ImageHistory.erase(m_ImageHistory.begin() + static_cast<std::ptrdiff_t>(stepIndex - 1));
     m_CurrentStep = removalPlan.next_current_step;
     releaseDroppedSteps({removedStep});
+    publishIndex();
 
     m_Host.historyChanged();
     notifyActiveImageHistoryChanged();
@@ -980,6 +1371,9 @@ void ImageHistoryTracker::keepShownImage(const ImageHistoryStepSPtr& step)
 
 void ImageHistoryTracker::annotateNewStep(const ImageHistoryStepSPtr& step)
 {
+    // The state the new step follows is the one the file holds, when the view still shows its file.
+    noteStateTheFileEquals();
+
     std::vector<ImageHistoryStepSPtr> droppedSteps;
 
     if (hasRedoSteps())
@@ -1003,6 +1397,7 @@ void ImageHistoryTracker::annotateNewStep(const ImageHistoryStepSPtr& step)
     releaseDroppedSteps(droppedSteps);
 
     m_CurrentStep++;
+    publishIndex();
 
     m_Host.historyChanged();
     notifyActiveImageHistoryChanged();
@@ -1124,7 +1519,14 @@ void ImageHistoryTracker::finishRestore(const std::shared_ptr<Restore>& restore,
     if (!read.hasValue())
     {
         m_Restore.reset();
-        if (read.status().code() != an::ErrorCode::Cancelled)
+        const an::ErrorCode code = read.status().code();
+        if (restore->targetStep->m_Stored &&
+            (code == an::ErrorCode::InvalidData || code == an::ErrorCode::ExternalFailure))
+        {
+            // A step an earlier session kept that does not read now: it leaves the history, and the others stand.
+            leaveOutStoredStep(restore->targetStep, read.status().message());
+        }
+        else if (code != an::ErrorCode::Cancelled)
         {
             reportFailure(restore->action, read.status().message());
         }
@@ -1190,6 +1592,7 @@ void ImageHistoryTracker::endRestore(const std::shared_ptr<Restore>& restore, co
         releaseDroppedSteps({removedStep});
     }
     m_CurrentStep = restore->target;
+    publishIndex();
 
     m_Host.historyChanged();
     notifyActiveImageHistoryChanged();
@@ -1233,7 +1636,7 @@ const an::ui::history::BackupQueue& ImageHistoryTracker::backupQueue() const
 
 std::string ImageHistoryTracker::snapshotDirectory() const
 {
-    return m_Store->directory();
+    return an::ui::history::utf8Of(m_Store->directory());
 }
 
 const ImageHistoryLineage& ImageHistoryTracker::lineage() const
@@ -1244,6 +1647,7 @@ const ImageHistoryLineage& ImageHistoryTracker::lineage() const
 void ImageHistoryTracker::setLineage(ImageHistoryLineage lineage)
 {
     m_Lineage = std::move(lineage);
+    publishIndex();
 }
 
 std::string ImageHistoryTracker::getNextStepName() const
@@ -1336,12 +1740,730 @@ void ImageHistoryTracker::notifyHistoryUpdated()
     }
 }
 
+// ---- A home
+
+void ImageHistoryTracker::enterHome(an::ui::history::HistoryHome home, const an::ui::history::StepsMove move,
+                                    an::ui::history::IHistoryPlacement::EnterDone done,
+                                    an::ui::history::IHistoryPlacement::MoveProgress progress)
+{
+    using namespace an::ui::history;
+    // Entering the home the history is in changes nothing.
+    if (!m_Entry && m_Home.has_value() && placeKey(pathOf(m_Home->directory)) == placeKey(pathOf(home.directory)))
+    {
+        if (done)
+        {
+            HistoryEntry entry;
+            entry.entered = true;
+            done(entry);
+        }
+        return;
+    }
+    if (m_Entry || m_Home.has_value())
+    {
+        leaveHome();
+    }
+
+    auto entry = std::make_shared<Entry>();
+    entry->home = std::move(home);
+    entry->move = move;
+    entry->done = std::move(done);
+    entry->progress = std::move(progress);
+    m_Entry = entry;
+
+    // What the home holds is read on a worker, and nothing of this history is written there until it has been.
+    const std::shared_ptr<ImageHistoryTracker*> self = m_Self;
+    QThreadPool::globalInstance()->start([self, entry]() {
+        const HistoryHome& where = entry->home;
+        const std::stop_token stop = entry->stop.get_token();
+        auto contents = std::make_shared<HomeContents>();
+        // The home is one history's at a time. A history that closed there may still be writing: what it leaves is
+        // read once it has. One a view has open keeps it, and this history stays the session's.
+        bool kept = false;
+        contents->claim = detail::claimHistoryHome(where.directory, detail::HomeUse::History, stop, kept);
+        if (!contents->claim && !kept)
+        {
+            return;
+        }
+        if (!contents->claim)
+        {
+            contents->problem = QStringLiteral("another view of this image keeps its history in '%1'")
+                                    .arg(QDir::toNativeSeparators(where.directory));
+        }
+        else if (stop.stop_requested())
+        {
+            return;
+        }
+        else if (!QDir().mkpath(where.directory))
+        {
+            contents->problem =
+                QStringLiteral("the folder '%1' could not be made").arg(QDir::toNativeSeparators(where.directory));
+        }
+        else
+        {
+            const QDir directory(where.directory);
+            const bool indexThere = QFileInfo::exists(directory.filePath(QString::fromLatin1(kHistoryIndexFileName)));
+            contents->index = readHistoryIndex(where.directory);
+            if (!where.file.isEmpty())
+            {
+                contents->identity = readFileIdentity(where.file);
+            }
+            // A history kept for a file that is no longer that file is not this image's; neither is one whose index
+            // does not read. Either is kept aside, whole.
+            const bool unreadable = indexThere && !contents->index.has_value();
+            const bool changed = contents->index.has_value() && contents->index->identity.has_value() &&
+                                 contents->identity != contents->index->identity;
+            if (unreadable || changed)
+            {
+                if (!setHistoryAside(where.directory))
+                {
+                    contents->problem = QStringLiteral("the history kept in '%1' could not be set aside")
+                                            .arg(QDir::toNativeSeparators(where.directory));
+                }
+                contents->index.reset();
+                contents->detached = true;
+            }
+            if (contents->problem.isEmpty())
+            {
+                (void)sweepHistoryDirectory(where.directory, contents->index.has_value() ? &*contents->index : nullptr);
+                if (contents->index.has_value())
+                {
+                    for (const HistoryIndexStep& step : contents->index->steps)
+                    {
+                        contents->present.push_back(step.inherited ||
+                                                    QFileInfo(directory.filePath(step.file)).isFile());
+                    }
+                }
+            }
+        }
+        QCoreApplication* application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, entry, contents]() {
+                if (*self != nullptr)
+                {
+                    (*self)->continueEntry(entry, std::move(*contents));
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageHistoryTracker::continueEntry(const std::shared_ptr<Entry>& entry, HomeContents&& contents)
+{
+    using namespace an::ui::history;
+    if (m_Entry != entry)
+    {
+        return;
+    }
+    if (!contents.problem.isEmpty())
+    {
+        m_Entry.reset();
+        entry->outcome.problem = contents.problem;
+        LOG_WARNING("Image history: the history of '{}' stays in the session's folder: {}", m_Host.historyName(),
+                    contents.problem.toStdString());
+        if (entry->done)
+        {
+            entry->done(entry->outcome);
+        }
+        return;
+    }
+
+    // From here on a step that is recorded is written into the home.
+    const std::filesystem::path home = pathOf(entry->home.directory);
+    m_Store->enter(home, entry->home.codec ? entry->home.codec : historyStepCodec(entry->home.compression),
+                   std::move(contents.claim));
+    m_Home = entry->home;
+    if (!entry->home.file.isEmpty())
+    {
+        m_SavedFile = entry->home.file;
+        m_FileIdentity = contents.identity;
+        ++m_IdentityReads;
+    }
+    entry->outcome.detached = contents.detached;
+    if (contents.index.has_value())
+    {
+        attachStoredHistory(*contents.index, contents.present, entry->outcome);
+    }
+    noteStateTheFileEquals();
+
+    // The steps the history already has, whose files are elsewhere, go in when the caller says so.
+    std::vector<SnapshotPtr> moving;
+    if (entry->move == StepsMove::Move)
+    {
+        const std::string place = placeKey(home);
+        std::set<const Snapshot*> seen;
+        const auto take = [&moving, &seen, &place](const ImageHistoryStepSPtr& step) {
+            if (!step || !step->m_Snapshot || !seen.insert(step->m_Snapshot.get()).second)
+            {
+                return;
+            }
+            const SnapshotState state = step->m_Snapshot->state();
+            if ((state == SnapshotState::Pending || state == SnapshotState::Written) &&
+                placeKey(pathOfUtf8(step->m_Snapshot->path()).parent_path()) != place)
+            {
+                moving.push_back(step->m_Snapshot);
+            }
+        };
+        take(m_InitialStep);
+        for (const ImageHistoryStepSPtr& step : m_ImageHistory)
+        {
+            take(step);
+        }
+    }
+    if (moving.empty())
+    {
+        finishEntry(entry);
+        return;
+    }
+
+    const std::shared_ptr<ImageHistoryTracker*> self = m_Self;
+    const std::shared_ptr<HistoryStore> store = m_Store;
+    QThreadPool::globalInstance()->start([self, entry, store, moving, home]() {
+        const std::stop_token stop = entry->stop.get_token();
+        // A step moves once its write has ended, as the file it is: renamed on one volume, copied across volumes,
+        // never read as a step and never written again.
+        std::uint64_t total = 0u;
+        for (const SnapshotPtr& snapshot : moving)
+        {
+            if (snapshot->waitUntilSettled(stop) == SnapshotState::Written)
+            {
+                total += snapshot->fileBytes();
+            }
+        }
+        auto moved = std::make_shared<HistoryEntry>();
+        for (const SnapshotPtr& snapshot : moving)
+        {
+            if (stop.stop_requested())
+            {
+                break;
+            }
+            if (snapshot->state() != SnapshotState::Written || snapshot->dropped())
+            {
+                continue;
+            }
+            const std::filesystem::path from = pathOfUtf8(snapshot->path());
+            const std::filesystem::path to = home / from.filename();
+            std::optional<StepFileMove> how;
+            {
+                const std::unique_lock files(store->files());
+                how = moveStepFile(from, to);
+                if (how.has_value())
+                {
+                    snapshot->moveTo(utf8Of(to));
+                }
+            }
+            if (!how.has_value())
+            {
+                moved->problem = QStringLiteral("the step file '%1' could not be moved").arg(qtPathOf(from));
+                continue;
+            }
+            if (snapshot->dropped())
+            {
+                // The step went while its file moved: the file goes after it.
+                store->removeStepFile(utf8Of(to));
+                continue;
+            }
+            ++moved->stepsMoved;
+            moved->stepsCopied += *how == StepFileMove::Copied ? 1u : 0u;
+            moved->bytesMoved += snapshot->fileBytes();
+            if (entry->progress)
+            {
+                entry->progress(moved->bytesMoved, total);
+            }
+        }
+        store->reclaimOwnDirectoryIfEmpty();
+        QCoreApplication* application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, entry, moved]() {
+                if (*self != nullptr)
+                {
+                    entry->outcome.stepsMoved = moved->stepsMoved;
+                    entry->outcome.stepsCopied = moved->stepsCopied;
+                    entry->outcome.bytesMoved = moved->bytesMoved;
+                    entry->outcome.problem = moved->problem;
+                    (*self)->finishEntry(entry);
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageHistoryTracker::finishEntry(const std::shared_ptr<Entry>& entry)
+{
+    if (m_Entry != entry)
+    {
+        return;
+    }
+    m_Entry.reset();
+    entry->outcome.entered = true;
+    if (!entry->outcome.problem.isEmpty())
+    {
+        LOG_WARNING("Image history: '{}': {}", m_Host.historyName(), entry->outcome.problem.toStdString());
+    }
+    // The index lists what the home holds from now on.
+    m_Store->openIndex();
+    publishIndex();
+    if (entry->done)
+    {
+        entry->done(entry->outcome);
+    }
+}
+
+void ImageHistoryTracker::attachStoredHistory(const an::ui::history::HistoryIndex& index,
+                                              const std::vector<bool>& present, an::ui::history::HistoryEntry& outcome)
+{
+    using namespace an::ui::history;
+    const QDir home(m_Home->directory);
+
+    // The steps the index lists whose files are there, in its order, and where the step the file equals falls
+    // among them.
+    std::vector<ImageHistoryStepSPtr> stored;
+    std::map<QString, SnapshotPtr> byFile;
+    ImageHistoryLineage lineage;
+    std::optional<std::size_t> savedAt;
+    std::size_t behindSaved = 0u;
+    for (std::size_t listedAt = 0u; listedAt < index.steps.size(); ++listedAt)
+    {
+        const HistoryIndexStep& listed = index.steps[listedAt];
+        if (listed.inherited)
+        {
+            lineage.appendEntry(LineageEntry{.step_name = listed.name.toStdString(),
+                                             .description = listed.description.toStdString(),
+                                             .image_name = listed.image.toStdString(),
+                                             .timestamp = listed.time.toLocalTime(),
+                                             .source_file = {}});
+            continue;
+        }
+        const bool saved = !index.saved.isEmpty() && listed.id == index.saved;
+        SnapshotPtr snapshot;
+        if (listedAt < present.size() && present[listedAt])
+        {
+            const auto shared = byFile.find(listed.file);
+            if (shared != byFile.end())
+            {
+                snapshot = shared->second;
+            }
+            else
+            {
+                // The identity the step was written for is its file's base name and the run that wrote it.
+                an::Result<an::ArtifactIdentity> identity = an::ArtifactIdentity::create(
+                    QFileInfo(listed.file).completeBaseName().toStdString(), listed.run.toStdString());
+                if (identity.hasValue())
+                {
+                    snapshot =
+                        Snapshot::written(home.filePath(listed.file).toUtf8().toStdString(),
+                                          snapshotLabel(listed.name.toStdString()), std::move(*identity), listed.bytes);
+                    byFile.emplace(listed.file, snapshot);
+                }
+            }
+        }
+        if (!snapshot)
+        {
+            // Its file is gone, or names no step: the step is left out and the others stand.
+            ++outcome.stepsLeftOut;
+            if (saved)
+            {
+                behindSaved = stored.size();
+            }
+            continue;
+        }
+        auto step = std::make_shared<ImageHistoryStep>(listed.id.toStdString(), listed.name.toStdString(),
+                                                       listed.description.toStdString());
+        step->m_ImageName = listed.image.toStdString();
+        step->m_Snapshot = snapshot;
+        if (listed.time.isValid())
+        {
+            step->m_CreationTime = listed.time.toLocalTime();
+        }
+        step->m_Stored = true;
+        if (saved)
+        {
+            savedAt = stored.size();
+        }
+        stored.push_back(std::move(step));
+    }
+    if (m_Lineage.empty() && !lineage.empty())
+    {
+        m_Lineage = std::move(lineage);
+    }
+    if (stored.empty())
+    {
+        return;
+    }
+
+    // Nothing is restored while the timeline is put together.
+    if (m_Restore)
+    {
+        m_Restore->stop.request_stop();
+        m_Restore.reset();
+    }
+
+    // The kept history goes around the image as it was opened: the steps up to the one the file equals behind it,
+    // and the ones left unsaved ahead - unless the image was edited since, which is an edit made after an undo and
+    // drops what was ahead. The state the view was opened with is the file's, so the kept step that equals the file
+    // stands for it; with no such step, the opened state stands where that step was.
+    const ImageHistoryStepSPtr opened = m_InitialStep;
+    const std::vector<ImageHistoryStepSPtr> recorded(m_ImageHistory.begin(), m_ImageHistory.end());
+    std::vector<ImageHistoryStepSPtr> timeline;
+    std::vector<ImageHistoryStepSPtr> droppedSteps;
+    std::size_t ahead = 0u;
+    std::size_t current = m_CurrentStep;
+    if (savedAt.has_value())
+    {
+        timeline.assign(stored.begin(), stored.begin() + static_cast<std::ptrdiff_t>(*savedAt + 1u));
+        ahead = *savedAt + 1u;
+        current += *savedAt;
+        m_SavedStep = stored[*savedAt]->getUuid();
+        if (opened)
+        {
+            droppedSteps.push_back(opened);
+        }
+    }
+    else
+    {
+        timeline.assign(stored.begin(), stored.begin() + static_cast<std::ptrdiff_t>(behindSaved));
+        ahead = behindSaved;
+        current += behindSaved;
+        if (opened)
+        {
+            timeline.push_back(opened);
+            m_SavedStep = opened->getUuid();
+        }
+    }
+    if (recorded.empty())
+    {
+        timeline.insert(timeline.end(), stored.begin() + static_cast<std::ptrdiff_t>(ahead), stored.end());
+    }
+    else
+    {
+        timeline.insert(timeline.end(), recorded.begin(), recorded.end());
+        droppedSteps.insert(droppedSteps.end(), stored.begin() + static_cast<std::ptrdiff_t>(ahead), stored.end());
+    }
+    if (timeline.empty())
+    {
+        return;
+    }
+    m_InitialStep = timeline.front();
+    m_ImageHistory.assign(timeline.begin() + 1, timeline.end());
+    m_CurrentStep = (std::min)(current, m_ImageHistory.size());
+    // The history keeps as many steps as it ever does: the oldest go first, never the one shown.
+    while (m_ImageHistory.size() >= m_MaxSteps && m_CurrentStep > 0u)
+    {
+        droppedSteps.push_back(m_InitialStep);
+        m_InitialStep = m_ImageHistory.front();
+        m_ImageHistory.pop_front();
+        --m_CurrentStep;
+    }
+    releaseDroppedSteps(droppedSteps);
+    outcome.attached = true;
+
+    m_Host.historyChanged();
+    notifyActiveImageHistoryChanged();
+    notifyHistoryUpdated();
+}
+
+void ImageHistoryTracker::leaveHome()
+{
+    if (m_Entry)
+    {
+        // An entry on its way is given up: what it moved so far stays where it is.
+        const std::shared_ptr<Entry> entry = std::move(m_Entry);
+        m_Entry.reset();
+        entry->stop.request_stop();
+        if (entry->done)
+        {
+            entry->outcome.problem = QStringLiteral("the history was given another place before it had entered");
+            entry->done(entry->outcome);
+        }
+    }
+    m_Store->leave();
+    m_Home.reset();
+}
+
+std::optional<an::ui::history::HistoryHome> ImageHistoryTracker::home() const
+{
+    return m_Home;
+}
+
+bool ImageHistoryTracker::isEnteringHome() const
+{
+    return m_Entry != nullptr;
+}
+
+void ImageHistoryTracker::fileSaved(const QString& path)
+{
+    if (path.isEmpty())
+    {
+        return;
+    }
+    if (const ImageHistoryStepSPtr current = getStepByIndex(m_CurrentStep))
+    {
+        m_SavedStep = current->getUuid();
+    }
+    m_SavedFile = path;
+    if (m_Home.has_value())
+    {
+        m_Home->file = path;
+    }
+    // The identity stated until the new one is read is the old one: a session that ends in between finds a file
+    // that is not the one recorded, and keeps the history aside rather than attach it to another file.
+    if (m_Home.has_value() || m_Entry)
+    {
+        refreshFileIdentity();
+    }
+    publishIndex();
+}
+
+std::string ImageHistoryTracker::savedStep() const
+{
+    return m_SavedStep;
+}
+
+std::uint64_t ImageHistoryTracker::stepFileBytes() const
+{
+    std::set<const an::ui::history::Snapshot*> seen;
+    std::uint64_t bytes = 0u;
+    const auto add = [&seen, &bytes](const ImageHistoryStepSPtr& step) {
+        if (step && step->m_Snapshot && seen.insert(step->m_Snapshot.get()).second)
+        {
+            bytes += step->m_Snapshot->fileBytes();
+        }
+    };
+    add(m_InitialStep);
+    for (const ImageHistoryStepSPtr& step : m_ImageHistory)
+    {
+        add(step);
+    }
+    return bytes;
+}
+
+std::pair<size_t, size_t> ImageHistoryTracker::compactionRange(const an::ui::history::HistoryCompaction& what) const
+{
+    const size_t total = getTotalStepCount();
+    if (total == 0u)
+    {
+        return {0u, 0u};
+    }
+    if (what.keep == an::ui::history::HistoryCompaction::Keep::CurrentState)
+    {
+        return {m_CurrentStep, m_CurrentStep};
+    }
+    // The last steps, and the one shown with those after it when it is older than that.
+    const size_t kept = (std::max)(what.steps, size_t{1});
+    return {(std::min)(m_CurrentStep, total > kept ? total - kept : size_t{0}), total - 1u};
+}
+
+an::ui::history::HistoryCompactionResult
+ImageHistoryTracker::planCompaction(const an::ui::history::HistoryCompaction& what) const
+{
+    an::ui::history::HistoryCompactionResult result;
+    if (!m_InitialStep)
+    {
+        return result;
+    }
+    const auto [first, last] = compactionRange(what);
+    std::set<const an::ui::history::Snapshot*> keptSnapshots;
+    for (size_t step = first; step <= last; ++step)
+    {
+        if (const ImageHistoryStepSPtr kept = getStepByIndex(step); kept && kept->m_Snapshot)
+        {
+            keptSnapshots.insert(kept->m_Snapshot.get());
+        }
+    }
+    std::set<const an::ui::history::Snapshot*> freed;
+    for (size_t step = 0u; step < getTotalStepCount(); ++step)
+    {
+        if (step >= first && step <= last)
+        {
+            continue;
+        }
+        ++result.stepsRemoved;
+        const ImageHistoryStepSPtr dropped = getStepByIndex(step);
+        if (dropped && dropped->m_Snapshot && keptSnapshots.count(dropped->m_Snapshot.get()) == 0u &&
+            freed.insert(dropped->m_Snapshot.get()).second)
+        {
+            result.bytesFreed += dropped->m_Snapshot->fileBytes();
+        }
+    }
+    result.ok = true;
+    return result;
+}
+
+an::ui::history::HistoryCompactionResult ImageHistoryTracker::compact(const an::ui::history::HistoryCompaction& what)
+{
+    if (m_Restore || m_Entry || !m_InitialStep)
+    {
+        return {};
+    }
+    const an::ui::history::HistoryCompactionResult result = planCompaction(what);
+    const auto [first, last] = compactionRange(what);
+    std::vector<ImageHistoryStepSPtr> kept;
+    std::vector<ImageHistoryStepSPtr> droppedSteps;
+    for (size_t step = 0u; step < getTotalStepCount(); ++step)
+    {
+        (step >= first && step <= last ? kept : droppedSteps).push_back(getStepByIndex(step));
+    }
+    m_InitialStep = kept.front();
+    m_ImageHistory.assign(kept.begin() + 1, kept.end());
+    m_CurrentStep -= first;
+    releaseDroppedSteps(droppedSteps);
+    publishIndex();
+
+    m_Host.historyChanged();
+    notifyActiveImageHistoryChanged();
+    notifyHistoryUpdated();
+    return result;
+}
+
+void ImageHistoryTracker::publishIndex()
+{
+    using namespace an::ui::history;
+    if (!m_Store->kept())
+    {
+        return;
+    }
+    IndexDraft draft;
+    std::size_t inherited = 0u;
+    for (const LineageEntry& entry : m_Lineage.entries())
+    {
+        HistoryIndexStep listed;
+        listed.id = QStringLiteral("inherited-%1").arg(inherited++);
+        listed.name = QString::fromStdString(entry.step_name);
+        listed.description = QString::fromStdString(entry.description);
+        listed.image = QString::fromStdString(entry.image_name);
+        listed.time = entry.timestamp;
+        listed.inherited = true;
+        draft.steps.push_back(DraftStep{.listed = std::move(listed), .snapshot = nullptr});
+    }
+    const auto list = [&draft](const ImageHistoryStepSPtr& step) {
+        if (!step || !step->m_Snapshot)
+        {
+            return;
+        }
+        HistoryIndexStep listed;
+        listed.id = QString::fromStdString(step->getUuid());
+        listed.name = QString::fromStdString(step->getStepName());
+        listed.description = QString::fromStdString(step->getStepDesc());
+        listed.image = QString::fromStdString(step->m_ImageName);
+        listed.time = step->m_CreationTime;
+        draft.steps.push_back(DraftStep{.listed = std::move(listed), .snapshot = step->m_Snapshot});
+    };
+    list(m_InitialStep);
+    for (const ImageHistoryStepSPtr& step : m_ImageHistory)
+    {
+        list(step);
+    }
+    if (const ImageHistoryStepSPtr current = getStepByIndex(m_CurrentStep))
+    {
+        draft.current = QString::fromStdString(current->getUuid());
+    }
+    draft.saved = QString::fromStdString(m_SavedStep);
+    draft.file = m_SavedFile;
+    draft.identity = m_FileIdentity;
+    m_Store->publish(std::move(draft));
+}
+
+void ImageHistoryTracker::refreshFileIdentity()
+{
+    const std::uint64_t read = ++m_IdentityReads;
+    const QString path = m_SavedFile;
+    const std::shared_ptr<ImageHistoryTracker*> self = m_Self;
+    QThreadPool::globalInstance()->start([self, path, read]() {
+        auto identity =
+            std::make_shared<std::optional<an::ui::history::FileIdentity>>(an::ui::history::readFileIdentity(path));
+        QCoreApplication* application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, identity, read]() {
+                // A later save's reading is the one that counts.
+                if (*self != nullptr && (*self)->m_IdentityReads == read)
+                {
+                    (*self)->m_FileIdentity = *identity;
+                    (*self)->publishIndex();
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageHistoryTracker::noteStateTheFileEquals()
+{
+    if (!m_SavedStep.empty() || !m_Host.historyShowsItsFile())
+    {
+        return;
+    }
+    if (const ImageHistoryStepSPtr current = getStepByIndex(m_CurrentStep))
+    {
+        m_SavedStep = current->getUuid();
+    }
+}
+
+void ImageHistoryTracker::leaveOutStoredStep(const ImageHistoryStepSPtr& step, const std::string& why)
+{
+    const size_t total = getTotalStepCount();
+    for (size_t at = 0u; at < total; ++at)
+    {
+        if (getStepByIndex(at) != step || at == m_CurrentStep)
+        {
+            continue;
+        }
+        if (at == 0u)
+        {
+            m_InitialStep = m_ImageHistory.front();
+            m_ImageHistory.pop_front();
+        }
+        else
+        {
+            m_ImageHistory.erase(m_ImageHistory.begin() + static_cast<std::ptrdiff_t>(at - 1u));
+        }
+        if (at < m_CurrentStep)
+        {
+            --m_CurrentStep;
+        }
+        releaseDroppedSteps({step});
+        publishIndex();
+        break;
+    }
+    reportFailure(
+        fmt::format("read step '{}' of the history kept for this image; the step was left out", step->getStepName()),
+        why);
+    m_Host.historyChanged();
+    notifyActiveImageHistoryChanged();
+    notifyHistoryUpdated();
+}
+
 ImageHistoryTracker::~ImageHistoryTracker()
 {
     *m_Self = nullptr;
     if (m_Restore)
     {
         m_Restore->stop.request_stop();
+    }
+    if (m_Entry)
+    {
+        m_Entry->stop.request_stop();
+        // What reached the home before the view closed is listed there.
+        m_Store->openIndex();
+    }
+    if (m_Store->kept())
+    {
+        // The steps stay: the ones still waiting are written and the index closed behind the view, on a worker.
+        publishIndex();
+        m_Store->closeKept();
+        return;
     }
     // Snapshots still waiting for the writer are dropped, the one being written stops and leaves no file, and the
     // history's own directory goes with everything in it.

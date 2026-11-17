@@ -247,10 +247,10 @@ protected:
                 ADD_FAILURE() << lease.status().message();
                 return std::nullopt;
             }
-            const an::Status written = codec().write(session(), *lease, stepPath(name), identity, {});
-            if (!written.ok())
+            const an::Result<std::string> written = codec().write(session(), *lease, stepPath(name), identity, {});
+            if (!written.hasValue())
             {
-                ADD_FAILURE() << "the step was not written: " << written.message();
+                ADD_FAILURE() << "the step was not written: " << written.status().message();
                 return std::nullopt;
             }
         }
@@ -477,19 +477,19 @@ TEST_P(StepCodecFidelity, AStepIsWholeAtItsPathOrNotThere)
     // A write stopped before it starts, and one into a directory that is not there, publish nothing.
     std::stop_source stopped;
     stopped.request_stop();
-    EXPECT_FALSE(codec().write(session(), *lease, stepPath("step"), identity, stopped.get_token()).ok());
+    EXPECT_FALSE(codec().write(session(), *lease, stepPath("step"), identity, stopped.get_token()).hasValue());
     const std::string nowhere =
         utf8Of(m_Directory.path() / "missing-directory" / ("step" + std::string(codec().fileExtension())));
-    EXPECT_FALSE(codec().write(session(), *lease, nowhere, identity, {}).ok());
+    EXPECT_FALSE(codec().write(session(), *lease, nowhere, identity, {}).hasValue());
     EXPECT_TRUE(entriesOf(m_Directory.path()).empty()) << "a refused write left something behind";
 
     // A write and a read leave the step's file and nothing beside it.
-    ASSERT_TRUE(codec().write(session(), *lease, stepPath("step"), identity, {}).ok());
+    ASSERT_TRUE(codec().write(session(), *lease, stepPath("step"), identity, {}).hasValue());
     ASSERT_TRUE(codec().read(session(), stepPath("step"), identity, {}).hasValue());
     EXPECT_EQ(entriesOf(m_Directory.path()), std::vector<std::string>{"step" + std::string(codec().fileExtension())});
 
     // A step written again at the same path replaces the one there.
-    ASSERT_TRUE(codec().write(session(), *lease, stepPath("step"), identity, {}).ok());
+    ASSERT_TRUE(codec().write(session(), *lease, stepPath("step"), identity, {}).hasValue());
     EXPECT_EQ(entriesOf(m_Directory.path()), std::vector<std::string>{"step" + std::string(codec().fileExtension())});
 }
 
@@ -677,52 +677,11 @@ protected:
         return m_Provider->engineSession();
     }
 
-    /// An eight-bit grey image of zeros whose mask has no pattern at all, so its bits are what its record weighs.
-    /// The width must fill its last byte.
+    /// An image whose mask has no pattern at all (`patternlessMaskImage`).
     [[nodiscard]] std::optional<an::consumer::ImageAsset> patternlessMask(std::uint32_t width,
                                                                           std::uint32_t height) const
     {
-        an::Result<an::consumer::SessionHold> hold = session().hold();
-        if (!hold.hasValue())
-        {
-            ADD_FAILURE() << hold.status().message();
-            return std::nullopt;
-        }
-        const std::optional<an::ImageDescriptor> descriptor = an::tests::viewer::describeImage(
-            hold->engine(), an::SampleType::UInt8, width, height, Channels::Grey, an::NumericDomain::RawSensorCode);
-        if (!descriptor.has_value())
-        {
-            ADD_FAILURE() << "the image could not be described";
-            return std::nullopt;
-        }
-        an::Result<an::Image<std::uint8_t>> image = an::Image<std::uint8_t>::create(
-            hold->engine(), *descriptor, an::StorageArrangement::Planar, an::StorageInitialization::Zeroed);
-        an::Result<an::ValidityMask> mask = an::ValidityMask::createAllValid(
-            hold->engine(), *an::ImageExtent::create(width, height, 1u, hold->engine().limits()));
-        if (!image.hasValue() || !mask.hasValue())
-        {
-            ADD_FAILURE() << "the image or its mask could not be made";
-            return std::nullopt;
-        }
-        {
-            const auto view = mask->view();
-            for (std::uint32_t y = 0u; y < height; ++y)
-            {
-                std::uint8_t* const row = view->data() + y * view->rowStrideBytes();
-                for (std::uint32_t byte = 0u; byte < width / 8u; ++byte)
-                {
-                    row[byte] = static_cast<std::uint8_t>(mixedBits(byte, y, 0u, 31u));
-                }
-            }
-        }
-        an::Result<an::consumer::ImageAsset> asset =
-            an::consumer::ImageAsset::adopt(session(), an::consumer::AnyImage{std::move(*image)}, std::move(*mask));
-        if (!asset.hasValue())
-        {
-            ADD_FAILURE() << asset.status().message();
-            return std::nullopt;
-        }
-        return std::move(*asset);
+        return patternlessMaskImage(session(), width, height);
     }
 
     std::optional<TestSessionProvider> m_Provider;
@@ -741,8 +700,8 @@ TEST_F(XisfStepCodecBound, ARecordNearlyAsLongAsTheCardsCarryReadsBackBitForBit)
     {
         an::Result<an::consumer::AssetReadLease> lease = image->read();
         ASSERT_TRUE(lease.hasValue());
-        const an::Status written = codec->write(session(), *lease, path, identity, {});
-        ASSERT_TRUE(written.ok()) << written.message();
+        const an::Result<std::string> written = codec->write(session(), *lease, path, identity, {});
+        ASSERT_TRUE(written.hasValue()) << written.status().message();
     }
     an::Result<an::consumer::ImageAsset> restored = codec->read(session(), path, identity, {});
     ASSERT_TRUE(restored.hasValue()) << restored.status().message();
@@ -757,17 +716,17 @@ TEST_F(XisfStepCodecBound, ARecordLongerThanTheCardsCarryIsRefusedAndNothingIsPu
     an::Result<an::consumer::AssetReadLease> lease = image->read();
     ASSERT_TRUE(lease.hasValue());
     const StepCodecPtr codec = an::ui::history::xisfStepCodec(an::ui::history::StepCompression::None);
-    const an::Status refused =
+    const an::Result<std::string> refused =
         codec->write(session(), *lease, utf8Of(m_Directory.path() / "step.xisf"), stepIdentityOf("step"), {});
-    ASSERT_FALSE(refused.ok());
-    EXPECT_EQ(refused.code(), an::ErrorCode::LimitExceeded);
+    ASSERT_FALSE(refused.hasValue());
+    EXPECT_EQ(refused.status().code(), an::ErrorCode::LimitExceeded);
     EXPECT_TRUE(entriesOf(m_Directory.path()).empty()) << "a refused step left something behind";
 
     // The snapshot holds the same step.
     const StepCodecPtr snapshot = an::ui::history::snapshotStepCodec();
     EXPECT_TRUE(
         snapshot->write(session(), *lease, utf8Of(m_Directory.path() / "step.ansnap"), stepIdentityOf("step"), {})
-            .ok());
+            .hasValue());
 }
 
 /// What a codec says of itself, which a history names its files and a setting its choice by.
@@ -778,6 +737,9 @@ TEST(StepCodecNames, EachCodecStatesItsNameAndItsExtension)
     EXPECT_EQ(an::ui::history::snapshotStepCodec()->fileExtension(), ".ansnap");
     EXPECT_EQ(an::ui::history::xisfStepCodec(StepCompression::Lz4)->name(), "xisf");
     EXPECT_EQ(an::ui::history::xisfStepCodec(StepCompression::Lz4)->fileExtension(), ".xisf");
+    // The one every history is made with asks for an XISF step's name.
+    EXPECT_EQ(an::ui::history::historyStepCodec(StepCompression::Lz4)->name(), "history");
+    EXPECT_EQ(an::ui::history::historyStepCodec(StepCompression::Lz4)->fileExtension(), ".xisf");
     EXPECT_EQ(an::ui::history::stepCompressionName(StepCompression::None), "none");
     EXPECT_EQ(an::ui::history::stepCompressionName(StepCompression::Lz4), "lz4");
     EXPECT_EQ(an::ui::history::stepCompressionName(StepCompression::Zstd), "zstd");

@@ -12,6 +12,7 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationSession.h"
 #include "core/IShell.h"
+#include "projects/ProjectHistoryBinder.h"
 #include "projects/ProjectService.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
@@ -127,6 +128,9 @@ struct ApplicationCore::Impl
     // The open project: declared after the settings it keeps the recent projects in, so it goes before them.
     ProjectService projects;
 
+    // What keeps the open project's histories in its folder: after the service it reads, so it goes first.
+    ProjectHistoryBinder projectHistory{projects};
+
     IApplicationEventTarget* eventTarget = nullptr;
     IShell* shell = nullptr;
     an::ui::IEngineSessionProvider* session = nullptr;
@@ -171,6 +175,12 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     runtimeStorageDeps.globalSettingsPersistence = [&impl]() { return impl.globalSettingsPersistence.get(); };
     runtimeStorageDeps.createUuidToken = []() { return QUuid::createUuid().toString().toUtf8().toStdString(); };
     impl.runtimeStorage = std::make_unique<an::ui::RuntimeStorageCoordinator>(runtimeStorageDeps);
+    // A file of the session's temporary folder is no project's image.
+    impl.projectHistory.setTemporaryTest([&impl](const QString& filePath) {
+        const QString temporary = QDir::cleanPath(impl.runtimeStorage->getTempDirPath());
+        return !temporary.isEmpty() &&
+               QDir::cleanPath(filePath).startsWith(temporary + QLatin1Char('/'), Qt::CaseInsensitive);
+    });
 
     an::ui::PersistenceCoordinator::Dependencies persistenceDeps;
     persistenceDeps.localDataPath = &impl.localDataPath;
@@ -649,6 +659,11 @@ FavoriteProcessesModel& ApplicationCore::favoriteProcesses() noexcept
 ProjectService& ApplicationCore::projects() noexcept
 {
     return m_impl->projects;
+}
+
+ProjectHistoryBinder& ApplicationCore::projectHistory() noexcept
+{
+    return m_impl->projectHistory;
 }
 
 DialogService& ApplicationCore::dialogService() noexcept

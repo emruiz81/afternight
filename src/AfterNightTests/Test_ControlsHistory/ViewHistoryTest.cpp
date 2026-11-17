@@ -10,12 +10,15 @@
 /// closes.
 
 #include "Test_ControlsHistory/HistoryTestContext.h"
+#include "Test_ControlsHistory/StepCodecTestSupport.h"
 
 #include "components/AnElidedLabel.h"
 #include "controls/AutostretchApply.h"
 #include "controls/ImageHistoryBackupQueue.h"
 #include "controls/ImageHistoryControl.h"
+#include "controls/ImageHistoryIndex.h"
 #include "controls/ImageViewCompanions.h"
+#include "controls/settings/SettingsKeys.h"
 #include "widgets/HistogramDisplayData.h"
 #include "widgets/HistogramWidget.h"
 #include "widgets/PresentationBridge.h"
@@ -28,8 +31,10 @@
 #include <AfterNightEngine/Image/Image.h>
 #include <AfterNightEngine/Image/ImageMetadata.h>
 
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QDialog>
+#include <QFile>
 #include <QLabel>
 #include <QLayout>
 #include <QPoint>
@@ -48,7 +53,9 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -296,6 +303,65 @@ ImageHistoryControl* historyWindowOf(ImageViewControl& view)
     return found;
 }
 
+/// The head of the one step file a view's history holds in a temporary directory, where an XISF step states how its
+/// samples are compressed; empty when the directory holds none, or more than one.
+QByteArray headOfTheOnlyStepIn(const QString& directory)
+{
+    std::set<std::string> files;
+    for (const auto& own : historyDirectoriesIn(directory))
+    {
+        const std::set<std::string> found = historyFilesIn(own);
+        files.insert(found.begin(), found.end());
+    }
+    if (files.size() != 1u)
+    {
+        return {};
+    }
+    QFile file(QString::fromStdString(*files.begin()));
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return {};
+    }
+    return file.read(64 * 1024);
+}
+
+/// A view's history is made with the compression the settings state, read when the view is made.
+TEST(HistoryStepCodec, TheCompressionIsTheSettings)
+{
+    for (const char* compression : {"zstd", "lz4", "none"})
+    {
+        SCOPED_TRACE(compression);
+        // A session that writes XISF images, as the application's does.
+        std::optional<TestSessionProvider> provider = openStepCodecSession();
+        ASSERT_TRUE(provider.has_value());
+        auto context = std::make_unique<HistoryTestContext>(std::move(provider->owned()));
+        {
+            const InstalledContext installed(*context);
+            ASSERT_TRUE(context->upsert(QString::fromLatin1(SettingsKeys::HISTORY_COMPRESSION),
+                                        QString::fromLatin1(compression)));
+            ViewHandle view = makeView("M42");
+            std::optional<an::ui::ImageDocument> document = numberedDocument(context->engineSession(), 64u, 64u);
+            ASSERT_TRUE(document.has_value());
+            view->setDocument(std::move(*document));
+            view->initializeNewImageHistory("opened");
+            ASSERT_TRUE(settle(*view));
+            const QString directory = context->getTempDirPath();
+            ASSERT_TRUE(pumpUntil([&]() {
+                return !headOfTheOnlyStepIn(directory).isEmpty() &&
+                       context->engineSession()
+                               .memory()
+                               .counters(an::consumer::MemoryCategory::PendingSnapshots)
+                               .entries == 0u;
+            })) << "the view's history wrote no step";
+            const QByteArray head = headOfTheOnlyStepIn(directory);
+            EXPECT_TRUE(head.startsWith("XISF")) << "the step is not an XISF image";
+            EXPECT_EQ(head.contains("zstd"), std::string(compression) == "zstd");
+            EXPECT_EQ(head.contains("lz4"), std::string(compression) == "lz4");
+        }
+        context.reset();
+    }
+}
+
 class ViewHistoryTest : public ::testing::Test
 {
 protected:
@@ -475,6 +541,36 @@ TEST_F(ViewHistoryTest, ASequenceFrameEditIsWrittenBeforeItIsShownAndUndoneToThe
     ASSERT_TRUE(pumpUntil([&view]() { return !view->viewHistory()->hasRedo(); }));
     ASSERT_TRUE(settle(*view));
     EXPECT_NEAR(fractionAt(*view->document().asset(), 0u, 0u), sample(1u, 2u, 0u), kSerStep);
+}
+
+// What gives a history a home reaches a still image's through its view, and finds none for a sequence: a sequence's
+// states are its file and the frames changed in it, not files that stand alone.
+TEST_F(ViewHistoryTest, AStillImagesHistoryCanBeGivenAHomeAndASequencesCannot)
+{
+    open();
+    ViewHandle still = shownView("still");
+    an::ui::history::IHistoryPlacement* const placement = an::ui::history::historyPlacementOf(*still);
+    ASSERT_NE(placement, nullptr);
+    EXPECT_FALSE(placement->home().has_value()) << "a history is the session's until it is given a home";
+    EXPECT_GT(placement->stepFileBytes(), 0u) << "the step written is not counted";
+
+    const QString capture = m_Context->getTempDirPath() + QStringLiteral("/capture.ser");
+    an::tests::viewer::writeSerFile(session(), capture, 3u, 2u, 3u,
+                                    [](std::uint32_t frame, std::uint32_t x, std::uint32_t) {
+                                        return 0.1f * static_cast<float>(frame + 1u) + 0.2f * static_cast<float>(x);
+                                    });
+    std::optional<an::ui::ImageDocument> frame = numberedDocument(session(), 3u, 2u);
+    ASSERT_TRUE(frame.has_value());
+    an::ui::DocumentSequence sequence{.sourcePath = capture, .currentFrame = 1u};
+    sequence.descriptor.format = an::SequenceFormat::Ser;
+    sequence.descriptor.frameCount = 3u;
+    frame->setSequence(std::move(sequence));
+    ViewHandle view = makeView("sequence");
+    view->setSequenceDocument(std::move(*frame), false);
+    view->initializeNewImageHistory("opened");
+    ASSERT_TRUE(settle(*view));
+    ASSERT_NE(view->viewHistory(), nullptr);
+    EXPECT_EQ(an::ui::history::historyPlacementOf(*view), nullptr);
 }
 
 TEST_F(ViewHistoryTest, TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheView)

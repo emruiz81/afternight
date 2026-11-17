@@ -105,12 +105,12 @@ Round runRound(const an::consumer::EngineSession& session, const an::ui::history
             return round;
         }
         const auto started = std::chrono::steady_clock::now();
-        const an::Status written = codec.write(session, *lease, path, identity, {});
+        const an::Result<std::string> written = codec.write(session, *lease, path, identity, {});
         round.writeMilliseconds =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
-        if (!written.ok())
+        if (!written.hasValue())
         {
-            ADD_FAILURE() << written.message();
+            ADD_FAILURE() << written.status().message();
             return round;
         }
     }
@@ -215,6 +215,83 @@ TEST(StepCodecCost, WritingAndReadingASixtyMegapixelGreyStep)
 TEST(StepCodecCost, WritingAndReadingASixtyMegapixelColourStep)
 {
     measure(Channels::Rgb, "Colour");
+}
+
+/// What flushing a step to the device before it is published costs, on the files of a history that outlives its
+/// session: each codec flushed beside the same codec not flushed, in alternation, the median of the rounds.
+void measureFlush(Channels channels, const char* label)
+{
+    using an::ui::history::StepCompression;
+    using an::ui::history::StepDurability;
+    if (!timingsAsked())
+    {
+        GTEST_SKIP() << "a time is measured only when AFTERNIGHT_TEST_TIMINGS=1 asks for it";
+    }
+    std::optional<TestSessionProvider> provider = openStepCodecSession();
+    ASSERT_TRUE(provider.has_value());
+    const an::consumer::EngineSession& session = provider->engineSession();
+    const an::tests::fixtures::ScopedTempPath directory =
+        an::tests::fixtures::makeScopedTempDir("afternight-step-flush");
+
+    const std::shared_ptr<an::consumer::ImageAsset> image = makeStepImage(session, deepSkyFrame(channels));
+    ASSERT_NE(image, nullptr);
+    const StepState original = stepStateOf(*image);
+    ASSERT_TRUE(original.read);
+
+    struct Pair
+    {
+        const char* name;
+        an::ui::history::StepCodecPtr closed;
+        an::ui::history::StepCodecPtr flushed;
+    };
+    const std::vector<Pair> pairs = {
+        {"Snapshot", an::ui::history::snapshotStepCodec(StepDurability::CloseOnly),
+         an::ui::history::snapshotStepCodec(StepDurability::Flushed)},
+        {"HistoryUncompressed", an::ui::history::historyStepCodec(StepCompression::None, StepDurability::CloseOnly),
+         an::ui::history::historyStepCodec(StepCompression::None, StepDurability::Flushed)},
+        {"HistoryLz4", an::ui::history::historyStepCodec(StepCompression::Lz4, StepDurability::CloseOnly),
+         an::ui::history::historyStepCodec(StepCompression::Lz4, StepDurability::Flushed)},
+        {"HistoryZstd", an::ui::history::historyStepCodec(StepCompression::Zstd, StepDurability::CloseOnly),
+         an::ui::history::historyStepCodec(StepCompression::Zstd, StepDurability::Flushed)},
+    };
+    std::printf("\n%s, Float32, %u x %u; a step's write flushed before it is published beside one that is not, "
+                "median of %zu rounds\n",
+                label, kWidth, kHeight, kRounds);
+    std::printf("%-20s %12s %12s %10s\n", "codec", "write ms", "flushed ms", "ratio");
+    for (const Pair& pair : pairs)
+    {
+        ASSERT_TRUE(runRound(session, *pair.closed, *image, original, directory.path(), false).whole);
+        ASSERT_TRUE(runRound(session, *pair.flushed, *image, original, directory.path(), true).whole)
+            << pair.name << " did not give a flushed step back as written";
+        std::vector<double> closed;
+        std::vector<double> flushed;
+        for (std::size_t round = 0u; round < kRounds; ++round)
+        {
+            const Round plain = runRound(session, *pair.closed, *image, original, directory.path(), false);
+            const Round durable = runRound(session, *pair.flushed, *image, original, directory.path(), false);
+            ASSERT_TRUE(plain.whole);
+            ASSERT_TRUE(durable.whole);
+            closed.push_back(plain.writeMilliseconds);
+            flushed.push_back(durable.writeMilliseconds);
+        }
+        const double write = medianOf(closed);
+        const double durable = medianOf(flushed);
+        std::printf("%-20s %12.0f %12.0f %10.2f\n", pair.name, write, durable, durable / write);
+        const std::string prefix = std::string(label) + "." + pair.name + ".";
+        ::testing::Test::RecordProperty(prefix + "writeMs", std::to_string(write));
+        ::testing::Test::RecordProperty(prefix + "flushedWriteMs", std::to_string(durable));
+    }
+    std::fflush(stdout);
+}
+
+TEST(StepCodecCost, FlushingASixtyMegapixelGreyStepBeforeItIsPublished)
+{
+    measureFlush(Channels::Grey, "Grey");
+}
+
+TEST(StepCodecCost, FlushingASixtyMegapixelColourStepBeforeItIsPublished)
+{
+    measureFlush(Channels::Rgb, "Colour");
 }
 
 } // namespace

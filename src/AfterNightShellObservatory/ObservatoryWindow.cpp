@@ -599,7 +599,7 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
             const std::string file = view->getFileName();
             if (!file.empty() && !m_impl->core.isTempFile(file))
             {
-                open.push_back(ProjectFlows::OpenImage{QString::fromStdString(file), view->isSequence()});
+                open.push_back(ProjectFlows::OpenImage{view, QString::fromStdString(file), view->isSequence()});
             }
         }
         return open;
@@ -1580,23 +1580,9 @@ void ObservatoryWindow::viewAdded(ImageViewControl& view, const an::ui::shell::V
     {
         m_impl->tasks->watch(view);
     }
-    // While a project is open, an image opened from a file is the project's. A view is told of as it is made, before
-    // it holds its image: the file it shows is read once what made it has returned.
-    if (m_impl->projects)
-    {
-        const QPointer<ImageViewControl> made(&view);
-        QTimer::singleShot(0, this, [this, made]() {
-            if (made.isNull() || !m_impl->projects || made->getViewControlMode() != ViewControlMode::standard)
-            {
-                return;
-            }
-            const std::string file = made->getFileName();
-            if (!file.empty() && !m_impl->core.isTempFile(file))
-            {
-                m_impl->projects->viewAdded(QString::fromStdString(file), made->isSequence());
-            }
-        });
-    }
+    // While a project is open, an image opened from a file is the project's, and its undo history is kept there;
+    // an image saved while one is open joins it then. The shell core hears the view from here on.
+    m_impl->core.projectHistory().watch(view);
     refreshViewSelector();
     placeChanged();
 }

@@ -5,7 +5,7 @@
 
 /// @file
 /// The project the application has open, if any: made, opened, closed, locked while it is open, found again among the
-/// projects used last, and the images it holds.
+/// projects used last, the images it holds, and what it takes on disk.
 
 #include "AfterNightShellCoreExport.h"
 
@@ -19,6 +19,8 @@
 #include <memory>
 #include <optional>
 #include <vector>
+
+#include <QtGlobal>
 
 namespace an::ui
 {
@@ -134,6 +136,49 @@ struct ProjectCreateRequest
     ProjectOrigin origin = ProjectOrigin::User;
 };
 
+/// What the undo history of one image of a project takes on disk.
+struct ProjectImageStorage
+{
+    QString imageId;
+
+    /// The image's file, as the project records it.
+    QString path;
+
+    /// The steps its history keeps.
+    std::size_t steps = 0;
+
+    /// The bytes of its steps and their index.
+    std::uint64_t historyBytes = 0;
+
+    /// The bytes of the histories set aside because its file changed outside the application.
+    std::uint64_t detachedBytes = 0;
+};
+
+/// What a project's folder takes on disk.
+struct ProjectStorageReport
+{
+    /// The project's folder; empty when no project was open.
+    QString folder;
+
+    /// Each image's history, in the project's order.
+    std::vector<ProjectImageStorage> images;
+
+    /// The undo history of every image the project holds, the histories set aside included.
+    std::uint64_t historyBytes = 0;
+
+    /// The history folders no image of the project names: an image's record that was removed, or gave way.
+    std::uint64_t unlistedHistoryBytes = 0;
+
+    /// The integration data.
+    std::uint64_t integrationBytes = 0;
+
+    /// Everything else: the document, the layouts, the thumbnails and the notes.
+    std::uint64_t otherBytes = 0;
+
+    /// The bytes free on the folder's drive; negative when it could not be told.
+    qint64 freeBytes = -1;
+};
+
 /// What a folder is to a project that would be made in it.
 enum class ProjectFolderState : std::uint8_t
 {
@@ -165,6 +210,9 @@ enum class ProjectFolderState : std::uint8_t
 /// with its path and its path from the project's folder, and stamps when it was opened; an image whose file moved with
 /// the project is found again through that relative path, and its record follows it. `removeImage` forgets one, and
 /// the views of it its workspaces listed.
+///
+/// **Storage.** What the open project takes on disk is measured on the thread pool (`storageReport`) and told on the
+/// GUI thread: each image's undo history, the integration data, the rest and what is free on the drive.
 ///
 /// **The projects used last** are kept in the settings (`projects/recent`, the last ten, most recent first, each with
 /// the name it was opened under; `projects/last`, the one used last), and the project used last is opened at the start
@@ -268,6 +316,17 @@ public:
     /// The image of the open project a file is, by its path or by its path from the project's folder; null for none.
     [[nodiscard]] const ProjectImage* imageFor(const QString& filePath) const;
 
+    /// The image of the open project an id names; null for none.
+    [[nodiscard]] const ProjectImage* image(const QString& imageId) const;
+
+    /// Takes an image's record to another file: the image was saved under another name, and its history stays with
+    /// it. An image of the project that already was that file gives way - its record goes, with the views of it the
+    /// workspaces listed; its history's folder is not touched.
+    ///
+    /// @return false with no project open, for an id it does not hold, for an empty path, or when the document could
+    ///         not be written.
+    bool setImagePath(const QString& imageId, const QString& filePath);
+
     /// Where an image's file is now: its recorded path while a file is there; else its path from the project's folder,
     /// when a file is there - the record then follows it; empty when neither holds a file.
     [[nodiscard]] QString locateImage(const QString& imageId);
@@ -275,6 +334,16 @@ public:
     /// The folder the steps of an image's history are kept in: `history/<image id>` in the project's folder. Empty with
     /// no project open or for an id that is none.
     [[nodiscard]] QString historyDirectoryFor(const QString& imageId) const;
+
+    // ---- Storage
+
+    /// Told on the GUI thread what the project takes on disk.
+    using StorageDone = std::function<void(const ProjectStorageReport& report)>;
+
+    /// Measures what the open project takes on disk, on the thread pool, and tells `done` on the GUI thread; with no
+    /// project open the report names no folder. Never waits. A report still on its way when the service goes is
+    /// dropped.
+    void storageReport(StorageDone done) const;
 
     // ---- Observers
 

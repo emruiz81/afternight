@@ -27,6 +27,13 @@
 /// history did not write - a document's own file, a swap file an earlier session left - is never read as a step and
 /// never removed.
 ///
+/// **A history given a home outlives its view** (`enterHome`, `ImageHistoryIndex.h`). Its steps are then written into
+/// the home's directory, listed by the index its writer keeps beside them, and left there when the tracker goes: the
+/// steps still waiting are written behind it on a worker, and the GUI thread waits for none of it. A home that already
+/// holds a history of the same file gives it back - the step the file equals is the current one, the earlier steps are
+/// behind it and the ones left unsaved ahead of it - and one whose file has changed since is set aside. The history
+/// knows which of its steps the image's file equals (`fileSaved`), and the index says so.
+///
 /// Every member is called on the GUI thread unless it says otherwise.
 #pragma once
 
@@ -34,6 +41,7 @@
 
 #include "ImageHistoryBackupQueue.h"
 #include "ImageHistoryHost.h"
+#include "ImageHistoryIndex.h"
 #include "ImageHistoryLineage.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -94,7 +102,13 @@ public:
 
     QDateTime m_CreationTime;
 
+    /// Whether the step was given back by a home's index rather than recorded by this history: one whose file does
+    /// not read is then left out.
+    bool m_Stored = false;
+
 private:
+    friend class ImageHistoryTracker;
+
     std::string m_StepUuid;
     std::string m_StepName;
     std::string m_StepDesc;
@@ -131,11 +145,11 @@ public:
     ///
     /// @param host the view; it must outlive the tracker.
     /// @param session the session; it must outlive the tracker and every worker it starts.
-    /// @param codec what writes each snapshot and reads it back, and names its file; none for the snapshot codec.
+    /// @param codec what writes each snapshot outside a home and reads every one back; none for the history's codec.
     /// @param directory the directory the history's own directory is made in; empty for the application's temporary
     ///        directory.
     ImageHistoryTracker(an::ui::history::ImageHistoryHost& host, const an::consumer::EngineSession& session,
-                        an::ui::history::StepCodecPtr codec = an::ui::history::snapshotStepCodec(),
+                        an::ui::history::StepCodecPtr codec = an::ui::history::historyStepCodec(),
                         QString directory = {});
 
     ImageHistoryTracker(const ImageHistoryTracker&) = delete;
@@ -228,8 +242,48 @@ public:
 
     [[nodiscard]] const an::ui::history::BackupQueue& backupQueue() const;
 
-    /// The directory this history writes its snapshots in, and removes when it goes.
+    /// The directory this history writes its snapshots in: its own, which it removes when it goes, or its home's.
     [[nodiscard]] std::string snapshotDirectory() const;
+
+    // ---- A home
+
+    /// Keeps the steps in a home from now on (`IHistoryPlacement::enterHome`). Never waits: what the home holds is
+    /// read, and the steps' files moved, on workers. Entering the home the history is in does nothing; entering
+    /// another leaves the first.
+    void enterHome(an::ui::history::HistoryHome home,
+                   an::ui::history::StepsMove move = an::ui::history::StepsMove::Move,
+                   an::ui::history::IHistoryPlacement::EnterDone done = {},
+                   an::ui::history::IHistoryPlacement::MoveProgress progress = {});
+
+    /// Keeps the steps recorded from now on in the history's own directory again; the home's index is written a last
+    /// time behind it and its steps stay there.
+    void leaveHome();
+
+    /// The home the steps are kept in; nothing outside one, or until an entry has read what the home holds.
+    [[nodiscard]] std::optional<an::ui::history::HistoryHome> home() const;
+
+    /// Whether an entry into a home is on its way.
+    [[nodiscard]] bool isEnteringHome() const;
+
+    /// The image was written to a file, or read from one: the step shown is the one the file equals. In a home the
+    /// file's identity is read on a worker and the index says both.
+    ///
+    /// @param path the file.
+    void fileSaved(const QString& path);
+
+    /// The id of the step the image's file equals; empty when no step does.
+    [[nodiscard]] std::string savedStep() const;
+
+    /// The bytes the files of the history's steps take, as their writes measured them.
+    [[nodiscard]] std::uint64_t stepFileBytes() const;
+
+    /// What a compaction would remove.
+    [[nodiscard]] an::ui::history::HistoryCompactionResult
+    planCompaction(const an::ui::history::HistoryCompaction& what) const;
+
+    /// Drops the steps a compaction does not keep and removes their files; refused, with nothing changed, while a
+    /// restore or an entry is on its way.
+    an::ui::history::HistoryCompactionResult compact(const an::ui::history::HistoryCompaction& what);
 
     [[nodiscard]] const ImageHistoryLineage& lineage() const;
     void setLineage(ImageHistoryLineage lineage);
@@ -239,12 +293,15 @@ public:
 
     void notifyHistoryUpdated();
 
-    /// Discards the snapshots waiting for the writer, stops the one being written, and removes the history's own
-    /// directory with everything in it.
+    /// Outside a home: discards the snapshots waiting for the writer, stops the one being written, and removes the
+    /// history's own directory with everything in it. In a home: leaves the home's directory, where the snapshots
+    /// still waiting are written and the index closed behind it, on a worker.
     ~ImageHistoryTracker();
 
 private:
     struct Restore;
+    struct Entry;
+    struct HomeContents;
 
     [[nodiscard]] ImageHistoryStepSPtr makeStep(const std::string& stepName, const std::string& stepDesc) const;
     [[nodiscard]] std::string snapshotLabel(const std::string& stepName) const;
@@ -264,6 +321,17 @@ private:
     [[nodiscard]] bool usesSnapshot(const an::ui::history::SnapshotPtr& snapshot) const;
     void reportFailure(const std::string& action, const std::string& details) const;
 
+    void continueEntry(const std::shared_ptr<Entry>& entry, HomeContents&& contents);
+    void finishEntry(const std::shared_ptr<Entry>& entry);
+    void attachStoredHistory(const an::ui::history::HistoryIndex& index, const std::vector<bool>& present,
+                             an::ui::history::HistoryEntry& outcome);
+    void publishIndex();
+    void refreshFileIdentity();
+    void noteStateTheFileEquals();
+    void leaveOutStoredStep(const ImageHistoryStepSPtr& step, const std::string& why);
+    // The first step a compaction keeps and the last, as indexes among the initial state and the steps.
+    [[nodiscard]] std::pair<size_t, size_t> compactionRange(const an::ui::history::HistoryCompaction& what) const;
+
     an::ui::history::ImageHistoryHost& m_Host;
 
     std::shared_ptr<an::ui::history::HistoryStore> m_Store;
@@ -282,6 +350,17 @@ private:
 
     // The restore on its way, or null.
     std::shared_ptr<Restore> m_Restore;
+
+    // The entry into a home on its way, or null; and the home, once the entry has read what it holds.
+    std::shared_ptr<Entry> m_Entry;
+    std::optional<an::ui::history::HistoryHome> m_Home;
+
+    // The step the image's file equals, the file, and its identity as last read; the count tells a later read of
+    // the identity from an earlier one.
+    std::string m_SavedStep;
+    QString m_SavedFile;
+    std::optional<an::ui::history::FileIdentity> m_FileIdentity;
+    std::uint64_t m_IdentityReads = 0u;
 
     // Points at this tracker until it goes, so a completion that arrives later does nothing.
     std::shared_ptr<ImageHistoryTracker*> m_Self;

@@ -433,7 +433,7 @@ TEST_F(CoordinatorTest, EachSessionHasATemporaryDirectoryOfItsOwn)
 }
 
 // The startup sweep reclaims the directory of a session that ended and nothing else: a running session's directory -
-// its histories' snapshots among it - a swap file another program left, which is never read or removed, and a user's
+// its histories' steps among it - a swap file another program left, which is never read or removed, and a user's
 // own file in the temporary folder all stay.
 TEST_F(CoordinatorTest, TheStartupSweepReclaimsOnlyEndedSessions)
 {
@@ -445,8 +445,8 @@ TEST_F(CoordinatorTest, TheStartupSweepReclaimsOnlyEndedSessions)
     const QString runningHistory = running->getTempDirPath() + QStringLiteral("/AN_HISTORY_live");
     ASSERT_TRUE(QDir().mkpath(runningHistory));
     {
-        QFile snapshot(runningHistory + QStringLiteral("/step-1.ansnap"));
-        ASSERT_TRUE(snapshot.open(QIODevice::WriteOnly));
+        QFile step(runningHistory + QStringLiteral("/step-1.xisf"));
+        ASSERT_TRUE(step.open(QIODevice::WriteOnly));
     }
 
     const QString ended = root + QStringLiteral("/AN_SESSION_ended");
@@ -477,7 +477,7 @@ TEST_F(CoordinatorTest, TheStartupSweepReclaimsOnlyEndedSessions)
 
     EXPECT_FALSE(QFileInfo::exists(ended));
     EXPECT_FALSE(QFileInfo::exists(ended + QStringLiteral(".lock")));
-    EXPECT_TRUE(QFileInfo::exists(runningHistory + QStringLiteral("/step-1.ansnap")));
+    EXPECT_TRUE(QFileInfo::exists(runningHistory + QStringLiteral("/step-1.xisf")));
     EXPECT_TRUE(QFileInfo(starting->getTempDirPath()).isDir());
     EXPECT_EQ(bytesOf(foreign), dumpBytes);
     EXPECT_TRUE(QFileInfo::exists(user));

@@ -16,6 +16,7 @@
 #include <QDir>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QSpinBox>
 #include <QVBoxLayout>
 
 W_OBJECT_IMPL(an::ui::ProjectsSettingsPage)
@@ -29,6 +30,7 @@ ProjectsSettingsPage::ProjectsSettingsPage(GlobalSettingsPersistence* settings, 
     setupUi();
     trackChanges(m_createForJobs);
     trackChanges(m_compression);
+    trackChanges(m_compactThreshold);
     trackChanges(m_openLast);
     connect(m_location, &PathPickerWidget::pathChanged, this, &ProjectsSettingsPage::markAsModified);
 }
@@ -50,9 +52,9 @@ QIcon ProjectsSettingsPage::pageIcon() const
 
 QStringList ProjectsSettingsPage::searchKeywords() const
 {
-    return QStringList{tr("Projects"), tr("Project"),   tr("Location"), tr("Folder"),      tr("Integration"),
-                       tr("History"),  tr("Undo"),      tr("Steps"),    tr("XISF"),        tr("Compression"),
-                       tr("LZ4"),      tr("Zstandard"), tr("Startup"),  tr("Last project")};
+    return QStringList{tr("Projects"), tr("Project"),   tr("Location"), tr("Folder"),  tr("Integration"),
+                       tr("History"),  tr("Undo"),      tr("Steps"),    tr("XISF"),    tr("Compression"),
+                       tr("LZ4"),      tr("Zstandard"), tr("Compact"),  tr("Startup"), tr("Last project")};
 }
 
 void ProjectsSettingsPage::setupUi()
@@ -97,6 +99,13 @@ void ProjectsSettingsPage::setupUi()
     m_compression->setToolTip(tr("How the steps of a history are compressed. Every history written from now on takes "
                                  "it, in a project or not, and a new project starts from it."));
     historyLayout->addRow(tr("History compression:"), m_compression);
+
+    m_compactThreshold = new QSpinBox(historyGroup);
+    m_compactThreshold->setObjectName(QStringLiteral("anProjectsSettingsCompactAskThreshold"));
+    m_compactThreshold->setRange(1, 100000);
+    m_compactThreshold->setSuffix(tr(" GB"));
+    m_compactThreshold->setToolTip(tr("A project whose undo history takes more than this asks to compact it."));
+    historyLayout->addRow(tr("Ask to compact a history above:"), m_compactThreshold);
     historyLayout->addRow(QString(), createInfoLabel(tr("Without a project, history is kept in the temporary folder "
                                                         "and cleared on exit.")));
     mainLayout->addWidget(historyGroup);
@@ -121,6 +130,7 @@ void ProjectsSettingsPage::showSettings(const ProjectSettings& settings)
     const std::string_view name = history::stepCompressionName(settings.historyCompression);
     const int index = m_compression->findData(QString::fromLatin1(name.data(), static_cast<qsizetype>(name.size())));
     m_compression->setCurrentIndex(index >= 0 ? index : 0);
+    m_compactThreshold->setValue(settings.compactAskThresholdGb);
     m_openLast->setChecked(settings.openLastOnStartup);
 }
 
@@ -174,6 +184,7 @@ ProjectSettings ProjectsSettingsPage::shownSettings() const
     settings.createForIntegrationJobs = m_createForJobs->isChecked();
     settings.historyCompression =
         stepCompressionFromName(m_compression->currentData().toString()).value_or(history::StepCompression::Lz4);
+    settings.compactAskThresholdGb = m_compactThreshold->value();
     settings.openLastOnStartup = m_openLast->isChecked();
     return settings;
 }
@@ -191,6 +202,11 @@ QCheckBox* ProjectsSettingsPage::createForIntegrationJobsCheck() const noexcept
 QComboBox* ProjectsSettingsPage::compressionCombo() const noexcept
 {
     return m_compression;
+}
+
+QSpinBox* ProjectsSettingsPage::compactAskThresholdSpin() const noexcept
+{
+    return m_compactThreshold;
 }
 
 QCheckBox* ProjectsSettingsPage::openLastOnStartupCheck() const noexcept

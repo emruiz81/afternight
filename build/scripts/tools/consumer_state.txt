@@ -539,6 +539,20 @@ state src/AfterNightControls/controls/settings/ExtensionStatusPage.cpp cache
     reason           Discovering installed extensions reads every package from disk; reopening the settings page
                      shows the last result while a fresh one is computed.
 
+state src/AfterNightControls/controls/ImageHistoryIndex.cpp registry
+    scope            closingHistories
+    category         ui-state
+    owner            the first history that is given a project's folder, or the first that is asked about one; each
+                     history enters the directory it keeps its steps in and removes it when its last write there has
+                     landed, and a worker that compacts a history enters and removes the directory it holds
+    lifetime         from first use to process exit
+    synchronization  its own mutex orders every read and write of the directories; whoever waits for one sleeps on
+                     the condition variable beside it, which every history that finishes notifies
+    reason           One history keeps a directory at a time, so a second view of a file never reads, sweeps or
+                     writes the first view's steps; and a view that closes inside a project lets its history's writes
+                     finish behind it, on a worker, so the same image opened again must read what that history left
+                     only once it has. Nothing else connects the histories of two views.
+
 state src/AfterNightControls/controls/ProcessLaunchScope.cpp g_innermost
     scope            an::ui (anonymous namespace)
     category         ui-state

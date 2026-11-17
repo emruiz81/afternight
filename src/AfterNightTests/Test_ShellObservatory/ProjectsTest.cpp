@@ -328,8 +328,9 @@ TEST_F(ProjectSwitcher, ALongNameIsCutInItsMiddleAndSaidWholeInTheTooltip)
     EXPECT_EQ(bar().projectName(), name);
 }
 
-// With images open the dialog offers to add them, and they join the project; an image opened while the project is open
-// joins it too; an image that no file holds does not; and closing the project leaves the images open.
+// With images open the dialog offers to add them and to move their undo history, and they join the project with it; an
+// image opened while the project is open joins it too, its history kept in the project from its first step; an image
+// that no file holds does not; and closing the project leaves the images open.
 TEST_F(ProjectSwitcher, TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo)
 {
     const QString first = writeImage(QStringLiteral("joins-first.fits"));
@@ -344,18 +345,38 @@ TEST_F(ProjectSwitcher, TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoins
         EXPECT_EQ(dialog.addOpenImagesCheck()->text(), QStringLiteral("Add the open image to the project"))
             << "the image no file holds is not one the project can take";
         EXPECT_TRUE(dialog.addOpenImagesCheck()->isChecked());
-        EXPECT_TRUE(dialog.moveHistoryCheck()->isHidden());
+        // The shell states what the open image's undo history takes, so the dialog offers to move it.
+        EXPECT_FALSE(dialog.moveHistoryCheck()->isHidden());
+        EXPECT_TRUE(
+            dialog.moveHistoryCheck()->text().startsWith(QStringLiteral("Move its undo history into the project (")))
+            << dialog.moveHistoryCheck()->text().toStdString();
+        EXPECT_TRUE(dialog.moveHistoryCheck()->isChecked());
     });
     ASSERT_TRUE(projects().isOpen());
     ASSERT_EQ(projects().current()->images.size(), 1u);
     EXPECT_EQ(projects().current()->images.front().path, first);
-    EXPECT_NE(projects().imageFor(first), nullptr);
+    ASSERT_NE(projects().imageFor(first), nullptr);
+    // The step the image had is a file of the project's folder for it, listed by the index beside it.
+    const auto stepsOf = [](const QString& file) {
+        const QString directory = projects().historyDirectoryFor(projects().imageFor(file)->id);
+        return QDir(directory).entryList(QStringList{QStringLiteral("*.xisf"), QStringLiteral("*.ansnap")},
+                                         QDir::Files);
+    };
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() {
+            const QString directory = projects().historyDirectoryFor(projects().imageFor(first)->id);
+            return stepsOf(first).size() == 1 && QFileInfo::exists(directory + QStringLiteral("/history.json"));
+        },
+        5000))
+        << "the open image's undo history did not move into the project";
 
     openFile(second);
     ASSERT_TRUE(an::tests::app::processEventsUntil([]() { return projects().current()->images.size() == 2u; }, 5000))
         << "an image opened while the project is open did not join it";
-    EXPECT_NE(projects().imageFor(second), nullptr);
+    ASSERT_NE(projects().imageFor(second), nullptr);
     EXPECT_EQ(projects().current()->images.back().kind, an::ui::shell::ProjectImageKind::Image);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return stepsOf(second).size() == 1; }, 5000))
+        << "the history of an image opened in the project is not kept in it";
 
     const std::size_t open = views().size();
     action(shellIds::kCloseProject)->trigger();
@@ -368,6 +389,16 @@ TEST_F(ProjectSwitcher, TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoins
                 [](NewProjectDialog& dialog) { dialog.addOpenImagesCheck()->setChecked(false); });
     ASSERT_TRUE(projects().isOpen());
     EXPECT_TRUE(projects().current()->images.empty());
+    ASSERT_TRUE(projects().close());
+
+    // Added without their history: the images are the project's, and the steps they had stay with the session.
+    makeProject(QStringLiteral("Joins bare"),
+                [](NewProjectDialog& dialog) { dialog.moveHistoryCheck()->setChecked(false); });
+    ASSERT_TRUE(projects().isOpen());
+    ASSERT_EQ(projects().current()->images.size(), 2u);
+    settle();
+    EXPECT_TRUE(stepsOf(first).isEmpty()) << "the undo history moved into the project against the person's choice";
+    EXPECT_TRUE(stepsOf(second).isEmpty());
 }
 
 // Open Project... asks for a folder and opens its project; a folder that holds none is said, and the project open

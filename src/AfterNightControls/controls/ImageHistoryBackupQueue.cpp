@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <filesystem>
+#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -81,7 +83,8 @@ constexpr std::chrono::milliseconds kRoomPollInterval{20};
 } // namespace
 
 an::Status writeHistorySnapshot(const an::consumer::EngineSession& session, const an::consumer::AssetReadLease& image,
-                                const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop)
+                                const std::string& path, const an::ArtifactIdentity& identity, std::stop_token stop,
+                                const StepDurability durability)
 {
     if (!image.valid())
     {
@@ -100,12 +103,14 @@ an::Status writeHistorySnapshot(const an::consumer::EngineSession& session, cons
         {
             return frame.status();
         }
-        // A step lives only as long as the session that took it, so it is not flushed to stable storage; it is
-        // still published whole or not at all.
+        // Published whole or not at all; whether its bytes are on the device first is the caller's to say.
         const an::Result<an::ImageSnapshotWriteReport> written = an::writeImageSnapshot(
             scope->engine(), scope->execution(),
-            an::ImageSnapshotWriteRequest{
-                .destinationPath = path, .identity = &identity, .durability = an::OutputDurability::CloseOnly},
+            an::ImageSnapshotWriteRequest{.destinationPath = path,
+                                          .identity = &identity,
+                                          .durability = durability == StepDurability::Flushed
+                                                            ? an::OutputDurability::FlushBeforePublish
+                                                            : an::OutputDurability::CloseOnly},
             *frame, typed.metadata(), image.validity());
         return written.hasValue() ? an::Status::success() : written.status();
     });
@@ -187,13 +192,45 @@ std::uint64_t historyBytesOf(const an::consumer::AssetWriteLease& image)
 }
 
 Snapshot::Snapshot(std::string path, std::string label, an::ArtifactIdentity identity, const std::uint64_t bytes)
-    : m_Path(std::move(path)), m_Label(std::move(label)), m_Identity(std::move(identity)), m_Bytes(bytes)
+    : m_Label(std::move(label)), m_Identity(std::move(identity)), m_Bytes(bytes), m_Path(std::move(path))
 {
 }
 
-const std::string& Snapshot::path() const
+std::shared_ptr<Snapshot> Snapshot::written(std::string path, std::string label, an::ArtifactIdentity identity,
+                                            const std::uint64_t fileBytes)
 {
+    auto snapshot = std::make_shared<Snapshot>(std::move(path), std::move(label), std::move(identity), 0u);
+    snapshot->m_FileBytes = fileBytes;
+    snapshot->m_State = SnapshotState::Written;
+    return snapshot;
+}
+
+std::string Snapshot::path() const
+{
+    std::lock_guard lock(m_Mutex);
     return m_Path;
+}
+
+void Snapshot::moveTo(std::string path)
+{
+    std::lock_guard lock(m_Mutex);
+    m_Path = std::move(path);
+}
+
+std::uint64_t Snapshot::fileBytes() const
+{
+    std::lock_guard lock(m_Mutex);
+    return m_FileBytes;
+}
+
+void Snapshot::drop() noexcept
+{
+    m_Dropped.store(true, std::memory_order_release);
+}
+
+bool Snapshot::dropped() const noexcept
+{
+    return m_Dropped.load(std::memory_order_acquire);
 }
 
 const std::string& Snapshot::label() const
@@ -242,7 +279,7 @@ void Snapshot::fail(std::string failure)
     settle(SnapshotState::Failed, std::move(failure));
 }
 
-void Snapshot::settle(const SnapshotState state, std::string failure)
+void Snapshot::settle(const SnapshotState state, std::string failure, std::string path, const std::uint64_t fileBytes)
 {
     {
         std::lock_guard lock(m_Mutex);
@@ -252,12 +289,17 @@ void Snapshot::settle(const SnapshotState state, std::string failure)
         }
         m_State = state;
         m_Failure = std::move(failure);
+        if (!path.empty())
+        {
+            m_Path = std::move(path);
+        }
+        m_FileBytes = fileBytes;
     }
     m_Settled.notify_all();
 }
 
 BackupQueue::BackupQueue(const an::consumer::EngineSession& session, StepCodecPtr codec, SettledListener onSettled)
-    : m_Session(session), m_Codec(codec ? std::move(codec) : snapshotStepCodec()), m_OnSettled(std::move(onSettled))
+    : m_Session(session), m_OnSettled(std::move(onSettled)), m_Codec(codec ? std::move(codec) : historyStepCodec())
 {
     m_WriterThread = std::jthread([this](std::stop_token stop) { runWriter(std::move(stop)); });
 }
@@ -272,9 +314,20 @@ const an::consumer::EngineSession& BackupQueue::session() const
     return m_Session;
 }
 
-const StepCodec& BackupQueue::codec() const
+StepCodecPtr BackupQueue::codec() const
 {
-    return *m_Codec;
+    std::lock_guard lock(m_Mutex);
+    return m_Codec;
+}
+
+void BackupQueue::setCodec(StepCodecPtr codec)
+{
+    if (!codec)
+    {
+        return;
+    }
+    std::lock_guard lock(m_Mutex);
+    m_Codec = std::move(codec);
 }
 
 an::Result<an::consumer::MemoryReservation> BackupQueue::tryReserve(const std::uint64_t bytes,
@@ -282,7 +335,7 @@ an::Result<an::consumer::MemoryReservation> BackupQueue::tryReserve(const std::u
 {
     {
         std::lock_guard lock(m_Mutex);
-        if (m_Closed)
+        if (m_Closed || m_Finishing)
         {
             return refusal(an::ErrorCode::InvalidState, "the history is closing", "BackupQueue::tryReserve");
         }
@@ -323,7 +376,7 @@ an::Result<an::consumer::MemoryReservation> BackupQueue::reserve(const std::uint
             ++m_AdmissionWaits;
         }
         (void)m_RoomAvailable.wait_for(lock, stop, kRoomPollInterval,
-                                       [this, seen] { return m_Closed || m_RoomGeneration != seen; });
+                                       [this, seen] { return m_Closed || m_Finishing || m_RoomGeneration != seen; });
         if (stop.stop_requested())
         {
             return refusal(an::ErrorCode::Cancelled, "the wait for room in the history's backup queue was stopped",
@@ -345,13 +398,14 @@ SnapshotPtr BackupQueue::submit(an::consumer::ImageAsset&& copy, an::consumer::M
     }
     {
         std::lock_guard lock(m_Mutex);
-        if (!m_Closed)
+        if (!m_Closed && !m_Finishing)
         {
             ++m_PendingSnapshots;
             m_PeakPendingSnapshots = (std::max)(m_PeakPendingSnapshots, m_PendingSnapshots);
             m_Queue.push_back(Entry{.snapshot = snapshot,
                                     .copy = std::make_shared<an::consumer::ImageAsset>(std::move(copy)),
-                                    .room = std::move(room)});
+                                    .room = std::move(room),
+                                    .codec = m_Codec});
             m_WorkAvailable.notify_one();
             return snapshot;
         }
@@ -415,6 +469,27 @@ void BackupQueue::close()
     }
 }
 
+void BackupQueue::finish()
+{
+    {
+        std::lock_guard lock(m_Mutex);
+        if (m_Closed)
+        {
+            return;
+        }
+        // The writer ends by itself once nothing waits; no stop is asked for, so the write in progress finishes.
+        m_Finishing = true;
+    }
+    m_WorkAvailable.notify_all();
+    m_RoomAvailable.notify_all();
+    if (m_WriterThread.joinable())
+    {
+        m_WriterThread.join();
+    }
+    std::lock_guard lock(m_Mutex);
+    m_Closed = true;
+}
+
 std::size_t BackupQueue::pendingSnapshots() const
 {
     std::lock_guard lock(m_Mutex);
@@ -440,8 +515,9 @@ void BackupQueue::runWriter(std::stop_token stop)
         Entry entry;
         {
             std::unique_lock lock(m_Mutex);
-            m_WorkAvailable.wait(lock, [this] { return m_Closed || !m_Queue.empty(); });
-            if (m_Queue.empty())
+            m_WorkAvailable.wait(lock, [this] { return m_Closed || m_Finishing || !m_Queue.empty(); });
+            // Closed, the writer ends at once; finishing, once nothing waits.
+            if (m_Closed || m_Queue.empty())
             {
                 return;
             }
@@ -449,13 +525,14 @@ void BackupQueue::runWriter(std::stop_token stop)
             m_Queue.pop_front();
         }
 
-        an::Status written = refusal(an::ErrorCode::Internal, "the writer reported nothing", "BackupQueue");
+        an::Result<std::string> written =
+            refusal(an::ErrorCode::Internal, "the writer reported nothing", "BackupQueue");
         try
         {
             an::Result<an::consumer::AssetReadLease> lease = entry.copy->read(stop);
-            written = lease.hasValue()
-                          ? m_Codec->write(m_Session, *lease, entry.snapshot->path(), entry.snapshot->identity(), stop)
-                          : lease.status();
+            written = lease.hasValue() ? entry.codec->write(m_Session, *lease, entry.snapshot->path(),
+                                                            entry.snapshot->identity(), stop)
+                                       : an::Result<std::string>(lease.status());
         }
         catch (const std::exception& error)
         {
@@ -476,13 +553,18 @@ void BackupQueue::runWriter(std::stop_token stop)
         }
         m_RoomAvailable.notify_all();
 
-        if (written.ok())
+        if (written.hasValue())
         {
-            entry.snapshot->settle(SnapshotState::Written, {});
+            // The file's size is read here, on the writer's thread, so nothing else has to ask the file system.
+            std::error_code ignored;
+            const std::uintmax_t size = std::filesystem::file_size(
+                std::filesystem::path(std::u8string(written->begin(), written->end())), ignored);
+            entry.snapshot->settle(SnapshotState::Written, {}, *written,
+                                   ignored ? std::uint64_t{0} : static_cast<std::uint64_t>(size));
         }
         else
         {
-            std::string failure = written.message();
+            std::string failure = written.status().message();
             entry.snapshot->settle(SnapshotState::Failed,
                                    failure.empty() ? std::string("the writer reported a failure without a reason")
                                                    : std::move(failure));

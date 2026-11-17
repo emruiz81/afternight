@@ -17,6 +17,7 @@
 #include <AfterNightEngine/IO/CodecFormat.h>
 #include <AfterNightEngine/IO/CodecIO.h>
 #include <AfterNightEngine/IO/CodecMetadataProjection.h>
+#include <AfterNightEngine/IO/CodecRegistry.h>
 #include <AfterNightEngine/IO/CodecRequests.h>
 #include <AfterNightEngine/IO/ImageSnapshot.h>
 #include <AfterNightEngine/IO/OutputTransaction.h>
@@ -57,10 +58,18 @@ namespace
     return an::Status::failure(code, an::StatusDetail{.message = std::move(message), .operation = operation});
 }
 
+[[nodiscard]] an::OutputDurability outputDurabilityOf(const StepDurability durability) noexcept
+{
+    return durability == StepDurability::Flushed ? an::OutputDurability::FlushBeforePublish
+                                                 : an::OutputDurability::CloseOnly;
+}
+
 /// The codec of the engine's image snapshot.
 class SnapshotStepCodec final : public StepCodec
 {
 public:
+    explicit SnapshotStepCodec(const StepDurability durability) : m_Durability(durability) {}
+
     [[nodiscard]] std::string_view name() const noexcept override
     {
         return "snapshot";
@@ -68,14 +77,20 @@ public:
 
     [[nodiscard]] std::string_view fileExtension() const noexcept override
     {
-        return ".ansnap";
+        return kSnapshotStepExtension;
     }
 
-    [[nodiscard]] an::Status write(const an::consumer::EngineSession& session,
-                                   const an::consumer::AssetReadLease& image, const std::string& path,
-                                   const an::ArtifactIdentity& identity, std::stop_token stop) const override
+    [[nodiscard]] an::Result<std::string> write(const an::consumer::EngineSession& session,
+                                                const an::consumer::AssetReadLease& image, const std::string& path,
+                                                const an::ArtifactIdentity& identity,
+                                                std::stop_token stop) const override
     {
-        return writeHistorySnapshot(session, image, path, identity, std::move(stop));
+        const an::Status written = writeHistorySnapshot(session, image, path, identity, std::move(stop), m_Durability);
+        if (written.failed())
+        {
+            return written;
+        }
+        return path;
     }
 
     [[nodiscard]] an::Result<an::consumer::ImageAsset> read(const an::consumer::EngineSession& session,
@@ -85,6 +100,9 @@ public:
     {
         return readHistorySnapshot(session, path, expected, std::move(stop));
     }
+
+private:
+    const StepDurability m_Durability;
 };
 
 // ---- A step as an XISF image.
@@ -132,10 +150,15 @@ private:
     std::string m_Path;
 };
 
-/// A path beside a step's file that no other write or read of the step uses.
+/// A path in a step's directory that no other write or read uses, under a name shorter than a step's: a step whose
+/// own file fits where paths are bounded is never refused for the record staged beside it.
 [[nodiscard]] std::string recordPathBeside(const std::string& stepPath)
 {
-    return stepPath + "." + QUuid::createUuid().toString(QUuid::Id128).toStdString() + ".record";
+    const std::filesystem::path record =
+        pathOf(stepPath).parent_path() /
+        (QUuid::createUuid().toString(QUuid::Id128).left(16).toStdString() + ".record");
+    const std::u8string text = record.generic_u8string();
+    return std::string(text.begin(), text.end());
 }
 
 /// Bytes as the text a card carries: compressed, then base 64.
@@ -566,7 +589,10 @@ constexpr std::size_t kPlainFitsTextBytes = 4000u;
 class XisfStepCodec final : public StepCodec
 {
 public:
-    explicit XisfStepCodec(const an::OutputCompression compression) : m_Compression(compression) {}
+    XisfStepCodec(const an::OutputCompression compression, const StepDurability durability)
+        : m_Compression(compression), m_Durability(durability)
+    {
+    }
 
     [[nodiscard]] std::string_view name() const noexcept override
     {
@@ -575,13 +601,31 @@ public:
 
     [[nodiscard]] std::string_view fileExtension() const noexcept override
     {
-        return ".xisf";
+        return kXisfStepExtension;
     }
 
-    [[nodiscard]] an::Status write(const an::consumer::EngineSession& session,
-                                   const an::consumer::AssetReadLease& image, const std::string& path,
-                                   const an::ArtifactIdentity& identity, std::stop_token stop) const override
+    [[nodiscard]] an::Result<std::string> write(const an::consumer::EngineSession& session,
+                                                const an::consumer::AssetReadLease& image, const std::string& path,
+                                                const an::ArtifactIdentity& identity,
+                                                std::stop_token stop) const override
     {
+        bool beyondXisf = false;
+        const an::Status written = writeOrSayBeyond(session, image, path, identity, std::move(stop), beyondXisf);
+        if (written.failed())
+        {
+            return written;
+        }
+        return path;
+    }
+
+    /// Writes the step at `path`, and says whether a refusal is the format's: the step's record is longer than an
+    /// XISF image carries, or the session's engine has no XISF adapter. Nothing is published on a refusal.
+    [[nodiscard]] an::Status writeOrSayBeyond(const an::consumer::EngineSession& session,
+                                              const an::consumer::AssetReadLease& image, const std::string& path,
+                                              const an::ArtifactIdentity& identity, std::stop_token stop,
+                                              bool& beyondXisf) const
+    {
+        beyondXisf = false;
         if (!image.valid())
         {
             return refusal(an::ErrorCode::NotInitialized, "there is no image to keep", "StepCodec::write");
@@ -593,13 +637,19 @@ public:
         {
             return scope.status();
         }
+        const an::CodecRegistry* const codecs = scope->engine().codecRegistry();
+        if (codecs == nullptr || !codecs->capabilities(an::CodecFormat::Xisf).has_value())
+        {
+            beyondXisf = true;
+            return refusal(an::ErrorCode::Unsupported, "the session's engine writes no XISF image", "StepCodec::write");
+        }
         return image.visit([&](const auto& typed) -> an::Status {
             const an::Result<an::RawFrame> frame = an::borrowImageFrame(typed);
             if (!frame.hasValue())
             {
                 return frame.status();
             }
-            return writeStep(*scope, *frame, typed.metadata(), image.validity(), path, identity);
+            return writeStep(*scope, *frame, typed.metadata(), image.validity(), path, identity, beyondXisf);
         });
     }
 
@@ -721,7 +771,8 @@ public:
 private:
     [[nodiscard]] an::Status writeStep(const an::consumer::OperationScope& scope, const an::RawFrame& frame,
                                        const an::ImageMetadata& metadata, const an::ValidityMask* validity,
-                                       const std::string& path, const an::ArtifactIdentity& identity) const
+                                       const std::string& path, const an::ArtifactIdentity& identity,
+                                       bool& beyondXisf) const
     {
         const an::Result<EncodedFrame> encoded = encodedFrameOf(frame);
         if (!encoded.hasValue())
@@ -741,6 +792,7 @@ private:
         if (static_cast<std::size_t>(record->size()) + static_cast<std::size_t>(validityText.size()) >
             kMaxXisfStepRecordTextBytes)
         {
+            beyondXisf = true;
             return refusal(an::ErrorCode::LimitExceeded,
                            fmt::format("the step's record, {} bytes of text, is more than the {} an XISF image's "
                                        "cards carry",
@@ -786,14 +838,13 @@ private:
         {
             return intent.status();
         }
-        // A step lives as long as its history, which a crash of the machine ends, so it is not flushed to stable
-        // storage; it is still published whole or not at all.
+        // Published whole or not at all; whether its bytes are on the device first is the codec's durability.
         an::OutputRequest request;
         request.destinationPath = path;
         request.format = an::CodecFormat::Xisf;
         request.intent = &*intent;
         request.identity = &identity;
-        request.durability = an::OutputDurability::CloseOnly;
+        request.durability = outputDurabilityOf(m_Durability);
         request.replacePolicy = an::OutputReplacePolicy::ReplaceExisting;
         // Without the declaration and the comment a header opens with, a virus scanner does not take the step for
         // markup and read every sample of it for tags.
@@ -804,6 +855,86 @@ private:
     }
 
     const an::OutputCompression m_Compression;
+    const StepDurability m_Durability;
+};
+
+[[nodiscard]] an::OutputCompression outputCompressionOf(const StepCompression compression) noexcept
+{
+    return compression == StepCompression::Lz4    ? an::OutputCompression::Lz4
+           : compression == StepCompression::Zstd ? an::OutputCompression::Zstd
+                                                  : an::OutputCompression::None;
+}
+
+/// A step's path under another extension: the path less the step extension it ends in, if it ends in one.
+[[nodiscard]] std::string pathUnder(const std::string& path, const std::string_view extension)
+{
+    std::string stem = path;
+    for (const std::string_view known : {kXisfStepExtension, kSnapshotStepExtension})
+    {
+        if (stem.ends_with(known))
+        {
+            stem.resize(stem.size() - known.size());
+            break;
+        }
+    }
+    return stem + std::string(extension);
+}
+
+/// The codec every history writes through: XISF, and a snapshot for the step an XISF image cannot be.
+class HistoryStepCodec final : public StepCodec
+{
+public:
+    HistoryStepCodec(const StepCompression compression, const StepDurability durability)
+        : m_Xisf(outputCompressionOf(compression), durability), m_Snapshot(durability)
+    {
+    }
+
+    [[nodiscard]] std::string_view name() const noexcept override
+    {
+        return "history";
+    }
+
+    [[nodiscard]] std::string_view fileExtension() const noexcept override
+    {
+        return kXisfStepExtension;
+    }
+
+    [[nodiscard]] an::Result<std::string> write(const an::consumer::EngineSession& session,
+                                                const an::consumer::AssetReadLease& image, const std::string& path,
+                                                const an::ArtifactIdentity& identity,
+                                                std::stop_token stop) const override
+    {
+        std::string xisfPath = pathUnder(path, kXisfStepExtension);
+        bool beyondXisf = false;
+        const an::Status written = m_Xisf.writeOrSayBeyond(session, image, xisfPath, identity, stop, beyondXisf);
+        if (written.ok())
+        {
+            return xisfPath;
+        }
+        if (!beyondXisf)
+        {
+            return written;
+        }
+        // The step cannot be an XISF image: it is kept as a snapshot beside the others, so the edit is recorded.
+        return m_Snapshot.write(session, image, pathUnder(path, kSnapshotStepExtension), identity, std::move(stop));
+    }
+
+    [[nodiscard]] an::Result<an::consumer::ImageAsset> read(const an::consumer::EngineSession& session,
+                                                            const std::string& path,
+                                                            const an::ArtifactIdentity& expected,
+                                                            std::stop_token stop) const override
+    {
+        // The extension says which codec wrote the step.
+        if (path.ends_with(kSnapshotStepExtension))
+        {
+            return m_Snapshot.read(session, path, expected, std::move(stop));
+        }
+        return m_Xisf.read(session, path, expected, std::move(stop));
+    }
+
+private:
+    const XisfStepCodec m_Xisf;
+    const SnapshotStepCodec m_Snapshot;
 };
 
 } // namespace
@@ -822,17 +953,19 @@ std::string_view stepCompressionName(const StepCompression compression) noexcept
     return "none";
 }
 
-StepCodecPtr snapshotStepCodec()
+StepCodecPtr historyStepCodec(const StepCompression compression, const StepDurability durability)
 {
-    return std::make_shared<const SnapshotStepCodec>();
+    return std::make_shared<const HistoryStepCodec>(compression, durability);
 }
 
-StepCodecPtr xisfStepCodec(const StepCompression compression)
+StepCodecPtr snapshotStepCodec(const StepDurability durability)
 {
-    const an::OutputCompression samples = compression == StepCompression::Lz4    ? an::OutputCompression::Lz4
-                                          : compression == StepCompression::Zstd ? an::OutputCompression::Zstd
-                                                                                 : an::OutputCompression::None;
-    return std::make_shared<const XisfStepCodec>(samples);
+    return std::make_shared<const SnapshotStepCodec>(durability);
+}
+
+StepCodecPtr xisfStepCodec(const StepCompression compression, const StepDurability durability)
+{
+    return std::make_shared<const XisfStepCodec>(outputCompressionOf(compression), durability);
 }
 
 } // namespace an::ui::history

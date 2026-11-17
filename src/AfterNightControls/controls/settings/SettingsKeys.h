@@ -117,6 +117,8 @@ inline constexpr auto PROJECTS_RECENT = "projects/recent";
 inline constexpr auto PROJECTS_LAST = "projects/last";
 // How a history step's samples are compressed: `lz4`, `none` or `zstd`; a new project starts from it.
 inline constexpr auto HISTORY_COMPRESSION = "history/compression";
+// Above how many gigabytes of undo history a project asks to compact it: a whole number, at least one.
+inline constexpr auto PROJECTS_COMPACT_ASK_THRESHOLD_GB = "projects/compactAskThresholdGb";
 
 // ═══════════════════════════════════════════════════════════════
 // Export Settings

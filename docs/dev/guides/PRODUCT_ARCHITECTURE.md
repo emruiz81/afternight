@@ -497,14 +497,14 @@ process already is:
   a key accepts its override first and keeps it; with the focus outside the page the window's shortcut runs. Detached
   to a window, the sequences are put back and the objects are live, as in a 1.1 window.
 
-### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryCompanion.cpp`)
+### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryIndex.h`, `controls/ImageHistoryCompanion.cpp`)
 
 A step is a copy taken under a lease (`copyForHistory`), admitted against the session's
 `MemoryCategory::PendingSnapshots` allowance before it is made - an edit's copy waits for room, a state already shown
 is `ReservationKind::Required` - and written by the history's `BackupQueue` through the history's step codec,
-samples, metadata and validity mask together, read back only for the identity the history drew for it. A history
-given no codec, which is every history today, writes the engine's image snapshot (`writeHistorySnapshot`,
-`readHistorySnapshot`). A step is a copy rather than the shown asset, so the history need not know every
+samples, metadata and validity mask together, read back only for the identity the history drew for it. Every
+history, in a project or not, is made with the one codec (`historyStepCodec`, below), under the compression the
+settings state when the view is made. A step is a copy rather than the shown asset, so the history need not know every
 path that may write an asset in place through its write lease; and a state already shown cannot be refused without
 the timeline ceasing to match the view, so its copy is admitted beyond the allowance. The view reaches the history
 through `IViewHistory`, made by `createViewHistory`
@@ -513,18 +513,29 @@ the result's copy admitted, a sequence frame written - so `registerEditBeforePub
 waits; undo, redo, a jump and a removal read on a worker and show through the view's `replaceImage`, the current step
 moving once shown. A sequence step references its `DocumentSequence` and keeps the frame it changed, reading the
 sequence's own frame through `openProcessFrames`. Each history writes into its own `AN_HISTORY_*` directory and
-reclaims only that. The window previews on a worker through `presentForView` and shows the histogram through
+reclaims only that, until a project gives it a home ("A history that outlives its view", below). The window previews on a worker through `presentForView` and shows the histogram through
 `createPreviewHistogram`. A step that is linear data (`isLinearData`, `controls/AutostretchApply.h`) is presented
 through the unlinked autostretch the recent-file thumbnails take, so it looks as the dashboard shows it, and any other
 step as it is. The step's title and details are `AnElidedLabel`s of a set number of lines, because a label that wraps
 to its text moved the preview below it from one step to the next. `Test_ControlsHistory` holds the history, and
 `Test_ImageViewControl` the viewer's history cases.
 
-**The step codec** (`StepCodec`, `controls/ImageHistoryStepCodec.h`) is what writes a step to a file, reads it back
-and names the file's extension; the tracker and its queue know nothing else of a format. There are two.
-`snapshotStepCodec()` is the engine's image snapshot, `.ansnap`. `xisfStepCodec(compression)` writes a step as an
-XISF image, `.xisf`, that any reader of the format opens, for a history a person keeps: the samples as XISF stores
-them, uncompressed or under LZ4 or Zstandard, with the image's own cards beside them.
+**The step codec** (`StepCodec`, `controls/ImageHistoryStepCodec.h`) is what writes a step to a file and reads it
+back; a write answers the file the step landed in, so the tracker and its queue know nothing else of a format. There
+are two formats and one codec every history writes through. `snapshotStepCodec()` is the engine's image snapshot,
+`.ansnap` (`writeHistorySnapshot`, `readHistorySnapshot`). `xisfStepCodec(compression)` writes a step as an XISF
+image, `.xisf`, that any reader of the format opens: the samples as XISF stores them, uncompressed or under LZ4 or
+Zstandard, with the image's own cards beside them. `historyStepCodec(compression)` is the one a history is made
+with: an XISF step, and a snapshot beside the others in the two cases an XISF image cannot be the step - a record
+longer than one image's cards carry, and a session whose engine has no XISF adapter (a suite that asks for none) -
+so that no edit is refused for the format. It reads a step by the codec the file's extension names, so one directory
+may hold both kinds and a step written under one compression reads under any other.
+
+- **Why one codec for every history.** A history outside a project used to write snapshots and one inside a project
+  XISF. With the scanner out of the way (below) an uncompressed XISF step costs what a snapshot costs, so one codec
+  writes both, and moving a history into a project is moving its files: no step is read or written again
+  (`ProjectHistory.MoveInKeepsEveryStep`). Unifying removed no format: the XISF step's record is a snapshot and its
+  fallback is one.
 
 - **Why an XISF step carries a record.** XISF states less than a step is. The engine's XISF writer writes the
   preserved cards and the acquisition facts, and a read gives back default semantics, a lineage that begins at the
@@ -536,11 +547,14 @@ them, uncompressed or under LZ4 or Zstandard, with the image's own cards beside 
   and refuses an XISF file that has none. The record is the engine's own snapshot rather than a second encoding of
   the metadata in the product, so a field the engine adds to an image's metadata is in a step without a change
   here; the engine reads a snapshot from a file, so the record is staged in one beside the step for the length of
-  the call.
+  the call, under a name shorter than a step's: a step whose own file fits where paths are bounded is never refused
+  for a file nobody keeps (`HistoryStepCodec.AStepIsWrittenWhereverItsOwnFileFits`; the record's first name, the
+  step's with a second identifier after it, passed 260 characters in a history a few folders deep).
 - **What bounds it.** The record travels in the image's cards, and one image holds `kMaxCodecCards` cards of
   `kMaxCodecCardTextBytes` each: `kMaxXisfStepRecordTextBytes` (24 MiB of text, 18 MiB of compressed record) is
-  the most a step carries, which a mask with no pattern reaches at about 150 megapixels. A longer record is refused
-  when it is written, with nothing published; the snapshot holds any step.
+  the most a step carries, which a mask with no pattern reaches at about 150 megapixels. The XISF codec refuses a
+  longer record when it is written, with nothing published; the history's codec then writes the step as a snapshot
+  (`ProjectHistory.AStepBeyondWhatXisfCarriesIsKeptAsASnapshot`).
 - **What another reader sees.** XISF has no signed integers and counts rows from the top, so a signed image's
   samples are written as the unsigned codes of the same bits and a bottom-up image in the order it holds its rows.
   The image's cards are written for that reader less the ones an XISF unit cannot spell (a FITS keyword longer than
@@ -571,11 +585,76 @@ them, uncompressed or under LZ4 or Zstandard, with the image's own cards beside 
 - **Why its samples state no checksum.** A snapshot checks every section with a hash that costs next to nothing.
   XISF's own checksums are cryptographic: SHA-1 over the same image takes the write from about 105 ms to about
   305 ms under LZ4, and SHA-256 to about 510 ms. An XISF step's record is checked, being a snapshot; its samples
-  are held to their size and, compressed, to decompressing to it.
+  are held to their size and, compressed, to decompressing to it. The history keeps no digest of its own either: a
+  step is held to what reading it checks.
+- **Why a step is not flushed** (`StepDurability`). A step is published whole or not at all against a crash of the
+  process; flushed to the device first it would be whole against a power cut too, and that costs the edit that waits
+  for it: for a 60-megapixel Float32 step under LZ4, 94 to 129 ms in grey and 273 to 382 ms in colour, and
+  uncompressed 71 to 115 ms and 194 to 319 ms (`StepCodecCost.Flushing*`). The write's time comes first, as it did
+  for the checksum, in a project as outside one. What a power cut can cost is a step written in the seconds before
+  it: one that does not read when a later session first reads it is left out of the history and reported, and the
+  image's own file is never the history's to write.
 
 `StepCodecFidelity.*` holds every codec to the same cases - each of the eight representations in grey and in
 colour, the description, every metadata object with cards no container spells, the mask, the identity - so a codec
-added later is held to them by one line.
+added later is held to them by one line; the history's codec is among them.
+
+**A history that outlives its view** (`controls/ImageHistoryIndex.h`). A step is a whole state and a file that
+stands alone, so a history is kept by keeping its directory and saying, beside the steps, what they are. What gives a
+history such a directory - a project, for one of its images - hands it a `HistoryHome` (the directory, the
+compression, the image's file) through `IHistoryPlacement`, which `historyPlacementOf` answers for a view. Controls
+knows homes and nothing of projects.
+
+- **The index** (`kHistoryIndexFileName`, a `HistoryIndex`) lists the steps whose files are written - id, name,
+  description, the file's name with its extension, when, and the run that wrote it, which with the file's base name
+  is the identity a read requires - the steps the image inherited, the step shown, the step the image's file equals
+  and that file's identity. It is written whole, off the GUI thread: by the writer when a step's file lands, and on
+  the thread pool when the step shown moves and when the image is saved, one write at a time and always from the
+  latest state. A step still being written is not in it, so a process that dies between a step's file and the index
+  leaves a file no index lists; `sweepHistoryDirectory` removes those, the record files a killed write left and the
+  payloads never published, when the directory is next entered and before anything is written into it.
+- **Entering** (`ImageHistoryTracker::enterHome`) never waits. A worker reads what the home holds; then the steps
+  recorded from that moment are written there, through the home's compression, and the steps the history already
+  has go in as the caller says (`StepsMove`): moved - `moveStepFile` renames a file on one volume and copies it
+  across volumes, removing the original only once the copy is whole, under a lock a read of a step shares - or left
+  with the session, in which case the index lists what was recorded since.
+- **One history keeps a directory at a time.** The history that enters a directory claims it, and it is that
+  history's until its last write there has landed. Another history is refused it: a second view of the same file
+  goes on with a history of the session's, and never reads, sweeps or writes the first view's steps
+  (`ProjectHistory.OneHistoryKeepsAHomeAtATime`). Without the claim the second history attached the first one's
+  steps as its own, and the first edit made in it removed the steps the first view had ahead.
+- **Closing.** A history in a home does not stop its writer when its view closes. The store is handed to the thread
+  pool, where `BackupQueue::finish` lets the steps still waiting be written, the index is written a last time and
+  the history's own directory goes; the GUI thread waits for none of it
+  (`ProjectHistory.ClosingAViewFinishesItsWritesAndKeepsItsDirectory`). The directory stays claimed, as closing,
+  meanwhile (`waitForClosingHistories`), and an entry into it waits for that on its own worker, so the same image
+  opened again reads what the earlier view left only once it has. The application's shutdown drains the thread pool
+  before it shuts the session, which is what those writes run under; it closes the session's admission first, so a
+  step whose write had not begun when the application closed is not written, and the index lists what landed.
+- **The file's identity** (`FileIdentity`, `readFileIdentity`): the size, the modification time, and the SHA-256 of
+  the first mebibyte. It is what says, without reading an image twice, whether a history kept for a file is that
+  file's. It tells a file apart from another of the same size and time only by its head, which is where a FITS or
+  XISF file states what it is and where an edit saved by another program lands.
+- **Opening again.** When the identity equals the recorded one the kept history is attached around the image as it
+  was opened: the step the file equals stands for the opened state and is the one shown, the earlier steps are
+  behind it and the ones left unsaved ahead of it, nothing is restored and the view is not marked as changed
+  (`ProjectHistory.ReopenShowsTheFileWithTheSavedStepCurrent`). An edit made from there is an edit made after an
+  undo. When the step the file equals is no longer kept - the history rolled past it, or its file is gone - the
+  opened state stands where it was. A step whose file is gone is left out as the history is attached; one that does
+  not read is left out when it is first read; either is said once and the others stand. When the identity differs,
+  or the index does not read, the kept history is set aside whole in a folder of its own under
+  `kDetachedHistoryFolder`, where its steps still open as images, the person is told, and a new history starts.
+- **Saving.** The history hears its view's saves (`fileSaved`) and whether the view shows its file
+  (`historyShowsItsFile`), so it knows which step the file equals. In 1.1 Save and Save As are one action, and the
+  view takes the path it was written to; so a history stays with its image when the image is saved under another
+  name, and the index follows the file.
+- **A sequence is given no home.** Its states are its file and the frames changed in it, not files that stand
+  alone, and the index has no place for them.
+- **Compacting** drops the steps a `HistoryCompaction` does not keep - all but the last few, or all but the state
+  the image was left at - and removes their files: through the tracker for a history a view has open, and in the
+  directory (`compactStoredHistory`, the index rewritten before the files go, the directory held meanwhile so that
+  a view opening the image waits) for one no view has. What it says it frees is what the files take
+  (`ProjectHistory.CompactKeepsTheCurrentStateAndFreesWhatItSays`).
 
 ### The file workflows (`app/FileManager.h`, `app/FileWorkflowRunner.h`, `app/FilePolicies.h`, `app/FileCompanions.h`)
 
@@ -2120,18 +2199,42 @@ switcher's menu is filled without reading any project's file: a folder on a disk
 opening it says so. `projects/openLastOnStartup` opens the last one at the start, and
 `projects/defaultLocation`, `projects/createForIntegrationJobs` and `history/compression` are what a new project starts
 from (`readProjectSettings`). A project records the compression it was made with; the setting is where the next one
-starts.
+starts, and what every history outside a project takes. `projects/compactAskThresholdGb` is the size of history
+above which a project asks to compact it.
+
+**The history of a project's images** (`projects/ProjectHistoryBinder.h`, the core's
+`ApplicationCore::projectHistory()`). The binder hears every view the shell tells it of and gives the history of the
+one whose file is the project's image its home, the project's folder for that image
+(`ProjectService::historyDirectoryFor`), under the project's compression. An image joins in three ways: opened from
+a file while a project is open, once the view holds its image; saved while a project is open, when it is not the
+project's yet - a process's result that was never a file is the project's from its first save, and its steps go in;
+and, for the images open when a project is made, when the person says so, their steps moved in or left with the
+session. A view that was open before a project was opened is not that project's until it is saved: the project keeps
+what was made in it. A sequence is recorded as the project's and keeps its history in the session, and so does a
+second view of a file whose first view keeps the project's history. Saving a project's
+image under another name takes the project's record to the new file (`ProjectService::setImagePath`), as the view
+takes the path; an image of the project that already was that file gives way. Closing the project leaves its
+histories in its folder and each view with a history of the session's, the steps the project keeps still what its
+undo restores. The binder shows nothing: a file that changed outside the application and a step whose file is gone
+are said through the shell's notice or the dialog service, without blocking. It compacts an image's history through
+the view that has it open or, with none, in the folder on a worker.
+
+**Storage** (`ProjectService::storageReport`) is measured on the thread pool and told on the GUI thread: each
+image's history with its steps, the histories set aside, the history folders no image names, the integration data,
+the rest of the folder and what is free on its drive.
 
 **In the Observatory window** `ProjectFlows` connects the shell's five project actions - New Project..., Open
 Project..., Switch Project..., Close Project and Project Settings..., the window's own, so the classic shell's records
 of actions and menus do not hold them - to the service, keeps the top bar's switcher naming the open project and fills
 its menu (the open project checked, the ones used last, New project..., Open project..., Close project). New Project
 opens `NewProjectDialog` (Controls: the name, the location and the folder they make, the object, the compression, and
-with images open whether they join the project); the dialog makes nothing and is told what a folder is by the shell,
+with images open whether they join the project and whether their undo history moves into it, with the size the shell
+states for it); the dialog makes nothing and is told what a folder is by the shell,
 so it holds no project logic of its own: a folder that holds files and is no project withdraws Create project, and one
 that is a project already offers `Open project`. Dialogs and refusals are opened over the window and answered when the
-person answers; none runs a loop of its own. While a project is open, an image opened from a file joins it; closing a
-project leaves the images open with no project. As the window starts the last project is opened when the settings
+person answers; none runs a loop of its own. The window tells the binder of each view it is told of, which is all it
+does about an image joining a project; closing a project leaves the images open with no project. As the window
+starts the last project is opened when the settings
 ask, before the window shows, and one that cannot be opened is said in the window's transient message, the
 application starting with no project.
 
