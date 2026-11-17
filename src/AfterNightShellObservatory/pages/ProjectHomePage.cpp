@@ -451,6 +451,7 @@ struct ProjectHomePage::Impl
     std::map<QString, QImage> viewPictures;
 
     SectionCard* imagesCard = nullptr;
+    QVBoxLayout* imageRowsLayout = nullptr;
     std::vector<ImageRow> imageRows;
     std::vector<QWidget*> imageRowWidgets;
     std::map<QString, QString> openIn;
@@ -590,6 +591,13 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     impl.workspacesCard->body()->addLayout(impl.tiles);
     left->addWidget(impl.workspacesCard, 0);
     impl.imagesCard = new SectionCard(tr("Images and sequences"), content);
+    // The card reaches down as far as the column beside it; its rows keep their own height, and what it has to spare
+    // is left under the last of them.
+    impl.imageRowsLayout = new QVBoxLayout();
+    impl.imageRowsLayout->setContentsMargins(0, 0, 0, 0);
+    impl.imageRowsLayout->setSpacing(parts::kProjectIntegrationRowPadding);
+    impl.imagesCard->body()->addLayout(impl.imageRowsLayout);
+    impl.imagesCard->body()->addStretch(1);
     left->addWidget(impl.imagesCard, 1);
     grid->addLayout(left, 1);
     auto* right = new QVBoxLayout();
@@ -1039,7 +1047,7 @@ void ProjectHomePage::rebuildImages()
         addImageColumns(*layout, picture, name, typeCell, new HomeText(HomeText::Role::Mono, row.dimensions, line),
                         new HomeText(HomeText::Role::Mono, row.history, line), state,
                         new HomeText(HomeText::Role::Mono, row.modified, line));
-        impl.imagesCard->body()->addWidget(line);
+        impl.imageRowsLayout->addWidget(line);
         impl.imageRowWidgets.push_back(line);
 
         // What the file is, read off the GUI thread once: its picture, its size and when it changed.

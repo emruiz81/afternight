@@ -51,6 +51,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QImage>
+#include <QLayout>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
@@ -375,6 +376,53 @@ TEST_F(ProjectHome, TheImagesSayTheirHistoryAndWhereTheyAreOpen)
         << rowOf(QStringLiteral("shown.fits")).history.toStdString();
     EXPECT_TRUE(rowOf(QStringLiteral("closed.fits")).history.startsWith(QStringLiteral("1 step · ")))
         << rowOf(QStringLiteral("closed.fits")).history.toStdString();
+}
+
+// The images' rows keep their own height however much room the page has: the card reaches down as far as the column
+// beside it, and what it has to spare is left under its last row.
+TEST_F(ProjectHome, TheImageRowsKeepTheirHeightOnATallPage)
+{
+    (void)makeProject(QStringLiteral("Rows"));
+    openFile(writeImage(QStringLiteral("rows/one.fits"), 0.3f));
+    openFile(writeImage(QStringLiteral("rows/two.fits"), 0.6f));
+    ASSERT_TRUE(showProjectHome());
+    // The rows are made again once their files' facts are read: they are measured after that.
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        []() {
+            const std::vector<ProjectHomePage::ImageRow> rows = page().imageRows();
+            return rows.size() == 2u && std::all_of(rows.begin(), rows.end(), [](const ProjectHomePage::ImageRow& row) {
+                       return !row.modified.isEmpty();
+                   });
+        },
+        kWaitMs));
+    QCoreApplication::processEvents();
+    QWidget* const content = page().widget();
+    ASSERT_NE(content, nullptr);
+    content->layout()->activate();
+    std::vector<QWidget*> rows;
+    for (QWidget* const row : content->findChildren<QWidget*>(QStringLiteral("projectHomeImageRow")))
+    {
+        if (row->isVisible())
+        {
+            rows.push_back(row);
+        }
+    }
+    ASSERT_EQ(rows.size(), 2u);
+    QWidget* const imagesCard = rows.front()->parentWidget();
+    ASSERT_NE(imagesCard, nullptr);
+    ASSERT_GT(imagesCard->height(), imagesCard->sizeHint().height() + rows.front()->sizeHint().height())
+        << "the page has no room to spare at this size: the case shows nothing";
+
+    const auto bottomOf = [content](const QWidget* widget) {
+        return widget->mapTo(content, QPoint(0, widget->height())).y();
+    };
+    for (const QWidget* const row : rows)
+    {
+        EXPECT_EQ(row->height(), row->sizeHint().height()) << "a row was stretched to " << row->height() << " px";
+    }
+    ASSERT_NE(page().notes(), nullptr);
+    EXPECT_EQ(bottomOf(imagesCard), bottomOf(page().notes()->parentWidget()))
+        << "the card does not reach as far as the column beside it";
 }
 
 // The workspaces are tiles: each its name, its images and its arrangement, a miniature of it, the one used last marked;
