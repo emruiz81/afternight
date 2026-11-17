@@ -42,8 +42,10 @@
 #include <QThreadPool>
 #include <QTimer>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <span>
 #include <thread>
 #include <utility>
@@ -239,6 +241,8 @@ struct ReadoutController::Impl
         debounce.setSingleShot(true);
         debounce.setInterval(kDebounce);
         QObject::connect(&debounce, &QTimer::timeout, &debounce, [this]() { update(); });
+        retry.setSingleShot(true);
+        QObject::connect(&retry, &QTimer::timeout, &retry, [this]() { update(); });
         core.eventBus().subscribe(&bus);
     }
 
@@ -269,6 +273,7 @@ struct ReadoutController::Impl
         view = next;
         follower.setViewControl(next);
         tracker.cancel();
+        stopRetrying();
         measuredRevision.reset();
         measuredFrame.reset();
         solver.clear();
@@ -315,6 +320,8 @@ struct ReadoutController::Impl
         QElapsedTimer timer;
         timer.start();
         ++telemetry.updates;
+        // An update measures what is wanted, so a try pending is made by it.
+        retry.stop();
         if (task != nullptr)
         {
             updateTask();
@@ -446,10 +453,15 @@ struct ReadoutController::Impl
         }
         if (measured.refused)
         {
-            // The figures stay, dimmed; the next change measures again.
+            // The figures stay, dimmed, and the measurement is tried again by itself: after an image opens, the view's
+            // own work keeps the session busy and nothing changes once it is done, so waiting for a change would leave
+            // the readout empty.
             ++telemetry.refused;
+            measureWanted = true;
+            retryLater();
             return;
         }
+        stopRetrying();
         if (measured.failed)
         {
             ++telemetry.failed;
@@ -479,6 +491,24 @@ struct ReadoutController::Impl
         present();
         publish();
         ++telemetry.published;
+    }
+
+    /// Tries a refused measurement again a while later, unless an update or another measurement is on its way: first
+    /// after `kDebounce`, then twice as long each time up to `kRetryLongest`, so a long run is asked little.
+    void retryLater()
+    {
+        if (debounce.isActive() || inFlight > 0u)
+        {
+            return;
+        }
+        retry.start(retryWait);
+        retryWait = (std::min)(retryWait * 2, kRetryLongest);
+    }
+
+    void stopRetrying()
+    {
+        retry.stop();
+        retryWait = kDebounce;
     }
 
     // ---- Showing
@@ -657,6 +687,8 @@ struct ReadoutController::Impl
     ViewFollower follower;
     BusFollower bus;
     QTimer debounce;
+    QTimer retry;
+    std::chrono::milliseconds retryWait = kDebounce;
     QPointer<an::ui::AnReadoutColumn> column;
     QPointer<an::ui::AnCompactReadout> compact;
     IReadoutFrameSource* task = nullptr;
@@ -766,7 +798,7 @@ bool ReadoutController::isStale() const noexcept
 
 bool ReadoutController::isIdle() const
 {
-    return !m_impl->debounce.isActive() && m_impl->inFlight == 0u;
+    return !m_impl->debounce.isActive() && !m_impl->retry.isActive() && m_impl->inFlight == 0u;
 }
 
 ReadoutTelemetry ReadoutController::telemetry() const
@@ -794,7 +826,7 @@ const std::optional<an::ui::ImageStatisticsReport>& ReadoutController::originalF
 
 void ReadoutController::updateNow()
 {
-    if (m_impl->debounce.isActive())
+    if (m_impl->debounce.isActive() || m_impl->retry.isActive())
     {
         m_impl->debounce.stop();
         m_impl->update();

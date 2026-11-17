@@ -4,9 +4,9 @@
 /// @file
 /// The controller that feeds the readout, over views of a real session: it follows the active view; a burst of changes
 /// makes one update, and an update measures only what changed; a measurement is admitted as a preview that never
-/// waits, and one refused is tried again at the next change; only a measurement whose ticket still commits is shown,
-/// so a view closed while it is measured shows nothing; the GUI thread makes no call of the engine. In a task it
-/// measures settled frames only, with the original's figures beside them for the change. The figures equal the
+/// waits, and one refused is tried again by itself until it is admitted; only a measurement whose ticket still commits
+/// is shown, so a view closed while it is measured shows nothing; the GUI thread makes no call of the engine. In a task
+/// it measures settled frames only, with the original's figures beside them for the change. The figures equal the
 /// statistics window's for the same image and range; the overlay chips act on the view's own actions; the column's
 /// folds are remembered. And what the readout writes of a solution and of an image's description.
 
@@ -463,9 +463,10 @@ TEST_F(ReadoutController, MeasuresOncePerBurstOfChanges)
     EXPECT_EQ(readout.shownCounts()->channels[0].bins.size(), 1024u);
 }
 
-// A measurement is admitted as a preview that never waits: while every thread of the session is held, it is refused,
-// the figures stay as they were, dimmed, and the next change measures again.
-TEST_F(ReadoutController, AdmitsAsAPreviewAndRetriesARefusalAtTheNextChange)
+// A measurement is admitted as a preview that never waits: while every thread of the session is held, it is refused
+// and the figures stay as they were, dimmed. It is tried again by itself - an image just opened is refused while the
+// view's own work runs, and nothing changes after it - and lands once the session admits it, with no other change.
+TEST_F(ReadoutController, AdmitsAsAPreviewAndRetriesARefusalUntilAdmitted)
 {
     ImageViewControl* view = filledView(QStringLiteral("refused"), 0.25f);
     ASSERT_NE(view, nullptr);
@@ -483,17 +484,23 @@ TEST_F(ReadoutController, AdmitsAsAPreviewAndRetriesARefusalAtTheNextChange)
         held.emplace(std::move(*admitted));
     }
     view->notifyImageUpdated();
-    ASSERT_TRUE(
-        pumpUntil([&readout, &before]() { return readout.isIdle() && readout.telemetry().refused > before.refused; }));
+    ASSERT_TRUE(pumpUntil([&readout, &before]() { return readout.telemetry().refused > before.refused; }));
     EXPECT_EQ(readout.telemetry().published, before.published);
     EXPECT_TRUE(readout.isStale());
     EXPECT_TRUE(m_column->statisticsCard()->isStale());
     EXPECT_DOUBLE_EQ(m_column->statisticsCard()->figure(ReadoutStatistic::Mean), 0.25) << "nothing blanks";
+    EXPECT_FALSE(readout.isIdle()) << "a refused measurement is not tried again";
 
+    // Refused again while the session stays held, with nothing changed.
+    const std::uint64_t refusedOnce = readout.telemetry().refused;
+    ASSERT_TRUE(pumpUntil([&readout, refusedOnce]() { return readout.telemetry().refused > refusedOnce; }));
+    EXPECT_EQ(readout.telemetry().published, before.published);
+
+    // Let go, with no change: the next try is admitted and lands.
     held.reset();
-    view->notifyImageUpdated();
-    ASSERT_TRUE(publishedAtLeast(before.published + 1u));
+    ASSERT_TRUE(publishedAtLeast(before.published + 1u)) << "the refused figures never land without a change";
     EXPECT_FALSE(readout.isStale());
+    EXPECT_TRUE(idle()) << "tries go on once the figures landed";
 }
 
 // A view closed while its image is measured shows nothing of the measurement and crashes nothing: the ticket no

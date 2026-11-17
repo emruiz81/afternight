@@ -598,7 +598,7 @@ capability new.palette
 
 capability new.readout
     title        The readout column
-    shared       ReadoutController.FollowsTheActiveView, ReadoutController.MeasuresOncePerBurstOfChanges, ReadoutController.AdmitsAsAPreviewAndRetriesARefusalAtTheNextChange, ReadoutController.PublishesOnlyACommittingTicket, ReadoutController.NeverCallsTheEngineOnTheGuiThread, StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange, AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut, ReadoutController.RemembersTheFoldsAndTheCollapse, ReadoutColumn.TheFoldsAreALineOfNames, HistogramCard.TheToolsStartAsTheWindowsAndActOnItsWidget
+    shared       ReadoutController.FollowsTheActiveView, ReadoutController.MeasuresOncePerBurstOfChanges, ReadoutController.AdmitsAsAPreviewAndRetriesARefusalUntilAdmitted, ReadoutController.PublishesOnlyACommittingTicket, ReadoutController.NeverCallsTheEngineOnTheGuiThread, StatisticsCard.FiguresEqualTheStatisticsWindowsForTheSameImageAndRange, AstrometryCard.EachChipTogglesItsOverlayOnTheViewAndFollowsItsShortcut, ReadoutController.RemembersTheFoldsAndTheCollapse, ReadoutColumn.TheFoldsAreALineOfNames, HistogramCard.TheToolsStartAsTheWindowsAndActOnItsWidget
     classic
     observatory  ObservatoryWindow.OpenImageShowsTheWorkspaceAndTheReadout
 

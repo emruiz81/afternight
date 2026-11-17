@@ -90,7 +90,7 @@ struct ReadoutTelemetry
     /// - and were dropped.
     std::uint64_t discarded = 0u;
 
-    /// Measurements the session would not admit at once; the figures stayed, dimmed, until the next change.
+    /// Measurements the session would not admit at once; the figures stayed, dimmed, until a try was admitted.
     std::uint64_t refused = 0u;
 
     /// Measurements the engine refused, or that found no session.
@@ -120,7 +120,8 @@ struct ReadoutTelemetry
 /// operation on the thread pool: the image's read lease, then an admission as `Preview` through `tryAdmit` - so the
 /// readout never queues in front of a run - then the histogram's counts and the statistics window's figures, with the
 /// clipped samples left out as the window leaves them out when it opens. It is published only when its commit ticket
-/// still commits; a refused admission leaves the figures as they were, dimmed, and is tried again at the next change.
+/// still commits; a refused admission leaves the figures as they were, dimmed, and is tried again by itself - after
+/// `kDebounce`, then twice as long each time up to `kRetryLongest` - until it is admitted or a change measures anew.
 /// The GUI thread makes no call of the engine.
 ///
 /// **A task.** Only a settled frame is measured, with the original's figures beside it for the change against them; an
@@ -135,6 +136,9 @@ class AFTERNIGHTSHELLCORE_API ReadoutController final
 public:
     /// How long a burst of changes is gathered into one update.
     static constexpr std::chrono::milliseconds kDebounce{150};
+
+    /// The longest wait before a refused measurement is tried again.
+    static constexpr std::chrono::milliseconds kRetryLongest{600};
 
     explicit ReadoutController(ApplicationCore& core);
     ~ReadoutController();
@@ -162,7 +166,7 @@ public:
     /// frame.
     [[nodiscard]] bool isStale() const noexcept;
 
-    /// Whether no update is pending and no measurement is on its way.
+    /// Whether no update is pending - a change's or a refused measurement's try - and no measurement is on its way.
     [[nodiscard]] bool isIdle() const;
 
     [[nodiscard]] ReadoutTelemetry telemetry() const;

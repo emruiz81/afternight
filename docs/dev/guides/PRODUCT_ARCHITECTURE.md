@@ -1635,10 +1635,13 @@ another resolution, a settled frame - only schedules an update, a burst within 1
 only what changed: the channel the view shows picks the curves drawn, and the view's name, its solution and its facts
 are read where they are kept, with nothing measured. A measurement is one operation on the thread pool: the image's
 read lease first (an edit holds the writer while it waits to be admitted), then an admission as `Preview` through
-`tryAdmit`, so the readout never queues in front of a run and a refusal costs nothing but dimmed figures until the next
-change measures again; then the histogram's counts and the statistics window's figures in the same operation - so one
-ticket, one admission and one lease answer for both, which is why the readout counts with `computeHistogramDisplayData`
-rather than through a `HistogramCountScheduler`, whose counts wait in the admission queue. The clipped samples are
+`tryAdmit`, so the readout never queues in front of a run and a refusal costs nothing but dimmed figures until a try is
+admitted; then the histogram's counts and the statistics window's figures in the same operation - so one ticket, one
+admission and one lease answer for both, which is why the readout counts with `computeHistogramDisplayData` rather
+than through a `HistogramCountScheduler`, whose counts wait in the admission queue. A refusal is tried again by itself -
+after 150 ms, then twice as long each time up to 600 ms (`kRetryLongest`) - and not left for the next change: an image
+just opened is refused while the view's own work runs and nothing changes after it, so the readout stayed empty until
+the person did something. The clipped samples are
 left out as the statistics window leaves them out when it opens, so the six figures the card shows are the window's
 for the same image and range. What lands is shown only when its `CommitTicket` still commits: a view closed or left
 while it is measured shows nothing of it. In a task only a settled frame is measured, because only an interactive
