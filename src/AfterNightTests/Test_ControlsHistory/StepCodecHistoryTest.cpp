@@ -248,15 +248,14 @@ TEST(HistoryStepCodec, AStepIsWrittenWhereverItsOwnFileFits)
     // within the 259 a path may be where paths are bounded, with little to spare.
     std::filesystem::path directory = root.path();
     constexpr std::size_t kDirectoryLength = 190u;
+    // Whole segments of ten while one more leaves room for a last of its own, a separator and a character at least -
+    // whatever the length of the temporary folder - then the last, which makes up the length.
     ASSERT_LT(directory.native().size() + 2u, kDirectoryLength);
-    while (directory.native().size() + 11u < kDirectoryLength)
+    while (kDirectoryLength - directory.native().size() > 12u)
     {
         directory /= "0123456789";
     }
-    if (directory.native().size() + 1u < kDirectoryLength)
-    {
-        directory /= std::string(kDirectoryLength - directory.native().size() - 1u, 'x');
-    }
+    directory /= std::string(kDirectoryLength - directory.native().size() - 1u, 'x');
     ASSERT_EQ(directory.native().size(), kDirectoryLength);
     std::error_code made;
     std::filesystem::create_directories(directory, made);
