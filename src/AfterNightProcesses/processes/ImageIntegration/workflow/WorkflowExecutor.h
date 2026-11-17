@@ -316,3 +316,16 @@ private:
 };
 
 W_REGISTER_ARGTYPE(WorkflowExecutor::Result)
+
+struct WorkflowRunRecord;
+
+/// The record a run leaves in its output folder as it ends (`WorkflowRunStateStore::saveRunRecord`): how it ended -
+/// cancelled; failed, or partly done when it left a master all the same; partly done when a group of it failed; with
+/// warnings; or completed - the stage a failed or a cancelled run stopped at, the masters of the lights it left (the
+/// ones it made and the ones it found still valid), its warnings and how long it took.
+///
+/// @param result the run's result.
+/// @param ended when the run ended.
+/// @return the record.
+[[nodiscard]] AFTERNIGHTPROCESSES_API WorkflowRunRecord workflowRunRecord(const WorkflowExecutor::Result& result,
+                                                                          const QDateTime& ended);

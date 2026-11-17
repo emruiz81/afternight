@@ -121,3 +121,23 @@ TEST(AnTag, IsStaticTextNamedByItsText)
     EXPECT_EQ(tag.tone(), AnTag::Tone::Error);
     EXPECT_EQ(an::tests::widgets::accessibleName(tag), QStringLiteral("Failed"));
 }
+
+// An outlined tag - a stage a way of stacking goes through, where a project came from - is a hairline of the line
+// colour over no fill, its text the secondary text in the regular weight.
+TEST(AnTag, AnOutlinedTagIsAHairlineOverNoFillWithItsTextInTheRegularWeight)
+{
+    forEachLook([](const DesignTokens& t) {
+        const QColor bg = t.layers.surface2;
+        AnTag tag(QStringLiteral("Registration"), AnTag::Tone::Outlined);
+        tag.resize(tag.sizeHint());
+        forEachRatio(tag, bg, [&](const an::tests::widgets::RenderedPicture& picture) {
+            expectColour(picture.at(3, tag.height() / 2.0), bg, "no fill inside");
+            expectColour(picture.at(tag.width() / 2.0, 0.5), an::ui::compositeOver(t.colors.borderSubtle, bg),
+                         "the hairline", 24);
+        });
+        const an::ui::testing::RecordedText text = recordedText(tag, QStringLiteral("Registration"));
+        expectColour(text.colour, t.colors.textSecondary, "the text", 0);
+        EXPECT_EQ(text.font.weight(), QFont::Normal);
+        EXPECT_EQ(logicalPixels(text.font), t.metrics.fontCaption);
+    });
+}

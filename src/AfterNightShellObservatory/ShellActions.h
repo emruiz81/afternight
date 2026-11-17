@@ -30,6 +30,7 @@ namespace an::ui::observatory
 namespace ids
 {
 inline constexpr std::string_view kShowHome = "actionShow_Home";
+inline constexpr std::string_view kShowIntegrationHub = "actionShow_Integration_Hub";
 inline constexpr std::string_view kCommandPalette = "actionCommand_Palette";
 inline constexpr std::string_view kToggleReadout = "actionToggle_Readout";
 inline constexpr std::string_view kToggleNight = "actionToggle_Night";
@@ -63,14 +64,14 @@ struct ShellActionSpec
     const char* menu;
 };
 
-/// The shell's own actions: Home, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`), the two
-/// densities, which are exclusive, the workspace's: New Workspace, Rename Workspace..., Move Workspace to New Window
-/// and Close Workspace, and the current task's: Apply (`Ctrl+Enter`, from either Enter key), which runs its primary
-/// action - inside a page the page answers the key itself - and, in the Window menu, Float as Window, Attach and Close
-/// Task; and the project's, in the File menu: New Project..., Open Project..., Switch Project..., Close Project and
-/// Project Settings.... They are children of the window and its own, so their
-/// shortcuts work wherever the focus is in it; the window connects what each does. The classic shell holds none of
-/// them, so its records of the actions, the menus and the shortcuts stay as they are.
+/// The shell's own actions: Home, Integration, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`), the
+/// two densities, which are exclusive, the workspace's: New Workspace, Rename Workspace..., Move Workspace to New
+/// Window and Close Workspace, and the current task's: Apply (`Ctrl+Enter`, from either Enter key), which runs its
+/// primary action - inside a page the page answers the key itself - and, in the Window menu, Float as Window, Attach
+/// and Close Task; and the project's, in the File menu: New Project..., Open Project..., Switch Project..., Close
+/// Project and Project Settings.... They are children of the window and its own, so their shortcuts work wherever the
+/// focus is in it; the window connects what each does. The classic shell holds none of them, so its records of the
+/// actions, the menus and the shortcuts stay as they are.
 class AFTERNIGHTSHELLOBSERVATORY_API ShellActions final
 {
 public:

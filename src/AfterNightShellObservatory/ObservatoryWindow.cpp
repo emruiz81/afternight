@@ -13,6 +13,7 @@
 #include "chrome/TopBar.h"
 #include "pages/FloatingImagesPage.h"
 #include "pages/HomePage.h"
+#include "pages/IntegrationHubPage.h"
 #include "pages/TaskPage.h"
 #include "pages/WorkspacePage.h"
 #include "projects/ProjectFlows.h"
@@ -66,6 +67,8 @@
 #include "app/RuntimeStorageCoordinator.h"
 #include "app/ThemeManager.h"
 #include "app/ViewCreationCoordinator.h"
+#include "processes/ImageIntegration/ImageIntegrationProcess.h"
+#include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
 #include "components/AnBreadcrumb.h"
 #include "components/AnChip.h"
 #include "components/AnCommandPalette.h"
@@ -107,6 +110,7 @@
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QCursor>
+#include <QDir>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
@@ -250,6 +254,10 @@ struct ObservatoryWindow::Impl
     StatusLine* statusLine = nullptr;
     MenuBarOnAlt* menuBar = nullptr;
     HomePage* homePage = nullptr;
+    // The Integration place, the jobs it and Project Home show, and what the window hears of the projects for them.
+    IntegrationHubPage* hubPage = nullptr;
+    std::unique_ptr<ImageIntegration::IntegrationJobsModel> jobs;
+    std::size_t jobsProjectSubscription = 0;
     // The view's menu, which the More of every workspace page's toolbar opens.
     an::ui::shell::ViewChromeBinder::MenuFiller viewMenuFiller;
     // The workspaces moved to windows of their own, by their ids, and what the window hears of the workspaces.
@@ -650,6 +658,7 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    core.projects().unsubscribe(impl.jobsProjectSubscription);
     // The project that is open is asked nothing more of this window; the projects' unit lets go of the top bar and of
     // the project service before either goes, and what keeps the arrangement of the workspaces before they do.
     core.projects().setLeaveGuard({});
@@ -867,6 +876,29 @@ void ObservatoryWindow::buildRegions()
     // Home: Controls' Home parts on a page.
     impl.homePage = new HomePage(impl.centre);
     impl.centre->addWidget(impl.homePage);
+
+    // The Integration place over the integration jobs, which are read again as a project opens or closes.
+    impl.jobs = std::make_unique<ImageIntegration::IntegrationJobsModel>();
+    impl.hubPage = new IntegrationHubPage(*impl.jobs, impl.centre);
+    impl.centre->addWidget(impl.hubPage);
+    QObject::connect(impl.hubPage, &IntegrationHubPage::processRequested, this, [this](const QString& descriptorId) {
+        (void)m_impl->core.processLaunch().launch(descriptorId.toStdString());
+    });
+    QObject::connect(
+        impl.hubPage, &IntegrationHubPage::openJobRequested, this,
+        [this](const QString& databasePath, const QString& session) { openIntegrationJob(databasePath, session); });
+    QObject::connect(
+        impl.hubPage, &IntegrationHubPage::showJobRequested, this,
+        [this](const QString& databasePath, const QString& session) { showIntegrationJob(databasePath, session); });
+    impl.jobsProjectSubscription =
+        impl.core.projects().subscribe([this](const an::ui::shell::ProjectService::Change change) {
+            if (change == an::ui::shell::ProjectService::Change::Opened ||
+                change == an::ui::shell::ProjectService::Change::Closed)
+            {
+                updateIntegrationSources();
+            }
+        });
+    updateIntegrationSources();
 
     // The view's menu fills the toolbars' More: the menus it shares are the menu bar's.
     impl.viewMenuFiller = [this](QMenu& menu, ImageViewControl& view) {
@@ -1414,6 +1446,16 @@ HomePage* ObservatoryWindow::homePage() const noexcept
     return m_impl->homePage;
 }
 
+IntegrationHubPage* ObservatoryWindow::integrationHubPage() const noexcept
+{
+    return m_impl->hubPage;
+}
+
+ImageIntegration::IntegrationJobsModel& ObservatoryWindow::integrationJobs() const noexcept
+{
+    return *m_impl->jobs;
+}
+
 QString ObservatoryWindow::railTaskId(const an::ui::shell::TaskId id)
 {
     return QStringLiteral("task.%1").arg(id);
@@ -1515,6 +1557,17 @@ bool ObservatoryWindow::isWorkspaceShown() const
     return m_impl->centre->currentWidget() == m_impl->workspaces->stack();
 }
 
+bool ObservatoryWindow::isIntegrationHubShown() const
+{
+    return m_impl->hubPage != nullptr && m_impl->centre->currentWidget() == m_impl->hubPage;
+}
+
+void ObservatoryWindow::showIntegrationHub()
+{
+    m_impl->centre->setCurrentWidget(m_impl->hubPage);
+    placeChanged();
+}
+
 // ---- What the shell asks of its window
 
 void ObservatoryWindow::setSessionConsoleVisible(const bool visible)
@@ -1591,7 +1644,7 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
     // Beside its neighbour, in the neighbour's workspace; with none, in the workspace on screen.
     an::ui::dockCreatedView(view, placement.neighbour, impl.dockArea);
     const QString workspace = impl.workspaces->workspaceOf(view);
-    if (isTaskPageShown() && placement.origin == an::ui::shell::ViewOrigin::Process)
+    if ((isTaskPageShown() || isIntegrationHubShown()) && placement.origin == an::ui::shell::ViewOrigin::Process)
     {
         updateWorkspacePage();
         const QString where =
@@ -1977,6 +2030,10 @@ void ObservatoryWindow::setActionIcons()
     {
         m_impl->homePage->refreshIcons();
     }
+    if (m_impl->hubPage != nullptr)
+    {
+        m_impl->hubPage->refreshIcons();
+    }
 }
 
 void ObservatoryWindow::openFile()
@@ -2007,6 +2064,99 @@ void ObservatoryWindow::openImageIntegration()
     {
         m_impl->processLauncher->executeImageIntegration();
     }
+}
+
+void ObservatoryWindow::openIntegrationJob(const QString& databasePath, const QString& session)
+{
+    // Image Integration keeps one session at a time: the one open shows the job's, or one is opened and shows it.
+    const auto openIntegration = [this]() -> ImageIntegrationProcess* {
+        for (TopLevelProcessBaseControl* process : m_impl->core.openProcesses().snapshot())
+        {
+            if (auto* const integration = dynamic_cast<ImageIntegrationProcess*>(process))
+            {
+                return integration;
+            }
+        }
+        return nullptr;
+    };
+    ImageIntegrationProcess* integration = openIntegration();
+    if (integration == nullptr)
+    {
+        openImageIntegration();
+        integration = openIntegration();
+    }
+    if (integration == nullptr)
+    {
+        return;
+    }
+    (void)integration->openSession(databasePath, session);
+    if (m_impl->tasks)
+    {
+        if (const an::ui::shell::Task* const task = m_impl->tasks->model().taskFor(integration))
+        {
+            (void)m_impl->tasks->show(task->id);
+        }
+    }
+}
+
+void ObservatoryWindow::showIntegrationJob(const QString& databasePath, const QString& session)
+{
+    for (TopLevelProcessBaseControl* process : m_impl->core.openProcesses().snapshot())
+    {
+        auto* const integration = dynamic_cast<ImageIntegrationProcess*>(process);
+        if (integration != nullptr && integration->sessionName() == session &&
+            ImageIntegration::sameSessionDatabase(integration->sessionDatabasePath(), databasePath) && m_impl->tasks)
+        {
+            if (const an::ui::shell::Task* const task = m_impl->tasks->model().taskFor(integration))
+            {
+                (void)m_impl->tasks->show(task->id);
+            }
+            return;
+        }
+    }
+}
+
+void ObservatoryWindow::updateIntegrationSources()
+{
+    Impl& impl = *m_impl;
+    if (!impl.jobs)
+    {
+        return;
+    }
+    std::vector<ImageIntegration::IntegrationJobSource> sources;
+    sources.push_back(ImageIntegration::IntegrationJobSource{ImageIntegration::applicationSessionDatabasePath(), {}});
+    const an::ui::shell::ProjectService& projects = impl.core.projects();
+    if (const an::ui::shell::ProjectDocument* const project = projects.current())
+    {
+        const QString database =
+            QDir(projects.currentFolder())
+                .filePath(QString::fromLatin1(an::ui::shell::kProjectIntegrationFolder) + QLatin1Char('/') +
+                          QString::fromLatin1(ImageIntegration::kSessionDatabaseFileName));
+        sources.push_back(ImageIntegration::IntegrationJobSource{database, project->name});
+    }
+    impl.jobs->setSources(std::move(sources));
+}
+
+void ObservatoryWindow::updateRunningIntegrationJobs()
+{
+    Impl& impl = *m_impl;
+    if (!impl.jobs)
+    {
+        return;
+    }
+    std::vector<ImageIntegration::RunningIntegrationJob> running;
+    for (TopLevelProcessBaseControl* process : impl.core.openProcesses().snapshot())
+    {
+        auto* const integration = dynamic_cast<ImageIntegrationProcess*>(process);
+        if (integration == nullptr || !integration->runState().running())
+        {
+            continue;
+        }
+        const an::ui::ProcessRunState& run = integration->runState();
+        running.push_back(ImageIntegration::RunningIntegrationJob{integration->sessionDatabasePath(),
+                                                                  integration->sessionName(), run.text, run.progress});
+    }
+    impl.jobs->setRunningJobs(std::move(running));
 }
 
 void ObservatoryWindow::openSettings()
@@ -2930,6 +3080,8 @@ void ObservatoryWindow::bindShellActions()
     Impl& impl = *m_impl;
     ShellActions& actions = *impl.shellActions;
     QObject::connect(actions.action(ids::kShowHome), &QAction::triggered, this, [this]() { showHome(); });
+    QObject::connect(actions.action(ids::kShowIntegrationHub), &QAction::triggered, this,
+                     [this]() { showIntegrationHub(); });
     QObject::connect(actions.action(ids::kCommandPalette), &QAction::triggered, this, [this]() { openPalette(); });
 
     // The readout's collapse, both ways.
@@ -2959,6 +3111,7 @@ void ObservatoryWindow::bindShellActions()
     {
         view->addSeparator();
         view->addAction(actions.action(ids::kShowHome));
+        view->addAction(actions.action(ids::kShowIntegrationHub));
         view->addAction(actions.action(ids::kCommandPalette));
         view->addAction(readout);
         view->addAction(night);
@@ -3101,6 +3254,10 @@ void ObservatoryWindow::updateBreadcrumb()
             parts.append(task->targetName);
         }
     }
+    else if (isIntegrationHubShown())
+    {
+        parts.append(tr("Integration"));
+    }
     else if (isWorkspaceShown())
     {
         const QString shown = impl.workspaces->shown();
@@ -3221,8 +3378,10 @@ void ObservatoryWindow::updateRail()
         place.selected = workspace.id == selectedWorkspace;
         items.push_back(place);
     }
-    items.push_back(item(QString::fromLatin1(kRailIntegration), an::ui::RailSection::Place, QStringLiteral("layers"),
-                         tr("Integration")));
+    an::ui::RailItem integration = item(QString::fromLatin1(kRailIntegration), an::ui::RailSection::Place,
+                                        QStringLiteral("layers"), tr("Integration"));
+    integration.selected = isIntegrationHubShown();
+    items.push_back(integration);
     appendTaskItems(items);
     an::ui::RailItem console = item(QString::fromLatin1(kRailConsole), an::ui::RailSection::Foot,
                                     QStringLiteral("terminal"), tr("Session Console"));
@@ -3355,7 +3514,7 @@ void ObservatoryWindow::railActivated(const QString& id)
     }
     else if (id == QLatin1String(kRailIntegration))
     {
-        openImageIntegration();
+        showIntegrationHub();
     }
     else if (id == QLatin1String(kRailConsole))
     {
@@ -3576,6 +3735,14 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         return;
     }
     const an::ui::ProcessRunState now = task->process->runState();
+    if (dynamic_cast<ImageIntegrationProcess*>(task->process.data()) != nullptr)
+    {
+        updateRunningIntegrationJobs();
+        if (before.running() && now.ended() && impl.jobs)
+        {
+            impl.jobs->refresh();
+        }
+    }
     const auto at = std::chrono::steady_clock::now();
     // The end of a run is said to assistive technology: applied, politely; failed, with why, at once; stopped.
     if (before.running() && now.ended())

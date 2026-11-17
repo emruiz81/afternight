@@ -40,7 +40,11 @@ public:
         Success,
         Warning,
         Error,
-        Info
+        Info,
+
+        /// A hairline of the line colour over no fill, its text the secondary text in the regular weight: a quiet
+        /// fact - a stage a way of stacking goes through, where a project came from.
+        Outlined
     };
 
     explicit AnTag(const QString& text = QString(), Tone tone = Tone::Neutral, QWidget* parent = nullptr);

@@ -76,6 +76,8 @@ const std::vector<ShellActionSpec>& ShellActions::table()
     static const std::vector<ShellActionSpec> kTable = {
         {ids::kShowHome, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Home"), QKeySequence(), "home", false,
          QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "View")},
+        {ids::kShowIntegrationHub, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Integration"),
+         QKeySequence(), "layers", false, "View"},
         {ids::kCommandPalette, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Command Palette..."),
          QKeySequence(Qt::CTRL | Qt::Key_K), "search", false, "View"},
         {ids::kToggleReadout, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Readout"), QKeySequence(),

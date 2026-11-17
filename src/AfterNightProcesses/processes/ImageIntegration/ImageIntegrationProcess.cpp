@@ -45,6 +45,7 @@
 #include "processes/ImageIntegration/persistence/PresetManager.h"
 #include "processes/ImageIntegration/persistence/ProjectManager.h"
 #include "processes/ImageIntegration/persistence/SessionDocument.h"
+#include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
 #include "processes/ImageIntegration/ImageIntegrationImportSession.h"
@@ -416,7 +417,8 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
         (void)dir.mkpath(QStringLiteral("."));
     }
 
-    m_database = std::make_unique<IntegrationDatabase>(dir.filePath(QStringLiteral("image_integration_sessions.db")));
+    m_sessionDatabasePath = ImageIntegration::applicationSessionDatabasePath();
+    m_database = std::make_unique<IntegrationDatabase>(m_sessionDatabasePath);
     // What the person is told about the stored sessions once the window is up. A database of another format is never
     // read, written or deleted: it is set aside beside itself and a new one made in its place. A database or a session
     // that cannot be read otherwise is left as it is, and nothing is saved over it automatically.
@@ -453,13 +455,7 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
         }
         else
         {
-            m_autosave = std::make_unique<AutosaveManager>(m_model.get(), m_database.get(), m_sessionName);
-            connect(m_autosave.get(), &AutosaveManager::autosaveFailed, this, [this](const QString& msg) {
-                const QString title = tr("Autosave");
-                const QString summary = tr("Autosave failed: %1").arg(msg);
-                notifyWarnOrDialog(this, title, summary);
-            });
-            m_autosave->start(ImageIntegration::Config::kAutosaveIntervalMs);
+            startAutosave();
         }
     }
     else
@@ -719,6 +715,78 @@ void ImageIntegrationProcess::updateWindowTitle()
     }
 
     setWindowTitle(title);
+}
+
+void ImageIntegrationProcess::startAutosave()
+{
+    m_autosave = std::make_unique<AutosaveManager>(m_model.get(), m_database.get(), m_sessionName);
+    connect(m_autosave.get(), &AutosaveManager::autosaveFailed, this, [this](const QString& msg) {
+        const QString title = tr("Autosave");
+        const QString summary = tr("Autosave failed: %1").arg(msg);
+        notifyWarnOrDialog(this, title, summary);
+    });
+    m_autosave->start(ImageIntegration::Config::kAutosaveIntervalMs);
+}
+
+const QString& ImageIntegrationProcess::sessionDatabasePath() const noexcept
+{
+    return m_sessionDatabasePath;
+}
+
+const QString& ImageIntegrationProcess::sessionName() const noexcept
+{
+    return m_sessionName;
+}
+
+bool ImageIntegrationProcess::openSession(const QString& databasePath, const QString& name)
+{
+    if (m_database && name == m_sessionName &&
+        ImageIntegration::sameSessionDatabase(databasePath, m_sessionDatabasePath))
+    {
+        return true;
+    }
+    const QString title = tr("Open Session");
+    if (runState().running() || m_importInProgress)
+    {
+        openNonBlockingMessageBox(
+            this, QMessageBox::Information, title,
+            tr("The session '%1' opens once the run or the import on its way has ended.").arg(name));
+        return false;
+    }
+    auto database = std::make_unique<IntegrationDatabase>(databasePath);
+    if (!QFileInfo(databasePath).isFile() || !database->initialize())
+    {
+        const QString reason = database->lastError();
+        openNonBlockingMessageBox(this, QMessageBox::Warning, title,
+                                  tr("The sessions in %1 could not be opened.\n\n%2")
+                                      .arg(QDir::toNativeSeparators(databasePath),
+                                           reason.isEmpty() ? tr("The session database is not there.") : reason));
+        return false;
+    }
+    const SessionLoadResult loaded = database->loadSessionResult(name);
+    if (!loaded.model.has_value())
+    {
+        openNonBlockingMessageBox(
+            this, QMessageBox::Warning, title,
+            loaded.error.isEmpty()
+                ? tr("There is no session '%1' in %2.").arg(name, QDir::toNativeSeparators(databasePath))
+                : tr("The session '%1' could not be read, and nothing was loaded.\n\n%2").arg(name, loaded.error));
+        return false;
+    }
+    // What the window shows now is saved before the other session takes its place.
+    if (m_autosave)
+    {
+        m_autosave->triggerNow();
+        m_autosave->stop();
+        m_autosave.reset();
+    }
+    m_database = std::move(database);
+    m_sessionDatabasePath = databasePath;
+    m_sessionName = name;
+    m_model->fromJson(*loaded.model);
+    startAutosave();
+    updateWindowTitle();
+    return true;
 }
 
 void ImageIntegrationProcess::closeEvent(QCloseEvent* evt)

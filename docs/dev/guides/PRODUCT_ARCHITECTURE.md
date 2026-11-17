@@ -1572,6 +1572,23 @@ menus stay blocking: the pickers are the product's shared wrappers, which run th
 non-blocking form belongs in them, for every process, and a context menu's loop is the platform's idiom and holds no
 engine work. `Test_ImageIntegration` holds all of it.
 
+**The integration jobs** (`ui_models/IntegrationJobsModel.h`). A job is a session of a session database: the one Image
+Integration keeps outside any project (`applicationSessionDatabasePath()`, in the application's local data) and the
+open project's, in its folder's integration folder (`kProjectIntegrationFolder`). A job's facts are read where they already are rather than kept twice: its
+frames from its session's document, and what its last run came to from the record every run leaves in its output
+folder as it ends, whatever its end (`WorkflowRunStateStore::saveRunRecord`, at `runRecordPath()` beside the last manifest,
+format `afternight-integration-run` version 1, read strictly). The record exists because the archive keeps only runs
+that made a master: a run cancelled at registration leaves no history, and the jobs' list must still say "Cancelled at
+Registration". `workflowRunRecord` states how a run ended - cancelled; failed, or partly done when it left a master all
+the same; partly done when a group failed; with warnings; or completed - with the stage it stopped at by the stage's
+name, the masters of the lights it left (made or still valid) and how long it took; the executor writes it before each
+of its returns, into an output folder that is there. The model reads the databases and the records on the thread pool
+(`readIntegrationJobs`) and changes its rows on the GUI thread, a later read dropping an earlier one; a database that is
+not there gives no job and is not made by being read. What an open Image Integration runs is told to it
+(`setRunningJobs`), so the running job is first, and reads what its run reports, without a read. A window opens on a
+named session (`ImageIntegrationProcess::openSession`): what it showed is saved first, and a run or an import on its way
+refuses it. `Test_ImageIntegration` holds the record (`IntegrationRunRecord.*`) and the model (`IntegrationJobsModel.*`).
+
 ### The frame pipeline and performance (`workflow/stages/StageFramePipeline.h`, `memory/BudgetedMemoryResource.h`)
 
 The registration and the alignment read their lights ahead, and the alignment writes them behind, through
@@ -2164,6 +2181,20 @@ window when it is built, and destroys it when it goes; `observatoryShellDescript
 tree is held by the look guards (`SourceGuards.NoLookLiteralsInShellsAndComponents`,
 `.TokensAreNotCachedInConstructors`). `Test_ShellObservatory` links it and drives the real window, started and ended in
 the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/ObservatoryWindowCase.h`).
+
+**The Integration hub** (`pages/IntegrationHubPage.h`). The rail's Integration, and Integration in the View menu and the
+palette (`actionShow_Integration_Hub`, the shell's own), show a place of the centre rather than a process: the three
+ways to stack - the guided one shown as planned, its Start disabled, so the person sees what is coming without a button
+that does nothing; Image Integration's New integration; Image Integration Lite's New quick integration - the four
+single steps, each launching its process by its registry's id, and the integration jobs of the window's
+`IntegrationJobsModel`, searched by name or project and shown for every project, for none or for one. The window keeps
+the model: its sources are the database outside any project and the open project's, set again as a project opens or
+closes; a run of Image Integration that moves or ends tells it, the end reading the jobs again for the record the run
+left. Open on a job opens Image Integration on that job's session - the window open, or one launched - and shows its
+task; Show on the running one shows its task. While the hub is shown the breadcrumb reads Integration and the column is
+hidden, and a view a process makes lands in a workspace with a snackbar's Show, as on a task page: the hub is a place a
+person works from, and a master a run publishes must not take them off it. The hub's rows are widgets, made again when
+the jobs change: a handful of jobs, each with a tag and a button, read rather than edited. `IntegrationHub.*` drives it.
 
 ### Projects (`src/AfterNightShellCore/projects/`, `src/AfterNightShellObservatory/projects/ProjectFlows.h`, `dialogs/NewProjectDialog.h`, `controls/settings/ProjectSettings.h`)
 

@@ -2801,6 +2801,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TaskFloatTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/IntegrationHubTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
@@ -3005,6 +3006,29 @@ sources Test_ShellObservatory
     header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
     header   src/AfterNightShellCore/projects/ProjectLayoutStore.h
     header   src/AfterNightTests/Test_ShellObservatory/ProjectCase.h
+    header   src/AfterNightShellObservatory/pages/IntegrationHubPage.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationJobsModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationProcess.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/persistence/IntegrationDatabase.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunStateStore.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/IntegrationDataModel.h
+    header   src/AfterNightControls/app/PlateSolveTypes.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ImageIntegrationProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/CalibrationMatcher.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/FrameCollection.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/FrameId.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/FrameMetadata.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/FrameQuality.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/FrameType.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/GroupingEngine.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/GroupingKeys.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/GroupingOptions.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/RegistrationGroupEngine.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/ValidationResult.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/FrameHeaderReader.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowExecutionCounters.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowManifest.h
+    header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -5612,6 +5636,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/RegistrationMetricsReaderTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/RegistrationRecordsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/RegistrationStageTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/workflow/RunRecordTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/StackFrameSourcesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/StackingRecordsTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/workflow/StackingStageTest.cpp
@@ -5705,6 +5730,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_tree_context_menu_handler.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_tree_display_mode_widget.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_history_model.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationJobsModelTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_progress_dialog_v2.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_registration_metrics_persistence.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_standalone_registration_persistence.cpp
@@ -6006,6 +6032,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/WorkflowHistoryDelegate.h
     header   src/AfterNightProcesses/processes/ImageIntegration/tabs/WorkflowHistoryModel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/GroupTreeModel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationJobsModel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/CalibrationFrameSummaryWidget.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/CalibrationIssuesWidget.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/CalibrationPolicyWidget.h

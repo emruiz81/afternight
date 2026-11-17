@@ -384,6 +384,81 @@ inline constexpr qreal kHomeDropZoneDash = 4.0;
 inline constexpr int kHomeStarArea = 7000;
 inline constexpr qreal kHomeStarShare = 0.45;
 
+// The Integration hub, on Home's page: a section's head with its caption 10 px after its title. The three ways side by
+// side, 12 px apart, each a card at least 214 px high with 18 px of padding above and below and 20 at the sides, a
+// 40 px square for its icon of 22 px, and 10 px between its rows. The four single steps side by side, 12 px apart, each
+// a card with 14 px of padding above and below, 16 on the left and 12 on the right, a 20 px icon and a 14 px chevron.
+// The jobs: the search 250 px wide and the project's choice 140 px; a row 12 px higher than a list row, and a running
+// job's bar 72 px long and 4 px high.
+inline constexpr int kHubSectionCaptionGap = 10;
+inline constexpr int kHubWayGap = 12;
+inline constexpr int kHubWayMinHeight = 214;
+inline constexpr int kHubWayPaddingTop = 18;
+inline constexpr int kHubWayPaddingSide = 20;
+inline constexpr int kHubWayIconBox = 40;
+inline constexpr int kHubWayIcon = 22;
+inline constexpr int kHubWayRowGap = 10;
+/// The gap between the tags of a way's stages.
+inline constexpr int kHubWayTagGap = 4;
+inline constexpr int kHubStepGap = 12;
+inline constexpr int kHubStepPaddingTop = 14;
+inline constexpr int kHubStepPaddingLeft = 16;
+inline constexpr int kHubStepPaddingRight = 12;
+inline constexpr int kHubStepIcon = 20;
+inline constexpr int kHubStepChevron = 14;
+inline constexpr int kHubSearchWidth = 250;
+inline constexpr int kHubProjectChoiceWidth = 140;
+inline constexpr int kHubJobRowExtra = 12;
+inline constexpr int kHubJobBarWidth = 72;
+inline constexpr int kHubJobBarHeight = 4;
+/// The jobs' columns after the job's own, which takes what they leave: its project, its frames, its masters, its last
+/// run, how long it took, its status and its button.
+inline constexpr int kHubJobProjectColumn = 170;
+inline constexpr int kHubJobCountColumn = 80;
+inline constexpr int kHubJobLastRunColumn = 150;
+inline constexpr int kHubJobTookColumn = 90;
+inline constexpr int kHubJobStatusColumn = 310;
+inline constexpr int kHubJobButtonColumn = 76;
+/// The gap between a job's columns.
+inline constexpr int kHubJobColumnGap = 12;
+
+// Home's Projects row: four project cards and an Open project... tile of 120 px, 12 px apart; a card has 10 px of
+// padding and a 60 px picture with 12 px beside it. Project Home: the page 14 px under the top bar, 28 px from the
+// centre's sides and 12 px between its parts; a 64 px picture beside the heading; the cards in two columns, the right
+// one 384 px wide; a section card's head 32 px high, its body 10 px from its sides. A workspace's tile: 8 px of
+// padding, corners of 8, a miniature of 176 x 110 with corners of 6 and 2 px between its images, a tab strip of 16 px
+// in a tabbed one with its tabs 22 x 10 and 3 px apart. A row of the images' table: a 58 x 40 picture. An integration's
+// row 7 px above and below. The storage bar 10 px high with 2 px between its parts, each at least 4 px; a legend's
+// swatch of 8 px. The notes at least 44 px high.
+inline constexpr int kProjectCardsGap = 12;
+inline constexpr int kProjectCardPadding = 10;
+inline constexpr int kProjectCardPicture = 60;
+inline constexpr int kProjectOpenTileWidth = 120;
+inline constexpr int kProjectHomePaddingTop = 14;
+inline constexpr int kProjectHomeGap = 12;
+inline constexpr int kProjectHomePicture = 64;
+inline constexpr int kProjectHomeSideColumn = 384;
+inline constexpr int kProjectSectionHead = 32;
+inline constexpr int kProjectSectionPadding = 10;
+inline constexpr int kWorkspaceTilePadding = 8;
+inline constexpr int kWorkspaceTileRadius = 8;
+inline constexpr int kWorkspaceMiniatureWidth = 176;
+inline constexpr int kWorkspaceMiniatureHeight = 110;
+inline constexpr int kWorkspaceMiniatureRadius = 6;
+inline constexpr int kWorkspaceMiniatureGap = 2;
+inline constexpr int kWorkspaceMiniatureTabStrip = 16;
+inline constexpr int kWorkspaceMiniatureTabWidth = 22;
+inline constexpr int kWorkspaceMiniatureTabHeight = 10;
+inline constexpr int kWorkspaceMiniatureTabGap = 3;
+inline constexpr int kProjectImagePictureWidth = 58;
+inline constexpr int kProjectImagePictureHeight = 40;
+inline constexpr int kProjectIntegrationRowPadding = 7;
+inline constexpr int kStorageBarHeight = 10;
+inline constexpr int kStorageBarGap = 2;
+inline constexpr int kStorageBarLeast = 4;
+inline constexpr int kStorageSwatch = 8;
+inline constexpr int kProjectNotesMinHeight = 44;
+
 // What every part draws the same way.
 inline constexpr int kFocusRingWidth = 2;
 /// The stroke of a glyph a part draws itself: a check, a cross, a chevron.

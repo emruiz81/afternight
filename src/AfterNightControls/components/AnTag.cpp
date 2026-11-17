@@ -41,15 +41,19 @@ ToneColours toneColours(const an::ui::AnTag::Tone tone, const an::ui::DesignToke
         return {t.colors.statusErrorSoft, t.colors.statusError};
     case Tone::Info:
         return {t.colors.statusInfoSoft, t.colors.statusInfo};
+    case Tone::Outlined:
+        // No fill: an invalid colour is none.
+        return {QColor(), t.colors.textSecondary};
     case Tone::Neutral:
     default:
         return {t.layers.surface4, t.colors.textSecondary};
     }
 }
 
-QFont tagFont(const an::ui::DesignTokens& t)
+QFont tagFont(const an::ui::DesignTokens& t, const an::ui::AnTag::Tone tone)
 {
-    return an::ui::parts::sizedFont(t.typography.body, t.metrics.fontCaption, QFont::DemiBold);
+    return an::ui::parts::sizedFont(t.typography.body, t.metrics.fontCaption,
+                                    tone == an::ui::AnTag::Tone::Outlined ? QFont::Normal : QFont::DemiBold);
 }
 
 } // namespace
@@ -92,7 +96,7 @@ QIcon AnTag::icon() const
 QSize AnTag::sizeHint() const
 {
     const DesignTokens& t = tokens();
-    int width = 2 * parts::kTagPadding + parts::textWidth(tagFont(t), text());
+    int width = 2 * parts::kTagPadding + parts::textWidth(tagFont(t, m_tone), text());
     if (!m_icon.isNull())
     {
         width += parts::kTagIcon + parts::kTagGap;
@@ -112,10 +116,20 @@ void AnTag::paintEvent(QPaintEvent* /*event*/)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
     const QRectF bounds(rect());
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(colours.fill);
-    painter.drawRoundedRect(bounds, parts::kTagRadius, parts::kTagRadius);
-    if (m_tone == Tone::Warning)
+    if (colours.fill.isValid())
+    {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(colours.fill);
+        painter.drawRoundedRect(bounds, parts::kTagRadius, parts::kTagRadius);
+    }
+    if (m_tone == Tone::Outlined)
+    {
+        painter.setPen(QPen(t.colors.borderSubtle, 1.0));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), parts::kTagRadius - 0.5,
+                                parts::kTagRadius - 0.5);
+    }
+    else if (m_tone == Tone::Warning)
     {
         // A warning is outlined in its colour, so it is never told by its hue alone.
         painter.setPen(QPen(colours.text, 1.0));
@@ -132,7 +146,7 @@ void AnTag::paintEvent(QPaintEvent* /*event*/)
         x += parts::kTagIcon + parts::kTagGap;
     }
     painter.setPen(colours.text);
-    painter.setFont(tagFont(t));
+    painter.setFont(tagFont(t, m_tone));
     painter.drawText(QRectF(x, 0, width() - x - parts::kTagPadding, height()), Qt::AlignLeft | Qt::AlignVCenter,
                      text());
 }

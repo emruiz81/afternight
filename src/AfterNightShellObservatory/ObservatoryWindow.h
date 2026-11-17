@@ -35,6 +35,11 @@ class QStackedWidget;
 
 class TopLevelProcessBaseControl;
 
+namespace ImageIntegration
+{
+class IntegrationJobsModel;
+} // namespace ImageIntegration
+
 namespace KDDockWidgets::QtWidgets // NOLINT(readability-identifier-naming): the dock library's own namespace.
 {
 class DockWidget;
@@ -67,6 +72,7 @@ class FloatingImagesPage;
 class WorkspaceWindow;
 class FloatingViewChrome;
 class HomePage;
+class IntegrationHubPage;
 class MenuBarOnAlt;
 class ProjectFlows;
 class ShellActions;
@@ -206,6 +212,12 @@ public:
     [[nodiscard]] an::ui::shell::ReadoutController& readoutController() const noexcept;
 
     [[nodiscard]] HomePage* homePage() const noexcept;
+    /// The Integration place: the ways to stack, the single steps and the integration jobs.
+    [[nodiscard]] IntegrationHubPage* integrationHubPage() const noexcept;
+    /// The integration jobs the hub and Project Home show: the sessions Image Integration keeps outside any project and
+    /// in the open project's folder, read again as a project opens or closes and as a run of Image Integration ends;
+    /// the one an open Image Integration runs shown running.
+    [[nodiscard]] ImageIntegration::IntegrationJobsModel& integrationJobs() const noexcept;
     /// The page of the workspace the centre shows, or would show.
     [[nodiscard]] WorkspacePage* workspacePage() const noexcept;
     [[nodiscard]] WorkspaceHost& workspaces() noexcept;
@@ -244,6 +256,10 @@ public:
     /// Whether the centre shows Home, or the workspace.
     [[nodiscard]] bool isHomeShown() const;
     [[nodiscard]] bool isWorkspaceShown() const;
+    [[nodiscard]] bool isIntegrationHubShown() const;
+
+    /// Shows the Integration hub: what the rail's Integration and the View menu's Integration do.
+    void showIntegrationHub();
 
     // ---- What the shell asks of its window
 
@@ -306,6 +322,14 @@ private:
     void openFiles(const QStringList& files);
     void newSequence();
     void openImageIntegration();
+    /// Opens Image Integration on a job's session: the one open is shown on it, or one is launched and shown on it.
+    void openIntegrationJob(const QString& databasePath, const QString& session);
+    /// Brings forward the task of the Image Integration that runs a job.
+    void showIntegrationJob(const QString& databasePath, const QString& session);
+    /// Where the integration jobs are read from: the database outside any project and the open project's.
+    void updateIntegrationSources();
+    /// Which jobs the open Image Integration windows run now, as their run states say.
+    void updateRunningIntegrationJobs();
     void openSettings();
     void openSettingsAt(const QString& pageName);
     void showConsole(bool visible);

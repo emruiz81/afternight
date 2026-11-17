@@ -705,6 +705,22 @@ productRegistryFor(const ImageIntegration::WorkflowRawPolicy& policy)
         .arg(memory.bytesAllocated)
         .arg(memory.deniedAllocations);
 }
+
+/// Leaves the record of a run that ended in its output folder, whatever its end: what the integration jobs' list
+/// reads a job's state from. A folder that is not there - a manifest that did not validate - is not made for it.
+void leaveRunRecord(const QString& outputDirectory, const WorkflowExecutor::Result& result)
+{
+    if (outputDirectory.trimmed().isEmpty() || !QFileInfo(outputDirectory).isDir())
+    {
+        return;
+    }
+    WorkflowRunStateStore store(outputDirectory);
+    if (!store.saveRunRecord(workflowRunRecord(result, QDateTime::currentDateTimeUtc())))
+    {
+        LOG_WARNING("WorkflowExecutor: the record of the run could not be written in '{}'",
+                    outputDirectory.toStdString());
+    }
+}
 } // namespace
 
 class WorkflowExecutor::Impl
@@ -843,6 +859,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         result.executorTiming.stageExecutionMs = timer.capturePhase();
         result.totalDurationMs = durationToInt(result.executorTiming.exclusivePhasesTotalMs());
         captureCounters();
+        leaveRunRecord(manifest.outputDirectory, result);
         return result;
     }
 
@@ -865,6 +882,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         result.executorTiming.stageExecutionMs = timer.capturePhase();
         result.totalDurationMs = durationToInt(result.executorTiming.exclusivePhasesTotalMs());
         captureCounters();
+        leaveRunRecord(manifest.outputDirectory, result);
         return result;
     }
 
@@ -956,6 +974,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         result.executorTiming.stageExecutionMs = timer.capturePhase();
         result.totalDurationMs = durationToInt(result.executorTiming.exclusivePhasesTotalMs());
         captureCounters();
+        leaveRunRecord(manifest.outputDirectory, result);
         return result;
     }
 
@@ -967,6 +986,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         result.executorTiming.stageExecutionMs = timer.capturePhase();
         result.totalDurationMs = durationToInt(result.executorTiming.exclusivePhasesTotalMs());
         captureCounters();
+        leaveRunRecord(manifest.outputDirectory, result);
         return result;
     }
 
@@ -1025,6 +1045,7 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
         result.executorTiming.stageExecutionMs = timer.capturePhase();
         result.totalDurationMs = durationToInt(result.executorTiming.exclusivePhasesTotalMs());
         captureCounters();
+        leaveRunRecord(manifest.outputDirectory, result);
         return result;
     }
 
@@ -1531,5 +1552,53 @@ WorkflowExecutor::Result WorkflowExecutor::execute(const WorkflowManifest& incom
     // A request arriving after the archive commit boundary belongs to this completed execution and must never poison
     // the next execute() call. Requests observed before that boundary already set result.cancelled above.
     (void)m_impl->cancellationToken.consumeCancellationRequest();
+    leaveRunRecord(manifest.outputDirectory, result);
     return result;
+}
+
+WorkflowRunRecord workflowRunRecord(const WorkflowExecutor::Result& result, const QDateTime& ended)
+{
+    WorkflowRunRecord record;
+    record.ended = ended.toUTC();
+    record.durationMs = (std::max)(0, result.totalDurationMs);
+    record.masters =
+        static_cast<int>(result.generatedLightMasters.size()) + static_cast<int>(result.reusedIntegrationGroups.size());
+    record.warnings = (std::max)(static_cast<int>(result.warnings.size()), result.warningCount);
+    // The stage a run that did not go to its end stopped at: the first that failed or was cancelled.
+    QString stoppedAt;
+    for (const WorkflowExecutor::Result::StageTiming& stage : result.stageResults)
+    {
+        if (stage.status == QLatin1String("failed") || stage.status == QLatin1String("cancelled"))
+        {
+            stoppedAt = stage.stageName;
+            break;
+        }
+    }
+    const bool groupFailed = !result.failedIntegrationGroups.empty() ||
+                             std::any_of(result.integrationGroupResults.begin(), result.integrationGroupResults.end(),
+                                         [](const IntegrationGroupResult& group) { return !group.success; });
+    if (result.cancelled)
+    {
+        record.end = WorkflowRunEnd::Cancelled;
+        record.stage = stoppedAt;
+    }
+    else if (!result.success)
+    {
+        // A run that failed after it made a master left part of what it planned.
+        record.end = record.masters > 0 ? WorkflowRunEnd::Partial : WorkflowRunEnd::Failed;
+        record.stage = stoppedAt;
+    }
+    else if (groupFailed)
+    {
+        record.end = WorkflowRunEnd::Partial;
+    }
+    else if (record.warnings > 0)
+    {
+        record.end = WorkflowRunEnd::CompletedWithWarnings;
+    }
+    else
+    {
+        record.end = WorkflowRunEnd::Completed;
+    }
+    return record;
 }

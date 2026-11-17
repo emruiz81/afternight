@@ -628,9 +628,9 @@ capability new.projects
 
 capability new.hub
     title        The Integration hub
-    shared
+    shared       IntegrationJobsModel.TheRowsAreTheSessionsOfEveryDatabase, IntegrationJobsModel.TheStatusIsWhatTheLastRunLeft, IntegrationJobsModel.ARunningJobIsFirst, IntegrationRunRecord.EveryEndOfARunLeavesItsRecord
     classic
-    observatory  pending
+    observatory  IntegrationHub.TheRailsIntegrationPlaceShowsTheHub, IntegrationHub.ThreeWaysTheGuidedOneDisabledWithItsTag, IntegrationHub.FourSingleStepsLaunchTheirDescriptors, IntegrationHub.OpenOnAJobOpensImageIntegrationOnThatSession, IntegrationHub.TheJobsAreSearchedAndShownForAProject
 
 capability new.look
     title        Presets, tint strength, density, Night

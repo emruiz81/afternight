@@ -7,7 +7,58 @@
 
 #include "WorkflowManifest.h"
 
+#include <QDateTime>
+#include <QString>
+
 #include <optional>
+
+/// How a run ended, as its record states it.
+enum class WorkflowRunEnd
+{
+    /// Every master was made or was still valid, and the run stated no warning.
+    Completed,
+
+    /// The run completed and stated at least one warning.
+    CompletedWithWarnings,
+
+    /// The run went to its end, and at least one master it planned was not made.
+    Partial,
+
+    /// The run failed.
+    Failed,
+
+    /// The person stopped the run.
+    Cancelled
+};
+
+/// What a run leaves in its output folder as it ends, whatever its end: when it ended, how long it took, how it ended
+/// and where it stopped, and the masters it left. The integration jobs' list reads a job's state from it.
+struct WorkflowRunRecord
+{
+    /// When the run ended, in UTC to the millisecond.
+    QDateTime ended;
+
+    /// How long the run took.
+    qint64 durationMs = 0;
+
+    WorkflowRunEnd end = WorkflowRunEnd::Completed;
+
+    /// The stage a failed or a cancelled run stopped at, by its stage's name (`LightsRegistration`); empty for a run
+    /// that completed, and for one that stopped before its first stage or between two.
+    QString stage;
+
+    /// The masters of the lights the run left: the ones it made and the ones it found still valid.
+    int masters = 0;
+
+    /// The warnings the run stated.
+    int warnings = 0;
+
+    [[nodiscard]] bool operator==(const WorkflowRunRecord&) const = default;
+};
+
+/// The format a run's record states, and the version this application writes and reads.
+inline constexpr char kWorkflowRunRecordFormat[] = "afternight-integration-run";
+inline constexpr int kWorkflowRunRecordVersion = 1;
 
 /**
  * @class WorkflowRunStateStore
@@ -18,6 +69,7 @@
  *   - last_successful_manifest.json (full scope)
  *   - last_successful_manifest_<scope>_<keyhash>.json (scoped runs)
  *   - last_successful_run.json
+ *   - last_run.json: the record of the last run, whatever its end (`WorkflowRunRecord`)
  */
 class AFTERNIGHTPROCESSES_API WorkflowRunStateStore
 {
@@ -62,6 +114,17 @@ public:
     };
     bool saveRunMetadata(const RunMetadata& metadata);
     [[nodiscard]] std::optional<RunMetadata> loadRunMetadata() const;
+
+    /// Writes the record of the run that just ended in place of the last one, whole: to a file beside it that takes
+    /// its place once complete. False when the folder or the file could not be written.
+    bool saveRunRecord(const WorkflowRunRecord& record);
+
+    /// The record of the last run; nothing when no run left one, or when the file is not a record of this format and
+    /// version: a record is read strictly and never guessed at.
+    [[nodiscard]] std::optional<WorkflowRunRecord> loadRunRecord() const;
+
+    /// Where the record of the last run is kept.
+    [[nodiscard]] QString runRecordPath() const;
 
     // Helpers
     void clearHistory();

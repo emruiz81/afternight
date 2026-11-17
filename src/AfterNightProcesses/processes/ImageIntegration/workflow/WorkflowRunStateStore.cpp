@@ -20,6 +20,44 @@ namespace
 {
 constexpr char kLastManifestFile[] = "last_successful_manifest.json";
 constexpr char kLastRunFile[] = "last_successful_run.json";
+constexpr char kRunRecordFile[] = "last_run.json";
+
+/// How a run ended, by the words its record writes.
+struct RunEndWord
+{
+    WorkflowRunEnd end;
+    const char* word;
+};
+
+constexpr RunEndWord kRunEndWords[] = {
+    {WorkflowRunEnd::Completed, "completed"}, {WorkflowRunEnd::CompletedWithWarnings, "completed-with-warnings"},
+    {WorkflowRunEnd::Partial, "partial"},     {WorkflowRunEnd::Failed, "failed"},
+    {WorkflowRunEnd::Cancelled, "cancelled"},
+};
+
+[[nodiscard]] QString runEndWord(const WorkflowRunEnd end)
+{
+    for (const RunEndWord& entry : kRunEndWords)
+    {
+        if (entry.end == end)
+        {
+            return QString::fromLatin1(entry.word);
+        }
+    }
+    return {};
+}
+
+[[nodiscard]] std::optional<WorkflowRunEnd> runEndOfWord(const QString& word)
+{
+    for (const RunEndWord& entry : kRunEndWords)
+    {
+        if (word == QLatin1String(entry.word))
+        {
+            return entry.end;
+        }
+    }
+    return std::nullopt;
+}
 
 [[nodiscard]] bool writeAllAndCommit(QSaveFile& file, const QByteArray& payload)
 {
@@ -196,6 +234,79 @@ std::optional<WorkflowRunStateStore::RunMetadata> WorkflowRunStateStore::loadRun
     meta.cancelled = obj.value(QStringLiteral("cancelled")).toBool();
     meta.engineGeneration = obj.value(QStringLiteral("engineGeneration")).toString();
     return meta;
+}
+
+bool WorkflowRunStateStore::saveRunRecord(const WorkflowRunRecord& record)
+{
+    if (!QDir().mkpath(stateDirectory()))
+    {
+        return false;
+    }
+    QJsonObject object;
+    object.insert(QStringLiteral("format"), QString::fromLatin1(kWorkflowRunRecordFormat));
+    object.insert(QStringLiteral("version"), kWorkflowRunRecordVersion);
+    object.insert(QStringLiteral("ended"), record.ended.toUTC().toString(Qt::ISODateWithMs));
+    object.insert(QStringLiteral("durationMs"), record.durationMs);
+    object.insert(QStringLiteral("end"), runEndWord(record.end));
+    object.insert(QStringLiteral("stage"), record.stage);
+    object.insert(QStringLiteral("masters"), record.masters);
+    object.insert(QStringLiteral("warnings"), record.warnings);
+    QSaveFile file(runRecordPath());
+    return writeAllAndCommit(file, QJsonDocument(object).toJson());
+}
+
+std::optional<WorkflowRunRecord> WorkflowRunStateStore::loadRunRecord() const
+{
+    QFile file(runRecordPath());
+    if (!file.exists() || !file.open(QIODevice::ReadOnly))
+    {
+        return std::nullopt;
+    }
+    // A record is small; a file far larger than one is not read.
+    constexpr qint64 kMostBytes = 64 * 1024;
+    if (file.size() > kMostBytes)
+    {
+        return std::nullopt;
+    }
+    QJsonParseError parsed;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parsed);
+    if (parsed.error != QJsonParseError::NoError || !document.isObject())
+    {
+        return std::nullopt;
+    }
+    const QJsonObject object = document.object();
+    if (object.value(QStringLiteral("format")).toString() != QLatin1String(kWorkflowRunRecordFormat) ||
+        object.value(QStringLiteral("version")).toInt(-1) != kWorkflowRunRecordVersion)
+    {
+        return std::nullopt;
+    }
+    const std::optional<WorkflowRunEnd> end = runEndOfWord(object.value(QStringLiteral("end")).toString());
+    QDateTime ended = QDateTime::fromString(object.value(QStringLiteral("ended")).toString(), Qt::ISODateWithMs);
+    const QJsonValue duration = object.value(QStringLiteral("durationMs"));
+    const QJsonValue masters = object.value(QStringLiteral("masters"));
+    const QJsonValue warnings = object.value(QStringLiteral("warnings"));
+    if (!end.has_value() || !ended.isValid() || !duration.isDouble() || !masters.isDouble() || !warnings.isDouble() ||
+        !object.value(QStringLiteral("stage")).isString())
+    {
+        return std::nullopt;
+    }
+    WorkflowRunRecord record;
+    record.ended = ended.toUTC();
+    record.durationMs = duration.toInteger();
+    record.end = *end;
+    record.stage = object.value(QStringLiteral("stage")).toString();
+    record.masters = masters.toInt();
+    record.warnings = warnings.toInt();
+    if (record.durationMs < 0 || record.masters < 0 || record.warnings < 0)
+    {
+        return std::nullopt;
+    }
+    return record;
+}
+
+QString WorkflowRunStateStore::runRecordPath() const
+{
+    return QDir(stateDirectory()).filePath(QString::fromLatin1(kRunRecordFile));
 }
 
 void WorkflowRunStateStore::clearHistory()

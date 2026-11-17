@@ -123,6 +123,21 @@ public:
     /// @param destination the file to write.
     void saveReportAsOneFile(const QString& runDir, const QString& destination);
 
+    /// The session database the window keeps its session in: the one outside any project unless `openSession` named
+    /// another.
+    [[nodiscard]] const QString& sessionDatabasePath() const noexcept;
+
+    /// The name of the session the window shows: `last_session` unless `openSession` named another.
+    [[nodiscard]] const QString& sessionName() const noexcept;
+
+    /// Shows a session of a session database in place of the one the window shows: what that one holds now is saved
+    /// first, and from then on the window saves into the session it opened. The session it shows already is shown as
+    /// it is. Refused, said in a message and nothing changed, while a run or an import is on its way, and when the
+    /// database or the session does not read.
+    ///
+    /// @return whether the window shows that session.
+    bool openSession(const QString& databasePath, const QString& name);
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
@@ -179,6 +194,8 @@ private:
     void onRunRegistrationForAllGroups();
     void updateButtonStates();
     void updateWindowTitle();
+    /// Saves the session the window shows every few seconds from now on, and says when a save fails.
+    void startAutosave();
     void onGoToGroup();
     void goToGroupDefinition(FrameType type, const GroupKey& key);
     void showKeyboardShortcutsHelp();
@@ -243,6 +260,7 @@ private:
     std::unique_ptr<AutosaveManager> m_autosave;
     std::unique_ptr<PresetManager> m_presetManager;
     std::unique_ptr<ProjectManager> m_projectManager;
+    QString m_sessionDatabasePath;
     QString m_sessionName;
     bool m_ignoreOutputUpdates = false;
     bool m_importInProgress = false;
