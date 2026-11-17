@@ -2,13 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// What must hold of every document the integration reads back from disk.
+/// What must hold of every document the product reads back from disk.
 ///
 /// A project's session, its presets and every artifact a run leaves beside its images are files a person can copy,
 /// edit, truncate or keep from another version, and the integration reads each of them back to decide what to reuse:
 /// the session document, the envelope every non-image document is published in, a registration's transform records, a
 /// drizzle descriptor, a normalization set's coefficients, and the report model a run's archive keeps, which a later
-/// run compares itself with. Each is a parser whose input is arbitrary.
+/// run compares itself with. So is the document of a project folder, `project.anproj`, which the application reads to
+/// open the project. Each is a parser whose input is arbitrary.
 ///
 /// The claims:
 ///
@@ -18,9 +19,10 @@
 ///   writes back as a format 3 document that reads again; an envelope decoded encodes into one that decodes to the
 ///   same fields; a transform record read writes back as one that reads and writes the same; a drizzle descriptor or a
 ///   coefficient set read and formatted formats the same after it is read again; a stored report read writes back as
-///   a document that reads and writes the same. A writer whose output its own reader refuses is the defect this
+///   a document that reads and writes the same; a project document read is one its writer would write, and written
+///   reads back and writes the same. A writer whose output its own reader refuses is the defect this
 ///   exists to find, because the next run would read that as a corrupt artifact and recompute it every time - or, for
-///   a stored report, list the run as one that keeps none.
+///   a stored report, list the run as one that keeps none, and for a project, refuse to open what it wrote.
 
 #include "../FuzzEngine/FuzzHarness.h"
 
@@ -33,6 +35,7 @@
 #include "processes/ImageIntegration/workflow/DrizzleDescriptorDocument.h"
 #include "processes/ImageIntegration/workflow/stages/NormalizationArtifactSupport.h"
 #include "processes/ImageIntegration/workflow/stages/StageParsingUtils.h"
+#include "projects/ProjectDocument.h"
 
 #include <AfterNightEngine/Algorithms/Normalization/GlobalNormalization.h>
 #include <AfterNightEngine/Core/Result.h>
@@ -66,7 +69,8 @@ enum Mode : std::uint8_t
     DrizzleDescriptor = 3,
     Coefficients = 4,
     StoredReport = 5,
-    ModeCount = 6
+    Project = 6,
+    ModeCount = 7
 };
 
 /// The envelope reads ask for: the coefficients' type, any schema up to a few past the current, a payload bound
@@ -234,6 +238,57 @@ void checkStoredReport(const QByteArray& bytes)
     AN_FUZZ_CHECK(Reporting::ReportModelJson::toJson(*reread.model) == written,
                   "a stored report read back writes otherwise than it did");
     countReached("reports-round-tripped");
+}
+
+void checkProject(const QByteArray& bytes)
+{
+    namespace shell = an::ui::shell;
+    const shell::ProjectDocumentRead read = shell::parseProjectDocument(bytes);
+    if (!read.isRead())
+    {
+        AN_FUZZ_CHECK(read.refusal.has_value() && !read.why.isEmpty(), "a project document refused without a reason");
+        countReached("projects-refused");
+        return;
+    }
+    countReached("projects-read");
+    AN_FUZZ_CHECK(!read.refusal.has_value() && read.why.isEmpty(), "a project document was read and refused at once");
+    AN_FUZZ_CHECK(shell::checkProjectDocument(*read.document).isEmpty(),
+                  "a project document was read that this build would refuse to write");
+    const QByteArray written = shell::formatProjectDocument(*read.document);
+    const shell::ProjectDocumentRead reread = shell::parseProjectDocument(written);
+    AN_FUZZ_CHECK(reread.isRead(), "a project document written from one that was read cannot be read");
+    AN_FUZZ_CHECK(shell::formatProjectDocument(*reread.document) == written,
+                  "a project document read back writes otherwise than it did");
+    countReached("projects-round-tripped");
+}
+
+/// A project with a value in every member its document states.
+[[nodiscard]] an::ui::shell::ProjectDocument seedProject()
+{
+    namespace shell = an::ui::shell;
+    const QDateTime made(QDate(2026, 7, 27), QTime(21, 4, 12, 345), QTimeZone::UTC);
+    shell::ProjectDocument project;
+    project.id = QStringLiteral("5f0c2a9e-7b1d-4c3e-9a55-0d6f3f1c2b7a");
+    project.name = QStringLiteral("Carina Nebula LRGB");
+    project.created = made;
+    project.origin = shell::ProjectOrigin::IntegrationJob;
+    project.object = shell::ProjectObject{QStringLiteral("NGC 3372"), shell::ProjectObjectSource::ObjectCard};
+    project.historyCompression = an::ui::history::StepCompression::Zstd;
+    project.images.push_back(shell::ProjectImage{QStringLiteral("image-1"), QStringLiteral("D:/Astro/Carina/L.fits"),
+                                                 QStringLiteral("../Carina/L.fits"), shell::ProjectImageKind::Image,
+                                                 made.addSecs(3600)});
+    project.images.push_back(shell::ProjectImage{QStringLiteral("image-2"), QStringLiteral("E:/Captures/jupiter.ser"),
+                                                 QString(), shell::ProjectImageKind::Sequence, QDateTime()});
+    shell::ProjectWorkspace workspace;
+    workspace.id = QStringLiteral("workspace-1");
+    workspace.name = QStringLiteral("Workspace 1");
+    workspace.views.push_back(shell::ProjectWorkspaceView{QStringLiteral("image-1"), QStringLiteral("L")});
+    workspace.last = true;
+    project.workspaces.push_back(workspace);
+    project.integrations.push_back(shell::ProjectIntegration{QStringLiteral("job-1"), QStringLiteral("Carina LRGB"),
+                                                             QStringLiteral("integration/job-1")});
+    project.lastOpened = made.addDays(1);
+    return project;
 }
 
 /// A report model of one master with two lights, compared with an earlier run: small enough to be a seed, and with
@@ -405,6 +460,23 @@ std::vector<std::vector<std::uint8_t>> seedCorpus()
     seeds.push_back(seed(StoredReport, QJsonDocument(otherFormat).toJson(QJsonDocument::Compact)));
     seeds.push_back(seed(StoredReport, QByteArrayLiteral("{}")));
     seeds.push_back(seed(StoredReport, reportBytes.left(reportBytes.size() / 2)));
+
+    // A project's document with every member stated; a project with nothing in it yet; the same of a newer version;
+    // an object that states no format; and a document cut short.
+    const an::ui::shell::ProjectDocument project = seedProject();
+    const QByteArray projectBytes = an::ui::shell::formatProjectDocument(project);
+    seeds.push_back(seed(Project, projectBytes));
+    an::ui::shell::ProjectDocument bare;
+    bare.id = QStringLiteral("p1");
+    bare.name = QStringLiteral("M 31");
+    bare.created = project.created;
+    bare.lastOpened = project.created;
+    seeds.push_back(seed(Project, an::ui::shell::formatProjectDocument(bare)));
+    QJsonObject newer = QJsonDocument::fromJson(projectBytes).object();
+    newer.insert(QStringLiteral("version"), an::ui::shell::kProjectVersion + 1);
+    seeds.push_back(seed(Project, QJsonDocument(newer).toJson(QJsonDocument::Compact)));
+    seeds.push_back(seed(Project, QByteArrayLiteral("{}")));
+    seeds.push_back(seed(Project, projectBytes.left(projectBytes.size() / 2)));
     return seeds;
 }
 
@@ -432,6 +504,9 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
         break;
     case an::fuzz::StoredReport:
         an::fuzz::checkStoredReport(bytes);
+        break;
+    case an::fuzz::Project:
+        an::fuzz::checkProject(bytes);
         break;
     default:
         an::fuzz::checkCoefficients(bytes);

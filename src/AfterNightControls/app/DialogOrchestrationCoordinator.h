@@ -237,6 +237,8 @@ public:
         std::function<void()> updateRecentFilesMenuEntries;
         // Called on the GUI thread each time the Settings dialog applies what it holds, after its pages have stored it.
         std::function<void()> settingsApplied;
+        // Whether the shell offers projects: the Settings dialog then shows the Projects page, after General.
+        bool offersProjects = false;
     };
 
     explicit DialogOrchestrationCoordinator(const Dependencies& dependencies);

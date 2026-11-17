@@ -183,15 +183,24 @@ sources Test_FixtureEngine
 # swept over the product's publication and read paths through sessions built on the sweep's injecting resource, with the
 # neutral fixture layer writing the frames the scenarios read. Its cases link the processes and Controls libraries and
 # compile nothing of them.
-# The integration's durable documents fuzzed, class engine: the readers and writers of the session document, the
+# The product's durable documents fuzzed, class engine: the readers and writers of the session document, the
 # document envelope, the transform records, the drizzle descriptor, the coefficient set and the report model a run's
-# archive keeps, linked from the processes library, with the fuzz harness and its standalone driver - which a
-# libFuzzer build leaves out.
+# archive keeps, linked from the processes library, and of a project's document, linked from the shell core, with the
+# fuzz harness and its standalone driver - which a libFuzzer build leaves out.
 sources Fuzz_ConsumerDocuments
     unit     src/AfterNightTests/Fuzz_ConsumerDocuments/DocumentsFuzz.cpp
     unit     src/AfterNightTests/FuzzEngine/FuzzHarness.cpp
     unit     src/AfterNightTests/FuzzEngine/FuzzDriver.cpp
     header   src/AfterNightTests/FuzzEngine/FuzzHarness.h
+    header   src/AfterNightShellCore/AfterNightShellCoreExport.h
+    header   src/AfterNightShellCore/projects/ProjectDocument.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
+    header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ImageAsset.h
+    header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightProcesses/AfterNightProcessesExport.h
     header   src/AfterNightProcesses/processes/ImageIntegration/core/PersistedChoiceMaps.h
     header   src/AfterNightProcesses/processes/ImageIntegration/model/CalibrationMatcher.h
@@ -216,11 +225,13 @@ sources Fuzz_ConsumerDocuments
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageParsingUtils.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     include  src/AfterNightTests
+    include  src/AfterNightShellCore
     include  src/AfterNightProcesses
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
     include  src/AfterNightConsumerRuntime/include
     include  3rdparty/src
+    link     AfterNightShellCore
     link     AfterNightControls
     link     AfterNightProcesses
     link     AfterNightPlatform
@@ -1473,6 +1484,7 @@ sources Test_ControlsDialogs
     unit     src/AfterNightTests/Test_ControlsDialogs/ViewToolsTest.cpp
     unit     src/AfterNightTests/Test_ControlsDialogs/main.cpp
     unit     src/AfterNightTests/Test_ControlsDialogs/test_settings_dialog.cpp
+    unit     src/AfterNightTests/Test_ControlsDialogs/ProjectDialogsTest.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureDigest.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
@@ -1574,6 +1586,13 @@ sources Test_ControlsDialogs
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightControls/controls/settings/InterfaceSettingsPage.h
+    header   src/AfterNightControls/dialogs/NewProjectDialog.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
+    header   src/AfterNightControls/controls/settings/ProjectsSettingsPage.h
+    header   src/AfterNightControls/controls/settings/ProjectSettings.h
+    header   src/AfterNightControls/controls/settings/PathPickerWidget.h
+    header   src/AfterNightControls/components/AnLabeledField.h
+    header   src/AfterNightControls/components/AnSegmentedControl.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/ScopedNightMode.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
@@ -1664,6 +1683,8 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/main.cpp
     unit     src/AfterNightTests/Test_ShellCore/WorkspaceModelTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/TasksTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ProjectDocumentTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/ProjectServiceTest.cpp
     header   src/AfterNightControls/components/AnIconButton.h
     header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -1815,6 +1836,14 @@ sources Test_ShellCore
     header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/session/ExecutionScope.h
+    header   src/AfterNightShellCore/projects/ProjectDocument.h
+    header   src/AfterNightControls/controls/settings/ProjectsSettingsPage.h
+    header   src/AfterNightControls/app/DemosaicTextMaps.h
+    header   src/AfterNightControls/controls/ImageViewFiles.h
+    header   src/AfterNightShellCore/projects/ProjectService.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
+    header   src/AfterNightControls/controls/settings/ProjectSettings.h
+    header   src/AfterNightControls/app/FilePolicies.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -2764,6 +2793,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TaskFloatTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/HomeContinueRow.h
@@ -2937,6 +2967,17 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/components/AnCompactReadout.h
     header   src/AfterNightControls/components/AnSnackbar.h
+    header   src/AfterNightControls/components/AnSegmentedControl.h
+    header   src/AfterNightShellObservatory/projects/ProjectFlows.h
+    header   src/AfterNightShellCore/projects/ProjectService.h
+    header   src/AfterNightShellCore/projects/ProjectDocument.h
+    header   src/AfterNightControls/dialogs/NewProjectDialog.h
+    header   src/AfterNightControls/controls/ImageHistoryStepCodec.h
+    header   src/AfterNightControls/controls/SettingsDialog.h
+    header   src/AfterNightControls/controls/settings/SettingsPage.h
+    header   src/AfterNightControls/controls/settings/ProjectsSettingsPage.h
+    header   src/AfterNightControls/controls/settings/ProjectSettings.h
+    header   src/AfterNightControls/controls/settings/PathPickerWidget.h
     header   src/AfterNightControls/components/AnTaskHeader.h
     header   src/AfterNightControls/controls/ProcessLaunchScope.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h

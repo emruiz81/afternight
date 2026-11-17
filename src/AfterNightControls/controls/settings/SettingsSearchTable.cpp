@@ -68,6 +68,18 @@ std::vector<SettingsSearchPage> settingsSearchPages()
                            {"Location", "Temporary Files"},
                        })});
 
+    constexpr const char* kProjects = "an::ui::ProjectsSettingsPage";
+    pages.push_back(SettingsSearchPage{
+        text(kProjects, "Projects"),
+        texts(kProjects, {"Projects", "Project", "Location", "Folder", "Integration", "History", "Undo", "Steps",
+                          "XISF", "Compression", "LZ4", "Zstandard", "Startup", "Last project"}),
+        rows(kProjects, {
+                            {"Default location", "New Projects"},
+                            {"Create a project for every integration job", "New Projects"},
+                            {"History compression", "Undo History"},
+                            {"Open the last project on startup", "Startup"},
+                        })});
+
     constexpr const char* kRaw = "RawImageSettingsPage";
     pages.push_back(
         SettingsSearchPage{text(kRaw, "Raw Images"),

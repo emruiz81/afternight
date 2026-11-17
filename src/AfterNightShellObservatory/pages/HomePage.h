@@ -29,14 +29,18 @@ namespace an::ui::observatory
 {
 
 /// The page of the Home place, which scrolls when the window is smaller than it: the date and the heading with the
-/// quick actions at its right; under them, with no recent file, the welcome, and with recent files the Continue row and
-/// the recent images and sequences. Its parts are Controls' Home parts, over the dashboard's settings, recent files and
+/// quick actions at its right - the dashboard's, then New project, then More; under them, with no recent file, the
+/// welcome, whose line about projects offers New project... too, and with recent files the Continue row and the recent
+/// images and sequences. Its parts are Controls' Home parts, over the dashboard's settings, recent files and
 /// thumbnails; what they ask for is asked by the page in the dashboard's signals, which are the window's to answer.
 class AFTERNIGHTSHELLOBSERVATORY_API HomePage final : public QScrollArea
 {
     W_OBJECT(HomePage)
 
 public:
+    /// The id of the quick action this page adds to the dashboard's: New project.
+    static constexpr char kNewProjectAction[] = "new_project";
+
     explicit HomePage(QWidget* parent = nullptr);
     ~HomePage() override;
 
@@ -61,6 +65,8 @@ public:
     void openFileRequested() W_SIGNAL(openFileRequested);
     void newSequenceRequested() W_SIGNAL(newSequenceRequested);
     void imageIntegrationRequested() W_SIGNAL(imageIntegrationRequested);
+    /// New project was asked for, by the quick action or by the welcome's line.
+    void newProjectRequested() W_SIGNAL(newProjectRequested);
     void openExtensionManagerRequested() W_SIGNAL(openExtensionManagerRequested);
     void clearRecentFilesRequested() W_SIGNAL(clearRecentFilesRequested);
     void systemInformationRequested() W_SIGNAL(systemInformationRequested);

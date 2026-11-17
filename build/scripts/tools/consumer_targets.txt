@@ -966,14 +966,14 @@ target Fuzz_ConsumerDocuments
     kind         console
     class        engine
     state        active
-    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightPlatform, AfterNightProcesses, AfterNightShellCore
     sources      @Fuzz_ConsumerDocuments
     fixture      none
-    note         The integration's durable documents fuzzed: the session document, the envelope every non-image document
-                 is published in, the registration's transform records, the drizzle descriptor, the normalization
-                 set's coefficients and the report model a run's archive keeps, each held to answering and to reading
-                 back what its own writer writes. Compiled from its explicit list with the fuzz harness and, outside a
-                 libFuzzer build, its standalone driver.
+    note         The product's durable documents fuzzed: the integration's session document, the envelope every
+                 non-image document is published in, the registration's transform records, the drizzle descriptor, the
+                 normalization set's coefficients and the report model a run's archive keeps, and a project's document,
+                 each held to answering and to reading back what its own writer writes. Compiled from its explicit list
+                 with the fuzz harness and, outside a libFuzzer build, its standalone driver.
 
 target Fuzz_ConsumerProtocol
     workspace    tests

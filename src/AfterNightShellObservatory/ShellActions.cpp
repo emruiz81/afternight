@@ -49,8 +49,9 @@ public:
             entry.title = QString(action->text()).remove(QLatin1Char('&'));
             entry.shortcut = action->shortcut();
             entry.iconKey = action->property("iconKey").toString();
+            entry.subtitle = action->property("commandSubtitle").toString();
             entry.group = an::ui::shell::CommandGroup::Views;
-            entry.keywords = {QCoreApplication::translate(kContext, "View")};
+            entry.keywords = {action->property("commandMenu").toString()};
             entry.available = action->isEnabled();
             entry.run = [held]() {
                 if (held.isNull() || !held->isEnabled())
@@ -73,34 +74,46 @@ private:
 const std::vector<ShellActionSpec>& ShellActions::table()
 {
     static const std::vector<ShellActionSpec> kTable = {
-        {ids::kShowHome, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Home"), QKeySequence(), "home", false},
+        {ids::kShowHome, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Home"), QKeySequence(), "home", false,
+         QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "View")},
         {ids::kCommandPalette, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Command Palette..."),
-         QKeySequence(Qt::CTRL | Qt::Key_K), "search", false},
+         QKeySequence(Qt::CTRL | Qt::Key_K), "search", false, "View"},
         {ids::kToggleReadout, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Readout"), QKeySequence(),
-         "panel_right", true},
+         "panel_right", true, "View"},
         {ids::kToggleNight, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Night"),
-         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N), "night", true},
+         QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N), "night", true, "View"},
         {ids::kDensityCompact, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Compact"), QKeySequence(), "",
-         true},
+         true, "View"},
         {ids::kDensityComfortable, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Comfortable"),
-         QKeySequence(), "", true},
+         QKeySequence(), "", true, "View"},
         {ids::kNewWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "New Workspace"), QKeySequence(),
-         "add", false},
+         "add", false, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Window")},
         {ids::kRenameWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Rename Workspace..."),
-         QKeySequence(), "edit", false},
+         QKeySequence(), "edit", false, "Window"},
         {ids::kMoveWorkspaceToNewWindow,
          QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Move Workspace to New Window"), QKeySequence(),
-         "open_in_new", false},
+         "open_in_new", false, "Window"},
         {ids::kCloseWorkspace, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Workspace"),
-         QKeySequence(), "close", false},
+         QKeySequence(), "close", false, "Window"},
         {ids::kApplyTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Apply"),
-         QKeySequence(Qt::CTRL | Qt::Key_Return), "check", false},
+         QKeySequence(Qt::CTRL | Qt::Key_Return), "check", false,
+         QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Process")},
         {ids::kFloatTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Float as Window"), QKeySequence(),
-         "open_in_new", false},
+         "open_in_new", false, "Window"},
         {ids::kAttachTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Attach"), QKeySequence(), "window",
-         false},
+         false, "Window"},
         {ids::kCloseTask, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Task"), QKeySequence(), "close",
-         false},
+         false, "Window"},
+        {ids::kNewProject, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "New Project..."), QKeySequence(),
+         "add", false, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "File")},
+        {ids::kOpenProject, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Open Project..."), QKeySequence(),
+         "folder_open", false, "File"},
+        {ids::kSwitchProject, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Switch Project..."),
+         QKeySequence(), "folder_closed", false, "File"},
+        {ids::kCloseProject, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Close Project"), QKeySequence(),
+         "close", false, "File"},
+        {ids::kProjectSettings, QT_TRANSLATE_NOOP("an::ui::observatory::ShellActions", "Project Settings..."),
+         QKeySequence(), "settings", false, "File"},
     };
     return kTable;
 }
@@ -117,6 +130,7 @@ ShellActions::ShellActions(QWidget& window)
         action->setShortcutContext(Qt::WindowShortcut);
         action->setCheckable(spec.checkable);
         action->setProperty("iconKey", QString::fromLatin1(spec.iconKey));
+        action->setProperty("commandMenu", QCoreApplication::translate(kContext, spec.menu));
         if (!spec.shortcut.isEmpty())
         {
             action->setToolTip(

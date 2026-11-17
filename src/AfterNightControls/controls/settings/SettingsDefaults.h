@@ -87,6 +87,16 @@ inline constexpr auto INTERFACE_READOUT_CARDS = ""; // no card folded but by the
 inline constexpr bool INTERFACE_READOUT_COLLAPSED = false;
 
 // ═══════════════════════════════════════════════════════════════
+// Projects and the history
+// ═══════════════════════════════════════════════════════════════
+// PROJECTS_DEFAULT_LOCATION: an::ui::defaultProjectsLocation() at runtime
+inline constexpr bool PROJECTS_CREATE_FOR_INTEGRATION_JOBS = true;
+inline constexpr bool PROJECTS_OPEN_LAST_ON_STARTUP = false;
+inline constexpr auto PROJECTS_RECENT = ""; // none
+inline constexpr auto PROJECTS_LAST = ""; // none
+inline constexpr auto HISTORY_COMPRESSION = "lz4";
+
+// ═══════════════════════════════════════════════════════════════
 // Export Settings
 // ═══════════════════════════════════════════════════════════════
 inline constexpr auto EXPORT_TIFF_COMPRESSION = "none";

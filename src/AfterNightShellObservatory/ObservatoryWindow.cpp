@@ -15,6 +15,7 @@
 #include "pages/HomePage.h"
 #include "pages/TaskPage.h"
 #include "pages/WorkspacePage.h"
+#include "projects/ProjectFlows.h"
 #include "tasks/TaskDrag.h"
 #include "tasks/TaskPresenter.h"
 #include "tasks/TaskReadoutSource.h"
@@ -292,6 +293,9 @@ struct ObservatoryWindow::Impl
     // The transient message at the foot of the centre, and what its action does.
     an::ui::AnSnackbar* snackbar = nullptr;
     std::function<void()> snackbarAction;
+    // What the window does about projects, and whether what the start's restore came to was said.
+    std::unique_ptr<ProjectFlows> projects;
+    bool projectRestoreSaid = false;
     // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
     std::unique_ptr<ShellActions> shellActions;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
@@ -581,6 +585,30 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     core.actionBindings().connectProcessActions();
     core.actionBindings().connectActions();
     bindShellActions();
+
+    // Projects: the shell's project actions, the top bar's switcher and what a refusal is said as.
+    ProjectFlows::Hooks projectHooks;
+    projectHooks.openImages = [this]() {
+        std::vector<ProjectFlows::OpenImage> open;
+        for (ImageViewControl* const view : m_impl->core.viewService().getListOfViewControls())
+        {
+            if (view == nullptr || view->getViewControlMode() != ViewControlMode::standard)
+            {
+                continue;
+            }
+            const std::string file = view->getFileName();
+            if (!file.empty() && !m_impl->core.isTempFile(file))
+            {
+                open.push_back(ProjectFlows::OpenImage{QString::fromStdString(file), view->isSequence()});
+            }
+        }
+        return open;
+    };
+    projectHooks.snackbar = [this](const QString& text, const QString& detail, const QString& action,
+                                   std::function<void()> act) { showSnackbar(text, detail, action, std::move(act)); };
+    projectHooks.openSettingsAt = [this](const QString& pageTitle) { openSettingsAt(pageTitle); };
+    impl.projects =
+        std::make_unique<ProjectFlows>(*this, core, *impl.shellActions, *impl.topBar, std::move(projectHooks));
 }
 
 ObservatoryWindow::~ObservatoryWindow()
@@ -589,6 +617,8 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    // The projects' unit lets go of the top bar and of the project service before either goes.
+    impl.projects.reset();
     // The task shown is let go of: the readout reads no process, the actions act on no page.
     impl.appliedTicker.stop();
     if (impl.readout)
@@ -922,6 +952,12 @@ void ObservatoryWindow::connectHome()
     QObject::connect(home, &HomePage::openFileRequested, this, [this]() { openFile(); });
     QObject::connect(home, &HomePage::newSequenceRequested, this, [this]() { newSequence(); });
     QObject::connect(home, &HomePage::imageIntegrationRequested, this, [this]() { openImageIntegration(); });
+    QObject::connect(home, &HomePage::newProjectRequested, this, [this]() {
+        if (QAction* const action = m_impl->shellActions->action(ids::kNewProject))
+        {
+            action->trigger();
+        }
+    });
     QObject::connect(home, &HomePage::openExtensionManagerRequested, this,
                      [this]() { openSettingsAt(an::ui::shell::ExtensionService::managerPageTitle()); });
     QObject::connect(home, &HomePage::clearRecentFilesRequested, this, [this]() {
@@ -1065,6 +1101,8 @@ void ObservatoryWindow::makeUnits()
     };
     dialogDeps.persistRecentFiles = [this]() { m_impl->core.recentFiles().save(); };
     dialogDeps.settingsApplied = [this]() { m_impl->core.extensions().settingsApplied(); };
+    // This shell offers projects: the Settings show their page.
+    dialogDeps.offersProjects = true;
     dialogDeps.updateRecentFilesMenuEntries = [this]() {
         if (m_impl->fileManager)
         {
@@ -1278,6 +1316,11 @@ void ObservatoryWindow::initialize()
         m_impl->lifecycle->initialize();
     }
     m_impl->core.processMenus().refreshStoredLists();
+    // The project used last, when the settings ask for it: opened before the window shows.
+    if (m_impl->projects)
+    {
+        m_impl->projects->restoreLastProject();
+    }
 }
 
 // ---- The regions
@@ -1366,6 +1409,11 @@ WorkspaceToolbar* ObservatoryWindow::layoutIcons() const noexcept
 FloatingViewChrome& ObservatoryWindow::floatingViewChrome() const noexcept
 {
     return *m_impl->floatingChrome;
+}
+
+ProjectFlows& ObservatoryWindow::projectFlows() const noexcept
+{
+    return *m_impl->projects;
 }
 
 ShellActions& ObservatoryWindow::shellActions() const noexcept
@@ -1531,6 +1579,23 @@ void ObservatoryWindow::viewAdded(ImageViewControl& view, const an::ui::shell::V
     if (m_impl->tasks)
     {
         m_impl->tasks->watch(view);
+    }
+    // While a project is open, an image opened from a file is the project's. A view is told of as it is made, before
+    // it holds its image: the file it shows is read once what made it has returned.
+    if (m_impl->projects)
+    {
+        const QPointer<ImageViewControl> made(&view);
+        QTimer::singleShot(0, this, [this, made]() {
+            if (made.isNull() || !m_impl->projects || made->getViewControlMode() != ViewControlMode::standard)
+            {
+                return;
+            }
+            const std::string file = made->getFileName();
+            if (!file.empty() && !m_impl->core.isTempFile(file))
+            {
+                m_impl->projects->viewAdded(QString::fromStdString(file), made->isSequence());
+            }
+        });
     }
     refreshViewSelector();
     placeChanged();
@@ -1793,6 +1858,17 @@ void ObservatoryWindow::showEvent(QShowEvent* event)
     {
         m_impl->consoleRestored = true;
         QTimer::singleShot(0, this, [this]() { restoreConsole(); });
+    }
+    // A project the start could not open is said once the window can say it.
+    if (!m_impl->projectRestoreSaid && m_impl->projects)
+    {
+        m_impl->projectRestoreSaid = true;
+        QTimer::singleShot(0, this, [this]() {
+            if (m_impl->projects)
+            {
+                m_impl->projects->sayRestoreRefusal();
+            }
+        });
     }
 }
 
@@ -2843,6 +2919,24 @@ void ObservatoryWindow::bindShellActions()
         window->addAction(actions.action(ids::kCloseWorkspace));
     }
     updateWorkspaceActions();
+
+    // The project's, in the File menu before Exit; what each does is the projects' unit's to connect.
+    if (QMenu* const file = impl.menuBar->menu("menuFile"))
+    {
+        const QList<QAction*> entries = file->actions();
+        const qsizetype exitAt = entries.indexOf(impl.core.actions().action(an::ui::shell::ids::kExit));
+        QAction* before = exitAt >= 0 ? entries.at(exitAt) : nullptr;
+        if (exitAt > 0 && entries.at(exitAt - 1)->isSeparator())
+        {
+            before = entries.at(exitAt - 1);
+        }
+        file->insertSeparator(before);
+        for (const std::string_view id :
+             {ids::kNewProject, ids::kOpenProject, ids::kSwitchProject, ids::kCloseProject, ids::kProjectSettings})
+        {
+            file->insertAction(before, actions.action(id));
+        }
+    }
 
     // Apply runs the current task's primary action: inside a page the page answers the key itself.
     QObject::connect(actions.action(ids::kApplyTask), &QAction::triggered, this, [this]() { applyCurrentTask(); });

@@ -103,6 +103,22 @@ inline constexpr auto INTERFACE_READOUT_CARDS = "interface/readoutCards";
 inline constexpr auto INTERFACE_READOUT_COLLAPSED = "interface/readoutCollapsed";
 
 // ═══════════════════════════════════════════════════════════════
+// Projects and the history
+// ═══════════════════════════════════════════════════════════════
+// The folder a new project is offered in.
+inline constexpr auto PROJECTS_DEFAULT_LOCATION = "projects/defaultLocation";
+// Whether an integration job run with no project open makes one in its output folder.
+inline constexpr auto PROJECTS_CREATE_FOR_INTEGRATION_JOBS = "projects/createForIntegrationJobs";
+// Whether the project used last is opened as the application starts.
+inline constexpr auto PROJECTS_OPEN_LAST_ON_STARTUP = "projects/openLastOnStartup";
+// The projects used last, most recent first: a JSON array of each one's folder and the name it was opened under.
+inline constexpr auto PROJECTS_RECENT = "projects/recent";
+// The folder of the project used last.
+inline constexpr auto PROJECTS_LAST = "projects/last";
+// How a history step's samples are compressed: `lz4`, `none` or `zstd`; a new project starts from it.
+inline constexpr auto HISTORY_COMPRESSION = "history/compression";
+
+// ═══════════════════════════════════════════════════════════════
 // Export Settings
 // ═══════════════════════════════════════════════════════════════
 inline constexpr auto EXPORT_TIFF_COMPRESSION = "export/tiffCompression";

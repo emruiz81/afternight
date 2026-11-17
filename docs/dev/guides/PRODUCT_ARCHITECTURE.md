@@ -787,7 +787,11 @@ none can forget it and read a camera file untreated. `RawOpenPolicy`'s accessors
 `app/FilePolicies.h`. The Processing page shows the session's threads and memory budget beside the stored limits and
 says when a change waits for the next start; `controls/settings/ProcessingLimits.h` reads and stores the limits and
 gives the session settings the application builds its session with (`sessionSettingsForLimits`). The Export page reads
-and stores through `readExportSettings` and `writeExportSettings`, the table every save reads. The product's version is
+and stores through `readExportSettings` and `writeExportSettings`, the table every save reads. The Projects page
+(`controls/settings/ProjectsSettingsPage.h`) shows and stores what a project starts from through `readProjectSettings`
+and `writeProjectSettings` (`controls/settings/ProjectSettings.h`); the Settings dialog lists it, after General, only
+for a shell that offers projects (`DialogOrchestrationCoordinator::Dependencies::offersProjects`), and the table the
+palette finds settings in (`settingsSearchPages`) holds it. The product's version is
 `productVersion()` - `QCoreApplication::applicationVersion`, which the application states - and the about and system
 information dialogs show the engine's (`engineVersionText`) and its libraries' from its own report
 (`engineLibraries`, over `engineDependencies`). A dashboard card probes its file with `probeDashboardFile`, background
@@ -1501,7 +1505,7 @@ runs where MSVC leaves a loop scalar, interval rules read as value windows, held
 
 ## The application and the extension hosts
 
-### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`, `commands/`, `readout/`)
+### The shell core (`src/AfterNightShellCore/`: `core/IShell.h`, `core/ShellRegistry.h`, `core/ShellSelection.h`, `core/ApplicationCore.h`, `core/ApplicationContext.h`, `core/ApplicationEvents.h`, `core/ApplicationSession.h`, `services/`, `views/`, `actions/`, `commands/`, `readout/`, `projects/`)
 
 `AfterNightShellCore` (`an::ui::shell`, registry class `engine`) is the application without a window: what every
 shell needs and none owns. A *shell* is a main window and the few answers only a window can give; the stores, the
@@ -1845,9 +1849,12 @@ right-click), `controls/HomeContinueRow` (the dashboard's `FeaturedFileCard` and
 images - a sequence is never the featured image - and the last sequence's card with its Resume),
 `controls/HomeRecentGrid` (a tile per recent file, as a grid or a list, with its format's tag, a sequence's with a film
 glyph and its frame count, and the tile's menu, the dashboard thumbnail's five entries) and `controls/HomeWelcome` (with
-no recent file: the logo and the version, three cards to start with, the drop zone with Open file, and the first-run
-panel's six things AfterNight does, `dashboardFeatures()`). The page asks for what they ask in the dashboard's signals,
-which the window answers as it answered the dashboard. Home and the classic dashboard read and write the same settings,
+no recent file: the logo and the version, three cards to start with and under them one line that says projects are
+optional, with New project..., the drop zone with Open file, and the first-run panel's six things AfterNight does,
+`dashboardFeatures()`). The page asks for what they ask in the dashboard's signals, which the window answers as it
+answered the dashboard. New project is not one of the dashboard's actions: the classic dashboard shows those too, and
+has no projects. The page adds it to the row itself (`HomeQuickActions::addRowAction`), after the dashboard's actions
+and before More, where the dashboard's settings neither move, hide nor reset it. Home and the classic dashboard read and write the same settings,
 through `controls/DashboardSettings.h`: the quick actions' order and hidden ones (`DashboardQuickActionLayout`, whose
 customization menu is the dashboard's), the pinned recent files and the pinned featured file, the sort and the search -
 each loader bringing the settings to their format first, so that no part reads settings of another format whichever
@@ -1902,7 +1909,8 @@ status line gains the selector of the active view, the readout's button and the 
 window open through the core's `FileDropHandler`; and `interface/lockLayoutByDefault` locks the layout at the start.
 
 The top bar (`chrome/TopBar`) holds, from the left, the logo (drawn in its Night form under Night), the project
-switcher ("No project", its entries offered once projects exist), the breadcrumb of the place and its item (Home;
+switcher (the open project's name, or "No project", at most 220 px wide with a longer name cut in its middle; its menu
+is filled by the window each time it shows - "Projects", below), the breadcrumb of the place and its item (Home;
 "Workspace 1" and the active view's full name, elided in the middle by `AnBreadcrumb`, which ends before the field), the
 palette's field centred in the bar (`chrome/PaletteField`: 340 px wide, 240 px under a 1200 px window, an icon button
 under 1100 px), and at the right the layout icons, Night, Help, Information (About, About Qt, System Information) and
@@ -2035,7 +2043,7 @@ tell (`DockHooks`'s `dragAboutToStart` naming its dock widget, its window's move
 cursor, the rail or the centre, is covered by the attach overlay, drawn as the band over a view's landing place, and
 the rail marks the task's place with a line (`AnIconRail::setInsertionMark`). Released there the task attaches, once
 the library has finished with its drag; released over the top bar, the column, the status line or outside, it stays a
-window. Under Wayland the library drags a task's window as a `QDrag` - the window stays where it is - so the window's
+window. Under Wayland the library drags a task's window as a drag-and-drop of Qt's - the window stays where it is - so the window's
 own place says nothing: the main window reads the drag's events instead (`ObservatoryWindow::taskWindowDragEvent`, an
 application filter, while a task's window is dragged there). Each move over the rail or the centre takes the drop and
 drives the overlay and the rail's mark; a move to another widget sends a leave and an enter at once, so the overlay goes
@@ -2063,6 +2071,69 @@ window when it is built, and destroys it when it goes; `observatoryShellDescript
 tree is held by the look guards (`SourceGuards.NoLookLiteralsInShellsAndComponents`,
 `.TokensAreNotCachedInConstructors`). `Test_ShellObservatory` links it and drives the real window, started and ended in
 the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/ObservatoryWindowCase.h`).
+
+### Projects (`src/AfterNightShellCore/projects/`, `src/AfterNightShellObservatory/projects/ProjectFlows.h`, `dialogs/NewProjectDialog.h`, `controls/settings/ProjectSettings.h`)
+
+A project is optional: a folder a person chooses that keeps what a body of work gathers - the history of its images,
+its workspaces, its integrations, its notes - while the images stay where they are. Without one the application works
+as it always has, so nothing below runs until a project is made or opened, and the classic shell, which offers none,
+never opens one.
+
+**The folder and its document.** `project.anproj` is one JSON object of the format `afternight-project`, version 1
+(`projects/ProjectDocument.h`): the project's id and name, when and how it was made, its object when it has one, how
+its history's steps are compressed, its images, its workspaces, its integrations and when it was last opened. Beside it
+the folder holds `.lock` while the project is open, the folders of its history, its workspaces, its integrations and
+its thumbnails, and its notes (`kProjectHistoryFolder` and the names beside it in `projects/ProjectService.h`). The
+document is read from bytes a person can copy, edit or truncate, so reading returns the document or a
+refusal with a reason and never anything else: a file that cannot be read or is larger than a document is (16 MiB),
+bytes that are no JSON object, an object of another format, a newer version - refused saying so; there is no older
+one - and a member that is missing or states what a project cannot. An id is one to sixty-four letters, digits, `-` and
+`_`, because an image's history is kept in a folder named by its id and a document must not name a place outside the
+project. Writing is whole or not at all: a document its own reader would refuse is not written, and the bytes go to a
+file beside the document that takes its place once complete (`QSaveFile`), so a write that fails leaves the document as
+it was. `Fuzz_ConsumerDocuments` holds the reader to answering whatever its input, and to reading back what the writer
+writes.
+
+**An image is referenced twice**: by its path, and by its path from the project's folder. A project moved with its
+images - the folder renamed, a disk given another letter - still finds each through the second, and the record then
+follows the file (`ProjectService::locateImage`, and `addImage` for a file opened from its new place). An image on
+another drive has no relative path and is found by its own alone.
+
+**The service** (`projects/ProjectService.h`, the core's `ApplicationCore::projects()`) makes, opens and closes
+projects and keeps the ones used last. It owns no widget and shows no dialog: what it cannot do is an answer
+(`ProjectOutcome`: the refusal, the reason as a person reads it, the folder, and who holds a lock), which a shell says.
+One project is open at a time, and a refusal leaves the open one as it was: the new project is made or opened first
+and the old one closed only then. The document is written before a change is told, and a change that cannot be written
+is not made. It is used on the GUI thread only; a document is a few kilobytes.
+
+**The lock.** `.lock` is a `QLockFile` with no stale time, so a lock is never taken for being old. The application
+runs once on a machine, which leaves two cases. A lock whose process no longer runs on this machine is a crash's, and
+is taken over without a question - the lock's library decides that from the process, the machine and the boot the file
+names. Any other is a folder shared with another machine or another user: it is refused naming the machine and the
+application that hold it, and `ProjectLockPolicy::TakeOver` - the person's `Open anyway` - removes it and takes it,
+because a crashed session on another machine cannot be told from a running one. A lock a running process on this
+machine holds is not removed even then.
+
+**The projects used last** are a setting (`projects/recent`: a JSON array of each one's folder and the name it was
+opened under, the last ten, most recent first; `projects/last`). The names are kept beside the folders so that the
+switcher's menu is filled without reading any project's file: a folder on a disk that is not there is listed, and
+opening it says so. `projects/openLastOnStartup` opens the last one at the start, and
+`projects/defaultLocation`, `projects/createForIntegrationJobs` and `history/compression` are what a new project starts
+from (`readProjectSettings`). A project records the compression it was made with; the setting is where the next one
+starts.
+
+**In the Observatory window** `ProjectFlows` connects the shell's five project actions - New Project..., Open
+Project..., Switch Project..., Close Project and Project Settings..., the window's own, so the classic shell's records
+of actions and menus do not hold them - to the service, keeps the top bar's switcher naming the open project and fills
+its menu (the open project checked, the ones used last, New project..., Open project..., Close project). New Project
+opens `NewProjectDialog` (Controls: the name, the location and the folder they make, the object, the compression, and
+with images open whether they join the project); the dialog makes nothing and is told what a folder is by the shell,
+so it holds no project logic of its own: a folder that holds files and is no project withdraws Create project, and one
+that is a project already offers `Open project`. Dialogs and refusals are opened over the window and answered when the
+person answers; none runs a loop of its own. While a project is open, an image opened from a file joins it; closing a
+project leaves the images open with no project. As the window starts the last project is opened when the settings
+ask, before the window shows, and one that cannot be opened is said in the window's transient message, the
+application starting with no project.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationMain.h`, `app/ApplicationStart.h`)
 
@@ -2228,7 +2299,7 @@ checker alone is never evidence of what an installer contains. Both test runners
   stamped image, a document and a payload with its manifest through their pending siblings, the standalone stack's
   group - held to `fault_points.txt` beside `Test_EngineFaults` (`suite=` names the executable).
   `Fuzz_ConsumerDocuments` reads the integration's envelopes, sessions, transform records, drizzle descriptors and
-  coefficients, and `Fuzz_ConsumerProtocol` the extension protocol's messages, frames, buffer descriptors and error
+  coefficients and a project's document, and `Fuzz_ConsumerProtocol` the extension protocol's messages, frames, buffer descriptors and error
   records, each held to what its writer reads back. `run_sanitizer_campaign.py` makes every active consumer suite of
   the registry a row of each configuration and refuses one whose consumer libraries are not instrumented; the platform
   library's containers are unannotated because Crashpad's static libraries are not instrumented

@@ -596,6 +596,67 @@ TEST(HomeQuickActions, AnActionTurnedOffIsOffWhereverItIs)
     EXPECT_FALSE(home.actionButton(open)->isEnabled());
 }
 
+// An action a shell adds to the row stands after the dashboard's and before More, asks by its id, and is none of the
+// dashboard's: the customization does not list it, the settings do not hold it, and moving, hiding and resetting the
+// dashboard's actions leave it where it is.
+TEST(HomeQuickActions, AnActionAddedToTheRowIsAfterTheDashboardsAndIsNotCustomized)
+{
+    DashboardApplication::instance()->resetForTest();
+    HomeQuickActions home;
+    const QStringList dashboardRow = home.rowActionIds();
+    const QStringList dashboardMore = home.moreActionIds();
+    home.addRowAction(QStringLiteral("new_project"), QStringLiteral("New project"), QStringLiteral("folder_closed"),
+                      QStringLiteral("Make a project"));
+    showAndSettle(home, QSize(1100, 60));
+
+    EXPECT_EQ(home.addedRowActionIds(), QStringList{QStringLiteral("new_project")});
+    EXPECT_EQ(home.rowActionIds(), dashboardRow) << "the dashboard's row changed";
+    EXPECT_EQ(home.moreActionIds(), dashboardMore);
+    QAbstractButton* const added = home.actionButton(QStringLiteral("new_project"));
+    ASSERT_NE(added, nullptr);
+    EXPECT_EQ(added->text(), QStringLiteral("New project"));
+    EXPECT_EQ(added->toolTip(), QStringLiteral("Make a project"));
+    EXPECT_EQ(added->property("anButtonVariant").toString(), QStringLiteral("tonal"));
+    for (const QString& id : dashboardRow)
+    {
+        ASSERT_NE(home.actionButton(id), nullptr) << id.toStdString();
+        EXPECT_LT(home.actionButton(id)->x(), added->x()) << id.toStdString() << " is after the added action";
+    }
+    EXPECT_LT(added->x(), home.moreButton()->x()) << "the added action is after More";
+
+    QSignalSpy asked(&home, &HomeQuickActions::rowActionRequested);
+    QTest::mouseClick(added, Qt::LeftButton);
+    ASSERT_EQ(asked.count(), 1);
+    EXPECT_EQ(asked.at(0).at(0).toString(), QStringLiteral("new_project"));
+
+    // The customization lists the dashboard's actions alone, and what it changes leaves the added action in place.
+    QMenu customization;
+    home.populateCustomizationMenu(customization);
+    for (const QAction* entry : customization.actions())
+    {
+        EXPECT_NE(entry->text(), QStringLiteral("New project"));
+    }
+    for (const QStringList& step : customizationSteps())
+    {
+        QAction* const entry = entryAt(home.moreMenu(), QStringList{QStringLiteral("Customize quick actions")} + step);
+        ASSERT_NE(entry, nullptr) << step.join(QStringLiteral(" > ")).toStdString();
+        entry->trigger();
+        QCoreApplication::processEvents();
+        QAbstractButton* const still = home.actionButton(QStringLiteral("new_project"));
+        ASSERT_NE(still, nullptr) << "the added action went after " << step.join(QStringLiteral(" > ")).toStdString();
+        EXPECT_LT(still->x(), home.moreButton()->x());
+    }
+    EXPECT_FALSE(stored(SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER).contains(QStringLiteral("new_project")));
+    EXPECT_FALSE(stored(SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS).contains(QStringLiteral("new_project")));
+
+    // Turned off, it is off; added again under its id, it is replaced, not doubled.
+    home.setActionEnabled(QStringLiteral("new_project"), false);
+    EXPECT_FALSE(home.actionButton(QStringLiteral("new_project"))->isEnabled());
+    home.addRowAction(QStringLiteral("new_project"), QStringLiteral("New project..."), QString(), QString());
+    EXPECT_EQ(home.addedRowActionIds().size(), 1);
+    EXPECT_EQ(home.actionButton(QStringLiteral("new_project"))->text(), QStringLiteral("New project..."));
+}
+
 // ---- The Continue row
 
 // With images only, the featured image is the one the dashboard features - the most recent with a thumbnail - and its
@@ -1069,7 +1130,7 @@ TEST(HomeRecentGrid, AClickOnATileOpensItsFile)
 // ---- The welcome
 
 // With no recent file Home welcomes: the logo and the version, the three cards to start with, the drop zone with Open
-// file, and the first-run panel's six things AfterNight does; nothing offers a project yet.
+// file, and the first-run panel's six things AfterNight does; of projects it says one line.
 TEST(HomeWelcome, ShowsTheLogoTheVersionTheCardsTheDropZoneAndTheFeatures)
 {
     HomeWelcome welcome;
@@ -1110,11 +1171,16 @@ TEST(HomeWelcome, ShowsTheLogoTheVersionTheCardsTheDropZoneAndTheFeatures)
     }
     EXPECT_EQ(features, firstRun);
 
+    // One text speaks of projects: the line that says they are optional.
+    QStringList aboutProjects;
     for (an::ui::HomeText* text : welcome.findChildren<an::ui::HomeText*>())
     {
-        EXPECT_FALSE(text->text().contains(QStringLiteral("project"), Qt::CaseInsensitive))
-            << text->text().toStdString();
+        if (text->text().contains(QStringLiteral("project"), Qt::CaseInsensitive))
+        {
+            aboutProjects << text->objectName();
+        }
     }
+    EXPECT_EQ(aboutProjects, QStringList{QStringLiteral("homeWelcomeProjectsLine")});
 }
 
 // Each card asks for what it names, and the drop zone's Open file asks for a file to open.
@@ -1135,6 +1201,34 @@ TEST(HomeWelcome, ItsCardsAndItsDropZoneAskForWhatTheyName)
     EXPECT_EQ(guide.count(), 1);
     QTest::mouseClick(welcome.findChild<QPushButton*>(QStringLiteral("homeWelcomeOpenFile")), Qt::LeftButton);
     EXPECT_EQ(open.count(), 2);
+}
+
+// Under the cards one quiet line says projects are optional, and its New project... asks for one.
+TEST(HomeWelcome, TheLineAboutProjectsSaysTheyAreOptionalAndOffersOne)
+{
+    HomeWelcome welcome;
+    showAndSettle(welcome, QSize(1300, 900));
+    const auto* const line = welcome.findChild<an::ui::HomeText*>(QStringLiteral("homeWelcomeProjectsLine"));
+    ASSERT_NE(line, nullptr);
+    EXPECT_EQ(line->text(), QStringLiteral("Projects are optional. Without one, AfterNight works as it always has."));
+    EXPECT_TRUE(line->isVisible());
+    auto* const button = welcome.findChild<QPushButton*>(QStringLiteral("homeWelcomeNewProject"));
+    ASSERT_NE(button, nullptr);
+    EXPECT_EQ(button->text(), QStringLiteral("New project..."));
+    EXPECT_EQ(button->property("anButtonVariant").toString(), QStringLiteral("quiet"));
+    // The line stands under the cards and over the drop zone, on one row with its button.
+    const QList<QAbstractButton*> cards = welcome.findChildren<QAbstractButton*>(QStringLiteral("homeWelcomeCard"));
+    ASSERT_EQ(cards.size(), 3);
+    const auto* const zone = welcome.findChild<QWidget*>(QStringLiteral("homeWelcomeDropZone"));
+    ASSERT_NE(zone, nullptr);
+    const int lineTop = line->mapTo(&welcome, QPoint(0, 0)).y();
+    EXPECT_GE(lineTop, cards[0]->mapTo(&welcome, QPoint(0, cards[0]->height())).y());
+    EXPECT_LE(lineTop + line->height(), zone->mapTo(&welcome, QPoint(0, 0)).y());
+    EXPECT_GT(button->mapTo(&welcome, QPoint(0, 0)).x(), line->mapTo(&welcome, QPoint(0, 0)).x());
+
+    QSignalSpy asked(&welcome, &HomeWelcome::newProjectRequested);
+    QTest::mouseClick(button, Qt::LeftButton);
+    EXPECT_EQ(asked.count(), 1);
 }
 
 // A file dragged over the welcome lights its drop zone, which goes dark when the drag leaves; dropped, the file is

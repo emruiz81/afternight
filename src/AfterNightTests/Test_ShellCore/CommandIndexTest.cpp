@@ -30,6 +30,7 @@
 #include "controls/settings/LoggingSettingsPage.h"
 #include "controls/settings/PlateSolvingSettingsPage.h"
 #include "controls/settings/ProcessingSettingsPage.h"
+#include "controls/settings/ProjectsSettingsPage.h"
 #include "controls/settings/RawImageSettingsPage.h"
 #include "controls/settings/SettingsKeys.h"
 #include "controls/settings/SettingsPage.h"
@@ -790,6 +791,7 @@ TEST_F(CommandIndex, TheSettingsTableIsWhatThePagesShow)
 {
     std::vector<std::unique_ptr<SettingsPage>> pages;
     pages.push_back(std::make_unique<GeneralSettingsPage>(nullptr));
+    pages.push_back(std::make_unique<an::ui::ProjectsSettingsPage>(nullptr));
     pages.push_back(std::make_unique<RawImageSettingsPage>(nullptr));
     pages.push_back(std::make_unique<ExternalToolsSettingsPage>(nullptr));
     pages.push_back(std::make_unique<InterfaceSettingsPage>(nullptr));

@@ -196,19 +196,6 @@ TEST_F(TopBar, TheFieldsThreeWidths)
     resizeTo(window(), before);
 }
 
-// The project switcher reads "No project", and its entries are offered once projects can be made.
-TEST_F(TopBar, TheProjectSwitcherReadsNoProject)
-{
-    QToolButton* const switcher = window().topBar()->projectSwitcher();
-    EXPECT_EQ(switcher->text(), QStringLiteral("No project"));
-    const QList<QAction*> entries = window().topBar()->projectMenu()->actions();
-    ASSERT_FALSE(entries.isEmpty());
-    for (const QAction* entry : entries)
-    {
-        EXPECT_FALSE(entry->isEnabled()) << entry->text().toStdString() << " is offered with no project";
-    }
-}
-
 // Night, Help, Information and More at the bar's right: Night the shell's toggle, Help the user guide with its key,
 // Information About, About Qt and System Information, More the menu tree.
 TEST_F(TopBar, TheButtonsAtItsRight)

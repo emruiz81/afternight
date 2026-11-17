@@ -1692,6 +1692,7 @@ workspace "AfterNight"
                 ["actions"] = { "../../src/AfterNightShellCore/actions/**.*" },
                 ["commands"] = { "../../src/AfterNightShellCore/commands/**.*" },
                 ["core"] = { "../../src/AfterNightShellCore/core/**.*" },
+                ["projects"] = { "../../src/AfterNightShellCore/projects/**.*" },
                 ["services"] = { "../../src/AfterNightShellCore/services/**.*" },
                 ["views"] = { "../../src/AfterNightShellCore/views/**.*" }
                }

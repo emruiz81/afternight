@@ -82,11 +82,9 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent)
     m_logo = new LogoMark(this);
     m_row->addWidget(m_logo);
 
-    // The project switcher: "No project" until a project can be opened; its entries are offered once they work.
+    // The project switcher: "No project" until a project is open; the window fills its menu.
     m_switcher = new QToolButton(this);
     m_switcher->setObjectName(QStringLiteral("observatoryProjectSwitcher"));
-    m_switcher->setText(tr("No project"));
-    m_switcher->setToolTip(tr("No project"));
     m_switcher->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_switcher->setPopupMode(QToolButton::InstantPopup);
     m_switcher->setAutoRaise(true);
@@ -100,6 +98,8 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent)
     }
     m_switcher->setMenu(m_projectMenu);
     m_row->addWidget(m_switcher);
+    QObject::connect(m_projectMenu, &QMenu::aboutToShow, this, [this]() { refreshProjectMenu(); });
+    setProject(QString());
 
     m_breadcrumb = new an::ui::AnBreadcrumb(this);
     m_breadcrumb->setObjectName(QStringLiteral("observatoryBreadcrumb"));
@@ -129,10 +129,8 @@ void TopBar::setIconProvider(IconProvider provider)
 
 void TopBar::refreshIcons()
 {
-    if (m_icons)
-    {
-        m_switcher->setIcon(m_icons(QStringLiteral("folder_closed")));
-    }
+    showProjectIcon();
+    fitProjectName();
     m_logo->update();
     m_field->update();
 }
@@ -150,6 +148,68 @@ QToolButton* TopBar::projectSwitcher() const noexcept
 QMenu* TopBar::projectMenu() const noexcept
 {
     return m_projectMenu;
+}
+
+void TopBar::setProject(const QString& name)
+{
+    m_projectName = name.trimmed();
+    m_switcher->setAccessibleName(m_projectName.isEmpty() ? tr("No project") : tr("Project %1").arg(m_projectName));
+    m_switcher->setToolTip(m_projectName.isEmpty()
+                               ? tr("No project is open: AfterNight works as it always has. Open or create one here")
+                               : tr("Project %1: switch, open, create or close a project").arg(m_projectName));
+    showProjectIcon();
+    fitProjectName();
+}
+
+void TopBar::showProjectIcon()
+{
+    // The folder is open while a project is.
+    if (m_icons)
+    {
+        m_switcher->setIcon(
+            m_icons(m_projectName.isEmpty() ? QStringLiteral("folder_closed") : QStringLiteral("folder_open")));
+    }
+}
+
+const QString& TopBar::projectName() const noexcept
+{
+    return m_projectName;
+}
+
+void TopBar::setProjectMenuFiller(ProjectMenuFiller filler)
+{
+    m_fillProjectMenu = std::move(filler);
+    refreshProjectMenu();
+}
+
+void TopBar::refreshProjectMenu()
+{
+    if (m_fillProjectMenu)
+    {
+        m_projectMenu->clear();
+        m_fillProjectMenu(*m_projectMenu);
+    }
+}
+
+void TopBar::showProjectMenu()
+{
+    // Popped up, not run: the menu answers when the person chooses, and nothing waits meanwhile.
+    m_projectMenu->popup(m_switcher->mapToGlobal(QPoint(0, m_switcher->height())));
+}
+
+void TopBar::fitProjectName()
+{
+    const QString whole = m_projectName.isEmpty() ? tr("No project") : m_projectName;
+    m_switcher->setText(whole);
+    // What the button takes beside its text - the folder, the chevron, its padding - is what its hint is wider than
+    // the text by; the text is cut in its middle to what is left of the switcher's most.
+    const QFontMetrics metrics(m_switcher->font());
+    const int beside = m_switcher->sizeHint().width() - metrics.horizontalAdvance(whole);
+    const int room = an::ui::parts::kProjectSwitcherMaxWidth - beside;
+    if (room > 0 && metrics.horizontalAdvance(whole) > room)
+    {
+        m_switcher->setText(metrics.elidedText(whole, Qt::ElideMiddle, room));
+    }
 }
 
 an::ui::AnBreadcrumb* TopBar::breadcrumb() const noexcept
@@ -194,6 +254,7 @@ void TopBar::changeEvent(QEvent* event)
     {
         updateGeometry();
         update();
+        fitProjectName();
         placeField();
     }
     QWidget::changeEvent(event);

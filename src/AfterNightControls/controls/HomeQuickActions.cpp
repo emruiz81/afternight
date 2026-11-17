@@ -62,9 +62,9 @@ QString iconNameFor(const QString& actionId)
     return {};
 }
 
-QIcon iconFor(const QString& actionId)
+/// The application's icon of a name; none without a provider.
+QIcon iconNamed(const QString& name)
 {
-    const QString name = iconNameFor(actionId);
     if (IAppContext* context = appContext(); context != nullptr && !name.isEmpty())
     {
         if (const IIconProviderPtr icons = context->getIconProvider())
@@ -73,6 +73,11 @@ QIcon iconFor(const QString& actionId)
         }
     }
     return {};
+}
+
+QIcon iconFor(const QString& actionId)
+{
+    return iconNamed(iconNameFor(actionId));
 }
 
 /// An action's tooltip: what it does and its shortcut - the dashboard's.
@@ -166,6 +171,29 @@ private:
 
 struct HomeQuickActions::Impl
 {
+    /// An action the row shows that the dashboard's settings do not know.
+    struct Added
+    {
+        QString id;
+        QString title;
+        QString iconName;
+        QString toolTip;
+    };
+
+    /// The icon of an action of the row: an added action's own, else the dashboard's.
+    [[nodiscard]] QIcon iconOf(const QString& actionId) const
+    {
+        for (const Added& action : added)
+        {
+            if (action.id == actionId)
+            {
+                return iconNamed(action.iconName);
+            }
+        }
+        return iconFor(actionId);
+    }
+
+    QList<Added> added;
     DashboardQuickActionLayout layout;
     QHBoxLayout* row = nullptr;
     QHash<QString, QPushButton*> buttons;
@@ -204,6 +232,36 @@ void HomeQuickActions::reload()
     rebuild();
 }
 
+void HomeQuickActions::addRowAction(const QString& actionId, const QString& title, const QString& iconName,
+                                    const QString& toolTip)
+{
+    const Impl::Added action{actionId, title, iconName, toolTip};
+    bool replaced = false;
+    for (Impl::Added& existing : m_impl->added)
+    {
+        if (existing.id == actionId)
+        {
+            existing = action;
+            replaced = true;
+        }
+    }
+    if (!replaced)
+    {
+        m_impl->added.append(action);
+    }
+    rebuild();
+}
+
+QStringList HomeQuickActions::addedRowActionIds() const
+{
+    QStringList ids;
+    for (const Impl::Added& action : m_impl->added)
+    {
+        ids.append(action.id);
+    }
+    return ids;
+}
+
 void HomeQuickActions::setActionEnabled(const QString& actionId, const bool enabled)
 {
     const QString id = DashboardPreferences::normalizeActionIdToken(actionId);
@@ -225,7 +283,7 @@ void HomeQuickActions::refreshIcons()
 {
     for (auto it = m_impl->buttons.cbegin(); it != m_impl->buttons.cend(); ++it)
     {
-        it.value()->setIcon(iconFor(it.key()));
+        it.value()->setIcon(m_impl->iconOf(it.key()));
     }
     for (QAction* action : m_impl->moreMenu->actions())
     {
@@ -333,6 +391,24 @@ void HomeQuickActions::rebuild()
         button->setCursor(Qt::PointingHandCursor);
         button->setEnabled(m_impl->enabled.value(id, true));
         QObject::connect(button, &QPushButton::clicked, this, [this, id]() { trigger(id); });
+        m_impl->row->addWidget(button);
+        m_impl->buttons.insert(id, button);
+    }
+    // What the shell added: after the dashboard's actions, tonal, asked for by its id.
+    for (const Impl::Added& action : std::as_const(m_impl->added))
+    {
+        auto* button = new QuickActionButton(action.title, QKeySequence(), this);
+        button->setObjectName(QStringLiteral("homeQuickAction"));
+        button->setProperty("homeActionId", action.id);
+        button->setProperty("anButtonVariant", QStringLiteral("tonal"));
+        button->setToolTip(action.toolTip);
+        button->setAccessibleName(action.title);
+        button->setIcon(iconNamed(action.iconName));
+        button->setIconSize(QSize(parts::kHomeActionIcon, parts::kHomeActionIcon));
+        button->setCursor(Qt::PointingHandCursor);
+        button->setEnabled(m_impl->enabled.value(action.id, true));
+        const QString id = action.id;
+        QObject::connect(button, &QPushButton::clicked, this, [this, id]() { emit rowActionRequested(id); });
         m_impl->row->addWidget(button);
         m_impl->buttons.insert(id, button);
     }

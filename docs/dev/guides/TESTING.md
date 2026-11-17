@@ -87,6 +87,16 @@ with `--shell=observatory` on its own command line: the copy runs the one disabl
 `ShellSelection.DISABLED_OwnCommandLineIsNotRead`, which finds the option in `QCoreApplication::arguments()` and not
 in the shell chosen.
 
+A project is held where each part of it lives ("Projects" in [the product guide](PRODUCT_ARCHITECTURE.md)): its
+document and its service in `Test_ShellCore` (`ProjectDocument.*`, `ProjectServiceCase.*`), each case over a temporary
+root of its own; the New Project dialog, the Projects settings page and the stored settings in `Test_ControlsDialogs`;
+and what a person does with the switcher in `Test_ShellObservatory` (`ProjectSwitcher.*`, and `ProjectAtStart.*` over a
+shell started for the case). A lock's two cases are made from files: a lock that names a process which ran here and
+exited, written as the lock's own library writes one, and a lock that names another machine. A failed write is a real
+one - the document held open without sharing on Windows, its folder closed to new files elsewhere. The cases that
+compare the switcher's text use short names: the suites' platform draws text about twice as wide as a display does, so
+a name of ordinary length is rightly cut there.
+
 `Test_ControlsDocking` holds the dock library to what the interface is built on ("The dock area" in
 [the product guide](PRODUCT_ARCHITECTURE.md) lists it) and drives the library the way a user does, because the
 library's drag controller is not in its installed interface: a drag is a press, moves and a release delivered to the

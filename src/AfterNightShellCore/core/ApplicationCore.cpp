@@ -12,6 +12,7 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationSession.h"
 #include "core/IShell.h"
+#include "projects/ProjectService.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
 #include "services/ExtensionService.h"
@@ -123,6 +124,8 @@ struct ApplicationCore::Impl
     RecentFilesModel recentFiles;
     RecentProcessesModel recentProcesses;
     FavoriteProcessesModel favoriteProcesses;
+    // The open project: declared after the settings it keeps the recent projects in, so it goes before them.
+    ProjectService projects;
 
     IApplicationEventTarget* eventTarget = nullptr;
     IShell* shell = nullptr;
@@ -161,6 +164,7 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     Impl& impl = *m_impl;
     impl.recentProcesses.setSettings(&impl.settings);
     impl.favoriteProcesses.setSettings(&impl.settings);
+    impl.projects.setSettings(&impl.settings);
 
     an::ui::RuntimeStorageCoordinator::Dependencies runtimeStorageDeps;
     runtimeStorageDeps.localDataPath = &impl.localDataPath;
@@ -353,6 +357,8 @@ void ApplicationCore::openStores()
     m_impl->persistence->initializePersistence();
     // The commands the palette ran last live in the settings, which are open from here.
     m_impl->commands->loadRecents();
+    // So do the projects used last: they are read again from the store that is open now.
+    m_impl->projects.setSettings(&m_impl->settings);
 }
 
 namespace
@@ -638,6 +644,11 @@ RecentProcessesModel& ApplicationCore::recentProcesses() noexcept
 FavoriteProcessesModel& ApplicationCore::favoriteProcesses() noexcept
 {
     return m_impl->favoriteProcesses;
+}
+
+ProjectService& ApplicationCore::projects() noexcept
+{
+    return m_impl->projects;
 }
 
 DialogService& ApplicationCore::dialogService() noexcept

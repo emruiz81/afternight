@@ -33,9 +33,14 @@ namespace an::ui::observatory
 class PaletteField;
 
 /// The band across the top of the window: the first surface with a hairline under it, as high as the density's top
-/// bar. From the left, the logo, the project switcher ("No project" until a project is open, at most 220 px wide) and
-/// the breadcrumb of the place and its item; the palette's field centred in the bar; at the right what the window puts
-/// in its trailing row - the layout icons of a workspace, Night, Help, Information and More.
+/// bar. From the left, the logo, the project switcher and the breadcrumb of the place and its item; the palette's field
+/// centred in the bar; at the right what the window puts in its trailing row - the layout icons of a workspace, Night,
+/// Help, Information and More.
+///
+/// The project switcher reads the open project's name, or "No project", beside a folder - open while a project is -
+/// and is at most 220 px wide: a longer name is cut in its middle and said whole in the tooltip. It opens a menu the
+/// window fills each time it is about to show: the open project, the ones used last, New project..., Open project...
+/// and Close project.
 class AFTERNIGHTSHELLOBSERVATORY_API TopBar final : public QWidget
 {
 public:
@@ -56,6 +61,18 @@ public:
     [[nodiscard]] QToolButton* projectSwitcher() const noexcept;
     /// The project switcher's menu: the open project, the recent ones, New, Open and Close project.
     [[nodiscard]] QMenu* projectMenu() const noexcept;
+
+    /// Says which project is open, by its name; an empty name says "No project".
+    void setProject(const QString& name);
+    /// The open project's name as it was given, whole; empty with none.
+    [[nodiscard]] const QString& projectName() const noexcept;
+
+    /// What fills the switcher's menu: called now, each time the menu is about to show, and by `refreshProjectMenu`.
+    using ProjectMenuFiller = std::function<void(QMenu& menu)>;
+    void setProjectMenuFiller(ProjectMenuFiller filler);
+    void refreshProjectMenu();
+    /// Opens the switcher's menu under the switcher.
+    void showProjectMenu();
     [[nodiscard]] an::ui::AnBreadcrumb* breadcrumb() const noexcept;
     [[nodiscard]] PaletteField* paletteField() const noexcept;
 
@@ -72,6 +89,9 @@ protected:
 
 private:
     void placeField();
+    /// Shows the project's name in the switcher, cut in its middle when the switcher has no room for it.
+    void fitProjectName();
+    void showProjectIcon();
 
     QHBoxLayout* m_row = nullptr;
     QHBoxLayout* m_trailing = nullptr;
@@ -79,6 +99,8 @@ private:
     IconProvider m_icons;
     QToolButton* m_switcher = nullptr;
     QMenu* m_projectMenu = nullptr;
+    ProjectMenuFiller m_fillProjectMenu;
+    QString m_projectName;
     an::ui::AnBreadcrumb* m_breadcrumb = nullptr;
     PaletteField* m_field = nullptr;
 };

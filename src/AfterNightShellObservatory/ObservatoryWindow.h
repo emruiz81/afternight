@@ -64,6 +64,7 @@ class WorkspaceWindow;
 class FloatingViewChrome;
 class HomePage;
 class MenuBarOnAlt;
+class ProjectFlows;
 class ShellActions;
 class StatusLine;
 class TaskDrag;
@@ -87,6 +88,11 @@ class WorkspaceToolbar;
 /// follows the task's preview; the breadcrumb names the process and the image, and the status line shows the preview.
 /// A view a process makes meanwhile lands in a workspace and does not take the person off the page: a snackbar offers
 /// Show. A run that succeeds says so in a snackbar with Undo.
+///
+/// **Projects.** The top bar's switcher says which project is open and opens the projects' menu; New Project...,
+/// Open Project..., Switch Project..., Close Project and Project Settings... are the window's own actions, in the
+/// File menu and the palette (`ProjectFlows`). While a project is open, an image opened from a file joins it; closing
+/// the project leaves the images open. As the window starts, the project used last is opened when the settings ask.
 ///
 /// It is made over an application that is initialized and started (`ApplicationCore::initialize`, `start`): the
 /// context exists, the session is open and the installed extensions are known. The core outlives it.
@@ -202,8 +208,12 @@ public:
     [[nodiscard]] WorkspaceToolbar* layoutIcons() const noexcept;
     /// The small toolbars of the images that float in windows of their own.
     [[nodiscard]] FloatingViewChrome& floatingViewChrome() const noexcept;
-    /// The shell's own actions: Home, the Command Palette, the Readout, Night and the densities.
+    /// The shell's own actions: Home, the Command Palette, the Readout, Night and the densities, the workspace's, the
+    /// current task's and the project's.
     [[nodiscard]] ShellActions& shellActions() const noexcept;
+    /// What the window does about projects: New, Open, Switch and Close, the switcher's menu, and what is said of a
+    /// project that cannot be opened.
+    [[nodiscard]] ProjectFlows& projectFlows() const noexcept;
     /// The command palette, and the scrim laid over the centre and the column while it is open.
     [[nodiscard]] an::ui::AnCommandPalette* palette() const noexcept;
     [[nodiscard]] QWidget* paletteScrim() const noexcept;

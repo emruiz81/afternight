@@ -101,6 +101,11 @@ HomePage::HomePage(QWidget* parent) : QScrollArea(parent), m_impl(std::make_uniq
     header->addLayout(titles, 0);
     header->addStretch(1);
     m_impl->actions = new an::ui::HomeQuickActions(content);
+    // What this shell offers beside the dashboard's actions: a project.
+    m_impl->actions->addRowAction(QString::fromLatin1(kNewProjectAction), tr("New project"),
+                                  QStringLiteral("folder_closed"),
+                                  tr("Make a project: a folder that keeps the history of its images. Optional - "
+                                     "without one, AfterNight works as it always has."));
     header->addWidget(m_impl->actions, 0, Qt::AlignBottom);
     column->addLayout(header);
 
@@ -129,6 +134,14 @@ HomePage::HomePage(QWidget* parent) : QScrollArea(parent), m_impl(std::make_uniq
                      [this]() { emit clearRecentFilesRequested(); });
     QObject::connect(actions, &an::ui::HomeQuickActions::systemInformationRequested, this,
                      [this]() { emit systemInformationRequested(); });
+    QObject::connect(actions, &an::ui::HomeQuickActions::rowActionRequested, this, [this](const QString& actionId) {
+        if (actionId == QLatin1String(kNewProjectAction))
+        {
+            emit newProjectRequested();
+        }
+    });
+    QObject::connect(m_impl->welcome, &an::ui::HomeWelcome::newProjectRequested, this,
+                     [this]() { emit newProjectRequested(); });
     QObject::connect(m_impl->welcome, &an::ui::HomeWelcome::openFileRequested, this,
                      [this]() { emit openFileRequested(); });
     QObject::connect(m_impl->welcome, &an::ui::HomeWelcome::imageIntegrationRequested, this,

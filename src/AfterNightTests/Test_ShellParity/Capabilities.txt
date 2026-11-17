@@ -78,7 +78,7 @@ capability home.quick-actions
     title        Quick actions and their overflow
     shared       MainDashboardInteraction.ToolbarExposesPrimaryAndOverflowActions, MainDashboardInteraction.PrimaryOpenFileButtonClickEmitsOpenFileRequested, MainDashboardInteraction.SystemInfoOverflowActionEnabledAndClickable
     classic
-    observatory  Home.TheQuickActionsLaunchWhatTheDashboardsLaunch, ObservatoryWindow.HomeOpensANewSequence
+    observatory  Home.TheQuickActionsLaunchWhatTheDashboardsLaunch, ObservatoryWindow.HomeOpensANewSequence, ProjectSwitcher.HomesNewProjectAndTheWelcomesLineOpenTheDialog
 
 capability home.customize-actions
     title        Customize quick actions (move, hide, reset)
@@ -622,9 +622,9 @@ capability new.workspaces
 
 capability new.projects
     title        Projects
-    shared
+    shared       ProjectServiceCase.CreateMakesTheFoldersLayoutUnderTheRoot, ProjectDocument.RoundTrip, NewProjectDialog.ANonEmptyFolderIsRefusedAndAnExistingProjectIsOfferedToOpen
     classic
-    observatory  pending
+    observatory  ProjectSwitcher.NewProjectMakesAProjectTheSwitcherNamesAndFindsAgain, ProjectSwitcher.ALockHeldElsewhereIsSaidNamingItsHolderAndOpenAnywayTakesIt, ProjectSwitcher.TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo
 
 capability new.hub
     title        The Integration hub

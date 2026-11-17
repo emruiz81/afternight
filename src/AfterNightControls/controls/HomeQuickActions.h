@@ -6,7 +6,9 @@
 /// @file
 /// Home's quick actions: the dashboard's actions, as the person arranged them on the dashboard or here - the same
 /// settings - in a row of buttons, Open file the accent's and the others tonal, each with its shortcut; the others in a
-/// More menu with the customization; and the customization again on the row's right-click.
+/// More menu with the customization; and the customization again on the row's right-click. A shell adds what only it
+/// offers - New project - after the dashboard's actions and before More: an action the dashboard's settings do not
+/// know, so it is neither moved, hidden nor reset.
 
 #include "AfterNightControlsExport.h"
 
@@ -35,6 +37,14 @@ public:
     /// Reads the quick actions' order and the hidden ones from the settings again, as another part may have changed
     /// them.
     void reload();
+
+    /// Adds an action to the row, after the dashboard's and before More, as a tonal button with an icon of the
+    /// application's and a tooltip; `rowActionRequested` says when it is asked for. An id added again replaces what it
+    /// was added as.
+    void addRowAction(const QString& actionId, const QString& title, const QString& iconName, const QString& toolTip);
+
+    /// The actions added to the row, in the order they were added.
+    [[nodiscard]] QStringList addedRowActionIds() const;
 
     /// Turns an action on or off where it is, in the row or in the More menu.
     void setActionEnabled(const QString& actionId, bool enabled);
@@ -67,6 +77,8 @@ public:
     void openExtensionManagerRequested() W_SIGNAL(openExtensionManagerRequested);
     void clearRecentFilesRequested() W_SIGNAL(clearRecentFilesRequested);
     void systemInformationRequested() W_SIGNAL(systemInformationRequested);
+    /// An action added to the row was asked for.
+    void rowActionRequested(const QString& actionId) W_SIGNAL(rowActionRequested, actionId);
 
 protected:
     bool event(QEvent* event) override;

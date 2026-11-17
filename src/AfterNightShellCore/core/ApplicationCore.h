@@ -78,6 +78,7 @@ class OpenProcessRegistry;
 class ShellRegistry;
 class ProcessLaunchService;
 class ProcessMenuModel;
+class ProjectService;
 class RecentFilesModel;
 class RecentProcessesModel;
 class ViewService;
@@ -209,6 +210,11 @@ public:
     [[nodiscard]] RecentFilesModel& recentFiles() noexcept;
     [[nodiscard]] RecentProcessesModel& recentProcesses() noexcept;
     [[nodiscard]] FavoriteProcessesModel& favoriteProcesses() noexcept;
+
+    /// The project the application has open, if any, and the ones used last, kept in the settings store once it is
+    /// open. A shell that offers projects opens the one used last as it is built, when the settings ask for it; the
+    /// project still open when the core goes is closed with it.
+    [[nodiscard]] ProjectService& projects() noexcept;
 
     // ---- The services
 

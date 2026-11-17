@@ -173,6 +173,33 @@ private:
     bool m_keyboardFocus = false;
 };
 
+/// The folder before the line about projects: the application's icon in the tertiary text.
+class LineIcon final : public QWidget
+{
+public:
+    explicit LineIcon(QWidget* parent) : QWidget(parent)
+    {
+        setFixedSize(parts::kHomeActionIcon, parts::kHomeActionIcon);
+    }
+
+    void setIcon(const QIcon& icon)
+    {
+        m_icon = icon;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent* /*event*/) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        parts::paintIcon(painter, m_icon, QRectF(rect()), tokens().colors.textTertiary);
+    }
+
+private:
+    QIcon m_icon;
+};
+
 /// The drop zone: a dashed outline with corners of 12, lit in the accent while a file is dragged over the welcome.
 class DropZone final : public QWidget
 {
@@ -278,6 +305,8 @@ struct HomeWelcome::Impl
 {
     NightPictureLabel* logo = nullptr;
     std::array<WelcomeCard*, 3> cards{};
+    LineIcon* projectsIcon = nullptr;
+    QPushButton* newProject = nullptr;
     DropZone* zone = nullptr;
     QPushButton* openFile = nullptr;
     bool highlighted = false;
@@ -352,6 +381,28 @@ HomeWelcome::HomeWelcome(QWidget* parent) : QWidget(parent), m_impl(std::make_un
     QObject::connect(m_impl->cards[1], &QAbstractButton::clicked, this, [this]() { emit imageIntegrationRequested(); });
     QObject::connect(m_impl->cards[2], &QAbstractButton::clicked, this, [this]() { emit openHelpRequested(); });
 
+    // One quiet line: projects are optional, and here is how one is made.
+    auto* projects = new QHBoxLayout();
+    projects->setContentsMargins(0, 0, 0, 0);
+    projects->setSpacing(parts::kHomeTilePadding / 2);
+    projects->addStretch(1);
+    m_impl->projectsIcon = new LineIcon(content);
+    projects->addWidget(m_impl->projectsIcon, 0, Qt::AlignVCenter);
+    auto* projectsLine =
+        new HomeText(HomeText::Role::Secondary,
+                     tr("Projects are optional. Without one, AfterNight works as it always has."), content);
+    projectsLine->setObjectName(QStringLiteral("homeWelcomeProjectsLine"));
+    projectsLine->setElideMode(Qt::ElideNone);
+    projects->addWidget(projectsLine, 0, Qt::AlignVCenter);
+    m_impl->newProject = new QPushButton(tr("New project..."), content);
+    m_impl->newProject->setObjectName(QStringLiteral("homeWelcomeNewProject"));
+    m_impl->newProject->setProperty("anButtonVariant", QStringLiteral("quiet"));
+    m_impl->newProject->setCursor(Qt::PointingHandCursor);
+    QObject::connect(m_impl->newProject, &QPushButton::clicked, this, [this]() { emit newProjectRequested(); });
+    projects->addWidget(m_impl->newProject, 0, Qt::AlignVCenter);
+    projects->addStretch(1);
+    column->addLayout(projects);
+
     // The drop zone, with Open file.
     column->addSpacing(parts::kHomeTilePadding);
     m_impl->zone = new DropZone(content);
@@ -407,6 +458,7 @@ void HomeWelcome::refreshIcons()
         card->refreshIcon();
     }
     m_impl->zone->setIcon(providedIcon(QStringLiteral("file_open")));
+    m_impl->projectsIcon->setIcon(providedIcon(QStringLiteral("folder_closed")));
     update();
 }
 

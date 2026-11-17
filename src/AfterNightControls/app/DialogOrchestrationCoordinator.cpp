@@ -22,6 +22,7 @@
 #include "controls/settings/LoggingSettingsPage.h"
 #include "controls/settings/PlateSolvingSettingsPage.h"
 #include "controls/settings/ProcessingSettingsPage.h"
+#include "controls/settings/ProjectsSettingsPage.h"
 #include "controls/settings/RawImageSettingsPage.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
@@ -696,6 +697,10 @@ void DialogOrchestrationCoordinator::openSettingsAt(const QString& pageName) con
         m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
 
     dialog.addPage(new GeneralSettingsPage(settingsPersistence, &dialog));
+    if (m_dependencies.offersProjects)
+    {
+        dialog.addPage(new an::ui::ProjectsSettingsPage(settingsPersistence, &dialog));
+    }
     dialog.addPage(new RawImageSettingsPage(settingsPersistence, &dialog));
     dialog.addPage(new ExternalToolsSettingsPage(settingsPersistence, &dialog));
     auto* interfacePage = new InterfaceSettingsPage(settingsPersistence, &dialog);
