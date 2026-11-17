@@ -122,10 +122,9 @@ protected:
     /// windows at all.
     void SetUp() override
     {
-        if (s_platformActivatesWindows && !window().isActiveWindow())
+        if (s_platformActivatesWindows)
         {
-            window().activateWindow();
-            (void)QTest::qWaitForWindowActive(&window());
+            (void)an::tests::app::activateWindow(window());
         }
     }
 

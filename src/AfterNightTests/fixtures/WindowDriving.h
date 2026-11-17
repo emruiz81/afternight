@@ -21,11 +21,15 @@
 #include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QThread>
 #include <QTimer>
+#include <QWidget>
+#include <QWindow>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -51,6 +55,37 @@ inline bool processEventsUntil(const std::function<bool()>& done, int bound = 10
         QThread::msleep(2);
     }
     return done();
+}
+
+// Makes a window the active one, and answers whether it is.
+//
+// A request for the activation is queued among the window system's events. The `minimal` platform - the suites' on
+// Windows - delivers those only as a window is shown or hidden, never from the event loop, and hands the activation
+// to no window when the one that had it closes. So once a dialog, a menu or a floating window has come and gone the
+// application has no active window, and `QWidget::activateWindow()` followed by a wait asks in vain until the wait's
+// bound runs out - five seconds a case, for most cases of a suite. Under that platform the request is therefore
+// followed by a window of the helper's own, shown and gone, which delivers what is queued. That window is made
+// before the request: the platform queues an activation for every window it makes, and the one asked for must be
+// the last in the queue. Any other platform delivers the request from its event loop, and is waited for.
+inline bool activateWindow(QWidget& window, int bound = 5000)
+{
+    if (window.isActiveWindow())
+    {
+        return true;
+    }
+    if (QGuiApplication::platformName() != QLatin1String("minimal"))
+    {
+        window.activateWindow();
+        return processEventsUntil([&window]() { return window.isActiveWindow(); }, bound);
+    }
+    {
+        QWindow delivers;
+        delivers.create();
+        window.activateWindow();
+        delivers.setVisible(true);
+        delivers.setVisible(false);
+    }
+    return processEventsUntil([&window]() { return window.isActiveWindow(); }, (std::min)(bound, 500));
 }
 
 // Whether a widget is of a class, read from its dynamic type: not every window declares a meta-object of its own.

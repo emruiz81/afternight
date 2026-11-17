@@ -28,8 +28,12 @@
 #include <kddockwidgets/MainWindow.h>
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDialog>
 #include <QDir>
 #include <QDirIterator>
+#include <QElapsedTimer>
+#include <QGuiApplication>
 #include <QLayout>
 #include <QPointer>
 #include <QStackedWidget>
@@ -172,6 +176,44 @@ TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
     // The shell lends its presenter, which leaves a process of a window one.
     ASSERT_NE(shell().processPresenter(), nullptr);
     EXPECT_FALSE(shell().processPresenter()->adopt(*process));
+}
+
+// The window is active again at once after another window had the activation and went: what every case of the suite
+// starts from. The suites' platform on Windows hands the activation to no window when the one that had it closes and
+// delivers a request for it only as a window is shown or hidden, so asking and waiting cost each case that followed
+// a dialog the whole of the wait.
+TEST_F(ObservatoryWindow, IsActiveAgainAtOnceAfterAnotherWindowCameAndWent)
+{
+    if (!s_platformActivatesWindows)
+    {
+        GTEST_SKIP() << "the platform activates no window";
+    }
+    ASSERT_TRUE(window().isActiveWindow());
+    {
+        QDialog other(&window());
+        other.show();
+        other.activateWindow();
+        ASSERT_TRUE(an::tests::app::processEventsUntil([&other]() { return other.isActiveWindow(); }, 2000));
+        EXPECT_FALSE(window().isActiveWindow());
+    }
+    QCoreApplication::processEvents();
+    if (QGuiApplication::platformName() == QLatin1String("minimal"))
+    {
+        ASSERT_FALSE(window().isActiveWindow()) << "the platform handed the activation back by itself";
+        // Asked as a widget asks, the request stays queued: this is what the wait was waiting for.
+        window().activateWindow();
+        QCoreApplication::processEvents();
+        EXPECT_FALSE(window().isActiveWindow());
+    }
+
+    QElapsedTimer taken;
+    taken.start();
+    EXPECT_TRUE(an::tests::app::activateWindow(window()));
+    EXPECT_LT(taken.elapsed(), 1000) << "making the window active again waited";
+    EXPECT_TRUE(window().isActiveWindow());
+    EXPECT_EQ(QApplication::activeWindow(), &window());
+    // Asked again of a window that is active, it changes nothing.
+    EXPECT_TRUE(an::tests::app::activateWindow(window()));
 }
 
 /// The window's exit, each case over a start of its own: its end is the application's.

@@ -131,8 +131,7 @@ TEST_F(ObservatoryWindow, RailSelectsPlaces)
 TEST_F(ObservatoryWindow, ShortcutsWorkWithTheMenuBarHidden)
 {
     ASSERT_FALSE(window().menuBarOnAlt().isShown());
-    window().activateWindow();
-    ASSERT_TRUE(QTest::qWaitForWindowActive(&window()));
+    ASSERT_TRUE(an::tests::app::activateWindow(window()));
     bool asked = false;
     const std::shared_ptr<an::tests::app::WindowPoll> poll = an::tests::app::answerWhenShown([&asked](QWidget* shown) {
         auto* const dialog = qobject_cast<QFileDialog*>(shown);

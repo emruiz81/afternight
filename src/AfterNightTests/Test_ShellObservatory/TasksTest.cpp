@@ -144,8 +144,7 @@ protected:
     {
         if (s_platformActivatesWindows)
         {
-            window().activateWindow();
-            (void)QTest::qWaitForWindowActive(&window());
+            (void)an::tests::app::activateWindow(window());
         }
         settle();
     }

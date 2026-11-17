@@ -186,6 +186,18 @@ from a standard key is recorded by the key's name, because its bindings are the 
 view a window shows - its toolbar, its preview-area checkbox - is the view's and is left out. The record holds no
 size, for the reason the next section gives.
 
+### A window is made active through the fixtures' helper
+
+Under `minimal` no window is handed the activation when the one that had it closes, and a request for it
+(`QWidget::activateWindow()`) is queued among the window system's events, which that platform delivers only as a window
+is shown or hidden and never from the event loop. A case that asks and then waits
+(`QTest::qWaitForWindowActive`) therefore waits its whole bound - five seconds - whenever a dialog, a menu or a
+floating window has come and gone before it, and passes all the same: 75 of the Observatory suite's cases did, six of
+its seven minutes. A case or a fixture that needs its window active calls `an::tests::app::activateWindow`
+(`fixtures/WindowDriving.h`), which under that platform has a window of its own shown and gone deliver the request,
+and under any other waits for the event loop to. `ObservatoryWindow.IsActiveAgainAtOnceAfterAnotherWindowCameAndWent`
+holds it.
+
 ### A window's size is not measured under the suites' platform
 
 The suites run headless: under `minimal` on Windows, where text is drawn by a box font about two and a half times as

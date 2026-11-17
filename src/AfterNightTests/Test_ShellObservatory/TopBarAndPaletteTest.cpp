@@ -230,8 +230,7 @@ TEST_F(TopBar, TheButtonsAtItsRight)
 TEST_F(Palette, OpensWithCtrlK)
 {
     an::ui::AnCommandPalette& palette = *window().palette();
-    window().activateWindow();
-    ASSERT_TRUE(QTest::qWaitForWindowActive(&window()));
+    ASSERT_TRUE(an::tests::app::activateWindow(window()));
     QTest::keyClick(window().centre(), Qt::Key_K, Qt::ControlModifier);
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return palette.isVisible(); }, 3000));
     EXPECT_TRUE(window().paletteScrim()->isVisible());
@@ -478,8 +477,7 @@ TEST_F(Timing, OpeningThePalette)
         GTEST_SKIP() << "a time is measured only when AFTERNIGHT_TEST_TIMINGS=1 asks for it";
     }
     an::ui::AnCommandPalette& palette = *window().palette();
-    window().activateWindow();
-    ASSERT_TRUE(QTest::qWaitForWindowActive(&window()));
+    ASSERT_TRUE(an::tests::app::activateWindow(window()));
     class Painted final : public QObject
     {
     public:

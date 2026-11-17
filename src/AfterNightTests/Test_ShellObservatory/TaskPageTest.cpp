@@ -901,8 +901,7 @@ TEST_F(TaskSubject, ApplyTaskWithTheFocusOnTheRail)
     const std::size_t before = currentStep(*view);
     // A window shortcut is looked for in the active window. The suites' platform does not always hand the activation
     // back after a modal dialog of an earlier case: then the action is triggered as its shortcut would.
-    window().activateWindow();
-    const bool active = QTest::qWaitForWindowActive(&window());
+    const bool active = an::tests::app::activateWindow(window());
     window().rail()->setFocus(Qt::OtherFocusReason);
     settle();
     EXPECT_FALSE(process->isAncestorOf(QApplication::focusWidget())) << "the focus is outside the page";
