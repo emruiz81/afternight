@@ -208,6 +208,9 @@ inline constexpr int kReadoutColumnNarrowWidth = 320;
 inline constexpr int kReadoutNarrowWindow = 1200;
 inline constexpr int kReadoutShortWindow = 820;
 inline constexpr int kReadoutCardGap = 8;
+/// The readout column's histogram card grows with the column up to this height - its header, its well and its tools -
+/// and the room under the last card is left empty, so a tall window does not stretch the plot.
+inline constexpr int kReadoutHistogramCardMaximum = 248;
 inline constexpr int kReadoutCardRadius = 12;
 inline constexpr int kReadoutWellRadius = 8;
 inline constexpr int kReadoutWellMinimum = 100;

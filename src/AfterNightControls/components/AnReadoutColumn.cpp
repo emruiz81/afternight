@@ -74,10 +74,19 @@ AnReadoutColumn::AnReadoutColumn(QWidget* parent) : QWidget(parent), m_width(par
     m_statistics = new AnStatisticsCard(m_cards);
     m_astrometry = new AnAstrometryCard(m_cards);
     m_image = new AnImageFactsCard(m_cards);
+    // The histogram grows with the column up to its maximum before any room is left; the room under the last card is
+    // left empty, so a tall window does not stretch the plot. Folded it is its header alone, which an explicit maximum
+    // would override, so the maximum holds only while it is open.
+    const auto capHistogram = [this](const bool folded) {
+        m_histogram->setMaximumHeight(folded ? QWIDGETSIZE_MAX : parts::kReadoutHistogramCardMaximum);
+    };
+    capHistogram(m_histogram->isFolded());
+    QObject::connect(m_histogram, &AnReadoutCard::foldedChanged, this, capHistogram);
     cards->addWidget(m_histogram, 1);
     cards->addWidget(m_statistics);
     cards->addWidget(m_astrometry);
     cards->addWidget(m_image);
+    cards->addStretch(0);
     column->addWidget(m_cards, 1);
 
     for (const ReadoutCardId id : kCards)

@@ -732,7 +732,53 @@ TEST(ReadoutColumn, TheHeaderNamesTheViewAndTheCardsFollowInOrder)
         }
         EXPECT_GE(column.histogramCard()->height(),
                   column.statisticsCard()->header()->height() + an::ui::parts::kReadoutWellMinimum)
-            << "the histogram takes the height the others leave";
+            << "the histogram's well keeps its least height";
+    });
+}
+
+// The histogram card grows with the column up to 248 px, and the room under the last card is left empty, so a tall
+// window does not stretch the plot; in a column too short for that the histogram takes what the others leave and no
+// room is left under them. Folded, the histogram leaves its room empty too.
+TEST(ReadoutColumn, TheHistogramGrowsTo248PixelsAndTheRestIsLeftEmpty)
+{
+    const auto settleLayouts = []() {
+        // A card's layout asks its column's again: each request is delivered in its own round.
+        for (int round = 0; round < 3; ++round)
+        {
+            QCoreApplication::processEvents();
+        }
+    };
+    forEachLook([&settleLayouts](const DesignTokens& t) {
+        an::ui::AnReadoutColumn column;
+        column.setWindowSize(QSize(1920, 1080));
+        column.resize(column.columnWidth(), 1000);
+        showOffScreen(column);
+        settleLayouts();
+        const auto roomUnder = [&column]() {
+            const an::ui::AnReadoutCard& last = *column.imageCard();
+            return column.height() - (last.mapTo(&column, QPoint(0, 0)).y() + last.height());
+        };
+        EXPECT_EQ(column.histogramCard()->height(), an::ui::parts::kReadoutHistogramCardMaximum)
+            << "a tall column stretches the histogram";
+        const int room = roomUnder();
+        EXPECT_GT(room, t.metrics.pad) << "no room is left under the last card";
+
+        // Shorter by more than the room left: the histogram gives up the difference and nothing is left under the
+        // cards.
+        const int shorter = room - t.metrics.pad + 40;
+        column.resize(column.width(), column.height() - shorter);
+        settleLayouts();
+        EXPECT_EQ(column.histogramCard()->height(), an::ui::parts::kReadoutHistogramCardMaximum - 40);
+        EXPECT_EQ(roomUnder(), t.metrics.pad) << "the cards leave room under them in a short column";
+
+        // Folded, its room is left empty and the other cards keep their place under it.
+        column.resize(column.width(), 1000);
+        column.histogramCard()->setFolded(true);
+        settleLayouts();
+        EXPECT_EQ(column.histogramCard()->height(), column.histogramCard()->header()->height());
+        EXPECT_EQ(column.statisticsCard()->mapTo(&column, QPoint(0, 0)).y(),
+                  column.histogramCard()->mapTo(&column, QPoint(0, 0)).y() + column.histogramCard()->height() +
+                      an::ui::parts::kReadoutCardGap);
     });
 }
 

@@ -87,6 +87,10 @@ protected:
 AnHistogramCard::AnHistogramCard(QWidget* parent) : AnReadoutCard(tr("Histogram"), parent)
 {
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    // Folded, the card is its header alone and grows no more.
+    QObject::connect(this, &AnReadoutCard::foldedChanged, this, [this](const bool folded) {
+        setSizePolicy(QSizePolicy::Preferred, folded ? QSizePolicy::Maximum : QSizePolicy::Expanding);
+    });
     m_window = addHeaderTool(QStringLiteral("open_in_new"), tr("Open the Histogram window (Ctrl+H)"));
 
     m_well = new AnReadoutWell(body());

@@ -43,10 +43,11 @@ enum class HistogramCardTool : std::uint8_t
 };
 
 /// The Histogram card: the counts it is handed, drawn by the histogram window's widget in a well at least 100 px high
-/// that takes the height the other cards leave; under it the window's tools, which act on the widget as the window's
-/// do - Zoom in, Zoom out, Zoom reset; Show grid, Show clipping info, Absolute scales, Draw histogram areas, with the
-/// window's defaults - and its resolution. A change of resolution is told, and the counts are made again by whoever
-/// counts them. The header says "RGB" or "Grayscale" and its tool opens the window.
+/// that grows with the room it is given (the readout column gives it up to `parts::kReadoutHistogramCardMaximum`);
+/// folded, it is its header alone and grows no more. Under the well the window's tools, which act on the widget as the
+/// window's do - Zoom in, Zoom out, Zoom reset; Show grid, Show clipping info, Absolute scales, Draw histogram areas,
+/// with the window's defaults - and its resolution. A change of resolution is told, and the counts are made again by
+/// whoever counts them. The header says "RGB" or "Grayscale" and its tool opens the window.
 class AFTERNIGHTCONTROLS_API AnHistogramCard final : public AnReadoutCard
 {
     W_OBJECT(AnHistogramCard)

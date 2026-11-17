@@ -853,9 +853,11 @@ is drawn at 55 % (`kReadoutStaleOpacity`) until the new one lands - a card never
 through an opacity effect at the same share.
 
 - **Histogram** (`AnHistogramCard`): the histogram window's widget in a `bgWell` well of 8 px corners at least 100 px
-  high, which takes the height the other cards leave; under it the window's tools with the window's defaults (Zoom in,
-  Zoom out, Zoom reset; Show grid, Show clipping info, Absolute scales, Draw histogram areas) acting on the widget as the
-  window's do, and its resolution. The header says "RGB" or "Grayscale"; its tool opens the window.
+  high, which takes the height the other cards leave up to a card 248 px high (`kReadoutHistogramCardMaximum`, the
+  mock's): in a taller column the room under the last card is left empty, so the plot is not stretched, and a folded
+  card is its header alone. Under the well the window's tools with the window's defaults (Zoom in, Zoom out, Zoom
+  reset; Show grid, Show clipping info, Absolute scales, Draw histogram areas) acting on the widget as the window's do,
+  and its resolution. The header says "RGB" or "Grayscale"; its tool opens the window.
 - **Statistics** (`AnStatisticsCard`): Min, Max, Mean, Median, StdDev and MAD - the statistics window's figures
   (`components/ReadoutFigures.h`) - in three columns of read-outs for a grey image, a table of a column per colour
   channel headed by its dot (`channelRed`, `channelGreen`, `channelBlue`) for a colour one; the header's segments choose

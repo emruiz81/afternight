@@ -42,7 +42,8 @@ enum class ReadoutCardId : std::uint8_t
 /// The readout column: `surface1` with a hairline at its left, 360 px wide - 320 in a window under 1200 px wide. A
 /// header row - the caps "Readout", the view's full name elided in the middle, a button that collapses the column -
 /// then the Histogram, Statistics, Astrometry and Image cards a card gap apart, the histogram taking the height the
-/// others leave.
+/// others leave up to a card 248 px high (`parts::kReadoutHistogramCardMaximum`); in a taller column the room under the
+/// last card is left empty, so the plot is not stretched.
 ///
 /// **What is remembered.** Which cards are folded is a line of their names (`foldedCards`, "statistics,image"), and
 /// the column's being collapsed a flag: whoever keeps them hands them back (`setFoldedCards`, `setCollapsed`) and is
