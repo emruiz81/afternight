@@ -267,6 +267,121 @@ TEST_F(DockHooksTest, ASubscriberThatLeavesIsAskedNothingMore)
 
 // The main window a widget is in is its first parent that is one, short of a window of its own: a floating window
 // belongs to none, though the library parents it to a main window.
+// One saved layout holds every dock area and every floating window. Applied, a name it holds is the dock widget of
+// that name, moved to where the layout has it and not destroyed though it deletes itself when closed; a name no dock
+// widget has is the one the resolver answers, and one the resolver answers nothing for is skipped. Bytes that are no
+// layout, and a layout that holds a dock area the process lacks, are not applied and move nothing.
+TEST_F(DockHooksTest, ASavedLayoutPutsBackTheDockWidgetsItNamesAndAsksForTheOnesItDoesNotFind)
+{
+    // The second dock area holds two dock widgets side by side; one of them deletes itself when closed, as a view.
+    auto* const selfDeleting =
+        new DockWidget(QStringLiteral("hooks.selfDeleting"), KDDockWidgets::DockWidgetOption_DeleteOnClose);
+    selfDeleting->setWidget(new QLabel(QStringLiteral("self")));
+    m_docks.emplace_back(selfDeleting);
+    m_second->addDockWidget(selfDeleting, KDDockWidgets::Location_OnRight);
+    settleDocks();
+    ASSERT_NE(m_inSecond->group(), selfDeleting->group());
+
+    const QByteArray layout = DockHooks::saveLayout();
+    ASSERT_FALSE(layout.isEmpty());
+    EXPECT_EQ(DockHooks::mainWindowsOf(layout),
+              (QStringList{QStringLiteral("hooks.first"), QStringLiteral("hooks.second")}));
+    EXPECT_TRUE(DockHooks::mainWindowsOf(QByteArrayLiteral("not a layout")).isEmpty());
+
+    // The arrangement changes: everything as tabs of the first dock area. One dock widget is destroyed, and another
+    // made under a name the layout does not know stands for it.
+    m_inFirst->addDockWidgetAsTab(selfDeleting);
+    m_inFirst->addDockWidgetAsTab(m_inSecond);
+    settleDocks();
+    delete m_inSecond;
+    m_inSecond = nullptr;
+    settleDocks();
+    DockWidget* const standIn = dockWidget(QStringLiteral("hooks.standIn"));
+    const QPointer<DockWidget> selfDeletingGuard(selfDeleting);
+
+    QStringList asked;
+    ASSERT_TRUE(DockHooks::restoreLayout(layout, [&](const QString& name) -> DockWidget* {
+        asked.append(name);
+        return name == QStringLiteral("hooks.inSecond") ? standIn : nullptr;
+    }));
+    settleDocks();
+
+    // The library may ask for a name more than once; it asks for no name a dock widget has.
+    asked.removeDuplicates();
+    EXPECT_EQ(asked, QStringList{QStringLiteral("hooks.inSecond")})
+        << "a name a dock widget has is that dock widget, and is not asked for";
+    ASSERT_FALSE(selfDeletingGuard.isNull()) << "a dock widget on screen was destroyed by the layout that moved it";
+    EXPECT_EQ(DockHooks::mainWindowHolding(selfDeleting), m_second);
+    EXPECT_EQ(DockHooks::mainWindowHolding(standIn), m_second);
+    EXPECT_NE(standIn->group(), selfDeleting->group());
+    EXPECT_EQ(DockHooks::mainWindowHolding(m_inFirst), m_first);
+    EXPECT_TRUE(selfDeleting->options() & KDDockWidgets::DockWidgetOption_DeleteOnClose)
+        << "the dock widget deletes itself when closed again, once the layout is applied";
+    EXPECT_EQ(Config::self().dockWidgetFactoryFunc(), nullptr) << "the resolver outlived the layout it answered";
+
+    // A name nothing stands for is skipped, and the layout is applied all the same.
+    delete standIn;
+    settleDocks();
+    EXPECT_TRUE(DockHooks::restoreLayout(layout, {}));
+    settleDocks();
+    EXPECT_EQ(DockHooks::mainWindowHolding(selfDeleting), m_second);
+
+    // What is no layout, and a layout of a dock area that is not there, move nothing.
+    m_inFirst->addDockWidgetAsTab(selfDeleting);
+    settleDocks();
+    EXPECT_FALSE(DockHooks::restoreLayout(QByteArrayLiteral("{\"mainWindows\": 3}"), {}));
+    QByteArray elsewhere = layout;
+    elsewhere.replace("\"hooks.second\"", "\"hooks.absent\"");
+    EXPECT_FALSE(DockHooks::restoreLayout(elsewhere, {}));
+    settleDocks();
+    EXPECT_EQ(DockHooks::mainWindowHolding(selfDeleting), m_first)
+        << "a layout that was not applied moved a dock widget";
+}
+
+// A dock widget that deletes itself when closed and has lost its guest - a view deleted from under it - is in no
+// layout taken afterwards, and a layout that names it is applied without it: the library would write it as a closed
+// dock widget and show a guest it does not have.
+TEST_F(DockHooksTest, ADockWidgetThatLostItsGuestIsDestroyedBeforeALayoutIsTakenOrApplied)
+{
+    const auto makeViewLike = [this](const QString& name) {
+        auto* const dock = new DockWidget(name, KDDockWidgets::DockWidgetOption_DeleteOnClose);
+        dock->setWidget(new QLabel(name));
+        m_docks.emplace_back(dock);
+        m_second->addDockWidget(dock, KDDockWidgets::Location_OnRight);
+        return QPointer<DockWidget>(dock);
+    };
+    const QPointer<DockWidget> named = makeViewLike(QStringLiteral("hooks.namedByALayout"));
+    const QPointer<DockWidget> unnamed = makeViewLike(QStringLiteral("hooks.inNoLayout"));
+    settleDocks();
+    const QByteArray layout = DockHooks::saveLayout();
+    ASSERT_TRUE(layout.contains("\"hooks.namedByALayout\""));
+
+    // The guests go, as views deleted and not closed do; the dock widgets stay behind.
+    delete named->findChild<QLabel*>();
+    delete unnamed->findChild<QLabel*>();
+    settleDocks();
+    ASSERT_FALSE(named.isNull());
+
+    // The layout that names one of them is applied without it.
+    EXPECT_TRUE(DockHooks::restoreLayout(layout, {}));
+    settleDocks();
+    EXPECT_TRUE(named.isNull()) << "a dock widget with no guest outlived the layout that names it";
+    EXPECT_TRUE(unnamed.isNull());
+    EXPECT_EQ(DockHooks::mainWindowHolding(m_inSecond), m_second);
+
+    // And one left behind since is in no layout taken afterwards.
+    const QPointer<DockWidget> later = makeViewLike(QStringLiteral("hooks.leftBehindLater"));
+    settleDocks();
+    delete later->findChild<QLabel*>();
+    settleDocks();
+    const QByteArray after = DockHooks::saveLayout();
+    EXPECT_TRUE(later.isNull());
+    EXPECT_FALSE(after.contains("\"hooks.leftBehindLater\""));
+    // A dock widget that keeps itself when closed is not the hooks' to destroy, guest or no guest.
+    EXPECT_NE(m_floating, nullptr);
+    EXPECT_TRUE(after.contains("\"hooks.floating\""));
+}
+
 TEST_F(DockHooksTest, FindsTheMainWindowAWidgetIsInAndNoneForAFloatingWindow)
 {
     EXPECT_EQ(DockHooks::mainWindowHolding(m_inFirst), m_first);

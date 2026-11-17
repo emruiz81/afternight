@@ -50,6 +50,8 @@ using an::ui::shell::ProjectObjectSource;
 using an::ui::shell::ProjectOutcome;
 using an::ui::shell::ProjectRefusal;
 using an::ui::shell::ProjectService;
+using an::ui::shell::ProjectWorkspace;
+using an::ui::shell::ProjectWorkspaceView;
 using an::ui::shell::RecentProject;
 using Change = an::ui::shell::ProjectService::Change;
 
@@ -607,6 +609,133 @@ TEST_F(ProjectServiceCase, ImagesAreAddedAndRemoved)
         an::ui::shell::readProjectDocument(QDir(folder).filePath(QStringLiteral("project.anproj")));
     ASSERT_TRUE(after.isRead());
     EXPECT_EQ(*after.document, *m_service->current());
+}
+
+// The workspaces a project was left with are recorded whole - their names, their locks, the images each showed, the
+// one used last, the images that floated - in place of the ones recorded before, and read back when the project is
+// opened again. What a document does not take is refused and the record stays; an image the project forgets leaves
+// every view of it.
+TEST_F(ProjectServiceCase, TheWorkspacesAreRecordedWholeAndReadBack)
+{
+    EXPECT_FALSE(m_service->setWorkspaces({}, {})) << "no project is open";
+
+    const QString folder = make(QStringLiteral("Workspaces"));
+    touch(under(QStringLiteral("L.fits")));
+    touch(under(QStringLiteral("R.fits")));
+    const QString luminance = m_service->addImage(under(QStringLiteral("L.fits")), ProjectImageKind::Image)->id;
+    const QString red = m_service->addImage(under(QStringLiteral("R.fits")), ProjectImageKind::Image)->id;
+    m_changes.clear();
+
+    ProjectWorkspace first;
+    first.id = QStringLiteral("1");
+    first.name = QStringLiteral("Workspace 1");
+    first.locked = true;
+    first.views.push_back(ProjectWorkspaceView{luminance, QStringLiteral("an.view.a")});
+    ProjectWorkspace second;
+    second.id = QStringLiteral("2");
+    second.name = QStringLiteral("Colour");
+    second.last = true;
+    const std::vector<ProjectWorkspace> workspaces{first, second};
+    const std::vector<ProjectWorkspaceView> floating{ProjectWorkspaceView{red, QStringLiteral("an.view.b")}};
+
+    ASSERT_TRUE(m_service->setWorkspaces(workspaces, floating));
+    EXPECT_EQ(m_changes, std::vector<Change>{Change::Workspaces});
+    EXPECT_EQ(m_service->current()->workspaces, workspaces);
+    EXPECT_EQ(m_service->current()->floatingViews, floating);
+
+    // Closed and opened again, the record is what was written.
+    ASSERT_TRUE(m_service->close());
+    ASSERT_TRUE(m_service->open(folder).ok());
+    EXPECT_EQ(m_service->current()->workspaces, workspaces);
+    EXPECT_EQ(m_service->current()->floatingViews, floating);
+
+    // What a document does not take is refused, and the record stays as it was.
+    m_changes.clear();
+    std::vector<ProjectWorkspace> twice{first, first};
+    EXPECT_FALSE(m_service->setWorkspaces(twice, {})) << "two workspaces of one id were recorded";
+    EXPECT_FALSE(m_service->setWorkspaces(
+        workspaces, {ProjectWorkspaceView{QStringLiteral("no-such-image"), QStringLiteral("an.view.c")}}))
+        << "a floating view of an image the project does not hold was recorded";
+    EXPECT_TRUE(m_changes.empty());
+    EXPECT_EQ(m_service->current()->workspaces, workspaces);
+    EXPECT_EQ(m_service->current()->floatingViews, floating);
+
+    // An image the project forgets leaves the workspace that listed it, and floats no more.
+    ASSERT_TRUE(m_service->removeImage(red));
+    EXPECT_TRUE(m_service->current()->floatingViews.empty());
+    ASSERT_TRUE(m_service->removeImage(luminance));
+    EXPECT_TRUE(m_service->current()->workspaces.front().views.empty());
+    EXPECT_EQ(m_service->current()->workspaces.size(), 2u) << "a workspace went with its last image";
+}
+
+// The open project is left only when its guard lets it go: asked before `close()` closes it, and before another takes
+// its place once that one is sure to open - never for a project that is refused anyway. A guard that answers false
+// keeps the project open: `close()` answers false, the other project is refused saying so and its lock is released.
+TEST_F(ProjectServiceCase, TheOpenProjectIsLeftOnlyWhenItsGuardLetsItGo)
+{
+    int asked = 0;
+    bool lets = false;
+    QString openWhenAsked;
+    m_service->setLeaveGuard([&]() {
+        ++asked;
+        openWhenAsked = m_service->currentFolder();
+        return lets;
+    });
+
+    // With no project open there is nothing to leave.
+    const QString first = make(QStringLiteral("First"));
+    EXPECT_EQ(asked, 0);
+    ProjectService other;
+    const ProjectOutcome made = other.create(requestFor(QStringLiteral("Second"), root()));
+    ASSERT_TRUE(made.ok()) << made.why.toStdString();
+    const QString second = made.folder;
+    ASSERT_TRUE(other.close());
+
+    // Kept: the project stays open, whatever asked to leave it.
+    EXPECT_FALSE(m_service->close());
+    EXPECT_EQ(asked, 1);
+    EXPECT_EQ(openWhenAsked, first) << "the guard is asked while the project is still the open one";
+    EXPECT_EQ(m_service->currentFolder(), first);
+
+    const ProjectOutcome kept = m_service->open(second);
+    ASSERT_FALSE(kept.ok());
+    EXPECT_EQ(*kept.refusal, ProjectRefusal::OpenProjectKept);
+    EXPECT_FALSE(kept.why.isEmpty());
+    EXPECT_EQ(asked, 2);
+    EXPECT_EQ(m_service->currentFolder(), first);
+    EXPECT_FALSE(QFileInfo::exists(QDir(second).filePath(QStringLiteral(".lock"))))
+        << "the project that did not open keeps its lock";
+
+    const ProjectOutcome notMade = m_service->create(requestFor(QStringLiteral("Third"), root()));
+    ASSERT_FALSE(notMade.ok());
+    EXPECT_EQ(*notMade.refusal, ProjectRefusal::OpenProjectKept);
+    EXPECT_EQ(asked, 3);
+    EXPECT_FALSE(QFileInfo::exists(under(QStringLiteral("Third")))) << "a project that was not made left its folder";
+    EXPECT_EQ(m_service->currentFolder(), first);
+
+    // A project that is refused anyway asks nothing: the open one is not left for it.
+    EXPECT_FALSE(m_service->open(under(QStringLiteral("No project here"))).ok());
+    EXPECT_EQ(asked, 3);
+    // The project that is open already is answered as open, and nothing is left.
+    EXPECT_TRUE(m_service->open(first).ok());
+    EXPECT_EQ(asked, 3);
+
+    // Let go: the other project takes its place, and close closes.
+    lets = true;
+    ASSERT_TRUE(m_service->open(second).ok());
+    EXPECT_EQ(asked, 4);
+    EXPECT_EQ(openWhenAsked, first);
+    EXPECT_EQ(m_service->currentFolder(), second);
+    ASSERT_TRUE(m_service->close());
+    EXPECT_EQ(asked, 5);
+    EXPECT_FALSE(m_service->isOpen());
+
+    // With the guard taken back, nothing is asked.
+    ASSERT_TRUE(m_service->open(first).ok());
+    m_service->setLeaveGuard({});
+    lets = false;
+    ASSERT_TRUE(m_service->close());
+    EXPECT_EQ(asked, 5);
 }
 
 // A project moved with its images - the folder renamed, another drive - finds each image through its path from the

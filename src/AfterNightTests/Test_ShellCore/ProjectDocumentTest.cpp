@@ -79,8 +79,10 @@ using an::ui::shell::ProjectWorkspaceView;
     workspace.name = QStringLiteral("Workspace 1");
     workspace.views.push_back(ProjectWorkspaceView{QStringLiteral("image-1"), QStringLiteral("L")});
     workspace.last = true;
+    workspace.locked = true;
     document.workspaces.push_back(workspace);
     document.workspaces.push_back(ProjectWorkspace{QStringLiteral("workspace-2"), QStringLiteral("Colour"), {}, false});
+    document.floatingViews.push_back(ProjectWorkspaceView{QStringLiteral("image-2"), QStringLiteral("jupiter")});
     document.integrations.push_back(ProjectIntegration{QStringLiteral("job-1"), QStringLiteral("Carina LRGB"),
                                                        QStringLiteral("integration/job-1")});
     document.lastOpened = utc(2026, 7, 28, 1, 31);
@@ -312,6 +314,16 @@ TEST(ProjectDocument, AMissingOrImpossibleMemberIsAnErrorThatNamesIt)
         workspaces.replace(1, second);
         stored.insert(QStringLiteral("workspaces"), workspaces);
     });
+    invalid("a lock that is no yes or no", changeFirst("workspaces", [](QJsonObject& workspace) {
+                workspace.insert(QStringLiteral("locked"), QStringLiteral("yes"));
+            }));
+    invalid("floating views that are no list",
+            [](QJsonObject& stored) { stored.insert(QStringLiteral("floating"), QStringLiteral("jupiter")); });
+    invalid("a floating view that names no dock widget",
+            changeFirst("floating", [](QJsonObject& view) { view.remove(QStringLiteral("dockWidget")); }));
+    invalid("a floating view of an image the project does not hold", changeFirst("floating", [](QJsonObject& view) {
+                view.insert(QStringLiteral("image"), QStringLiteral("image-9"));
+            }));
     invalid("an integration with no folder", changeFirst("integrations", [](QJsonObject& integration) {
                 integration.insert(QStringLiteral("folder"), QString());
             }));
@@ -321,6 +333,51 @@ TEST(ProjectDocument, AMissingOrImpossibleMemberIsAnErrorThatNamesIt)
         readChanged([](QJsonObject& stored) { stored.insert(QStringLiteral("colour"), QStringLiteral("teal")); });
     ASSERT_TRUE(extra.isRead()) << extra.why.toStdString();
     EXPECT_EQ(*extra.document, fullDocument());
+}
+
+// A workspace states its lock and the project the images that floated in windows of their own, each by the image
+// it showed and the name its dock widget had. Both were stated later than the other members: a document that states
+// neither reads with no workspace locked and no image floating, and is written again stating both.
+TEST(ProjectDocument, AWorkspaceStatesItsLockAndTheProjectItsFloatingImages)
+{
+    const QJsonObject stored = storedObject(fullDocument());
+    const QJsonArray workspaces = stored.value(QStringLiteral("workspaces")).toArray();
+    ASSERT_EQ(workspaces.size(), 2);
+    EXPECT_TRUE(workspaces.at(0).toObject().value(QStringLiteral("locked")).toBool());
+    ASSERT_TRUE(workspaces.at(1).toObject().value(QStringLiteral("locked")).isBool());
+    EXPECT_FALSE(workspaces.at(1).toObject().value(QStringLiteral("locked")).toBool());
+    const QJsonArray floating = stored.value(QStringLiteral("floating")).toArray();
+    ASSERT_EQ(floating.size(), 1);
+    EXPECT_EQ(floating.at(0).toObject().value(QStringLiteral("image")).toString(), QStringLiteral("image-2"));
+    EXPECT_EQ(floating.at(0).toObject().value(QStringLiteral("dockWidget")).toString(), QStringLiteral("jupiter"));
+
+    const ProjectDocumentRead read = an::ui::shell::parseProjectDocument(bytesOf(stored));
+    ASSERT_TRUE(read.isRead()) << read.why.toStdString();
+    EXPECT_TRUE(read.document->workspaces.at(0).locked);
+    EXPECT_FALSE(read.document->workspaces.at(1).locked);
+    ASSERT_EQ(read.document->floatingViews.size(), 1u);
+    EXPECT_EQ(read.document->floatingViews.front(),
+              (ProjectWorkspaceView{QStringLiteral("image-2"), QStringLiteral("jupiter")}));
+
+    // A document written before either was stated.
+    const ProjectDocumentRead earlier = readChanged([](QJsonObject& document) {
+        document.remove(QStringLiteral("floating"));
+        QJsonArray listed = document.value(QStringLiteral("workspaces")).toArray();
+        for (qsizetype index = 0; index < listed.size(); ++index)
+        {
+            QJsonObject workspace = listed.at(index).toObject();
+            workspace.remove(QStringLiteral("locked"));
+            listed.replace(index, workspace);
+        }
+        document.insert(QStringLiteral("workspaces"), listed);
+    });
+    ASSERT_TRUE(earlier.isRead()) << earlier.why.toStdString();
+    EXPECT_FALSE(earlier.document->workspaces.at(0).locked);
+    EXPECT_TRUE(earlier.document->floatingViews.empty());
+    const QJsonObject again = storedObject(*earlier.document);
+    EXPECT_TRUE(again.value(QStringLiteral("floating")).isArray());
+    EXPECT_TRUE(
+        again.value(QStringLiteral("workspaces")).toArray().at(0).toObject().contains(QStringLiteral("locked")));
 }
 
 // The reader of a file: the document, a file that is not there, and one larger than a document is.

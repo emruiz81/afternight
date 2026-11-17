@@ -59,6 +59,11 @@ public:
 
     /// Adds a workspace at the end, named `name` or "Workspace N" when it is empty, and answers its id.
     QString create(const QString& name = {});
+    /// Adds a workspace at the end under an id it had when it was recorded - a project's - named as `create` names it.
+    /// No workspace made afterwards is given that id, nor a number an id of digits states or passes.
+    ///
+    /// @return the id; empty, with nothing added, for an empty id or one the model holds.
+    QString createWithId(const QString& id, const QString& name = {});
     /// Renames a workspace, its name's ends trimmed; false for an empty name or an id the model does not hold.
     bool rename(const QString& id, const QString& name);
     /// Closes a workspace; false for the only one or an id the model does not hold.

@@ -85,7 +85,10 @@ enum class ProjectRefusal : std::uint8_t
     Locked,
 
     /// The folder, the lock or the document could not be written.
-    WriteFailed
+    WriteFailed,
+
+    /// The project that is open was not left - what leaves it kept it open - so no other takes its place.
+    OpenProjectKept
 };
 
 /// What making or opening a project came to.
@@ -200,6 +203,12 @@ enum class ProjectFolderState : std::uint8_t
 /// `open` reads a folder's document and opens it. One project is open at a time: making or opening another closes the
 /// one that was, once the new one is open - a refusal leaves the open project as it was.
 ///
+/// **Leaving a project.** What a shell does as the open project is left - keep its arrangement, close its images - is
+/// asked through the leave guard: before `close()` closes the project, and before another takes its place, once that
+/// one is read, locked and sure to open. A guard that answers false keeps the open project: `close()` answers false,
+/// and the other project is refused as `ProjectRefusal::OpenProjectKept`, its lock released. The service's end asks
+/// nothing.
+///
 /// **The lock.** While a project is open its `.lock` is held (`QLockFile`, with no stale time). The application runs
 /// once on a machine, so a lock is met in two cases only. One left by a process that no longer runs on this machine -
 /// a crash - is taken over without a question. Any other - a folder shared with another machine or another user - is
@@ -210,6 +219,10 @@ enum class ProjectFolderState : std::uint8_t
 /// with its path and its path from the project's folder, and stamps when it was opened; an image whose file moved with
 /// the project is found again through that relative path, and its record follows it. `removeImage` forgets one, and
 /// the views of it its workspaces listed.
+///
+/// **Workspaces.** A project records the workspaces it was left with - their names, their locks, the images each
+/// showed and which was used last - and the images that floated (`setWorkspaces`): what a shell that keeps a project's
+/// arrangement writes as the project is left and reads as it is opened.
 ///
 /// **Storage.** What the open project takes on disk is measured on the thread pool (`storageReport`) and told on the
 /// GUI thread: each image's undo history, the integration data, the rest and what is free on the drive.
@@ -240,7 +253,10 @@ public:
         Images,
 
         /// The projects used last changed.
-        Recents
+        Recents,
+
+        /// The open project's record of its workspaces changed.
+        Workspaces
     };
 
     using Observer = std::function<void(Change change)>;
@@ -280,8 +296,15 @@ public:
     /// Opens the project used last when the settings ask for it at the start and name one; nothing otherwise.
     [[nodiscard]] std::optional<ProjectOutcome> openLastIfAsked();
 
-    /// Closes the open project and releases its lock; false with none open.
+    /// Closes the open project and releases its lock; false with none open, or when the leave guard kept it open.
     bool close();
+
+    /// Asked before the open project is left; false keeps it open.
+    using LeaveGuard = std::function<bool()>;
+
+    /// What is asked before the open project is left - closed, or given way to another; empty asks nothing. The guard
+    /// is the caller's and outlives the service, or is taken back first.
+    void setLeaveGuard(LeaveGuard guard);
 
     [[nodiscard]] bool isOpen() const noexcept;
 
@@ -334,6 +357,17 @@ public:
     /// The folder the steps of an image's history are kept in: `history/<image id>` in the project's folder. Empty with
     /// no project open or for an id that is none.
     [[nodiscard]] QString historyDirectoryFor(const QString& imageId) const;
+
+    // ---- Workspaces
+
+    /// Records the open project's workspaces - each with its name, its lock, the images it showed and whether it is the
+    /// one used last - and the images that floated in windows of their own, in place of the ones it recorded. The
+    /// document is written whole.
+    ///
+    /// @return false with no project open, when what is stated is not what a document takes - two workspaces of one
+    ///         id, a view of an image the project does not hold - or when the document could not be written; the
+    ///         record then stays as it was.
+    bool setWorkspaces(std::vector<ProjectWorkspace> workspaces, std::vector<ProjectWorkspaceView> floatingViews);
 
     // ---- Storage
 

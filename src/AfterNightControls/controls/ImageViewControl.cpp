@@ -67,6 +67,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QThreadPool>
+#include <QUuid>
 #include <verdigris/wobjectimpl.h>
 
 #include <algorithm>
@@ -1299,8 +1300,13 @@ KDDockWidgets::QtWidgets::DockWidget* ImageViewControl::getDockWidget()
     {
         auto title = QString::fromUtf8(getUniqueName());
 
+        // The dock library tells its dock widgets apart by a name each keeps for good, and a saved layout names a
+        // view by it. It is the dock widget's own, never the view's title: a view is renamed, another may then take
+        // the name it had, and two dock widgets of one name are a layout the library refuses to write.
+        const QString dockName = QStringLiteral("an.view.") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+
         KDDockWidgets::DockWidgetOptions options = KDDockWidgets::DockWidgetOption_DeleteOnClose;
-        m_DockWidget = new CustomDockWidget(title, options);
+        m_DockWidget = new CustomDockWidget(dockName, options);
         m_DockWidget->setWidget(this);
         m_DockWidget->setTitle(title);
 

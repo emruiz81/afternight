@@ -79,6 +79,9 @@ ProjectFlows::ProjectFlows(QWidget& window, an::ui::shell::ApplicationCore& core
     m_chooseFolder = [this](QWidget* parent, const QString& caption, const QString& start) {
         return an::ui::dialogs::getExistingDirectory(m_core.globalSettingsStore(), parent, caption, start);
     };
+    m_chooseFile = [this](QWidget* parent, const QString& caption, const QString& start) {
+        return an::ui::dialogs::getOpenFileName(m_core.globalSettingsStore(), parent, caption, start);
+    };
 
     QObject::connect(m_actions.action(ids::kNewProject), &QAction::triggered, this, [this]() { newProject(); });
     QObject::connect(m_actions.action(ids::kOpenProject), &QAction::triggered, this, [this]() { openProject(); });
@@ -101,6 +104,16 @@ ProjectFlows::~ProjectFlows()
 void ProjectFlows::setFolderChooser(FolderChooser chooser)
 {
     m_chooseFolder = std::move(chooser);
+}
+
+void ProjectFlows::setFileChooser(FileChooser chooser)
+{
+    m_chooseFile = std::move(chooser);
+}
+
+QMessageBox* ProjectFlows::missingImagesMessage() const noexcept
+{
+    return m_missing.data();
 }
 
 an::ui::NewProjectDialog* ProjectFlows::newProjectDialog() const noexcept
@@ -259,10 +272,18 @@ void ProjectFlows::openProject()
 
 void ProjectFlows::openProjectFolder(const QString& folder, const ProjectLockPolicy policy)
 {
-    const ProjectOutcome opened = m_core.projects().open(folder, policy);
+    ProjectService& projects = m_core.projects();
+    const QString before = projects.currentFolder();
+    const ProjectOutcome opened = projects.open(folder, policy);
     if (!opened.ok())
     {
         say(opened);
+        return;
+    }
+    // A project that opened - not the one that was open already - gets its workspaces and its images back.
+    if (before.compare(projects.currentFolder(), kPathCase) != 0 && m_hooks.restoreArrangement)
+    {
+        (void)m_hooks.restoreArrangement();
     }
 }
 
@@ -287,9 +308,19 @@ void ProjectFlows::projectSettings()
 void ProjectFlows::restoreLastProject()
 {
     const std::optional<ProjectOutcome> restored = m_core.projects().openLastIfAsked();
-    if (restored.has_value() && !restored->ok())
+    if (!restored.has_value())
+    {
+        return;
+    }
+    if (!restored->ok())
     {
         m_restoreRefusal = restored;
+        return;
+    }
+    // The project is open before the window shows; its images open meanwhile, and are arranged once they are.
+    if (m_hooks.restoreArrangement)
+    {
+        (void)m_hooks.restoreArrangement();
     }
 }
 
@@ -380,9 +411,96 @@ void ProjectFlows::refresh()
     m_topBar.refreshProjectMenu();
 }
 
+void ProjectFlows::reportMissingImages(const std::vector<an::ui::shell::ProjectMissingImage>& missing)
+{
+    if (missing.empty())
+    {
+        return;
+    }
+    if (!m_missing.isNull())
+    {
+        m_missing->close();
+    }
+    // One message for all of them, over the window, answered when the person answers it.
+    auto* const box = new QMessageBox(&m_window);
+    box->setObjectName(QStringLiteral("projectMissingImagesMessage"));
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    box->setWindowModality(Qt::WindowModal);
+    box->setIcon(QMessageBox::Warning);
+    box->setWindowTitle(tr("Project"));
+    box->setText(missing.size() == 1
+                     ? tr("An image of this project was not found and was not opened.")
+                     : tr("%1 images of this project were not found and were not opened.").arg(missing.size()));
+    QStringList files;
+    for (const an::ui::shell::ProjectMissingImage& image : missing)
+    {
+        files.append(QDir::toNativeSeparators(image.path));
+    }
+    box->setInformativeText(files.join(QLatin1Char('\n')));
+    QPushButton* const locate = box->addButton(tr("Locate..."), QMessageBox::AcceptRole);
+    locate->setObjectName(QStringLiteral("projectLocateImages"));
+    QPushButton* const remove = box->addButton(tr("Remove from the project"), QMessageBox::DestructiveRole);
+    remove->setObjectName(QStringLiteral("projectRemoveImages"));
+    box->setDefaultButton(box->addButton(QMessageBox::Close));
+    QObject::connect(locate, &QPushButton::clicked, this, [this, missing]() { locateMissingImages(missing); });
+    QObject::connect(remove, &QPushButton::clicked, this, [this, missing]() {
+        // The project forgets them; their files, wherever they are, and their undo history are not touched.
+        for (const an::ui::shell::ProjectMissingImage& image : missing)
+        {
+            (void)m_core.projects().removeImage(image.imageId);
+        }
+    });
+    an::ui::applyModernMessageBoxButtonRoles(*box);
+    m_missing = box;
+    box->open();
+}
+
+void ProjectFlows::locateMissingImages(const std::vector<an::ui::shell::ProjectMissingImage>& missing)
+{
+    if (!m_chooseFile)
+    {
+        return;
+    }
+    ProjectService& projects = m_core.projects();
+    for (const an::ui::shell::ProjectMissingImage& image : missing)
+    {
+        // The project may have closed, or forgotten the image, since the message was shown.
+        if (projects.image(image.imageId) == nullptr)
+        {
+            continue;
+        }
+        // From where the file was, or the nearest folder above it that is still there.
+        QString start = image.path;
+        for (QFileInfo place(start); !place.exists();)
+        {
+            const QString parent = place.absolutePath();
+            if (parent == place.absoluteFilePath() || parent.isEmpty())
+            {
+                start = QDir::homePath();
+                break;
+            }
+            start = parent;
+            place = QFileInfo(start);
+        }
+        const QString found = m_chooseFile(&m_window, tr("Locate %1").arg(QFileInfo(image.path).fileName()), start);
+        if (found.isEmpty())
+        {
+            // The person stopped: the others are asked about the next time the project opens.
+            break;
+        }
+        // The project's record follows the file, and the image opens where the project had it.
+        if (projects.setImagePath(image.imageId, found) && m_hooks.openImage)
+        {
+            m_hooks.openImage(QDir::cleanPath(QDir::fromNativeSeparators(found)), image.imageId);
+        }
+    }
+}
+
 void ProjectFlows::say(const ProjectOutcome& outcome)
 {
-    if (outcome.ok())
+    // A project the person kept open is not said: the question about its image was the person's own answer, and what
+    // keeps a project whose images are still opening says so itself.
+    if (outcome.ok() || *outcome.refusal == ProjectRefusal::OpenProjectKept)
     {
         return;
     }

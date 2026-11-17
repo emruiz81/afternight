@@ -228,6 +228,13 @@ constexpr qsizetype kMaxIdLength = 64;
     {
         return translated("more than one workspace is the one used last (member \"workspaces\")");
     }
+    for (const ProjectWorkspaceView& view : document.floatingViews)
+    {
+        if (!images.contains(view.image))
+        {
+            return translated("a floating view shows an image the project does not hold (member \"floating\")");
+        }
+    }
 
     QSet<QString> integrations;
     for (const ProjectIntegration& integration : document.integrations)
@@ -448,7 +455,10 @@ ProjectDocumentRead parseProjectDocument(const QByteArray& bytes)
         const std::optional<QString> workspaceName = textOf(storedWorkspace, "name");
         const std::optional<std::vector<QJsonObject>> views = objectsOf(storedWorkspace, "views");
         const QJsonValue last = storedWorkspace.value(QLatin1String("last"));
-        if (!workspaceId.has_value() || !workspaceName.has_value() || !views.has_value() || !last.isBool())
+        // A workspace's lock was stated later than its other members: one that states none is not locked.
+        const QJsonValue locked = storedWorkspace.value(QLatin1String("locked"));
+        if (!workspaceId.has_value() || !workspaceName.has_value() || !views.has_value() || !last.isBool() ||
+            (!locked.isUndefined() && !locked.isBool()))
         {
             return invalid(missing("workspaces"));
         }
@@ -456,6 +466,7 @@ ProjectDocumentRead parseProjectDocument(const QByteArray& bytes)
         workspace.id = *workspaceId;
         workspace.name = *workspaceName;
         workspace.last = last.toBool();
+        workspace.locked = locked.toBool(false);
         for (const QJsonObject& storedView : *views)
         {
             const std::optional<QString> image = textOf(storedView, "image");
@@ -467,6 +478,26 @@ ProjectDocumentRead parseProjectDocument(const QByteArray& bytes)
             workspace.views.push_back(ProjectWorkspaceView{*image, *dockWidget});
         }
         document.workspaces.push_back(std::move(workspace));
+    }
+
+    // The floating views were stated later than the other members: a document that states none has none.
+    if (stored.contains(QLatin1String("floating")))
+    {
+        const std::optional<std::vector<QJsonObject>> floating = objectsOf(stored, "floating");
+        if (!floating.has_value())
+        {
+            return invalid(missing("floating"));
+        }
+        for (const QJsonObject& storedView : *floating)
+        {
+            const std::optional<QString> image = textOf(storedView, "image");
+            const std::optional<QString> dockWidget = textOf(storedView, "dockWidget");
+            if (!image.has_value() || !dockWidget.has_value())
+            {
+                return invalid(missing("floating"));
+            }
+            document.floatingViews.push_back(ProjectWorkspaceView{*image, *dockWidget});
+        }
     }
 
     const std::optional<std::vector<QJsonObject>> integrations = objectsOf(stored, "integrations");
@@ -568,9 +599,18 @@ QByteArray formatProjectDocument(const ProjectDocument& document)
         workspaces.append(QJsonObject{{QStringLiteral("id"), workspace.id},
                                       {QStringLiteral("name"), workspace.name},
                                       {QStringLiteral("views"), views},
-                                      {QStringLiteral("last"), workspace.last}});
+                                      {QStringLiteral("last"), workspace.last},
+                                      {QStringLiteral("locked"), workspace.locked}});
     }
     stored.insert(QStringLiteral("workspaces"), workspaces);
+
+    QJsonArray floating;
+    for (const ProjectWorkspaceView& view : document.floatingViews)
+    {
+        floating.append(
+            QJsonObject{{QStringLiteral("image"), view.image}, {QStringLiteral("dockWidget"), view.dockWidget}});
+    }
+    stored.insert(QStringLiteral("floating"), floating);
 
     QJsonArray integrations;
     for (const ProjectIntegration& integration : document.integrations)

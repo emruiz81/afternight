@@ -10,14 +10,17 @@
 /// A project is a folder a person chooses. Its document is one JSON object, of the format `afternight-project` in
 /// version 1, written whole each time it changes: the project's identity and name, when and how it was made, the
 /// object it is about when it has one, how its history's steps are compressed, the images it holds - where each is,
-/// and where it is from the folder, so a project moved with its images still finds them - its workspaces, its
-/// integrations and when it was last opened.
+/// and where it is from the folder, so a project moved with its images still finds them - its workspaces, each
+/// with the images each showed, the images that floated in windows of their own, its integrations and when it was last
+/// opened.
 ///
 /// **Reading answers.** A document is read from bytes a person can copy, edit, truncate or keep from another version,
 /// so a read returns the document or refuses with a reason and never crashes: a file that cannot be read or is larger
 /// than a document is, bytes that are no JSON object, an object of another format, a version this application does not
 /// know - a newer one is refused saying so; there is no older one - and a member that is missing or states what a
-/// project cannot. An id is a name a folder can take, since an image's history is kept in a folder named by it.
+/// project cannot. An id is a name a folder can take, since an image's history is kept in a folder named by it. Two
+/// members were stated later than the others and may be absent: a workspace's lock, read then as not locked, and the
+/// images that floated in windows of their own, read then as none.
 ///
 /// **Writing is whole, or not at all.** A document that its own reader would refuse is not written. The bytes go to a
 /// file beside the document and take its place only once they are complete (`QSaveFile`), so a write that fails leaves
@@ -129,6 +132,9 @@ struct ProjectWorkspace
     /// Whether it is the workspace used last; one at most is.
     bool last = false;
 
+    /// Whether its arrangement was locked.
+    bool locked = false;
+
     [[nodiscard]] bool operator==(const ProjectWorkspace&) const = default;
 };
 
@@ -158,6 +164,10 @@ struct ProjectDocument
 
     std::vector<ProjectImage> images;
     std::vector<ProjectWorkspace> workspaces;
+
+    /// The views that floated in windows of their own: they belong to no workspace.
+    std::vector<ProjectWorkspaceView> floatingViews;
+
     std::vector<ProjectIntegration> integrations;
     QDateTime lastOpened;
 

@@ -120,6 +120,16 @@ QString WorkspaceHost::create(const QString& name)
     return id;
 }
 
+QString WorkspaceHost::createWithId(const QString& id, const QString& name)
+{
+    const QString made = m_model.createWithId(id, name);
+    if (!made.isEmpty())
+    {
+        make(made);
+    }
+    return made;
+}
+
 bool WorkspaceHost::close(const QString& id)
 {
     const an::ui::shell::Workspace* const workspace = m_model.find(id);
@@ -165,6 +175,7 @@ bool WorkspaceHost::close(const QString& id)
         }
         page->hide();
         page->deleteLater();
+        m_closing.emplace_back(id, page);
     }
     return true;
 }
@@ -338,6 +349,18 @@ const WorkspaceHost::Workspace* WorkspaceHost::find(const QString& id) const
 
 void WorkspaceHost::make(const QString& id)
 {
+    // A workspace closed a moment ago under this id still holds a dock area of its name until its page is deleted,
+    // and the dock library tells dock areas apart by their names: that page goes now.
+    for (const auto& [closedId, page] : m_closing)
+    {
+        if (closedId == id && !page.isNull())
+        {
+            delete page.data();
+        }
+    }
+    std::erase_if(m_closing,
+                  [](const std::pair<QString, QPointer<WorkspacePage>>& closing) { return closing.second.isNull(); });
+
     Workspace workspace;
     workspace.id = id;
     const QString name = QString::fromLatin1(kWorkspaceNamePrefix) + id;

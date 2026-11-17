@@ -286,9 +286,11 @@ the ids of `ActionIds.h`, which a shell's window hosts while it lives; `ActionBi
 tab's menus), `commands/` (`CommandIndex`, every command the palette searches, with no widget, and its
 providers), `readout/ReadoutController` (what the readout column and a task's compact readout show, measured on the
 thread pool as a preview that never waits, never on the GUI thread), `projects/` (`ProjectDocument`, a project folder's
-`project.anproj` read and written whole, `ProjectService`, the project that is open, its lock and the ones used
-last, and `ProjectHistoryBinder`, which keeps the undo history of a project's images in its folder: no widget, no
-dialog), `views/DockHooks` (the only setter of the dock library's process-wide configuration and hooks) and
+`project.anproj` read and written whole, `ProjectService`, the project that is open, its lock, the ones used
+last and the guard asked before it is left, `ProjectHistoryBinder`, which keeps the undo history of a project's images
+in its folder, and `ProjectLayoutStore`, which keeps a project's workspaces and the images open in them and puts them
+back when it is opened again: no dialog), `views/DockHooks` (the only setter of the dock library's process-wide
+configuration and hooks, and where a saved layout is taken and applied) and
 `views/DockLayoutOperations` (group, split, fit, lock, on a workspace or the only dock area), `views/WorkspaceModel`
 (a shell's workspaces, no widget), `views/ViewChromeBinder` (a floating toolbar and a history strip
 bound to a view whose toolbar is outside it), `services/WindowGeometryStore` and `services/FileDropHandler` -
@@ -325,7 +327,9 @@ the places, the readout column follows the active view (`ReadoutController`), th
 (`widgets/ImageStatusTexts.h`) and the menu bar shows on Alt (`chrome/MenuBarOnAlt`, `interface/alwaysShowMenuBar`)
 while every catalogue action is the window's own. It composes Controls' coordinators as the classic window does;
 processes open as windows of their own. `projects/ProjectFlows` is what the window does about projects: the shell's
-project actions, the top bar's switcher and its menu, and what a project that cannot be opened is said as. Its cases are in
+project actions, the top bar's switcher and its menu, what a project that cannot be opened is said as and the images
+of one that were not found. A project's images close with it, and what it was left with is back when it is opened
+again (`ProjectLayoutStore`). Its cases are in
 `Test_ShellObservatory`, over `ObservatoryWindowCase`.
 
 ### AfterNightApp (`src/AfterNightApp/`)

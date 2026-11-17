@@ -78,6 +78,19 @@ constexpr char kContext[] = "an::ui::shell::ProjectService";
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
 }
 
+/// Takes the views of an image out of a document: the ones its workspaces list, and the ones that floated.
+void forgetViewsOf(ProjectDocument& document, const QString& imageId)
+{
+    const auto shows = [&imageId](const ProjectWorkspaceView& view) { return view.image == imageId; };
+    for (ProjectWorkspace& workspace : document.workspaces)
+    {
+        workspace.views.erase(std::remove_if(workspace.views.begin(), workspace.views.end(), shows),
+                              workspace.views.end());
+    }
+    document.floatingViews.erase(std::remove_if(document.floatingViews.begin(), document.floatingViews.end(), shows),
+                                 document.floatingViews.end());
+}
+
 [[nodiscard]] ProjectOutcome refusedOutcome(const ProjectRefusal refusal, const QString& folder, const QString& why)
 {
     ProjectOutcome outcome;
@@ -259,6 +272,26 @@ struct ProjectService::Impl
 
     std::map<std::size_t, Observer> observers;
     std::size_t nextToken = 1;
+
+    // What is asked before the open project is left, and whether it is being asked: a guard that closes the project
+    // itself is not asked again.
+    LeaveGuard leaveGuard;
+    bool leaving = false;
+
+    /// Whether the open project may be left: there is none, or its guard lets it go.
+    [[nodiscard]] bool mayLeave()
+    {
+        if (!document.has_value() || !leaveGuard || leaving)
+        {
+            return true;
+        }
+        leaving = true;
+        // The guard may take itself back while it answers.
+        const LeaveGuard guard = leaveGuard;
+        const bool left = guard();
+        leaving = false;
+        return left;
+    }
 
     // Says, to a report measured on a worker, whether the service is still there to be told.
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
@@ -551,6 +584,15 @@ ProjectOutcome ProjectService::create(const ProjectCreateRequest& request)
         undo();
         return refusedOutcome(ProjectRefusal::WriteFailed, folder, problem);
     }
+    // The new project is sure to open: the one that is open is left now, or kept, and then nothing was made.
+    if (!impl.mayLeave())
+    {
+        attempt.lock->unlock();
+        attempt.lock.reset();
+        undo();
+        return refusedOutcome(ProjectRefusal::OpenProjectKept, folder,
+                              translated("The project that is open was not closed, so no project was made."));
+    }
 
     impl.adopt(folder, std::move(document), std::move(attempt.lock));
     ProjectOutcome outcome;
@@ -598,6 +640,15 @@ ProjectOutcome ProjectService::open(const QString& folder, const ProjectLockPoli
         attempt.lock->unlock();
         return refusedOutcome(ProjectRefusal::WriteFailed, place, problem);
     }
+    // The project is sure to open: the one that is open is left now, or kept.
+    if (!impl.mayLeave())
+    {
+        attempt.lock->unlock();
+        attempt.lock.reset();
+        return refusedOutcome(
+            ProjectRefusal::OpenProjectKept, place,
+            translated("The project that is open was not closed, so '%1' was not opened.").arg(native(place)));
+    }
 
     impl.adopt(place, std::move(document), std::move(attempt.lock));
     ProjectOutcome outcome;
@@ -625,12 +676,17 @@ std::optional<ProjectOutcome> ProjectService::openLastIfAsked()
 
 bool ProjectService::close()
 {
-    if (!m_impl->release())
+    if (!m_impl->mayLeave() || !m_impl->release())
     {
         return false;
     }
     m_impl->tell(Change::Closed);
     return true;
+}
+
+void ProjectService::setLeaveGuard(LeaveGuard guard)
+{
+    m_impl->leaveGuard = std::move(guard);
 }
 
 bool ProjectService::isOpen() const noexcept
@@ -703,14 +759,8 @@ bool ProjectService::removeImage(const QString& imageId)
     }
     ProjectDocument changed = *impl.document;
     changed.images.erase(changed.images.begin() + index);
-    // No workspace lists a view of an image the project no longer holds.
-    for (ProjectWorkspace& workspace : changed.workspaces)
-    {
-        workspace.views.erase(
-            std::remove_if(workspace.views.begin(), workspace.views.end(),
-                           [&imageId](const ProjectWorkspaceView& view) { return view.image == imageId; }),
-            workspace.views.end());
-    }
+    // No workspace lists a view of an image the project no longer holds, and none floats.
+    forgetViewsOf(changed, imageId);
     if (!impl.commit(std::move(changed)))
     {
         return false;
@@ -747,13 +797,7 @@ bool ProjectService::setImagePath(const QString& imageId, const QString& filePat
     {
         const QString otherId = changed.images[static_cast<std::size_t>(other)].id;
         changed.images.erase(changed.images.begin() + other);
-        for (ProjectWorkspace& workspace : changed.workspaces)
-        {
-            workspace.views.erase(
-                std::remove_if(workspace.views.begin(), workspace.views.end(),
-                               [&otherId](const ProjectWorkspaceView& view) { return view.image == otherId; }),
-                workspace.views.end());
-        }
+        forgetViewsOf(changed, otherId);
         if (other < index)
         {
             --index;
@@ -800,6 +844,26 @@ QString ProjectService::locateImage(const QString& imageId)
         impl.tell(Change::Images);
     }
     return moved;
+}
+
+bool ProjectService::setWorkspaces(std::vector<ProjectWorkspace> workspaces,
+                                   std::vector<ProjectWorkspaceView> floatingViews)
+{
+    Impl& impl = *m_impl;
+    if (!impl.document.has_value())
+    {
+        return false;
+    }
+    ProjectDocument changed = *impl.document;
+    changed.workspaces = std::move(workspaces);
+    changed.floatingViews = std::move(floatingViews);
+    // What a document does not take is not written, and the record stays as it was.
+    if (!impl.commit(std::move(changed)))
+    {
+        return false;
+    }
+    impl.tell(Change::Workspaces);
+    return true;
 }
 
 QString ProjectService::historyDirectoryFor(const QString& imageId) const

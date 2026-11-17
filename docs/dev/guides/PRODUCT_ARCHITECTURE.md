@@ -921,7 +921,18 @@ none of it is the library's documented promise and each fact decides how a windo
   saver. And `openedDockWidgetsInLayout` names only the dock widgets that were on screen when the layout was saved -
   not a tab behind another, not a page that was not shown - so what was open is recorded beside the layout, not read
   from it. Restored with `RestoreOption_RelativeToMainWindow`, a layout leaves the window that holds the main windows
-  where it is; without it the library sets that window's geometry once for each main window in it.
+  where it is; without it the library sets that window's geometry once for each main window in it. Three more things
+  were met when a project came to keep one, and the shell core's `DockHooks` answers each ("Projects"). The library
+  fits a layout to the size its main window has as the layout is applied, and a main window that was never on screen
+  has none of its own: a layout squeezed into it loses where its splitters were, so one that is not on screen is
+  first given the size its layout was saved at and laid out at it. A name the registry does not find is asked of one
+  factory for the process, which may answer a dock widget of another name; that is how a layout's names reach dock
+  widgets made again. And the library goes on naming the guest of a dock widget whose guest was deleted, writes that
+  dock widget into a layout and shows its guest when it applies one: a dock widget that deletes itself when closed and
+  has no child widget left is destroyed before a layout is taken or applied.
+- **A dock widget's name is its own.** The library tells dock widgets apart by a name each keeps for good, and refuses
+  to write a layout while two share one. A view's dock widget is therefore named by a token made for it
+  (`an.view.` and a UUID), never by the view's title: a view is renamed, and another may then take the name it had.
 - **The hooks.** `setDragAboutToStartFunc`, `setDropIndicatorAllowedFunc` and `setDragEndedFunc` each take one plain
   function for the process. The first is asked again at every move while the button is down, so it is a question and
   not an event; it can answer by the main window its draggable is inside, found among the draggable's parent widgets.
@@ -1753,7 +1764,10 @@ library as it is made (`DockHooks::configure`, once for the process, from the de
 takes its flags and its minimum only before the first dock widget or main window exists, so no shell has made one yet),
 and the dispatcher installed as the three hooks answers for any number of subscribers - a drag or an indicator allowed
 when every subscriber allows it, the end of a drag told to each with the main window and the dock widget the drag that
-ended named, which the library does not say. `DockLayoutOperations` acts on a dock area the shell names (`DockTarget`)
+ended named, which the library does not say. A saved layout is the process's as well - one blob for every main window
+and floating window, and one factory the library asks for a name it does not find - so `DockHooks` is also where a
+layout is taken and applied (`saveLayout`, `restoreLayout` with a resolver of names; "The dock area" says what the
+library does there that had to be answered). `DockLayoutOperations` acts on a dock area the shell names (`DockTarget`)
 or on the window a view is in: it gathers the views into one tab group, splits them into a grid of equal shares, fits
 them to their windows, and locks the arrangement. A workspace's target (one that names a workspace) takes the views
 docked in its dock area alone (`viewsDockedIn`: a view in a floating window is in none); a shell's only dock area (a
@@ -2160,7 +2174,9 @@ never opens one.
 
 **The folder and its document.** `project.anproj` is one JSON object of the format `afternight-project`, version 1
 (`projects/ProjectDocument.h`): the project's id and name, when and how it was made, its object when it has one, how
-its history's steps are compressed, its images, its workspaces, its integrations and when it was last opened. Beside it
+its history's steps are compressed, its images, its workspaces, the images that floated, its integrations and when it
+was last opened. A workspace's lock and the floating images were stated later than the rest and may be absent, read
+as not locked and none. Beside it
 the folder holds `.lock` while the project is open, the folders of its history, its workspaces, its integrations and
 its thumbnails, and its notes (`kProjectHistoryFolder` and the names beside it in `projects/ProjectService.h`). The
 document is read from bytes a person can copy, edit or truncate, so reading returns the document or a
@@ -2182,8 +2198,8 @@ another drive has no relative path and is found by its own alone.
 projects and keeps the ones used last. It owns no widget and shows no dialog: what it cannot do is an answer
 (`ProjectOutcome`: the refusal, the reason as a person reads it, the folder, and who holds a lock), which a shell says.
 One project is open at a time, and a refusal leaves the open one as it was: the new project is made or opened first
-and the old one closed only then. The document is written before a change is told, and a change that cannot be written
-is not made. It is used on the GUI thread only; a document is a few kilobytes.
+and the old one closed only then, once its leave guard lets it go. The document is written before a change is told,
+and a change that cannot be written is not made. It is used on the GUI thread only; a document is a few kilobytes.
 
 **The lock.** `.lock` is a `QLockFile` with no stale time, so a lock is never taken for being old. The application
 runs once on a machine, which leaves two cases. A lock whose process no longer runs on this machine is a crash's, and
@@ -2214,7 +2230,8 @@ what was made in it. A sequence is recorded as the project's and keeps its histo
 second view of a file whose first view keeps the project's history. Saving a project's
 image under another name takes the project's record to the new file (`ProjectService::setImagePath`), as the view
 takes the path; an image of the project that already was that file gives way. Closing the project leaves its
-histories in its folder and each view with a history of the session's, the steps the project keeps still what its
+histories in its folder, and a view of one of its images that is still open then - a shell that closes a project's
+images with it leaves none - goes on with a history of the session's, the steps the project keeps still what its
 undo restores. The binder shows nothing: a file that changed outside the application and a step whose file is gone
 are said through the shell's notice or the dialog service, without blocking. It compacts an image's history through
 the view that has it open or, with none, in the folder on a worker.
@@ -2233,10 +2250,46 @@ states for it); the dialog makes nothing and is told what a folder is by the she
 so it holds no project logic of its own: a folder that holds files and is no project withdraws Create project, and one
 that is a project already offers `Open project`. Dialogs and refusals are opened over the window and answered when the
 person answers; none runs a loop of its own. The window tells the binder of each view it is told of, which is all it
-does about an image joining a project; closing a project leaves the images open with no project. As the window
-starts the last project is opened when the settings
+does about an image joining a project. As the window starts the last project is opened when the settings
 ask, before the window shows, and one that cannot be opened is said in the window's transient message, the
 application starting with no project.
+
+**A project keeps the workspaces and the images open in them** (`projects/ProjectLayoutStore.h`; the Observatory
+window owns one over its workspaces). Outside a project nothing is kept and nothing is opened again at the start, as
+in 1.1. What is kept is in two places, because the dock library's own list of what a layout has open names only what
+was on screen. The project's document records the workspaces - each with its id, its name, its lock, the images
+docked in it and whether it is the one used last - and the images that floated in windows of their own, each view by
+the image it showed and the name its dock widget had (`ProjectService::setWorkspaces`). Beside it, in the project's
+folder of workspaces, the file `kProjectLayoutFileName` names is one layout of the dock library for every workspace's
+dock area and every floating image window (`DockHooks::saveLayout`). Only a view of an image of the project is recorded, one of each: an image no file
+holds, and an image the project does not hold, is not opened again. A task's window and the console's are in no
+layout, since their dock widgets are made to be skipped by one, and nothing of a task is recorded.
+
+It is written when the project is left and when the application ends. **Leaving** is asked by the service itself
+(`ProjectService::setLeaveGuard`): before `close()` closes the project, and before another project takes its place
+once that one is read, locked and sure to open, so a project that is refused costs the open one nothing. The window's
+guard writes the arrangement and then closes the project's images, each asked about as Close asks; one the person
+keeps open keeps the project open, and the other project is refused quietly (`ProjectRefusal::OpenProjectKept`). An
+image that is none of the project's stays open. A project's images close with it because the project is where they
+are found again: left open with no project they would be opened a second time beside themselves when the project is
+opened again. At exit the arrangement is written once the person has agreed to the exit and before the views close
+(`AppLifecycleCoordinator`'s notice of the close).
+
+**Restoring** (`ProjectLayoutStore::restore`, asked by `ProjectFlows` once a project has opened) makes the window's
+workspaces the project's, each under the id it had - a dock area is named by its workspace's id, which is what the
+layout names it by - closing the ones the project does not list; opens the listed images through the file workflow,
+on workers, each view made and left undocked (`ObservatoryWindow::place` asks the store whether it `takes` a view);
+and, once every one is shown or has failed, applies the layout to them (`DockHooks::restoreLayout`), sets the locks
+and shows the workspace used last. A name of the layout stands for the view opened for the image the document lists
+under that name. An image whose file is at neither its recorded path nor its path from the project's folder is left
+out, the layout closes up its place, and the images left out are said once, in one message over the window:
+`Locate...` asks where each is now, takes the project's record there and opens it in its workspace, and `Remove from
+the project` forgets them. A view the layout does not place - a project whose layout is gone or cannot be applied -
+is docked in its workspace as a new view is. A view that was on screen before the project opened is none of its
+workspaces' and floats, as the library floats what a layout does not know. The GUI thread waits for none of it; while
+the images open the arrangement is not saved and the project is not left. `ObservatoryWindow::continueProject` shows
+the workspace used last - the one the person is in, which a restore makes the one the project recorded - and
+`continueLabel` names it.
 
 ### The application (`src/AfterNightApp/`: `app/ApplicationMain.h`, `app/ApplicationStart.h`)
 

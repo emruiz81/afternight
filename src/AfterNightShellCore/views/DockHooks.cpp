@@ -8,6 +8,7 @@
 #include <AfterNightPlatform/Logging.h>
 
 #include <kddockwidgets/Config.h>
+#include <kddockwidgets/LayoutSaver.h>
 #include <kddockwidgets/core/DockRegistry.h>
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
@@ -19,6 +20,10 @@
 #include <kddockwidgets/core/View.h>
 #include <kddockwidgets/qtcommon/View.h>
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLayout>
 #include <QPointer>
 #include <QSize>
 #include <QWidget>
@@ -49,6 +54,8 @@ struct DispatcherState
     bool dragging = false;
     QPointer<KDDockWidgets::QtWidgets::MainWindow> draggedFrom;
     QPointer<KDDockWidgets::QtWidgets::DockWidget> dragged;
+    /// What answers a name while a layout is applied; null otherwise. The library's factory is a plain function too.
+    const DockHooks::DockWidgetResolver* resolver = nullptr;
 };
 
 DispatcherState& dispatcher()
@@ -129,6 +136,74 @@ void dragEnded()
     state.draggedFrom = nullptr;
     state.dragged = nullptr;
     DockHooks::tellDragEnded(drag);
+}
+
+/// The library's factory of dock widgets, asked for a name a layout holds that no dock widget has.
+KDDockWidgets::Core::DockWidget* dockWidgetNamed(const QString& name)
+{
+    const DockHooks::DockWidgetResolver* const resolver = dispatcher().resolver;
+    if (resolver == nullptr || !*resolver)
+    {
+        return nullptr;
+    }
+    KDDockWidgets::QtWidgets::DockWidget* const dockWidget = (*resolver)(name);
+    return dockWidget != nullptr ? dockWidget->dockWidget() : nullptr;
+}
+
+/// Lays out a widget that is not on screen, and what is inside it: a hidden widget is laid out only as it is shown.
+void layOutUnseen(QWidget& widget)
+{
+    if (QLayout* const layout = widget.layout())
+    {
+        layout->invalidate();
+        layout->activate();
+    }
+    for (QObject* const child : widget.children())
+    {
+        if (auto* const inner = qobject_cast<QWidget*>(child); inner != nullptr && !inner->isWindow())
+        {
+            layOutUnseen(*inner);
+        }
+    }
+}
+
+/// Destroys the dock widgets that have lost their guest: ones that delete themselves when closed - a view's - whose
+/// view was deleted from under them. Nothing is left to show in one, and the library does not expect one.
+void destroyDockWidgetsWithNoGuest()
+{
+    std::vector<QPointer<KDDockWidgets::QtWidgets::DockWidget>> gone;
+    for (KDDockWidgets::Core::DockWidget* const dockWidget : KDDockWidgets::DockRegistry::self()->dockwidgets())
+    {
+        if (dockWidget == nullptr || !(dockWidget->options() & KDDockWidgets::DockWidgetOption_DeleteOnClose))
+        {
+            continue;
+        }
+        // The guest is the dock widget's one child widget. It is asked of Qt, not of the library, which goes on
+        // naming a guest that was deleted.
+        KDDockWidgets::QtWidgets::DockWidget* const widget = dockWidgetOf(dockWidget);
+        if (widget != nullptr && widget->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly).isEmpty())
+        {
+            gone.emplace_back(widget);
+        }
+    }
+    for (const QPointer<KDDockWidgets::QtWidgets::DockWidget>& widget : gone)
+    {
+        delete widget.data();
+    }
+}
+
+/// The size the layout of a main window had when it was saved; an empty one when the entry states none.
+[[nodiscard]] QSize savedLayoutSize(const QJsonObject& mainWindow)
+{
+    const QJsonObject geometry = mainWindow.value(QLatin1String("multiSplitterLayout"))
+                                     .toObject()
+                                     .value(QLatin1String("layout"))
+                                     .toObject()
+                                     .value(QLatin1String("sizingInfo"))
+                                     .toObject()
+                                     .value(QLatin1String("geometry"))
+                                     .toObject();
+    return QSize(geometry.value(QLatin1String("width")).toInt(), geometry.value(QLatin1String("height")).toInt());
 }
 
 /// The subscribers as they are now, so one that leaves while it is asked does not move the list being read.
@@ -275,6 +350,117 @@ void DockHooks::setDropIndicatorsInhibited(bool inhibited)
 bool DockHooks::dropIndicatorsInhibited()
 {
     return KDDockWidgets::Config::self().dropIndicatorsInhibited();
+}
+
+QByteArray DockHooks::saveLayout()
+{
+    destroyDockWidgetsWithNoGuest();
+    const KDDockWidgets::LayoutSaver saver;
+    return saver.serializeLayout();
+}
+
+QStringList DockHooks::mainWindowsOf(const QByteArray& layout)
+{
+    QStringList names;
+    const QJsonDocument stored = QJsonDocument::fromJson(layout);
+    if (!stored.isObject())
+    {
+        return names;
+    }
+    for (const QJsonValue& entry : stored.object().value(QLatin1String("mainWindows")).toArray())
+    {
+        const QString name = entry.toObject().value(QLatin1String("uniqueName")).toString();
+        if (!name.isEmpty())
+        {
+            names.append(name);
+        }
+    }
+    return names;
+}
+
+bool DockHooks::restoreLayout(const QByteArray& layout, const DockWidgetResolver& resolver)
+{
+    KDDockWidgets::DockRegistry* const registry = KDDockWidgets::DockRegistry::self();
+    // The library gives up part way at a main window it does not find, with the others already emptied: a layout
+    // that holds one the process lacks is not applied at all.
+    const QStringList mainWindows = mainWindowsOf(layout);
+    if (mainWindows.isEmpty())
+    {
+        return false;
+    }
+    for (const QString& name : mainWindows)
+    {
+        if (!registry->containsMainWindow(name))
+        {
+            LOG_WARNING("A saved layout holds the dock area '{}', which there is none of: it is not applied",
+                        name.toStdString());
+            return false;
+        }
+    }
+
+    // The library fits each layout to the size its main window has now. One that is not on screen may have no size
+    // of its own yet - a page never shown - and a layout squeezed into it loses where its splitters were: it takes
+    // the size its layout was saved at, and is laid out at it. Its parent gives it its place when it is shown.
+    for (const QJsonValue& entry :
+         QJsonDocument::fromJson(layout).object().value(QLatin1String("mainWindows")).toArray())
+    {
+        const QJsonObject saved = entry.toObject();
+        KDDockWidgets::Core::MainWindow* const mainWindow =
+            registry->mainWindowByName(saved.value(QLatin1String("uniqueName")).toString());
+        QWidget* const widget = mainWindow != nullptr ? widgetOf(mainWindow->view()) : nullptr;
+        const QSize size = savedLayoutSize(saved);
+        if (widget == nullptr || widget->isVisible() || size.isEmpty() || widget->size() == size)
+        {
+            continue;
+        }
+        widget->resize(size);
+        layOutUnseen(*widget);
+    }
+
+    // The library shows the guest of every dock widget a layout names: one that has lost its guest goes first.
+    destroyDockWidgetsWithNoGuest();
+
+    // A dock widget the layout names is closed before it is placed, and one that deletes itself when closed would be
+    // placed and gone: each such one is told not to while the layout is applied.
+    std::vector<QPointer<KDDockWidgets::QtWidgets::DockWidget>> kept;
+    for (KDDockWidgets::Core::DockWidget* const dockWidget : registry->dockwidgets())
+    {
+        if (dockWidget == nullptr || !(dockWidget->options() & KDDockWidgets::DockWidgetOption_DeleteOnClose))
+        {
+            continue;
+        }
+        const QByteArray quoted = '"' + dockWidget->uniqueName().toUtf8() + '"';
+        if (!layout.contains(quoted))
+        {
+            continue;
+        }
+        if (KDDockWidgets::QtWidgets::DockWidget* const widget = dockWidgetOf(dockWidget))
+        {
+            widget->setOptions(widget->options() &
+                               ~KDDockWidgets::DockWidgetOptions(KDDockWidgets::DockWidgetOption_DeleteOnClose));
+            kept.emplace_back(widget);
+        }
+    }
+
+    DispatcherState& state = dispatcher();
+    state.resolver = &resolver;
+    KDDockWidgets::Config::self().setDockWidgetFactoryFunc(&dockWidgetNamed);
+    // The window the dock areas are in keeps its place and its size, which are its own setting; a floating window
+    // goes where it was on the screen.
+    KDDockWidgets::LayoutSaver saver(KDDockWidgets::RestoreOptions(
+        KDDockWidgets::RestoreOption_RelativeToMainWindow | KDDockWidgets::RestoreOption_AbsoluteFloatingDockWindows));
+    const bool restored = saver.restoreLayout(layout);
+    KDDockWidgets::Config::self().setDockWidgetFactoryFunc(nullptr);
+    state.resolver = nullptr;
+
+    for (const QPointer<KDDockWidgets::QtWidgets::DockWidget>& widget : kept)
+    {
+        if (!widget.isNull())
+        {
+            widget->setOptions(widget->options() | KDDockWidgets::DockWidgetOption_DeleteOnClose);
+        }
+    }
+    return restored;
 }
 
 KDDockWidgets::QtWidgets::MainWindow* DockHooks::mainWindowHolding(const QWidget* widget)

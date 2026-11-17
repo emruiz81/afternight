@@ -18,6 +18,7 @@
 #include <QStringList>
 
 #include <functional>
+#include <utility>
 #include <vector>
 
 class ImageViewControl;
@@ -83,6 +84,9 @@ public:
 
     /// Adds a workspace at the end, its dock area and its page; it is not made current.
     QString create(const QString& name = {});
+    /// Adds a workspace at the end under the id a project recorded it with, so its dock area has the name a saved
+    /// layout knows it by; empty, with nothing made, for an empty id or one a workspace has.
+    QString createWithId(const QString& id, const QString& name = {});
     /// Closes a workspace: its page and its dock area go. Refused for the only one, and for one in a window of its own.
     bool close(const QString& id);
 
@@ -140,6 +144,8 @@ private:
     Hooks m_hooks;
     an::ui::shell::WorkspaceModel m_model;
     std::vector<Workspace> m_workspaces;
+    /// The pages of the workspaces closed, until they are deleted: each still holds a dock area under its id's name.
+    std::vector<std::pair<QString, QPointer<WorkspacePage>>> m_closing;
     QPointer<QStackedWidget> m_stack;
     QPointer<KDDockWidgets::QtWidgets::MainWindow> m_imageAnchor;
     QPointer<KDDockWidgets::QtWidgets::MainWindow> m_taskAnchor;

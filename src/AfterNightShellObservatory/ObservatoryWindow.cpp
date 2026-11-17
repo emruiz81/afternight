@@ -37,6 +37,8 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
+#include "projects/ProjectLayoutStore.h"
+#include "projects/ProjectService.h"
 #include "readout/ReadoutController.h"
 #include "services/AppEventBus.h"
 #include "services/DialogService.h"
@@ -56,6 +58,7 @@
 #include "app/ChannelExtractor.h"
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/FileManager.h"
+#include "app/FileWorkflowRunner.h"
 #include "app/IconManager.h"
 #include "app/ImageOperationsCoordinator.h"
 #include "app/MaskOverlayCoordinator.h"
@@ -84,6 +87,7 @@
 #include "controls/ViewChrome.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/ProcessPageLayout.h"
+#include "controls/ProgressDialogControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "controls/settings/SettingsDefaults.h"
 #include "controls/settings/SettingsKeys.h"
@@ -107,6 +111,7 @@
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -296,6 +301,8 @@ struct ObservatoryWindow::Impl
     // What the window does about projects, and whether what the start's restore came to was said.
     std::unique_ptr<ProjectFlows> projects;
     bool projectRestoreSaid = false;
+    // What a project keeps of the workspaces and of the images open in them.
+    std::unique_ptr<an::ui::shell::ProjectLayoutStore> layout;
     // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
     std::unique_ptr<ShellActions> shellActions;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
@@ -586,6 +593,25 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     core.actionBindings().connectActions();
     bindShellActions();
 
+    // What a project keeps of the workspaces: written as the project is left, put back as it is opened.
+    an::ui::shell::ProjectLayoutStore::Hooks layoutHooks;
+    layoutHooks.dockTarget = [this](const QString& id) { return m_impl->workspaces->target(id); };
+    layoutHooks.setWorkspaces = [this](const std::vector<an::ui::shell::ProjectWorkspace>& listed) {
+        takeProjectWorkspaces(listed);
+    };
+    layoutHooks.openFiles = [this](const QStringList& files, std::function<void()> done) {
+        openProjectImages(files, std::move(done));
+    };
+    layoutHooks.setLocked = [this](const QString& id, const bool locked) { lockWorkspace(id, locked); };
+    layoutHooks.dockView = [this](ImageViewControl& view, const QString& id) { dockRestoredView(view, id); };
+    layoutHooks.restored = [this](const an::ui::shell::ProjectLayoutRestored& restored) {
+        projectLayoutRestored(restored);
+    };
+    impl.layout =
+        std::make_unique<an::ui::shell::ProjectLayoutStore>(core, impl.workspaces->model(), std::move(layoutHooks));
+    // A project is left through the window: its arrangement kept, its images closed.
+    core.projects().setLeaveGuard([this]() { return leaveProject(); });
+
     // Projects: the shell's project actions, the top bar's switcher and what a refusal is said as.
     ProjectFlows::Hooks projectHooks;
     projectHooks.openImages = [this]() {
@@ -593,6 +619,11 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
         for (ImageViewControl* const view : m_impl->core.viewService().getListOfViewControls())
         {
             if (view == nullptr || view->getViewControlMode() != ViewControlMode::standard)
+            {
+                continue;
+            }
+            // An image of the project that is open closes with it: it is not one a new project can take.
+            if (!m_impl->core.projectHistory().imageOf(*view).isEmpty())
             {
                 continue;
             }
@@ -607,6 +638,8 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     projectHooks.snackbar = [this](const QString& text, const QString& detail, const QString& action,
                                    std::function<void()> act) { showSnackbar(text, detail, action, std::move(act)); };
     projectHooks.openSettingsAt = [this](const QString& pageTitle) { openSettingsAt(pageTitle); };
+    projectHooks.restoreArrangement = [this]() { return m_impl->layout && m_impl->layout->restore(); };
+    projectHooks.openImage = [this](const QString& file, const QString& imageId) { openProjectImage(file, imageId); };
     impl.projects =
         std::make_unique<ProjectFlows>(*this, core, *impl.shellActions, *impl.topBar, std::move(projectHooks));
 }
@@ -617,8 +650,11 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
-    // The projects' unit lets go of the top bar and of the project service before either goes.
+    // The project that is open is asked nothing more of this window; the projects' unit lets go of the top bar and of
+    // the project service before either goes, and what keeps the arrangement of the workspaces before they do.
+    core.projects().setLeaveGuard({});
     impl.projects.reset();
+    impl.layout.reset();
     // The task shown is let go of: the readout reads no process, the actions act on no page.
     impl.appliedTicker.stop();
     if (impl.readout)
@@ -1151,7 +1187,15 @@ void ObservatoryWindow::makeUnits()
     // The layout starts locked when the person asked for it.
     lifecycleDeps.lockLayout = [this]() { lockLayout(true); };
     lifecycleDeps.cancelBackgroundWork = [this]() { m_impl->core.extensions().cancelBackgroundWork(); };
-    lifecycleDeps.notifyApplicationClose = [this]() { m_impl->core.eventBus().notifyApplicationClose(); };
+    lifecycleDeps.notifyApplicationClose = [this]() {
+        // The application ends, and the person agreed to it: the open project keeps the workspaces as they are now,
+        // before the views go. Nothing is written with no project.
+        if (m_impl->layout)
+        {
+            (void)m_impl->layout->save();
+        }
+        m_impl->core.eventBus().notifyApplicationClose();
+    };
     lifecycleDeps.getNumOfOpenProcesses = [this]() {
         return m_impl->core.openProcesses().size() + m_impl->core.extensions().activeSessionCount();
     };
@@ -1416,6 +1460,31 @@ ProjectFlows& ObservatoryWindow::projectFlows() const noexcept
     return *m_impl->projects;
 }
 
+an::ui::shell::ProjectLayoutStore& ObservatoryWindow::projectLayout() const noexcept
+{
+    return *m_impl->layout;
+}
+
+bool ObservatoryWindow::continueProject()
+{
+    Impl& impl = *m_impl;
+    const QString last = impl.layout ? impl.layout->lastWorkspace() : QString();
+    if (last.isEmpty())
+    {
+        return false;
+    }
+    showWorkspace(last);
+    return true;
+}
+
+QString ObservatoryWindow::continueLabel() const
+{
+    const Impl& impl = *m_impl;
+    const QString last = impl.layout ? impl.layout->lastWorkspace() : QString();
+    const QString name = impl.workspaces->workspaceName(last);
+    return name.isEmpty() ? QString() : tr("Continue") + QStringLiteral(" \u00b7 ") + name;
+}
+
 ShellActions& ObservatoryWindow::shellActions() const noexcept
 {
     return *m_impl->shellActions;
@@ -1513,17 +1582,14 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
             maximized->switchMaximized();
         }
     }
-    // The view's tools are outside it in this shell: its workspace's floating toolbar and history strip.
-    view.setChromeMode(an::ui::ViewChromeMode::External);
+    adoptView(view);
+    // A view a project's restore asked for is left undocked: the saved arrangement places it once every one is open.
+    if (impl.layout && impl.layout->takes(view))
+    {
+        return;
+    }
     // Beside its neighbour, in the neighbour's workspace; with none, in the workspace on screen.
     an::ui::dockCreatedView(view, placement.neighbour, impl.dockArea);
-    // A view floats or docks by a drag, a double click or its strip's button: what the workspace shows follows, once
-    // the dock library has moved it.
-    if (KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget())
-    {
-        QObject::connect(dock, &KDDockWidgets::QtWidgets::DockWidget::isFloatingChanged, this,
-                         [this](bool) { QTimer::singleShot(0, this, [this]() { updateWorkspacePage(); }); });
-    }
     const QString workspace = impl.workspaces->workspaceOf(view);
     if (isTaskPageShown() && placement.origin == an::ui::shell::ViewOrigin::Process)
     {
@@ -1559,6 +1625,19 @@ void ObservatoryWindow::place(ImageViewControl& view, const an::ui::shell::ViewP
         showWorkspace(workspace);
     }
     updateWorkspacePage();
+}
+
+void ObservatoryWindow::adoptView(ImageViewControl& view)
+{
+    // The view's tools are outside it in this shell: its workspace's floating toolbar and history strip.
+    view.setChromeMode(an::ui::ViewChromeMode::External);
+    // A view floats or docks by a drag, a double click or its strip's button: what the workspace shows follows, once
+    // the dock library has moved it.
+    if (KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget())
+    {
+        QObject::connect(dock, &KDDockWidgets::QtWidgets::DockWidget::isFloatingChanged, this,
+                         [this](bool) { QTimer::singleShot(0, this, [this]() { updateWorkspacePage(); }); });
+    }
 }
 
 void ObservatoryWindow::activate(ImageViewControl& view)
@@ -2301,7 +2380,8 @@ void ObservatoryWindow::workspacesChanged(const an::ui::shell::WorkspaceModel::C
 void ObservatoryWindow::closeLeftEmptyWorkspaces()
 {
     Impl& impl = *m_impl;
-    if (!impl.workspaces || impl.closingWorkspaces)
+    // A project's workspaces are empty while its images open: none of them is one the person left.
+    if (!impl.workspaces || impl.closingWorkspaces || (impl.layout && impl.layout->isRestoring()))
     {
         return;
     }
@@ -3699,6 +3779,242 @@ void ObservatoryWindow::applyCurrentTask()
     if (task != nullptr && !task->process.isNull())
     {
         (void)task->process->triggerPrimaryAction();
+    }
+}
+
+// ---- A project's workspaces
+
+bool ObservatoryWindow::leaveProject()
+{
+    Impl& impl = *m_impl;
+    if (!impl.layout)
+    {
+        return true;
+    }
+    if (impl.layout->isRestoring())
+    {
+        // An arrangement half restored is not one to keep, and the images still opening would arrive with no project.
+        showSnackbar(tr("The project's images are still opening"), tr("It can be closed once they are open"), QString(),
+                     {});
+        return false;
+    }
+    (void)impl.layout->save();
+    // Its images close with it, each asked about as Close asks; one the person keeps keeps the project.
+    std::vector<QPointer<ImageViewControl>> closing;
+    for (ImageViewControl* const view : impl.layout->projectViews())
+    {
+        closing.emplace_back(view);
+    }
+    for (const QPointer<ImageViewControl>& view : closing)
+    {
+        if (view.isNull() || !view->checkPendingChangesAndAskUserBeforeClosing() ||
+            !view->checkProcessAttachedAndAskUserBeforeClosing())
+        {
+            continue;
+        }
+        view->deepClose();
+    }
+    const bool left = impl.layout->projectViews().empty();
+    updateWorkspacePage();
+    if (impl.core.viewService().getListOfViewControls().empty())
+    {
+        showHome();
+    }
+    return left;
+}
+
+void ObservatoryWindow::takeProjectWorkspaces(const std::vector<an::ui::shell::ProjectWorkspace>& listed)
+{
+    Impl& impl = *m_impl;
+    if (listed.empty())
+    {
+        return;
+    }
+    WorkspaceHost& host = *impl.workspaces;
+    an::ui::shell::WorkspaceModel& model = host.model();
+    // No workspace is closed for being empty while the project's are made.
+    const QScopedValueRollback<bool> closing(impl.closingWorkspaces, true);
+    // A workspace in a window of its own comes back, and a view shown over its whole page goes back to its dock.
+    for (const QString& id : host.ids())
+    {
+        if (workspaceWindow(id) != nullptr)
+        {
+            returnWorkspace(id);
+        }
+        if (WorkspacePage* const page = host.page(id); page != nullptr && page->maximizedView() != nullptr)
+        {
+            page->maximizedView()->switchMaximized();
+        }
+    }
+    const auto isListed = [&listed](const QString& id) {
+        return std::any_of(listed.begin(), listed.end(),
+                           [&id](const an::ui::shell::ProjectWorkspace& workspace) { return workspace.id == id; });
+    };
+    // The project's workspaces, each under the id its dock area is named by.
+    for (const an::ui::shell::ProjectWorkspace& workspace : listed)
+    {
+        if (model.find(workspace.id) != nullptr)
+        {
+            (void)model.rename(workspace.id, workspace.name);
+        }
+        else
+        {
+            (void)host.createWithId(workspace.id, workspace.name);
+        }
+    }
+    // A workspace the project does not list goes. A view docked in it belongs to none of the project's, and floats.
+    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
+    for (const QString& id : host.ids())
+    {
+        if (isListed(id))
+        {
+            continue;
+        }
+        for (ImageViewControl* const view : host.dockedViews(id, views))
+        {
+            if (view != nullptr && view->getDockWidget() != nullptr)
+            {
+                view->getDockWidget()->setFloating(true);
+            }
+        }
+        if (impl.core.dockLayout().isLocked(host.target(id)))
+        {
+            impl.core.dockLayout().unlock(host.target(id));
+        }
+        if (model.current() == id)
+        {
+            host.setCurrent(listed.front().id);
+        }
+        (void)host.close(id);
+    }
+    // In the project's order, and free: the arrangement is put back into dock areas no lock holds, and the locks
+    // follow it.
+    int index = 0;
+    for (const an::ui::shell::ProjectWorkspace& workspace : listed)
+    {
+        (void)model.move(workspace.id, index++);
+        lockWorkspace(workspace.id, false);
+    }
+    updateWorkspacePage();
+    updateRail();
+}
+
+void ObservatoryWindow::openProjectImages(const QStringList& files, std::function<void()> done)
+{
+    Impl& impl = *m_impl;
+    an::ui::FileWorkflowRunner::Dependencies open;
+    open.context = this;
+    open.dialogParent = this;
+    open.globalSettingsPersistence = impl.core.globalSettingsStore();
+    open.rawOpenPolicy = [this]() { return m_impl->core.rawOpenPolicy(); };
+    // The views are the project's to place, not the person's just opened: the place on screen stays where it is until
+    // the arrangement is back, and the folder last opened and the recent files stay the person's.
+    open.viewFactory = &impl.core.viewService();
+    open.updateImageViewControlList = [this]() { refreshViewSelector(); };
+    open.openFinished = [done = std::move(done)](const an::ui::FileOpenOutcome& /*outcome*/) {
+        if (done)
+        {
+            done();
+        }
+    };
+    auto* const progress = new ProgressDialogControl(this, "Open Project");
+    progress->setProgressBarRange(0, files.size() >= 3 ? 100 : 0);
+    progress->show();
+    an::ui::FileWorkflowRunner::openFiles(open, files, QString(), progress);
+}
+
+void ObservatoryWindow::dockRestoredView(ImageViewControl& view, const QString& workspaceId)
+{
+    Impl& impl = *m_impl;
+    WorkspaceHost& host = *impl.workspaces;
+    KDDockWidgets::QtWidgets::DockWidget* const dock = view.getDockWidget();
+    QString workspace = workspaceId;
+    if (workspace.isEmpty() || host.model().find(workspace) == nullptr)
+    {
+        workspace = host.shown().isEmpty() ? host.current() : host.shown();
+    }
+    KDDockWidgets::QtWidgets::MainWindow* const area = host.mainWindow(workspace);
+    if (dock == nullptr || area == nullptr)
+    {
+        return;
+    }
+    // As the files a person opens together are: the first at the right of what the workspace holds, the others as
+    // tabs beside it.
+    const std::vector<ImageViewControl*> docked =
+        host.dockedViews(workspace, impl.core.viewService().getListOfViewControls());
+    ImageViewControl* const beside = docked.empty() ? nullptr : docked.back();
+    if (beside != nullptr && beside != &view && beside->getDockWidget() != nullptr)
+    {
+        beside->getDockWidget()->addDockWidgetAsTab(dock);
+    }
+    else
+    {
+        area->addDockWidget(dock, KDDockWidgets::Location_OnRight);
+    }
+}
+
+void ObservatoryWindow::projectLayoutRestored(const an::ui::shell::ProjectLayoutRestored& restored)
+{
+    Impl& impl = *m_impl;
+    // Each image is fitted to the place the arrangement gave its view, as a new view's is once it is docked.
+    for (const QPointer<ImageViewControl>& view : restored.views)
+    {
+        if (view.isNull())
+        {
+            continue;
+        }
+        QTimer::singleShot(0, view.data(), [view]() {
+            if (!view.isNull())
+            {
+                view->adjustImageToWindow();
+            }
+        });
+    }
+    if (restored.projectStillOpen)
+    {
+        // The workspace used last is the current one again, and is shown once there is an image to show in it.
+        const QString last = impl.workspaces->model().find(restored.lastWorkspace) != nullptr
+                                 ? restored.lastWorkspace
+                                 : impl.workspaces->current();
+        impl.workspaces->setCurrent(last);
+        if (!impl.core.viewService().getListOfViewControls().empty() && !isTaskPageShown())
+        {
+            showWorkspace(last);
+        }
+        // The view the person looks at is one of that workspace's: the tab shown of its first group.
+        for (ImageViewControl* const view :
+             impl.workspaces->dockedViews(last, impl.core.viewService().getListOfViewControls()))
+        {
+            KDDockWidgets::QtWidgets::DockWidget* const dock = view != nullptr ? view->getDockWidget() : nullptr;
+            if (dock != nullptr && dock->dockWidget()->isCurrentTab())
+            {
+                impl.core.viewService().setActiveImageViewControl(view);
+                break;
+            }
+        }
+    }
+    updateWorkspacePage();
+    refreshViewSelector();
+    updateRail();
+    updateBreadcrumb();
+    if (restored.projectStillOpen && impl.projects)
+    {
+        impl.projects->reportMissingImages(restored.missing);
+    }
+}
+
+void ObservatoryWindow::openProjectImage(const QString& file, const QString& imageId)
+{
+    Impl& impl = *m_impl;
+    // In the workspace the project lists it in, while there is one; the workspace on screen otherwise.
+    const QString workspace = impl.layout ? impl.layout->workspaceOf(imageId) : QString();
+    if (!workspace.isEmpty() && impl.workspaces->model().find(workspace) != nullptr)
+    {
+        impl.workspaces->setCurrent(workspace);
+    }
+    if (impl.fileManager)
+    {
+        impl.fileManager->openFiles({file}, QFileInfo(file).absolutePath());
     }
 }
 

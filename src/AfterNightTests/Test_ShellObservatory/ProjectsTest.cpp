@@ -8,7 +8,7 @@
 // commands and the File menu lists them; Home's New project and the welcome's line ask for the same dialog; and the
 // project used last is opened at the start only when the settings ask.
 
-#include "ObservatoryWindowCase.h"
+#include "ProjectCase.h"
 
 #include "ShellActions.h"
 #include "chrome/MenuBarOnAlt.h"
@@ -70,23 +70,17 @@ using an::ui::observatory::ProjectFlows;
 using an::ui::shell::ProjectService;
 namespace shellIds = an::ui::observatory::ids;
 
-constexpr int kOpenMs = 20000;
-
 void settle()
 {
-    for (int round = 0; round < 3; ++round)
-    {
-        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        QCoreApplication::processEvents();
-    }
+    settleProjects();
 }
 
-class ProjectSwitcher : public ObservatoryWindowCase
+class ProjectSwitcher : public ProjectCase
 {
 protected:
     void SetUp() override
     {
-        ObservatoryWindowCase::SetUp();
+        ProjectCase::SetUp();
         forgetProjects();
     }
 
@@ -96,17 +90,7 @@ protected:
         flows().setFolderChooser({});
         (void)projects().close();
         forgetProjects();
-        ObservatoryWindowCase::TearDown();
-    }
-
-    [[nodiscard]] static ProjectService& projects()
-    {
-        return core().projects();
-    }
-
-    [[nodiscard]] static ProjectFlows& flows()
-    {
-        return window().projectFlows();
+        ProjectCase::TearDown();
     }
 
     [[nodiscard]] static an::ui::observatory::TopBar& bar()
@@ -117,24 +101,6 @@ protected:
     [[nodiscard]] static QAction* action(const std::string_view id)
     {
         return window().shellActions().action(id);
-    }
-
-    /// The projects used last are forgotten: the settings hold none and the service reads them again.
-    static void forgetProjects()
-    {
-        an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
-        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_RECENT), QString());
-        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_LAST), QString());
-        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), QStringLiteral("0"));
-        projects().setSettings(settings);
-        bar().refreshProjectMenu();
-    }
-
-    /// A root for the case's projects and files, made once the suite's temporary directory is in force.
-    [[nodiscard]] static QString root()
-    {
-        static QTemporaryDir files(QDir::temp().filePath(QStringLiteral("observatory-projects-XXXXXX")));
-        return QDir::cleanPath(files.path());
     }
 
     /// The entry of the switcher's menu under an object name; null for none.
@@ -180,42 +146,6 @@ protected:
         ASSERT_TRUE(dialog->createButton()->isEnabled()) << dialog->problem().toStdString();
         dialog->createButton()->click();
         settle();
-    }
-
-    /// A grey FITS image written under a name in the case's root.
-    [[nodiscard]] static QString writeImage(const QString& name)
-    {
-        const QString path = QDir(root()).filePath(name);
-        std::optional<an::consumer::ImageAsset> asset = an::tests::app::filledAsset(session(), 0.4f);
-        EXPECT_TRUE(asset.has_value());
-        if (!asset.has_value())
-        {
-            return {};
-        }
-        const an::Result<an::OutputIntent> intent = an::ui::appContext()->getOutputIntentProvider()->buildOutputIntent(
-            *asset->descriptor(), an::CodecFormat::Fits);
-        EXPECT_TRUE(intent.hasValue()) << intent.status().message();
-        EXPECT_TRUE(intent.hasValue() && an::ui::writeViewImage(session(), *asset, path, *intent, {}).ok());
-        return QDir::cleanPath(path);
-    }
-
-    /// Opens a file as a person's file is opened, and waits for its view.
-    static void openFile(const QString& path)
-    {
-        an::ui::appContext()->getRecentFilesService()->openDroppedFiles({path});
-        EXPECT_TRUE(an::tests::app::processEventsUntil(
-            [&path]() {
-                for (ImageViewControl* view : views())
-                {
-                    if (view->hasImage() && QDir::cleanPath(view->document().names().sourcePath) == path)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            },
-            kOpenMs))
-            << path.toStdString() << " did not open";
     }
 
     /// Writes a lock as another machine's session leaves one.
@@ -330,7 +260,7 @@ TEST_F(ProjectSwitcher, ALongNameIsCutInItsMiddleAndSaidWholeInTheTooltip)
 
 // With images open the dialog offers to add them and to move their undo history, and they join the project with it; an
 // image opened while the project is open joins it too, its history kept in the project from its first step; an image
-// that no file holds does not; and closing the project leaves the images open.
+// that no file holds does not; and closing the project closes its images and leaves the one that is none of its own.
 TEST_F(ProjectSwitcher, TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo)
 {
     const QString first = writeImage(QStringLiteral("joins-first.fits"));
@@ -378,18 +308,22 @@ TEST_F(ProjectSwitcher, TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoins
     ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return stepsOf(second).size() == 1; }, 5000))
         << "the history of an image opened in the project is not kept in it";
 
-    const std::size_t open = views().size();
+    ASSERT_EQ(views().size(), 3u);
     action(shellIds::kCloseProject)->trigger();
     settle();
     EXPECT_FALSE(projects().isOpen());
-    EXPECT_EQ(views().size(), open) << "closing a project closed its images";
+    ASSERT_EQ(views().size(), 1u) << "a project's images close with it, and an image that is not its own stays open";
+    EXPECT_TRUE(views().front()->getFileName().empty()) << "the image no file holds is the one that stays";
 
     // With the choice turned off, the open images stay out of the project.
+    openFile(first);
+    openFile(second);
     makeProject(QStringLiteral("Stays empty"),
                 [](NewProjectDialog& dialog) { dialog.addOpenImagesCheck()->setChecked(false); });
     ASSERT_TRUE(projects().isOpen());
     EXPECT_TRUE(projects().current()->images.empty());
     ASSERT_TRUE(projects().close());
+    EXPECT_EQ(views().size(), 3u) << "an image the project did not take closed with it";
 
     // Added without their history: the images are the project's, and the steps they had stay with the session.
     makeProject(QStringLiteral("Joins bare"),

@@ -73,6 +73,34 @@ QString WorkspaceModel::create(const QString& name)
     return workspace.id;
 }
 
+QString WorkspaceModel::createWithId(const QString& id, const QString& name)
+{
+    Impl& impl = *m_impl;
+    if (id.isEmpty() || impl.find(id) != impl.workspaces.end())
+    {
+        return {};
+    }
+    // An id of digits is one the model itself would have given: the ids it gives from here on start past it.
+    bool numbered = false;
+    const int number = id.toInt(&numbered);
+    if (numbered && number > impl.lastId)
+    {
+        impl.lastId = number;
+    }
+    Workspace workspace;
+    workspace.id = id;
+    const QString trimmed = name.trimmed();
+    workspace.name = trimmed.isEmpty() ? nextName() : trimmed;
+    impl.workspaces.push_back(workspace);
+    impl.tell(Change::Added, workspace.id);
+    if (impl.current.isEmpty())
+    {
+        impl.current = workspace.id;
+        impl.tell(Change::Current, workspace.id);
+    }
+    return workspace.id;
+}
+
 bool WorkspaceModel::rename(const QString& id, const QString& name)
 {
     Impl& impl = *m_impl;

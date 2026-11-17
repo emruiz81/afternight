@@ -19,6 +19,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -52,7 +53,10 @@ struct RailItem;
 namespace an::ui::shell
 {
 class ApplicationCore;
+class ProjectLayoutStore;
 class ReadoutController;
+struct ProjectLayoutRestored;
+struct ProjectWorkspace;
 } // namespace an::ui::shell
 
 namespace an::ui::observatory
@@ -91,8 +95,16 @@ class WorkspaceToolbar;
 ///
 /// **Projects.** The top bar's switcher says which project is open and opens the projects' menu; New Project...,
 /// Open Project..., Switch Project..., Close Project and Project Settings... are the window's own actions, in the
-/// File menu and the palette (`ProjectFlows`). While a project is open, an image opened from a file joins it; closing
-/// the project leaves the images open. As the window starts, the project used last is opened when the settings ask.
+/// File menu and the palette (`ProjectFlows`). While a project is open, an image opened from a file joins it. As the
+/// window starts, the project used last is opened when the settings ask.
+///
+/// **A project keeps the workspaces.** As a project is left - closed, or given way to another - its workspaces, their
+/// names and locks, the images of the project open in each, the ones that float and the arrangement of them all are
+/// written into it (`ProjectLayoutStore`), and its images close with it, each asked about as Close asks: one the
+/// person keeps open keeps the project open. At exit the same is written. A project opened again gets its workspaces
+/// back, its images opened on workers and the arrangement applied to them once they are open; an image whose file is
+/// gone is said once, with Locate... and Remove from the project. An image that was open before, which the project
+/// does not hold, stays open and floats. With no project nothing is written, and nothing is opened again at the start.
 ///
 /// It is made over an application that is initialized and started (`ApplicationCore::initialize`, `start`): the
 /// context exists, the session is open and the installed extensions are known. The core outlives it.
@@ -214,6 +226,13 @@ public:
     /// What the window does about projects: New, Open, Switch and Close, the switcher's menu, and what is said of a
     /// project that cannot be opened.
     [[nodiscard]] ProjectFlows& projectFlows() const noexcept;
+    /// What keeps the open project's workspaces and open images, and puts them back when it is opened again.
+    [[nodiscard]] an::ui::shell::ProjectLayoutStore& projectLayout() const noexcept;
+    /// Shows the workspace of the open project that was used last: what Continue does. False with no project open.
+    bool continueProject();
+    /// What Continue is offered as: "Continue", a middle dot and the name of the workspace it shows; empty with no
+    /// project open.
+    [[nodiscard]] QString continueLabel() const;
     /// The command palette, and the scrim laid over the centre and the column while it is open.
     [[nodiscard]] an::ui::AnCommandPalette* palette() const noexcept;
     [[nodiscard]] QWidget* paletteScrim() const noexcept;
@@ -383,6 +402,22 @@ private:
     void showPlaceBeforeTask();
     /// Float as Window, Attach and Close Task follow the current task.
     void updateTaskActions();
+    /// A view's tools are outside it in this shell, and what the workspaces show follows it as it floats and docks.
+    void adoptView(ImageViewControl& view);
+    /// The open project is left - closed, or given way to another: its arrangement is kept and its images close, each
+    /// asked about as Close asks. False keeps the project: an image of it stays open, or its images are still opening.
+    [[nodiscard]] bool leaveProject();
+    /// Makes the workspaces the ones a project lists, each under its id and its name; a workspace it does not list
+    /// goes, its views floating.
+    void takeProjectWorkspaces(const std::vector<an::ui::shell::ProjectWorkspace>& listed);
+    /// Opens a project's images as files are opened, on workers, and tells `done` once every one is shown or failed.
+    void openProjectImages(const QStringList& files, std::function<void()> done);
+    /// Docks a view of a project the saved arrangement did not place: in its workspace, as a new view is.
+    void dockRestoredView(ImageViewControl& view, const QString& workspaceId);
+    /// A project's arrangement is back: its workspace used last is shown, and what could not be opened is said.
+    void projectLayoutRestored(const an::ui::shell::ProjectLayoutRestored& restored);
+    /// Opens an image of the open project in the workspace the project lists it in.
+    void openProjectImage(const QString& file, const QString& imageId);
 
     class DragSurface;
     friend class DragSurface;

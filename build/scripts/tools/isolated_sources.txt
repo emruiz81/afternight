@@ -2802,6 +2802,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/HomeContinueRow.h
@@ -3002,6 +3003,8 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
     header   src/AfterNightControls/controls/ImageHistoryIndex.h
     header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
+    header   src/AfterNightShellCore/projects/ProjectLayoutStore.h
+    header   src/AfterNightTests/Test_ShellObservatory/ProjectCase.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.

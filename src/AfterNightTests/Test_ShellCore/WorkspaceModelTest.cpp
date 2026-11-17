@@ -213,6 +213,40 @@ TEST(WorkspaceModel, TellsItsObserversOfEveryChange)
 }
 
 // The model has no widget: what it includes is the standard library and Qt's strings.
+// A workspace made under an id a project recorded keeps it, is named as any other, and is told as any other; an id
+// the model holds, or none, makes nothing. No workspace made afterwards is given an id that was stated, nor a number
+// one of them states or passes.
+TEST(WorkspaceModel, AWorkspaceMadeUnderAnIdKeepsItAndNoLaterOneIsGivenIt)
+{
+    Model model;
+    std::vector<std::pair<Change, QString>> told;
+    (void)model.subscribe([&told](const Change change, const QString& id) { told.emplace_back(change, id); });
+
+    EXPECT_EQ(model.createWithId(QStringLiteral("7"), QStringLiteral("Narrowband")), QStringLiteral("7"));
+    ASSERT_EQ(model.count(), 1u);
+    EXPECT_EQ(model.workspaces().front().id, QStringLiteral("7"));
+    EXPECT_EQ(model.workspaces().front().name, QStringLiteral("Narrowband"));
+    EXPECT_EQ(model.current(), QStringLiteral("7")) << "the first made is the current one";
+    EXPECT_EQ(told, (std::vector<std::pair<Change, QString>>{{Change::Added, QStringLiteral("7")},
+                                                             {Change::Current, QStringLiteral("7")}}));
+
+    EXPECT_TRUE(model.createWithId(QStringLiteral("7")).isEmpty()) << "an id the model holds made a second workspace";
+    EXPECT_TRUE(model.createWithId(QString()).isEmpty());
+    EXPECT_EQ(model.count(), 1u);
+
+    // One with no name is "Workspace N", and an id that is no number is kept as it is.
+    EXPECT_EQ(model.createWithId(QStringLiteral("colour")), QStringLiteral("colour"));
+    EXPECT_EQ(model.find(QStringLiteral("colour"))->name, QStringLiteral("Workspace 1"));
+    EXPECT_EQ(model.createWithId(QStringLiteral("3"), QStringLiteral("Luminance")), QStringLiteral("3"));
+
+    // The model's own ids go on past the highest number stated.
+    const QString made = model.create();
+    EXPECT_EQ(made, QStringLiteral("8"));
+    EXPECT_EQ(model.count(), 4u);
+    EXPECT_EQ(namesOf(model), (QStringList{QStringLiteral("Narrowband"), QStringLiteral("Workspace 1"),
+                                           QStringLiteral("Luminance"), QStringLiteral("Workspace 2")}));
+}
+
 TEST(WorkspaceModel, IncludesNoWidgetHeader)
 {
     const QSet<QString> allowedQt = {QStringLiteral("QString"), QStringLiteral("QStringList"),

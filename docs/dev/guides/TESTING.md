@@ -97,6 +97,19 @@ one - the document held open without sharing on Windows, its folder closed to ne
 compare the switcher's text use short names: the suites' platform draws text about twice as wide as a display does, so
 a name of ordinary length is rightly cut there.
 
+What a project keeps of the workspaces is held in `Test_ShellObservatory` (`ProjectLayout.*`, over
+`Test_ShellObservatory/ProjectCase.h`, and `ProjectLayoutAtExit.*` over shells started and ended for the case, since an
+exit and the next start are two runs of the application), with the parts under it in `Test_ShellCore`: the document's lock and floating views, the service's
+record of the workspaces and its leave guard, a workspace made under an id, and `DockHooksTest`'s cases of a saved
+layout. A case arranges real views of real files - a view is the project's once the file it shows has joined it, which
+the fixture waits for - closes the project as Close Project does and opens it again, and compares each view's group,
+its place in its dock area within two pixels, the tabs' order and the floating window's place. Three things are easy
+to get wrong in such a case. An empty workspace the person is not in closes, so a second workspace is made once the
+views that go into it are open. A view deleted and not closed - what a fixture's teardown does - leaves its dock
+widget behind with a guest the dock library still names; `DockHooks` destroys those before it takes or applies a
+layout, and a case that reads a dock widget's guest asks Qt for the child, not the library. And the dock library's
+view gives `window()` another meaning: the window a floating view is in is `QWidget::window()`.
+
 `Test_ControlsDocking` holds the dock library to what the interface is built on ("The dock area" in
 [the product guide](PRODUCT_ARCHITECTURE.md) lists it) and drives the library the way a user does, because the
 library's drag controller is not in its installed interface: a drag is a press, moves and a release delivered to the
