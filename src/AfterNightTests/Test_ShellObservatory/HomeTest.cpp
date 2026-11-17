@@ -528,22 +528,18 @@ TEST_F(Home, TheSortBoxShowsEachChoiceWhole)
     }
     sort.setCurrentIndex(chosen);
 
-    // Opened, its list gives each row room for the check's column, the gap and the whole of its text.
+    // Opened, its list gives each row room for the check's column - only as wide as the check, no item having an icon
+    // - the gap and the whole of its text.
     sort.showPopup();
     QAbstractItemView* const list = sort.view();
     ASSERT_TRUE(an::tests::app::processEventsUntil([list]() { return list->isVisible(); }, 5000));
     const QFontMetricsF metrics(sort.font());
-    const int decoration = list->iconSize().isValid()
-                               ? list->iconSize().width()
-                               : sort.style()->pixelMetric(QStyle::PM_ListViewIconSize, nullptr, list);
-    const int column = (std::max)(decoration + 4, 16);
     for (int row = 0; row < sort.count(); ++row)
     {
         // What the list shows of the row: its viewport cuts a row laid out wider than it.
         const QRect place = list->visualRect(sort.model()->index(row, 0));
         const int shown = (std::min)(place.right(), list->viewport()->rect().right()) - place.left() + 1;
-        const int needed =
-            8 + column + 10 + static_cast<int>(std::ceil(metrics.horizontalAdvance(sort.itemText(row)))) + 8;
+        const int needed = 8 + 16 + 6 + static_cast<int>(std::ceil(metrics.horizontalAdvance(sort.itemText(row)))) + 8;
         EXPECT_GE(shown, needed) << sort.itemText(row).toStdString() << " is cut in the sort box's list";
     }
     sort.hidePopup();

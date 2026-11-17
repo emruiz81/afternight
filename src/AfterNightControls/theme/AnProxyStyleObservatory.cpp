@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <utility>
 
 namespace
 {
@@ -96,6 +97,10 @@ constexpr int kLineEditMargin = 2;
 /// A menu item's padding at each side and the gap between its parts.
 constexpr qreal kMenuItemPadding = 8.0;
 constexpr qreal kMenuItemGap = 10.0;
+
+/// The gap between a combo box's list row's check column and its text: the column is the check's own, so the text
+/// leads the row.
+constexpr qreal kComboRowGap = 6.0;
 
 /// A process splitter's grip: its thickness and how far it keeps from the handle's ends.
 constexpr qreal kGrip = 2.0;
@@ -538,8 +543,51 @@ void drawRaisedPanel(QPainter* painter, const QStyleOption* option, const QWidge
 
 /// A menu's item: its padding, the column of its check or icon, its text, its shortcut in the monospace and the arrow
 /// of a submenu; under the pointer, the accent's container in its text.
+/// The combo box whose list paints a menu item, or null for a menu's: the list's delegate paints its rows for the box.
+const QComboBox* comboOfRow(const QWidget* widget)
+{
+    for (const QWidget* step = widget; step != nullptr; step = step->parentWidget())
+    {
+        if (qobject_cast<const QMenu*>(step) != nullptr)
+        {
+            return nullptr;
+        }
+        if (const auto* box = qobject_cast<const QComboBox*>(step))
+        {
+            return box;
+        }
+    }
+    return nullptr;
+}
+
+/// Whether any item of a combo box has an icon: then its rows keep a column the icon's width.
+bool comboHasIcons(const QComboBox& box)
+{
+    for (int index = 0; index < box.count(); ++index)
+    {
+        if (!box.itemIcon(index).isNull())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// A row's check or icon column and the gap after it. A menu's item keeps a column as wide as its menu's widest icon,
+/// or the indicator, and the menu's gap. A combo box's row keeps the icon's column only when the box's items have
+/// icons; otherwise the column is the check's own, and the gap the row's, so the text leads the row and the check,
+/// which marks only the current item, does not push it aside.
+std::pair<qreal, qreal> rowColumnAndGap(const qreal maxIconWidth, const QComboBox* combo)
+{
+    if (combo == nullptr)
+    {
+        return {(std::max)(maxIconWidth, kIndicator), kMenuItemGap};
+    }
+    return {comboHasIcons(*combo) ? (std::max)(maxIconWidth, kIndicator) : kIndicator, kComboRowGap};
+}
+
 void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item, const DesignTokens& t,
-                             const bool underline)
+                             const bool underline, const QComboBox* combo)
 {
     const ColorTokens& c = t.colors;
     const PainterGuard guard(painter);
@@ -574,8 +622,8 @@ void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item
                            : logical;
     };
 
-    // The check or icon column.
-    const qreal column = (std::max)(static_cast<qreal>(item->maxIconWidth), kIndicator);
+    // The check or icon column, and the gap after it.
+    const auto [column, gap] = rowColumnAndGap(static_cast<qreal>(item->maxIconWidth), combo);
     const QRectF columnRect(rect.left() + kMenuItemPadding, rect.top(), column, rect.height());
     const bool checkable = item->checkType != QStyleOptionMenuItem::NotCheckable;
     if (!item->icon.isNull())
@@ -625,7 +673,7 @@ void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item
     const qsizetype tab = item->text.indexOf(QLatin1Char('\t'));
     const QString label = tab >= 0 ? item->text.left(tab) : item->text;
     const QString shortcut = tab >= 0 ? item->text.mid(tab + 1) : QString();
-    const qreal textLeft = columnRect.right() + kMenuItemGap;
+    const qreal textLeft = columnRect.right() + gap;
     const int alignment =
         Qt::AlignVCenter | Qt::TextSingleLine | (underline ? Qt::TextShowMnemonic : Qt::TextHideMnemonic);
     if (!shortcut.isEmpty())
@@ -645,10 +693,10 @@ void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item
 }
 
 /// How wide a combo box's list needs to be for its rows to be shown whole. Each row is painted as a menu item
-/// (drawObservatoryMenuItem): the padding at each side, the check's column - as wide as the row's icon and 4 px, as the
-/// list's delegate hands it, and never narrower than the indicator - the gap, and the text, in the box's font. Around
-/// the rows are the list's frame and its window's, the window's margins and, when it has more items than it shows, its
-/// scroll bar.
+/// (drawObservatoryMenuItem): the padding at each side, the check's column and the gap (rowColumnAndGap: the column is
+/// as wide as the row's decoration and 4 px, as the list's delegate hands it, when the items have icons, and the
+/// check's own otherwise), and the text, in the box's font. Around the rows are the list's frame and its window's, the
+/// window's margins and, when it has more items than it shows, its scroll bar.
 ///
 /// @param box the combo box.
 /// @param listIcon the style's list view icon size, which a list with no icon size of its own decorates its rows at.
@@ -666,8 +714,8 @@ int comboListWidth(const QComboBox& box, const int listIcon)
         widest = (std::max)(widest, metrics.horizontalAdvance(box.itemText(index)));
     }
     const int decoration = view->iconSize().isValid() ? view->iconSize().width() : listIcon;
-    const qreal column = (std::max)(static_cast<qreal>(decoration + 4), kIndicator);
-    int width = static_cast<int>(std::ceil(2.0 * kMenuItemPadding + column + kMenuItemGap + widest));
+    const auto [column, gap] = rowColumnAndGap(static_cast<qreal>(decoration + 4), &box);
+    int width = static_cast<int>(std::ceil(2.0 * kMenuItemPadding + column + gap + widest));
 
     width += 2 * view->frameWidth();
     if (const auto* window = qobject_cast<const QFrame*>(view->parentWidget()))
@@ -1394,7 +1442,8 @@ bool AnProxyStyle::drawObservatoryControl(ControlElement element, const QStyleOp
         {
             return false;
         }
-        drawObservatoryMenuItem(painter, item, t, styleHint(SH_UnderlineShortcut, option, widget) != 0);
+        drawObservatoryMenuItem(painter, item, t, styleHint(SH_UnderlineShortcut, option, widget) != 0,
+                                comboOfRow(widget));
         break;
     }
 

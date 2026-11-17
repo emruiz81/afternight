@@ -24,6 +24,7 @@
 #include <QFontMetrics>
 #include <QFrame>
 #include <QIcon>
+#include <QImage>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -55,6 +56,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <string>
@@ -536,10 +538,48 @@ TEST(ProxyStyleObservatory, AComboBoxSizedToItsContentsShowsEveryItemWhole)
     });
 }
 
-// A combo box's list, opened, is as wide as its rows need: each row is painted as a menu item - 8 px of padding, the
-// check's column (the item's icon and 4 px, or the 16 px indicator), a 10 px gap, the text and the padding again - and
-// the list shows that much of every row, which a row laid out wider than the list does not tell, so none is cut, with
-// icons or without, and with a scroll bar when the list has more items than it shows.
+namespace
+{
+
+/// The first and the last column of a row of a list's picture where something is drawn on the row's background - its
+/// check, its icon, its text - or -1 where nothing is. The background is read at the row's right end, in its padding.
+std::pair<int, int> inkColumns(const QImage& picture, const QRect& row)
+{
+    const qreal ratio = picture.devicePixelRatio();
+    const int left = static_cast<int>(row.left() * ratio);
+    const int right = (std::min)(static_cast<int>((row.right() + 1) * ratio), picture.width()) - 1;
+    const int top = static_cast<int>((row.top() + 6) * ratio);
+    const int bottom = (std::min)(static_cast<int>((row.bottom() - 5) * ratio), picture.height() - 1);
+    const QColor background = picture.pixelColor(right - 1, (top + bottom) / 2);
+    int first = -1;
+    int last = -1;
+    for (int x = left; x <= right; ++x)
+    {
+        for (int y = top; y <= bottom; ++y)
+        {
+            const QColor here = picture.pixelColor(x, y);
+            if (std::abs(here.red() - background.red()) + std::abs(here.green() - background.green()) +
+                    std::abs(here.blue() - background.blue()) >
+                90)
+            {
+                first = first < 0 ? x : first;
+                last = x;
+                break;
+            }
+        }
+    }
+    return {first < 0 ? -1 : static_cast<int>(first / ratio), last < 0 ? -1 : static_cast<int>(last / ratio)};
+}
+
+} // namespace
+
+// A combo box's list, opened, is as wide as its rows need, and its rows lead with their text: each row is painted as a
+// menu item - 8 px of padding, the check's column, 6 px, the text and the padding again. The check's column is only as
+// wide as the 16 px check where no item has an icon, so the text starts 30 px in, and as wide as the icon and 4 px
+// where the items have icons. The list shows that much of every row - which a row laid out wider than the list does not
+// tell
+// - so none is cut, with icons or without, and with a scroll bar when the list has more items than it shows; and the
+// picture of the list puts the check, the icons and the text where the rows say.
 TEST(ProxyStyleObservatory, AComboBoxsListShowsEveryItemWhole)
 {
     forEachLook([](ObservatoryStyleScope&, const DesignTokens& t) {
@@ -583,17 +623,39 @@ TEST(ProxyStyleObservatory, AComboBoxsListShowsEveryItemWhole)
                 const int decoration = view->iconSize().isValid()
                                            ? view->iconSize().width()
                                            : combo.style()->pixelMetric(QStyle::PM_ListViewIconSize, nullptr, view);
-                const int iconColumn = decoration + 4;
-                const int column = (std::max)(iconColumn, 16);
+                const int column = withIcon ? (std::max)(decoration + 4, 16) : 16;
+                const int textLeft = 8 + column + 6;
+                const QImage picture = view->viewport()->grab().toImage();
                 for (int row = 0; row < combo.count(); ++row)
                 {
                     // What the list shows of the row: the viewport cuts a row laid out wider than it.
                     const QRect place = view->visualRect(combo.model()->index(row, 0));
                     const int shown = (std::min)(place.right(), view->viewport()->rect().right()) - place.left() + 1;
                     const int needed =
-                        8 + column + 10 + static_cast<int>(std::ceil(metrics.horizontalAdvance(items[row]))) + 8;
+                        textLeft + static_cast<int>(std::ceil(metrics.horizontalAdvance(items[row]))) + 8;
                     EXPECT_GE(shown, needed)
                         << items[row].toStdString() << " is cut in a list " << view->window()->width() << " px wide";
+                    if (place.bottom() > view->viewport()->rect().bottom())
+                    {
+                        continue;
+                    }
+                    // Where the row is drawn: the current row's check, or an icon, in the column - a checked icon on
+                    // a square 2 px wider at each side - and another row's text where the column and the gap end.
+                    const auto [first, last] = inkColumns(picture, place);
+                    ASSERT_GE(first, 0) << items[row].toStdString() << " draws nothing";
+                    if (row == combo.currentIndex() || withIcon)
+                    {
+                        const int square = withIcon && row == combo.currentIndex() ? 2 : 0;
+                        EXPECT_GE(first, place.left() + 8 - square) << items[row].toStdString();
+                        EXPECT_LT(first, place.left() + 8 + column) << items[row].toStdString();
+                    }
+                    else
+                    {
+                        EXPECT_GE(first, place.left() + textLeft) << items[row].toStdString();
+                        EXPECT_LE(first, place.left() + textLeft + 3)
+                            << items[row].toStdString() << " starts " << first - place.left() << " px into its row";
+                    }
+                    EXPECT_LE(last, place.left() + shown - 8) << items[row].toStdString() << " runs into the padding";
                 }
                 combo.hidePopup();
             }
