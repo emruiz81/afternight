@@ -850,7 +850,10 @@ resolution, a window, an overlay. Each card is an `AnReadoutCard`: `surface2` wi
 letter-spaced 0.08 em (`parts::capsFont`), in `textSecondary`, with the card's summary in the small size at its right
 before its tools (`AnIconButton`s); a click, Space or Enter on the header folds the card. A value being measured again
 is drawn at 55 % (`kReadoutStaleOpacity`) until the new one lands - a card never blanks it - and a plot, a child widget,
-through an opacity effect at the same share.
+through an opacity effect at the same share. A card's vertical policy is `Preferred` and its body has no stretch: a
+card whose rows wrap is as high as its width needs (a `Maximum` policy capped it at its unwrapped hint, and a solved
+Astrometry card's chips covered its read-outs), and no card grows past that, the column's room going to the histogram
+and under the last card. No row of a card may be wider than the column, or the card's height is reckoned at that width.
 
 - **Histogram** (`AnHistogramCard`): the histogram window's widget in a `bgWell` well of 8 px corners at least 100 px
   high, which takes the height the other cards leave up to a card 248 px high (`kReadoutHistogramCardMaximum`, the
@@ -864,9 +867,10 @@ through an opacity effect at the same share.
   Normalized, 8-bit or 16-bit, which writes the figures again without measuring anything.
 - **Astrometry** (`AnAstrometryCard`): the field centre, the scale and the rotation as read-outs; a toggle `AnChip` per
   overlay (Grid, Annotations, Star labels, Detected stars, SIP map) in an `AnFlowLayout`, bound to the action that draws
-  it so the chip follows the view's menu and shortcut; Plate Solve (tonal), Annotate... and Info (quiet); the header
-  says "Solved", the solver and the distortion, and its tool opens the view's astrometry settings. Not solved, "No
-  astrometric solution" and Plate Solve.
+  it so the chip follows the view's menu and shortcut; Plate Solve (tonal), Annotate... and Info (quiet), in an
+  `AnFlowLayout` too, so a wide font wraps them rather than widening the card; the header says "Solved", the solver and
+  the distortion, and its tool opens the view's astrometry settings. Not solved, "No astrometric solution" and Plate
+  Solve.
 - **Image** (`AnImageFactsCard`): Dimensions, Format, Size in memory and Channels in `metrics.rowKeyValue` rows; the
   FITS Header, EXIF Viewer and Summary tools; folded, the facts in one line in its header.
 

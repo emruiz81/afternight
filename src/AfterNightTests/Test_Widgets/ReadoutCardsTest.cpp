@@ -30,6 +30,7 @@
 #include <QAction>
 #include <QComboBox>
 #include <QGraphicsOpacityEffect>
+#include <QLayout>
 #include <QMenu>
 #include <QPushButton>
 #include <QScrollArea>
@@ -779,6 +780,47 @@ TEST(ReadoutColumn, TheHistogramGrowsTo248PixelsAndTheRestIsLeftEmpty)
         EXPECT_EQ(column.statisticsCard()->mapTo(&column, QPoint(0, 0)).y(),
                   column.histogramCard()->mapTo(&column, QPoint(0, 0)).y() + column.histogramCard()->height() +
                       an::ui::parts::kReadoutCardGap);
+    });
+}
+
+// A solved image's Astrometry card shows each of its rows whole in the column, where its chips wrap to a second line:
+// the readouts, then the chips, then the buttons - which wrap too where a wide font leaves them no room in one line -
+// each under the one before, all inside the card, at either width. The card asks for no more width than the column
+// gives it: its rows' heights are reckoned at the width it asks for.
+TEST(ReadoutColumn, ASolvedAstrometryCardShowsEveryRowWhole)
+{
+    forEachLook([](const DesignTokens&) {
+        for (const int windowWidth : {1920, 1150})
+        {
+            SCOPED_TRACE(windowWidth);
+            an::ui::AnReadoutColumn column;
+            column.setWindowSize(QSize(windowWidth, 1080));
+            column.resize(column.columnWidth(), 1000);
+            showOffScreen(column);
+            an::ui::AnAstrometryCard& card = *column.astrometryCard();
+            card.setReadout(solvedReadout());
+            for (int round = 0; round < 3; ++round)
+            {
+                QCoreApplication::processEvents();
+            }
+            const auto placed = [&column](const QWidget& widget) {
+                return QRect(widget.mapTo(&column, QPoint(0, 0)), widget.size());
+            };
+            const QRect readouts = placed(*card.readouts());
+            const QRect firstChip = placed(*card.overlayChip(an::ui::AstrometryOverlay::Grid));
+            const QRect lastChip = placed(*card.overlayChip(an::ui::AstrometryOverlay::SipMap));
+            const QRect plateSolve = placed(*card.plateSolveButton());
+            const QRect info = placed(*card.infoButton());
+            const QRect whole = placed(card);
+            EXPECT_GT(lastChip.top(), firstChip.top()) << "the chips fit one line: nothing to show";
+            EXPECT_LE(card.layout()->totalMinimumSize().width(), card.width())
+                << "the card claims more width than the column gives it, and its rows are reckoned at that width";
+            EXPECT_EQ(readouts.height(), card.readouts()->heightForWidth(readouts.width())) << "the readouts are cut";
+            EXPECT_LT(readouts.bottom(), firstChip.top()) << "the chips lie over the readouts";
+            EXPECT_LT(lastChip.bottom(), plateSolve.top()) << "the buttons lie over the chips";
+            EXPECT_LT(info.bottom(), whole.bottom()) << "the buttons leave the card";
+            EXPECT_LT(whole.bottom(), placed(*column.imageCard()).top()) << "the next card lies over this one";
+        }
     });
 }
 

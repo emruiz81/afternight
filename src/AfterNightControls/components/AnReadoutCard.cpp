@@ -182,7 +182,10 @@ void AnReadoutCardHeader::keyPressEvent(QKeyEvent* event)
 
 AnReadoutCard::AnReadoutCard(const QString& title, QWidget* parent) : QWidget(parent)
 {
-    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    // Preferred, not Maximum: a card whose rows wrap - the Astrometry card's chips - is as high as its width needs,
+    // and a Maximum policy caps a widget at its plain hint, the height of its rows unwrapped. A card grows no further
+    // in the column, which leaves its room to the histogram and under the last card.
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     auto* column = new QVBoxLayout(this);
     keepLayout(column);
     column->setContentsMargins(0, 0, 0, 0);
@@ -195,7 +198,8 @@ AnReadoutCard::AnReadoutCard(const QString& title, QWidget* parent) : QWidget(pa
     m_bodyLayout = new QVBoxLayout(m_body);
     keepLayout(m_bodyLayout);
     // The body's padding and gaps are sized from the tokens when the card is polished (applyMetrics).
-    column->addWidget(m_body, 1);
+    // No stretch: a stretch would make every card count as growing, and share the column's room among them.
+    column->addWidget(m_body);
 
     QObject::connect(m_header, &QAbstractButton::clicked, this, [this]() { setFolded(!m_folded); });
 }

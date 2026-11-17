@@ -11,7 +11,6 @@
 #include "theme/ComponentParts.h"
 
 #include <QAction>
-#include <QHBoxLayout>
 #include <QMenu>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -93,18 +92,20 @@ AnAstrometryCard::AnAstrometryCard(QWidget* parent) : AnReadoutCard(tr("Astromet
     }
     bodyLayout()->addWidget(m_chips);
 
-    auto* buttons = new QHBoxLayout();
+    // The buttons wrap as the chips do: a row wider than the column would make the card claim more width than it has,
+    // and its rows' heights would be reckoned at that width.
+    auto* buttonRow = new QWidget(body());
+    auto* buttons = new AnFlowLayout(buttonRow);
     keepLayout(buttons);
     buttons->setContentsMargins(0, 0, 0, 0);
     buttons->setSpacing(parts::kReadoutToolGap * 2);
-    m_plateSolve = button(tr("Plate Solve"), tr("Plate Solve (Ctrl+P)"), "tonal", body());
-    m_annotate = button(tr("Annotate..."), tr("Annotate Image (Ctrl+Shift+L)"), "quiet", body());
-    m_info = button(tr("Info"), tr("Astrometry Info (Ctrl+Shift+P)"), "quiet", body());
+    m_plateSolve = button(tr("Plate Solve"), tr("Plate Solve (Ctrl+P)"), "tonal", buttonRow);
+    m_annotate = button(tr("Annotate..."), tr("Annotate Image (Ctrl+Shift+L)"), "quiet", buttonRow);
+    m_info = button(tr("Info"), tr("Astrometry Info (Ctrl+Shift+P)"), "quiet", buttonRow);
     buttons->addWidget(m_plateSolve);
     buttons->addWidget(m_annotate);
     buttons->addWidget(m_info);
-    buttons->addStretch(1);
-    bodyLayout()->addLayout(buttons);
+    bodyLayout()->addWidget(buttonRow);
 
     QObject::connect(m_plateSolve, &QPushButton::clicked, this, [this]() { plateSolveRequested(); });
     QObject::connect(m_annotate, &QPushButton::clicked, this, [this]() { annotateRequested(); });
