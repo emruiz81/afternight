@@ -2322,6 +2322,32 @@ the images open the arrangement is not saved and the project is not left. `Obser
 the workspace used last - the one the person is in, which a restore makes the one the project recorded - and
 `continueLabel` names it.
 
+**Project Home** (`pages/ProjectHomePage.h`, `workspaces/WorkspaceMiniature.h`). While a project is open, Home is the
+project's page: the window's `showHome` shows it, and a project that opens while Home is shown takes Home's place. The
+page reads the open project from the service and what only the window knows is told to it: the workspaces as they are
+now - not the record, which is written only as the project is left - each with its arrangement read from its dock area
+(`miniatureLayoutOf`: the dock library's groups in their places, their tabs in their order), and where each image is
+open. A miniature is painted from the pictures of a thumbnails' service of the window's own, which follows the views
+docked in the workspaces while a project is open; the task presenter's follows only the views tasks target and forgets
+the others, so it cannot be shared. The storage is measured on the thread pool (`storageReport`, whose report now tells
+the frames a run makes on its way - the folders `kIntermediateFrameFolders` names - from the masters it keeps, and says
+it was not measured on the GUI thread), and the images' pictures, sizes and dates are read off the GUI thread as Home's
+tiles are. The notes are the project's notes file (`kProjectNotesFileName`), written a moment after the last keystroke and when the page goes. The Integrations
+card lists the jobs of the project's own database from the window's `IntegrationJobsModel`.
+
+**A heavy history asks once.** As a project opens, its storage is measured; when its undo history is over
+`projects/compactAskThresholdGb` the window says so once, in its transient message, with `Compact history...`. The
+Compact history dialog (`dialogs/CompactHistoryDialog.h`, Controls) is told each image's steps, plans the choice through
+`ProjectHistoryBinder::planCompaction` for what it frees and compacts through `compact`: it knows no project and waits
+for neither.
+
+**Home's projects.** With no project open, Home shows the projects used last: the last one in the Continue row, four in
+the Projects row with the Open project... tile (`controls/HomeProjectsRow.h`). What a card says is read from each
+folder on the thread pool (`readProjectSummary`) and only while no project is open: on Windows a file cannot take the
+place of one a reader holds open, and the open project's document is the one the service writes - a reader of the
+projects used last made the images a new project took fail to join it. The document's writer tries a refused commit
+again a few times, for a reader that happens to hold another project's document as it opens.
+
 ### The application (`src/AfterNightApp/`: `app/ApplicationMain.h`, `app/ApplicationStart.h`)
 
 The executable composes a shell and owns what outlives it. `main.cpp` calls `runApplication` (`app/ApplicationMain.h`),

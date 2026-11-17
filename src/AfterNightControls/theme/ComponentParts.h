@@ -450,8 +450,15 @@ inline constexpr int kWorkspaceMiniatureTabStrip = 16;
 inline constexpr int kWorkspaceMiniatureTabWidth = 22;
 inline constexpr int kWorkspaceMiniatureTabHeight = 10;
 inline constexpr int kWorkspaceMiniatureTabGap = 3;
+/// The images' table: a 58 x 40 picture, the name, which takes what the others leave, then the type, the size, the
+/// history, the state and when the file changed.
 inline constexpr int kProjectImagePictureWidth = 58;
 inline constexpr int kProjectImagePictureHeight = 40;
+inline constexpr int kProjectImageTypeColumn = 56;
+inline constexpr int kProjectImageSizeColumn = 98;
+inline constexpr int kProjectImageHistoryColumn = 134;
+inline constexpr int kProjectImageStateColumn = 168;
+inline constexpr int kProjectImageModifiedColumn = 124;
 inline constexpr int kProjectIntegrationRowPadding = 7;
 inline constexpr int kStorageBarHeight = 10;
 inline constexpr int kStorageBarGap = 2;

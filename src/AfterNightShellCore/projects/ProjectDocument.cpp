@@ -17,6 +17,7 @@
 #include <QJsonParseError>
 #include <QJsonValue>
 #include <QSaveFile>
+#include <QThread>
 #include <QSet>
 #include <QTimeZone>
 
@@ -650,7 +651,23 @@ QString writeProjectDocument(const QString& filePath, const ProjectDocument& doc
     }
     if (!file.commit())
     {
-        return failed(file.errorString());
+        // On Windows a file cannot take the place of one a reader holds open: a reader of the projects used last that
+        // reads this document at that moment lets it go within milliseconds, so the write is made again a few times.
+        constexpr int kAttempts = 5;
+        constexpr unsigned long kPauseMs = 10;
+        QString reason = file.errorString();
+        for (int attempt = 1; attempt < kAttempts; ++attempt)
+        {
+            QThread::msleep(kPauseMs);
+            QSaveFile again(filePath);
+            again.setDirectWriteFallback(false);
+            if (again.open(QIODevice::WriteOnly) && again.write(bytes) == bytes.size() && again.commit())
+            {
+                return {};
+            }
+            reason = again.errorString();
+        }
+        return failed(reason);
     }
     return {};
 }

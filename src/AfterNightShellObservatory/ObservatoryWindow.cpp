@@ -14,6 +14,7 @@
 #include "pages/FloatingImagesPage.h"
 #include "pages/HomePage.h"
 #include "pages/IntegrationHubPage.h"
+#include "pages/ProjectHomePage.h"
 #include "pages/TaskPage.h"
 #include "pages/WorkspacePage.h"
 #include "projects/ProjectFlows.h"
@@ -24,6 +25,7 @@
 #include "workspaces/FloatingViewChrome.h"
 #include "workspaces/RenameWorkspaceDialog.h"
 #include "workspaces/WorkspaceHost.h"
+#include "workspaces/WorkspaceMiniature.h"
 #include "workspaces/WorkspaceToolbar.h"
 #include "workspaces/WorkspaceWindow.h"
 
@@ -38,6 +40,7 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
+#include "projects/ProjectHistoryBinder.h"
 #include "projects/ProjectLayoutStore.h"
 #include "projects/ProjectService.h"
 #include "readout/ReadoutController.h"
@@ -52,6 +55,7 @@
 #include "tasks/TaskModel.h"
 #include "views/DockHooks.h"
 #include "views/DockLayoutOperations.h"
+#include "views/ViewThumbnailService.h"
 #include "views/ViewService.h"
 
 #include "app/AfterNightAppListener.h"
@@ -83,6 +87,7 @@
 #include "components/RailItem.h"
 #include "controls/ExportSequenceControl.h"
 #include "controls/GlobalSettingsPersistence.h"
+#include "controls/HomeProjectsRow.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
@@ -93,7 +98,9 @@
 #include "controls/ProgressDialogControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "controls/settings/SettingsDefaults.h"
+#include "controls/settings/ProjectSettings.h"
 #include "controls/settings/SettingsKeys.h"
+#include "dialogs/CompactHistoryDialog.h"
 #include "theme/AnProxyStyle.h"
 #include "theme/ComponentParts.h"
 #include "theme/ObservatoryDock.h"
@@ -258,6 +265,15 @@ struct ObservatoryWindow::Impl
     IntegrationHubPage* hubPage = nullptr;
     std::unique_ptr<ImageIntegration::IntegrationJobsModel> jobs;
     std::size_t jobsProjectSubscription = 0;
+    // Home while a project is open, the Compact history dialog while it is open, whether the project that opened is to
+    // ask about a heavy history once its storage is measured, and what the page hears of the views' pictures.
+    ProjectHomePage* projectHome = nullptr;
+    QPointer<an::ui::CompactHistoryDialog> compactDialog;
+    bool askAboutHistory = false;
+    // The pictures of the views the miniatures show: a thumbnails' service of the page's own, which follows the views
+    // docked in the workspaces while a project is open; the task presenter's follows only the views tasks target.
+    std::unique_ptr<an::ui::shell::ViewThumbnailService> miniatures;
+    std::size_t miniaturesSubscription = 0;
     // The view's menu, which the More of every workspace page's toolbar opens.
     an::ui::shell::ViewChromeBinder::MenuFiller viewMenuFiller;
     // The workspaces moved to windows of their own, by their ids, and what the window hears of the workspaces.
@@ -659,6 +675,11 @@ ObservatoryWindow::~ObservatoryWindow()
 
     qApp->removeEventFilter(this);
     core.projects().unsubscribe(impl.jobsProjectSubscription);
+    if (impl.miniatures)
+    {
+        impl.miniatures->unsubscribe(impl.miniaturesSubscription);
+        impl.miniatures.reset();
+    }
     // The project that is open is asked nothing more of this window; the projects' unit lets go of the top bar and of
     // the project service before either goes, and what keeps the arrangement of the workspaces before they do.
     core.projects().setLeaveGuard({});
@@ -890,12 +911,95 @@ void ObservatoryWindow::buildRegions()
     QObject::connect(
         impl.hubPage, &IntegrationHubPage::showJobRequested, this,
         [this](const QString& databasePath, const QString& session) { showIntegrationJob(databasePath, session); });
+    // Home while a project is open.
+    ProjectHomePage::Hooks homeHooks;
+    homeHooks.continueLabel = [this]() { return continueLabel(); };
+    homeHooks.continueProject = [this]() { (void)continueProject(); };
+    homeHooks.addImages = [this]() { openFile(); };
+    homeHooks.newIntegration = [this]() { openImageIntegration(); };
+    homeHooks.projectSettings = [this]() {
+        if (QAction* const action = m_impl->shellActions->action(ids::kProjectSettings))
+        {
+            action->trigger();
+        }
+    };
+    homeHooks.closeProject = [this]() {
+        if (QAction* const action = m_impl->shellActions->action(ids::kCloseProject))
+        {
+            action->trigger();
+        }
+    };
+    homeHooks.compactHistory = [this]() { openCompactHistory(); };
+    homeHooks.showWorkspace = [this](const QString& id) { showWorkspace(id); };
+    homeHooks.renameWorkspace = [this](const QString& id) { renameWorkspace(id); };
+    homeHooks.openJob = [this](const QString& databasePath, const QString& session) {
+        openIntegrationJob(databasePath, session);
+    };
+    impl.projectHome = new ProjectHomePage(impl.core, *impl.jobs, std::move(homeHooks), impl.centre);
+    impl.centre->addWidget(impl.projectHome);
+    impl.miniatures = std::make_unique<an::ui::shell::ViewThumbnailService>(impl.core);
+    impl.miniaturesSubscription = impl.miniatures->subscribe([this](ImageViewControl* view, const QImage& picture) {
+        if (m_impl->projectHome != nullptr && view != nullptr && !picture.isNull())
+        {
+            m_impl->projectHome->setViewPicture(QString::fromUtf8(view->getUniqueName()), picture);
+        }
+    });
+    QObject::connect(
+        impl.projectHome, &ProjectHomePage::storageMeasured, this,
+        [this](const an::ui::shell::ProjectStorageReport& report) {
+            // A heavy history asks once, as its project opens, to be compacted.
+            if (!m_impl->askAboutHistory || !m_impl->core.projects().isOpen())
+            {
+                return;
+            }
+            m_impl->askAboutHistory = false;
+            an::ui::IGlobalSettingsProvider* const settings = m_impl->core.globalSettings();
+            const an::ui::ProjectSettings stored = an::ui::readProjectSettings(
+                [settings](const QString& key, const QString& fallback) { return settings->select(key, fallback); });
+            const std::uint64_t history = report.historyBytes + report.unlistedHistoryBytes;
+            const std::uint64_t threshold =
+                static_cast<std::uint64_t>(stored.compactAskThresholdGb) * 1000u * 1000u * 1000u;
+            if (history > threshold)
+            {
+                showSnackbar(
+                    tr("This project's undo history takes %1").arg(an::ui::homeSizeText(static_cast<qint64>(history))),
+                    tr("more than the %1 GB the settings ask about").arg(stored.compactAskThresholdGb),
+                    tr("Compact history..."), [this]() { openCompactHistory(); });
+            }
+        });
+
     impl.jobsProjectSubscription =
         impl.core.projects().subscribe([this](const an::ui::shell::ProjectService::Change change) {
             if (change == an::ui::shell::ProjectService::Change::Opened ||
                 change == an::ui::shell::ProjectService::Change::Closed)
             {
                 updateIntegrationSources();
+            }
+            if (change == an::ui::shell::ProjectService::Change::Opened)
+            {
+                projectOpened();
+            }
+            else if (change == an::ui::shell::ProjectService::Change::Closed)
+            {
+                m_impl->askAboutHistory = false;
+                // The miniatures need no picture with no project open; Home shows the projects used last again.
+                for (ImageViewControl* view : m_impl->core.viewService().getListOfViewControls())
+                {
+                    m_impl->miniatures->forget(view);
+                }
+                refreshRecentProjects();
+                if (isProjectHomeShown())
+                {
+                    showHome();
+                }
+            }
+            else if (change == an::ui::shell::ProjectService::Change::Recents)
+            {
+                refreshRecentProjects();
+            }
+            else if (change == an::ui::shell::ProjectService::Change::Images && isProjectHomeShown())
+            {
+                refreshProjectHome();
             }
         });
     updateIntegrationSources();
@@ -1056,6 +1160,18 @@ void ObservatoryWindow::connectHome()
         if (m_impl->fileManager)
         {
             m_impl->fileManager->removeRecentFile(filePath.toStdString());
+        }
+    });
+    QObject::connect(home, &HomePage::openProjectRequested, this, [this](const QString& folder) {
+        if (m_impl->projects)
+        {
+            m_impl->projects->openProjectFolder(folder);
+        }
+    });
+    QObject::connect(home, &HomePage::openOtherProjectRequested, this, [this]() {
+        if (m_impl->projects)
+        {
+            m_impl->projects->openProject();
         }
     });
 }
@@ -1397,6 +1513,8 @@ void ObservatoryWindow::initialize()
     {
         m_impl->projects->restoreLastProject();
     }
+    // Home shows the projects used last.
+    refreshRecentProjects();
 }
 
 // ---- The regions
@@ -1449,6 +1567,16 @@ HomePage* ObservatoryWindow::homePage() const noexcept
 IntegrationHubPage* ObservatoryWindow::integrationHubPage() const noexcept
 {
     return m_impl->hubPage;
+}
+
+ProjectHomePage* ObservatoryWindow::projectHomePage() const noexcept
+{
+    return m_impl->projectHome;
+}
+
+an::ui::CompactHistoryDialog* ObservatoryWindow::compactHistoryDialog() const noexcept
+{
+    return m_impl->compactDialog.data();
 }
 
 ImageIntegration::IntegrationJobsModel& ObservatoryWindow::integrationJobs() const noexcept
@@ -1549,7 +1677,13 @@ QMenu* ObservatoryWindow::moreMenu() const noexcept
 
 bool ObservatoryWindow::isHomeShown() const
 {
-    return m_impl->centre->currentWidget() == m_impl->homePage;
+    QWidget* const shown = m_impl->centre->currentWidget();
+    return shown == m_impl->homePage || (shown != nullptr && shown == m_impl->projectHome);
+}
+
+bool ObservatoryWindow::isProjectHomeShown() const
+{
+    return m_impl->projectHome != nullptr && m_impl->centre->currentWidget() == m_impl->projectHome;
 }
 
 bool ObservatoryWindow::isWorkspaceShown() const
@@ -1811,8 +1945,163 @@ an::ui::shell::DockTarget ObservatoryWindow::dockTarget(const ImageViewControl* 
 
 void ObservatoryWindow::showHome()
 {
-    m_impl->centre->setCurrentWidget(m_impl->homePage);
+    Impl& impl = *m_impl;
+    // While a project is open, Home is the project's page.
+    if (impl.projectHome != nullptr && impl.core.projects().isOpen())
+    {
+        impl.centre->setCurrentWidget(impl.projectHome);
+        refreshProjectHome();
+    }
+    else
+    {
+        impl.centre->setCurrentWidget(impl.homePage);
+    }
     placeChanged();
+}
+
+void ObservatoryWindow::openCompactHistory()
+{
+    Impl& impl = *m_impl;
+    if (!impl.compactDialog.isNull())
+    {
+        impl.compactDialog->raise();
+        impl.compactDialog->activateWindow();
+        return;
+    }
+    if (!impl.core.projects().isOpen())
+    {
+        return;
+    }
+    // What each image's history keeps is measured first, on the thread pool; the dialog opens when it lands.
+    const QPointer<ObservatoryWindow> self(this);
+    impl.core.projects().storageReport([self](const an::ui::shell::ProjectStorageReport& report) {
+        if (!self || !self->m_impl->compactDialog.isNull() || !self->m_impl->core.projects().isOpen())
+        {
+            return;
+        }
+        std::vector<an::ui::CompactHistoryImage> images;
+        for (const an::ui::shell::ProjectImageStorage& image : report.images)
+        {
+            if (image.steps > 0u || image.detachedBytes > 0u)
+            {
+                images.push_back(an::ui::CompactHistoryImage{image.imageId, QFileInfo(image.path).fileName(),
+                                                             image.steps, image.historyBytes, image.detachedBytes});
+            }
+        }
+        an::ui::shell::ProjectHistoryBinder& binder = self->m_impl->core.projectHistory();
+        auto* dialog = new an::ui::CompactHistoryDialog(
+            std::move(images),
+            [&binder](const QString& imageId, const an::ui::history::HistoryCompaction& what,
+                      an::ui::CompactHistoryDialog::Done done) {
+                binder.planCompaction(imageId, what, std::move(done));
+            },
+            [&binder](const QString& imageId, const an::ui::history::HistoryCompaction& what,
+                      an::ui::CompactHistoryDialog::Done done) { binder.compact(imageId, what, std::move(done)); },
+            self.data());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        QObject::connect(dialog, &an::ui::CompactHistoryDialog::compacted, self.data(), [self](const quint64 freed) {
+            if (!self)
+            {
+                return;
+            }
+            self->showSnackbar(self->tr("The undo history was compacted"),
+                               self->tr("%1 freed").arg(an::ui::homeSizeText(static_cast<qint64>(freed))), QString(),
+                               {});
+            if (self->m_impl->projectHome != nullptr)
+            {
+                self->m_impl->projectHome->refresh();
+            }
+        });
+        self->m_impl->compactDialog = dialog;
+        dialog->open();
+    });
+}
+
+void ObservatoryWindow::projectOpened()
+{
+    Impl& impl = *m_impl;
+    // The question about a heavy history is asked once, as the project opens, when its storage is measured.
+    impl.askAboutHistory = true;
+    if (isHomeShown())
+    {
+        showHome();
+    }
+    else if (impl.projectHome != nullptr)
+    {
+        impl.projectHome->refresh();
+    }
+}
+
+void ObservatoryWindow::refreshRecentProjects()
+{
+    // Home shows the projects used last while no project is open, and reads each one's folder on a worker: the open
+    // project's document is the one the project service writes, which a reader would hold open under it.
+    if (m_impl->homePage != nullptr && !m_impl->core.projects().isOpen())
+    {
+        m_impl->homePage->setRecentProjects(m_impl->core.projects().recent());
+    }
+}
+
+void ObservatoryWindow::refreshProjectHome()
+{
+    Impl& impl = *m_impl;
+    if (impl.projectHome == nullptr || !impl.core.projects().isOpen() || !impl.workspaces)
+    {
+        return;
+    }
+    const std::vector<ImageViewControl*> views = impl.core.viewService().getListOfViewControls();
+    // The workspaces as they are now: each its name, the images docked in it, its arrangement and whether it is the one
+    // used last.
+    std::vector<WorkspaceTileFacts> tiles;
+    for (const QString& id : impl.workspaces->ids())
+    {
+        WorkspaceTileFacts tile;
+        tile.id = id;
+        tile.name = impl.workspaces->workspaceName(id);
+        const std::vector<ImageViewControl*> docked = impl.workspaces->dockedViews(id, views);
+        tile.images = static_cast<int>(docked.size());
+        tile.last = id == impl.workspaces->current();
+        if (KDDockWidgets::QtWidgets::MainWindow* const area = impl.workspaces->mainWindow(id))
+        {
+            tile.layout = miniatureLayoutOf(*area, docked);
+        }
+        tiles.push_back(std::move(tile));
+    }
+    // Where each image of the project is open.
+    std::map<QString, QString> openIn;
+    for (ImageViewControl* view : impl.layout ? impl.layout->projectViews() : std::vector<ImageViewControl*>())
+    {
+        if (view == nullptr)
+        {
+            continue;
+        }
+        const QString image = impl.core.projectHistory().imageOf(*view);
+        const QString workspace = impl.workspaces->workspaceOf(*view);
+        if (!image.isEmpty() && !workspace.isEmpty())
+        {
+            openIn[image] = impl.workspaces->workspaceName(workspace);
+        }
+    }
+    impl.projectHome->setWorkspaces(tiles);
+    impl.projectHome->setImagesOpenIn(openIn);
+    // The pictures of the views the workspaces hold, made on the thread pool by the miniatures' service.
+    for (ImageViewControl* view : views)
+    {
+        if (view == nullptr || impl.workspaces->workspaceOf(*view).isEmpty())
+        {
+            continue;
+        }
+        if (!impl.miniatures->follows(view))
+        {
+            impl.miniatures->follow(view);
+        }
+        const QImage picture = impl.miniatures->thumbnail(view);
+        if (!picture.isNull())
+        {
+            impl.projectHome->setViewPicture(QString::fromUtf8(view->getUniqueName()), picture);
+        }
+    }
+    impl.projectHome->refresh();
 }
 
 void ObservatoryWindow::showViews()

@@ -172,15 +172,57 @@ struct ProjectStorageReport
     /// The history folders no image of the project names: an image's record that was removed, or gave way.
     std::uint64_t unlistedHistoryBytes = 0;
 
-    /// The integration data.
+    /// The integration data a run keeps: masters, stacked images, reports - everything of the integration folder but
+    /// the intermediate frames.
     std::uint64_t integrationBytes = 0;
+
+    /// The frames a run makes on its way - calibrated, corrected and registered lights - which a later run can make
+    /// again from the lights.
+    std::uint64_t intermediateBytes = 0;
 
     /// Everything else: the document, the layouts, the thumbnails and the notes.
     std::uint64_t otherBytes = 0;
 
     /// The bytes free on the folder's drive; negative when it could not be told.
     qint64 freeBytes = -1;
+
+    /// Whether the report was measured on the GUI thread, which it never is: what a suite holds the measurement to.
+    bool measuredOnGuiThread = false;
 };
+
+/// What Home says of a project used last, read from its folder: its document, its undo history and its size.
+struct ProjectSummary
+{
+    QString folder;
+
+    /// Whether the folder holds a project whose document reads; the rest is known only then.
+    bool read = false;
+
+    QString name;
+    std::optional<ProjectObject> object;
+    ProjectOrigin origin = ProjectOrigin::User;
+    int images = 0;
+    int sequences = 0;
+    int integrations = 0;
+    int workspaces = 0;
+
+    /// The steps its images' histories keep.
+    std::size_t steps = 0;
+
+    /// The bytes of its folder.
+    std::uint64_t bytes = 0;
+
+    QDateTime created;
+    QDateTime lastOpened;
+
+    /// The file of the image opened last; empty for a project with none.
+    QString lastImage;
+};
+
+/// Reads what a project's folder holds for Home: its document's facts, the steps of its images' histories, its size.
+/// It reads files: it is called off the GUI thread. A folder with no project, or whose document is refused, is not
+/// read.
+[[nodiscard]] AFTERNIGHTSHELLCORE_API ProjectSummary readProjectSummary(const QString& folder);
 
 /// What a folder is to a project that would be made in it.
 enum class ProjectFolderState : std::uint8_t

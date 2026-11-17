@@ -9,11 +9,14 @@
 #include "ObservatoryWindowCase.h"
 
 #include "pages/HomePage.h"
+#include "pages/ProjectHomePage.h"
+#include "projects/ProjectFlows.h"
 
 #include "Test_ShellClassic/AppTestSupport.h"
 #include "components/AnIconRail.h"
 #include "controls/DashboardPreferences.h"
 #include "controls/HomeContinueRow.h"
+#include "controls/HomeProjectsRow.h"
 #include "controls/HomeQuickActions.h"
 #include "controls/HomeRecentGrid.h"
 #include "controls/HomeWelcome.h"
@@ -25,6 +28,7 @@
 #include "controls/TopLevelProcessBaseControl.h"
 #include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
+#include "projects/ProjectService.h"
 #include "services/OpenProcessRegistry.h"
 #include "services/RecentFilesModel.h"
 #include "views/ViewService.h"
@@ -659,6 +663,82 @@ TEST_F(Home, ADroppedFileOpens)
             return false;
         },
         kOpenMs));
+}
+
+// Home with no project open shows the projects used last: the last one in the Continue row, the four most recent as
+// cards in the Projects row, then the Open project... tile; a card opens its project, whose page Home is then.
+TEST_F(Home, ProjectsRowShowsTheFourUsedLastAndACardOpensItsProject)
+{
+    an::ui::shell::ProjectService& projects = core().projects();
+    const auto forget = [&projects]() {
+        an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
+        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_RECENT), QString());
+        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_LAST), QString());
+        projects.setSettings(settings);
+    };
+    forget();
+    static QTemporaryDir location(QDir::temp().filePath(QStringLiteral("observatory-home-projects-XXXXXX")));
+    for (int index = 1; index <= 5; ++index)
+    {
+        an::ui::shell::ProjectCreateRequest request;
+        request.name = QStringLiteral("Row %1").arg(index);
+        request.location = location.path();
+        const an::ui::shell::ProjectOutcome made = projects.create(request);
+        ASSERT_TRUE(made.ok()) << made.why.toStdString();
+        ASSERT_TRUE(projects.close());
+    }
+    showHomeAndSettle();
+    ASSERT_NE(home().projectsRow(), nullptr);
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([]() { return home().projectsRow()->cards().size() == 4u; }, kOpenMs))
+        << "the Projects row did not show four projects";
+    QStringList names;
+    for (const an::ui::HomeProjectCard* card : home().projectsRow()->cards())
+    {
+        names.append(card->summary().name);
+    }
+    EXPECT_EQ(names, (QStringList{QStringLiteral("Row 5"), QStringLiteral("Row 4"), QStringLiteral("Row 3"),
+                                  QStringLiteral("Row 2")}));
+    EXPECT_TRUE(home().projectsRow()->openProjectTile()->isVisible());
+    EXPECT_EQ(home().continueRow()->lastProjectName(), QStringLiteral("Row 5"));
+    EXPECT_FALSE(home().showsWelcome()) << "Home with projects used last showed the welcome";
+
+    QTest::mouseClick(home().projectsRow()->cards()[1], Qt::LeftButton);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&projects]() { return projects.isOpen(); }, kOpenMs));
+    EXPECT_EQ(projects.current()->name, QStringLiteral("Row 4"));
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(window().isProjectHomeShown());
+    ASSERT_TRUE(projects.close());
+    forget();
+    window().homePage()->setRecentProjects({});
+}
+
+// The Projects row's Open project... tile asks for a project's folder, as Open Project... does.
+TEST_F(Home, ProjectsRowOpenProjectTileAsksForAFolder)
+{
+    an::ui::shell::ProjectService& projects = core().projects();
+    an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
+    static QTemporaryDir location(QDir::temp().filePath(QStringLiteral("observatory-home-tile-XXXXXX")));
+    an::ui::shell::ProjectCreateRequest request;
+    request.name = QStringLiteral("Tile");
+    request.location = location.path();
+    ASSERT_TRUE(projects.create(request).ok());
+    ASSERT_TRUE(projects.close());
+    showHomeAndSettle();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([]() { return !home().projectsRow()->cards().empty(); }, kOpenMs));
+    bool asked = false;
+    window().projectFlows().setFolderChooser([&asked](QWidget*, const QString&, const QString&) {
+        asked = true;
+        return QString();
+    });
+    QTest::mouseClick(home().projectsRow()->openProjectTile(), Qt::LeftButton);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(asked) << "the tile asked for no folder";
+    window().projectFlows().setFolderChooser({});
+    (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_RECENT), QString());
+    (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_LAST), QString());
+    projects.setSettings(settings);
+    window().homePage()->setRecentProjects({});
 }
 
 } // namespace an::tests::observatory

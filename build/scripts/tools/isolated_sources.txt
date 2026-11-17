@@ -1609,6 +1609,9 @@ sources Test_ControlsDialogs
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets network sql testlib
+    unit     src/AfterNightTests/Test_ControlsDialogs/CompactHistoryDialogTest.cpp
+    header   src/AfterNightControls/dialogs/CompactHistoryDialog.h
+    header   src/AfterNightControls/controls/ImageHistoryIndex.h
 
 # The docking suite, class engine: the dock library held to the behaviour the interface is built on, driven
 # through its installed interface as the application drives it, with the application's view factory, dock
@@ -1862,6 +1865,7 @@ sources Test_ShellCore
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets
+    unit     src/AfterNightTests/Test_ShellCore/ProjectSummaryTest.cpp
 
 # The Controls seams, class engine: the one Controls suite that compiles Controls sources rather than linking the
 # library, because its cases need the classes they exercise compiled into the executable. The close-during-work cases of
@@ -2329,6 +2333,10 @@ sources Test_MainDashboard
     link     AfterNightConsumerRuntime
     external kddockwidgets
     qt       core gui widgets sql testlib
+    unit     src/AfterNightTests/Test_MainDashboard/HomeProjectsTest.cpp
+    header   src/AfterNightControls/controls/HomeProjectsRow.h
+    header   src/AfterNightControls/components/AnTag.h
+    header   src/AfterNightControls/theme/ComponentParts.h
 
 # The application's suite: its main window, its context and the session it owns, compiled from the application's sources
 # and linked against the processes and Controls libraries, beside its cases over the settings pages, dialogs and
@@ -3029,6 +3037,11 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowExecutionCounters.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowManifest.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
+    unit     src/AfterNightTests/Test_ShellObservatory/ProjectHomeTest.cpp
+    header   src/AfterNightShellObservatory/pages/ProjectHomePage.h
+    header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
+    header   src/AfterNightControls/controls/HomeProjectsRow.h
+    header   src/AfterNightControls/dialogs/CompactHistoryDialog.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.

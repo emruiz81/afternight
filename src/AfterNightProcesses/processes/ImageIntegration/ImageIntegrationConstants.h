@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 
 namespace ImageIntegration::Config
@@ -20,4 +21,9 @@ constexpr size_t kRunHistoryMaxTotalBytes = 5ull * 1024ull * 1024ull * 1024ull; 
 constexpr long long kReportArchiveBaseBytes = 384ll * 1024ll;
 constexpr long long kReportArchiveBytesPerLight = 8ll * 1024ll;
 constexpr long long kReportArchiveBytesPerMaster = 64ll * 1024ll;
+
+/// The folders of an output folder that hold the frames a run makes on its way - calibrated, corrected and
+/// registered lights - which a later run can make again from the lights.
+inline constexpr std::array<const char*, 3> kIntermediateFrameFolders = {"calibrated_lights", "ca_corrected_lights",
+                                                                         "registered_lights"};
 } // namespace ImageIntegration::Config

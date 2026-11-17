@@ -50,7 +50,7 @@ struct NightImageWidget
 };
 
 /// The widgets that paint a picture, by source.
-inline constexpr std::array<NightImageWidget, 30u> kNightImageWidgets{{
+inline constexpr std::array<NightImageWidget, 31u> kNightImageWidgets{{
     {"ImageViewWidget", "widgets/ImageViewWidget.cpp", NightImageUse::Presentation,
      "The image's presentation, a preview's frames and the mask layer, mapped on the worker that presents them; under "
      "Night the lens magnifies what is painted and reads the image's own values."},
@@ -79,7 +79,10 @@ inline constexpr std::array<NightImageWidget, 30u> kNightImageWidgets{{
     {"HomeRecentTile", "controls/HomeRecentGrid.cpp", NightImageUse::Picture,
      "A recent file's thumbnail on its tile, through a NightPicture."},
     {"PictureWell", "controls/HomeContinueRow.cpp", NightImageUse::Picture,
-     "The last sequence's thumbnail, through a NightPicture; the featured image is the FeaturedFileCard's."},
+     "The last project's and the last sequence's thumbnails, through a NightPicture; the featured image is the "
+     "FeaturedFileCard's."},
+    {"HomeProjectCard", "controls/HomeProjectsRow.cpp", NightImageUse::Picture,
+     "A project's picture on its card - the thumbnail of its image opened last - through a NightPicture."},
     {"paintHomePicture", "controls/HomeParts.cpp", NightImageUse::Handed,
      "A recent file's picture in its place, handed in the form its owner's NightPicture shows."},
     {"ImageHistoryControl", "controls/ImageHistoryControl.cpp", NightImageUse::Picture,

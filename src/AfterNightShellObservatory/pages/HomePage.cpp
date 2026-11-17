@@ -11,15 +11,19 @@
 #include "controls/DashboardUtils.h"
 #include "controls/HomeContinueRow.h"
 #include "controls/HomeParts.h"
+#include "controls/HomeProjectsRow.h"
 #include "controls/HomeQuickActions.h"
 #include "controls/HomeRecentGrid.h"
 #include "controls/HomeWelcome.h"
 #include "controls/IAppContext.h"
+#include "projects/ProjectService.h"
 #include "theme/ComponentParts.h"
 
 #include <QDate>
 #include <QHBoxLayout>
 #include <QLocale>
+#include <QPointer>
+#include <QThreadPool>
 #include <QSet>
 #include <QShowEvent>
 #include <QVBoxLayout>
@@ -60,6 +64,45 @@ std::deque<QString> recentFiles()
     return files;
 }
 
+/// What a project's card says, from what its folder holds.
+an::ui::HomeProjectSummary cardOf(const an::ui::shell::RecentProject& recent, const an::ui::shell::ProjectSummary& read)
+{
+    an::ui::HomeProjectSummary card;
+    card.folder = recent.folder;
+    card.name = read.read ? read.name : recent.name;
+    card.present = read.read;
+    if (!read.read)
+    {
+        return card;
+    }
+    if (read.object.has_value())
+    {
+        card.object = read.object->name;
+        switch (read.object->source)
+        {
+        case an::ui::shell::ProjectObjectSource::ObjectCard:
+            card.objectSource = QCoreApplication::translate("an::ui::observatory::HomePage", "the OBJECT card");
+            break;
+        case an::ui::shell::ProjectObjectSource::PlateSolution:
+            card.objectSource = QCoreApplication::translate("an::ui::observatory::HomePage", "a plate solution");
+            break;
+        case an::ui::shell::ProjectObjectSource::User:
+            card.objectSource = QCoreApplication::translate("an::ui::observatory::HomePage", "its name");
+            break;
+        }
+    }
+    card.images = read.images;
+    card.sequences = read.sequences;
+    card.integrations = read.integrations;
+    card.steps = read.steps;
+    card.workspaces = read.workspaces;
+    card.bytes = static_cast<qint64>(read.bytes);
+    card.lastOpened = read.lastOpened;
+    card.fromIntegrationJob = read.origin == an::ui::shell::ProjectOrigin::IntegrationJob;
+    card.picture = read.lastImage;
+    return card;
+}
+
 } // namespace
 
 struct HomePage::Impl
@@ -69,8 +112,13 @@ struct HomePage::Impl
     an::ui::HomeWelcome* welcome = nullptr;
     an::ui::HomeContinueRow* continueRow = nullptr;
     an::ui::HomeRecentGrid* recent = nullptr;
+    an::ui::HomeProjectsRow* projectsRow = nullptr;
     DashboardThumbnailCache cache{256};
     bool welcomeShown = true;
+    bool hasRecentFiles = false;
+    // The projects used last and what their folders hold, read on the thread pool; a read asked for after it drops it.
+    std::vector<an::ui::HomeProjectSummary> projects;
+    quint64 projectsRead = 0;
 };
 
 HomePage::HomePage(QWidget* parent) : QScrollArea(parent), m_impl(std::make_unique<Impl>())
@@ -114,6 +162,9 @@ HomePage::HomePage(QWidget* parent) : QScrollArea(parent), m_impl(std::make_uniq
     m_impl->continueRow = new an::ui::HomeContinueRow(content);
     m_impl->continueRow->setThumbnailCache(&m_impl->cache);
     column->addWidget(m_impl->continueRow);
+    m_impl->projectsRow = new an::ui::HomeProjectsRow(content);
+    m_impl->projectsRow->hide();
+    column->addWidget(m_impl->projectsRow);
     m_impl->recent = new an::ui::HomeRecentGrid(content);
     m_impl->recent->setThumbnailCache(&m_impl->cache);
     column->addWidget(m_impl->recent);
@@ -150,6 +201,12 @@ HomePage::HomePage(QWidget* parent) : QScrollArea(parent), m_impl(std::make_uniq
                      [this]() { emit openHelpRequested(); });
     QObject::connect(m_impl->continueRow, &an::ui::HomeContinueRow::openRecentFileRequested, this,
                      [this](const QString& filePath) { emit openRecentFileRequested(filePath); });
+    QObject::connect(m_impl->continueRow, &an::ui::HomeContinueRow::openProjectRequested, this,
+                     [this](const QString& folder) { emit openProjectRequested(folder); });
+    QObject::connect(m_impl->projectsRow, &an::ui::HomeProjectsRow::openProjectRequested, this,
+                     [this](const QString& folder) { emit openProjectRequested(folder); });
+    QObject::connect(m_impl->projectsRow, &an::ui::HomeProjectsRow::openOtherProjectRequested, this,
+                     [this]() { emit openOtherProjectRequested(); });
     QObject::connect(m_impl->recent, &an::ui::HomeRecentGrid::openFileRequested, this,
                      [this](const QString& filePath) { emit openRecentFileRequested(filePath); });
     QObject::connect(m_impl->recent, &an::ui::HomeRecentGrid::removeFileRequested, this,
@@ -166,13 +223,62 @@ HomePage::~HomePage() = default;
 void HomePage::reloadRecentFiles()
 {
     const std::deque<QString> files = recentFiles();
-    m_impl->welcomeShown = files.empty();
-    m_impl->welcome->setVisible(m_impl->welcomeShown);
-    m_impl->continueRow->setVisible(!m_impl->welcomeShown);
-    m_impl->recent->setVisible(!m_impl->welcomeShown);
+    m_impl->hasRecentFiles = !files.empty();
+    showRows();
     m_impl->continueRow->setRecentFiles(files);
     m_impl->recent->setRecentFiles(files);
     m_impl->actions->setActionEnabled(QString::fromUtf8(DashboardPreferences::ACTION_ID_CLEAR_RECENTS), !files.empty());
+}
+
+void HomePage::setRecentProjects(const std::vector<an::ui::shell::RecentProject>& recent)
+{
+    const quint64 read = ++m_impl->projectsRead;
+    if (recent.empty())
+    {
+        m_impl->projects.clear();
+        m_impl->projectsRow->setProjects({});
+        m_impl->continueRow->setLastProject(std::nullopt);
+        showRows();
+        return;
+    }
+    // What each folder holds is read on the thread pool, and shown when it lands.
+    const QPointer<HomePage> self(this);
+    QThreadPool::globalInstance()->start([self, read, recent]() {
+        std::vector<an::ui::HomeProjectSummary> cards;
+        for (const an::ui::shell::RecentProject& project : recent)
+        {
+            cards.push_back(cardOf(project, an::ui::shell::readProjectSummary(project.folder)));
+        }
+        QCoreApplication* const application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, read, cards = std::move(cards)]() mutable {
+                if (!self || read != self->m_impl->projectsRead)
+                {
+                    return;
+                }
+                self->m_impl->projects = std::move(cards);
+                self->m_impl->projectsRow->setProjects(self->m_impl->projects);
+                self->m_impl->continueRow->setLastProject(self->m_impl->projects.front());
+                self->showRows();
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void HomePage::showRows()
+{
+    // The welcome while there is nothing to show yet: no recent file and no project used last.
+    const bool projects = !m_impl->projects.empty();
+    m_impl->welcomeShown = !m_impl->hasRecentFiles && !projects;
+    m_impl->welcome->setVisible(m_impl->welcomeShown);
+    m_impl->continueRow->setVisible(!m_impl->welcomeShown);
+    m_impl->projectsRow->setVisible(projects);
+    m_impl->recent->setVisible(m_impl->hasRecentFiles);
 }
 
 void HomePage::recentFilesCleared()
@@ -189,6 +295,7 @@ void HomePage::refreshIcons()
     m_impl->actions->refreshIcons();
     m_impl->welcome->refreshIcons();
     m_impl->continueRow->refreshIcons();
+    m_impl->projectsRow->refreshIcons();
     m_impl->recent->refreshIcons();
 }
 
@@ -215,6 +322,11 @@ an::ui::HomeRecentGrid* HomePage::recentGrid() const noexcept
 an::ui::HomeWelcome* HomePage::welcome() const noexcept
 {
     return m_impl->welcome;
+}
+
+an::ui::HomeProjectsRow* HomePage::projectsRow() const noexcept
+{
+    return m_impl->projectsRow;
 }
 
 void HomePage::showEvent(QShowEvent* event)

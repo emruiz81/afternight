@@ -5,6 +5,7 @@
 
 #include "controls/HomeContinueRow.h"
 
+#include "components/AnTag.h"
 #include "controls/DashboardSettings.h"
 #include "controls/DashboardThumbnailCache.h"
 #include "controls/DashboardUtils.h"
@@ -17,12 +18,14 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
 #include <QEvent>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLocale>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPointer>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <verdigris/wobjectimpl.h>
@@ -117,6 +120,18 @@ struct HomeContinueRow::Impl
     DashboardThumbnailCache* cache = nullptr;
     HomeRecentProbe probe = &probeHomeRecentFile;
 
+    RowCard* project = nullptr;
+    HomeText* projectName = nullptr;
+    AnTag* projectObject = nullptr;
+    PictureWell* projectPicture = nullptr;
+    HomeText* projectCounts = nullptr;
+    AnTag* projectWorkspaces = nullptr;
+    AnTag* projectSize = nullptr;
+    HomeText* projectOpened = nullptr;
+    QPushButton* openProject = nullptr;
+    std::optional<HomeProjectSummary> lastProject;
+    quint64 projectRead = 0;
+
     RowCard* sequence = nullptr;
     HomeText* sequenceName = nullptr;
     PictureWell* sequencePicture = nullptr;
@@ -173,6 +188,56 @@ HomeContinueRow::HomeContinueRow(QWidget* parent) : QWidget(parent), m_impl(std:
     QObject::connect(m_impl->featured, &FeaturedFileCard::pinToggled, this,
                      [this](const QString& filePath, const bool pinned) { setPinned(filePath, pinned); });
     row->addWidget(m_impl->featured, 1);
+
+    // The project used last.
+    m_impl->project = new RowCard(this);
+    m_impl->project->setObjectName(QStringLiteral("homeLastProjectCard"));
+    m_impl->project->setFixedWidth(parts::kHomeSideCardWidth);
+    auto* projectCard = new QVBoxLayout(m_impl->project);
+    projectCard->setContentsMargins(parts::kHomeCardPadding, parts::kHomeCardPadding, parts::kHomeCardPadding,
+                                    parts::kHomeCardPadding);
+    projectCard->setSpacing(parts::kHomeTileGap / 2);
+    auto* projectHead = new QHBoxLayout();
+    projectHead->setContentsMargins(0, 0, 0, 0);
+    projectHead->addWidget(new HomeText(HomeText::Role::Caps, tr("Last project"), m_impl->project), 1);
+    m_impl->projectObject = new AnTag(QString(), AnTag::Tone::Accent, m_impl->project);
+    projectHead->addWidget(m_impl->projectObject, 0);
+    projectCard->addLayout(projectHead);
+    m_impl->projectName = new HomeText(HomeText::Role::Section, QString(), m_impl->project);
+    m_impl->projectName->setObjectName(QStringLiteral("homeLastProjectName"));
+    m_impl->projectName->setElideMode(Qt::ElideMiddle);
+    projectCard->addWidget(m_impl->projectName);
+    m_impl->projectPicture = new PictureWell(m_impl->project);
+    projectCard->addWidget(m_impl->projectPicture, 1);
+    m_impl->projectCounts = new HomeText(HomeText::Role::Mono, QString(), m_impl->project);
+    m_impl->projectCounts->setObjectName(QStringLiteral("homeLastProjectCounts"));
+    projectCard->addWidget(m_impl->projectCounts);
+    auto* projectTags = new QHBoxLayout();
+    projectTags->setContentsMargins(0, 0, 0, 0);
+    projectTags->setSpacing(parts::kHubWayTagGap);
+    m_impl->projectWorkspaces = new AnTag(QString(), AnTag::Tone::Neutral, m_impl->project);
+    projectTags->addWidget(m_impl->projectWorkspaces, 0);
+    m_impl->projectSize = new AnTag(QString(), AnTag::Tone::Neutral, m_impl->project);
+    projectTags->addWidget(m_impl->projectSize, 0);
+    projectTags->addStretch(1);
+    projectCard->addLayout(projectTags);
+    auto* projectFoot = new QHBoxLayout();
+    projectFoot->setContentsMargins(0, 0, 0, 0);
+    m_impl->projectOpened = new HomeText(HomeText::Role::Mono, QString(), m_impl->project);
+    projectFoot->addWidget(m_impl->projectOpened, 1);
+    m_impl->openProject = new QPushButton(tr("Open project"), m_impl->project);
+    m_impl->openProject->setObjectName(QStringLiteral("homeLastProjectOpen"));
+    m_impl->openProject->setProperty("anButtonVariant", QStringLiteral("tonal"));
+    QObject::connect(m_impl->openProject, &QPushButton::clicked, this, [this]() {
+        if (m_impl->lastProject.has_value())
+        {
+            emit openProjectRequested(m_impl->lastProject->folder);
+        }
+    });
+    projectFoot->addWidget(m_impl->openProject, 0);
+    projectCard->addLayout(projectFoot);
+    m_impl->project->hide();
+    row->addWidget(m_impl->project, 0);
 
     // The last sequence.
     m_impl->sequence = new RowCard(this);
@@ -315,6 +380,81 @@ bool HomeContinueRow::isFeaturedPinned() const
 QWidget* HomeContinueRow::sequenceCard() const
 {
     return m_impl->sequence;
+}
+
+void HomeContinueRow::setLastProject(const std::optional<HomeProjectSummary>& project)
+{
+    const bool samePicture = project.has_value() && m_impl->lastProject.has_value() &&
+                             project->picture == m_impl->lastProject->picture && m_impl->projectPicture->hasPicture();
+    m_impl->lastProject = project;
+    if (!project.has_value())
+    {
+        m_impl->project->hide();
+        return;
+    }
+    m_impl->projectName->setText(project->name);
+    m_impl->projectName->setToolTip(QDir::toNativeSeparators(project->folder));
+    m_impl->projectObject->setText(project->object);
+    m_impl->projectObject->setVisible(!project->object.isEmpty());
+    m_impl->projectCounts->setText(homeProjectCountsText(*project, true));
+    m_impl->projectWorkspaces->setText(project->workspaces == 1 ? tr("1 workspace")
+                                                                : tr("%1 workspaces").arg(project->workspaces));
+    m_impl->projectWorkspaces->setVisible(project->workspaces > 0);
+    m_impl->projectSize->setText(homeSizeText(project->bytes));
+    m_impl->projectSize->setVisible(project->bytes >= 0);
+    m_impl->projectOpened->setText(
+        project->lastOpened.isValid()
+            ? tr("opened %1").arg(project->lastOpened.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm")))
+            : QString());
+    m_impl->project->show();
+    if (!samePicture)
+    {
+        showProjectPicture();
+    }
+}
+
+QWidget* HomeContinueRow::lastProjectCard() const
+{
+    return m_impl->project;
+}
+
+QString HomeContinueRow::lastProjectName() const
+{
+    return m_impl->lastProject.has_value() ? m_impl->lastProject->name : QString();
+}
+
+QString HomeContinueRow::lastProjectCountsText() const
+{
+    return m_impl->projectCounts->text();
+}
+
+QAbstractButton* HomeContinueRow::openProjectButton() const
+{
+    return m_impl->openProject;
+}
+
+void HomeContinueRow::showProjectPicture()
+{
+    const quint64 read = ++m_impl->projectRead;
+    m_impl->projectPicture->setPicture(QImage());
+    if (!m_impl->lastProject.has_value() || m_impl->lastProject->picture.isEmpty())
+    {
+        return;
+    }
+    const QString file = m_impl->lastProject->picture;
+    const QString thumbnail = homeThumbnailPath(file);
+    if (thumbnail.isEmpty())
+    {
+        return;
+    }
+    const QPointer<HomeContinueRow> self(this);
+    readHomeRecentFile(this, file, thumbnail, QSize(parts::kHomeSideCardWidth * 2, parts::kHomeContinueRowHeight), {},
+                       [self, read](const QImage& picture, const HomeRecentFacts& /*facts*/) {
+                           if (self && read == self->m_impl->projectRead)
+                           {
+                               self->m_impl->projectPicture->setPicture(picture);
+                           }
+                       });
 }
 
 QString HomeContinueRow::lastSequencePath() const

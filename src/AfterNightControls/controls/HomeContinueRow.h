@@ -5,11 +5,13 @@
 
 /// @file
 /// Home's Continue row: the featured image - the dashboard's featured file card and its presenter, over the recent
-/// images, with its Continue and its pin, which is the dashboard's setting - and beside it the last sequence's card,
-/// with its picture, its frames and its Resume.
+/// images, with its Continue and its pin, which is the dashboard's setting - and beside it the last project's card,
+/// with its picture, what it holds and Open project, and the last sequence's card, with its picture, its frames and its
+/// Resume.
 
 #include "AfterNightControlsExport.h"
 #include "controls/HomeParts.h"
+#include "controls/HomeProjectsRow.h"
 
 #include <QString>
 #include <QWidget>
@@ -17,6 +19,7 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 
 class DashboardThumbnailCache;
 class QAbstractButton;
@@ -72,6 +75,18 @@ public:
     /// The sequence card's Resume.
     [[nodiscard]] QAbstractButton* resumeButton() const;
 
+    /// The project used last, shown between the featured image and the last sequence; none hides its card.
+    void setLastProject(const std::optional<HomeProjectSummary>& project);
+
+    /// The last project's card, its name, what it holds and its Open project.
+    [[nodiscard]] QWidget* lastProjectCard() const;
+    [[nodiscard]] QString lastProjectName() const;
+    [[nodiscard]] QString lastProjectCountsText() const;
+    [[nodiscard]] QAbstractButton* openProjectButton() const;
+
+    /// Open project on the last project's card: its folder.
+    void openProjectRequested(const QString& folder) W_SIGNAL(openProjectRequested, folder);
+
     /// A recent file is asked to be opened: the featured image's Continue, the sequence's Resume.
     void openRecentFileRequested(const QString& filePath) W_SIGNAL(openRecentFileRequested, filePath);
 
@@ -81,6 +96,7 @@ protected:
 private:
     void setPinned(const QString& filePath, bool pinned);
     void showSequence(const QString& filePath);
+    void showProjectPicture();
     void refreshFeatured();
 
     struct Impl;

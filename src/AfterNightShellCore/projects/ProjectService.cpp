@@ -9,6 +9,7 @@
 #include "controls/ImageHistoryIndex.h"
 #include "controls/settings/ProjectSettings.h"
 #include "controls/settings/SettingsKeys.h"
+#include "processes/ImageIntegration/ImageIntegrationConstants.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -22,6 +23,7 @@
 #include <QMetaObject>
 #include <QSet>
 #include <QStorageInfo>
+#include <QThread>
 #include <QThreadPool>
 #include <QUuid>
 
@@ -158,10 +160,42 @@ void forgetViewsOf(ProjectDocument& document, const QString& imageId)
 }
 
 /// What a project's folder takes on disk. For a worker: it reads the folder.
+/// The bytes of an integration folder: the intermediate frames - the folders a run makes them in, at any depth - and
+/// the rest.
+void measureIntegration(const QString& folder, std::uint64_t& kept, std::uint64_t& intermediate)
+{
+    const QDir directory(folder);
+    for (const QFileInfo& entry :
+         directory.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System))
+    {
+        if (entry.isDir() && !entry.isSymLink())
+        {
+            const bool frames =
+                std::any_of(ImageIntegration::Config::kIntermediateFrameFolders.begin(),
+                            ImageIntegration::Config::kIntermediateFrameFolders.end(),
+                            [&entry](const char* name) { return entry.fileName() == QLatin1String(name); });
+            if (frames)
+            {
+                intermediate += bytesBelow(entry.absoluteFilePath());
+            }
+            else
+            {
+                measureIntegration(entry.absoluteFilePath(), kept, intermediate);
+            }
+        }
+        else if (entry.isFile())
+        {
+            kept += static_cast<std::uint64_t>(entry.size());
+        }
+    }
+}
+
 [[nodiscard]] ProjectStorageReport measureStorage(const QString& folder, const std::vector<ProjectImage>& images)
 {
     ProjectStorageReport report;
     report.folder = folder;
+    QCoreApplication* const application = QCoreApplication::instance();
+    report.measuredOnGuiThread = application != nullptr && QThread::currentThread() == application->thread();
     if (folder.isEmpty())
     {
         return report;
@@ -191,9 +225,11 @@ void forgetViewsOf(ProjectDocument& document, const QString& imageId)
             report.unlistedHistoryBytes += bytesBelow(histories.filePath(name));
         }
     }
-    report.integrationBytes = bytesBelow(project.filePath(QString::fromLatin1(kProjectIntegrationFolder)));
+    measureIntegration(project.filePath(QString::fromLatin1(kProjectIntegrationFolder)), report.integrationBytes,
+                       report.intermediateBytes);
     const std::uint64_t whole = bytesBelow(folder);
-    const std::uint64_t counted = report.historyBytes + report.unlistedHistoryBytes + report.integrationBytes;
+    const std::uint64_t counted =
+        report.historyBytes + report.unlistedHistoryBytes + report.integrationBytes + report.intermediateBytes;
     report.otherBytes = whole > counted ? whole - counted : 0;
     const QStorageInfo drive(folder);
     report.freeBytes = drive.isValid() && drive.isReady() ? drive.bytesAvailable() : -1;
@@ -902,6 +938,44 @@ void ProjectService::storageReport(StorageDone done) const
             },
             Qt::QueuedConnection);
     });
+}
+
+ProjectSummary readProjectSummary(const QString& folder)
+{
+    ProjectSummary summary;
+    summary.folder = folder;
+    if (folder.isEmpty() || !ProjectService::isProjectFolder(folder))
+    {
+        return summary;
+    }
+    const ProjectDocumentRead read = readProjectDocument(QDir(folder).filePath(QString::fromLatin1(kProjectFileName)));
+    if (!read.isRead())
+    {
+        return summary;
+    }
+    const ProjectDocument& document = *read.document;
+    summary.read = true;
+    summary.name = document.name;
+    summary.object = document.object;
+    summary.origin = document.origin;
+    summary.integrations = static_cast<int>(document.integrations.size());
+    summary.workspaces = static_cast<int>(document.workspaces.size());
+    summary.created = document.created;
+    summary.lastOpened = document.lastOpened;
+    const QDir histories(QDir(folder).filePath(QString::fromLatin1(kProjectHistoryFolder)));
+    QDateTime latest;
+    for (const ProjectImage& image : document.images)
+    {
+        (image.kind == ProjectImageKind::Sequence ? summary.sequences : summary.images) += 1;
+        summary.steps += an::ui::history::measureStoredHistory(histories.filePath(image.id)).steps;
+        if (image.lastOpened.isValid() && (!latest.isValid() || image.lastOpened >= latest))
+        {
+            latest = image.lastOpened;
+            summary.lastImage = image.path;
+        }
+    }
+    summary.bytes = bytesBelow(folder);
+    return summary;
 }
 
 std::size_t ProjectService::subscribe(Observer observer)

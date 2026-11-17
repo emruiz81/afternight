@@ -48,6 +48,7 @@ class DockWidget;
 namespace an::ui
 {
 class AnCommandPalette;
+class CompactHistoryDialog;
 class AnIconRail;
 class AnReadoutColumn;
 class AnSnackbar;
@@ -73,6 +74,7 @@ class WorkspaceWindow;
 class FloatingViewChrome;
 class HomePage;
 class IntegrationHubPage;
+class ProjectHomePage;
 class MenuBarOnAlt;
 class ProjectFlows;
 class ShellActions;
@@ -212,6 +214,8 @@ public:
     [[nodiscard]] an::ui::shell::ReadoutController& readoutController() const noexcept;
 
     [[nodiscard]] HomePage* homePage() const noexcept;
+    /// Home while a project is open: what the project holds.
+    [[nodiscard]] ProjectHomePage* projectHomePage() const noexcept;
     /// The Integration place: the ways to stack, the single steps and the integration jobs.
     [[nodiscard]] IntegrationHubPage* integrationHubPage() const noexcept;
     /// The integration jobs the hub and Project Home show: the sessions Image Integration keeps outside any project and
@@ -253,8 +257,9 @@ public:
     /// Opens the command palette over the centre, 12 px under the top bar.
     void openPalette();
 
-    /// Whether the centre shows Home, or the workspace.
+    /// Whether the centre shows Home - the project's page while a project is open - or the workspace.
     [[nodiscard]] bool isHomeShown() const;
+    [[nodiscard]] bool isProjectHomeShown() const;
     [[nodiscard]] bool isWorkspaceShown() const;
     [[nodiscard]] bool isIntegrationHubShown() const;
 
@@ -288,8 +293,13 @@ public:
     [[nodiscard]] bool isMaximizedViewActive() const override;
     /// The workspace's dock area: the window has one.
     [[nodiscard]] an::ui::shell::DockTarget dockTarget(const ImageViewControl* view = nullptr) override;
-    /// Shows Home.
+    /// Shows Home: the project's page while a project is open.
     void showHome() override;
+
+    /// Opens the Compact history dialog over the open project's images, once their history is measured.
+    void openCompactHistory();
+    /// The Compact history dialog while it is open; null otherwise.
+    [[nodiscard]] an::ui::CompactHistoryDialog* compactHistoryDialog() const noexcept;
     /// Shows the workspace.
     void showViews() override;
 
@@ -330,6 +340,13 @@ private:
     void updateIntegrationSources();
     /// Which jobs the open Image Integration windows run now, as their run states say.
     void updateRunningIntegrationJobs();
+    /// Tells Project Home what the window holds of the project: its workspaces, where its images are open, their
+    /// pictures; and reads the project again.
+    void refreshProjectHome();
+    /// The project that opened: its page shows on Home, and a heavy history asks once to be compacted.
+    void projectOpened();
+    /// The projects used last changed: Home shows them.
+    void refreshRecentProjects();
     void openSettings();
     void openSettingsAt(const QString& pageName);
     void showConsole(bool visible);
