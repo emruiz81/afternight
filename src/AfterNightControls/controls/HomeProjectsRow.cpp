@@ -369,6 +369,11 @@ struct HomeProjectsRow::Impl
     std::vector<HomeProjectCard*> cards;
     OpenProjectTile* tile = nullptr;
     std::size_t shown = 0;
+    // The line of the cards, and the room the cards not shown leave before the tile: the gaps they would have between
+    // them, and the index in the line of the stretch that is their share of it.
+    QHBoxLayout* line = nullptr;
+    QSpacerItem* missingGaps = nullptr;
+    int missingShare = -1;
 };
 
 HomeProjectsRow::HomeProjectsRow(QWidget* parent) : QWidget(parent), m_impl(std::make_unique<Impl>())
@@ -404,11 +409,17 @@ HomeProjectsRow::HomeProjectsRow(QWidget* parent) : QWidget(parent), m_impl(std:
         m_impl->cards.push_back(card);
         row->addWidget(card, 1);
     }
+    // The cards not shown leave their room before the tile, which stays at the row's end: a project's card is as wide
+    // however many are shown.
+    m_impl->missingGaps = new QSpacerItem(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    row->addSpacerItem(m_impl->missingGaps);
+    row->addStretch(0);
+    m_impl->missingShare = row->count() - 1;
     m_impl->tile = new OpenProjectTile(this);
     m_impl->tile->setObjectName(QStringLiteral("homeOpenProjectTile"));
     QObject::connect(m_impl->tile, &QAbstractButton::clicked, this, [this]() { emit openOtherProjectRequested(); });
     row->addWidget(m_impl->tile, 0);
-    row->addStretch(0);
+    m_impl->line = row;
     column->addLayout(row);
 }
 
@@ -430,6 +441,10 @@ void HomeProjectsRow::setProjects(const std::vector<HomeProjectSummary>& project
             card->hide();
         }
     }
+    const int missing = static_cast<int>(kShown - m_impl->shown);
+    m_impl->missingGaps->changeSize(missing * parts::kProjectCardsGap, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    m_impl->line->setStretch(m_impl->missingShare, missing);
+    m_impl->line->invalidate();
     m_impl->count->setText(QString::number(projects.size()));
 }
 

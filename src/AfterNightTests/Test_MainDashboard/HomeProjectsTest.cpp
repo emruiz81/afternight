@@ -129,6 +129,52 @@ TEST(HomeProjectsRow, ACardOpensItsProjectAndTheTileAsksForAnother)
     EXPECT_TRUE(row.openProjectTile()->isVisible());
 }
 
+// A project's card is as wide however many are shown: the room of the projects not there is left between the cards and
+// the Open project... tile, which keeps its place at the row's end, and the cards' line is as tall as the cards shown.
+TEST(HomeProjectsRow, ACardKeepsItsWidthWhenFewerAreShown)
+{
+    DashboardApplication::instance()->resetForTest();
+    HomeProjectsRow row;
+    const std::vector<HomeProjectSummary> projects = {
+        project(QStringLiteral("Carina Nebula"), 6), project(QStringLiteral("M 83 LRGB"), 4, true),
+        project(QStringLiteral("Caldwell 77"), 5, true), project(QStringLiteral("Saturn 2026-10"), 2)};
+    row.setProjects(projects);
+    showAndSettle(row, QSize(1400, 120));
+    ASSERT_EQ(row.cards().size(), 4u);
+    std::vector<QRect> four;
+    for (const an::ui::HomeProjectCard* const card : row.cards())
+    {
+        four.push_back(card->geometry());
+    }
+    const QRect tile = row.openProjectTile()->geometry();
+    EXPECT_EQ(tile.x() + tile.width(), row.width()) << "the tile is not at the row's end";
+
+    ASSERT_NE(row.layout(), nullptr);
+    for (const std::size_t shown : {std::size_t{3}, std::size_t{2}, std::size_t{1}})
+    {
+        row.setProjects({projects.begin(), projects.begin() + static_cast<std::ptrdiff_t>(shown)});
+        QCoreApplication::processEvents();
+        row.layout()->activate();
+        const std::vector<an::ui::HomeProjectCard*> cards = row.cards();
+        ASSERT_EQ(cards.size(), shown);
+        for (std::size_t index = 0; index < shown; ++index)
+        {
+            EXPECT_EQ(cards[index]->width(), four[index].width())
+                << "with " << shown << " shown, a card took " << cards[index]->width() << " px of the row";
+            EXPECT_EQ(cards[index]->x(), four[index].x()) << "with " << shown << " shown";
+        }
+        EXPECT_EQ(row.openProjectTile()->x(), tile.x()) << "with " << shown << " shown, the tile left the row's end";
+        EXPECT_EQ(row.openProjectTile()->width(), tile.width());
+    }
+    const an::ui::HomeProjectCard* const card = row.cards().front();
+    EXPECT_GT(row.openProjectTile()->x() - (card->x() + card->width()), 2 * four.front().width())
+        << "no room is left between the card and the tile";
+    // The cards' line is as tall as the card shown: the cards not shown, and what they showed before, take no height.
+    QLayout* const cardsLine = row.layout()->itemAt(row.layout()->count() - 1)->layout();
+    ASSERT_NE(cardsLine, nullptr);
+    EXPECT_EQ(cardsLine->sizeHint().height(), card->sizeHint().height());
+}
+
 // The Continue row shows the project used last between the featured image and the last sequence, with its counts and
 // Open project, which opens it; with none it is not shown.
 TEST(HomeContinueRow, TheLastProjectIsBesideTheFeaturedImageAndOpened)
