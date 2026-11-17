@@ -712,6 +712,7 @@ struct AnFloatingToolbar::Impl
     int viewCount = 1;
     std::optional<double> zoom;
     std::optional<QRect> area;
+    QList<QRect> keepClear;
 
     NamePart* name = nullptr;
     AnActionButton* fit = nullptr;
@@ -877,7 +878,7 @@ struct AnFloatingToolbar::Impl
         q->updateGeometry();
         if (area.has_value())
         {
-            q->setGeometry(q->placementIn(*area));
+            q->setGeometry(q->placementIn(*area, keepClear));
         }
         q->update();
         layingOut = false;
@@ -1119,19 +1120,43 @@ int AnFloatingToolbar::barRadius() const
     return m_impl->form == Form::Small ? parts::kFloatingToolbarSmallRadius : parts::kFloatingToolbarRadius;
 }
 
-QRect AnFloatingToolbar::placementIn(const QRect& area) const
+QRect AnFloatingToolbar::placementIn(const QRect& area, const QList<QRect>& keepClear) const
 {
     const QSize size = sizeHint();
     const int lift = m_impl->form == Form::Small ? parts::kFloatingToolbarSmallLift : parts::kFloatingToolbarLift;
     // The bar's bottom is the lift above the area's; the edge under it hangs a pixel below.
     const int barBottom = area.bottom() + 1 - lift;
-    return QRect(area.left() + (area.width() - size.width()) / 2, barBottom - barHeight(), size.width(), size.height());
+    QRect placed(area.left() + (area.width() - size.width()) / 2, barBottom - barHeight(), size.width(), size.height());
+    // Lifted above what it would cover: lifted above one strip it may cover another, so each pass lifts it above the
+    // highest it covers, until it covers none or reaches the area's top.
+    for (qsizetype pass = 0; pass < keepClear.size(); ++pass)
+    {
+        int highest = placed.bottom() + 1;
+        for (const QRect& clear : keepClear)
+        {
+            if (placed.intersects(clear))
+            {
+                highest = (std::min)(highest, clear.top());
+            }
+        }
+        if (highest > placed.bottom())
+        {
+            break;
+        }
+        placed.moveTop((std::max)(area.top(), highest - parts::kFloatingToolbarClearance - barHeight()));
+        if (placed.top() == area.top())
+        {
+            break;
+        }
+    }
+    return placed;
 }
 
-void AnFloatingToolbar::placeOver(const QRect& area)
+void AnFloatingToolbar::placeOver(const QRect& area, const QList<QRect>& keepClear)
 {
     m_impl->area = area;
-    setGeometry(placementIn(area));
+    m_impl->keepClear = keepClear;
+    setGeometry(placementIn(area, keepClear));
     raise();
 }
 

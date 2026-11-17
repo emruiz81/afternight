@@ -27,9 +27,12 @@ class AnFloatingToolbar;
 namespace an::ui::observatory
 {
 
+class ToolbarClearance;
+
 /// Gives a view that floats in a window of its own the small floating toolbar - Fit, Zoom Out, the zoom, Zoom In, the
-/// display mode and More - 8 px above its bottom, bound to that view alone, and takes it away when the view docks
-/// again. A view's chrome is outside it in this shell, so a floating window would otherwise show no tool of its view.
+/// display mode and More - 8 px above its bottom, or 8 px above the player of a sequence (`ToolbarClearance`), bound to
+/// that view alone, and takes it away when the view docks again. A view's chrome is outside it in this shell, so a
+/// floating window would otherwise show no tool of its view.
 class AFTERNIGHTSHELLOBSERVATORY_API FloatingViewChrome final : public QObject
 {
 public:
@@ -65,6 +68,7 @@ private:
 
     an::ui::shell::ViewChromeBinder::MenuFiller m_filler;
     std::vector<Entry> m_entries;
+    std::unique_ptr<ToolbarClearance> m_clearance;
 };
 
 } // namespace an::ui::observatory

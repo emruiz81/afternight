@@ -278,6 +278,60 @@ TEST(FloatingToolbar, AHostPlacesItOverTheBottomOfAnArea)
     });
 }
 
+// A sequence keeps its player strip at the bottom of its own view, where the toolbar would cover it: told what to keep
+// clear of, the toolbar is lifted until its bar is 8 px above the highest of the strips it would cover - one under
+// either end of it too, and one it would cover once lifted above another - in either form, and stays so when what it
+// shows changes its width; a strip beside it or above it does not move it, and it is never lifted above the area.
+TEST(FloatingToolbar, ItIsLiftedAboveWhatItWouldCover)
+{
+    forEachLook([](const DesignTokens&) {
+        StandInChrome chrome;
+        QWidget area;
+        area.resize(1200, 700);
+        auto* toolbar = new AnFloatingToolbar(&area);
+        toolbar->setActions(chrome.workspaceView());
+        const QRect alone = toolbar->placementIn(area.rect());
+        const auto barBottom = [toolbar](const QRect& placed) { return placed.top() + toolbar->barHeight(); };
+        const int clearance = an::ui::parts::kFloatingToolbarClearance;
+
+        // A strip across the area's bottom.
+        const QRect strip(0, 656, 1200, 44);
+        toolbar->placeOver(area.rect(), {strip});
+        EXPECT_FALSE(toolbar->geometry().intersects(strip)) << "the toolbar covers the strip";
+        EXPECT_EQ(barBottom(toolbar->geometry()), strip.top() - clearance);
+        EXPECT_EQ(toolbar->geometry().x(), alone.x()) << "lifted, it stays centred";
+
+        // One under its right end only, as a view beside the centre.
+        const QRect underItsEnd(alone.right() - 40, 656, 400, 44);
+        EXPECT_EQ(barBottom(toolbar->placementIn(area.rect(), {underItsEnd})), underItsEnd.top() - clearance);
+
+        // Beside it, or high above it, it covers nothing and is not moved.
+        EXPECT_EQ(toolbar->placementIn(area.rect(), {QRect(0, 656, alone.left() - 20, 44)}), alone);
+        EXPECT_EQ(toolbar->placementIn(area.rect(), {QRect(0, 0, 1200, 44)}), alone);
+
+        // Lifted above one strip it would cover another: it is lifted above that one too.
+        const QRect higher(0, strip.top() - clearance - toolbar->barHeight() + 10, 1200, 30);
+        const QRect twice = toolbar->placementIn(area.rect(), {strip, higher});
+        EXPECT_FALSE(twice.intersects(strip));
+        EXPECT_FALSE(twice.intersects(higher));
+        EXPECT_EQ(barBottom(twice), higher.top() - clearance);
+
+        // Never above the area: with no room above the strip it sits at the area's top.
+        const QRect tall(0, 20, 1200, 680);
+        EXPECT_EQ(toolbar->placementIn(area.rect(), {tall}).top(), 0);
+
+        // Placed again when its width changes, still lifted.
+        chrome.actions.showAstrometry->setVisible(false);
+        EXPECT_FALSE(toolbar->geometry().intersects(strip)) << "placed again, it covers the strip";
+        EXPECT_EQ(barBottom(toolbar->geometry()), strip.top() - clearance);
+
+        // The small form keeps the same room.
+        toolbar->setForm(AnFloatingToolbar::Form::Small);
+        EXPECT_FALSE(toolbar->geometry().intersects(strip));
+        EXPECT_EQ(barBottom(toolbar->geometry()), strip.top() - clearance);
+    });
+}
+
 // The bar is the scrim in a rounded shape with the 1 px edge under it; nothing is drawn outside the shape, so the image
 // shows at its corners. Its icons and text are the text over images.
 TEST(FloatingToolbar, RendersARoundedScrimAndNothingOutsideIt)

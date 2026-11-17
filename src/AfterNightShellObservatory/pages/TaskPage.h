@@ -38,6 +38,8 @@ class ViewChromeBinder;
 namespace an::ui::observatory
 {
 
+class ToolbarClearance;
+
 /// The page of a task, one per task taken into a page, kept alive in the centre while another place is shown:
 ///
 /// ```
@@ -52,9 +54,9 @@ namespace an::ui::observatory
 ///
 /// The process is laid into `processHost()` (`TopLevelProcessBaseControl::attachToPage`) and dressed (`dress`): the
 /// history strip goes under its canvas, the compact readout at the head of its column, the toolbar floats over its
-/// canvas, 12 px above its foot, and shows the preview view; the strip shows the target's history. A full page has no
-/// canvas and no column: it is the process whole under the header, whose menu button lists the process's own menus
-/// when it has any. Used on the GUI thread.
+/// canvas, 12 px above its foot or 8 px above a sequence's player there (`ToolbarClearance`), and shows the preview
+/// view; the strip shows the target's history. A full page has no canvas and no column: it is the process whole under
+/// the header, whose menu button lists the process's own menus when it has any. Used on the GUI thread.
 class AFTERNIGHTSHELLOBSERVATORY_API TaskPage final : public QWidget
 {
 public:
@@ -109,6 +111,7 @@ private:
     std::unique_ptr<an::ui::shell::ViewChromeBinder> m_binder;
     QPointer<TopLevelProcessBaseControl> m_process;
     QPointer<QWidget> m_canvas;
+    std::unique_ptr<ToolbarClearance> m_clearance;
 };
 
 } // namespace an::ui::observatory

@@ -226,66 +226,6 @@ protected:
         return an::ui::RailItem{};
     }
 
-    /// Opens a sequence of grey frames recorded in a SER file as a person's file does, the active view.
-    static ImageViewControl* openSequence(const QString& name, const std::uint32_t frames)
-    {
-        // Made once the suite's temporary directory is in force.
-        static QTemporaryDir recordings(QDir::temp().filePath(QStringLiteral("observatory-runs-XXXXXX")));
-        const QString path = recordings.filePath(name + QStringLiteral(".ser"));
-        {
-            an::Result<an::ui::SequenceWriter> writer = an::ui::SequenceWriter::create(
-                path, an::ui::SequenceWriteSettings{.container = an::SequenceFormat::Ser, .frameCount = frames});
-            EXPECT_TRUE(writer.hasValue()) << writer.status().message();
-            if (!writer.hasValue())
-            {
-                return nullptr;
-            }
-            an::Result<an::consumer::OperationScope> scope =
-                session().admit(an::consumer::OperationRequest{.purpose = an::consumer::OperationPurpose::Apply});
-            EXPECT_TRUE(scope.hasValue()) << scope.status().message();
-            if (!scope.hasValue())
-            {
-                return nullptr;
-            }
-            for (std::uint32_t frame = 0u; frame < frames; ++frame)
-            {
-                std::optional<an::consumer::ImageAsset> asset =
-                    an::tests::app::filledAsset(session(), 0.1f + 0.1f * static_cast<float>(frame), 32u, 24u);
-                EXPECT_TRUE(asset.has_value());
-                if (!asset.has_value())
-                {
-                    return nullptr;
-                }
-                an::Result<an::consumer::AssetReadLease> lease = asset->read();
-                EXPECT_TRUE(lease.hasValue());
-                if (!lease.hasValue())
-                {
-                    return nullptr;
-                }
-                const an::Status appended = writer->append(scope->engine(), scope->execution(), lease->image());
-                EXPECT_TRUE(appended.ok()) << appended.message();
-            }
-            an::Result<an::SequenceDescriptor> published = writer->finish(scope->execution());
-            EXPECT_TRUE(published.hasValue()) << published.status().message();
-        }
-        an::Result<an::ui::ImageDocument> document =
-            an::ui::openSequenceDocument(session(), path, an::SequenceFormat::Ser, {});
-        EXPECT_TRUE(document.hasValue()) << document.status().message();
-        if (!document.hasValue())
-        {
-            return nullptr;
-        }
-        ImageViewControl* const view = core().viewService().userViews().createNewImageViewControlFromSequence(
-            nullptr, std::move(*document), nullptr, false, name.toStdString());
-        EXPECT_NE(view, nullptr);
-        if (view != nullptr)
-        {
-            core().viewService().setActiveImageViewControl(view);
-            settle();
-        }
-        return view;
-    }
-
     /// Opens tasks - DeepSNR over images of their own - until the rail cannot show them all, at the window's least
     /// size; their ids, in the order they were opened.
     static std::vector<TaskId> openTasksUntilTheRailOverflows()

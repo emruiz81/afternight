@@ -898,7 +898,9 @@ the scrims, the text and the accent over images - which keep one look whatever i
   image window, is 32 px high with 8 px corners, padding 0 3 and 26 px buttons: Fit, Zoom Out, the zoom (54 px), Zoom
   In, a separator, the display mode as one toggle, More. A host places it centred over the bottom of the area it
   floats over, its bar 12 px (8 in the small form) above the area's bottom (`placeOver`), and it places itself again
-  when what it shows changes its width.
+  when what it shows changes its width. A host also hands it what to keep clear of - a sequence's player strip, which
+  a sequence keeps at the bottom of its own view - and where the bar would cover one it is lifted until it is 8 px
+  above the highest it covers (`parts::kFloatingToolbarClearance`, in either form), never above the area.
 - **The history strip** (`AnHistoryStrip`): `metrics.strip` high (34 / 40) on `surface1`, a `borderSubtle` hairline as
   its first row, padding 0 6 0 12: the caps "History" in `textTertiary`, then the steps as chips `metrics.chip` high
   (pills, padding 0 10, the name in the small size in semibold), a 12 px chevron in `textTertiary` between two. A step is

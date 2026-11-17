@@ -37,13 +37,14 @@ namespace an::ui::observatory
 {
 
 class FloatingImagesPage;
+class ToolbarClearance;
 
 /// The page of a workspace in the window's centre: the workspace's dock area, where its views split, stack as tabs and
 /// float as they always did; one of them maximized over the whole page, its dock keeping a stand-in until it is
 /// restored, the tab strips out of sight; or, when every image it holds floats, the list of them
-/// (`FloatingImagesPage`). Over the page, centred 12 px above its bottom, the active view's floating toolbar; under it
-/// the active view's history strip; both bound to the view by a `ViewChromeBinder` the page owns, and both kept through
-/// a maximize.
+/// (`FloatingImagesPage`). Over the page, centred 12 px above its bottom, the active view's floating toolbar - lifted
+/// to 8 px above a sequence's player it would cover (`ToolbarClearance`); under it the active view's history strip;
+/// both bound to the view by a `ViewChromeBinder` the page owns, and both kept through a maximize.
 class AFTERNIGHTSHELLOBSERVATORY_API WorkspacePage final : public QWidget
 {
 public:
@@ -102,6 +103,7 @@ private:
     an::ui::AnFloatingToolbar* m_toolbar = nullptr;
     an::ui::AnHistoryStrip* m_strip = nullptr;
     std::unique_ptr<an::ui::shell::ViewChromeBinder> m_binder;
+    std::unique_ptr<ToolbarClearance> m_clearance;
 };
 
 } // namespace an::ui::observatory

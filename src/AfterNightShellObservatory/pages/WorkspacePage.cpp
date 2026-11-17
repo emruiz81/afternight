@@ -5,6 +5,7 @@
 
 #include "pages/WorkspacePage.h"
 
+#include "chrome/ToolbarClearance.h"
 #include "pages/FloatingImagesPage.h"
 
 #include "components/AnFloatingToolbar.h"
@@ -51,11 +52,14 @@ WorkspacePage::WorkspacePage(KDDockWidgets::QtWidgets::MainWindow& dockArea, Flo
     m_toolbar->setObjectName(QStringLiteral("observatoryFloatingToolbar"));
     m_toolbar->hide();
     m_binder = std::make_unique<an::ui::shell::ViewChromeBinder>(m_toolbar, m_strip);
+    m_clearance = std::make_unique<ToolbarClearance>([this]() { placeToolbar(); });
 }
 
 WorkspacePage::~WorkspacePage()
 {
-    // The binder lets go of the view before the toolbar and the strip go with the page.
+    // The players stop telling the page before its views go, and the binder lets go of the view before the toolbar and
+    // the strip go with the page.
+    m_clearance.reset();
     m_binder.reset();
 }
 
@@ -172,9 +176,10 @@ void WorkspacePage::placeToolbar()
     // The toolbar is shown over a view: not over the list of floating images, nor with no view to show.
     const bool shown = m_binder->toolbarView() != nullptr && !isFloatingImagesShown();
     m_toolbar->setVisible(shown);
-    if (shown)
+    if (shown && m_clearance)
     {
-        m_toolbar->placeOver(canvasArea());
+        // Clear of the players shown under it.
+        m_toolbar->placeOver(canvasArea(), m_clearance->playersIn(*m_stack->currentWidget(), *this));
         m_toolbar->raise();
     }
 }

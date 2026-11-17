@@ -1881,8 +1881,12 @@ one `AnFloatingToolbar` centred 12 px above the bottom of its dock area, placed 
 view (an `AfterNightAppListener`); with more than one docked view the toolbar names the one it acts on, its More opens
 the view's menu, and a maximized view keeps both. A view that floats in a window of its own gets the small toolbar
 over itself (`workspaces/FloatingViewChrome`), bound to it alone, and gives it back when it docks; the dock widget's
-`isFloatingChanged` says when, since a double click or the strip's button floats a view without any drag. The layout
-icons (`workspaces/WorkspaceToolbar`) sit at the right of the top bar while the workspace is shown: the classic dock
+`isFloatingChanged` says when, since a double click or the strip's button floats a view without any drag. A sequence
+keeps its player strip at the bottom of its own view, where a toolbar centred at the bottom would cover it: the
+workspace's page, a floating window's chrome and a task's page hand their toolbar the strips shown under it
+(`chrome/ToolbarClearance`, which finds them and has the toolbar placed again when one is shown, hidden, moved or
+resized), and the toolbar is lifted to 8 px above those it would cover; over an image, or with the sequence behind
+another view's tab, it is where it always is. The layout icons (`workspaces/WorkspaceToolbar`) sit at the right of the top bar while the workspace is shown: the classic dock
 tool bar's lock button and its Group All Images, Split All Images and Fit Images To Window - the catalogue's own
 actions - acting through `DockLayoutOperations` on the workspace's target. A right click on a view opens the view's
 menu at the pointer and one on a tab the tab's menu, both from `ViewMenuBuilder` (the tab's through an event filter on

@@ -5,6 +5,8 @@
 
 #include "workspaces/FloatingViewChrome.h"
 
+#include "chrome/ToolbarClearance.h"
+
 #include "components/AnFloatingToolbar.h"
 #include "controls/ImageViewControl.h"
 
@@ -16,10 +18,20 @@
 namespace an::ui::observatory
 {
 
-FloatingViewChrome::FloatingViewChrome(QObject* parent) : QObject(parent) {}
+FloatingViewChrome::FloatingViewChrome(QObject* parent)
+    : QObject(parent), m_clearance(std::make_unique<ToolbarClearance>([this]() {
+          for (Entry& entry : m_entries)
+          {
+              place(entry);
+          }
+      }))
+{
+}
 
 FloatingViewChrome::~FloatingViewChrome()
 {
+    // The players stop telling before the entries go.
+    m_clearance.reset();
     for (Entry& entry : m_entries)
     {
         entry.binder.reset();
@@ -117,7 +129,9 @@ void FloatingViewChrome::place(Entry& entry) const
     {
         return;
     }
-    entry.toolbar->placeOver(entry.view->rect());
+    // Over the view, clear of its player when it is a sequence's.
+    entry.toolbar->placeOver(entry.view->rect(),
+                             m_clearance ? m_clearance->playersIn(*entry.view, *entry.view) : QList<QRect>{});
     entry.toolbar->raise();
 }
 

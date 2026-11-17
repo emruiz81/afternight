@@ -5,6 +5,7 @@
 
 #include "pages/TaskPage.h"
 
+#include "chrome/ToolbarClearance.h"
 #include "views/ViewChromeBinder.h"
 
 #include "components/AnCompactReadout.h"
@@ -47,11 +48,14 @@ TaskPage::TaskPage(QWidget* parent) : QWidget(parent)
     m_toolbar->setObjectName(QStringLiteral("observatoryTaskToolbar"));
     m_toolbar->hide();
     m_binder = std::make_unique<an::ui::shell::ViewChromeBinder>(m_toolbar, m_strip);
+    m_clearance = std::make_unique<ToolbarClearance>([this]() { placeToolbar(); });
 }
 
 TaskPage::~TaskPage()
 {
-    // The binder lets go of the views before the toolbar and the strip go with the page.
+    // The players stop telling the page before its views go, and the binder lets go of the views before the toolbar
+    // and the strip go with the page.
+    m_clearance.reset();
     m_binder.reset();
 }
 
@@ -181,12 +185,13 @@ void TaskPage::resizeEvent(QResizeEvent* event)
 
 void TaskPage::placeToolbar()
 {
-    // The toolbar floats over the preview, and is hidden while there is none.
+    // The toolbar floats over the preview, clear of a sequence's player shown under it, and is hidden while there is
+    // none.
     const bool shown = m_binder->toolbarView() != nullptr && !m_canvas.isNull();
     m_toolbar->setVisible(shown);
-    if (shown)
+    if (shown && m_clearance)
     {
-        m_toolbar->placeOver(canvasArea());
+        m_toolbar->placeOver(canvasArea(), m_clearance->playersIn(*m_canvas, *this));
         m_toolbar->raise();
     }
 }

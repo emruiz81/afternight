@@ -286,6 +286,8 @@ inline constexpr int kFloatingToolbarChevron = 12;
 /// How far above the bottom of the area it floats over the toolbar sits, in its full and its small form.
 inline constexpr int kFloatingToolbarLift = 12;
 inline constexpr int kFloatingToolbarSmallLift = 8;
+/// How far above a sequence's player strip the toolbar sits when it would cover it, in either form.
+inline constexpr int kFloatingToolbarClearance = 8;
 inline constexpr int kFloatingToolbarSmallHeight = 32;
 inline constexpr int kFloatingToolbarSmallRadius = 8;
 inline constexpr int kFloatingToolbarSmallPadding = 3;

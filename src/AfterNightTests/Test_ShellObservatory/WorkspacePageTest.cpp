@@ -24,12 +24,14 @@
 #include "components/AnHistoryStrip.h"
 #include "components/AnIconRail.h"
 #include "controls/IAppContext.h"
+#include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
 #include "controls/KDDockWidgetsHelper.h"
 #include "controls/ViewChrome.h"
 #include "core/ApplicationCore.h"
 #include "readout/ReadoutController.h"
+#include "theme/ComponentParts.h"
 #include "views/DockHooks.h"
 #include "views/DockLayoutOperations.h"
 #include "views/ViewChromeBinder.h"
@@ -180,6 +182,91 @@ TEST_F(WorkspacePage, TheToolbarFloatsOverTheDockAreaAndFollowsAResize)
     window().resize(before);
     settle();
     EXPECT_TRUE(placedRight());
+}
+
+/// Where a widget is in another's coordinates.
+[[nodiscard]] QRect placeIn(const QWidget& widget, const QWidget& over)
+{
+    return QRect(over.mapFromGlobal(widget.mapToGlobal(QPoint(0, 0))), widget.size());
+}
+
+/// Whether a toolbar is 8 px above a sequence's player strip, covering none of it.
+[[nodiscard]] bool clearOf(const an::ui::AnFloatingToolbar& toolbar, const QWidget& player)
+{
+    const QRect strip = placeIn(player, *toolbar.parentWidget());
+    const QRect bar = toolbar.geometry();
+    return !bar.intersects(strip) &&
+           strip.top() - (bar.top() + toolbar.barHeight()) == an::ui::parts::kFloatingToolbarClearance;
+}
+
+/// Where a toolbar and a player strip are, for a failure's message.
+[[nodiscard]] std::string describeOver(const an::ui::AnFloatingToolbar& toolbar, const QWidget& player)
+{
+    const QRect bar = toolbar.geometry();
+    const QRect strip = placeIn(player, *toolbar.parentWidget());
+    return QStringLiteral("toolbar %1,%2 %3x%4 (bar %5 high); player %6,%7 %8x%9, %10")
+        .arg(bar.x())
+        .arg(bar.y())
+        .arg(bar.width())
+        .arg(bar.height())
+        .arg(toolbar.barHeight())
+        .arg(strip.x())
+        .arg(strip.y())
+        .arg(strip.width())
+        .arg(strip.height())
+        .arg(player.isVisible() ? QStringLiteral("shown") : QStringLiteral("hidden"))
+        .toStdString();
+}
+
+// A sequence keeps its player at the bottom of its view, under the toolbar centred at the bottom of the workspace: the
+// toolbar is lifted until its bar is 8 px above the player, so it covers none of it - with the sequence the only view,
+// split beside another and maximized - and is 12 px above the workspace's bottom again while the player is out of
+// sight, behind another view's tab.
+TEST_F(WorkspacePage, TheToolbarKeepsClearOfASequencesPlayer)
+{
+    ImageViewControl* const sequence = openSequence(QStringLiteral("toolbar-sequence"), 3u);
+    ASSERT_NE(sequence, nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([sequence]() { return sequence->sequencePlayer() != nullptr; }));
+    settle();
+    an::ui::observatory::WorkspacePage& page = *window().workspacePage();
+    an::ui::AnFloatingToolbar* const toolbar = page.toolbar();
+    QWidget* const player = sequence->sequencePlayer()->widget();
+    ASSERT_TRUE(toolbar->isVisible());
+    ASSERT_TRUE(player->isVisible());
+    EXPECT_TRUE(an::tests::app::processEventsUntil([&]() { return clearOf(*toolbar, *player); }, 3000))
+        << "the only view: " << describeOver(*toolbar, *player);
+
+    // Behind another view's tab the player is out of sight, and the toolbar is where it is over any image.
+    ImageViewControl* const image = openView(QStringLiteral("toolbar-beside-sequence"));
+    ASSERT_NE(image, nullptr);
+    core().actions().action(an::ui::shell::ids::kGroupAllImages)->trigger();
+    core().viewService().setActiveImageViewControl(image);
+    settle();
+    const auto atTheBottom = [&]() {
+        const QRect area = page.canvasArea();
+        return area.bottom() - (toolbar->geometry().top() + toolbar->barHeight() - 1) == 12;
+    };
+    ASSERT_TRUE(an::tests::app::processEventsUntil([player]() { return !player->isVisible(); }, 3000))
+        << "grouped, the sequence is not behind the image's tab";
+    EXPECT_TRUE(an::tests::app::processEventsUntil(atTheBottom, 3000))
+        << "the player is out of sight: " << describeOver(*toolbar, *player);
+
+    // Split beside the image, the player runs under one end of the toolbar.
+    core().actions().action(an::ui::shell::ids::kSplitAllImages)->trigger();
+    core().viewService().setActiveImageViewControl(sequence);
+    settle();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([player]() { return player->isVisible(); }, 3000));
+    EXPECT_TRUE(an::tests::app::processEventsUntil([&]() { return clearOf(*toolbar, *player); }, 3000))
+        << "split: " << describeOver(*toolbar, *player);
+
+    // Maximized, alone on the page.
+    sequence->switchMaximized();
+    settle();
+    ASSERT_EQ(page.maximizedView(), sequence);
+    EXPECT_TRUE(an::tests::app::processEventsUntil([&]() { return clearOf(*toolbar, *player); }, 3000))
+        << "maximized: " << describeOver(*toolbar, *player);
+    sequence->switchMaximized();
+    settle();
 }
 
 // The toolbar shows the active view's own actions, and with two views it names the one it acts on.
@@ -435,6 +522,26 @@ TEST_F(FloatingImagesPage, ListsFloatingImagesAndDocksThem)
     }));
     EXPECT_EQ(an::ui::shell::DockHooks::mainWindowHolding(view->getDockWidget()), window().workspaces().mainWindow());
     EXPECT_EQ(window().floatingViewChrome().toolbarOf(view), nullptr);
+}
+
+// A sequence that floats in a window of its own keeps its player at the bottom of the window, where the window's small
+// toolbar floats: the toolbar is lifted until its bar is 8 px above the player.
+TEST_F(FloatingImagesPage, TheFloatingToolbarKeepsClearOfTheSequencesPlayer)
+{
+    ImageViewControl* const sequence = openSequence(QStringLiteral("floating-sequence"), 3u);
+    ASSERT_NE(sequence, nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([sequence]() { return sequence->sequencePlayer() != nullptr; }));
+    settle();
+    sequence->getDockWidget()->setFloating(true);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
+        settle();
+        return window().floatingViewChrome().toolbarOf(sequence) != nullptr;
+    })) << "the floating sequence has no toolbar of its own";
+    an::ui::AnFloatingToolbar* const toolbar = window().floatingViewChrome().toolbarOf(sequence);
+    QWidget* const player = sequence->sequencePlayer()->widget();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([player]() { return player->isVisible(); }, 3000));
+    EXPECT_TRUE(an::tests::app::processEventsUntil([&]() { return clearOf(*toolbar, *player); }, 3000))
+        << describeOver(*toolbar, *player);
 }
 
 // A file dropped on the window opens in a view of the workspace.
