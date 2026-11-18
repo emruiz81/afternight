@@ -328,7 +328,7 @@ column and `chrome/StatusLine` - implementing `IViewHost` and `IStatusDisplay`; 
 the places, the readout column follows the active view (`ReadoutController`), the status line writes the classic texts
 (`widgets/ImageStatusTexts.h`) and the menu bar shows on Alt (`chrome/MenuBarOnAlt`, `interface/alwaysShowMenuBar`)
 while every catalogue action is the window's own. It composes Controls' coordinators as the classic window does;
-processes open as windows of their own. `projects/ProjectFlows` is what the window does about projects: the shell's
+every process opens as a task, a page of the centre (`tasks/TaskPresenter`, `pages/TaskPage`). `projects/ProjectFlows` is what the window does about projects: the shell's
 project actions, the top bar's switcher and its menu, what a project that cannot be opened is said as and the images
 of one that were not found. A project's images close with it, and what it was left with is back when it is opened
 again (`ProjectLayoutStore`). Its cases are in

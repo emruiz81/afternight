@@ -1077,6 +1077,61 @@ TEST_F(StackingTest, TheWindowGroupsByFilterAndNamesEachGroupsOutput)
     EXPECT_EQ(window.window->groups().size(), 1u);
 }
 
+// On a page Image Stacking stacks as its window does: started by the page's primary action, which is its Stack Images
+// button, it writes the stack the window writes, sample for sample. No progress window opens: the run is shown at the
+// page's head, with Cancel.
+TEST_F(StackingTest, AppliesAsInAWindow)
+{
+    const QStringList frames = writeThree();
+    const auto prepare = [&frames](ImageStackingProcess& tool, const QString& output) {
+        tool.addItemsNonBlocking(frames);
+        ASSERT_TRUE(pumpUntil([&tool]() { return tool.isIdle(); }));
+        auto& ui = tool.ui();
+        ui.normalizationMode->setCurrentText(QStringLiteral("None"));
+        ui.rejectionMethodSelector->setCurrentText(QStringLiteral("None"));
+        ui.openAfterStackCheck->setChecked(false);
+        ui.outputDirectoryEdit->setText(output);
+    };
+    QString fromWindow;
+    QString fromPage;
+    {
+        StackingWindow window;
+        prepare(*window.window, temporaryPath(QStringLiteral("from-window")));
+        window.window->stack();
+        ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle(); }));
+        ASSERT_EQ(window.window->lastWrittenFiles().size(), 1);
+        fromWindow = window.window->lastWrittenFiles().front();
+    }
+    {
+        const ProgressWindowsShown windows;
+        PagedTool<ImageStackingProcess> paged(context(), kImageStackingTool);
+        ASSERT_NE(paged.tool, nullptr);
+        ASSERT_TRUE(paged.tool->isPresentedAsPage()) << "Image Stacking is a page";
+        prepare(*paged.tool, temporaryPath(QStringLiteral("from-page")));
+        an::ui::ProcessPageLayout* const page = paged.tool->pageLayout();
+        ASSERT_NE(page, nullptr);
+        ASSERT_NE(page->cancelButton(), nullptr);
+        ASSERT_TRUE(paged.tool->ui().stackImagesButton->isEnabled());
+
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction()) << "the page's primary action is Stack Images";
+        EXPECT_TRUE(paged.tool->runState().running());
+        EXPECT_EQ(page->runBars(), 1) << "the run is shown at the page's head";
+        EXPECT_TRUE(page->cancelButton()->isVisibleTo(paged.tool));
+        ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+        EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+        EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        ASSERT_EQ(paged.tool->lastWrittenFiles().size(), 1);
+        fromPage = paged.tool->lastWrittenFiles().front();
+    }
+    EXPECT_TRUE(context().errorTexts.isEmpty()) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
+    EXPECT_EQ(QFileInfo(fromPage).fileName(), QFileInfo(fromWindow).fileName());
+    const std::optional<ReadBack> window = readBack(session(), fromWindow);
+    const std::optional<ReadBack> page = readBack(session(), fromPage);
+    ASSERT_TRUE(window.has_value() && page.has_value());
+    EXPECT_EQ(page->type, window->type);
+    EXPECT_EQ(page->fractions, window->fractions) << "the page wrote the stack the window writes";
+}
+
 TEST_F(StackingTest, TheWindowStacksEveryGroupAndOpensWhatItWrote)
 {
     const QStringList frames = writeThree();

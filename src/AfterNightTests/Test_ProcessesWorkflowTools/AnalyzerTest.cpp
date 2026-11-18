@@ -323,6 +323,57 @@ TEST_F(AnalyzerTest, AProxyIsTheFileStretchedAsItIsShownInEightBits)
     }));
 }
 
+// On a page Image List Analyzer optimizes as its window does: started by the page's primary action, which is its
+// optimize button, it writes the proxies the window writes, sample for sample. No progress window opens: the run is
+// shown at the page's head, with Cancel.
+TEST_F(AnalyzerTest, AppliesAsInAWindow)
+{
+    const QStringList fields = writeFields();
+    std::vector<std::vector<double>> fromWindow;
+    {
+        AnalyzerWindow window;
+        listed(window, fields);
+        window.window->optimize();
+        ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle() && window.window->imagesOptimized(); }));
+        for (const QString& field : fields)
+        {
+            const std::optional<ReadBack> proxy = readBack(session(), window.window->proxyPathOf(field));
+            ASSERT_TRUE(proxy.has_value()) << field.toStdString();
+            fromWindow.push_back(proxy->fractions);
+        }
+    }
+    {
+        const ProgressWindowsShown windows;
+        PagedTool<ImageListAnalyzerProcess> paged(context(), kImageListAnalyzerTool);
+        ASSERT_NE(paged.tool, nullptr);
+        ASSERT_TRUE(paged.tool->isPresentedAsPage()) << "Image List Analyzer is a page";
+        paged.tool->addItemsNonBlocking(fields);
+        ASSERT_TRUE(pumpUntil([&paged, &fields]() {
+            return paged.tool->isIdle() && paged.tool->fileList().paths().size() == fields.size();
+        }));
+        an::ui::ProcessPageLayout* const page = paged.tool->pageLayout();
+        ASSERT_NE(page, nullptr);
+        ASSERT_NE(page->cancelButton(), nullptr);
+        ASSERT_TRUE(paged.tool->ui().optimizeButton->isEnabled());
+
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction()) << "the page's primary action is the optimize button";
+        EXPECT_TRUE(paged.tool->runState().running());
+        EXPECT_EQ(page->runBars(), 1) << "the run is shown at the page's head";
+        EXPECT_TRUE(page->cancelButton()->isVisibleTo(paged.tool));
+        ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle() && paged.tool->imagesOptimized(); }));
+        EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+        EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        EXPECT_TRUE(context().errorTexts.isEmpty()) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
+        for (qsizetype index = 0; index < fields.size(); ++index)
+        {
+            const std::optional<ReadBack> proxy = readBack(session(), paged.tool->proxyPathOf(fields[index]));
+            ASSERT_TRUE(proxy.has_value()) << fields[index].toStdString();
+            EXPECT_EQ(proxy->fractions, fromWindow[static_cast<std::size_t>(index)])
+                << "the page wrote the proxy the window writes";
+        }
+    }
+}
+
 TEST_F(AnalyzerTest, ARemovedFilesProxyGoesWithIt)
 {
     const QStringList fields = writeFields();

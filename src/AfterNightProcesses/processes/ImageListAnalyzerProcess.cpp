@@ -24,6 +24,7 @@
 #include "processes/ImageListProcessHelpers.h"
 #include "processes/ProcessCommonUtils.h"
 #include "processes/WorkflowToolFiles.h"
+#include "processes/WorkflowToolRun.h"
 #include "session/IEngineSessionProvider.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/HistogramCompanions.h"
@@ -370,7 +371,9 @@ struct ImageListAnalyzerProcess::Impl
 
     /// The proxies being written, or none.
     bool optimizing = false;
-    QPointer<ProgressDialogControl> progress;
+
+    /// The front of the optimization on its way: its progress window in a window, the page's Cancel on a page.
+    an::ui::processes::WorkflowToolRun run;
 
     double framesPerSecond = kDefaultFramesPerSecond;
     bool ignoreFrameChange = false;
@@ -606,20 +609,17 @@ void ImageListAnalyzerProcess::optimize()
     const an::DemosaicMethod demosaic = an::ui::demosaicMethodFromSettings();
     const an::ui::AutostretchApplySettings stretch = stretchOf(shown);
 
-    auto* progress = new ProgressDialogControl(this, QStringLiteral("Optimizing image list"));
-    progress->setProgressBarRange(0, 100);
-    progress->setValue(0);
-    progress->setText(QStringLiteral("Optimizing %1 images").arg(pending.size()));
-    progress->show();
-    m_impl->progress = progress;
+    // A window shows the run in a progress window; a page shows it at its own head and opens none.
+    m_impl->run = an::ui::processes::WorkflowToolRun::open(*this, QStringLiteral("Optimizing image list"),
+                                                           QStringLiteral("Optimizing %1 images").arg(pending.size()));
     setBusy(true);
     m_impl->optimizing = true;
     setRunState(an::ui::runningState(QStringLiteral("optimizing"), 0.0));
 
     QPointer<ImageListAnalyzerProcess> guard(this);
-    QPointer<ProgressDialogControl> dialog(progress);
+    QPointer<ProgressDialogControl> dialog(m_impl->run.window());
     const std::stop_token windowStop = windowStopToken();
-    const std::stop_token cancel = progress->stopToken();
+    const std::stop_token cancel = m_impl->run.cancelToken();
     QThreadPool::globalInstance()->start([session, pending, demosaic, stretch, shown, resolution, guard, dialog,
                                           windowStop, cancel]() {
         std::stop_source stop;
@@ -723,7 +723,7 @@ void ImageListAnalyzerProcess::optimize()
                 QFile::remove(proxy);
             }
             impl.optimizing = false;
-            impl.progress.clear();
+            impl.run = {};
             // A stop says nothing; files that could not be optimized are the run's failure.
             if (stopped)
             {
@@ -753,6 +753,21 @@ void ImageListAnalyzerProcess::optimize()
             }
         });
     });
+}
+
+bool ImageListAnalyzerProcess::triggerPrimaryAction()
+{
+    return !runState().running() && an::ui::processes::pressWhenOffered(m_impl->ui.optimizeButton);
+}
+
+bool ImageListAnalyzerProcess::cancelRun()
+{
+    if (!m_impl->optimizing)
+    {
+        return false;
+    }
+    m_impl->run.requestCancel();
+    return true;
 }
 
 void ImageListAnalyzerProcess::exportSequence()
@@ -819,10 +834,7 @@ void ImageListAnalyzerProcess::closeEvent(QCloseEvent* evt)
 {
     // Everything the window started stops with the window's token, requested as the base closes, and lands on a window
     // that is gone; nothing is waited for.
-    if (m_impl->progress)
-    {
-        m_impl->progress->requestCancel();
-    }
+    m_impl->run.requestCancel();
     if (auto* player = m_impl->preview ? m_impl->preview->sequencePlayer() : nullptr)
     {
         player->shutdown();

@@ -35,9 +35,11 @@
 #include <QCoreApplication>
 #include <QDialog>
 #include <QDir>
+#include <QLabel>
 #include <QPointer>
 #include <QString>
 #include <QTemporaryDir>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <QtTest/QTest>
 
@@ -52,6 +54,27 @@
 
 namespace an::tests::observatory
 {
+
+/// A process of the suite's own that states a window of its own. No process of the application is one - each states a
+/// page - and the cases of a task that floats in a window, with no page to attach to, need one. Made and shown as any
+/// process is, it is a task of the window from its first show.
+class WindowOfItsOwn final : public TopLevelProcessBaseControl
+{
+public:
+    WindowOfItsOwn() : TopLevelProcessBaseControl(kName)
+    {
+        auto* const layout = new QVBoxLayout(this);
+        layout->addWidget(new QLabel(QStringLiteral("A process in a window of its own"), this));
+    }
+
+    /// The process's name, which its task says.
+    static constexpr char kName[] = "Window Of Its Own";
+
+    [[nodiscard]] an::ui::ProcessSurface processSurface() const override
+    {
+        return an::ui::ProcessSurface::Window;
+    }
+};
 
 /// An Observatory shell started as the application starts it, and what it was started over.
 struct RunningObservatory

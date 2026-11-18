@@ -15,6 +15,7 @@
 #include "processes/ImageListProcessHelpers.h"
 #include "processes/ProcessCommonUtils.h"
 #include "processes/WorkflowToolFiles.h"
+#include "processes/WorkflowToolRun.h"
 #include "session/IEngineSessionProvider.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -105,7 +106,9 @@ struct ImageCalibrationProcess::Impl
 
     bool running = false;
     bool estimating = false;
-    QPointer<ProgressDialogControl> progress;
+
+    /// The front of the run on its way: its progress window in a window, the page's Cancel on a page.
+    an::ui::processes::WorkflowToolRun run;
 };
 
 ImageCalibrationProcess::ImageCalibrationProcess(QWidget* parent)
@@ -335,20 +338,17 @@ void ImageCalibrationProcess::calibrate()
     m_impl->statuses.clear();
     m_impl->files->refreshRows();
 
-    auto* progress = new ProgressDialogControl(this, QStringLiteral("Image Calibration"));
-    progress->setProgressBarRange(0, 100);
-    progress->setValue(0);
-    progress->setText(QStringLiteral("Calibrating %1 images").arg(lights.size()));
-    progress->show();
-    m_impl->progress = progress;
+    // A window shows the run in a progress window; a page shows it at its own head and opens none.
+    m_impl->run = an::ui::processes::WorkflowToolRun::open(*this, QStringLiteral("Image Calibration"),
+                                                           QStringLiteral("Calibrating %1 images").arg(lights.size()));
     m_impl->running = true;
     setRunState(an::ui::runningState(QStringLiteral("calibrating"), 0.0));
     updateControls();
 
     QPointer<ImageCalibrationProcess> guard(this);
-    QPointer<ProgressDialogControl> dialog(progress);
+    QPointer<ProgressDialogControl> dialog(m_impl->run.window());
     const std::stop_token windowStop = windowStopToken();
-    const std::stop_token cancel = progress->stopToken();
+    const std::stop_token cancel = m_impl->run.cancelToken();
     QThreadPool::globalInstance()->start([session, settings, lights, guard, dialog, windowStop, cancel]() {
         std::stop_source stop;
         const std::stop_callback onClose(windowStop, [&stop]() { stop.request_stop(); });
@@ -514,8 +514,23 @@ void ImageCalibrationProcess::calibrate()
 void ImageCalibrationProcess::runFinished()
 {
     m_impl->running = false;
-    m_impl->progress.clear();
+    m_impl->run = {};
     updateControls();
+}
+
+bool ImageCalibrationProcess::triggerPrimaryAction()
+{
+    return !runState().running() && an::ui::processes::pressWhenOffered(m_impl->ui.calibrateImagesButton);
+}
+
+bool ImageCalibrationProcess::cancelRun()
+{
+    if (!m_impl->running)
+    {
+        return false;
+    }
+    m_impl->run.requestCancel();
+    return true;
 }
 
 void ImageCalibrationProcess::estimateCosmeticCorrection()
@@ -714,10 +729,7 @@ void ImageCalibrationProcess::closeEvent(QCloseEvent* evt)
 {
     // Everything the window started stops with the window's token, requested as the base closes, and lands on a window
     // that is gone; nothing is waited for.
-    if (m_impl->progress)
-    {
-        m_impl->progress->requestCancel();
-    }
+    m_impl->run.requestCancel();
     TopLevelProcessBaseControl::closeEvent(evt);
 }
 

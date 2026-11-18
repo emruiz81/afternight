@@ -240,6 +240,26 @@ protected:
     }
 };
 
+/// The head of a full page during a run: the run's row, and Cancel at its end, level with the row's container.
+class RunHead final : public LookedPart
+{
+public:
+    explicit RunHead(QWidget* parent) : LookedPart(parent)
+    {
+        setObjectName(QStringLiteral("pageRunHead"));
+        new QHBoxLayout(this);
+    }
+
+protected:
+    void applyLook() override
+    {
+        const DesignTokens& t = tokens();
+        // The row pads itself at both sides; Cancel is as far from the page's side as the row's container is.
+        layout()->setContentsMargins(0, 0, t.metrics.pad, 0);
+        layout()->setSpacing(0);
+    }
+};
+
 /// The run's row in the banner's place: the accent's container, a turning arc, what the run does and how far it has
 /// come in the monospace, a thin bar; and under it, that the task keeps running when the page is left. Over a sequence
 /// the container holds two bars under what the run does, each with its caption and its share: Overall, how far the
@@ -632,6 +652,10 @@ struct ProcessPageLayout::Impl : public QObject
     PaddedRow* toggles = nullptr;
     AnInfoBanner* banner = nullptr;
     RunRow* runRow = nullptr;
+
+    /// A full page's head during a run: the run's row and Cancel; null on a page with a column, and where the process
+    /// shows its run in itself.
+    QWidget* runHead = nullptr;
     QScrollArea* body = nullptr;
     QWidget* bodyContent = nullptr;
     QVBoxLayout* bodyLayout = nullptr;
@@ -824,6 +848,31 @@ struct ProcessPageLayout::Impl : public QObject
         auto* pageLayout = new QVBoxLayout(page);
         pageLayout->setContentsMargins(0, 0, 0, 0);
         pageLayout->setSpacing(0);
+        // The process's message, and during a run the run's own row with Cancel, over the area.
+        banner = new AnInfoBanner(QString(), AnInfoBanner::Tone::Info, page);
+        banner->setObjectName(QStringLiteral("pageBanner"));
+        banner->hide();
+        pageLayout->addWidget(banner);
+        if (description.runAtHead)
+        {
+            runHead = new RunHead(page);
+            auto* const headLayout = static_cast<QHBoxLayout*>(runHead->layout());
+            runRow = new RunRow(runHead);
+            headLayout->addWidget(runRow, 1);
+            cancel = new QPushButton(translated("Cancel"), runHead);
+            cancel->setObjectName(QStringLiteral("pageCancel"));
+            cancel->setToolTip(translated("Stop the run"));
+            cancel->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
+            QObject::connect(cancel, &QAbstractButton::clicked, this, [this]() {
+                if (hooks.cancelRun)
+                {
+                    hooks.cancelRun();
+                }
+            });
+            headLayout->addWidget(cancel, 0, Qt::AlignTop);
+            runHead->hide();
+            pageLayout->addWidget(runHead);
+        }
         // The area gives the process all the page's room, and scrolls only when the page is smaller than the least the
         // process takes.
         fullArea = new QScrollArea(page);
@@ -832,7 +881,7 @@ struct ProcessPageLayout::Impl : public QObject
         fullArea->setWidgetResizable(true);
         fullArea->setWidget(contents);
         contents->show();
-        pageLayout->addWidget(fullArea);
+        pageLayout->addWidget(fullArea, 1);
         root->addWidget(page);
     }
 
@@ -1437,22 +1486,42 @@ struct ProcessPageLayout::Impl : public QObject
 
     // ---- The run
 
+    /// Whether the banner shows the process's message now: there is one, and the run's row does not take its place. A
+    /// page with no row of its own for a run - a full page whose process shows its run in itself - says the message
+    /// during a run too.
+    [[nodiscard]] bool bannerShown() const
+    {
+        return !message.isEmpty() && !(run.running() && runRow != nullptr);
+    }
+
     void applyRun(const ProcessRunState& state)
     {
         run = state;
+        const bool running = state.running();
         if (column == nullptr)
         {
-            // A full page shows its run in what holds it.
+            // A full page shows its run at its head, in its message's place; one whose process shows its run in itself
+            // shows none. What the process laid out stays as the process leaves it.
+            if (runHead != nullptr)
+            {
+                runHead->setVisible(running);
+                if (running)
+                {
+                    runRow->setRun(state.text.isEmpty() ? applyingRunText() : state.text, state.progress,
+                                   state.sequence, state.frameProgress);
+                }
+                cancel->setEnabled(running);
+            }
+            banner->setVisible(bannerShown());
             return;
         }
-        const bool running = state.running();
         runRow->setVisible(running);
         if (running)
         {
             runRow->setRun(state.text.isEmpty() ? applyingRunText() : state.text, state.progress, state.sequence,
                            state.frameProgress);
         }
-        banner->setVisible(!running && !message.isEmpty());
+        banner->setVisible(bannerShown());
         toggles->setEnabled(!running);
         bodyContent->setEnabled(!running);
         header->close->setEnabled(!running);
@@ -1528,7 +1597,7 @@ AnInfoBanner* ProcessPageLayout::banner() const noexcept
 int ProcessPageLayout::runBars() const
 {
     const Impl& impl = *m_impl;
-    if (impl.column == nullptr || impl.runRow == nullptr || !impl.run.running())
+    if (impl.runRow == nullptr || !impl.run.running())
     {
         return 0;
     }
@@ -1771,7 +1840,7 @@ void ProcessPageLayout::showMessage(const QString& text, const PageMessageTone t
     impl.banner->setTone(tone == PageMessageTone::Error     ? AnInfoBanner::Tone::Error
                          : tone == PageMessageTone::Warning ? AnInfoBanner::Tone::Warning
                                                             : AnInfoBanner::Tone::Info);
-    impl.banner->setVisible(!impl.run.running());
+    impl.banner->setVisible(impl.bannerShown());
 }
 
 QString ProcessPageLayout::message() const

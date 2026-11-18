@@ -492,21 +492,21 @@ capability integration.project-files
 
 capability integration.lite
     title        Image Integration Lite
-    shared       ImageIntegrationLiteProcessUi.BuilderDefaultsMatchLiteContract, ImageIntegrationLiteProcessUi.ExecuteOpensPreparingProgressDialogImmediately, ActionBindingsTest.EachCalibrationAndTheMenusOtherProcessesLaunchTheirOwnDescriptor
+    shared       ImageIntegrationLiteProcessUi.BuilderDefaultsMatchLiteContract, ImageIntegrationLiteProcessUi.ExecuteOpensPreparingProgressDialogImmediately, LitePage.AppliesAsInAWindow
     classic      ProductSmoke.TheTopLevelIntegrationWindowsLaunchFromTheMenuTheLiteOneAmongThem, ProcessMenuWiringTest.ImageIntegrationLiteIsOfferedInThePreprocessMenu
-    observatory  pending
+    observatory  IntegrationHub.EveryCardOpensItsTask, IntegrationTools.ImageIntegrationLiteIsATaskThatShowsItsRunInItself
 
 capability integration.single-steps
     title        Image Calibration, Registration, Stacking
     shared       LaunchTest.TheRegisteredActionOpensTheToolsWindow, RegistrationTest.TheWindowRegistersRecordsAndAlignsItsFrames, StackingTest.TheWindowStacksEveryGroupAndOpensWhatItWrote
     classic      ProductSmoke.TheTopLevelIntegrationWindowsLaunchFromTheMenuTheLiteOneAmongThem
-    observatory  pending
+    observatory  IntegrationHub.EveryCardOpensItsTask, IntegrationTools.TheSingleStepsAreTasksWhoseRunIsShownAtTheHeadOfTheirPage, IntegrationTools.TheEndOfAToolsRunIsSaidAsFinishedNotAsApplied
 
 capability integration.analyzer
     title        Image List Analyzer
     shared       AnalyzerTest.TheListedFilesPlayAsAnImageListSequence, AnalyzerTest.EachFileIsMeasuredOnceAndItsStatisticsShownWhenItsFrameIs, ImageListAnalyzerImportContract.ThePreviewIsAViewInsideTheWindowAndNoneTheApplicationMakes
     classic
-    observatory  pending
+    observatory  IntegrationHub.EveryCardOpensItsTask, IntegrationTools.TheAnalyzerIsATaskWithItsPreviewInsideItsPage
 
 # ---- Astrometry and annotation
 

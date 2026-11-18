@@ -548,6 +548,97 @@ TEST_F(CalibrationTest, TheWindowCalibratesEveryLightAndMarksItsStatus)
     EXPECT_NEAR(written->at(1u, 1u), 0.6 - 0.1 - 0.05, 2e-4);
 }
 
+// On a page Image Calibration calibrates as its window does: started by the page's primary action, which is its
+// Calibrate Images button, it writes the files the window writes, sample for sample. No progress window opens: the run
+// is shown at the page's head, with Cancel.
+TEST_F(CalibrationTest, AppliesAsInAWindow)
+{
+    writeMasters();
+    const QString second = temporaryPath(QStringLiteral("light2.fit"));
+    ASSERT_TRUE(writeFlatFrame(session(), second, kSide, kSide, 1u, 0.6, an::SampleType::UInt16, 120.0));
+    const auto prepare = [this, &second](ImageCalibrationProcess& tool, const QString& output) {
+        tool.addItemsNonBlocking({light(), second});
+        ASSERT_TRUE(pumpUntil([&tool]() { return tool.isIdle(); }));
+        ASSERT_EQ(tool.fileList().files().size(), 2u);
+        auto& ui = tool.ui();
+        ui.biasGroupBox->setChecked(true);
+        ui.biasFilePath->setText(bias());
+        ui.darkGroupBox->setChecked(true);
+        ui.darkFilePath->setText(dark());
+        ui.outputDirectory->setText(output);
+    };
+    const QString fromWindow = temporaryPath(QStringLiteral("from-window"));
+    const QString fromPage = temporaryPath(QStringLiteral("from-page"));
+    {
+        CalibrationWindow window;
+        prepare(*window.window, fromWindow);
+        window.window->calibrate();
+        ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle(); }));
+        ASSERT_EQ(window.window->statusOf(second), QStringLiteral("Calibrated"));
+    }
+    {
+        const ProgressWindowsShown windows;
+        PagedTool<ImageCalibrationProcess> paged(context(), kImageCalibrationTool);
+        ASSERT_NE(paged.tool, nullptr);
+        ASSERT_TRUE(paged.tool->isPresentedAsPage()) << "Image Calibration is a page";
+        prepare(*paged.tool, fromPage);
+        an::ui::ProcessPageLayout* const page = paged.tool->pageLayout();
+        ASSERT_NE(page, nullptr);
+        ASSERT_NE(page->cancelButton(), nullptr);
+        ASSERT_TRUE(paged.tool->ui().calibrateImagesButton->isEnabled());
+
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction()) << "the page's primary action is Calibrate Images";
+        EXPECT_TRUE(paged.tool->runState().running());
+        EXPECT_EQ(page->runBars(), 1) << "the run is shown at the page's head";
+        EXPECT_TRUE(page->cancelButton()->isVisibleTo(paged.tool));
+        EXPECT_FALSE(paged.tool->triggerPrimaryAction()) << "not while a run is on its way";
+        ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+        EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+        EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        EXPECT_EQ(page->runBars(), 0);
+        EXPECT_EQ(paged.tool->statusOf(light()), QStringLiteral("Calibrated"));
+        EXPECT_EQ(paged.tool->statusOf(second), QStringLiteral("Calibrated"));
+    }
+    for (const QString& name : {QStringLiteral("light_cal.fit"), QStringLiteral("light2_cal.fit")})
+    {
+        SCOPED_TRACE(name.toStdString());
+        const std::optional<ReadBack> window = readBack(session(), QDir(fromWindow).filePath(name));
+        const std::optional<ReadBack> page = readBack(session(), QDir(fromPage).filePath(name));
+        ASSERT_TRUE(window.has_value() && page.has_value());
+        EXPECT_EQ(page->type, window->type);
+        EXPECT_EQ(page->fractions, window->fractions) << "the page wrote what the window writes";
+    }
+}
+
+// The page's Cancel stops a calibration on its way, as the progress window's does in a window: the run ends stopped
+// and a light it had not reached is left pending.
+TEST_F(CalibrationTest, ThePagesCancelStopsItsRun)
+{
+    writeMasters();
+    PagedTool<ImageCalibrationProcess> paged(context(), kImageCalibrationTool);
+    ASSERT_NE(paged.tool, nullptr);
+    ASSERT_TRUE(paged.tool->isPresentedAsPage());
+    paged.tool->addItemsNonBlocking({light()});
+    ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+    paged.tool->ui().pedestalValue->setValue(100.0);
+    paged.tool->ui().outputDirectory->setText(output());
+    an::ui::ProcessPageLayout* const page = paged.tool->pageLayout();
+    ASSERT_NE(page, nullptr);
+    ASSERT_NE(page->cancelButton(), nullptr);
+    {
+        // The pool is held: the run is on its way and has read nothing when Cancel is pressed.
+        PoolHold hold;
+        ASSERT_TRUE(hold.held());
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction());
+        ASSERT_TRUE(page->cancelButton()->isVisibleTo(paged.tool));
+        page->cancelButton()->click();
+    }
+    ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+    EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
+    EXPECT_EQ(paged.tool->statusOf(light()), QStringLiteral("Pending"));
+    EXPECT_FALSE(QFileInfo::exists(QDir(output()).filePath(QStringLiteral("light_cal.fit"))));
+}
+
 TEST_F(CalibrationTest, TheWindowAsksForAnOutputDirectoryBeforeItCalibrates)
 {
     writeMasters();

@@ -9,7 +9,7 @@
 # descriptor states.
 #
 # ProcessSurfaces.MatchTheRecord in Test_ProcessFramework compares every descriptor with this
-# record, and holds every process that opens a window to a page but the integration workflow's.
+# record, and holds every process that opens a window to a page: none is a window of its own.
 # An entry is edited by the change that means to move it; the record is not written again whole.
 
 [surfaces]
@@ -121,17 +121,17 @@ filters.actionNoise_Generator | preview page | wide
 denoising.actionTotal_Variation_Denoise_Filter | preview page | standard
 multi_image_stacking.actionImage_Compare | preview page | wide
 multi_image_stacking.actionImage_Blend | preview page | wide
-multi_image_stacking.actionImage_List_Analyzer | window | -
+multi_image_stacking.actionImage_List_Analyzer | full page | -
 color.actionLRGB_Combination | preview page | wide
 color.actionNBRGB_Combination | preview page | wide
 color.actionNBColorMapper | preview page | wide
 color.actionNarrowbandPaletteComposer | preview page | wide
 color.actionColorize | preview page | wide
-sensor_calibration.actionImage_Calibration | window | -
-multi_image_stacking.actionImage_Stacking | window | -
-multi_image_stacking.actionImage_Registration | window | -
+sensor_calibration.actionImage_Calibration | full page | -
+multi_image_stacking.actionImage_Stacking | full page | -
+multi_image_stacking.actionImage_Registration | full page | -
 multi_image_stacking.actionImage_Integration | full page | -
-multi_image_stacking.actionImage_Integration_Lite | window | -
+multi_image_stacking.actionImage_Integration_Lite | full page | -
 color.actionLinear_Match | mirror page | standard
 transforms.actionPixel_Math_2 | mirror page | wide
 sensor_calibration.actionBinarize | preview page | wide

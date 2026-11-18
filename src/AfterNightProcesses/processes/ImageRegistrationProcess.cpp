@@ -27,6 +27,7 @@
 #include "processes/ImageListProcessHelpers.h"
 #include "processes/ProcessCommonUtils.h"
 #include "processes/WorkflowToolFiles.h"
+#include "processes/WorkflowToolRun.h"
 #include "processes/core/RegistrationRun.h"
 #include "processes/core/StandaloneRegistrationPersistence.h"
 #include "processes/core/StandaloneRegistrationUtils.h"
@@ -311,7 +312,9 @@ struct ImageRegistrationProcess::Impl
     bool running = false;
     std::uint32_t workersInFlight = 0u;
     std::uint64_t restoreGeneration = 0u;
-    QPointer<ProgressDialogControl> progress;
+
+    /// The front of the run on its way: its progress window in a window, the page's Cancel on a page.
+    an::ui::processes::WorkflowToolRun run;
     QString statusText;
 
     [[nodiscard]] int rowOfReference() const
@@ -819,19 +822,16 @@ void ImageRegistrationProcess::registerFrames()
     const QString catalogDirectory = an::ui::resolveGaiaCatalogDirectory(plateSolve).trimmed();
     const std::unordered_map<QString, an::WcsSolution> solvedByHand = m_impl->solvedByHand;
 
-    auto* progress = new ProgressDialogControl(this, QStringLiteral("Registration"));
-    progress->setProgressBarRange(0, 100);
-    progress->setValue(0);
-    progress->show();
-    m_impl->progress = progress;
+    // A window shows the run in a progress window; a page shows it at its own head and opens none.
+    m_impl->run = an::ui::processes::WorkflowToolRun::open(*this, QStringLiteral("Registration"));
     m_impl->running = true;
     setRunState(an::ui::runningState(QStringLiteral("registering"), 0.0));
     updateControls();
 
     QPointer<ImageRegistrationProcess> guard(this);
-    QPointer<ProgressDialogControl> dialog(progress);
+    QPointer<ProgressDialogControl> dialog(m_impl->run.window());
     const std::stop_token windowStop = windowStopToken();
-    const std::stop_token cancel = progress->stopToken();
+    const std::stop_token cancel = m_impl->run.cancelToken();
     QThreadPool::globalInstance()->start([session, settings, method, files, outputDirectory, reuse, ignored, thresholds,
                                           plateSolve, catalogDirectory, solvedByHand, guard, dialog, windowStop,
                                           cancel]() {
@@ -850,7 +850,8 @@ void ImageRegistrationProcess::registerFrames()
                 }
                 if (guard)
                 {
-                    guard->reportRunProgress(static_cast<double>(percent) / 100.0);
+                    // A page's row says what the progress window says.
+                    guard->reportRunProgress(static_cast<double>(percent) / 100.0, dialog ? QString() : text);
                 }
             });
         };
@@ -1278,7 +1279,7 @@ void ImageRegistrationProcess::registerFrames()
             }
             Impl& impl = *guard->m_impl;
             impl.running = false;
-            impl.progress.clear();
+            impl.run = {};
             guard->setRunState(an::ui::ProcessRunState{
                 .phase = outcome->stopped ? an::ui::ProcessRunState::Phase::Cancelled
                                           : (outcome->failure.isEmpty() ? an::ui::ProcessRunState::Phase::Succeeded
@@ -1413,19 +1414,16 @@ void ImageRegistrationProcess::alignFrames()
     const an::ui::processes::RegistrationDemosaic demosaic = an::ui::processes::registrationDemosaicOf(settings);
     const an::ImageExtent extent = entries.front().descriptor.extent();
 
-    auto* progress = new ProgressDialogControl(this, QStringLiteral("Image Alignment"));
-    progress->setProgressBarRange(0, 100);
-    progress->setValue(0);
-    progress->show();
-    m_impl->progress = progress;
+    // A window shows the run in a progress window; a page shows it at its own head and opens none.
+    m_impl->run = an::ui::processes::WorkflowToolRun::open(*this, QStringLiteral("Image Alignment"));
     m_impl->running = true;
     setRunState(an::ui::runningState(QStringLiteral("aligning"), 0.0));
     updateControls();
 
     QPointer<ImageRegistrationProcess> guard(this);
-    QPointer<ProgressDialogControl> dialog(progress);
+    QPointer<ProgressDialogControl> dialog(m_impl->run.window());
     const std::stop_token windowStop = windowStopToken();
-    const std::stop_token cancel = progress->stopToken();
+    const std::stop_token cancel = m_impl->run.cancelToken();
     const an::KernelInterpolation sampling = *interpolation;
     QThreadPool::globalInstance()->start([session, frames, referenceIndex, extent, mode, sampling, demosaic,
                                           outputDirectory, guard, dialog, windowStop, cancel]() {
@@ -1460,15 +1458,18 @@ void ImageRegistrationProcess::alignFrames()
                 }
                 postToGui(
                     [dialog, guard, index, count = frames.size(), name = QFileInfo(frames[index].path).fileName()]() {
+                        const QString text =
+                            QStringLiteral("Aligning image %1/%2: %3").arg(index + 1u).arg(count).arg(name);
                         if (dialog)
                         {
-                            dialog->setText(
-                                QStringLiteral("Aligning image %1/%2: %3").arg(index + 1u).arg(count).arg(name));
+                            dialog->setText(text);
                             dialog->setValue(static_cast<int>((index * 100u) / count));
                         }
                         if (guard)
                         {
-                            guard->reportRunProgress(static_cast<double>(index) / static_cast<double>(count));
+                            // A page's row says what the progress window says.
+                            guard->reportRunProgress(static_cast<double>(index) / static_cast<double>(count),
+                                                     dialog ? QString() : text);
                         }
                     });
                 const an::Status written = an::ui::processes::alignRegisteredFrame(
@@ -1500,7 +1501,7 @@ void ImageRegistrationProcess::alignFrames()
                 return;
             }
             guard->m_impl->running = false;
-            guard->m_impl->progress.clear();
+            guard->m_impl->run = {};
             guard->setRunState(an::ui::ProcessRunState{
                 .phase = !failure.isEmpty() ? an::ui::ProcessRunState::Phase::Failed
                                             : (stopped ? an::ui::ProcessRunState::Phase::Cancelled
@@ -2220,14 +2221,35 @@ void ImageRegistrationProcess::resetSettings()
     on_registrationMethodChanged();
 }
 
+bool ImageRegistrationProcess::triggerPrimaryAction()
+{
+    if (runState().running())
+    {
+        return false;
+    }
+    // Align is the next act once the registration is current; until then, and where Align is not offered, Register.
+    if (registrationIsCurrent() && an::ui::processes::pressWhenOffered(m_impl->ui.alignButton))
+    {
+        return true;
+    }
+    return an::ui::processes::pressWhenOffered(m_impl->ui.registerButton);
+}
+
+bool ImageRegistrationProcess::cancelRun()
+{
+    if (!m_impl->running)
+    {
+        return false;
+    }
+    m_impl->run.requestCancel();
+    return true;
+}
+
 void ImageRegistrationProcess::closeEvent(QCloseEvent* evt)
 {
     // Everything the window started stops with the window's token, requested as the base closes, and lands on a window
     // that is gone; nothing is waited for.
-    if (m_impl->progress)
-    {
-        m_impl->progress->requestCancel();
-    }
+    m_impl->run.requestCancel();
     TopLevelProcessBaseControl::closeEvent(evt);
 }
 

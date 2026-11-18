@@ -70,6 +70,14 @@ public:
     /// Aligns the included registered frames, as Align does.
     void alignFrames();
 
+    /// A page's primary action: Align once the registration is current and Align is offered, Register otherwise -
+    /// each pressed when it is offered and no run is on its way.
+    bool triggerPrimaryAction() override;
+
+    /// Stops the registration or the alignment on its way, as its progress window's Cancel does: what a page's
+    /// Cancel asks.
+    bool cancelRun() override;
+
     /// The settings a registration would run with, read from the window.
     [[nodiscard]] RegistrationSettings registrationSettings() const;
 

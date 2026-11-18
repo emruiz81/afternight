@@ -290,6 +290,13 @@ constexpr PageSurface kPageSurfaces[] = {
     // Image Integration fills its page whole: its frame sources, its workflow and its foot under a header that says
     // its job, its menus under the header's button.
     {"actionImage_Integration", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
+    // Its Lite front end, the single steps and the Image List Analyzer fill their pages whole too, each as its window
+    // lays it out: a list of files and what is done to them, with no single image to show beside a column.
+    {"actionImage_Integration_Lite", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
+    {"actionImage_Calibration", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
+    {"actionImage_Registration", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
+    {"actionImage_Stacking", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
+    {"actionImage_List_Analyzer", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

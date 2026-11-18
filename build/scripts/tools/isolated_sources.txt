@@ -2816,6 +2816,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationHubTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationPageTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationTaskTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/IntegrationToolsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
@@ -3072,6 +3073,15 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageParsingUtils.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageResult.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/FixturePipeline.h
+    header   src/AfterNightControls/components/AnCardWidget.h
+    header   src/AfterNightControls/components/AnCollapsibleSection.h
+    header   src/AfterNightControls/components/AnInfoBanner.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/core/ParallelExecutionUtils.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/lite/LiteIntegrationProfile.h
+    header   src/AfterNightProcesses/processes/ImageIntegrationLiteProcess.h
+    header   src/AfterNightProcesses/processes/ImageIntegrationLiteProcessUiBuilder.h
+    header   src/AfterNightProcesses/processes/ImageListAnalyzerProcess.h
+    header   src/AfterNightProcesses/processes/ImageListAnalyzerProcessUiBuilder.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -5406,6 +5416,7 @@ sources Test_ProcessesWorkflowTools
     unit     src/AfterNightTests/Test_ProcessesWorkflowTools/WorkflowFilesTest.cpp
     unit     src/AfterNightTests/Test_ProcessesWorkflowTools/WorkflowRecordsTest.cpp
     unit     src/AfterNightTests/Test_ProcessesWorkflowTools/LaunchTest.cpp
+    unit     src/AfterNightTests/Test_ProcessesWorkflowTools/WorkflowToolsPageTest.cpp
     unit     src/AfterNightTests/Test_ProcessesStarProfilers/StarProfilerTestSupport.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
@@ -5543,6 +5554,15 @@ sources Test_ProcessesWorkflowTools
     header   src/AfterNightProcesses/processes/ImageIntegration/model/IntegrationDataModel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/model/RegistrationGroupEngine.h
     header   src/AfterNightProcesses/processes/ImageIntegration/model/ValidationResult.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
+    header   src/AfterNightTests/Test_ProcessesShared/ObservatoryWindowCheck.h
+    header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightTests/fixtures/common/FixtureExpectation.h
+    header   src/AfterNightTests/fixtures/common/FixtureImage.h
+    header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
     include  src/AfterNightTests
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -5778,6 +5798,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/StageListTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/WorkflowRunViewTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/AutoProjectTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/LitePageTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/WorkflowRunStandingTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_integration_job_facts.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/IntegrationStageStatesTest.cpp

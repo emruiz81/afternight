@@ -81,6 +81,13 @@ public:
     /// Opens Export Sequence over the original files, as the button does.
     void exportSequence();
 
+    /// A page's primary action: the Optimize For Fast Play button, pressed when it is offered and no run is on its
+    /// way.
+    bool triggerPrimaryAction() override;
+
+    /// Stops the optimization on its way, as its progress window's Cancel does: what a page's Cancel asks.
+    bool cancelRun() override;
+
     /// The file list.
     [[nodiscard]] const an::ui::processes::WorkflowFileList& fileList() const;
 

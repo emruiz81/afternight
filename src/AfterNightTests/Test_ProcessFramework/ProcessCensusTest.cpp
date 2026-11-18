@@ -903,14 +903,6 @@ constexpr const char* kProcessSurfacesPath = "src/AfterNightTests/Test_ProcessFr
 /// The record's one section.
 constexpr const char* kSurfacesSection = "surfaces";
 
-/// The processes of the integration workflow that are still whole windows of their own, each with its own way through
-/// its frames, and not yet arranged as full pages; Image Integration is one.
-constexpr std::array<std::string_view, 5> kIntegrationWorkflowWindows = {
-    "sensor_calibration.actionImage_Calibration",        "multi_image_stacking.actionImage_Stacking",
-    "multi_image_stacking.actionImage_Registration",     "multi_image_stacking.actionImage_List_Analyzer",
-    "multi_image_stacking.actionImage_Integration_Lite",
-};
-
 /// The comment the record of the surfaces opens with.
 [[nodiscard]] QStringList processSurfacesPreamble()
 {
@@ -926,7 +918,7 @@ constexpr std::array<std::string_view, 5> kIntegrationWorkflowWindows = {
         QStringLiteral("descriptor states."),
         QString(),
         QStringLiteral("ProcessSurfaces.MatchTheRecord in Test_ProcessFramework compares every descriptor with this"),
-        QStringLiteral("record, and holds every process that opens a window to a page but the integration workflow's."),
+        QStringLiteral("record, and holds every process that opens a window to a page: none is a window of its own."),
         QStringLiteral(
             "An entry is edited by the change that means to move it; the record is not written again whole."),
     };
@@ -988,10 +980,7 @@ TEST(ProcessSurfaces, MatchTheRecord)
                               : descriptor.columnWidth == an::ui::ProcessColumnWidth::Wide ? QStringLiteral("wide")
                                                                                            : QStringLiteral("standard");
         entries.append(an::tests::fixtures::baselineEntry({id, surfaceName(descriptor.surface), width}));
-        const bool integrationWorkflow =
-            std::find(kIntegrationWorkflowWindows.begin(), kIntegrationWorkflowWindows.end(), descriptor.id) !=
-            kIntegrationWorkflowWindows.end();
-        if (descriptor.surface == an::ui::ProcessSurface::Window && !integrationWorkflow)
+        if (descriptor.surface == an::ui::ProcessSurface::Window)
         {
             windows.append(id);
         }

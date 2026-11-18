@@ -366,10 +366,12 @@ spectrophotometric calibrations, Pixel Math, the external tools (StarNet, its st
 profilers. The processes launched on no image, which choose every image they read in their controls, are preview pages
 with no single target: Channel Composition, Merge CFA, the two Starmask recombinations and the Narrowband Palette
 Composer. Image Integration is a full page (`ProcessSurface::FullPage`): the process whole, under a header that says its
-job ("Image Integration as a page", below). The other windows of the integration workflow (Image Integration Lite, Image
-Calibration, Image Registration, Image Stacking, Image List Analyzer) are the only processes that stay windows of their
-own; they become full pages when their pages are built. Every descriptor's surface and column is held to a
-record (`ProcessSurfaces.MatchTheRecord`, `Test_ProcessFramework/data/ProcessSurfaces.txt`). A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
+job ("Image Integration as a page", below). Image Integration Lite, Image Calibration, Image Registration, Image
+Stacking and Image List Analyzer are full pages too, each what its window lays out, whole ("Image Integration Lite as a
+page" and "The tools as pages", below). No process of the application states a window of its own: every descriptor's
+surface and column is held to a record (`ProcessSurfaces.MatchTheRecord`,
+`Test_ProcessFramework/data/ProcessSurfaces.txt`), and the case fails for a process that opens a window and states no
+page. A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
 `attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
 process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
 process already is:
@@ -467,12 +469,21 @@ process already is:
   them as two bars, Overall and Processing, a slice sliding along Processing while the frame tells nothing
   (`ProcessPageLayout::runBars`). The runs a window keeps of its own do the same on a page: Channel Composition's and
   Merge CFA's over sequences - whose `cancelRun` stops that run, so the page's Cancel reaches it - and the star
-  profilers' detection, on a stop the page's Cancel requests (`beginRunStop`).
+  profilers' detection, on a stop the page's Cancel requests (`beginRunStop`). The workflow tools' runs open their
+  progress window through one front (`processes/WorkflowToolRun.h`), which opens none on a page and lends the stop
+  the page's Cancel requests through the tool's `cancelRun`.
 - **A full page** (`ProcessPageLayout::Description::fullPage`, the default arrangement of a process whose descriptor
   states one) is the process whole, with no canvas and no column: what its window laid out is moved into a scroll area
   that fills the page and scrolls only when the page is smaller than the least the process takes. Its own menu bar is
   hidden there and its menus offered (`ProcessPageLayout::menus`); the Observatory shell lists them under the task
-  header's menu button, each entry the process's own action.
+  header's menu button, each entry the process's own action. At its head, over the area, the page says the process's
+  message (`showProcessMessage`) as a column's banner does - a full page has no window banner to say it in - and
+  during a run shows the run's own row in the message's place, with Cancel at its end, which asks the process to stop
+  the run (`cancelRun`): a full page has no footer for Cancel to take Apply's place in. What the process laid out is
+  not disabled meanwhile: the process disables what it must, as it does behind a progress window, which is not modal. A
+  process that shows its run in itself - Image Integration and its Lite front end, whose run's view has its own
+  Cancel - says so (`TopLevelProcessBaseControl::showsRunInItself`) and has no such row
+  (`Description::runAtHead`).
 - **A job** (`ProcessPageLayout::setJobHeading`, `JobHeading` in `components/AnTaskHeader.h`). A process that holds a
   body of work with a name of its own - an integration - says it to its page for a shell's task header to show in
   place of the process's name: an eyebrow, the job's name, its facts on a line, a measure with a bar (a share, and
@@ -1369,6 +1380,19 @@ optimization or one file at a time as frames are shown, and kept while it is lis
 reads its settings on the GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools`
 holds the four windows and the shared records over frames it writes, the companions stood in.
 
+**The tools as pages.** Each of the four states a full page (`kPageSurfaces`), so a shell that shows processes as pages
+holds it whole in one, and in the classic shell - or made outside a launch - it is the window it has always been. None
+has menus or key sequences of its own, so its page offers none. A page's primary action
+(`triggerPrimaryAction`, Ctrl+Enter) is the tool's own run button, pressed when it is offered: Calibrate Images, Stack
+Images, the Analyzer's Optimize For Fast Play, and for Image Registration Align once the registration is current and
+Register until then. A run opens no progress window on a page (`processes/WorkflowToolRun.h`): the page shows it at
+its head - the run's row says what the progress window says, the group being stacked or the frame being aligned,
+through the run state's text - and the page's Cancel stops it (`cancelRun`); what a run says once it has ended, a
+stack's warnings or a calibration's, is said at the page's head too. `PageLayout.*` in `Test_ProcessesWorkflowTools`
+hold each tool to its page - whole in the page's area, no menus, the run button the primary action, scrolling only
+where the centre is smaller than the least the tool takes - and `AppliesAsInAWindow` of each tool's suite holds that
+the page writes what the window writes, sample for sample, with no progress window.
+
 ### The library and its suites
 
 `AfterNightProcesses` (registry class `engine`) compiles every unit of `src/AfterNightProcesses/` - the launcher's
@@ -1713,6 +1737,16 @@ what follows runs in a window.
   before it was ever shown is told to measure again: a layout that was never activated tells none above it of a
   change, and the page behind the one shown would otherwise keep its old least width until visited. With the list the
   page's least size is 1006 x 539 at the compact density, from 1437 x 637 with the tabs.
+
+**Image Integration Lite as a page.** Its descriptor states a full page too, and it is its window's layout whole, with
+no menus of its own. It answers the same seam as the full workflow (`IWorkflowRunHost::showWorkflowRun`): a run it
+starts on a page is shown in the page, not in the Processing window - the run's view takes the process's place under
+the page's head until the run has ended and its Close is pressed, which gives the page back to the process, whose own
+banner then says how the run ended. The page's primary action is Run Integration, and the page's Cancel is the view's
+(`cancelRun`). It holds no job and keeps no session, so its header names the process, and it joins no project.
+`setRunPipeline` states the stages a run goes through in place of the workflow's own, for the suites: the manifest is
+still the one the process prepares from its model. `PageLayout.ImageIntegrationLiteFillsItsPage` and `LitePage.*` in
+`Test_ImageIntegration` hold it.
 
 `IntegrationPage.*` in `Test_ImageIntegration` hold the process as a page - its menus against the window's bar, every
 sequence the record of the process windows holds for it, Execute, closing and the job it says - and in
@@ -2084,8 +2118,8 @@ library main window is a window of its own until a layout takes it: `an.anchor.i
 library parents a floating image to, and `an.anchor.tasks`, with `an.task` and `an.console`, which the console's window
 is parented to. A view is docked beside its neighbour, in the neighbour's workspace, or on the right of the workspace on
 screen; maximized, it covers its workspace's page while its dock keeps a stand-in, the layout locked while it is unless
-the person had locked it already. With no image open the window shows Home, and the workspace once one is. Processes open as windows of their own:
-the shell has no process presenter yet.
+the person had locked it already. With no image open the window shows Home, and the workspace once one is. A process
+opens as a task of the window, a page of its centre ("Every open process is a task", below).
 
 Home's parts are Controls', and hold no shell: `controls/HomeQuickActions` (the dashboard's quick actions as a row, Open
 file the accent's and each with its shortcut, the others in More, and the customization in More and on the row's
@@ -2206,7 +2240,8 @@ back once it is first shown. The classic shell's console is the dock of 1.1, unc
 
 Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes a process whose
 descriptor states a page - a preview, a mirror or a full page - into a page of the centre (below) and leaves a process
-whose descriptor states a window the window it was, and it
+that states a window the window it was - no process of the application states one, so only a process made outside a
+launch is left so - and it
 keeps the shell core's `TaskModel`, fed by what the windows tell it, and a `ViewThumbnailService` that follows the
 tasks' targets. The rail lists the tasks under the places, in
 the order they were opened, under a hairline drawn only while there are any: each its target's thumbnail with the
@@ -2232,7 +2267,10 @@ the preview view and the target's history strip under it, and whose readout slot
 page's canvas is its view of the target, which the floating toolbar serves and the looking actions act on, and it
 carries no compact readout, having no preview to read. A page with no single target names its process alone in its
 header. A full page has no canvas and no column: the process lies whole under the header, whose menu button lists the
-process's own menus (`TaskPage::makeProcessMenu`). Where the process holds a job - Image Integration - the header says
+process's own menus (`TaskPage::makeProcessMenu`) and is not shown for a process with none - Image Integration Lite and
+the workflow tools. A full page runs work of its own and applies nothing to an image: the end of its run is said as
+finished, never as applied, and offers no Undo; ended while another place is shown, it is said in the window's
+transient message with the way to its task. Where the process holds a job - Image Integration - the header says
 the job instead (`AnTaskHeader::setJob`, from `ProcessPageLayout::jobHeading`, said again each time the process states it
 anew): three lines high - the eyebrow, the job's name, its facts - with the job's measure and its bar, its acts, the menu
 button and its primary act before Float as window and Close; the measure is left out where the header is too narrow to
@@ -2324,7 +2362,8 @@ the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/Obser
 palette (`actionShow_Integration_Hub`, the shell's own), show a place of the centre rather than a process: the three
 ways to stack - the guided one shown as planned, its Start disabled, so the person sees what is coming without a button
 that does nothing; Image Integration's New integration; Image Integration Lite's New quick integration - the four
-single steps, each launching its process by its registry's id, and the integration jobs of the window's
+single steps, each launching its process by its registry's id - every card opening its task, a page of the centre
+shown at once in the hub's place - and the integration jobs of the window's
 `IntegrationJobsModel`, searched by name or project and shown for every project, for none or for one. The window keeps
 the model: its sources are the database outside any project and the open project's, set again as a project opens or
 closes; a run of Image Integration that moves or ends tells it, the end reading the jobs again for the record the run

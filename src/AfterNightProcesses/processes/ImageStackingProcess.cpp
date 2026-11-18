@@ -17,6 +17,7 @@
 #include "processes/ImageListProcessHelpers.h"
 #include "processes/ProcessCommonUtils.h"
 #include "processes/WorkflowToolFiles.h"
+#include "processes/WorkflowToolRun.h"
 #include "processes/core/StandaloneStackingSettingsPersistence.h"
 #include "processes/core/WorkflowToolCompanions.h"
 #include "session/IEngineSessionProvider.h"
@@ -172,7 +173,9 @@ struct ImageStackingProcess::Impl
     bool running = false;
     std::uint64_t bannerGeneration = 0u;
     std::uint32_t bannersInFlight = 0u;
-    QPointer<ProgressDialogControl> progress;
+
+    /// The front of the run on its way: its progress window in a window, the page's Cancel on a page.
+    an::ui::processes::WorkflowToolRun run;
 };
 
 ImageStackingProcess::ImageStackingProcess(QWidget* parent)
@@ -446,20 +449,17 @@ void ImageStackingProcess::stack()
     // What the last run said is cleared; this run says what it has to once it ends.
     clearProcessMessage();
 
-    auto* progress = new ProgressDialogControl(this, QStringLiteral("Image Stacking"));
-    progress->setProgressBarRange(0, 100);
-    progress->setValue(0);
-    progress->show();
-    m_impl->progress = progress;
+    // A window shows the run in a progress window; a page shows it at its own head and opens none.
+    m_impl->run = an::ui::processes::WorkflowToolRun::open(*this, QStringLiteral("Image Stacking"));
     m_impl->running = true;
     m_impl->lastWritten.clear();
     setRunState(an::ui::runningState(QStringLiteral("stacking"), 0.0));
     updateControls();
 
     QPointer<ImageStackingProcess> guard(this);
-    QPointer<ProgressDialogControl> dialog(progress);
+    QPointer<ProgressDialogControl> dialog(m_impl->run.window());
     const std::stop_token windowStop = windowStopToken();
-    const std::stop_token cancel = progress->stopToken();
+    const std::stop_token cancel = m_impl->run.cancelToken();
     QThreadPool::globalInstance()->start([session, run, groups, openAfter, guard, dialog, windowStop, cancel]() {
         std::stop_source stop;
         const std::stop_callback onClose(windowStop, [&stop]() { stop.request_stop(); });
@@ -481,14 +481,20 @@ void ImageStackingProcess::stack()
                 stopped = true;
                 break;
             }
-            postToGui([dialog, group, index, count = groups.size()]() {
+            postToGui([dialog, guard, group, index, count = groups.size()]() {
+                const QString text = QStringLiteral("Stacking group '%1' (%2 frames), %3 of %4")
+                                         .arg(group.label)
+                                         .arg(group.images.size())
+                                         .arg(index + 1u)
+                                         .arg(count);
                 if (dialog)
                 {
-                    dialog->setText(QStringLiteral("Stacking group '%1' (%2 frames), %3 of %4")
-                                        .arg(group.label)
-                                        .arg(group.images.size())
-                                        .arg(index + 1u)
-                                        .arg(count));
+                    dialog->setText(text);
+                }
+                else if (guard)
+                {
+                    // A page's row says what the progress window says.
+                    guard->reportRunProgress(guard->runState().progress, text);
                 }
             });
             const double share = 100.0 / static_cast<double>(groups.size());
@@ -609,8 +615,23 @@ void ImageStackingProcess::stack()
 void ImageStackingProcess::runFinished()
 {
     m_impl->running = false;
-    m_impl->progress.clear();
+    m_impl->run = {};
     updateControls();
+}
+
+bool ImageStackingProcess::triggerPrimaryAction()
+{
+    return !runState().running() && an::ui::processes::pressWhenOffered(m_impl->ui.stackImagesButton);
+}
+
+bool ImageStackingProcess::cancelRun()
+{
+    if (!m_impl->running)
+    {
+        return false;
+    }
+    m_impl->run.requestCancel();
+    return true;
 }
 
 void ImageStackingProcess::on_addFilesButtonPushed()
@@ -922,10 +943,7 @@ void ImageStackingProcess::closeEvent(QCloseEvent* evt)
 {
     // Everything the window started stops with the window's token, requested as the base closes, and lands on a window
     // that is gone; nothing is waited for.
-    if (m_impl->progress)
-    {
-        m_impl->progress->requestCancel();
-    }
+    m_impl->run.requestCancel();
     TopLevelProcessBaseControl::closeEvent(evt);
 }
 

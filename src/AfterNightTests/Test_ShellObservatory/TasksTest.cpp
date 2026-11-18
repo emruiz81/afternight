@@ -59,8 +59,6 @@ using Phase = ProcessRunState::Phase;
 /// A process launched on an image, a page over a view of it.
 constexpr std::string_view kTargetProcess = "denoising.actionDeepSNR";
 
-/// A process of the integration workflow, launched on no image: it opens as a window of its own.
-constexpr std::string_view kWindowProcess = "multi_image_stacking.actionImage_Stacking";
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
 
 /// Lets the window settle: posted work delivered, the deletions done, the layouts applied.
@@ -139,6 +137,19 @@ protected:
         return made;
     }
 
+    /// Opens a process that states a window of its own - the suite's, since no process of the application is one -
+    /// and answers it once it is a task and shown.
+    static TopLevelProcessBaseControl* openAWindowProcess()
+    {
+        const std::size_t before = tasks().model().tasks().size();
+        auto* const process = new WindowOfItsOwn();
+        process->show();
+        EXPECT_TRUE(an::tests::app::processEventsUntil(
+            [&]() { return tasks().model().tasks().size() > before && process->isVisible(); }));
+        settle();
+        return process;
+    }
+
     /// Makes the main window the active one again, where the platform activates windows at all.
     static void activateMainWindow()
     {
@@ -197,8 +208,8 @@ class HistoryStrip : public TaskCase
 } // namespace
 
 // A process opened is a task in the rail: a page of the centre, named by its process and its image, with its glyph and
-// its image's thumbnail; a process of the integration workflow in a window of its own, floating, its glyph on a tile;
-// a process launched on no image named alone, its glyph on a tile. Each goes with its process.
+// its image's thumbnail; a process that states a window of its own, floating, its glyph on a tile; a process launched
+// on no image named alone, its glyph on a tile. Each goes with its process.
 TEST_F(Tasks, TheRailGainsAndLosesItems)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-gain"));
@@ -234,13 +245,15 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     EXPECT_TRUE(taskItems(*window().rail())[1].thumbnail.isNull());
     EXPECT_EQ(taskItems(*window().rail())[1].text, QStringLiteral("Channel Composition"));
 
-    // A window of the integration workflow floats.
-    TopLevelProcessBaseControl* const stacking = launch(kWindowProcess);
-    ASSERT_NE(stacking, nullptr);
-    EXPECT_TRUE(stacking->isWindow()) << "a process of no page is a window of its own";
+    // A process that states a window of its own floats.
+    TopLevelProcessBaseControl* const floating = openAWindowProcess();
+    ASSERT_NE(floating, nullptr);
+    EXPECT_TRUE(floating->isWindow()) << "a process of no page is a window of its own";
+    EXPECT_FALSE(floating->isPresentedAsPage());
     ASSERT_EQ(taskItems(*window().rail()).size(), 3u);
     EXPECT_TRUE(taskItems(*window().rail())[2].floating) << "a task in a window floats";
     EXPECT_TRUE(taskItems(*window().rail())[2].thumbnail.isNull());
+    EXPECT_EQ(taskItems(*window().rail())[2].text, QString::fromLatin1(WindowOfItsOwn::kName));
 
     const QPointer<TopLevelProcessBaseControl> closing(process);
     process->close();
@@ -248,7 +261,7 @@ TEST_F(Tasks, TheRailGainsAndLosesItems)
     ASSERT_TRUE(closing.isNull());
     ASSERT_EQ(taskItems(*window().rail()).size(), 2u);
     EXPECT_EQ(taskItems(*window().rail())[0].text, QStringLiteral("Channel Composition"));
-    stacking->close();
+    floating->close();
     settle();
 }
 
@@ -346,7 +359,7 @@ TEST_F(Tasks, TheMenusEntries)
 {
     ImageViewControl* const view = openView(QStringLiteral("tasks-menu"));
     ASSERT_NE(view, nullptr);
-    TopLevelProcessBaseControl* const process = launch(kWindowProcess);
+    TopLevelProcessBaseControl* const process = openAWindowProcess();
     ASSERT_NE(process, nullptr);
     const TaskId taskId = taskOf(process)->id;
 

@@ -4,11 +4,15 @@
 /// @file
 /// What the workflow tools' cases share: frames written to disk as the tools read them - planted star fields, flat
 /// frames of a stated value, calibration masters - read back as the engine reads them, the dialogs the integration's
-/// companions show over a tool's window, and the waiting a case does for a window's work to land.
+/// companions show over a tool's window, a tool opened as a page of a shell's centre, and the waiting a case does for
+/// a window's work to land.
 #pragma once
 
 #include "Test_ProcessesStarProfilers/StarProfilerTestSupport.h"
 
+#include "app/ProcessRegistry.h"
+#include "controls/ProcessPageLayout.h"
+#include "controls/TopLevelProcessBaseControl.h"
 #include "processes/core/WorkflowSettingsRecords.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
@@ -18,6 +22,8 @@
 #include <AfterNightEngine/Image/SampleType.h>
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QSize>
 #include <QString>
 #include <QStringList>
 
@@ -146,6 +152,72 @@ private:
     class Sink;
     std::shared_ptr<Sink> m_sink;
     int m_previousLevel = 0;
+};
+
+/// The registry's ids of the four tools.
+inline constexpr char kImageCalibrationTool[] = "sensor_calibration.actionImage_Calibration";
+inline constexpr char kImageRegistrationTool[] = "multi_image_stacking.actionImage_Registration";
+inline constexpr char kImageStackingTool[] = "multi_image_stacking.actionImage_Stacking";
+inline constexpr char kImageListAnalyzerTool[] = "multi_image_stacking.actionImage_List_Analyzer";
+
+/// A tool opened as its registered action opens it while a presenter takes processes into pages: the tool as a page of
+/// a centre of its own, the floor display's unless another size is given. The page goes with it, once the tool's work
+/// has landed. GUI thread only.
+template <typename ToolT> class PagedTool
+{
+public:
+    /// @param context the case's context, which lends the presenter while this lives.
+    /// @param descriptorId the tool's id in the registry.
+    /// @param centre the size of the centre the page is in.
+    PagedTool(ProcessTestContext& context, const std::string& descriptorId, const QSize centre = PagePresenter::kCentre)
+        : m_context(context), m_presenter(centre)
+    {
+        m_context.presenter = &m_presenter;
+        const an::ui::process_registry::ProcessDescriptor* const descriptor = shared::registered(descriptorId);
+        if (descriptor != nullptr && descriptor->launch_top_level)
+        {
+            descriptor->launch_top_level();
+        }
+        for (TopLevelProcessBaseControl* open : m_context.openProcesses)
+        {
+            if (auto* const made = dynamic_cast<ToolT*>(open))
+            {
+                tool = made;
+            }
+        }
+        if (tool != nullptr)
+        {
+            tool->setAttribute(Qt::WA_DeleteOnClose, false);
+        }
+        QCoreApplication::processEvents();
+    }
+
+    ~PagedTool()
+    {
+        if (tool != nullptr)
+        {
+            (void)pumpUntil([this]() { return tool->isIdle(); });
+            delete tool;
+        }
+        QCoreApplication::processEvents();
+        m_context.presenter = nullptr;
+    }
+
+    PagedTool(const PagedTool&) = delete;
+    PagedTool& operator=(const PagedTool&) = delete;
+
+    /// The centre the page lies in; null when the tool was taken into none.
+    [[nodiscard]] QWidget* host() const
+    {
+        return tool != nullptr ? m_presenter.hostOf(*tool) : nullptr;
+    }
+
+    /// The tool; null when its action opened none.
+    ToolT* tool = nullptr;
+
+private:
+    ProcessTestContext& m_context;
+    PagePresenter m_presenter;
 };
 
 /// A workflow case: the profilers' context over the session, and a clean companion record.

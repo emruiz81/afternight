@@ -55,7 +55,6 @@ using ObservatoryWindow = ObservatoryWindowCase;
 /// The processes the cases launch: one over the active image, shown as a page; one of the integration workflow, which
 /// stays a window of its own.
 constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
-constexpr std::string_view kWindowProcess = "multi_image_stacking.actionImage_Stacking";
 
 /// A widget's place inside the window's central widget.
 [[nodiscard]] QRect placeIn(const QWidget& widget, const QWidget& ancestor)
@@ -154,27 +153,17 @@ TEST_F(ObservatoryWindow, NoViewsShowsHome)
     EXPECT_TRUE(window().isHomeShown());
 }
 
-// A process whose descriptor states a window - one of the integration workflow - opens as a window of its own: a
-// top-level window outside the window's regions, registered among the open processes.
+// A process that states a window opens as a window of its own: a top-level window outside the window's regions,
+// registered among the open processes. No process of the application states one, so the process is the suite's.
 TEST_F(ObservatoryWindow, ProcessOpensAsAWindow)
 {
     ImageViewControl* const view = openView(QStringLiteral("process-opens-as-a-window"));
     ASSERT_NE(view, nullptr);
 
     const std::size_t openBefore = core().openProcesses().size();
-    ASSERT_TRUE(core().processLaunch().launch(std::string(kWindowProcess)));
-    TopLevelProcessBaseControl* process = nullptr;
-    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() {
-        for (QWidget* widget : QApplication::topLevelWidgets())
-        {
-            if (auto* const candidate = dynamic_cast<TopLevelProcessBaseControl*>(widget);
-                candidate != nullptr && candidate->isVisible())
-            {
-                process = candidate;
-            }
-        }
-        return process != nullptr;
-    }));
+    const QPointer<TopLevelProcessBaseControl> process(new WindowOfItsOwn());
+    process->show();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return !process.isNull() && process->isVisible(); }));
     EXPECT_TRUE(process->isWindow());
     EXPECT_FALSE(window().isAncestorOf(process));
     EXPECT_EQ(core().openProcesses().size(), openBefore + 1);

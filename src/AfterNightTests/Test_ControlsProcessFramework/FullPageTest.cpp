@@ -4,17 +4,21 @@
 /// @file
 /// A process shown as a full page - the process whole, with no canvas and no column - over a window with a menu bar of
 /// its own: the page holds it in a scroll area that scrolls only when the page is smaller than the least the process
-/// takes, its menu bar is hidden and its menus offered, each entry acting as in the bar; and a process made outside a
-/// launch stays the window it is. And what the canvas of a page with a preview says while images are still to choose.
+/// takes, its menu bar is hidden and its menus offered, each entry acting as in the bar; at its head it says the
+/// process's message and shows a run of the process's own with Cancel, unless the process shows its run in itself; and
+/// a process made outside a launch stays the window it is. And what the canvas of a page with a preview says while
+/// images are still to choose.
 
 #include "Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h"
 
 #include "app/ProcessRegistry.h"
+#include "components/AnInfoBanner.h"
 #include "components/AnTaskHeader.h"
 #include "controls/ProcessLaunchScope.h"
 #include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
@@ -40,7 +44,9 @@ constexpr QSize kLeast{600, 400};
 class MenuBarProcess final : public TopLevelProcessBaseControl
 {
 public:
-    MenuBarProcess() : TopLevelProcessBaseControl("Full Page Test Process")
+    /// @param showsItsRun whether the process shows a run in itself, as an integration does.
+    explicit MenuBarProcess(const bool showsItsRun = false)
+        : TopLevelProcessBaseControl("Full Page Test Process"), m_showsItsRun(showsItsRun)
     {
         setAttribute(Qt::WA_DeleteOnClose, false);
         auto* layout = new QVBoxLayout(this);
@@ -59,12 +65,29 @@ public:
         QObject::connect(execute, &QAction::triggered, this, [this]() { ++executed; });
     }
 
+    /// A page's Cancel asks the process to stop its run: counted, and answered as stopped.
+    bool cancelRun() override
+    {
+        ++cancels;
+        return true;
+    }
+
     QMenuBar* menuBar = nullptr;
     QWidget* body = nullptr;
     QAction* addFrames = nullptr;
     QAction* execute = nullptr;
     int framesAdded = 0;
     int executed = 0;
+    int cancels = 0;
+
+protected:
+    [[nodiscard]] bool showsRunInItself() const override
+    {
+        return m_showsItsRun;
+    }
+
+private:
+    bool m_showsItsRun = false;
 };
 
 /// A descriptor whose launch states a full page.
@@ -98,16 +121,16 @@ struct FullPageCase
     }
 
     /// Makes the process - inside a launch of a full page, or outside every launch - and shows it.
-    MenuBarProcess& open(const bool launched = true)
+    MenuBarProcess& open(const bool launched = true, const bool showsItsRun = false)
     {
         if (launched)
         {
             const an::ui::ProcessLaunchScope launch(fullPageDescriptor());
-            process = new MenuBarProcess();
+            process = new MenuBarProcess(showsItsRun);
         }
         else
         {
-            process = new MenuBarProcess();
+            process = new MenuBarProcess(showsItsRun);
         }
         process->show();
         pumpQuietly();
@@ -223,6 +246,106 @@ TEST(FullPage, TheJobItsProcessHoldsIsToldToItsListener)
     page->setJobHeading(job);
     EXPECT_EQ(told, 2);
     EXPECT_EQ(page->jobHeading()->facts, QStringLiteral("3 frames"));
+}
+
+// A full page says its process's message at its head, over the area that holds the process, and nothing while the
+// process says none.
+TEST(FullPage, TheProcesssMessageIsSaidAtItsHead)
+{
+    FullPageCase paged;
+    ASSERT_NE(paged.context, nullptr);
+    MenuBarProcess& process = paged.open();
+    ProcessPageLayout* const page = process.pageLayout();
+    ASSERT_NE(page, nullptr);
+    an::ui::AnInfoBanner* const banner = page->banner();
+    ASSERT_NE(banner, nullptr) << "a full page has a place for its process's message";
+    EXPECT_FALSE(banner->isVisibleTo(&process)) << "nothing is said while the process says nothing";
+
+    process.showProcessMessage(QStringLiteral("Image Stacking"), QStringLiteral("Stacking completed with warnings."),
+                               TopLevelProcessBaseControl::ProcessMessageTone::Warning);
+    pumpQuietly();
+    EXPECT_TRUE(banner->isVisibleTo(&process));
+    EXPECT_EQ(banner->tone(), an::ui::AnInfoBanner::Tone::Warning);
+    EXPECT_EQ(page->message(), QStringLiteral("Image Stacking: Stacking completed with warnings."));
+    EXPECT_EQ(process.processMessage(), page->message());
+    EXPECT_LE(banner->geometry().bottom(), page->fullArea()->geometry().top()) << "over the area, not in it";
+    EXPECT_FALSE(page->fullArea()->isAncestorOf(banner));
+
+    process.clearProcessMessage();
+    pumpQuietly();
+    EXPECT_FALSE(banner->isVisibleTo(&process));
+    EXPECT_TRUE(page->message().isEmpty());
+}
+
+// A run of the process's own is shown at the page's head - what it does and how far it has come, in the message's
+// place - with Cancel at its end, which asks the process to stop it. What the process laid out stays as the process
+// leaves it, as it does behind a progress window.
+TEST(FullPage, ARunIsShownAtItsHeadWithACancelThatAsksTheProcess)
+{
+    FullPageCase paged;
+    ASSERT_NE(paged.context, nullptr);
+    MenuBarProcess& process = paged.open();
+    ProcessPageLayout* const page = process.pageLayout();
+    ASSERT_NE(page, nullptr);
+    ASSERT_NE(page->runBanner(), nullptr);
+    QAbstractButton* const cancel = page->cancelButton();
+    ASSERT_NE(cancel, nullptr) << "a full page has no footer: its Cancel is at its head";
+    EXPECT_EQ(page->runBars(), 0);
+    EXPECT_FALSE(page->runBanner()->isVisibleTo(&process));
+    EXPECT_FALSE(cancel->isVisibleTo(&process));
+
+    process.showProcessMessage(QStringLiteral("Image Stacking"), QStringLiteral("The last run warned."));
+    process.setRunState(an::ui::runningState(QStringLiteral("stacking"), 0.25));
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 1);
+    EXPECT_TRUE(page->runBanner()->isVisibleTo(&process));
+    EXPECT_TRUE(cancel->isVisibleTo(&process));
+    EXPECT_TRUE(cancel->isEnabled());
+    EXPECT_FALSE(page->banner()->isVisibleTo(&process)) << "the run's row takes the message's place";
+    EXPECT_LE(page->runBanner()->mapTo(page->page(), QPoint(0, page->runBanner()->height())).y(),
+              page->fullArea()->geometry().top() + 1)
+        << "over the area";
+    EXPECT_TRUE(process.body->isEnabled()) << "the process disables what it must itself";
+
+    cancel->click();
+    EXPECT_EQ(process.cancels, 1);
+
+    process.setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Cancelled});
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 0);
+    EXPECT_FALSE(page->runBanner()->isVisibleTo(&process));
+    EXPECT_FALSE(cancel->isVisibleTo(&process));
+    EXPECT_TRUE(page->banner()->isVisibleTo(&process)) << "the message is back once the run has ended";
+}
+
+// A process that shows its run in itself - a run's view with its own Cancel - has no row and no Cancel at its page's
+// head; its message is still said there.
+TEST(FullPage, AProcessThatShowsItsRunInItselfHasNoRowAtItsHead)
+{
+    FullPageCase paged;
+    ASSERT_NE(paged.context, nullptr);
+    MenuBarProcess& process = paged.open(true, true);
+    ProcessPageLayout* const page = process.pageLayout();
+    ASSERT_NE(page, nullptr);
+    EXPECT_EQ(page->runBanner(), nullptr);
+    EXPECT_EQ(page->cancelButton(), nullptr);
+    ASSERT_NE(page->banner(), nullptr);
+
+    process.setRunState(an::ui::runningState(QStringLiteral("running"), 0.5));
+    pumpQuietly();
+    EXPECT_EQ(page->runBars(), 0);
+    EXPECT_EQ(process.cancels, 0);
+
+    // No row takes the message's place: what the process says during its run is said, and stays once the run ended.
+    process.showProcessMessage(QStringLiteral("Importing"), QStringLiteral("Reading frame metadata."));
+    pumpQuietly();
+    EXPECT_TRUE(page->banner()->isVisibleTo(&process));
+    process.setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Succeeded});
+    pumpQuietly();
+    EXPECT_TRUE(page->banner()->isVisibleTo(&process));
+    process.clearProcessMessage();
+    pumpQuietly();
+    EXPECT_FALSE(page->banner()->isVisibleTo(&process));
 }
 
 // A process made outside every launch belongs to no descriptor: it stays the window it is, its menu bar its own.

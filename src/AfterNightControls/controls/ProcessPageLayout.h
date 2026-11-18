@@ -103,8 +103,11 @@ enum class PageMessageTone : std::uint8_t
 /// **A full page** (`Description::fullPage`) is the process whole, with no canvas and no column: what its window laid
 /// out is moved, in order, into a scroll area that fills the page and scrolls only when the page is smaller than the
 /// process's least size. Its own menu bar is hidden there and its menus offered (`menus`) for a shell to put under a
-/// button. The parts of a column - the header, the body, the footer, the canvas - are null on a full page, and what
-/// would show in them is kept and shows nowhere.
+/// button. The parts of a column - the header, the body, the footer, the canvas - are null on a full page. At its head,
+/// over the area, it says the process's message as a column's banner does and, during a run, shows the run's own row
+/// in the message's place with Cancel at its end, which asks the process to stop the run: the process's own controls
+/// stay as the process leaves them, as they do behind a progress window. A process that shows its run in itself - an
+/// integration, whose run's view has its own Cancel - has no such row (`Description::runAtHead`).
 ///
 /// **A job** (`setJobHeading`). A process that holds a body of work with a name of its own - an integration - says it
 /// here for a shell's task header to show in place of the process's name alone (`components/AnTaskHeader.h`,
@@ -149,6 +152,10 @@ public:
 
         /// Whether the page is the process whole, with no canvas and no column.
         bool fullPage = false;
+
+        /// Whether a full page shows the process's run at its head - what the run does, how far it has come, and
+        /// Cancel; not for a process that shows its run in itself. A page with a column always shows its run.
+        bool runAtHead = true;
     };
 
     /// Arranges `process` - whose layout is the window's main layout or holds it - as a page.
@@ -181,7 +188,8 @@ public:
     [[nodiscard]] QWidget* toggles() const noexcept;
     [[nodiscard]] AnInfoBanner* banner() const noexcept;
 
-    /// The run's own row: shown in the banner's place during a run.
+    /// The run's own row: shown in the banner's place during a run; null on a full page whose process shows its run
+    /// in itself.
     [[nodiscard]] QWidget* runBanner() const noexcept;
 
     /// How many bars the run's row shows: none outside a run, one, or two over a sequence - Overall and Processing.
@@ -217,7 +225,8 @@ public:
     /// The footer's button for a standard button of the box; null for one the box does not hold.
     [[nodiscard]] QAbstractButton* footerButton(QDialogButtonBox::StandardButton which) const;
 
-    /// The footer's Cancel, shown in place of the primary button during a run.
+    /// The footer's Cancel, shown in place of the primary button during a run; on a full page, the Cancel at the end
+    /// of the run's row, and null where the process shows its run in itself.
     [[nodiscard]] QAbstractButton* cancelButton() const noexcept;
 
     /// The header's Close.

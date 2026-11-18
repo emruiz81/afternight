@@ -67,6 +67,12 @@ public:
     /// Stacks every group, as Stack Images does: refused while a run or an import is on its way.
     void stack();
 
+    /// A page's primary action: the Stack Images button, pressed when it is offered and no run is on its way.
+    bool triggerPrimaryAction() override;
+
+    /// Stops the stacking on its way, as its progress window's Cancel does: what a page's Cancel asks.
+    bool cancelRun() override;
+
     /// What a run would ask for, read from the window.
     [[nodiscard]] an::ui::processes::StandaloneStackRun runSettings() const;
 

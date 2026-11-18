@@ -14,6 +14,7 @@
 
 #include "ShellActions.h"
 #include "pages/IntegrationHubPage.h"
+#include "pages/TaskPage.h"
 #include "tasks/TaskPresenter.h"
 #include "workspaces/WorkspaceHost.h"
 
@@ -50,6 +51,7 @@
 #include <QDir>
 #include <QLineEdit>
 #include <QMenu>
+#include <QPointer>
 #include <QSize>
 #include <QStackedWidget>
 #include <QTemporaryDir>
@@ -62,6 +64,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace an::tests::observatory
@@ -309,6 +312,63 @@ TEST_F(IntegrationHub, FourSingleStepsLaunchTheirDescriptors)
             (void)process->close();
             QCoreApplication::processEvents();
         }
+    }
+}
+
+// Every card of the hub opens its task: New integration, New quick integration and the four single steps each open
+// their process as a page of the centre - a task of the rail, shown at once in the hub's place - and none opens a
+// window of its own. Closing the task shows the hub again.
+TEST_F(IntegrationHub, EveryCardOpensItsTask)
+{
+    showTheHub();
+    const std::vector<QAbstractButton*> steps = hub().steps();
+    ASSERT_EQ(steps.size(), 4u);
+    const std::vector<std::tuple<QAbstractButton*, const char*, QString>> cards = {
+        {hub().newIntegration(), IntegrationHubPage::kImageIntegration, QStringLiteral("Image Integration")},
+        {hub().newQuickIntegration(), IntegrationHubPage::kImageIntegrationLite,
+         QStringLiteral("Image Integration Lite")},
+        {steps[0], IntegrationHubPage::kImageCalibration, QStringLiteral("Image Calibration")},
+        {steps[1], IntegrationHubPage::kImageRegistration, QStringLiteral("Image Registration")},
+        {steps[2], IntegrationHubPage::kImageStacking, QStringLiteral("Image Stacking")},
+        {steps[3], IntegrationHubPage::kImageListAnalyzer, QStringLiteral("Image List Analyzer")}};
+    an::ui::shell::TaskModel& tasks = window().taskPresenter()->model();
+    for (const auto& [card, descriptorId, name] : cards)
+    {
+        SCOPED_TRACE(name.toStdString());
+        ASSERT_NE(card, nullptr);
+        ASSERT_TRUE(window().isIntegrationHubShown());
+        QTest::mouseClick(card, Qt::LeftButton);
+        ASSERT_TRUE(waitForProcess(descriptorId)) << "the card opened nothing";
+        const QPointer<TopLevelProcessBaseControl> process(openProcess(descriptorId));
+        ASSERT_TRUE(an::tests::app::processEventsUntil([&process]() { return process->isVisible(); }, kOpenMs));
+        QCoreApplication::processEvents();
+
+        EXPECT_TRUE(process->isPresentedAsPage()) << "its task is a page of the centre";
+        EXPECT_FALSE(process->isWindow()) << "no window of its own";
+        const an::ui::shell::Task* const task = tasks.taskFor(process.data());
+        ASSERT_NE(task, nullptr) << "the process is a task";
+        EXPECT_EQ(task->descriptorId, descriptorId);
+        EXPECT_EQ(task->presentation, an::ui::shell::TaskPresentation::Page);
+        EXPECT_TRUE(window().isTaskPageShown()) << "the task is shown at once";
+        EXPECT_EQ(window().shownTask(), task->id);
+        ASSERT_NE(window().taskPage(task->id), nullptr);
+        EXPECT_TRUE(window().taskPage(task->id)->isAncestorOf(process.data()));
+        const QString railId = Window::railTaskId(task->id);
+        const std::vector<an::ui::RailItem>& items = window().rail()->items();
+        const auto item = std::find_if(items.begin(), items.end(),
+                                       [&railId](const an::ui::RailItem& candidate) { return candidate.id == railId; });
+        ASSERT_NE(item, items.end()) << "the rail shows the task";
+        EXPECT_TRUE(item->text.startsWith(name)) << item->text.toStdString();
+        EXPECT_FALSE(item->floating);
+
+        (void)process->close();
+        for (int round = 0; round < 3; ++round)
+        {
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QCoreApplication::processEvents();
+        }
+        ASSERT_TRUE(process.isNull()) << "the task closed";
+        EXPECT_TRUE(window().isIntegrationHubShown()) << "the hub is shown again once its task has gone";
     }
 }
 

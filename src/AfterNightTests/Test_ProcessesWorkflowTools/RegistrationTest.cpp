@@ -1220,16 +1220,21 @@ TEST_F(RegistrationTest, AStoppedAlignmentLeavesNoFile)
 
 /// The window over the three frames, the first the reference, nothing solved or enriched: its options set before its
 /// frames, as a window restoring its settings sets them.
-void prepare(RegistrationWindow& window, const QStringList& frames, const QString& output)
+void prepare(ImageRegistrationProcess& tool, const QStringList& frames, const QString& output)
 {
-    auto& ui = window.window->ui();
+    auto& ui = tool.ui();
     ui.referenceModeSelector->setCurrentIndex(ui.referenceModeSelector->findData(QStringLiteral("manual")));
     ui.enrichWithGaiaCatalogCheck->setChecked(false);
     ui.autoSolveUnsolvedFramesCheck->setChecked(false);
     ui.outputDirectory->setText(output);
-    window.window->addItemsNonBlocking(frames);
-    ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle(); }));
-    window.window->setReferenceRow(0);
+    tool.addItemsNonBlocking(frames);
+    ASSERT_TRUE(pumpUntil([&tool]() { return tool.isIdle(); }));
+    tool.setReferenceRow(0);
+}
+
+void prepare(RegistrationWindow& window, const QStringList& frames, const QString& output)
+{
+    prepare(*window.window, frames, output);
 }
 
 /// Accepts settings in the integration's registration settings dialog the window's advanced settings open, as a person
@@ -1270,6 +1275,81 @@ TEST_F(RegistrationTest, TheWindowRegistersRecordsAndAlignsItsFrames)
     for (const QString& frame : frames)
     {
         EXPECT_TRUE(QFileInfo::exists(an::ui::processes::alignedOutputPath(frame, output()))) << frame.toStdString();
+    }
+}
+
+// On a page Image Registration registers and aligns as its window does. The page's primary action is Register while
+// the registration is not current, and Align once it is; the transforms and the aligned frames are the window's. No
+// progress window opens for either run: each is shown at the page's head, with Cancel.
+TEST_F(RegistrationTest, AppliesAsInAWindow)
+{
+    const QStringList frames = writeFrames();
+    const QString fromWindow = temporaryPath(QStringLiteral("from-window"));
+    const QString fromPage = temporaryPath(QStringLiteral("from-page"));
+    std::vector<std::pair<double, double>> windowMoves;
+    {
+        RegistrationWindow window;
+        prepare(window, frames, fromWindow);
+        window.window->registerFrames();
+        ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle(); }));
+        ASSERT_TRUE(window.window->registrationIsCurrent());
+        for (const QString& frame : frames)
+        {
+            const RegisteredFrame& registered = window.window->registeredFrames().frames.at(frame);
+            ASSERT_TRUE(registered.transform.has_value());
+            windowMoves.emplace_back(registered.transform->translation().x, registered.transform->translation().y);
+        }
+        window.window->alignFrames();
+        ASSERT_TRUE(pumpUntil([&window]() { return window.window->isIdle(); }));
+    }
+    {
+        const ProgressWindowsShown windows;
+        PagedTool<ImageRegistrationProcess> paged(context(), kImageRegistrationTool);
+        ASSERT_NE(paged.tool, nullptr);
+        ASSERT_TRUE(paged.tool->isPresentedAsPage()) << "Image Registration is a page";
+        prepare(*paged.tool, frames, fromPage);
+        an::ui::ProcessPageLayout* const page = paged.tool->pageLayout();
+        ASSERT_NE(page, nullptr);
+        ASSERT_NE(page->cancelButton(), nullptr);
+
+        // Nothing is registered: the primary action registers.
+        ASSERT_FALSE(paged.tool->registrationIsCurrent());
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction());
+        EXPECT_TRUE(paged.tool->runState().running());
+        EXPECT_EQ(paged.tool->runState().text, QStringLiteral("registering"));
+        EXPECT_EQ(page->runBars(), 1) << "the run is shown at the page's head";
+        EXPECT_TRUE(page->cancelButton()->isVisibleTo(paged.tool));
+        ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+        EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        ASSERT_TRUE(paged.tool->registrationIsCurrent());
+        ASSERT_EQ(paged.tool->registeredFrames().frames.size(), static_cast<std::size_t>(frames.size()));
+        for (qsizetype index = 0; index < frames.size(); ++index)
+        {
+            const RegisteredFrame& registered = paged.tool->registeredFrames().frames.at(frames[index]);
+            ASSERT_TRUE(registered.transform.has_value());
+            EXPECT_DOUBLE_EQ(registered.transform->translation().x, windowMoves[static_cast<std::size_t>(index)].first);
+            EXPECT_DOUBLE_EQ(registered.transform->translation().y,
+                             windowMoves[static_cast<std::size_t>(index)].second);
+        }
+
+        // The registration is current: the primary action aligns.
+        ASSERT_TRUE(paged.tool->ui().alignButton->isEnabled());
+        ASSERT_TRUE(paged.tool->triggerPrimaryAction());
+        EXPECT_TRUE(paged.tool->runState().running());
+        EXPECT_EQ(page->runBars(), 1);
+        ASSERT_TRUE(pumpUntil([&paged]() { return paged.tool->isIdle(); }));
+        EXPECT_EQ(paged.tool->runState().phase, an::ui::ProcessRunState::Phase::Succeeded);
+        EXPECT_EQ(windows.count(), 0) << "no progress window on a page";
+    }
+    EXPECT_TRUE(context().errorTexts.isEmpty()) << context().errorTexts.join(QStringLiteral("; ")).toStdString();
+    for (const QString& frame : frames)
+    {
+        SCOPED_TRACE(frame.toStdString());
+        const std::optional<ReadBack> window =
+            readBack(session(), an::ui::processes::alignedOutputPath(frame, fromWindow));
+        const std::optional<ReadBack> page = readBack(session(), an::ui::processes::alignedOutputPath(frame, fromPage));
+        ASSERT_TRUE(window.has_value() && page.has_value());
+        EXPECT_EQ(page->fractions, window->fractions) << "the page aligned the frame as the window does";
     }
 }
 

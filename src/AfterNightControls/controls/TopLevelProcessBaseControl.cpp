@@ -1392,6 +1392,7 @@ std::unique_ptr<an::ui::ProcessPageLayout> TopLevelProcessBaseControl::makePageL
     description.description = property(PROCESS_DESCRIPTION_PROPERTY).toString();
     description.hasPreview = false;
     description.fullPage = true;
+    description.runAtHead = !showsRunInItself();
     return std::make_unique<an::ui::ProcessPageLayout>(*this, an::ui::ProcessStandardParts{.mainLayout = layout()},
                                                        std::move(description));
 }

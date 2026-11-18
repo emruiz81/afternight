@@ -183,6 +183,13 @@ protected:
     /// The process was arranged as a page: a part outside the page's own layout follows it - a preview view's chrome.
     virtual void pageLayoutMade() {}
 
+    /// Whether the process shows a run on its way inside what it lays out - a run's view with its own Cancel - so a
+    /// page that holds it whole adds no row for the run at its head. No process does unless it says so.
+    [[nodiscard]] virtual bool showsRunInItself() const
+    {
+        return false;
+    }
+
     /// Called after initializeModernProcessShell() replaces the top-level
     /// layout with the shell wrapper.  @p contentLayout is the new layout
     /// that now hosts the original layout items.

@@ -6,20 +6,26 @@
 
 #include "app/FileDialogUtils.h"
 #include "controls/JsonSerializer.h"
+#include "controls/ProcessPageLayout.h"
 #include "processes/ProcessCommonUtils.h"
+#include "processes/WorkflowToolRun.h"
 #include "processes/ImageIntegration/core/FileImport.h"
 #include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
+#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
+#include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegration/workflow/ManifestBuilder.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionController.h"
+#include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/WorkflowResultOpener.h"
 
 #include <AfterNightPlatform/Logging.h>
 
 #include <QAbstractButton>
 #include <QAction>
+#include <QBoxLayout>
 #include <QCheckBox>
 #include <QDirIterator>
 #include <QDoubleSpinBox>
@@ -30,6 +36,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPointer>
+#include <QScrollArea>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -721,6 +728,10 @@ std::string ImageIntegrationLiteProcess::getProcessNameStatic()
 void ImageIntegrationLiteProcess::refreshTheme()
 {
     TopLevelProcessBaseControl::refreshTheme();
+    if (!m_runView.isNull())
+    {
+        m_runView->refreshTheme();
+    }
     if (m_ui.statusBanner)
     {
         m_ui.statusBanner->refreshTheme();
@@ -1020,6 +1031,90 @@ void ImageIntegrationLiteProcess::onClearAll()
     messageBox->open();
 }
 
+bool ImageIntegrationLiteProcess::triggerPrimaryAction()
+{
+    return !runState().running() && an::ui::processes::pressWhenOffered(m_ui.runButton);
+}
+
+bool ImageIntegrationLiteProcess::cancelRun()
+{
+    if (!runState().running())
+    {
+        return false;
+    }
+    // The run's view is the page's, or the Processing window's over a window of its own.
+    WorkflowRunView* view = m_runView.data();
+    if (view == nullptr)
+    {
+        if (const auto* const window = findChild<WorkflowProgressDialogV2*>())
+        {
+            view = window->runView();
+        }
+    }
+    if (view == nullptr || view->isFinished())
+    {
+        return false;
+    }
+    view->requestCancellation();
+    return true;
+}
+
+bool ImageIntegrationLiteProcess::showsRunInItself() const
+{
+    return true;
+}
+
+bool ImageIntegrationLiteProcess::showWorkflowRun(WorkflowRunView* const view)
+{
+    an::ui::ProcessPageLayout* const page = pageLayout();
+    auto* const pageBox =
+        page != nullptr && page->page() != nullptr ? qobject_cast<QBoxLayout*>(page->page()->layout()) : nullptr;
+    if (view == nullptr || pageBox == nullptr || page->fullArea() == nullptr)
+    {
+        return false;
+    }
+    // The view of a run before, still shown with how it ended, gives way.
+    if (WorkflowRunView* const before = m_runView.data())
+    {
+        before->hide();
+        before->deleteLater();
+    }
+    m_runView = view;
+    // The run's view takes the process's place in the page until it is closed.
+    view->setParent(page->page());
+    pageBox->addWidget(view, 1);
+    page->fullArea()->hide();
+    view->show();
+    connect(view, &WorkflowRunView::closeRequested, this, [this]() { dismissRun(); });
+    return true;
+}
+
+WorkflowRunView* ImageIntegrationLiteProcess::runView() const noexcept
+{
+    return m_runView.data();
+}
+
+void ImageIntegrationLiteProcess::setRunPipeline(std::function<std::unique_ptr<WorkflowExecutor>()> pipeline)
+{
+    m_runPipeline = std::move(pipeline);
+}
+
+void ImageIntegrationLiteProcess::dismissRun()
+{
+    WorkflowRunView* const view = m_runView.data();
+    if (view == nullptr || !view->isFinished())
+    {
+        return;
+    }
+    m_runView = nullptr;
+    view->hide();
+    view->deleteLater();
+    if (an::ui::ProcessPageLayout* const page = pageLayout(); page != nullptr && page->fullArea() != nullptr)
+    {
+        page->fullArea()->show();
+    }
+}
+
 void ImageIntegrationLiteProcess::onExecute()
 {
     if (!m_model)
@@ -1037,7 +1132,11 @@ void ImageIntegrationLiteProcess::onExecute()
     {
         m_ui.runButton->setEnabled(false);
     }
-    showProcessMessage(tr("Preparing"), tr("Preparing Image Integration Lite workflow."));
+    // A window says it prepares in its banner, behind the Processing window; on a page the run's view says it.
+    if (!hasPageLayout())
+    {
+        showProcessMessage(tr("Preparing"), tr("Preparing Image Integration Lite workflow."));
+    }
     m_ui.statusBanner->setTone(an::ui::AnInfoBanner::Tone::Info);
     m_ui.statusBanner->setMessage(tr("Preparing integration..."));
 
@@ -1047,6 +1146,10 @@ void ImageIntegrationLiteProcess::onExecute()
     QPointer<ImageIntegrationLiteProcess> self(this);
     const bool openIntegratedFiles = m_ui.openResultsCheck ? m_ui.openResultsCheck->isChecked() : true;
     WorkflowExecutionController executionController(m_model.get(), this);
+    if (m_runPipeline)
+    {
+        executionController.setPipeline(m_runPipeline);
+    }
     const bool started = executionController.runAsyncPrepared(
         [modelSnapshot, processingOptions, reprocessExisting]() {
             return ImageIntegrationLite::prepareManifest(modelSnapshot, processingOptions, reprocessExisting);

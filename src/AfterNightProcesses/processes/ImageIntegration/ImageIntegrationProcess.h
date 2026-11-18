@@ -244,6 +244,12 @@ private:
     void showEvent(QShowEvent* evt) override;
     void pageLayoutMade() override;
 
+    /// A run is shown in the page by its own view, which has its own Cancel: the page adds no row for it.
+    [[nodiscard]] bool showsRunInItself() const override
+    {
+        return true;
+    }
+
     /// Shows an import's panel at the head of the page and makes the page's own acts wait for the import.
     ImageIntegration::ImportProgressPanel* beginPageImport(int totalFiles);
     /// Takes an import's panel off the page and gives the page's acts back; nothing for a window of its own.

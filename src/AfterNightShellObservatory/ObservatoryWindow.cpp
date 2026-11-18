@@ -4132,9 +4132,10 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         }
     }
     const auto at = std::chrono::steady_clock::now();
-    // A task that holds a job - an integration - runs the job, and applies nothing to an image.
+    // A task that fills its page whole runs work of its own - an integration's job, a tool's batch over a list of
+    // files - and applies nothing to an image.
     const an::ui::ProcessPageLayout* const layout = task->process->pageLayout();
-    const bool holdsAJob = layout != nullptr && layout->jobHeading() != nullptr;
+    const bool ownWork = layout != nullptr && layout->fullArea() != nullptr;
     // The end of a run is said to assistive technology: applied, politely; failed, with why, at once; stopped.
     if (before.running() && now.ended())
     {
@@ -4142,10 +4143,10 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         auto politeness = QAccessible::AnnouncementPoliteness::Polite;
         if (now.phase == an::ui::ProcessRunState::Phase::Succeeded)
         {
-            message = holdsAJob ? tr("%1 finished").arg(task->displayName)
-                                : (task->targetName.isEmpty()
-                                       ? tr("%1 applied").arg(task->displayName)
-                                       : tr("%1 applied to %2").arg(task->displayName, task->targetName));
+            message = ownWork ? tr("%1 finished").arg(task->displayName)
+                              : (task->targetName.isEmpty()
+                                     ? tr("%1 applied").arg(task->displayName)
+                                     : tr("%1 applied to %2").arg(task->displayName, task->targetName));
         }
         else if (now.phase == an::ui::ProcessRunState::Phase::Failed)
         {
@@ -4170,13 +4171,13 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
     // A page's run that succeeded is told in its header for a minute, floating or not, and in the snackbar of the
     // window it is in.
     if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && taskPage(id) != nullptr &&
-        !holdsAJob)
+        !ownWork)
     {
         impl.appliedAt[id] = at;
     }
-    // A job's run that ends while another place is shown is said where the person is, with the way to its task; its
+    // Such a run that ends while another place is shown is said where the person is, with the way to its task; its
     // own page says how it ended.
-    if (holdsAJob && before.running() && now.ended() && task->presentation == an::ui::shell::TaskPresentation::Page &&
+    if (ownWork && before.running() && now.ended() && task->presentation == an::ui::shell::TaskPresentation::Page &&
         !(isTaskPageShown() && impl.shownTask == id))
     {
         const QString said =
@@ -4191,7 +4192,7 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
             }
         });
     }
-    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && !holdsAJob &&
+    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && !ownWork &&
         task->presentation == an::ui::shell::TaskPresentation::Page)
     {
         const auto started = impl.runStarted.find(id);

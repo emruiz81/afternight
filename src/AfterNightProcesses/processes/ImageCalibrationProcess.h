@@ -64,6 +64,12 @@ public:
     /// output directory.
     void calibrate();
 
+    /// A page's primary action: the Calibrate Images button, pressed when it is offered and no run is on its way.
+    bool triggerPrimaryAction() override;
+
+    /// Stops the calibration on its way, as its progress window's Cancel does: what a page's Cancel asks.
+    bool cancelRun() override;
+
     /// Counts the pixels the dark marks as cold and hot, as Estimate does.
     void estimateCosmeticCorrection();
 
