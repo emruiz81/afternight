@@ -2534,7 +2534,6 @@ public:
         // What the run would write, as the page's header says it too.
         const ImageIntegration::IntegrationOutputEstimate estimate =
             ImageIntegration::estimateIntegrationOutput(*model);
-        const int includedLights = estimate.includedLights;
         const int groupCount = estimate.groups;
         const int rejectionMapFiles = estimate.rejectionMapFiles;
         const int calibratedLightCount = estimate.calibratedLights;
@@ -2542,7 +2541,6 @@ public:
         const qint64 rejectionBytes = estimate.rejectionBytes;
         const qint64 calibratedBytes = estimate.calibratedBytes;
         const qint64 registeredBytes = estimate.registeredBytes;
-        const qint64 drizzlePixmapBytes = estimate.drizzlePixmapBytes;
         const bool anyLayoutAssumed = estimate.layoutAssumed;
         const qint64 estimatedBytes = estimate.total();
 
@@ -2581,17 +2579,9 @@ public:
             if (registeredBytes > 0)
             {
                 tooltip += SummaryTab::tr("- Registered lights (%1): ~%2\n  %3\n")
-                               .arg(includedLights)
+                               .arg(estimate.registeredLights)
                                .arg(formatOutputBytes(registeredBytes))
                                .arg(QDir(outputDir).filePath(QStringLiteral("registered_lights")));
-            }
-            if (drizzlePixmapBytes > 0)
-            {
-                tooltip += SummaryTab::tr("- Drizzle pixmaps (%1): ~%2\n  %3\n")
-                               .arg(includedLights)
-                               .arg(formatOutputBytes(drizzlePixmapBytes))
-                               .arg(QDir(outputDir).filePath(
-                                   QStringLiteral(".afternight/image_integration/artifacts/drizzle/[group]/pixmaps")));
             }
 
             tooltip += QStringLiteral("\n");
@@ -2603,11 +2593,8 @@ public:
                 tooltip += SummaryTab::tr("- Lights whose color layout was not recorded count as color mosaics; add "
                                           "them again for an exact figure.\n");
             }
-            if (drizzlePixmapBytes > 0)
-            {
-                tooltip +=
-                    SummaryTab::tr("- Drizzle pixmaps are estimated from frame dimensions (2 floats per pixel).\n");
-            }
+            tooltip += SummaryTab::tr("- Registered lights are written for the groups that keep them; a group that is "
+                                      "drizzled, or that discards them after stacking, writes none.\n");
         }
         ui.lblResourceStatus->setToolTip(tooltip.trimmed());
 

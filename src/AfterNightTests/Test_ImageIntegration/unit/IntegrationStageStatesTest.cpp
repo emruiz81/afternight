@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Where each stage of an integration job stands, as the stage list says it: the rows and the pages they show; each
+/// Where each stage of an integration job stands, as the stage list says it: the rows, one for each page; each
 /// workflow stage's standing from the manifest a job would run and the one its last successful run left - off, never
-/// run, current, out of date, with every later stage that reads a changed one; and each row's mark and line from the
-/// job's facts, what its output folder says and a run on its way.
+/// run, current, out of date, with every later stage that reads a changed one; each row's mark and line from the
+/// job's facts, what its output folder says and a run on its way; and the stacking row, which stands for the
+/// normalization and the drizzle with the stack.
 
 #include "processes/ImageIntegration/ui_models/IntegrationStageStates.h"
 
@@ -91,9 +92,10 @@ using ImageIntegration::stageStandings;
 
 } // namespace
 
-// The rows are the frame sources and the workflow's stages in the order a run reaches them, the summary last; each
-// shows a page, normalization and drizzle the stacking page; and a page is selected by the row named as it.
-TEST(IntegrationStageStates, TheRowsAreTheStagesInTheWorkflowsOrder)
+// The rows are the pages, in the order a run reaches them, the summary last: a row for each page and no page shown by
+// two rows - the normalization and the drizzle, whose settings are the stacking page's, are no rows of their own - and
+// a page is selected by the row named as it.
+TEST(IntegrationStageStates, TheRowsAreThePagesInTheWorkflowsOrder)
 {
     QStringList ids;
     QStringList titles;
@@ -104,15 +106,23 @@ TEST(IntegrationStageStates, TheRowsAreTheStagesInTheWorkflowsOrder)
     }
     EXPECT_EQ(ids, (QStringList{QStringLiteral("bias"), QStringLiteral("darks"), QStringLiteral("flats"),
                                 QStringLiteral("lights"), QStringLiteral("calibration"), QStringLiteral("registration"),
-                                QStringLiteral("normalization"), QStringLiteral("drizzle"), QStringLiteral("stacking"),
-                                QStringLiteral("summary")}));
-    EXPECT_EQ(titles, (QStringList{QStringLiteral("Bias"), QStringLiteral("Darks"), QStringLiteral("Flats"),
-                                   QStringLiteral("Lights"), QStringLiteral("Calibration"),
-                                   QStringLiteral("Registration"), QStringLiteral("Normalization"),
-                                   QStringLiteral("Drizzle"), QStringLiteral("Stacking"), QStringLiteral("Summary")}));
+                                QStringLiteral("stacking"), QStringLiteral("summary")}));
+    EXPECT_EQ(titles,
+              (QStringList{QStringLiteral("Bias"), QStringLiteral("Darks"), QStringLiteral("Flats"),
+                           QStringLiteral("Lights"), QStringLiteral("Calibration"), QStringLiteral("Registration"),
+                           QStringLiteral("Stacking"), QStringLiteral("Summary")}));
+    ASSERT_EQ(static_cast<int>(ImageIntegration::kStageRows.size()), ImageIntegration::kStagePageCount)
+        << "a row for each page";
+    for (std::size_t at = 0; at < ImageIntegration::kStageRows.size(); ++at)
+    {
+        EXPECT_EQ(static_cast<std::size_t>(ImageIntegration::kStageRows[at].page), at)
+            << ImageIntegration::kStageRows[at].id << " shows a page of its own, in the pages' order";
+    }
     EXPECT_EQ(ImageIntegration::stagePageOfRow(QStringLiteral("lights")), std::optional(StagePage::Lights));
-    EXPECT_EQ(ImageIntegration::stagePageOfRow(QStringLiteral("normalization")), std::optional(StagePage::Stacking));
-    EXPECT_EQ(ImageIntegration::stagePageOfRow(QStringLiteral("drizzle")), std::optional(StagePage::Stacking));
+    EXPECT_EQ(ImageIntegration::stagePageOfRow(QStringLiteral("stacking")), std::optional(StagePage::Stacking));
+    EXPECT_FALSE(ImageIntegration::stagePageOfRow(QStringLiteral("normalization")).has_value())
+        << "a stage with no page of its own is no row";
+    EXPECT_FALSE(ImageIntegration::stagePageOfRow(QStringLiteral("drizzle")).has_value());
     EXPECT_EQ(ImageIntegration::stagePageOfRow(QStringLiteral("summary")), std::optional(StagePage::Summary));
     EXPECT_FALSE(ImageIntegration::stagePageOfRow(QStringLiteral("no such row")).has_value());
     for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
@@ -254,9 +264,6 @@ TEST(IntegrationStageStates, ARowIsNotStartedReadyDoneOrOutOfDate)
         EXPECT_EQ(row(rows, "calibration").line, QStringLiteral("no masters matched"));
         EXPECT_EQ(row(rows, "registration").status, StageStatus::Ready);
         EXPECT_EQ(row(rows, "registration").line, QStringLiteral("1 group \u00B7 3 frames"));
-        EXPECT_EQ(row(rows, "normalization").status, StageStatus::Pending);
-        EXPECT_EQ(row(rows, "normalization").line, QStringLiteral("off"));
-        EXPECT_EQ(row(rows, "drizzle").line, QStringLiteral("off"));
         EXPECT_EQ(row(rows, "stacking").status, StageStatus::Ready);
         EXPECT_EQ(row(rows, "stacking").line, QStringLiteral("1 group \u00B7 average"));
         EXPECT_TRUE(row(rows, "stacking").toolTip.startsWith(QStringLiteral("Ready")));
@@ -312,10 +319,8 @@ TEST(IntegrationStageStates, ARowWarnsOrFailsForItsIssuesAndItsLastRun)
         EXPECT_EQ(row(rows, "calibration").toolTip, QStringLiteral("two"));
         EXPECT_EQ(row(rows, "stacking").status, StageStatus::Failed);
         EXPECT_EQ(row(rows, "stacking").line, QStringLiteral("1 issue \u00B7 1 group \u00B7 average"));
-        EXPECT_EQ(row(rows, "stacking").toolTip, QStringLiteral("one"));
-        // The stacking page's issues are the stacking row's, not the two rows' that show its page.
-        EXPECT_EQ(row(rows, "normalization").status, StageStatus::Pending);
-        EXPECT_EQ(row(rows, "drizzle").status, StageStatus::Pending);
+        EXPECT_TRUE(row(rows, "stacking").toolTip.endsWith(QStringLiteral("\n\none")))
+            << "its issues, under what its stages say: " << row(rows, "stacking").toolTip.toStdString();
     }
     // An issue outranks a state it leaves standing: a stage that is done and warns says both.
     {
@@ -377,7 +382,8 @@ TEST(IntegrationStageStates, ARunMarksTheStageItIsAtAndTheOnesItPassed)
     const std::vector<StageRow> rows = integrationStageRows(facts, run, progress);
     EXPECT_EQ(row(rows, "registration").status, StageStatus::Running) << "the alignment is the registration's row";
     EXPECT_EQ(row(rows, "registration").progress, std::optional<int>(25));
-    EXPECT_EQ(row(rows, "registration").line, QStringLiteral("running \u00B7 1 / 4"));
+    EXPECT_EQ(row(rows, "registration").line, QStringLiteral("Alignment \u00B7 1 / 4"))
+        << "a row of several stages names the step a run is at";
     EXPECT_EQ(row(rows, "bias").status, StageStatus::Done) << "the run made the master again";
     EXPECT_EQ(row(rows, "lights").status, StageStatus::Done) << "the run has registered them";
     EXPECT_EQ(row(rows, "stacking").status, StageStatus::Ready);
@@ -397,4 +403,197 @@ TEST(IntegrationStageStates, ARunMarksTheStageItIsAtAndTheOnesItPassed)
     EXPECT_EQ(row(later, "lights").status, StageStatus::Done);
     EXPECT_EQ(row(later, "stacking").status, StageStatus::Running);
     EXPECT_EQ(row(later, "stacking").line, QStringLiteral("running"));
+}
+
+// The lights are what a run takes, and their row is done once a run that succeeded took them as they are: calibrated
+// them, where the job calibrates, or registered them where it calibrates none. So the row never waits behind the
+// one after it, and a run has passed the lights once it is past that stage.
+TEST(IntegrationStageStates, TheLightsAreDoneOnceARunTookThemAsTheyAre)
+{
+    // A job that calibrates: its lights are calibrated as they are, though their registration must run again.
+    StageRunFacts run = lightsRun(StageStanding::OutOfDate);
+    run.standings.set(WorkflowStage::LightsCalibration, StageStanding::Current);
+    run.calibratedLights = 3;
+    {
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), run, std::nullopt);
+        EXPECT_EQ(row(rows, "lights").status, StageStatus::Done);
+        EXPECT_EQ(row(rows, "calibration").status, StageStatus::Done);
+        EXPECT_EQ(row(rows, "registration").status, StageStatus::OutOfDate);
+    }
+    // Their calibration must run again: they wait with it.
+    run.standings.set(WorkflowStage::LightsCalibration, StageStanding::OutOfDate);
+    {
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), run, std::nullopt);
+        EXPECT_EQ(row(rows, "lights").status, StageStatus::Ready);
+        EXPECT_EQ(row(rows, "calibration").status, StageStatus::OutOfDate);
+    }
+    // A job that calibrates none: registered as they are, or waiting with their registration.
+    {
+        StageRunFacts plain = lightsRun(StageStanding::Current);
+        EXPECT_EQ(row(integrationStageRows(lightsFacts(), plain, std::nullopt), "lights").status, StageStatus::Done);
+        plain.standings.set(WorkflowStage::LightsRegistration, StageStanding::OutOfDate);
+        EXPECT_EQ(row(integrationStageRows(lightsFacts(), plain, std::nullopt), "lights").status, StageStatus::Ready);
+    }
+    // A run of a job that calibrates: at their calibration it is still at them, past it it has taken them.
+    {
+        StageRunFacts fresh = lightsRun(StageStanding::NeverRun);
+        fresh.standings.set(WorkflowStage::LightsCalibration, StageStanding::NeverRun);
+        WorkflowProgress progress;
+        progress.currentStage = WorkflowStage::LightsCalibration;
+        EXPECT_EQ(row(integrationStageRows(lightsFacts(), fresh, progress), "lights").status, StageStatus::Ready);
+        progress.currentStage = WorkflowStage::LightsRegistration;
+        EXPECT_EQ(row(integrationStageRows(lightsFacts(), fresh, progress), "lights").status, StageStatus::Done);
+    }
+}
+
+// The calibration is a stage of a run only where its lights are written: a job that calibrates its lights in memory,
+// as they are read, runs no calibration stage, so its row is not done, not ready and not out of date - it says how
+// many lights are calibrated and that it is in memory - and the lights' row follows their registration.
+TEST(IntegrationStageStates, ACalibrationInMemoryIsNoStageOfARun)
+{
+    WorkflowManifest job = lightsJob();
+    for (const FrameId& light : job.integrationGroups.front().lightFiles)
+    {
+        job.lightsCalibration.push_back(WorkflowManifest::LightsCalibrationParams{
+            .lightPath = light, .darkPath = FrameId(QStringLiteral("C:/masters/dark.fit"))});
+    }
+
+    // Written to disk: a stage, which runs before the registration.
+    job.calibrateLightsInMemory = false;
+    job.stageSequence.prepend(QStringLiteral("LightsCalibration"));
+    {
+        const StageRunFacts never = ImageIntegration::stageRunFacts(job, std::nullopt, std::nullopt);
+        EXPECT_FALSE(never.calibrationInMemory);
+        EXPECT_EQ(never.standings.of(WorkflowStage::LightsCalibration), StageStanding::NeverRun);
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), never, std::nullopt);
+        EXPECT_EQ(row(rows, "calibration").status, StageStatus::Ready);
+        EXPECT_EQ(row(rows, "calibration").line, QStringLiteral("3 of 3 lights"));
+
+        const StageRunFacts same = ImageIntegration::stageRunFacts(job, job, std::nullopt);
+        const std::vector<StageRow> done = integrationStageRows(lightsFacts(), same, std::nullopt);
+        EXPECT_EQ(row(done, "calibration").status, StageStatus::Done);
+        EXPECT_EQ(row(done, "lights").status, StageStatus::Done);
+    }
+
+    // In memory: no stage, whatever the last run left.
+    job.calibrateLightsInMemory = true;
+    job.stageSequence.removeAll(QStringLiteral("LightsCalibration"));
+    {
+        const StageRunFacts same = ImageIntegration::stageRunFacts(job, job, std::nullopt);
+        EXPECT_TRUE(same.calibrationInMemory);
+        EXPECT_EQ(same.calibratedLights, 3);
+        EXPECT_EQ(same.standings.of(WorkflowStage::LightsCalibration), StageStanding::Off);
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), same, std::nullopt);
+        EXPECT_EQ(row(rows, "calibration").status, StageStatus::Pending) << "no stage to be done";
+        EXPECT_EQ(row(rows, "calibration").line, QStringLiteral("3 of 3 \u00B7 in memory"));
+        EXPECT_TRUE(row(rows, "calibration").toolTip.contains(QStringLiteral("in memory")))
+            << row(rows, "calibration").toolTip.toStdString();
+        EXPECT_EQ(row(rows, "lights").status, StageStatus::Done) << "registered as they are";
+        EXPECT_EQ(row(rows, "registration").status, StageStatus::Done);
+
+        // Their registration must run again: the lights wait with it, and the calibration's row says what it said.
+        StageRunFacts moved = same;
+        moved.standings.set(WorkflowStage::LightsRegistration, StageStanding::OutOfDate);
+        const std::vector<StageRow> waiting = integrationStageRows(lightsFacts(), moved, std::nullopt);
+        EXPECT_EQ(row(waiting, "lights").status, StageStatus::Ready);
+        EXPECT_EQ(row(waiting, "calibration").status, StageStatus::Pending);
+        EXPECT_EQ(row(waiting, "registration").status, StageStatus::OutOfDate);
+    }
+}
+
+// The stacking row stands for the three stages its page holds the settings of - the normalization and the drizzle
+// before the stack: the one that asks most is its mark; its line says the groups and, where a group is drizzled, the
+// drizzle; its tooltip says each of the three; a run at any of them is at its row, which names the step; and a run
+// that stopped at one stopped at its row.
+TEST(IntegrationStageStates, TheStackingRowStandsForNormalizationDrizzleAndTheStack)
+{
+    const auto stacking = [](const StageRunFacts& run, const std::optional<WorkflowProgress>& progress = std::nullopt) {
+        return row(integrationStageRows(lightsFacts(), run, progress), "stacking");
+    };
+
+    // Its mark: the stage that asks most.
+    {
+        StageRunFacts run = lightsRun(StageStanding::Current);
+        run.standings.set(WorkflowStage::LightsNormalization, StageStanding::OutOfDate);
+        EXPECT_EQ(stacking(run).status, StageStatus::OutOfDate) << "the normalization must run again";
+        run.standings.set(WorkflowStage::LightsNormalization, StageStanding::Current);
+        run.standings.set(WorkflowStage::LightsDrizzle, StageStanding::NeverRun);
+        EXPECT_EQ(stacking(run).status, StageStatus::Ready) << "a drizzle the job gained since its last run";
+        run.standings.set(WorkflowStage::LightsDrizzle, StageStanding::Current);
+        EXPECT_EQ(stacking(run).status, StageStatus::Done);
+    }
+
+    // Its line and its tooltip.
+    {
+        WorkflowManifest job = lightsJob();
+        const StageRow plain = stacking(ImageIntegration::stageRunFacts(job, std::nullopt, std::nullopt));
+        EXPECT_EQ(plain.line, QStringLiteral("1 group \u00B7 average"));
+        EXPECT_TRUE(plain.toolTip.startsWith(QStringLiteral("Ready"))) << plain.toolTip.toStdString();
+        EXPECT_TRUE(plain.toolTip.endsWith(
+            QStringLiteral("\n\nNormalization: off\nDrizzle: off\nStacking: 1 group \u00B7 average")))
+            << plain.toolTip.toStdString();
+
+        // Every group drizzled at one scale: the drizzle, in the method's place, which the tooltip keeps.
+        WorkflowManifest::IntegrationGroup& first = job.integrationGroups.front();
+        first.normalizationReferenceFrames = {first.lightFiles.front()};
+        first.stacking.normalizationMode = NormalizationMode::Global;
+        first.drizzle = WorkflowManifest::IntegrationGroup::DrizzleSettings{.enabled = true, .scale = 2.0};
+        const StageRow drizzled = stacking(ImageIntegration::stageRunFacts(job, std::nullopt, std::nullopt));
+        EXPECT_EQ(drizzled.line, QStringLiteral("1 group \u00B7 drizzle 2x"));
+        EXPECT_TRUE(drizzled.toolTip.endsWith(QStringLiteral(
+            "\n\nNormalization: global \u00B7 1 group\nDrizzle: 2x \u00B7 1 group\nStacking: 1 group \u00B7 average")))
+            << drizzled.toolTip.toStdString();
+
+        // One group of two: how many are.
+        WorkflowManifest::IntegrationGroup second = lightsJob().integrationGroups.front();
+        second.groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("64x48|M 42|R")}};
+        job.integrationGroups.push_back(second);
+        const StageRow some = stacking(ImageIntegration::stageRunFacts(job, std::nullopt, std::nullopt));
+        EXPECT_EQ(some.line, QStringLiteral("2 groups \u00B7 1 drizzled"));
+        EXPECT_TRUE(some.toolTip.contains(QStringLiteral("\nDrizzle: 2x \u00B7 1 group\n")))
+            << some.toolTip.toStdString();
+
+        // Both, at scales that differ: no scale to say.
+        job.integrationGroups.back().drizzle =
+            WorkflowManifest::IntegrationGroup::DrizzleSettings{.enabled = true, .scale = 3.0};
+        const StageRow differ = stacking(ImageIntegration::stageRunFacts(job, std::nullopt, std::nullopt));
+        EXPECT_EQ(differ.line, QStringLiteral("2 groups \u00B7 2 drizzled"));
+        EXPECT_TRUE(differ.toolTip.contains(QStringLiteral("\nDrizzle: 2 groups\n"))) << differ.toolTip.toStdString();
+    }
+
+    // A run at the normalization or the drizzle is at the stacking row, which names the step.
+    {
+        WorkflowProgress progress;
+        progress.currentStage = WorkflowStage::LightsNormalization;
+        progress.currentGroup = 2;
+        progress.totalGroups = 4;
+        progress.stageProgress = 0.5f;
+        progress.overallProgress = 0.7f;
+        const StageRunFacts run = lightsRun(StageStanding::NeverRun);
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), run, progress);
+        EXPECT_EQ(row(rows, "stacking").status, StageStatus::Running);
+        EXPECT_EQ(row(rows, "stacking").progress, std::optional<int>(50));
+        EXPECT_EQ(row(rows, "stacking").line, QStringLiteral("Normalization \u00B7 2 / 4"));
+        EXPECT_EQ(row(rows, "registration").status, StageStatus::Done) << "the run has passed it";
+        EXPECT_EQ(row(rows, "summary").line, QStringLiteral("running \u00B7 Stacking"));
+
+        progress.currentStage = WorkflowStage::LightsDrizzle;
+        progress.totalGroups = 0;
+        EXPECT_EQ(stacking(run, progress).status, StageStatus::Running);
+        EXPECT_EQ(stacking(run, progress).line, QStringLiteral("Drizzle"));
+
+        progress.currentStage = WorkflowStage::LightsStacking;
+        progress.totalGroups = 4;
+        EXPECT_EQ(stacking(run, progress).line, QStringLiteral("running \u00B7 2 / 4")) << "the stage it is named for";
+    }
+
+    // A run that failed at the drizzle failed at the stacking row.
+    {
+        StageRunFacts failed = lightsRun(StageStanding::NeverRun);
+        failed.lastRun = WorkflowRunRecord{.end = WorkflowRunEnd::Failed, .stage = QStringLiteral("LightsDrizzle")};
+        const std::vector<StageRow> rows = integrationStageRows(lightsFacts(), failed, std::nullopt);
+        EXPECT_EQ(row(rows, "stacking").status, StageStatus::Failed);
+        EXPECT_EQ(row(rows, "registration").status, StageStatus::Ready);
+        EXPECT_EQ(row(rows, "summary").line, QStringLiteral("failed at Drizzle"));
+    }
 }

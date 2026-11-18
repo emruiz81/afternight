@@ -135,7 +135,8 @@ inline constexpr int kStageStepTextGap = 6;
 
 // A job's page in three parts. The stage list's column: 216 px wide on the first surface behind a hairline, 10 px
 // above and below and 8 px at its sides, 8 px between its parts - an eyebrow set 10 px in, the list, the foot set 4 px
-// in, whose acts stand 4 px apart. The aside a stage's page keeps at its right: 288 px wide, padded by 8 px.
+// in, whose acts stand 4 px apart. The aside a stage's page keeps at its right: 336 px wide as it opens, between
+// 288 and 480 px as a person drags it, padded by 8 px.
 inline constexpr int kStageColumnWidth = 216;
 inline constexpr int kStageColumnPaddingVertical = 10;
 inline constexpr int kStageColumnPaddingHorizontal = 8;
@@ -143,7 +144,9 @@ inline constexpr int kStageColumnGap = 8;
 inline constexpr int kStageColumnEyebrowInset = 10;
 inline constexpr int kStageColumnFootInset = 4;
 inline constexpr int kStageColumnFootGap = 4;
-inline constexpr int kStageAsideWidth = 288;
+inline constexpr int kStageAsideWidth = 336;
+inline constexpr int kStageAsideMinWidth = 288;
+inline constexpr int kStageAsideMaxWidth = 480;
 inline constexpr int kStageAsidePadding = 8;
 
 // The rail: place and foot items in 36 px rows, tasks in 42 px rows, 2 px apart, 6 px from the rail's ends.

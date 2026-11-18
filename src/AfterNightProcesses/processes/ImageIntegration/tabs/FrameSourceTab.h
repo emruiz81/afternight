@@ -55,6 +55,9 @@ public:
     void removeSelectedRequested() W_SIGNAL(removeSelectedRequested);
     void removeAllRequested(FrameType type) W_SIGNAL(removeAllRequested, type);
 
+    /// Told when a person drags the aside to another width.
+    void asideWidthChanged(int width) W_SIGNAL(asideWidthChanged, width);
+
     [[nodiscard]] FrameType frameType() const;
 
     [[nodiscard]] FrameTreeView* tree() const;
@@ -71,12 +74,18 @@ public:
     void refreshFilterStats();
 
     /// Keeps the side panel - the preview over the grouping, the statistics, the issues and the quick actions - as an
-    /// aside of a fixed width at the page's right: what a page of a main window shows, where the window lets a person
-    /// drag the panel wider. The panel's own least width gives way, its padding becomes the aside's, and the width a
-    /// person gave the panel in a window is neither applied nor overwritten.
+    /// aside at the page's right: what a page of a main window shows. The aside opens at a width and a person drags
+    /// the line at its left between a least and a greatest one (`asideWidthChanged`), the preview growing with it;
+    /// the panel's own least width gives way, its padding becomes the aside's, and the width a person gave the panel
+    /// in a window is neither applied nor overwritten.
     ///
-    /// @param width the aside's width.
-    void presentSidePanelAsAside(int width);
+    /// @param width the width the aside opens at.
+    /// @param leastWidth the narrowest a person drags it.
+    /// @param greatestWidth the widest.
+    void presentSidePanelAsAside(int width, int leastWidth, int greatestWidth);
+
+    /// Gives the aside another width, held within its least and its greatest; nothing for a panel that is no aside.
+    void setAsideWidth(int width);
 
     /// The side panel: the preview and what scrolls under it.
     [[nodiscard]] QWidget* sidePanel() const;
@@ -125,8 +134,11 @@ private:
     QString m_regroupWarningOriginalStyle;
     bool m_splitterAutoSized = false;
     bool m_splitterUserSized = false;
-    /// The width the side panel keeps as an aside; none while a person sizes it.
+    /// The width the side panel has as an aside, and the least and the greatest a person drags it to; none in a
+    /// window, whose panel keeps its own widths.
     int m_asideWidth = 0;
+    int m_asideLeastWidth = 0;
+    int m_asideGreatestWidth = 0;
 
     QTimer* m_persistDebounce = nullptr;
     QTimer* m_previewClampDebounce = nullptr;

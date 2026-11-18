@@ -182,11 +182,16 @@ public:
         lblResourceStatusIcon = new QLabel(resourceStatusWidget);
         lblResourceStatusIcon->setText("");
         lblResourceStatusIcon->setMinimumWidth(t.spacing.xl);
+        // The icon keeps its own width and the text takes the rest of the row, beside it: two labels sharing the row
+        // would leave the text starting at its middle.
+        lblResourceStatusIcon->setSizePolicy(QSizePolicy::Policy::Fixed, QSizePolicy::Policy::Preferred);
+        lblResourceStatusIcon->setAlignment(Qt::AlignCenter);
         lblResourceStatusIcon->setObjectName("lblResourceStatusIcon");
         resourceStatusLayout->addWidget(lblResourceStatusIcon);
         lblResourceStatus = new QLabel(resourceStatusWidget);
+        lblResourceStatus->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         lblResourceStatus->setObjectName("lblResourceStatus");
-        resourceStatusLayout->addWidget(lblResourceStatus);
+        resourceStatusLayout->addWidget(lblResourceStatus, 1);
         scrollContentLayout->addWidget(resourceStatusWidget);
         scrollArea->setWidget(scrollAreaContents);
         mainLayout->addWidget(scrollArea);

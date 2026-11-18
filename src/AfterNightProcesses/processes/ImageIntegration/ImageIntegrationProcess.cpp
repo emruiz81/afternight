@@ -727,6 +727,8 @@ ImageIntegrationProcess::~ImageIntegrationProcess()
     {
         m_tabBadgeDebounce->stop();
     }
+    // A width a person gave the asides a moment ago is kept before the page goes.
+    keepAsideWidthNow();
 
     // Model-bound objects own raw model pointers internally, so they must be torn down
     // before the model itself. The model is intentionally not parented to this widget.
@@ -984,18 +986,24 @@ void ImageIntegrationProcess::presentStagesAsAList()
     m_stageList = list;
     followNavigator();
 
-    // The pages fit the centre of a main window beside the list: a side panel is an aside of a fixed width, and the
-    // stacking page's execution options stand in two rows.
+    // The pages fit the centre of a main window beside the list: a side panel is an aside - one width for every
+    // page's, which a person drags within the aside's bounds - and the stacking page's execution options stand in
+    // two rows.
+    const int asideWidth = keptAsideWidth();
     for (FrameSourceTab* const tab : m_frameSourceTabs)
     {
         if (tab != nullptr)
         {
-            tab->presentSidePanelAsAside(an::ui::parts::kStageAsideWidth);
+            tab->presentSidePanelAsAside(asideWidth, an::ui::parts::kStageAsideMinWidth,
+                                         an::ui::parts::kStageAsideMaxWidth);
+            connect(tab, &FrameSourceTab::asideWidthChanged, this, &ImageIntegrationProcess::asideWidthChosen);
         }
     }
     if (m_calibrationTab != nullptr)
     {
-        m_calibrationTab->presentSidePanelAsAside(an::ui::parts::kStageAsideWidth);
+        m_calibrationTab->presentSidePanelAsAside(asideWidth, an::ui::parts::kStageAsideMinWidth,
+                                                  an::ui::parts::kStageAsideMaxWidth);
+        connect(m_calibrationTab, &CalibrationTab::asideWidthChanged, this, &ImageIntegrationProcess::asideWidthChosen);
     }
     if (m_stackingTab != nullptr)
     {
@@ -1138,6 +1146,56 @@ void ImageIntegrationProcess::readStageStates()
             },
             Qt::QueuedConnection);
     });
+}
+
+int ImageIntegrationProcess::keptAsideWidth()
+{
+    const QSettings settings = an::ui::applicationSettings();
+    const int kept =
+        settings.value(QString::fromLatin1(ImageIntegration::kPageAsideWidthSetting), an::ui::parts::kStageAsideWidth)
+            .toInt();
+    return (std::clamp)(kept, an::ui::parts::kStageAsideMinWidth, an::ui::parts::kStageAsideMaxWidth);
+}
+
+void ImageIntegrationProcess::asideWidthChosen(const int width)
+{
+    // Every page's aside is one aside: the others take the width, each as it is shown.
+    for (FrameSourceTab* const tab : m_frameSourceTabs)
+    {
+        if (tab != nullptr && tab != sender())
+        {
+            tab->setAsideWidth(width);
+        }
+    }
+    if (m_calibrationTab != nullptr && m_calibrationTab != sender())
+    {
+        m_calibrationTab->setAsideWidth(width);
+    }
+    // A drag tells many widths: the one it ends at is kept, once it rests.
+    m_asideWidthToKeep = width;
+    if (m_asideWidthDebounce == nullptr)
+    {
+        m_asideWidthDebounce = new QTimer(this);
+        m_asideWidthDebounce->setSingleShot(true);
+        m_asideWidthDebounce->setInterval(250);
+        connect(m_asideWidthDebounce, &QTimer::timeout, this, &ImageIntegrationProcess::keepAsideWidthNow);
+    }
+    m_asideWidthDebounce->start();
+}
+
+void ImageIntegrationProcess::keepAsideWidthNow()
+{
+    if (m_asideWidthDebounce != nullptr)
+    {
+        m_asideWidthDebounce->stop();
+    }
+    if (m_asideWidthToKeep <= 0)
+    {
+        return;
+    }
+    QSettings settings = an::ui::applicationSettings();
+    settings.setValue(QString::fromLatin1(ImageIntegration::kPageAsideWidthSetting), m_asideWidthToKeep);
+    m_asideWidthToKeep = 0;
 }
 
 void ImageIntegrationProcess::publishStageRows()
@@ -3082,6 +3140,8 @@ void ImageIntegrationProcess::onOutputDirectoryChanged(const QString& path)
 
     QSignalBlocker blocker(outputDirectoryEdit);
     outputDirectoryEdit->setText(path);
+    // A field narrower than its path says the whole path when it is pointed at.
+    outputDirectoryEdit->setToolTip(QDir::toNativeSeparators(path));
     updateButtonStates();
     refreshAfterOutputDirectoryChange();
 }

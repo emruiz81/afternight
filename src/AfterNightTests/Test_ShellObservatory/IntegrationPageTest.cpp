@@ -858,7 +858,7 @@ TEST_F(IntegrationPage, TheStagesAreAListThatNavigates)
     ASSERT_TRUE(list->isVisibleTo(page));
     EXPECT_EQ(stages->column()->width(), an::ui::parts::kStageColumnWidth);
     EXPECT_EQ(stages->column()->mapTo(process, QPoint(0, 0)).x(), 0) << "the list is at the page's left";
-    ASSERT_EQ(list->rowCount(), 10);
+    ASSERT_EQ(list->rowCount(), ImageIntegration::kStagePageCount) << "a row for each page";
     EXPECT_EQ(stages->currentRow(), QStringLiteral("bias")) << "it opens on the page the window opens on";
 
     // A click on a row shows its page.
@@ -872,10 +872,11 @@ TEST_F(IntegrationPage, TheStagesAreAListThatNavigates)
     EXPECT_EQ(stages->currentPage(), StagePage::Registration);
     EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("registrationTab"))->isVisibleTo(page));
     EXPECT_FALSE(process->findChild<QWidget*>(QStringLiteral("biasTab"))->isVisibleTo(page));
-    click(7);
-    EXPECT_EQ(stages->currentRow(), QStringLiteral("drizzle"));
-    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("stackingTab"))->isVisibleTo(page))
-        << "drizzle's settings are the stacking page's";
+    click(6);
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("stacking")) << "the row after the registration's";
+    EXPECT_EQ(stages->currentPage(), StagePage::Stacking);
+    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("stackingTab"))->isVisibleTo(page));
+    EXPECT_FALSE(process->findChild<QWidget*>(QStringLiteral("registrationTab"))->isVisibleTo(page));
 
     // The Navigate menu, under the header's button, moves the selection.
     std::unique_ptr<QMenu> menu(page->makeProcessMenu(nullptr));

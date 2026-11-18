@@ -69,6 +69,9 @@ namespace ImageIntegration
 class ImportProgressPanel;
 class StageListNavigator;
 class StageNavigator;
+
+/// The interface setting that keeps the width a person gave the aside of a page's stages.
+inline constexpr char kPageAsideWidthSetting[] = "ImageIntegration/Page/asideWidth";
 } // namespace ImageIntegration
 
 /**
@@ -267,6 +270,12 @@ private:
     void presentStagesAsAList();
     /// What the process does when another page is shown, whatever shows it.
     void followNavigator();
+    /// The width a page's asides open at: the one a person left them with, within the aside's bounds, or the aside's
+    /// own.
+    [[nodiscard]] static int keptAsideWidth();
+    /// A person dragged one page's aside: every page's aside takes the width, and it is kept for the next page.
+    void asideWidthChosen(int width);
+    void keepAsideWidthNow();
 
     /// Moves the session the window shows into another session database, where it takes a name no other job there
     /// has, and keeps it there from now on; the database it was in holds it no more. False leaves it where it is.
@@ -388,6 +397,10 @@ private:
     int m_lastFrameTabIndex = 0;
 
     QTimer* m_tabBadgeDebounce = nullptr;
+
+    /// The width a person gave the asides, waiting to be kept; none when there is nothing to keep.
+    int m_asideWidthToKeep = 0;
+    QTimer* m_asideWidthDebounce = nullptr;
 
     /// What moves between the pages, a child of this widget; and the same object while it is the stage list.
     ImageIntegration::StageNavigator* m_navigator = nullptr;

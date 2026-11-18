@@ -31,6 +31,8 @@
 #include <QToolButton>
 #include <QUndoStack>
 
+#include <algorithm>
+
 #include <verdigris/wobjectimpl.h>
 
 W_OBJECT_IMPL(CalibrationTab)
@@ -43,6 +45,11 @@ public:
     IntegrationDataModel* model;
     QUndoStack* undoStack = nullptr;
     QTimer* debounceTimer = nullptr;
+    /// The width the side panel has as an aside, and the least and the greatest a person drags it to; none in a
+    /// window.
+    int asideWidth = 0;
+    int asideLeastWidth = 0;
+    int asideGreatestWidth = 0;
     BiasCalibrationPanel* biasPanel = nullptr;
     DarkCalibrationPanel* darkPanel = nullptr;
     FlatCalibrationPanel* flatPanel = nullptr;
@@ -673,25 +680,41 @@ CalibrationTab::~CalibrationTab()
     }
 }
 
-void CalibrationTab::presentSidePanelAsAside(const int width)
+void CalibrationTab::presentSidePanelAsAside(const int width, const int leastWidth, const int greatestWidth)
 {
     QScrollArea* const side = m_impl->ui.rightPanelScrollArea;
-    if (side == nullptr || width <= 0)
+    QSplitter* const splitter = m_impl->ui.mainSplitter;
+    if (side == nullptr || splitter == nullptr || width <= 0 || m_impl->asideLeastWidth > 0)
     {
         return;
     }
-    side->setMinimumWidth(width);
-    side->setMaximumWidth(width);
-    // Nothing is left to drag: the handle between the two parts is a line.
-    if (QSplitter* const splitter = m_impl->ui.mainSplitter)
-    {
-        splitter->setCollapsible(splitter->indexOf(side), false);
-        if (QSplitterHandle* const handle = splitter->handle(splitter->indexOf(side)))
+    m_impl->asideLeastWidth = (std::max)(1, leastWidth);
+    m_impl->asideGreatestWidth = (std::max)(m_impl->asideLeastWidth, greatestWidth);
+    // The line between the groups and the aside is dragged, between the aside's least and its greatest width.
+    side->setMinimumWidth(m_impl->asideLeastWidth);
+    side->setMaximumWidth(m_impl->asideGreatestWidth);
+    splitter->setCollapsible(splitter->indexOf(side), false);
+    connect(splitter, &QSplitter::splitterMoved, this, [this, splitter, side]() {
+        const int dragged = splitter->sizes().value(splitter->indexOf(side));
+        if (dragged > 0 && dragged != m_impl->asideWidth)
         {
-            handle->setEnabled(false);
-            handle->setCursor(Qt::ArrowCursor);
+            m_impl->asideWidth = dragged;
+            emit asideWidthChanged(dragged);
         }
+    });
+    setAsideWidth(width);
+}
+
+void CalibrationTab::setAsideWidth(const int width)
+{
+    QSplitter* const splitter = m_impl->ui.mainSplitter;
+    if (m_impl->asideLeastWidth <= 0 || splitter == nullptr)
+    {
+        return;
     }
+    m_impl->asideWidth = (std::clamp)(width, m_impl->asideLeastWidth, m_impl->asideGreatestWidth);
+    // The splitter gives a part that does not stretch the width it was last told, and the groups everything else.
+    splitter->setSizes({(std::max)(1, splitter->width() - m_impl->asideWidth), m_impl->asideWidth});
 }
 
 QWidget* CalibrationTab::sidePanel() const

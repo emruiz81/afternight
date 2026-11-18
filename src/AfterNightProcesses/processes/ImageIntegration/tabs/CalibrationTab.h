@@ -44,11 +44,17 @@ public:
     ~CalibrationTab() override;
 
     /// Keeps the side panel - the coverage, the frames' summary, the matching policy, the quick actions and the
-    /// issues - as an aside of a fixed width at the page's right: what a page of a main window shows, where the window
-    /// lets a person drag the panel between its least and its greatest width.
+    /// issues - as an aside at the page's right: what a page of a main window shows. The aside opens at a width and
+    /// a person drags the line at its left between a least and a greatest one (`asideWidthChanged`), in place of the
+    /// least and the greatest the panel has in a window.
     ///
-    /// @param width the aside's width.
-    void presentSidePanelAsAside(int width);
+    /// @param width the width the aside opens at.
+    /// @param leastWidth the narrowest a person drags it.
+    /// @param greatestWidth the widest.
+    void presentSidePanelAsAside(int width, int leastWidth, int greatestWidth);
+
+    /// Gives the aside another width, held within its least and its greatest; nothing for a panel that is no aside.
+    void setAsideWidth(int width);
 
     /// The side panel.
     [[nodiscard]] QWidget* sidePanel() const;
@@ -60,6 +66,9 @@ public slots:
 signals:
     void goToGroupDefinitionRequested(FrameType type, const GroupKey& key)
         W_SIGNAL(goToGroupDefinitionRequested, type, key);
+
+    /// Told when a person drags the aside to another width.
+    void asideWidthChanged(int width) W_SIGNAL(asideWidthChanged, width);
 
 private:
     void changeEvent(QEvent* event) override;

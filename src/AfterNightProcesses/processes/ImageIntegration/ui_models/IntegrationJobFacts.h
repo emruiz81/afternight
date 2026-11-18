@@ -23,12 +23,16 @@ namespace ImageIntegration
 {
 
 /// What a run of a job would write into its output folder, by what it is made of. Every image a run writes holds
-/// 32-bit floats: a calibrated light keeps its own channels, a registered or stacked one the demosaiced ones.
+/// 32-bit floats: a calibrated light keeps its own channels, a registered or stacked one the demosaiced ones. A
+/// drizzled group weighs its stacked image alone: it writes what describes where each light lands, not a map of its
+/// pixels.
 struct IntegrationOutputEstimate
 {
-    /// The lights that are included, and the ones of them whose calibrated copy is written.
+    /// The lights that are included, and the ones of them whose calibrated copy and whose registered copy are
+    /// written.
     int includedLights = 0;
     int calibratedLights = 0;
+    int registeredLights = 0;
 
     /// The integration groups, one stacked image each; at least one.
     int groups = 1;
@@ -40,7 +44,6 @@ struct IntegrationOutputEstimate
     qint64 rejectionBytes = 0;
     qint64 calibratedBytes = 0;
     qint64 registeredBytes = 0;
-    qint64 drizzlePixmapBytes = 0;
 
     /// Whether a light whose colour layout the import did not record was counted as a colour mosaic.
     bool layoutAssumed = false;
@@ -48,15 +51,18 @@ struct IntegrationOutputEstimate
     /// Everything a run would write.
     [[nodiscard]] qint64 total() const noexcept
     {
-        return stackedBytes + rejectionBytes + calibratedBytes + registeredBytes + drizzlePixmapBytes;
+        return stackedBytes + rejectionBytes + calibratedBytes + registeredBytes;
     }
 
     [[nodiscard]] bool operator==(const IntegrationOutputEstimate&) const = default;
 };
 
-/// What a run of a job would write, from each included light's size and layout - not from its file - and from what its
-/// groups ask for: the stacked images and their rejection maps, the calibrated lights where they are kept on disk, the
-/// registered lights of the groups that do not drizzle and the pixel maps of the ones that do. GUI thread.
+/// What a run of a job would write, from each included light's size and layout - not from its file - and from what
+/// each of its groups asks for, group by group: a stacked image, as many times larger as its scale squared where the
+/// group is drizzled, and its rejection maps; the calibrated lights where they are kept on disk; and the registered
+/// lights of a group that keeps them or stacks a comet. A group that is drizzled places its lights itself, and one
+/// that lets its registered lights go has them warped as its stack reads them: neither writes one. A reprocessing
+/// run keeps them too, which the model does not say. GUI thread.
 [[nodiscard]] AFTERNIGHTPROCESSES_API IntegrationOutputEstimate
 estimateIntegrationOutput(const IntegrationDataModel& model);
 

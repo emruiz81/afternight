@@ -6,9 +6,11 @@
 /// @file
 /// Where each stage of an integration job stands, as a stage list says it: its mark and its one line.
 ///
-/// A job's stages are the frame sources a person fills - bias, darks, flats, lights - and the stages of the workflow
-/// that run over them - calibration, registration, normalization, drizzle, stacking - with the job's summary last. A
-/// row's state is read from three places and never guessed:
+/// A stage list has a row for each page of Image Integration: the frame sources a person fills - bias, darks, flats,
+/// lights - the pages of the workflow that runs over them - calibration, registration, stacking - and the job's
+/// summary last. A row stands for the stages of the workflow its page holds the settings of: one for most, the
+/// registration and the alignment for the registration's, and the normalization, the drizzle and the stack for the
+/// stacking's. A row's state is read from three places and never guessed:
 ///
 /// - **the job as it stands** (`StageModelFacts`): its frames and their groups, whether it is ready to run, and what
 ///   its validation says of each page, read from the model on the GUI thread;
@@ -74,17 +76,16 @@ struct StageRowSpec
     StagePage page;
 };
 
-/// The rows, in the order the workflow reaches them. Normalization and drizzle are stages of the workflow with no page
-/// of their own: their settings are the stacking page's, which their rows show.
-inline constexpr std::array<StageRowSpec, 10> kStageRows = {{
+/// The rows, in the order the workflow reaches them: one for each page, so that no two rows show the same page.
+/// Normalization and drizzle are stages of the workflow with no page of their own - their settings are the stacking
+/// page's - and so no rows: the stacking row stands for them.
+inline constexpr std::array<StageRowSpec, kStagePageCount> kStageRows = {{
     {"bias", StagePage::Bias},
     {"darks", StagePage::Darks},
     {"flats", StagePage::Flats},
     {"lights", StagePage::Lights},
     {"calibration", StagePage::Calibration},
     {"registration", StagePage::Registration},
-    {"normalization", StagePage::Stacking},
-    {"drizzle", StagePage::Stacking},
     {"stacking", StagePage::Stacking},
     {"summary", StagePage::Summary},
 }};
@@ -92,10 +93,10 @@ inline constexpr std::array<StageRowSpec, 10> kStageRows = {{
 /// The page a row shows; nothing for an id no row has.
 [[nodiscard]] AFTERNIGHTPROCESSES_API std::optional<StagePage> stagePageOfRow(const QString& rowId);
 
-/// The row a page is selected by: the one named as the page.
+/// The row a page is selected by: its own.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString stageRowOfPage(StagePage page);
 
-/// A row's title, as the tabs name the page or the workflow names the stage.
+/// A row's title, as the tabs name its page.
 [[nodiscard]] AFTERNIGHTPROCESSES_API QString stageRowTitle(const QString& rowId);
 
 /// Where what a job's last successful run made of a workflow stage stands against what the job asks now.
@@ -175,8 +176,10 @@ struct StageRunFacts
     /// The record of the last run, whatever its end; none when no run left one.
     std::optional<WorkflowRunRecord> lastRun;
 
-    /// The groups the job registers and stacks, and the lights it calibrates.
+    /// The groups the job registers and stacks, and the lights it calibrates - in memory, as they are read, where it
+    /// writes no calibrated copy of them, which makes the calibration no stage of a run.
     int calibratedLights = 0;
+    bool calibrationInMemory = false;
     int registrationGroups = 0;
     int integrationGroups = 0;
 
@@ -215,8 +218,16 @@ struct StageRunFacts
 /// validation holds one or the last run was cancelled at its stage; done, when its stage is current - and, during a
 /// run, once the run has passed it; ready, when it has what it needs and has not run; and not started otherwise - a
 /// source with no frames, a stage that is off. The lights are ready once there are some and done once a run that
-/// succeeded has registered them as they are. The summary's row says the job: ready or not, the step a run is at, and
-/// how the last run ended.
+/// succeeded took them as they are - calibrated them, where the calibration is a stage of the run, or registered
+/// them where it is none - so that their row never waits behind the one after it. The calibration is a stage only
+/// where the calibrated lights are written: a job that calibrates its lights in memory, as they are read, runs no
+/// calibration stage, and its row is not started, saying how many lights are calibrated and that it is in memory.
+/// The summary's row says the job: ready or not, the step a run is at, and how the last run ended.
+///
+/// A row of several stages is marked by the one that asks most - out of date before never run, never run before
+/// current - is where a run at any of them is, and then names the step unless it is the one the row is named for:
+/// "Drizzle - 2 / 4". The stacking row's line says its groups and their method, or the drizzle where a group is
+/// drizzled, and its tooltip says each of its three stages, one a line.
 ///
 /// @param model the job's facts.
 /// @param run what the output folder says; `known` false while nothing was read yet.

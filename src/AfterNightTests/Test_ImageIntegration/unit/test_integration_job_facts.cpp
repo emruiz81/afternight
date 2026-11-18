@@ -32,14 +32,31 @@ using ImageIntegration::IntegrationJobFacts;
 const QString kDot = QStringLiteral(" · ");
 
 /// A light frame of a file that need not be there.
-[[nodiscard]] FrameInfo light(const QString& file, const int gain = 800, const bool excluded = false)
+[[nodiscard]] FrameInfo light(const QString& file, const int gain = 800, const bool excluded = false,
+                              const QString& filter = QStringLiteral("L"))
 {
     FrameInfo frame(FrameId(file), file,
-                    FrameMetadata(FrameType::Light, QSize(64, 48), 120.0, -10.0, gain, 1, QStringLiteral("L"),
+                    FrameMetadata(FrameType::Light, QSize(64, 48), 120.0, -10.0, gain, 1, filter,
                                   QStringLiteral("M 42"), QDateTime::currentDateTimeUtc(), QString(),
                                   FrameSampleLayout{.channels = 1, .mosaic = false}));
     frame.excluded = excluded;
     return frame;
+}
+
+/// What one light of 64 x 48 in one channel of 32-bit floats weighs, registered or stacked.
+constexpr qint64 kPlane = 64 * 48 * 4;
+
+/// The integration group of a filter; none when the job has no such group.
+[[nodiscard]] std::optional<GroupKey> groupOf(const IntegrationDataModel& model, const QString& filter)
+{
+    for (const GroupKey& key : model.integrationGroups())
+    {
+        if (key.toString().contains(QLatin1Char('|') + filter + QLatin1Char('|')))
+        {
+            return key;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace
@@ -103,9 +120,63 @@ TEST(IntegrationJobFacts, TheNeedIsWhatARunWouldWrite)
     EXPECT_EQ(estimate.registeredBytes, 2 * 64 * 48 * 4);
     EXPECT_EQ(estimate.stackedBytes, static_cast<qint64>(estimate.groups) * 64 * 48 * 4);
     EXPECT_GT(estimate.total(), 0);
-    EXPECT_EQ(estimate.total(), estimate.stackedBytes + estimate.rejectionBytes + estimate.calibratedBytes +
-                                    estimate.registeredBytes + estimate.drizzlePixmapBytes);
+    EXPECT_EQ(estimate.registeredLights, 2);
+    EXPECT_EQ(estimate.total(),
+              estimate.stackedBytes + estimate.rejectionBytes + estimate.calibratedBytes + estimate.registeredBytes);
     EXPECT_EQ(ImageIntegration::integrationJobFacts(model).neededBytes, estimate.total());
+}
+
+// The need is counted group by group, as a run writes: the registered lights of the groups that keep them - not of
+// a group that is drizzled, which places its lights itself, nor of one that lets them go, whose lights are warped
+// as the stack reads them - and a stacked image each, a drizzled one as many times larger as its scale squared. A
+// drizzle writes no map of a light's pixels: one group that is drizzled does not make every light of the job weigh
+// a map.
+TEST(IntegrationJobFacts, TheNeedIsCountedGroupByGroup)
+{
+    IntegrationDataModel model;
+    model.addFrames(FrameType::Light, {light(QStringLiteral("/data/l1.fit")), light(QStringLiteral("/data/l2.fit")),
+                                       light(QStringLiteral("/data/r1.fit"), 800, false, QStringLiteral("R")),
+                                       light(QStringLiteral("/data/r2.fit"), 800, false, QStringLiteral("R")),
+                                       light(QStringLiteral("/data/r3.fit"), 800, false, QStringLiteral("R"))});
+    const std::optional<GroupKey> luminance = groupOf(model, QStringLiteral("L"));
+    const std::optional<GroupKey> red = groupOf(model, QStringLiteral("R"));
+    ASSERT_TRUE(luminance.has_value() && red.has_value()) << "two integration groups, by their filters";
+
+    // Both groups as they are made: each keeps its registered lights.
+    ImageIntegration::IntegrationOutputEstimate estimate = ImageIntegration::estimateIntegrationOutput(model);
+    EXPECT_EQ(estimate.groups, 2);
+    EXPECT_EQ(estimate.registeredLights, 5);
+    EXPECT_EQ(estimate.registeredBytes, 5 * kPlane);
+    EXPECT_EQ(estimate.stackedBytes, 2 * kPlane);
+
+    // The red group drizzled at twice the scale: none of its lights is written registered, its stack is four times
+    // as large, and nothing else of it weighs.
+    StackingSettings drizzled;
+    drizzled.drizzle.enabled = true;
+    drizzled.drizzle.scale = 2.0;
+    model.setStackingSettings(FrameType::Light, *red, drizzled);
+    estimate = ImageIntegration::estimateIntegrationOutput(model);
+    EXPECT_EQ(estimate.registeredLights, 2) << "the luminance group's";
+    EXPECT_EQ(estimate.registeredBytes, 2 * kPlane);
+    EXPECT_EQ(estimate.stackedBytes, kPlane + 4 * kPlane);
+    EXPECT_EQ(estimate.total(), estimate.registeredBytes + estimate.stackedBytes);
+
+    // The luminance group lets its registered lights go: they are warped as the stack reads them, and none is
+    // written.
+    StackingSettings letGo;
+    letGo.registeredOutputPolicy = RegisteredOutputPolicy::Discardable;
+    model.setStackingSettings(FrameType::Light, *luminance, letGo);
+    estimate = ImageIntegration::estimateIntegrationOutput(model);
+    EXPECT_EQ(estimate.registeredLights, 0);
+    EXPECT_EQ(estimate.registeredBytes, 0);
+    EXPECT_EQ(estimate.total(), kPlane + 4 * kPlane) << "the two stacked images";
+
+    // A light left out of the job weighs nothing, in the group it would have joined.
+    model.setStackingSettings(FrameType::Light, *luminance, StackingSettings{});
+    model.addFrames(FrameType::Light, {light(QStringLiteral("/data/l3.fit"), 800, true)});
+    estimate = ImageIntegration::estimateIntegrationOutput(model);
+    EXPECT_EQ(estimate.registeredLights, 2);
+    EXPECT_EQ(estimate.registeredBytes, 2 * kPlane);
 }
 
 // The disk adds what the lights' files weigh - the ones that are there - and what is free where the runs write, which

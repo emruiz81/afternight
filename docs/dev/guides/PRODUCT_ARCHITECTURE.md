@@ -1641,7 +1641,14 @@ what follows runs in a window.
   not made, where it will be made - is read on the thread pool (`readIntegrationJobDisk`) when the lights or the folder
   change, when a run ends and when the page is shown again, and a read that lands after a later one was asked for is
   dropped: a slow volume holds no window. What a run would write is one estimate (`estimateIntegrationOutput`) that the
-  header and the Summary tab's disk line both read, so the two cannot disagree.
+  header and the Summary tab's disk line both read, so the two cannot disagree. It is counted group by group, as a
+  run writes: a stacked image each - a drizzled one as many times larger as its scale squared - with its rejection
+  maps; the calibrated lights where they are kept on disk; and the registered lights of a group that keeps them or
+  stacks a comet. A drizzled group places its lights itself and writes no map of their pixels, and a group that
+  lets its registered lights go has them warped as its stack reads them, so neither writes a registered light:
+  counted for the whole job, one drizzled group made every light weigh a map and every group keep its registered
+  lights, several times what a run writes. A light whose layout the import did not record still counts as a colour
+  mosaic, three channels once registered, which the disk line's tooltip says.
 - **Its menus and its keys.** The six menus are the page's (`ProcessPageLayout::menus`), entry for entry; the Frames
   menu's acts are also the buttons its frame pages carry over their trees. Its key sequences are held by the page's
   shortcut scope, so `Ctrl+O` adds files with the focus in the page and opens an image with the focus elsewhere in the
@@ -1705,12 +1712,16 @@ what follows runs in a window.
   itself (`StageNavigator::of`), never a tab by its name: under the list there is no tab to find. A seam, rather than
   tabs with their bars hidden, because the two say a stage's state by different means, and the process should know
   neither.
-- **The list's rows** are `kStageRows` (`ui_models/IntegrationStageStates.h`): the frame sources and the workflow's
-  stages in the order a run reaches them, the summary last. Normalization and drizzle are stages of the workflow with
-  no page of their own - their settings are the stacking page's - so their rows show that page, and ten rows reach the
-  eight pages. The Navigate menu's actions and their keys select the row named as their page; a row that shows the page
-  already keeps the selection. `Test_ImageIntegration/data/IntegrationPages.txt` records the pages the tabs reach, and
-  `StageList.HoldsEveryTabPage` holds the list to them: the same pages, the same widgets.
+- **The list's rows** are `kStageRows` (`ui_models/IntegrationStageStates.h`): a row for each of the eight pages, in
+  the order a run reaches them, the summary last, and no page shown by two rows. Normalization and drizzle are stages
+  of the workflow with no page of their own - their settings are the stacking page's, per group - and so no rows:
+  two rows more that opened the stacking page read as two pages that were not there. The stacking row stands for
+  the three stages, as the registration's stands for the registration and the alignment: it is marked by the stage
+  that asks most, its line says the groups and their method - or the drizzle, where a group is drizzled - its tooltip
+  says each of the three, and a run at any of them is at its row, which then names the step. The Navigate menu's
+  actions and their keys select the row of their page. `Test_ImageIntegration/data/IntegrationPages.txt` records the
+  pages the tabs reach, and `StageList.HoldsEveryTabPage` holds the list to them: the same pages, the same widgets,
+  each by a row of its own.
 - **A row's mark and line** are read from three places and guessed from none (`integrationStageRows`). The job as it
   stands, from the model on the GUI thread (`stageModelFacts`), with what the validation says of each page - the count
   and the words the tabs' badges show. What the output folder holds of its runs, read on the thread pool
@@ -1720,19 +1731,35 @@ what follows runs in a window.
   the record of the last run, whatever its end. And a run on its way: the launch tells the widget it was launched from
   each progress the run reports (`IWorkflowRunObserver`, `workflow/WorkflowRunObserver.h`). A row is, in this order:
   running; failed, for an error of its page's validation or the stage the last run failed at; out of date; a warning,
-  for a lesser issue or the stage the last run was cancelled at; done; ready; not started. The read compares two
+  for a lesser issue or the stage the last run was cancelled at; done; ready; not started. The calibration is a
+  stage only where the calibrated lights are written (`LightsCalibration` in the manifest's sequence): a job that
+  calibrates its lights in memory, as they are read, runs no calibration stage, so its row has no state to be in -
+  it is not started, and says how many lights are calibrated and that it is in memory - where a mark of its own
+  would say done of something no run makes. The lights have no stage
+  of their own - they are what a run takes - so their row is done once a run that succeeded took them as they are,
+  at the first stage that reads them: their calibration where it is a stage, or their registration. A
+  later stage would leave the lights' row waiting above a calibration that is done, which reads as a contradiction;
+  this way the rows that are done are the ones before the first that is not. The read compares two
   manifests and reads no image and no artifact: whether a file on disk is still the one a manifest names is the plan's
   to say when a run is prepared, with its stat of every artifact, and is not asked at every edit. One read is on the
   pool at a time, a burst of changes is gathered into one, a read that lands after a later one was asked for is
   dropped, and none is made during a run, which writes the folder it would read.
 - **The list's foot** holds the job's output folder - the window's own label, field and button, moved - and the
   project file's acts, each a button for an act or a menu of the Project menu's own: import, export, the recent
-  projects, the presets and Reset Settings. The window's foot, with its Close and Reset, is not shown on a page: the
-  header closes the page and the list's foot resets.
-- **The pages fit the centre of a main window.** A page with a side panel keeps it as an aside 288 px wide
+  projects, the presets and Reset Settings. A path is long and the column 216 px, so the field has the foot's whole
+  width, under a row of its label and the button that chooses the folder, and says the whole path when it is pointed
+  at; beside the button it had about half of that. The window's foot, with its Close and Reset, is not shown on a
+  page: the header closes the page and the list's foot resets.
+- **The pages fit the centre of a main window.** A page with a side panel keeps it as an aside
   (`presentSidePanelAsAside`): the frame pages' - the preview over the grouping, the statistics, the issues and the
-  quick actions, which stand in two rows there - and the calibration page's. The width a person gave a panel in a
-  window is neither applied to the aside nor overwritten by it. The stacking page lays its execution options in two
+  quick actions, which stand in two rows there - and the calibration page's. The aside opens 336 px wide and a
+  person drags the line at its left between 288 and 480 px (`kStageAsideWidth`, `kStageAsideMinWidth`,
+  `kStageAsideMaxWidth`): the preview is as tall as its width lets it, and a fixed 288 px left it too small to judge
+  a frame by, while a panel as wide as a window's would take the frames' room. The asides are one aside: a width
+  dragged on one page is every page's (`asideWidthChosen`), and the one the next page opens with
+  (`kPageAsideWidthSetting`, in the interface settings). The least stays 288 px, so the page's least size is what
+  it was. The width a person gave a panel in a window is neither applied to the aside nor overwritten by it. The
+  stacking page lays its execution options in two
   rows (`layExecutionOptionsInRows`), where the window's one row set the whole window's least width. A page arranged
   before it was ever shown is told to measure again: a layout that was never activated tells none above it of a
   change, and the page behind the one shown would otherwise keep its old least width until visited. With the list the

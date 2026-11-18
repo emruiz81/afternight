@@ -40,15 +40,16 @@ namespace ImageIntegration
 /// '- pages (the rest)  the page of the stage selected; a page with a side panel keeps it at its right as an aside
 /// ```
 ///
-/// **The list** (`components/AnStageList.h`) holds a row for each frame source and each stage of the workflow, in the
-/// order a run reaches them, and the summary last (`kStageRows`). Selecting a row shows its page; normalization and
-/// drizzle, which have no page of their own, show the stacking page, where their settings are. A page asked for
-/// (`setCurrentPage`) selects the row named as the page. The rows' marks and lines are given whole (`setRows`): the
-/// navigator shows them and decides none.
+/// **The list** (`components/AnStageList.h`) holds a row for each page - the frame sources and the workflow's pages in
+/// the order a run reaches them, and the summary last (`kStageRows`). Selecting a row shows its page, and no two rows
+/// show the same one; a page asked for (`setCurrentPage`) selects its row. The rows' marks and lines are given whole
+/// (`setRows`): the navigator shows them and decides none.
 ///
 /// **The foot** holds the job's output folder - the label, the field and the button the window's foot holds, moved
-/// here - and the acts of the project file, each a button for an act or a menu of the process's own: import, export,
-/// the recent projects, the presets and Reset Settings. A button is enabled as its act is, and says the act's tooltip.
+/// here: the button beside the label and the field under them at the foot's whole width, a path being long and the
+/// column narrow - and the acts of the project file, each a button for an act or a menu of the process's own:
+/// import, export, the recent projects, the presets and Reset Settings. A button is enabled as its act is, and says
+/// the act's tooltip.
 ///
 /// **A run** on its way is shown where the stage's page is (`showRun`): its view takes the pages' place, and no row is
 /// selected while it does. A row selected meanwhile shows its page, held so that it is looked at and not changed

@@ -43,6 +43,7 @@
 #include <QKeyEvent>
 #include <QPalette>
 #include <QStyle>
+#include <algorithm>
 #include <cmath>
 
 #include <verdigris/wobjectimpl.h>
@@ -202,6 +203,16 @@ FrameSourceTab::FrameSourceTab(FrameType type, IntegrationDataModel* model, QWid
         m_splitterUserSized = true;
         schedulePreviewPanelAspectClamp();
         schedulePersistUiState();
+        // An aside a person dragged: its width is told, for the other pages' asides to follow.
+        if (m_asideWidth > 0)
+        {
+            const int width = m_splitter->sizes().value(1);
+            if (width > 0 && width != m_asideWidth)
+            {
+                m_asideWidth = width;
+                emit asideWidthChanged(width);
+            }
+        }
     });
     root->addWidget(m_splitter);
 
@@ -617,14 +628,15 @@ QLineEdit* FrameSourceTab::searchBar() const
     return m_searchBar;
 }
 
-void FrameSourceTab::presentSidePanelAsAside(const int width)
+void FrameSourceTab::presentSidePanelAsAside(const int width, const int leastWidth, const int greatestWidth)
 {
     QWidget* const side = sidePanel();
     if (side == nullptr || width <= 0)
     {
         return;
     }
-    m_asideWidth = width;
+    m_asideLeastWidth = (std::max)(1, leastWidth);
+    m_asideGreatestWidth = (std::max)(m_asideLeastWidth, greatestWidth);
     // The panel's parts fit the aside: its scrolling part has no least width of its own, its padding is the aside's,
     // and its three quick actions stand in two rows.
     if (auto* const scroll = side->findChild<QScrollArea*>(QStringLiteral("frameSourceRightScrollArea")))
@@ -644,17 +656,23 @@ void FrameSourceTab::presentSidePanelAsAside(const int width)
     {
         m_quickActionsWidget->setNarrow(true);
     }
-    side->setFixedWidth(width);
-    // The splitter keeps the width it last gave each part and gives a part that does not stretch that width again,
-    // whatever the part's greatest: told the aside's width, it gives the frames everything else.
-    m_splitter->setSizes({(std::max)(1, m_splitter->width() - width), width});
-    // Nothing is left to drag: the handle between the two parts is a line.
-    if (QSplitterHandle* const handle = m_splitter->handle(1))
-    {
-        handle->setEnabled(false);
-        handle->setCursor(Qt::ArrowCursor);
-    }
+    // The line between the frames and the aside is dragged, between the aside's least and its greatest width.
+    side->setMinimumWidth(m_asideLeastWidth);
+    side->setMaximumWidth(m_asideGreatestWidth);
     m_splitterUserSized = true;
+    setAsideWidth(width);
+}
+
+void FrameSourceTab::setAsideWidth(const int width)
+{
+    if (m_asideLeastWidth <= 0 || m_splitter == nullptr)
+    {
+        return;
+    }
+    m_asideWidth = (std::clamp)(width, m_asideLeastWidth, m_asideGreatestWidth);
+    // The splitter keeps the width it last gave each part and gives a part that does not stretch that width again:
+    // told the aside's width, it gives the frames everything else, at whatever width the page is shown.
+    m_splitter->setSizes({(std::max)(1, m_splitter->width() - m_asideWidth), m_asideWidth});
     schedulePreviewPanelAspectClamp();
 }
 
@@ -1026,7 +1044,8 @@ void FrameSourceTab::persistUiStateNow()
     settings.beginGroup(settingsGroupFor(m_type));
     if (m_asideWidth <= 0)
     {
-        // An aside's width is the page's, not a person's: the width given in a window stays the one kept.
+        // An aside's width is one for every page's, kept by the page: the width given in a window stays the one
+        // kept here.
         settings.setValue(QStringLiteral("splitterState"), m_splitter->saveState());
     }
     if (m_tree && m_tree->header())

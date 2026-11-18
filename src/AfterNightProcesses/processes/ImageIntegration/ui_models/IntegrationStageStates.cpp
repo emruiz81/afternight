@@ -12,6 +12,7 @@
 
 #include <QCoreApplication>
 #include <QSet>
+#include <QStringList>
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -53,26 +54,29 @@ constexpr std::array kPipeline = {
     return static_cast<std::size_t>(found - kPipeline.begin());
 }
 
+/// A stage and the name its record states it by.
+struct NamedStage
+{
+    const char* name;
+    WorkflowStage stage;
+};
+
+constexpr NamedStage kStageNames[] = {
+    {"BiasStacking", WorkflowStage::Bias},
+    {"DarkStacking", WorkflowStage::Dark},
+    {"FlatStacking", WorkflowStage::Flat},
+    {"LightsCalibration", WorkflowStage::LightsCalibration},
+    {"LightsRegistration", WorkflowStage::LightsRegistration},
+    {"LightsAlignment", WorkflowStage::LightsAlignment},
+    {"LightsNormalization", WorkflowStage::LightsNormalization},
+    {"LightsDrizzle", WorkflowStage::LightsDrizzle},
+    {"LightsStacking", WorkflowStage::LightsStacking},
+};
+
 /// A stage by the name its record states it by; none for a name no stage has.
 [[nodiscard]] WorkflowStage stageNamed(const QString& name)
 {
-    struct Named
-    {
-        const char* name;
-        WorkflowStage stage;
-    };
-    static constexpr Named kNames[] = {
-        {"BiasStacking", WorkflowStage::Bias},
-        {"DarkStacking", WorkflowStage::Dark},
-        {"FlatStacking", WorkflowStage::Flat},
-        {"LightsCalibration", WorkflowStage::LightsCalibration},
-        {"LightsRegistration", WorkflowStage::LightsRegistration},
-        {"LightsAlignment", WorkflowStage::LightsAlignment},
-        {"LightsNormalization", WorkflowStage::LightsNormalization},
-        {"LightsDrizzle", WorkflowStage::LightsDrizzle},
-        {"LightsStacking", WorkflowStage::LightsStacking},
-    };
-    for (const Named& entry : kNames)
+    for (const NamedStage& entry : kStageNames)
     {
         if (name == QLatin1String(entry.name))
         {
@@ -82,62 +86,89 @@ constexpr std::array kPipeline = {
     return WorkflowStage::None;
 }
 
-/// The stages a row stands for: one, or the registration's two.
+/// A stage as a person reads it - "Drizzle" - in the words a run is said to have stopped at it.
+[[nodiscard]] QString stageTitle(const WorkflowStage stage)
+{
+    for (const NamedStage& entry : kStageNames)
+    {
+        if (entry.stage == stage)
+        {
+            return integrationStageTitle(QString::fromLatin1(entry.name));
+        }
+    }
+    return {};
+}
+
+/// The stages a row stands for, in a run's order - one for most, the registration's two, the stacking's three - and
+/// the one it is named for.
 struct RowStages
 {
-    WorkflowStage first = WorkflowStage::None;
-    WorkflowStage second = WorkflowStage::None;
+    std::array<WorkflowStage, 3> stages{WorkflowStage::None, WorkflowStage::None, WorkflowStage::None};
+    WorkflowStage own = WorkflowStage::None;
+
+    [[nodiscard]] bool any() const noexcept
+    {
+        return stages.front() != WorkflowStage::None;
+    }
 
     [[nodiscard]] bool holds(const WorkflowStage stage) const noexcept
     {
-        return stage != WorkflowStage::None && (stage == first || stage == second);
+        return stage != WorkflowStage::None && std::find(stages.begin(), stages.end(), stage) != stages.end();
     }
 
     /// The last of its stages in a run's order.
     [[nodiscard]] WorkflowStage last() const noexcept
     {
-        return second != WorkflowStage::None ? second : first;
+        WorkflowStage found = WorkflowStage::None;
+        for (const WorkflowStage stage : stages)
+        {
+            if (stage != WorkflowStage::None)
+            {
+                found = stage;
+            }
+        }
+        return found;
     }
 };
+
+[[nodiscard]] RowStages oneStage(const WorkflowStage stage) noexcept
+{
+    return {{stage, WorkflowStage::None, WorkflowStage::None}, stage};
+}
 
 [[nodiscard]] RowStages stagesOfRow(const QString& rowId)
 {
     if (rowId == QLatin1String("bias"))
     {
-        return {WorkflowStage::Bias};
+        return oneStage(WorkflowStage::Bias);
     }
     if (rowId == QLatin1String("darks"))
     {
-        return {WorkflowStage::Dark};
+        return oneStage(WorkflowStage::Dark);
     }
     if (rowId == QLatin1String("flats"))
     {
-        return {WorkflowStage::Flat};
+        return oneStage(WorkflowStage::Flat);
     }
     if (rowId == QLatin1String("calibration"))
     {
-        return {WorkflowStage::LightsCalibration};
+        return oneStage(WorkflowStage::LightsCalibration);
     }
     if (rowId == QLatin1String("registration"))
     {
-        return {WorkflowStage::LightsRegistration, WorkflowStage::LightsAlignment};
+        return {{WorkflowStage::LightsRegistration, WorkflowStage::LightsAlignment, WorkflowStage::None},
+                WorkflowStage::LightsRegistration};
     }
-    if (rowId == QLatin1String("normalization"))
-    {
-        return {WorkflowStage::LightsNormalization};
-    }
-    if (rowId == QLatin1String("drizzle"))
-    {
-        return {WorkflowStage::LightsDrizzle};
-    }
+    // The normalization and the drizzle have no page of their own: their settings are the stacking page's.
     if (rowId == QLatin1String("stacking"))
     {
-        return {WorkflowStage::LightsStacking};
+        return {{WorkflowStage::LightsNormalization, WorkflowStage::LightsDrizzle, WorkflowStage::LightsStacking},
+                WorkflowStage::LightsStacking};
     }
     return {};
 }
 
-/// How much a standing asks of a person: the one that asks most stands for a row of two stages.
+/// How much a standing asks of a person: the one that asks most stands for a row of several stages.
 [[nodiscard]] int weight(const StageStanding standing) noexcept
 {
     switch (standing)
@@ -156,13 +187,20 @@ struct RowStages
 
 [[nodiscard]] StageStanding standingOf(const StageStandings& standings, const RowStages& stages)
 {
-    const StageStanding first = standings.of(stages.first);
-    if (stages.second == WorkflowStage::None)
+    StageStanding gravest = StageStanding::Off;
+    for (const WorkflowStage stage : stages.stages)
     {
-        return first;
+        if (stage == WorkflowStage::None)
+        {
+            continue;
+        }
+        const StageStanding standing = standings.of(stage);
+        if (weight(standing) > weight(gravest))
+        {
+            gravest = standing;
+        }
     }
-    const StageStanding second = standings.of(stages.second);
-    return weight(second) > weight(first) ? second : first;
+    return gravest;
 }
 
 /// Whether a manifest's job runs a stage.
@@ -180,7 +218,10 @@ struct RowStages
     case WorkflowStage::Flat:
         return hasGroups(manifest.flatStage);
     case WorkflowStage::LightsCalibration:
-        return std::any_of(manifest.lightsCalibration.begin(), manifest.lightsCalibration.end(),
+        // A stage only where the calibrated lights are written: calibrated in memory, as they are read, they are
+        // no stage's product, and a run has no such stage.
+        return manifest.stageSequence.contains(QStringLiteral("LightsCalibration")) &&
+               std::any_of(manifest.lightsCalibration.begin(), manifest.lightsCalibration.end(),
                            [](const WorkflowManifest::LightsCalibrationParams& light) { return light.calibrates(); });
     case WorkflowStage::LightsRegistration:
         return !manifest.registrationGroups.empty();
@@ -221,14 +262,37 @@ using ChangeType = ManifestDiff::CalibrationGroupChange::ChangeType;
     return rhs.isEmpty() ? lhs : lhs + QStringLiteral(" · ") + rhs;
 }
 
+/// Two paragraphs of a tooltip, or the one there is.
+[[nodiscard]] QString paragraphs(const QString& first, const QString& second)
+{
+    if (first.isEmpty())
+    {
+        return second;
+    }
+    return second.isEmpty() ? first : first + QStringLiteral("\n\n") + second;
+}
+
 /// What a row's state adds in a sentence, with its page's issues spelled out under it.
 [[nodiscard]] QString toolTipFor(const QString& said, const StagePageIssues* issues)
 {
-    if (issues == nullptr || issues->toolTip.isEmpty())
-    {
-        return said;
+    return paragraphs(said, issues != nullptr ? issues->toolTip : QString());
+}
+
+/// What each stage of the stacking row says, one a line: "Drizzle: 2x - 1 group", "Normalization: off".
+[[nodiscard]] QString stackingStagesSaid(const StageRunFacts& run)
+{
+    const auto groups = [](const int count) { return counted(count, "1 group", "%1 groups"); };
+    const auto said = [](const WorkflowStage stage, const QString& what) {
+        return translated("%1: %2").arg(stageTitle(stage), what);
+    };
+    return QStringList{
+        said(WorkflowStage::LightsNormalization,
+             run.normalizedGroups <= 0 ? translated("off") : joined(run.normalization, groups(run.normalizedGroups))),
+        said(WorkflowStage::LightsDrizzle,
+             run.drizzledGroups <= 0 ? translated("off") : joined(run.drizzle, groups(run.drizzledGroups))),
+        said(WorkflowStage::LightsStacking, joined(groups(run.integrationGroups), run.stackMethod)),
     }
-    return said.isEmpty() ? issues->toolTip : said + QStringLiteral("\n\n") + issues->toolTip;
+        .join(QLatin1Char('\n'));
 }
 
 /// What a row is resolved from.
@@ -359,8 +423,6 @@ QString stageRowTitle(const QString& rowId)
         {"lights", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Lights")},
         {"calibration", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Calibration")},
         {"registration", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Registration")},
-        {"normalization", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Normalization")},
-        {"drizzle", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Drizzle")},
         {"stacking", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Stacking")},
         {"summary", QT_TRANSLATE_NOOP("ImageIntegration::IntegrationStageStates", "Summary")},
     };
@@ -522,6 +584,7 @@ StageRunFacts stageRunFacts(const WorkflowManifest& current, const std::optional
     facts.calibratedLights = static_cast<int>(
         std::count_if(current.lightsCalibration.begin(), current.lightsCalibration.end(),
                       [](const WorkflowManifest::LightsCalibrationParams& light) { return light.calibrates(); }));
+    facts.calibrationInMemory = facts.calibratedLights > 0 && !runsStage(current, WorkflowStage::LightsCalibration);
     facts.registrationGroups = static_cast<int>(current.registrationGroups.size());
     facts.integrationGroups = static_cast<int>(current.integrationGroups.size());
 
@@ -699,11 +762,13 @@ std::vector<StageRow> integrationStageRows(const StageModelFacts& model, const S
         RowInput input;
         input.issues = issues;
         input.runningHere = running && stages.holds(progress->currentStage);
-        input.passedByTheRun = running && stages.first != WorkflowStage::None && pipelineIndex(stages.last()) < runAt;
+        input.passedByTheRun = running && stages.any() && pipelineIndex(stages.last()) < runAt;
         input.failedHere = lastFailed && stages.holds(lastStoppedAt);
         input.cancelledHere = lastCancelled && stages.holds(lastStoppedAt);
 
         QString line;
+        // What the row adds to its state when it is pointed at.
+        QString detail;
         if (page < kFrameSourcePageCount)
         {
             const int frames = model.frames[page];
@@ -722,12 +787,16 @@ std::vector<StageRow> integrationStageRows(const StageModelFacts& model, const S
                 }
                 if (spec.page == StagePage::Lights)
                 {
-                    // The lights are what a run takes: done once a run that succeeded registered them as they are.
-                    input.standing =
-                        run.known && run.standings.of(WorkflowStage::LightsRegistration) == StageStanding::Current
-                            ? StageStanding::Current
-                            : StageStanding::NeverRun;
-                    input.passedByTheRun = running && pipelineIndex(WorkflowStage::LightsRegistration) < runAt;
+                    // The lights are what a run takes: done once a run that succeeded took them as they are, at
+                    // the first stage that reads them - their calibration, or their registration where the job
+                    // calibrates none. A later stage would leave the row waiting behind the calibration's.
+                    const WorkflowStage taken = run.standings.of(WorkflowStage::LightsCalibration) != StageStanding::Off
+                                                    ? WorkflowStage::LightsCalibration
+                                                    : WorkflowStage::LightsRegistration;
+                    input.standing = run.known && run.standings.of(taken) == StageStanding::Current
+                                         ? StageStanding::Current
+                                         : StageStanding::NeverRun;
+                    input.passedByTheRun = running && pipelineIndex(taken) < runAt;
                 }
                 else
                 {
@@ -752,6 +821,14 @@ std::vector<StageRow> integrationStageRows(const StageModelFacts& model, const S
                 {
                     line = translated("no masters matched");
                 }
+                else if (run.calibrationInMemory)
+                {
+                    // No stage of a run: the row says what is calibrated and where, and has no state to show.
+                    line = joined(translated("%1 of %2").arg(run.calibratedLights).arg(model.includedLights),
+                                  translated("in memory"));
+                    detail = translated("Calibrated in memory as each light is read: no calibrated copy is written, "
+                                        "so a run has no calibration stage.");
+                }
                 else
                 {
                     line = translated("%1 of %2 lights").arg(run.calibratedLights).arg(model.includedLights);
@@ -769,24 +846,6 @@ std::vector<StageRow> integrationStageRows(const StageModelFacts& model, const S
                                   counted(model.includedLights, "1 frame", "%1 frames"));
                 }
             }
-            else if (id == QLatin1String("normalization"))
-            {
-                if (run.known)
-                {
-                    line = run.normalizedGroups <= 0
-                               ? translated("off")
-                               : joined(run.normalization, counted(run.normalizedGroups, "1 group", "%1 groups"));
-                }
-            }
-            else if (id == QLatin1String("drizzle"))
-            {
-                if (run.known)
-                {
-                    line = run.drizzledGroups <= 0
-                               ? translated("off")
-                               : joined(run.drizzle, counted(run.drizzledGroups, "1 group", "%1 groups"));
-                }
-            }
             else if (id == QLatin1String("stacking"))
             {
                 if (lights <= 0)
@@ -795,22 +854,39 @@ std::vector<StageRow> integrationStageRows(const StageModelFacts& model, const S
                 }
                 else if (run.known)
                 {
-                    line = joined(counted(run.integrationGroups, "1 group", "%1 groups"), run.stackMethod);
+                    // The groups and their method; where a group is drizzled the drizzle, in the method's place - a
+                    // line holds two of the three - with the scale when every group is drizzled at one.
+                    const QString groups = counted(run.integrationGroups, "1 group", "%1 groups");
+                    if (run.drizzledGroups <= 0)
+                    {
+                        line = joined(groups, run.stackMethod);
+                    }
+                    else if (run.drizzledGroups == run.integrationGroups && !run.drizzle.isEmpty())
+                    {
+                        line = joined(groups, translated("drizzle %1").arg(run.drizzle));
+                    }
+                    else
+                    {
+                        line = joined(groups, translated("%1 drizzled").arg(run.drizzledGroups));
+                    }
+                    detail = stackingStagesSaid(run);
                 }
             }
         }
 
         const Resolved resolved = resolve(input);
         row.status = resolved.status;
-        row.toolTip = toolTipFor(resolved.said, issues);
+        row.toolTip = toolTipFor(paragraphs(resolved.said, detail), issues);
         if (resolved.status == StageStatus::Running)
         {
             row.progress = percent(progress->stageProgress);
-            row.line = progress->totalGroups > 0
-                           ? joined(translated("running"), QStringLiteral("%1 / %2")
-                                                               .arg((std::max)(progress->currentGroup, 0))
-                                                               .arg(progress->totalGroups))
-                           : translated("running");
+            // A row of several stages names the step the run is at, unless it is the one the row is named for.
+            const QString at =
+                progress->currentStage != stages.own ? stageTitle(progress->currentStage) : translated("running");
+            row.line = progress->totalGroups > 0 ? joined(at, QStringLiteral("%1 / %2")
+                                                                  .arg((std::max)(progress->currentGroup, 0))
+                                                                  .arg(progress->totalGroups))
+                                                 : at;
         }
         else
         {

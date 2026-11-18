@@ -150,7 +150,8 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
     m_list->setAccessibleName(tr("Stages"));
     columnLayout->addWidget(m_list, 1);
 
-    // The foot: the output folder, then the project file's acts.
+    // The foot: the output folder - its label and the button that chooses it in one row, the field under them at the
+    // foot's whole width - then the project file's acts.
     m_foot = new QWidget(m_column);
     m_foot->setObjectName(QStringLiteral("integrationStageFoot"));
     auto* footLayout = new QVBoxLayout(m_foot);
@@ -158,21 +159,12 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
                     parts::kStageColumnGap);
     auto* output = new QVBoxLayout();
     keepItsOwnSizes(output, 0, 0, 0, 0, parts::kStageColumnFootGap);
+    auto* outputRow = new QHBoxLayout();
+    keepItsOwnSizes(outputRow, 0, 0, 0, 0, parts::kStageColumnFootGap);
     if (foot.outputLabel != nullptr)
     {
         foot.outputLabel->setParent(m_foot);
-        output->addWidget(foot.outputLabel);
-    }
-    auto* outputRow = new QHBoxLayout();
-    keepItsOwnSizes(outputRow, 0, 0, 0, 0, parts::kStageColumnFootGap);
-    if (foot.outputEdit != nullptr)
-    {
-        foot.outputEdit->setParent(m_foot);
-        outputRow->addWidget(foot.outputEdit, 1);
-        if (foot.outputLabel != nullptr)
-        {
-            foot.outputLabel->setBuddy(foot.outputEdit);
-        }
+        outputRow->addWidget(foot.outputLabel, 1);
     }
     if (foot.outputBrowse != nullptr)
     {
@@ -180,6 +172,15 @@ StageListNavigator::StageListNavigator(const std::array<QWidget*, kStagePageCoun
         outputRow->addWidget(foot.outputBrowse);
     }
     output->addLayout(outputRow);
+    if (foot.outputEdit != nullptr)
+    {
+        foot.outputEdit->setParent(m_foot);
+        output->addWidget(foot.outputEdit);
+        if (foot.outputLabel != nullptr)
+        {
+            foot.outputLabel->setBuddy(foot.outputEdit);
+        }
+    }
     footLayout->addLayout(output);
 
     auto* acts = new QGridLayout();
@@ -294,7 +295,7 @@ void StageListNavigator::setCurrentPage(const StagePage page)
     {
         return;
     }
-    // A row that shows the page already keeps the selection: normalization and drizzle show the stacking page.
+    // The page's row is selected, and its selection shows the page.
     if (stagePageOfRow(m_list->selectedId()) != page)
     {
         m_list->setSelectedId(stageRowOfPage(page));

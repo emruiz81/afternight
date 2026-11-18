@@ -12,7 +12,9 @@
 
 #include "Test_ImageIntegration/ui/IntegrationPageCase.h"
 
+#include "app/ApplicationStorage.h"
 #include "components/AnStageList.h"
+#include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "processes/ImageIntegration/tabs/CalibrationTab.h"
 #include "processes/ImageIntegration/tabs/FrameSourceTab.h"
@@ -29,11 +31,14 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QScrollArea>
+#include <QSettings>
 #include <QSignalSpy>
+#include <QSplitter>
 #include <QTabWidget>
 #include <QTemporaryDir>
 
@@ -180,6 +185,30 @@ struct RecordedPage
     return lines.join(QLatin1Char('\n')).toStdString();
 }
 
+/// Drags a splitter's handle sideways by a number of pixels, as the pointer does: pressed on it, moved, let go.
+void drag(QSplitterHandle& handle, const int dx)
+{
+    const QPoint from = handle.rect().center();
+    const QPoint fromGlobal = handle.mapToGlobal(from);
+    const QPoint toGlobal = fromGlobal + QPoint(dx, 0);
+    QMouseEvent press(QEvent::MouseButtonPress, from, fromGlobal, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(&handle, &press);
+    QMouseEvent move(QEvent::MouseMove, handle.mapFromGlobal(toGlobal), toGlobal, Qt::NoButton, Qt::LeftButton,
+                     Qt::NoModifier);
+    QApplication::sendEvent(&handle, &move);
+    QMouseEvent release(QEvent::MouseButtonRelease, handle.mapFromGlobal(toGlobal), toGlobal, Qt::LeftButton,
+                        Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(&handle, &release);
+    pump();
+}
+
+/// Forgets the width a person gave the aside, so that a page opens with its own.
+void forgetTheAsideWidth()
+{
+    QSettings settings = an::ui::applicationSettings();
+    settings.remove(QString::fromLatin1(ImageIntegration::kPageAsideWidthSetting));
+}
+
 /// The cases of the stage list.
 class StageList : public IntegrationPageCase
 {
@@ -218,8 +247,7 @@ protected:
 } // namespace
 
 // The record holds the pages the window's tabs reach, and the list on a page reaches the same ones - the very widgets
-// the tabs held - and no other: a row for each, two more for the stages of the workflow that have no page of their
-// own, which show the stacking page.
+// the tabs held - and no other: a row for each, and no page shown by two rows.
 TEST_F(StageList, HoldsEveryTabPage)
 {
     const std::vector<RecordedPage> recorded = recordedPages();
@@ -279,10 +307,10 @@ TEST_F(StageList, HoldsEveryTabPage)
     {
         titles.append(row.title);
     }
-    EXPECT_EQ(titles, (QStringList{QStringLiteral("Bias"), QStringLiteral("Darks"), QStringLiteral("Flats"),
-                                   QStringLiteral("Lights"), QStringLiteral("Calibration"),
-                                   QStringLiteral("Registration"), QStringLiteral("Normalization"),
-                                   QStringLiteral("Drizzle"), QStringLiteral("Stacking"), QStringLiteral("Summary")}));
+    EXPECT_EQ(titles,
+              (QStringList{QStringLiteral("Bias"), QStringLiteral("Darks"), QStringLiteral("Flats"),
+                           QStringLiteral("Lights"), QStringLiteral("Calibration"), QStringLiteral("Registration"),
+                           QStringLiteral("Stacking"), QStringLiteral("Summary")}));
 
     std::vector<RecordedPage> reached;
     QList<QWidget*> reachedWidgets;
@@ -293,12 +321,14 @@ TEST_F(StageList, HoldsEveryTabPage)
         QWidget* const page = list->page(list->currentPage());
         ASSERT_NE(page, nullptr) << row.id.toStdString();
         EXPECT_TRUE(page->isVisibleTo(&process)) << row.id.toStdString() << " shows its page";
+        EXPECT_FALSE(reachedWidgets.contains(page)) << row.id.toStdString() << " shows a page another row shows";
         if (!reachedWidgets.contains(page))
         {
             reachedWidgets.append(page);
         }
     }
-    ASSERT_EQ(reachedWidgets.size(), ImageIntegration::kStagePageCount) << "ten rows reach the eight pages";
+    ASSERT_EQ(shown.size(), static_cast<std::size_t>(ImageIntegration::kStagePageCount)) << "a row for each page";
+    ASSERT_EQ(reachedWidgets.size(), ImageIntegration::kStagePageCount) << "eight rows reach the eight pages";
     for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
     {
         QWidget* const widget = list->page(static_cast<StagePage>(page));
@@ -311,12 +341,6 @@ TEST_F(StageList, HoldsEveryTabPage)
     EXPECT_EQ(reached, recorded) << "the list reaches\n"
                                  << said(reached) << "\nand the record holds\n"
                                  << said(recorded);
-
-    // Normalization and drizzle have no page of their own: their rows show the stacking page.
-    list->list()->setSelectedId(QStringLiteral("normalization"));
-    EXPECT_EQ(list->currentPage(), StagePage::Stacking);
-    list->list()->setSelectedId(QStringLiteral("drizzle"));
-    EXPECT_EQ(list->currentPage(), StagePage::Stacking);
 }
 
 // Each row's mark and line follow the workflow: not started with nothing to do, ready once it has what it needs, done
@@ -346,7 +370,7 @@ TEST_F(StageList, StatusFollowsTheWorkflow)
             EXPECT_EQ(row->status, StageStatus::Pending) << id << "\n" << said(now);
             EXPECT_EQ(row->line, QStringLiteral("no frames")) << id;
         }
-        for (const char* id : {"calibration", "registration", "normalization", "drizzle", "stacking"})
+        for (const char* id : {"calibration", "registration", "stacking"})
         {
             const StageRow* const row = rowOf(now, id);
             ASSERT_NE(row, nullptr);
@@ -369,9 +393,37 @@ TEST_F(StageList, StatusFollowsTheWorkflow)
         EXPECT_EQ(rowOf(now, "registration")->line, QStringLiteral("1 group · 3 frames"));
         EXPECT_TRUE(rowOf(now, "stacking")->line.startsWith(QStringLiteral("1 group"))) << said(now);
         EXPECT_EQ(rowOf(now, "bias")->status, StageStatus::Pending) << "a source with no frames stays not started";
-        EXPECT_EQ(rowOf(now, "drizzle")->status, StageStatus::Pending) << said(now);
-        EXPECT_EQ(rowOf(now, "drizzle")->line, QStringLiteral("off"));
         EXPECT_FALSE(rowOf(now, "registration")->toolTip.isEmpty()) << "a row says its state in a sentence";
+        EXPECT_TRUE(rowOf(now, "stacking")->toolTip.contains(QStringLiteral("Drizzle: off")))
+            << rowOf(now, "stacking")->toolTip.toStdString();
+    }
+
+    // A group drizzled: the stacking row, which stands for the drizzle, says it - and no row of its own does.
+    {
+        ASSERT_FALSE(process.model()->integrationGroups().empty());
+        const GroupKey group = process.model()->integrationGroups().front();
+        StackingSettings plain;
+        if (const auto found = process.model()->stackingSettings(FrameType::Light).find(group);
+            found != process.model()->stackingSettings(FrameType::Light).end())
+        {
+            plain = found->second;
+        }
+        StackingSettings drizzled = plain;
+        drizzled.drizzle.enabled = true;
+        drizzled.drizzle.scale = 2.0;
+        process.model()->setStackingSettings(FrameType::Light, group, drizzled);
+        ASSERT_TRUE(pumpUntil([this]() {
+            const std::vector<StageRow> now = rows();
+            return rowOf(now, "stacking")->line == QStringLiteral("1 group · drizzle 2x");
+        })) << said(rows());
+        EXPECT_EQ(rowOf(rows(), "drizzle"), nullptr) << "the drizzle is the stacking row's";
+        EXPECT_TRUE(rowOf(rows(), "stacking")->toolTip.contains(QStringLiteral("Drizzle: 2x · 1 group")))
+            << rowOf(rows(), "stacking")->toolTip.toStdString();
+        process.model()->setStackingSettings(FrameType::Light, group, plain);
+        ASSERT_TRUE(pumpUntil([this]() {
+            const std::vector<StageRow> now = rows();
+            return !rowOf(now, "stacking")->line.contains(QStringLiteral("drizzle"));
+        })) << said(rows());
     }
 
     // Done: a run that succeeded left the manifest the job still asks for, and its record.
@@ -474,8 +526,8 @@ TEST_F(StageList, StatusFollowsTheWorkflow)
     }
 }
 
-// The Navigate menu's eight actions move the list's selection, each to the row named as its page, and so do their keys
-// inside the page; a row that shows the page already keeps the selection.
+// The Navigate menu's eight actions move the list's selection, each to the row of its page, and so do their keys
+// inside the page.
 TEST_F(StageList, NavigateActions)
 {
     ImageIntegrationProcess& process = openAsPage();
@@ -521,17 +573,15 @@ TEST_F(StageList, NavigateActions)
         EXPECT_EQ(list->currentRow(), rowsOfThePages[entry]) << "Ctrl+" << entry + 1;
     }
 
-    // A row that shows the page already keeps the selection.
-    list->list()->setSelectedId(QStringLiteral("normalization"));
-    ASSERT_EQ(list->currentPage(), StagePage::Stacking);
-    entries[static_cast<int>(StagePage::Stacking)]->trigger();
-    EXPECT_EQ(list->currentRow(), QStringLiteral("normalization"));
+    // The page shown already: asked for again, nothing is told.
+    const qsizetype toldBefore = told.count();
     entries[static_cast<int>(StagePage::Summary)]->trigger();
     EXPECT_EQ(list->currentRow(), QStringLiteral("summary"));
+    EXPECT_EQ(told.count(), toldBefore);
 }
 
-// The keyboard moves the selection as in a list - Down, Up, Home, End - and each row shows its page; the rows that
-// share the stacking page change the selection and not the page.
+// The keyboard moves the selection as in a list - Down, Up, Home, End - and each row shows its page: every move to
+// another row is a move to another page.
 TEST_F(StageList, Keyboard)
 {
     ImageIntegrationProcess& process = openAsPage();
@@ -559,19 +609,19 @@ TEST_F(StageList, Keyboard)
     list->list()->setSelectedId(QStringLiteral("registration"));
     QSignalSpy told(list, &StageNavigator::currentPageChanged);
     QTest::keyClick(rows, Qt::Key_Down);
-    EXPECT_EQ(list->currentRow(), QStringLiteral("normalization"));
-    EXPECT_EQ(list->currentPage(), StagePage::Stacking);
-    QTest::keyClick(rows, Qt::Key_Down);
-    EXPECT_EQ(list->currentRow(), QStringLiteral("drizzle"));
-    QTest::keyClick(rows, Qt::Key_Down);
     EXPECT_EQ(list->currentRow(), QStringLiteral("stacking"));
     EXPECT_EQ(list->currentPage(), StagePage::Stacking);
-    EXPECT_EQ(told.count(), 1) << "three rows, one page";
+    EXPECT_TRUE(list->page(StagePage::Stacking)->isVisibleTo(&process));
+    QTest::keyClick(rows, Qt::Key_Down);
+    EXPECT_EQ(list->currentRow(), QStringLiteral("summary"));
+    EXPECT_EQ(list->currentPage(), StagePage::Summary);
+    EXPECT_EQ(told.count(), 2) << "two rows down, two pages";
 }
 
-// The list's foot holds the job's output folder - the field and the button the window's foot holds - and the project
-// file's acts: import, export, the recent projects, the presets and Reset Settings, each the process's own act or
-// menu, enabled as it is. The window's foot, with its Close and Reset, is not shown on a page.
+// The list's foot holds the job's output folder - the field and the button the window's foot holds, the field at the
+// foot's whole width under its label and the button, saying the whole path when pointed at - and the project file's
+// acts: import, export, the recent projects, the presets and Reset Settings, each the process's own act or menu,
+// enabled as it is. The window's foot, with its Close and Reset, is not shown on a page.
 TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
 {
     QTemporaryDir folder;
@@ -593,6 +643,20 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     process.model()->setOutputDirectory(folder.path());
     pump();
     EXPECT_EQ(QDir::cleanPath(edit->text()), QDir::cleanPath(folder.path())) << "the field is the job's output folder";
+    // A path is long and the column narrow: the field has the foot's whole width, the button that chooses the folder
+    // standing beside the label above it, and the field says the whole path when it is pointed at.
+    const auto* const label = foot->findChild<QLabel*>(QStringLiteral("label"));
+    ASSERT_NE(label, nullptr);
+    EXPECT_EQ(edit->width(), foot->width() - 2 * an::ui::parts::kStageColumnFootInset)
+        << "the field is " << edit->width() << " wide in a foot of " << foot->width();
+    const QRect buttonAt(browse->mapTo(foot, QPoint(0, 0)), browse->size());
+    const QRect labelAt(label->mapTo(foot, QPoint(0, 0)), label->size());
+    const QRect fieldAt(edit->mapTo(foot, QPoint(0, 0)), edit->size());
+    EXPECT_LE(buttonAt.bottom(), fieldAt.top()) << "the button is above the field";
+    EXPECT_LE(labelAt.bottom(), fieldAt.top()) << "and so is the label";
+    EXPECT_GT(buttonAt.left(), labelAt.left()) << "the button at the label's right";
+    EXPECT_TRUE(buttonAt.top() <= labelAt.bottom() && labelAt.top() <= buttonAt.bottom()) << "in the label's row";
+    EXPECT_EQ(edit->toolTip(), QDir::toNativeSeparators(folder.path()));
     const auto* const windowsFoot = process.findChild<QWidget*>(QStringLiteral("bottomActionBar"));
     ASSERT_NE(windowsFoot, nullptr);
     EXPECT_FALSE(windowsFoot->isVisibleTo(&process)) << "Close and Reset are the header's and the list's foot's";
@@ -653,8 +717,9 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     EXPECT_TRUE(offered.contains(QStringLiteral("Save Preset..."))) << offered.join(QStringLiteral(", ")).toStdString();
 }
 
-// On a page a side panel is an aside of a fixed width - the frame pages' and the calibration's - and the stacking
-// page's execution options stand in two rows; in a window a person sizes the panels and the options stand in one.
+// On a page a side panel is an aside - the frame pages' and the calibration's - that opens at the aside's width, and
+// the stacking page's execution options stand in two rows; in a window the panels keep their own widths and the
+// options stand in one.
 TEST_F(StageList, ASidePanelIsAnAsideAndTheStackingOptionsStandInTwoRows)
 {
     const auto optionsAreInTwoRows = [](const ImageIntegrationProcess& process) {
@@ -677,6 +742,7 @@ TEST_F(StageList, ASidePanelIsAnAsideAndTheStackingOptionsStandInTwoRows)
         pump();
     }
 
+    forgetTheAsideWidth();
     ImageIntegrationProcess& process = openAsPage();
     StageListNavigator* const list = stages();
     ASSERT_NE(list, nullptr);
@@ -711,6 +777,89 @@ TEST_F(StageList, ASidePanelIsAnAsideAndTheStackingOptionsStandInTwoRows)
     EXPECT_GT(moved->mapTo(&process, QPoint(0, 0)).y(), first->mapTo(&process, QPoint(0, 0)).y())
         << "what the run may use of the machine stands under what it writes";
     EXPECT_EQ(moved->parentWidget(), first->parentWidget()) << "in the same card";
+}
+
+// A person sizes the aside: dragged, it is wider or narrower within its least and its greatest width, and the preview
+// it holds grows with it; the other pages' asides follow, the calibration's among them; and the width is the one the
+// page opens with next time.
+TEST_F(StageList, APersonSizesTheAsideWithinItsBoundsAndItIsKept)
+{
+    namespace parts = an::ui::parts;
+    ASSERT_LT(parts::kStageAsideMinWidth, parts::kStageAsideWidth);
+    ASSERT_LT(parts::kStageAsideWidth, parts::kStageAsideMaxWidth);
+    forgetTheAsideWidth();
+    const auto asideOf = [this](const StagePage page) -> QWidget* {
+        StageListNavigator* const list = stages();
+        list->setCurrentPage(page);
+        pump();
+        if (page == StagePage::Calibration)
+        {
+            const auto* const calibration = list->page(page)->findChild<CalibrationTab*>();
+            return calibration != nullptr ? calibration->sidePanel() : nullptr;
+        }
+        const auto* const source = list->page(page)->findChild<FrameSourceTab*>();
+        return source != nullptr ? source->sidePanel() : nullptr;
+    };
+    const auto handleOf = [](QWidget* const aside) -> QSplitterHandle* {
+        auto* const splitter = aside != nullptr ? qobject_cast<QSplitter*>(aside->parentWidget()) : nullptr;
+        return splitter != nullptr ? splitter->handle(splitter->indexOf(aside)) : nullptr;
+    };
+    {
+        openAsPage();
+        ASSERT_NE(stages(), nullptr);
+        QWidget* const lights = asideOf(StagePage::Lights);
+        ASSERT_NE(lights, nullptr);
+        ASSERT_EQ(lights->width(), parts::kStageAsideWidth) << "it opens at the aside's width";
+        QSplitterHandle* const handle = handleOf(lights);
+        ASSERT_NE(handle, nullptr);
+        ASSERT_TRUE(handle->isEnabled()) << "the line between the frames and the aside is dragged";
+
+        // Wider by what the pointer moved.
+        drag(*handle, -64);
+        EXPECT_EQ(lights->width(), parts::kStageAsideWidth + 64);
+        // The other pages' asides follow, each as it is shown.
+        for (const StagePage page : {StagePage::Bias, StagePage::Darks, StagePage::Flats, StagePage::Calibration})
+        {
+            QWidget* const other = asideOf(page);
+            ASSERT_NE(other, nullptr);
+            EXPECT_EQ(other->width(), parts::kStageAsideWidth + 64) << static_cast<int>(page);
+        }
+
+        // No wider than its greatest, no narrower than its least; and the preview grows and shrinks with it.
+        ASSERT_EQ(asideOf(StagePage::Lights), lights);
+        const auto* const source = stages()->page(StagePage::Lights)->findChild<FrameSourceTab*>();
+        ASSERT_NE(source->previewPanel(), nullptr);
+        drag(*handle, -2000);
+        EXPECT_EQ(lights->width(), parts::kStageAsideMaxWidth);
+        const int tallest = source->previewPanel()->maximumHeight();
+        drag(*handle, 2000);
+        EXPECT_EQ(lights->width(), parts::kStageAsideMinWidth);
+        EXPECT_LT(source->previewPanel()->maximumHeight(), tallest) << "the preview is as tall as its width lets it";
+
+        // The calibration's aside is dragged as the frame pages' are, and they follow it.
+        QWidget* const calibration = asideOf(StagePage::Calibration);
+        ASSERT_EQ(calibration->width(), parts::kStageAsideMinWidth);
+        QSplitterHandle* const calibrationHandle = handleOf(calibration);
+        ASSERT_NE(calibrationHandle, nullptr);
+        drag(*calibrationHandle, -32);
+        EXPECT_EQ(calibration->width(), parts::kStageAsideMinWidth + 32);
+        EXPECT_EQ(asideOf(StagePage::Lights)->width(), parts::kStageAsideMinWidth + 32);
+        delete m_process.data();
+        pump();
+    }
+
+    // The next page opens with the width it was left with.
+    {
+        openAsPage();
+        ASSERT_NE(stages(), nullptr);
+        QWidget* const lights = asideOf(StagePage::Lights);
+        ASSERT_NE(lights, nullptr);
+        EXPECT_EQ(lights->width(), parts::kStageAsideMinWidth + 32);
+        EXPECT_EQ(asideOf(StagePage::Calibration)->width(), parts::kStageAsideMinWidth + 32);
+        delete m_process.data();
+        pump();
+    }
+    forgetTheAsideWidth();
 }
 
 // The page's least size is the arranged pages' from its first show: a page that was never shown - the stacking page,

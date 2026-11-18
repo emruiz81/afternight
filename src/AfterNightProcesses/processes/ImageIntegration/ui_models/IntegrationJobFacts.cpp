@@ -5,8 +5,10 @@
 
 #include "processes/ImageIntegration/ui_models/IntegrationJobFacts.h"
 
+#include "processes/ImageIntegration/core/CometStackingMode.h"
 #include "processes/ImageIntegration/model/GroupingKeys.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
+#include "processes/ImageIntegration/model/IntegrationGroupEngine.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -18,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <unordered_map>
 
 namespace ImageIntegration
 {
@@ -143,10 +146,10 @@ IntegrationOutputEstimate estimateIntegrationOutput(const IntegrationDataModel& 
     IntegrationOutputEstimate estimate;
     // What the run writes is read from each light's size and layout, not from its file: a raw file holds one mosaic
     // plane of 12 or 16 bits, its calibrated copy that plane in 32-bit floats, and its registered copy three.
-    qint64 registeredLightBytes = 0;
-    // A stacked image or map is as large as the largest light, demosaiced.
-    qint64 largestLightBytes = 0;
     const auto frames = model.lightFrames().frames();
+    std::unordered_map<FrameId, qint64> developedBytes;
+    developedBytes.reserve(frames.size());
+    qint64 largestLightBytes = 0;
     for (const auto& frame : frames)
     {
         if (frame.excluded)
@@ -155,34 +158,75 @@ IntegrationOutputEstimate estimateIntegrationOutput(const IntegrationDataModel& 
         }
         ++estimate.includedLights;
         const LightOutputBytes bytes = lightOutputBytes(frame);
-        registeredLightBytes += bytes.developed;
+        developedBytes.emplace(frame.id, bytes.developed);
         largestLightBytes = (std::max)(largestLightBytes, bytes.developed);
         estimate.layoutAssumed = estimate.layoutAssumed || bytes.layoutAssumed;
     }
 
     const auto& groupKeys = model.integrationGroups();
     estimate.groups = (std::max<int>)(1, static_cast<int>(groupKeys.size()));
+    if (groupKeys.empty())
+    {
+        // No group yet: one stacked image, as large as the largest light.
+        estimate.stackedBytes = largestLightBytes;
+    }
 
+    // Each group is counted for what it writes: one that is drizzled does not make the others' lights weigh a
+    // drizzle, and one that keeps its registered lights does not make the others keep theirs.
+    const IntegrationGroupEngine::GroupMap members =
+        IntegrationGroupEngine().computeGroups(frames, model.lightIntegrationGroupingOptions());
     const auto& stackingSettings = model.stackingSettings(FrameType::Light);
     // A group with no settings of its own runs with the defaults, as the manifest builds it.
     const StackingSettings defaultSettings{};
-    bool anyDrizzle = false;
-    bool anyNonDrizzle = false;
     for (const auto& key : groupKeys)
     {
         const auto it = stackingSettings.find(key);
         const StackingSettings& settings = it != stackingSettings.end() ? it->second : defaultSettings;
-        anyDrizzle = anyDrizzle || settings.drizzle.enabled;
-        anyNonDrizzle = anyNonDrizzle || !settings.drizzle.enabled;
 
+        // The lights the group stacks: the included ones it was not told to leave out.
+        int lights = 0;
+        qint64 registered = 0;
+        qint64 largest = 0;
+        if (const auto group = members.find(IntegrationGroupKey{key}); group != members.end())
+        {
+            for (const FrameId& id : group->second)
+            {
+                const auto light = developedBytes.find(id);
+                if (light == developedBytes.end() || model.isFrameStackExcluded(key, id))
+                {
+                    continue;
+                }
+                ++lights;
+                registered += light->second;
+                largest = (std::max)(largest, light->second);
+            }
+        }
+
+        // A stacked image is as large as the group's largest light, demosaiced; a drizzled one as many times larger
+        // as its scale squared. A rejection map is as large as the stacked image.
+        const bool drizzled = settings.drizzle.enabled;
+        const double scale = drizzled ? (std::max)(settings.drizzle.scale, 1.0) : 1.0;
+        const qint64 stacked = static_cast<qint64>(std::llround(static_cast<double>(largest) * scale * scale));
+        estimate.stackedBytes += stacked;
         if (settings.createRejectionMaps && isAverageStackMethod(settings.stackMethod))
         {
-            estimate.rejectionMapFiles += settings.mergeRejectionMaps ? 1 : 2;
+            const int maps = settings.mergeRejectionMaps ? 1 : 2;
+            estimate.rejectionMapFiles += maps;
+            estimate.rejectionBytes += stacked * maps;
+        }
+
+        // The registered lights are written for a group that keeps them, and for a comet's, whose stack reads them.
+        // A drizzled group places its lights itself - it writes what describes where each lands, a few kilobytes,
+        // and no map of its pixels - and a group that lets its registered lights go has them warped as its stack
+        // reads them: neither writes one.
+        const bool keepsRegistered = settings.registeredOutputPolicy != RegisteredOutputPolicy::Discardable ||
+                                     usesCometStackingMode(settings.cometStackingMode);
+        if (!drizzled && keepsRegistered)
+        {
+            estimate.registeredLights += lights;
+            estimate.registeredBytes += registered;
         }
     }
-
-    estimate.stackedBytes = largestLightBytes * estimate.groups;
-    estimate.rejectionBytes = largestLightBytes * estimate.rejectionMapFiles;
 
     // The calibrated lights are written only where they are kept on disk, and never for a group that is calibrated
     // already.
@@ -208,25 +252,6 @@ IntegrationOutputEstimate estimateIntegrationOutput(const IntegrationDataModel& 
         }
     }
 
-    estimate.registeredBytes = anyNonDrizzle ? registeredLightBytes : 0;
-
-    if (anyDrizzle)
-    {
-        for (const auto& frame : frames)
-        {
-            if (frame.excluded)
-            {
-                continue;
-            }
-            const QSize dims = frame.metadata.dimensions();
-            if (dims.width() <= 0 || dims.height() <= 0)
-            {
-                continue;
-            }
-            // Pixmaps store x/y maps as 2 floats per pixel.
-            estimate.drizzlePixmapBytes += static_cast<qint64>(dims.width()) * static_cast<qint64>(dims.height()) * 8;
-        }
-    }
     return estimate;
 }
 

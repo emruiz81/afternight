@@ -19,6 +19,7 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
+#include <cstdlib>
 #include <optional>
 
 #include "processes/ImageIntegration/model/FrameId.h"
@@ -250,6 +251,33 @@ TEST_F(SummaryTabTest, ResourceStatusShowsDiskEstimateTooltipWhenOutputDirSet)
     ASSERT_TRUE(resource != nullptr);
     EXPECT_TRUE(resource->text().contains(QStringLiteral("Disk space:")));
     EXPECT_TRUE(resource->toolTip().contains(QStringLiteral("Available:")));
+}
+
+// The disk's line stands beside its icon, at the left of its row: the icon keeps its own width and the text takes
+// the rest, where two labels sharing the row left the text starting at its middle.
+TEST_F(SummaryTabTest, TheDiskLineStandsBesideItsIcon)
+{
+    QTemporaryDir temp_dir;
+    ASSERT_TRUE(temp_dir.isValid());
+    model->setOutputDirectory(temp_dir.path());
+    model->addFrames(FrameType::Light, {createLight(QDir(temp_dir.path()).filePath(QStringLiteral("light1.fit")))});
+    tab->resize(1200, 800);
+    tab->show();
+    waitForRefresh(tab);
+
+    const auto* const row = tab->findChild<QFrame*>(QStringLiteral("resourceStatusWidget"));
+    const auto* const icon = tab->findChild<QLabel*>(QStringLiteral("lblResourceStatusIcon"));
+    const auto* const text = tab->findChild<QLabel*>(QStringLiteral("lblResourceStatus"));
+    ASSERT_TRUE(row != nullptr && icon != nullptr && text != nullptr);
+    ASSERT_GT(row->width(), 600) << "a row wide enough to tell";
+    EXPECT_LE(icon->width(), 48) << "the icon keeps its own width in a row of " << row->width();
+    EXPECT_LE(text->geometry().left() - icon->geometry().right(), 24) << "the text starts beside the icon";
+    EXPECT_GE(text->geometry().right(), row->width() - 48) << "and takes the rest of the row";
+    EXPECT_TRUE(text->alignment().testFlag(Qt::AlignLeft) && text->alignment().testFlag(Qt::AlignVCenter));
+    const int iconMiddle = icon->geometry().center().y();
+    const int textMiddle = text->geometry().center().y();
+    EXPECT_LE(std::abs(iconMiddle - textMiddle), 2) << "the icon and the text share a middle line";
+    tab->hide();
 }
 
 TEST_F(SummaryTabTest, TheDiskEstimateWeighsAColourMosaicAsTheFilesTheRunWrites)
