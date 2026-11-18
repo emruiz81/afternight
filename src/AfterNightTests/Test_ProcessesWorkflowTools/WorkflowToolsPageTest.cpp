@@ -79,14 +79,14 @@ protected:
         EXPECT_EQ(page->column(), nullptr);
         EXPECT_EQ(page->canvas(), nullptr);
         EXPECT_TRUE(page->menus().isEmpty()) << "a tool has no menus of its own, so its header shows no menu button";
-        EXPECT_TRUE(tool.findChildren<QMenuBar*>().isEmpty());
+        EXPECT_TRUE(tool.template findChildren<QMenuBar*>().isEmpty());
         QWidget* const host = paged.host();
         ASSERT_NE(host, nullptr);
         EXPECT_EQ(page->page()->size(), host->size()) << "the page fills the centre";
 
         // What the window laid out is in the area: every button a person can press but the page's own Cancel.
         int inTheArea = 0;
-        for (QAbstractButton* button : tool.findChildren<QAbstractButton*>())
+        for (QAbstractButton* button : tool.template findChildren<QAbstractButton*>())
         {
             if (button == page->cancelButton() || !button->isVisibleTo(&tool))
             {
