@@ -16,11 +16,13 @@
 #include "core/ApplicationCore.h"
 #include "core/ApplicationEvents.h"
 #include "core/ShellRegistry.h"
+#include "projects/JobProjects.h"
 #include "services/DialogService.h"
 #include "services/FileDialogService.h"
 #include "services/RecentFilesModel.h"
 #include "views/ViewService.h"
 
+#include "app/JobProjects.h"
 #include "app/RuntimeStorageCoordinator.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -137,6 +139,23 @@ protected:
     std::vector<QPointer<QWidget>> m_docks;
     QSet<QWidget*> m_widgetsBefore;
 };
+
+// A job reaches the application's projects through the context, which answers what its shell offers: none in a shell
+// that offers no projects, and the core's in one that does.
+TEST_F(ApplicationContextTest, AJobReachesTheProjectsTheShellOffers)
+{
+    an::ui::IAppContext& context = *m_context;
+    EXPECT_EQ(context.getJobProjects(), nullptr);
+    EXPECT_EQ(an::ui::jobProjects(), nullptr);
+
+    an::ui::IJobProjects* const offered = &m_core.jobProjects();
+    m_shell.projects = offered;
+    EXPECT_EQ(context.getJobProjects(), offered);
+    EXPECT_EQ(an::ui::jobProjects(), offered);
+
+    m_shell.projects = nullptr;
+    EXPECT_EQ(an::ui::jobProjects(), nullptr);
+}
 
 TEST_F(ApplicationContextTest, EachServiceIsAnsweredByThePartThatHoldsIt)
 {

@@ -78,6 +78,7 @@ class OpenProcessRegistry;
 class ShellRegistry;
 class ProcessLaunchService;
 class ProcessMenuModel;
+class JobProjects;
 class ProjectHistoryBinder;
 class ProjectService;
 class RecentFilesModel;
@@ -219,6 +220,11 @@ public:
 
     /// What keeps the undo history of the open project's images in the project's folder.
     [[nodiscard]] ProjectHistoryBinder& projectHistory() noexcept;
+
+    /// What answers a job - an integration - about projects: the one that is open, one for a job that runs with none,
+    /// and what a run made. A shell that offers projects answers it to the jobs (`IShell::jobProjects`, which the
+    /// context hands on); in a shell that offers none no job asks.
+    [[nodiscard]] JobProjects& jobProjects() noexcept;
 
     // ---- The services
 

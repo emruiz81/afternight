@@ -27,7 +27,9 @@
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/TopBar.h"
 #include "controls/ImageViewControl.h"
+#include "controls/IAppContext.h"
 #include "controls/TopLevelProcessBaseControl.h"
+#include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/model/FrameMetadata.h"
@@ -385,6 +387,28 @@ TEST_F(IntegrationHub, OpenOnAJobOpensImageIntegrationOnThatSession)
     QCoreApplication::processEvents();
     EXPECT_NE(hub().jobStatusText(applicationDatabase(), QStringLiteral("Hub Pleiades")).left(7),
               QStringLiteral("Running"));
+}
+
+// Under the jobs' table a line says that a job run without a project makes one in its output folder, while the
+// settings ask for it, and is not shown when they do not.
+TEST_F(IntegrationHub, SaysThatAJobRunWithoutAProjectMakesOneWhileTheSettingsAsk)
+{
+    an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
+    const QString key = QString::fromLatin1(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS);
+    (void)settings->upsert(key, QStringLiteral("1"));
+    showTheHub();
+    EXPECT_TRUE(hub().jobsProjectLine().contains(QStringLiteral("creates one in its output folder")))
+        << hub().jobsProjectLine().toStdString();
+    const auto* const line = hub().findChild<QWidget*>(QStringLiteral("integrationJobsProjectLine"));
+    ASSERT_NE(line, nullptr);
+    EXPECT_TRUE(line->isVisible());
+
+    (void)settings->upsert(key, QStringLiteral("0"));
+    window().showHome();
+    showTheHub();
+    EXPECT_TRUE(hub().jobsProjectLine().isEmpty());
+    EXPECT_FALSE(line->isVisible());
+    (void)settings->upsert(key, QStringLiteral("1"));
 }
 
 // The jobs are searched by name or project, and shown for every project, for none, or for one: the open project's

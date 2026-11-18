@@ -12,6 +12,7 @@
 #include "core/ApplicationContext.h"
 #include "core/ApplicationSession.h"
 #include "core/IShell.h"
+#include "projects/JobProjects.h"
 #include "projects/ProjectHistoryBinder.h"
 #include "projects/ProjectService.h"
 #include "services/AppEventBus.h"
@@ -131,6 +132,9 @@ struct ApplicationCore::Impl
     // What keeps the open project's histories in its folder: after the service it reads, so it goes first.
     ProjectHistoryBinder projectHistory{projects};
 
+    // What answers a job about projects: after the service it asks, so it goes first.
+    JobProjects jobProjects{projects};
+
     IApplicationEventTarget* eventTarget = nullptr;
     IShell* shell = nullptr;
     an::ui::IEngineSessionProvider* session = nullptr;
@@ -169,6 +173,7 @@ ApplicationCore::ApplicationCore() : QObject(nullptr), m_impl(std::make_unique<I
     impl.recentProcesses.setSettings(&impl.settings);
     impl.favoriteProcesses.setSettings(&impl.settings);
     impl.projects.setSettings(&impl.settings);
+    impl.jobProjects.setSettings(&impl.settings);
 
     an::ui::RuntimeStorageCoordinator::Dependencies runtimeStorageDeps;
     runtimeStorageDeps.localDataPath = &impl.localDataPath;
@@ -369,6 +374,7 @@ void ApplicationCore::openStores()
     m_impl->commands->loadRecents();
     // So do the projects used last: they are read again from the store that is open now.
     m_impl->projects.setSettings(&m_impl->settings);
+    m_impl->jobProjects.setSettings(&m_impl->settings);
 }
 
 namespace
@@ -664,6 +670,11 @@ ProjectService& ApplicationCore::projects() noexcept
 ProjectHistoryBinder& ApplicationCore::projectHistory() noexcept
 {
     return m_impl->projectHistory;
+}
+
+JobProjects& ApplicationCore::jobProjects() noexcept
+{
+    return m_impl->jobProjects;
 }
 
 DialogService& ApplicationCore::dialogService() noexcept

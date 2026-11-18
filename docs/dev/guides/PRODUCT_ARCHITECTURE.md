@@ -1633,6 +1633,15 @@ what follows runs in a window.
   cancelled import.
 - **Closing the page is closing the window**: the session is saved at once by its autosave, the settings are stored,
   and nothing is asked - the window asks nothing either.
+- **In a project the job is the project's** ("A project for a job", under Projects). A window made while a project is
+  open keeps its session in the project's own database (`projectSessionDatabasePath`, in the folder the project keeps
+  its jobs in), and a job with no output folder yet is given one there, named as its session. A run that starts makes
+  the job the project's (`joinProjectForRun`, at each of the five places a run is launched): the open project, or the
+  one the application gives the job in its output folder. The session is moved into the project's database
+  (`moveSessionInto`) - saved there, removed from the database it was in, so the hub lists the job once, with its
+  project - under a name of its own when the project already holds another job of its name that writes elsewhere; and
+  when the run ends its masters and stacked images are recorded as the project's images (`recordRunOutputs`). The
+  output folder is not changed by any of it: a manifest prepared before the project was made is the one that runs.
 - **A run is shown in the page.** What follows a run is one widget, `WorkflowRunView`
   (`widgets/WorkflowRunView.h`): the stages the run goes through as a list (`AnStageList`) whose stage on its way
   carries its progress, the group it is at and, under its line, the parts of what it does to that group as the run
@@ -1752,8 +1761,9 @@ the geometry, the Session Console's visibility, a theme change), `IViewHost` (wh
 a view the user asked for takes the user to it, one a process made leaves the place on screen to the shell),
 `IStatusDisplay`, and `ShellDescriptor`, what the application knows of a shell before it makes one - its id, its
 display name, the style profile it is drawn in (`StyleProfile`, `theme/StyleProfile.h`: put in force before the first
-widget exists, as `THEME_SYSTEM.md` says under "Profiles") and the function that makes it. The contract names the views, the dock library's main window and the
-process presenter by declaration only, so a unit that includes it reaches no widget header through it.
+widget exists, as `THEME_SYSTEM.md` says under "Profiles") and the function that makes it. The contract names the views, the dock library's main window, the
+process presenter and the projects a job reaches (`IShell::jobProjects`, null in a shell that offers none) by
+declaration only, so a unit that includes it reaches no widget header through it.
 
 `ShellRegistry` holds the descriptors of the shells one run can make, in the order they were registered; the
 application owns one as a local object, never a global. An id is a lowercase word (`classic`, `observatory`),
@@ -1950,8 +1960,9 @@ a shell, and naming no window: the settings, the process settings, the temporary
 thumbnails, the output intents, the RAW policy and the session (`ApplicationCore::setEngineSessionProvider`) are the
 core's; the messages and the file dialogs are its `DialogService` and `FileDialogService`; the listeners, the recent
 files and the open process windows its `AppEventBus`, `RecentFilesModel` and `OpenProcessRegistry`; the view factory,
-registry and manager its `ViewService`; the status line is the shell's `IStatusDisplay`, and the default parent and the
-process presenter (`IAppContext::getProcessPresenter`, null where every process is a window) are the shell's; the
+registry and manager its `ViewService`; the status line is the shell's `IStatusDisplay`, and the default parent, the
+process presenter (`IAppContext::getProcessPresenter`, null where every process is a window) and the projects a job
+reaches (`IAppContext::getJobProjects`, null in a shell that offers none) are the shell's; the
 state of the actions is the core's `ActionStateCoordinator`. What is still a window's - the theme it applies, the
 recent and dropped files it opens - reaches it through the `Dependencies` the context is handed.
 
@@ -2396,7 +2407,38 @@ the view that has it open or, with none, in the folder on a worker.
 
 **Storage** (`ProjectService::storageReport`) is measured on the thread pool and told on the GUI thread: each
 image's history with its steps, the histories set aside, the history folders no image names, the integration data,
-the rest of the folder and what is free on its drive.
+the frames a run can make again, the rest of the folder and what is free on its drive. The frames a run can make
+again are the folders `kIntermediateFrameFolders` names - calibrated, corrected and registered lights - at any depth
+of the jobs' folders, and `cleanIntermediateFrames` removes those folders and nothing else, on the thread pool, and
+tells the bytes of the files it removed: one enumeration (`measureJobs`) feeds the report and the clean, so what is
+said to be freed is what is freed.
+
+**A project for a job** (`projects/JobProjects.h`, the core's `ApplicationCore::jobProjects()`; `app/JobProjects.h` in
+Controls). An integration reaches the application's projects through one interface of Controls, `an::ui::IJobProjects`,
+which the application context answers (`IAppContext::getJobProjects`, read through `an::ui::jobProjects()`) with what
+its shell offers (`IShell::jobProjects`): the core's `JobProjects` in the Observatory shell while its window lives, and
+nothing in the classic shell and in the extension hosts, where a job runs as it always has. It is a member of the
+context, as the process presenter is, and no state of its own: a shell that offers no projects answers none, and so
+does a context that says nothing. The processes library includes no shell core and knows nothing of how projects are
+kept. `JobProjects` answers the interface from the project service:
+
+- **The open project**, as a job sees it: its folder, its name and the folder it keeps its jobs in (`kProjectIntegrationFolder`).
+- **A project for a job that runs with none open** (`projectForJob`), when the settings ask for it
+  (`projects/createForIntegrationJobs`, on unless they say otherwise): the job's output folder becomes a project -
+  `ProjectService::createInFolder`, which puts the document and the project's folders beside whatever the folder
+  holds and touches nothing of it - named as the folder, its origin an integration job. A folder gets one project: one
+  that is a project already is opened, as Open Project opens it. With the setting off, with a project open, or where
+  the folder cannot hold a project - said as any refusal is - the job gets none and runs outside any project.
+- **What a run made**: the job is recorded in the project's document by the name of its session and the folder it
+  writes to (`ProjectService::addIntegration`), and its masters and stacked images as the project's images.
+
+A project made of a job's output folder holds that job's files in its own folder, so its storage counts them: what
+lies there that is not the project's own - its document, its lock, its notes, its history, workspaces, thumbnails and
+integration folders - is the job's, its frames a run can make again counted apart; and a folder of the project's
+history folder that holds a run's manifest is that job's archive of a run, which the job keeps under the same name
+(`kProjectHistoryFolder`), and not an image's undo history. The Summary page, for its part, lists as a run only a
+folder that holds a run's manifest, so an image's history beside the archives is no run there. A project a person
+made holds its jobs in its integration folder alone.
 
 **In the Observatory window** `ProjectFlows` connects the shell's five project actions - New Project..., Open
 Project..., Switch Project..., Close Project and Project Settings..., the window's own, so the classic shell's records
@@ -2459,7 +2501,10 @@ docked in the workspaces while a project is open; the task presenter's follows o
 the others, so it cannot be shared. The storage is measured on the thread pool (`storageReport`, whose report now tells
 the frames a run makes on its way - the folders `kIntermediateFrameFolders` names - from the masters it keeps, and says
 it was not measured on the GUI thread), and the images' pictures, sizes and dates are read off the GUI thread as Home's
-tiles are. The notes are the project's notes file (`kProjectNotesFileName`), written a moment after the last keystroke and when the page goes. The Integrations
+tiles are. `Clean intermediate files...`, on the Storage card, is offered while the storage shown counts such frames:
+the window asks first, saying what is freed - the report's own figure - and then has the service remove them
+(`ObservatoryWindow::cleanIntermediateFiles`); nothing is removed while an integration runs, which reads and writes
+such frames. The notes are the project's notes file (`kProjectNotesFileName`), written a moment after the last keystroke and when the page goes. The Integrations
 card lists the jobs of the project's own database from the window's `IntegrationJobsModel`.
 
 **A heavy history asks once.** As a project opens, its storage is measured; when its undo history is over

@@ -1854,6 +1854,8 @@ sources Test_ShellCore
     header   src/AfterNightControls/app/FilePolicies.h
     header   src/AfterNightControls/controls/ImageHistoryIndex.h
     header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
+    header   src/AfterNightControls/app/JobProjects.h
+    header   src/AfterNightShellCore/projects/JobProjects.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -1867,6 +1869,7 @@ sources Test_ShellCore
     external kddockwidgets
     qt       core gui widgets
     unit     src/AfterNightTests/Test_ShellCore/ProjectSummaryTest.cpp
+    unit     src/AfterNightTests/Test_ShellCore/JobProjectsTest.cpp
 
 # The Controls seams, class engine: the one Controls suite that compiles Controls sources rather than linking the
 # library, because its cases need the classes they exercise compiled into the executable. The close-during-work cases of
@@ -5774,6 +5777,7 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/StageListTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/WorkflowRunViewTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/AutoProjectTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/WorkflowRunStandingTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_integration_job_facts.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/IntegrationStageStatesTest.cpp
@@ -6122,6 +6126,7 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/WorkflowRunView.h
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunStanding.h
     header   src/AfterNightTests/Test_ImageIntegration/workflow/FixturePipeline.h
+    header   src/AfterNightControls/app/JobProjects.h
     include  src/AfterNightTests
     include  src/AfterNightWorkflowDriver
     include  src/AfterNightProcesses

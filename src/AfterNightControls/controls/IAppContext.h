@@ -51,6 +51,7 @@ class IDialogService;
 class IEngineSessionProvider;
 class ImageDocument;
 class IInterfaceSettingsRuntimeService;
+class IJobProjects;
 class IPathMemoryService;
 class IProcessPresenter;
 class IFileDialogService;
@@ -448,6 +449,13 @@ public:
     /// What shows a process as a page of the main window rather than a window of its own; null where every process
     /// is a window, which is so unless a context says otherwise.
     [[nodiscard]] virtual IProcessPresenter* getProcessPresenter()
+    {
+        return nullptr;
+    }
+
+    /// What the application's projects are to a job that runs in it (`app/JobProjects.h`); null where the application
+    /// offers no projects, which is so unless a context says otherwise.
+    [[nodiscard]] virtual IJobProjects* getJobProjects()
     {
         return nullptr;
     }

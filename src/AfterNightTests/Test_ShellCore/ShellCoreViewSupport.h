@@ -68,6 +68,9 @@ public:
     /// Called as the shell is told a view went, after the call is recorded.
     std::function<void(ImageViewControl&)> onViewRemoved;
 
+    /// The projects this shell offers to a job; none, as a shell that offers no projects.
+    an::ui::IJobProjects* projects = nullptr;
+
     /// The calls that name `view`, or that name none, in order.
     [[nodiscard]] std::vector<std::string> callsAbout(const std::string& name) const
     {
@@ -107,6 +110,10 @@ public:
     [[nodiscard]] an::ui::IProcessPresenter* processPresenter() override
     {
         return nullptr;
+    }
+    [[nodiscard]] an::ui::IJobProjects* jobProjects() override
+    {
+        return projects;
     }
     void setSessionConsoleVisible(const bool visible) override
     {

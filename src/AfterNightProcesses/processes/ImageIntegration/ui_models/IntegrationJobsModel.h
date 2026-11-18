@@ -116,6 +116,9 @@ struct RunningIntegrationJob
     [[nodiscard]] bool operator==(const RunningIntegrationJob&) const = default;
 };
 
+/// The session database of a project, in the folder the project keeps its jobs in.
+[[nodiscard]] AFTERNIGHTPROCESSES_API QString projectSessionDatabasePath(const QString& jobsFolder);
+
 /// Whether two paths name the same session database.
 [[nodiscard]] AFTERNIGHTPROCESSES_API bool sameSessionDatabase(const QString& lhs, const QString& rhs);
 

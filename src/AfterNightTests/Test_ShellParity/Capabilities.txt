@@ -482,13 +482,13 @@ capability integration.history
     title        Run history and session notes
     shared       SummaryTabActions.RunHistoryActionsEmitIntentSignals, SummaryDashboard.RunHistoryReadsFromHistoryDir, SummaryDashboard.SessionNotesPersistToOutputDir
     classic
-    observatory  pending
+    observatory  IntegrationPage.TheSummaryListsTheJobsRunsAndKeepsItsNotesWithTheJob
 
 capability integration.project-files
     title        Project import, export, recents, presets, Reset Settings
     shared       KeyboardActionsTest.ProjectMenuHasExpectedActionsAndTooltips, ProjectManager.TracksRecentProjects, PresetManagerTest.CanLoadPreset
     classic
-    observatory  IntegrationPage.TheListsFootHoldsTheProjectFile, StageList.TheFootHoldsTheOutputFolderAndTheProjectFilesActs
+    observatory  IntegrationPage.TheListsFootHoldsTheProjectFile, StageList.TheFootHoldsTheOutputFolderAndTheProjectFilesActs, IntegrationPersistence.PathsComeFromTheProject
 
 capability integration.lite
     title        Image Integration Lite
@@ -622,15 +622,15 @@ capability new.workspaces
 
 capability new.projects
     title        Projects
-    shared       ProjectServiceCase.CreateMakesTheFoldersLayoutUnderTheRoot, ProjectDocument.RoundTrip, NewProjectDialog.ANonEmptyFolderIsRefusedAndAnExistingProjectIsOfferedToOpen, ProjectHistory.ReopenShowsTheFileWithTheSavedStepCurrent, ProjectHistory.AnImageWithNoFileJoinsAtItsFirstSave, ProjectHistory.MoveInKeepsEveryStep, ProjectServiceCase.TheWorkspacesAreRecordedWholeAndReadBack, ProjectServiceCase.TheOpenProjectIsLeftOnlyWhenItsGuardLetsItGo, DockHooksTest.ASavedLayoutPutsBackTheDockWidgetsItNamesAndAsksForTheOnesItDoesNotFind, ProjectSummaryRead.ReadsWhatAProjectsFolderHolds, CompactHistoryDialog.CompactCompactsEveryImageAsChosenAndSaysWhatWasFreed, HomeProjectsRow.ShowsTheFourMostRecentThenTheOpenProjectTile
+    shared       ProjectServiceCase.CreateMakesTheFoldersLayoutUnderTheRoot, ProjectDocument.RoundTrip, NewProjectDialog.ANonEmptyFolderIsRefusedAndAnExistingProjectIsOfferedToOpen, ProjectHistory.ReopenShowsTheFileWithTheSavedStepCurrent, ProjectHistory.AnImageWithNoFileJoinsAtItsFirstSave, ProjectHistory.MoveInKeepsEveryStep, ProjectServiceCase.TheWorkspacesAreRecordedWholeAndReadBack, ProjectServiceCase.TheOpenProjectIsLeftOnlyWhenItsGuardLetsItGo, DockHooksTest.ASavedLayoutPutsBackTheDockWidgetsItNamesAndAsksForTheOnesItDoesNotFind, ProjectSummaryRead.ReadsWhatAProjectsFolderHolds, CompactHistoryDialog.CompactCompactsEveryImageAsChosenAndSaysWhatWasFreed, HomeProjectsRow.ShowsTheFourMostRecentThenTheOpenProjectTile, JobProjectsCase.AJobRunWithNoProjectGetsOneInItsOutputFolder, JobProjectsCase.CleaningTheIntermediateFramesFreesWhatTheReportCounts, AutoProject.ARunWithNoProjectOpenAsksForOneInItsOutputFolder
     classic
-    observatory  ProjectSwitcher.NewProjectMakesAProjectTheSwitcherNamesAndFindsAgain, ProjectSwitcher.ALockHeldElsewhereIsSaidNamingItsHolderAndOpenAnywayTakesIt, ProjectSwitcher.TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo, ProjectLayout.RoundTrip, ProjectLayout.MissingImageIsReportedAndLeftOut, ProjectLayout.AProjectClosesWithItsImagesAndOneKeptKeepsItOpen, ProjectLayoutAtExit.TheArrangementIsKeptAtExitAndIsBackAtTheNextStart, ProjectHome.IsHomeWhileAProjectIsOpen, ProjectHome.TheWorkspacesAreTilesOfTheirArrangement, Storage.TheCompactHistoryDialogFreesWhatItSays, Home.ProjectsRowShowsTheFourUsedLastAndACardOpensItsProject
+    observatory  ProjectSwitcher.NewProjectMakesAProjectTheSwitcherNamesAndFindsAgain, ProjectSwitcher.ALockHeldElsewhereIsSaidNamingItsHolderAndOpenAnywayTakesIt, ProjectSwitcher.TheOpenImagesJoinTheNewProjectAndAnImageOpenedLaterJoinsToo, ProjectLayout.RoundTrip, ProjectLayout.MissingImageIsReportedAndLeftOut, ProjectLayout.AProjectClosesWithItsImagesAndOneKeptKeepsItOpen, ProjectLayoutAtExit.TheArrangementIsKeptAtExitAndIsBackAtTheNextStart, ProjectHome.IsHomeWhileAProjectIsOpen, ProjectHome.TheWorkspacesAreTilesOfTheirArrangement, Storage.TheCompactHistoryDialogFreesWhatItSays, Home.ProjectsRowShowsTheFourUsedLastAndACardOpensItsProject, IntegrationTask.ARunWithNoProjectOpenIsGivenOneInItsOutputFolder, IntegrationTask.ARunIntoAFolderThatIsAProjectUsesIt, Storage.CleanIntermediateFilesFreesWhatItSays
 
 capability new.hub
     title        The Integration hub
     shared       IntegrationJobsModel.TheRowsAreTheSessionsOfEveryDatabase, IntegrationJobsModel.TheStatusIsWhatTheLastRunLeft, IntegrationJobsModel.ARunningJobIsFirst, IntegrationRunRecord.EveryEndOfARunLeavesItsRecord
     classic
-    observatory  IntegrationHub.TheRailsIntegrationPlaceShowsTheHub, IntegrationHub.ThreeWaysTheGuidedOneDisabledWithItsTag, IntegrationHub.FourSingleStepsLaunchTheirDescriptors, IntegrationHub.OpenOnAJobOpensImageIntegrationOnThatSession, IntegrationHub.TheJobsAreSearchedAndShownForAProject
+    observatory  IntegrationHub.TheRailsIntegrationPlaceShowsTheHub, IntegrationHub.ThreeWaysTheGuidedOneDisabledWithItsTag, IntegrationHub.FourSingleStepsLaunchTheirDescriptors, IntegrationHub.OpenOnAJobOpensImageIntegrationOnThatSession, IntegrationHub.TheJobsAreSearchedAndShownForAProject, IntegrationHub.SaysThatAJobRunWithoutAProjectMakesOneWhileTheSettingsAsk
 
 capability new.look
     title        Presets, tint strength, density, Night

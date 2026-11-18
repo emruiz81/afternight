@@ -16,6 +16,8 @@
 #include "processes/ImageIntegration/workflow/WorkflowManifest.h"
 #include "processes/ImageIntegration/workflow/stages/IWorkflowStage.h"
 
+#include <QDir>
+#include <QFile>
 #include <QString>
 #include <QStringList>
 
@@ -168,6 +170,70 @@ inline constexpr int kFixtureReports = 5;
     };
 }
 
+/// The file a fixture run that stacks leaves in its output folder.
+inline constexpr char kFixtureStackedFile[] = "stacked_fixture.fit";
+
+/// A stacking stage of the suites' own: one report, once the gate lets it, then a file written into the run's output
+/// folder and named in the stage's result as a stack names its master. The file holds no image: it is there to be
+/// found.
+class ScriptedStackingStage final : public IWorkflowStage
+{
+public:
+    explicit ScriptedStackingStage(std::shared_ptr<RunGate> gate) : m_gate(std::move(gate)) {}
+
+    [[nodiscard]] QString name() const override
+    {
+        return QStringLiteral("LightsStacking");
+    }
+
+    [[nodiscard]] WorkflowStage stageId() const override
+    {
+        return WorkflowStage::LightsStacking;
+    }
+
+    StageResult execute(const WorkflowManifest& manifest, CancellationToken& token, ProgressReporter& reporter) override
+    {
+        reporter.setMinimumInterval(std::chrono::milliseconds(0));
+        if (!m_gate->pass(token))
+        {
+            return StageResult::cancelled();
+        }
+        WorkflowProgress report = scriptedReport(0.5f, 1, 1, QStringLiteral("Stacking"));
+        report.currentStage = WorkflowStage::LightsStacking;
+        reporter.report(report);
+
+        IntegrationGroupResult group;
+        group.groupKey = QStringLiteral("fixture-integration");
+        group.outputFilename = QString::fromLatin1(kFixtureStackedFile);
+        group.outputPath = QDir(manifest.outputDirectory).filePath(group.outputFilename);
+        QFile stacked(group.outputPath);
+        if (!stacked.open(QIODevice::WriteOnly) || stacked.write("stack") < 0)
+        {
+            return StageResult::failure(QStringLiteral("The fixture's stacked file was not written"));
+        }
+        stacked.close();
+        group.success = true;
+        StageResult result = StageResult::success();
+        result.groupResults.push_back(std::move(group));
+        return result;
+    }
+
+private:
+    std::shared_ptr<RunGate> m_gate;
+};
+
+/// The fixture pipeline with a stack at its end: its two stages, then a stacking stage of one report that leaves
+/// `kFixtureStackedFile` in the output folder, so the run has a master to name. Six reports in all.
+[[nodiscard]] inline std::function<std::unique_ptr<WorkflowExecutor>()>
+fixturePipelineWithAStack(std::shared_ptr<RunGate> gate)
+{
+    return [gate]() {
+        std::unique_ptr<WorkflowExecutor> executor = fixturePipeline(gate)();
+        executor->addStage(std::make_unique<ScriptedStackingStage>(gate));
+        return executor;
+    };
+}
+
 /// The manifest the fixture pipeline runs: its two stages, by the names a manifest's stage sequence gives them, the
 /// folder the run leaves its record in, and a registration and a stacking group of no frame, which a run asks every
 /// manifest for.
@@ -184,8 +250,16 @@ inline constexpr int kFixtureReports = 5;
     WorkflowManifest::IntegrationGroup integration;
     integration.groupKey = IntegrationGroupKey{GroupKey{QStringLiteral("fixture-integration")}};
     integration.registrationGroupKey = registration.groupKey;
-    integration.outputFilename = QStringLiteral("stacked_fixture.fit");
+    integration.outputFilename = QString::fromLatin1(kFixtureStackedFile);
     manifest.integrationGroups.push_back(integration);
+    return manifest;
+}
+
+/// The manifest of the fixture pipeline with a stack at its end.
+[[nodiscard]] inline WorkflowManifest fixtureManifestWithAStack(const QString& outputDirectory)
+{
+    WorkflowManifest manifest = fixtureManifest(outputDirectory);
+    manifest.stageSequence.append(QStringLiteral("LightsStacking"));
     return manifest;
 }
 

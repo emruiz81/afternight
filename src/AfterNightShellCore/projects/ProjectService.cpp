@@ -159,10 +159,39 @@ void forgetViewsOf(ProjectDocument& document, const QString& imageId)
     return bytes;
 }
 
-/// What a project's folder takes on disk. For a worker: it reads the folder.
-/// The bytes of an integration folder: the intermediate frames - the folders a run makes them in, at any depth - and
-/// the rest.
-void measureIntegration(const QString& folder, std::uint64_t& kept, std::uint64_t& intermediate)
+/// Whether a folder's name is one a run keeps intermediate frames in.
+[[nodiscard]] bool isIntermediateFrameFolder(const QString& name)
+{
+    return std::any_of(ImageIntegration::Config::kIntermediateFrameFolders.begin(),
+                       ImageIntegration::Config::kIntermediateFrameFolders.end(),
+                       [&name](const char* frames) { return name == QLatin1String(frames); });
+}
+
+/// What a project's own folder holds that is the project's and no job's: its document, its lock, its notes and its
+/// folders. The integration folder is the jobs', and is gone through by itself.
+[[nodiscard]] bool isProjectsOwnEntry(const QString& name)
+{
+    for (const char* own : {kProjectFileName, kProjectLockFileName, kProjectNotesFileName, kProjectHistoryFolder,
+                            kProjectWorkspacesFolder, kProjectThumbnailsFolder, kProjectIntegrationFolder})
+    {
+        if (samePath(name, QString::fromLatin1(own)))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Whether a folder of a project's history folder is the archive of a job's run, and no image's undo history: a job
+/// whose output folder the project was made of keeps its runs' archives there, each with its manifest.
+[[nodiscard]] bool isRunArchive(const QString& directory)
+{
+    return QFileInfo::exists(QDir(directory).filePath(QStringLiteral("workflow_manifest.json")));
+}
+
+/// Goes through a jobs' folder: the folders of intermediate frames - at any depth, and not gone into - and the bytes
+/// of everything else. For a worker: it reads the folder.
+void measureIntegration(const QString& folder, std::uint64_t& kept, QStringList& intermediateFolders)
 {
     const QDir directory(folder);
     for (const QFileInfo& entry :
@@ -170,17 +199,13 @@ void measureIntegration(const QString& folder, std::uint64_t& kept, std::uint64_
     {
         if (entry.isDir() && !entry.isSymLink())
         {
-            const bool frames =
-                std::any_of(ImageIntegration::Config::kIntermediateFrameFolders.begin(),
-                            ImageIntegration::Config::kIntermediateFrameFolders.end(),
-                            [&entry](const char* name) { return entry.fileName() == QLatin1String(name); });
-            if (frames)
+            if (isIntermediateFrameFolder(entry.fileName()))
             {
-                intermediate += bytesBelow(entry.absoluteFilePath());
+                intermediateFolders.append(entry.absoluteFilePath());
             }
             else
             {
-                measureIntegration(entry.absoluteFilePath(), kept, intermediate);
+                measureIntegration(entry.absoluteFilePath(), kept, intermediateFolders);
             }
         }
         else if (entry.isFile())
@@ -190,7 +215,94 @@ void measureIntegration(const QString& folder, std::uint64_t& kept, std::uint64_
     }
 }
 
-[[nodiscard]] ProjectStorageReport measureStorage(const QString& folder, const std::vector<ProjectImage>& images)
+/// What a project's jobs keep on disk: the folders of intermediate frames, and the bytes of the rest. The jobs'
+/// folder is the project's integration folder; a project made of a job's output folder also holds that job's files in
+/// its own folder - everything there that is not the project's own - and its runs' archives in its history folder.
+struct JobsOnDisk
+{
+    std::uint64_t keptBytes = 0;
+    QStringList intermediateFolders;
+};
+
+[[nodiscard]] JobsOnDisk measureJobs(const QString& folder, const ProjectOrigin origin)
+{
+    JobsOnDisk jobs;
+    const QDir project(folder);
+    measureIntegration(project.filePath(QString::fromLatin1(kProjectIntegrationFolder)), jobs.keptBytes,
+                       jobs.intermediateFolders);
+    if (origin != ProjectOrigin::IntegrationJob)
+    {
+        return jobs;
+    }
+    for (const QFileInfo& entry :
+         project.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System))
+    {
+        if (isProjectsOwnEntry(entry.fileName()))
+        {
+            continue;
+        }
+        if (entry.isDir() && !entry.isSymLink())
+        {
+            if (isIntermediateFrameFolder(entry.fileName()))
+            {
+                jobs.intermediateFolders.append(entry.absoluteFilePath());
+            }
+            else
+            {
+                measureIntegration(entry.absoluteFilePath(), jobs.keptBytes, jobs.intermediateFolders);
+            }
+        }
+        else if (entry.isFile())
+        {
+            jobs.keptBytes += static_cast<std::uint64_t>(entry.size());
+        }
+    }
+    const QDir histories(project.filePath(QString::fromLatin1(kProjectHistoryFolder)));
+    for (const QString& name : histories.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+    {
+        if (isRunArchive(histories.filePath(name)))
+        {
+            jobs.keptBytes += bytesBelow(histories.filePath(name));
+        }
+    }
+    return jobs;
+}
+
+/// Removes the folders of intermediate frames of a project's jobs; the bytes of the files it removed. For a worker.
+[[nodiscard]] std::uint64_t removeIntermediateFrames(const QString& folder, const ProjectOrigin origin)
+{
+    std::uint64_t freed = 0;
+    for (const QString& frames : measureJobs(folder, origin).intermediateFolders)
+    {
+        QDirIterator files(frames, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
+        while (files.hasNext())
+        {
+            files.next();
+            const std::uint64_t bytes = static_cast<std::uint64_t>(files.fileInfo().size());
+            if (QFile::remove(files.filePath()))
+            {
+                freed += bytes;
+            }
+        }
+        // The folders go once they are empty; one that still holds a file that could not be removed stays.
+        QStringList folders{frames};
+        QDirIterator below(frames, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (below.hasNext())
+        {
+            folders.append(below.next());
+        }
+        std::sort(folders.begin(), folders.end(),
+                  [](const QString& left, const QString& right) { return left.size() > right.size(); });
+        for (const QString& emptied : folders)
+        {
+            (void)QDir().rmdir(emptied);
+        }
+    }
+    return freed;
+}
+
+[[nodiscard]] ProjectStorageReport measureStorage(const QString& folder, const std::vector<ProjectImage>& images,
+                                                  const ProjectOrigin origin)
 {
     ProjectStorageReport report;
     report.folder = folder;
@@ -220,13 +332,19 @@ void measureIntegration(const QString& folder, std::uint64_t& kept, std::uint64_
     const QStringList folders = histories.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
     for (const QString& name : folders)
     {
-        if (!named.contains(name))
+        // A run's archive of a job that writes to the project's own folder is the job's, counted with it below.
+        if (!named.contains(name) &&
+            !(origin == ProjectOrigin::IntegrationJob && isRunArchive(histories.filePath(name))))
         {
             report.unlistedHistoryBytes += bytesBelow(histories.filePath(name));
         }
     }
-    measureIntegration(project.filePath(QString::fromLatin1(kProjectIntegrationFolder)), report.integrationBytes,
-                       report.intermediateBytes);
+    const JobsOnDisk jobs = measureJobs(folder, origin);
+    report.integrationBytes = jobs.keptBytes;
+    for (const QString& frames : jobs.intermediateFolders)
+    {
+        report.intermediateBytes += bytesBelow(frames);
+    }
     const std::uint64_t whole = bytesBelow(folder);
     const std::uint64_t counted =
         report.historyBytes + report.unlistedHistoryBytes + report.integrationBytes + report.intermediateBytes;
@@ -520,7 +638,6 @@ bool ProjectService::isProjectFolder(const QString& folder)
 
 ProjectOutcome ProjectService::create(const ProjectCreateRequest& request)
 {
-    Impl& impl = *m_impl;
     if (!an::ui::isValidProjectName(request.name))
     {
         return refusedOutcome(ProjectRefusal::InvalidName, QString(),
@@ -547,17 +664,48 @@ ProjectOutcome ProjectService::create(const ProjectCreateRequest& request)
     case ProjectFolderState::Free:
         break;
     }
+    return makeIn(folder, request);
+}
 
-    // The folder and what it holds beside the document; what was made is removed again if the project is not.
+ProjectOutcome ProjectService::createInFolder(const QString& folder, const ProjectCreateRequest& request)
+{
+    const QString where = cleaned(folder);
+    if (where.isEmpty() || !QDir::isAbsolutePath(where) || (QFileInfo::exists(where) && !QFileInfo(where).isDir()))
+    {
+        return refusedOutcome(ProjectRefusal::InvalidLocation, where,
+                              translated("'%1' is not a folder a project can be made in.").arg(native(where)));
+    }
+    if (request.name.trimmed().isEmpty())
+    {
+        return refusedOutcome(ProjectRefusal::InvalidName, where, translated("A project needs a name."));
+    }
+    if (folderState(where) == ProjectFolderState::Project)
+    {
+        return refusedOutcome(ProjectRefusal::AlreadyAProject, where,
+                              translated("The folder '%1' is a project already.").arg(native(where)));
+    }
+    return makeIn(where, request);
+}
+
+ProjectOutcome ProjectService::makeIn(const QString& folder, const ProjectCreateRequest& request)
+{
+    Impl& impl = *m_impl;
+    // The folder and what it holds beside the document; what was made is removed again if the project is not, and
+    // what was there before is left as it was.
     const bool madeFolder = !QFileInfo::exists(folder);
-    const auto undo = [&folder, madeFolder]() {
+    const bool madeNotes = !QFileInfo::exists(QDir(folder).filePath(QString::fromLatin1(kProjectNotesFileName)));
+    const auto undo = [&folder, madeFolder, madeNotes]() {
         QDir directory(folder);
         for (const char* sub :
              {kProjectHistoryFolder, kProjectWorkspacesFolder, kProjectIntegrationFolder, kProjectThumbnailsFolder})
         {
+            // A folder that holds something - a job's own - is not empty and stays.
             (void)directory.rmdir(QString::fromLatin1(sub));
         }
-        (void)QFile::remove(directory.filePath(QString::fromLatin1(kProjectNotesFileName)));
+        if (madeNotes)
+        {
+            (void)QFile::remove(directory.filePath(QString::fromLatin1(kProjectNotesFileName)));
+        }
         (void)QFile::remove(documentPathOf(folder));
         if (madeFolder)
         {
@@ -583,6 +731,7 @@ ProjectOutcome ProjectService::create(const ProjectCreateRequest& request)
             return cannotWrite();
         }
     }
+    if (madeNotes)
     {
         QFile notes(directory.filePath(QString::fromLatin1(kProjectNotesFileName)));
         if (!notes.open(QIODevice::WriteOnly))
@@ -882,6 +1031,32 @@ QString ProjectService::locateImage(const QString& imageId)
     return moved;
 }
 
+bool ProjectService::addIntegration(const QString& name, const QString& folder)
+{
+    Impl& impl = *m_impl;
+    if (!impl.document.has_value() || name.trimmed().isEmpty())
+    {
+        return false;
+    }
+    const QString where = cleaned(folder);
+    ProjectDocument changed = *impl.document;
+    const auto known = std::find_if(changed.integrations.begin(), changed.integrations.end(),
+                                    [&name](const ProjectIntegration& job) { return job.name == name; });
+    if (known != changed.integrations.end())
+    {
+        if (samePath(known->folder, where))
+        {
+            return true;
+        }
+        known->folder = where;
+    }
+    else
+    {
+        changed.integrations.push_back(ProjectIntegration{newId(), name, where});
+    }
+    return impl.commit(std::move(changed));
+}
+
 bool ProjectService::setWorkspaces(std::vector<ProjectWorkspace> workspaces,
                                    std::vector<ProjectWorkspaceView> floatingViews)
 {
@@ -920,20 +1095,46 @@ void ProjectService::storageReport(StorageDone done) const
     const QString folder = m_impl->folder;
     std::vector<ProjectImage> images =
         m_impl->document.has_value() ? m_impl->document->images : std::vector<ProjectImage>();
+    const ProjectOrigin origin = m_impl->document.has_value() ? m_impl->document->origin : ProjectOrigin::User;
     const std::weak_ptr<bool> stillThere = m_impl->alive;
-    QThreadPool::globalInstance()->start([folder, images = std::move(images), done = std::move(done), stillThere]() {
-        auto report = std::make_shared<ProjectStorageReport>(measureStorage(folder, images));
+    QThreadPool::globalInstance()->start(
+        [folder, images = std::move(images), origin, done = std::move(done), stillThere]() {
+            auto report = std::make_shared<ProjectStorageReport>(measureStorage(folder, images, origin));
+            QCoreApplication* const application = QCoreApplication::instance();
+            if (application == nullptr)
+            {
+                return;
+            }
+            QMetaObject::invokeMethod(
+                application,
+                [report, done, stillThere]() {
+                    if (!stillThere.expired())
+                    {
+                        done(*report);
+                    }
+                },
+                Qt::QueuedConnection);
+        });
+}
+
+void ProjectService::cleanIntermediateFrames(CleanDone done) const
+{
+    const QString folder = m_impl->folder;
+    const ProjectOrigin origin = m_impl->document.has_value() ? m_impl->document->origin : ProjectOrigin::User;
+    const std::weak_ptr<bool> stillThere = m_impl->alive;
+    QThreadPool::globalInstance()->start([folder, origin, done = std::move(done), stillThere]() {
+        const std::uint64_t freed = folder.isEmpty() ? 0u : removeIntermediateFrames(folder, origin);
         QCoreApplication* const application = QCoreApplication::instance();
-        if (application == nullptr)
+        if (application == nullptr || !done)
         {
             return;
         }
         QMetaObject::invokeMethod(
             application,
-            [report, done, stillThere]() {
+            [freed, done, stillThere]() {
                 if (!stillThere.expired())
                 {
-                    done(*report);
+                    done(freed);
                 }
             },
             Qt::QueuedConnection);

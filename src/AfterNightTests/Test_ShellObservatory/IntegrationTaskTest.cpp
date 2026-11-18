@@ -6,8 +6,10 @@
 /// no window opens over the application; the task says the job it holds; its rail item carries the run's arc - how far
 /// the whole run has come - and its tooltip the step the run is at; leaving the page leaves the run running, and
 /// coming back shows it where it is; and a run that ends while another place is shown is said in the window's
-/// transient message, which offers the way to it. The runs are the suite's fixture pipeline's, which a case lets go on
-/// one report at a time.
+/// transient message, which offers the way to it. A run that starts with no project open is given one in its output
+/// folder when the settings ask for it - made there, or the one that was there, opened - the job is listed with it
+/// and what the run made are its images. The runs are the suite's fixture pipeline's, which a case lets go on one
+/// report at a time.
 
 #include "ObservatoryWindowCase.h"
 
@@ -23,6 +25,7 @@
 #include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
 #include "controls/TopLevelProcessBaseControl.h"
+#include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
@@ -31,11 +34,14 @@
 #include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
 #include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunStanding.h"
+#include "projects/ProjectService.h"
 #include "services/ProcessLaunchService.h"
 #include "tasks/TaskModel.h"
 
 #include <QAbstractButton>
 #include <QDialog>
+#include <QDir>
+#include <QFileInfo>
 #include <QPointer>
 #include <QPushButton>
 #include <QTemporaryDir>
@@ -51,7 +57,9 @@ namespace
 {
 
 using an::tests::integration::fixtureManifest;
+using an::tests::integration::fixtureManifestWithAStack;
 using an::tests::integration::fixturePipeline;
+using an::tests::integration::fixturePipelineWithAStack;
 using an::tests::integration::RunGate;
 using an::ui::observatory::IntegrationHubPage;
 using an::ui::shell::Task;
@@ -77,6 +85,8 @@ protected:
     {
         ObservatoryWindowCase::SetUp();
         forgetTheSession();
+        // A job is given no project unless a case asks for one: the cases of a run are about the run.
+        jobsGetAProject(false);
     }
 
     void TearDown() override
@@ -91,6 +101,14 @@ protected:
             (void)an::tests::app::processEventsUntil([this]() { return !m_process->runState().running(); }, kWaitMs);
         }
         ObservatoryWindowCase::TearDown();
+        settle();
+        // A project a job was given is closed, and forgotten among the ones used last.
+        (void)core().projects().close();
+        an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
+        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_RECENT), QString());
+        (void)settings->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_LAST), QString());
+        core().projects().setSettings(settings);
+        jobsGetAProject(true);
         settle();
         forgetTheSession();
         window().integrationJobs().refresh();
@@ -119,6 +137,51 @@ protected:
         IntegrationDatabase store(ImageIntegration::applicationSessionDatabasePath());
         EXPECT_TRUE(store.saveSession(QStringLiteral("last_session"), model.toJson()))
             << store.lastError().toStdString();
+    }
+
+    /// Whether the settings ask for a project in the output folder of a job that runs with none open.
+    static void jobsGetAProject(const bool asked)
+    {
+        (void)core().globalSettings()->upsert(QString::fromLatin1(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS),
+                                              asked ? QStringLiteral("1") : QStringLiteral("0"));
+    }
+
+    /// Launches Image Integration as its menu entry does, on a job that writes to the case's output folder.
+    ImageIntegrationProcess* launchOnTheOutputFolder()
+    {
+        EXPECT_TRUE(core().processLaunch().launch(IntegrationHubPage::kImageIntegration));
+        settle();
+        for (TopLevelProcessBaseControl* process : core().openProcesses().snapshot())
+        {
+            if (auto* const integration = dynamic_cast<ImageIntegrationProcess*>(process))
+            {
+                m_process = integration;
+            }
+        }
+        if (m_process.isNull())
+        {
+            ADD_FAILURE() << "Image Integration did not open";
+            return nullptr;
+        }
+        EXPECT_TRUE(m_output.isValid());
+        m_process->model()->setOutputDirectory(output());
+        settle();
+        return m_process.data();
+    }
+
+    /// Starts the fixture pipeline with a stack from the process, into the case's output folder.
+    bool runWithAStack()
+    {
+        m_gate = std::make_shared<RunGate>();
+        const bool started =
+            m_process->startRun(fixtureManifestWithAStack(output()), fixturePipelineWithAStack(m_gate));
+        settle();
+        return started;
+    }
+
+    [[nodiscard]] QString output() const
+    {
+        return QDir::cleanPath(m_output.path());
     }
 
     /// Launches Image Integration as its menu entry does and starts the fixture pipeline from it.
@@ -348,6 +411,100 @@ TEST_F(IntegrationTask, ARunStoppedFromThePageEndsAndTheTaskCloses)
     EXPECT_EQ(process->runState().phase, an::ui::ProcessRunState::Phase::Cancelled);
     EXPECT_TRUE(process->runView()->wasCancelled());
     EXPECT_TRUE(tasks().canClose(id));
+}
+
+// A run that starts with no project open is given one in its output folder: the folder is the project, named as
+// it, stating that an integration job made it; the window says so and shows it in its top bar; the job is the
+// project's, listed with it; the person stays on the task; and what the run made are the project's images.
+TEST_F(IntegrationTask, ARunWithNoProjectOpenIsGivenOneInItsOutputFolder)
+{
+    jobsGetAProject(true);
+    ImageIntegrationProcess* const process = launchOnTheOutputFolder();
+    ASSERT_NE(process, nullptr);
+    an::ui::shell::ProjectService& projects = core().projects();
+    ASSERT_FALSE(projects.isOpen());
+
+    ASSERT_TRUE(runWithAStack());
+    ASSERT_TRUE(projects.isOpen()) << "the run was given no project";
+    EXPECT_EQ(QDir::cleanPath(projects.currentFolder()), output());
+    EXPECT_EQ(projects.current()->name, QDir(output()).dirName());
+    EXPECT_EQ(projects.current()->origin, an::ui::shell::ProjectOrigin::IntegrationJob);
+    EXPECT_TRUE(window().isTaskPageShown()) << "a project made for a job takes the person nowhere";
+    EXPECT_EQ(window().shownTask(), taskId());
+    an::ui::AnSnackbar* const snackbar = window().snackbar();
+    EXPECT_TRUE(snackbar->isVisible());
+    EXPECT_TRUE(snackbar->text().contains(projects.current()->name)) << snackbar->text().toStdString();
+    EXPECT_EQ(snackbar->actionText(), QStringLiteral("Settings..."));
+
+    // The job is the project's: its session is in the project's database, and the project records it.
+    const QString database = QDir(output()).filePath(QStringLiteral("integration/") +
+                                                     QString::fromLatin1(ImageIntegration::kSessionDatabaseFileName));
+    EXPECT_TRUE(ImageIntegration::sameSessionDatabase(process->sessionDatabasePath(), database))
+        << process->sessionDatabasePath().toStdString();
+    ASSERT_EQ(projects.current()->integrations.size(), 1u);
+    EXPECT_EQ(projects.current()->integrations.front().name, process->sessionName());
+    window().integrationJobs().refresh();
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [process]() {
+            for (const ImageIntegration::IntegrationJob& job : window().integrationJobs().jobs())
+            {
+                if (job.name == process->sessionName() && job.project == core().projects().current()->name)
+                {
+                    return true;
+                }
+            }
+            return false;
+        },
+        kWaitMs))
+        << "the job is not listed with its project";
+
+    // What the run made are the project's images.
+    m_gate->open();
+    ASSERT_TRUE(ends());
+    settle();
+    ASSERT_TRUE(process->runView() != nullptr && process->runView()->wasSuccessful());
+    const QString stacked = QDir(output()).filePath(QString::fromLatin1(an::tests::integration::kFixtureStackedFile));
+    ASSERT_TRUE(QFileInfo(stacked).isFile());
+    EXPECT_NE(projects.imageFor(stacked), nullptr) << "the stacked image is not the project's";
+}
+
+// A folder gets one project: a run into a folder that is a project already opens that project, and makes no other.
+TEST_F(IntegrationTask, ARunIntoAFolderThatIsAProjectUsesIt)
+{
+    an::ui::shell::ProjectService& projects = core().projects();
+    an::ui::shell::ProjectCreateRequest request;
+    request.name = QStringLiteral("There Already");
+    request.origin = an::ui::shell::ProjectOrigin::IntegrationJob;
+    ASSERT_TRUE(projects.createInFolder(QDir::cleanPath(m_output.path()), request).ok());
+    const QString id = projects.current()->id;
+    ASSERT_TRUE(projects.close());
+    settle();
+
+    jobsGetAProject(true);
+    ImageIntegrationProcess* const process = launchOnTheOutputFolder();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(runWithAStack());
+    ASSERT_TRUE(projects.isOpen());
+    EXPECT_EQ(projects.current()->id, id) << "another project was made of the folder";
+    EXPECT_EQ(projects.current()->name, QStringLiteral("There Already"));
+    m_gate->open();
+    ASSERT_TRUE(ends());
+}
+
+// With the setting off a run is given no project: it runs outside any, as it always has.
+TEST_F(IntegrationTask, WithTheSettingOffARunIsGivenNoProject)
+{
+    jobsGetAProject(false);
+    ImageIntegrationProcess* const process = launchOnTheOutputFolder();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(runWithAStack());
+    EXPECT_FALSE(core().projects().isOpen());
+    EXPECT_FALSE(an::ui::shell::ProjectService::isProjectFolder(output()));
+    EXPECT_TRUE(ImageIntegration::sameSessionDatabase(process->sessionDatabasePath(),
+                                                      ImageIntegration::applicationSessionDatabasePath()));
+    m_gate->open();
+    ASSERT_TRUE(ends());
+    EXPECT_TRUE(process->runView()->wasSuccessful());
 }
 
 } // namespace an::tests::observatory

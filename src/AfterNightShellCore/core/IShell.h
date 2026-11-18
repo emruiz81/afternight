@@ -33,6 +33,7 @@ class MainWindow;
 
 namespace an::ui
 {
+class IJobProjects;
 class IProcessPresenter;
 } // namespace an::ui
 
@@ -113,6 +114,12 @@ public:
     [[nodiscard]] virtual IStatusDisplay& statusDisplay() = 0;
     /// Null in a shell where every process is a window.
     [[nodiscard]] virtual an::ui::IProcessPresenter* processPresenter() = 0;
+    /// What the application's projects are to a job that runs in it; null in a shell that offers no projects, which
+    /// is so unless a shell says otherwise.
+    [[nodiscard]] virtual an::ui::IJobProjects* jobProjects()
+    {
+        return nullptr;
+    }
     virtual void setSessionConsoleVisible(bool visible) = 0;
     [[nodiscard]] virtual bool isSessionConsoleVisible() const = 0;
     virtual void refreshTheme() = 0;

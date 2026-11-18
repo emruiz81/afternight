@@ -27,6 +27,7 @@
 #include "components/AnTag.h"
 #include "components/RailItem.h"
 #include "chrome/TopBar.h"
+#include "controls/HomeProjectsRow.h"
 #include "controls/ImageHistoryIndex.h"
 #include "controls/ImageViewControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -54,6 +55,7 @@
 #include <QImage>
 #include <QLayout>
 #include <QPlainTextEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSize>
@@ -650,6 +652,67 @@ TEST_F(Storage, TheCompactHistoryDialogFreesWhatItSays)
     const std::optional<an::ui::history::HistoryIndex> index = an::ui::history::readHistoryIndex(directory);
     ASSERT_TRUE(index.has_value());
     EXPECT_EQ(index->steps.size(), 1u) << "the index was not rewritten";
+}
+
+// Clean intermediate files... asks, says what it frees - what the storage counts as the frames a run can make again -
+// removes those frames and nothing else, and frees exactly that.
+TEST_F(Storage, CleanIntermediateFilesFreesWhatItSays)
+{
+    const QString folder = makeProject(QStringLiteral("Clean"));
+    const QDir integration(QDir(folder).filePath(QStringLiteral("integration")));
+    ASSERT_TRUE(QDir().mkpath(integration.filePath(QStringLiteral("carina/calibrated_lights"))));
+    ASSERT_TRUE(QDir().mkpath(integration.filePath(QStringLiteral("carina/registered_lights"))));
+    for (const auto& [name, size] :
+         std::vector<std::pair<QString, qint64>>{{QStringLiteral("carina/stacked_L.fit"), 3000},
+                                                 {QStringLiteral("carina/calibrated_lights/light_cal.fit"), 7000},
+                                                 {QStringLiteral("carina/registered_lights/light_reg.fit"), 5000}})
+    {
+        QFile file(integration.filePath(name));
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        ASSERT_EQ(file.write(QByteArray(static_cast<int>(size), 'x')), size);
+    }
+    ASSERT_TRUE(showProjectHome());
+    ASSERT_EQ(page().storage()->intermediateBytes, 12000u);
+    QAbstractButton* const clean = page().cleanIntermediateButton();
+    ASSERT_NE(clean, nullptr);
+    ASSERT_TRUE(clean->isEnabled());
+
+    // It asks first, saying what it frees; cancelled, nothing is removed.
+    QTest::mouseClick(clean, Qt::LeftButton);
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([]() { return window().cleanIntermediateQuestion() != nullptr; }, kWaitMs));
+    QMessageBox* question = window().cleanIntermediateQuestion();
+    EXPECT_TRUE(question->informativeText().contains(an::ui::homeSizeText(12000)))
+        << question->informativeText().toStdString();
+    question->button(QMessageBox::Cancel)->click();
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([]() { return window().cleanIntermediateQuestion() == nullptr; }, kWaitMs));
+    EXPECT_TRUE(QFileInfo::exists(integration.filePath(QStringLiteral("carina/calibrated_lights/light_cal.fit"))));
+
+    // Confirmed, the frames go, what a run keeps stays, and the storage says so.
+    const std::uint64_t before = bytesBelow(folder);
+    QTest::mouseClick(clean, Qt::LeftButton);
+    ASSERT_TRUE(
+        an::tests::app::processEventsUntil([]() { return window().cleanIntermediateQuestion() != nullptr; }, kWaitMs));
+    question = window().cleanIntermediateQuestion();
+    auto* const confirm = question->findChild<QPushButton*>(QStringLiteral("cleanIntermediateConfirm"));
+    ASSERT_NE(confirm, nullptr);
+    confirm->click();
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&integration]() {
+            return !QFileInfo::exists(integration.filePath(QStringLiteral("carina/registered_lights")));
+        },
+        kWaitMs));
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        []() { return page().storage().has_value() && page().storage()->intermediateBytes == 0u; }, kWaitMs));
+    EXPECT_FALSE(QFileInfo::exists(integration.filePath(QStringLiteral("carina/calibrated_lights"))));
+    EXPECT_EQ(QFileInfo(integration.filePath(QStringLiteral("carina/stacked_L.fit"))).size(), 3000);
+    EXPECT_EQ(before - bytesBelow(folder), 12000u) << "it did not free what it said it frees";
+    EXPECT_EQ(page().storage()->integrationBytes, 3000u);
+    EXPECT_FALSE(clean->isEnabled()) << "nothing is left to clean";
+    EXPECT_TRUE(window().snackbar()->isVisible());
+    EXPECT_TRUE(window().snackbar()->detail().contains(an::ui::homeSizeText(12000)))
+        << window().snackbar()->detail().toStdString();
 }
 
 // A workspace split in two by two is four groups in its four quarters, each painted with its image's picture.

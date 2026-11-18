@@ -9,6 +9,7 @@
 #include "chrome/TopBar.h"
 
 #include "core/ApplicationCore.h"
+#include "projects/JobProjects.h"
 
 #include "app/FileDialogUtils.h"
 #include "app/MessageBoxes.h"
@@ -92,13 +93,42 @@ ProjectFlows::ProjectFlows(QWidget& window, an::ui::shell::ApplicationCore& core
 
     m_topBar.setProjectMenuFiller([this](QMenu& menu) { fillSwitcherMenu(menu); });
     m_subscription = m_core.projects().subscribe([this](ProjectService::Change /*change*/) { refresh(); });
+
+    // A job that runs with no project open is given one in its output folder when the settings ask. What the window
+    // adds is said and arranged here.
+    an::ui::shell::JobProjects::Hooks forJobs;
+    forJobs.made = [this]() { sayProjectForJob(true); };
+    forJobs.opened = [this]() {
+        // A project that was there is opened as Open Project opens it: what it keeps is put back.
+        if (m_hooks.restoreArrangement)
+        {
+            (void)m_hooks.restoreArrangement();
+        }
+        sayProjectForJob(false);
+    };
+    forJobs.refused = [this](const ProjectOutcome& outcome) { say(outcome); };
+    m_core.jobProjects().setHooks(std::move(forJobs));
     refresh();
 }
 
 ProjectFlows::~ProjectFlows()
 {
+    m_core.jobProjects().setHooks({});
     m_core.projects().unsubscribe(m_subscription);
     m_topBar.setProjectMenuFiller({});
+}
+
+void ProjectFlows::sayProjectForJob(const bool made)
+{
+    const an::ui::shell::ProjectDocument* const open = m_core.projects().current();
+    if (open == nullptr || !m_hooks.snackbar)
+    {
+        return;
+    }
+    const QString said = made ? tr("Project %1 made for this integration").arg(open->name)
+                              : tr("Project %1 opened for this integration").arg(open->name);
+    m_hooks.snackbar(said, QDir::toNativeSeparators(m_core.projects().currentFolder()), tr("Settings..."),
+                     [this]() { projectSettings(); });
 }
 
 void ProjectFlows::setFolderChooser(FolderChooser chooser)

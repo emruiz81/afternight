@@ -288,7 +288,8 @@ providers), `readout/ReadoutController` (what the readout column and a task's co
 thread pool as a preview that never waits, never on the GUI thread), `projects/` (`ProjectDocument`, a project folder's
 `project.anproj` read and written whole, `ProjectService`, the project that is open, its lock, the ones used
 last and the guard asked before it is left, `ProjectHistoryBinder`, which keeps the undo history of a project's images
-in its folder, and `ProjectLayoutStore`, which keeps a project's workspaces and the images open in them and puts them
+in its folder, `JobProjects`, which answers a job that asks for a project - an integration run with none open is
+given one in its output folder - and `ProjectLayoutStore`, which keeps a project's workspaces and the images open in them and puts them
 back when it is opened again: no dialog), `views/DockHooks` (the only setter of the dock library's process-wide
 configuration and hooks, and where a saved layout is taken and applied) and
 `views/DockLayoutOperations` (group, split, fit, lock, on a workspace or the only dock area), `views/WorkspaceModel`

@@ -9,9 +9,10 @@
 /// focus on the rail; Execute from Ctrl+Enter in the page and from Apply with the focus outside it; an import shown in
 /// the page, paused, resumed and cancelled there, while the rest of the window stays usable; the frame tree's menu, a
 /// settings dialog and the three tools opened from the page; the page floated to a window of its own; its stages as a
-/// list that a click, the Navigate menu and its keys move, each row saying where its stage stands; and the list's foot
+/// list that a click, the Navigate menu and its keys move, each row saying where its stage stands; the list's foot
 /// with the output folder and the project file's acts - export, import, the recent projects, the presets, Reset
-/// Settings.
+/// Settings; and the Summary stage, which lists the runs the job's output folder keeps and keeps the session's notes
+/// with the job.
 
 #include "ObservatoryWindowCase.h"
 
@@ -61,6 +62,11 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
@@ -1026,6 +1032,81 @@ TEST_F(IntegrationPage, TheListsFootHoldsTheProjectFile)
         << "Reset Settings... asks before it resets";
     settle();
     EXPECT_EQ(framesOf(*process), 2) << "a reset keeps the frames";
+}
+
+// The Summary stage of the page lists the runs the job's output folder keeps - a folder of that history that is no
+// run's archive, as a project's own are, is not one - and the notes written there are kept with the job, in its
+// output folder.
+TEST_F(IntegrationPage, TheSummaryListsTheJobsRunsAndKeepsItsNotesWithTheJob)
+{
+    QTemporaryDir output;
+    ASSERT_TRUE(output.isValid());
+    // The archive of a run, as a run leaves it, and beside it a folder that is none.
+    const QDir history(QDir(output.path()).filePath(QStringLiteral("history")));
+    ASSERT_TRUE(QDir().mkpath(history.filePath(QStringLiteral("20260101_120000_000"))));
+    ASSERT_TRUE(QDir().mkpath(history.filePath(QStringLiteral("0b6f6c0e-an-images-undo-history"))));
+    {
+        QJsonObject run;
+        run.insert(QStringLiteral("archivedAtUtc"), QStringLiteral("2026-01-01T12:00:00.000Z"));
+        run.insert(QStringLiteral("archivedAtLocal"), QStringLiteral("2026-01-01T12:00:00.000"));
+        run.insert(QStringLiteral("executionId"), QStringLiteral("page-run-001"));
+        run.insert(QStringLiteral("executionMode"), QStringLiteral("Full"));
+        run.insert(QStringLiteral("overallResult"), QStringLiteral("success"));
+        run.insert(QStringLiteral("totalDurationMs"), 5000);
+        run.insert(QStringLiteral("warningCount"), 0);
+        // A run is listed for the master it made.
+        run.insert(QStringLiteral("integrationGroupResults"),
+                   QJsonArray{QJsonObject{
+                       {QStringLiteral("groupKey"), QStringLiteral("PageGroup")},
+                       {QStringLiteral("outputPath"), QDir(output.path()).filePath(QStringLiteral("stacked.fit"))},
+                       {QStringLiteral("outputFilename"), QStringLiteral("stacked.fit")},
+                       {QStringLiteral("outputBytes"), 1024},
+                       {QStringLiteral("lightFrameCount"), 5},
+                       {QStringLiteral("durationMs"), 5000},
+                       {QStringLiteral("result"), QStringLiteral("success")}}});
+        QFile manifest(history.filePath(QStringLiteral("20260101_120000_000/workflow_manifest.json")));
+        ASSERT_TRUE(manifest.open(QIODevice::WriteOnly));
+        ASSERT_GT(manifest.write(QJsonDocument(run).toJson()), 0);
+    }
+
+    ImageIntegrationProcess* const process = launch();
+    ASSERT_NE(process, nullptr);
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    StageListNavigator* const stages = stagesOf(*process);
+    ASSERT_NE(stages, nullptr);
+    process->model()->setOutputDirectory(output.path());
+    stages->setCurrentPage(StagePage::Summary);
+    settle();
+    QWidget* const summary = process->findChild<QWidget*>(QStringLiteral("summaryTab"));
+    ASSERT_NE(summary, nullptr);
+    ASSERT_TRUE(summary->isVisibleTo(page));
+
+    // The run history: the one archive, and not the folder beside it.
+    const auto* const frame = summary->findChild<QWidget*>(QStringLiteral("runHistoryFrame"));
+    ASSERT_NE(frame, nullptr);
+    auto* const runs = frame->findChild<QTreeView*>();
+    ASSERT_NE(runs, nullptr);
+    ASSERT_TRUE(runs->isVisibleTo(page));
+    ASSERT_NE(runs->model(), nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([runs]() { return runs->model()->rowCount() == 1; }, kWaitMs))
+        << runs->model()->rowCount() << " runs are listed";
+
+    // The notes are kept with the job.
+    auto* const notes = summary->findChild<QPlainTextEdit*>(QStringLiteral("txtSessionNotes"));
+    ASSERT_NE(notes, nullptr);
+    ASSERT_TRUE(notes->isVisibleTo(page));
+    notes->setPlainText(QStringLiteral("Clear until two; clouds after."));
+    const QString kept =
+        QDir(output.path()).filePath(QStringLiteral(".afternight/image_integration/session_notes.txt"));
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&kept]() {
+            QFile file(kept);
+            return file.open(QIODevice::ReadOnly) &&
+                   QString::fromUtf8(file.readAll()).contains(QStringLiteral("Clear until two"));
+        },
+        kWaitMs))
+        << "the notes were not kept in " << kept.toStdString();
 }
 
 } // namespace an::tests::observatory

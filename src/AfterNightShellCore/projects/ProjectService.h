@@ -173,11 +173,12 @@ struct ProjectStorageReport
     std::uint64_t unlistedHistoryBytes = 0;
 
     /// The integration data a run keeps: masters, stacked images, reports - everything of the integration folder but
-    /// the intermediate frames.
+    /// the intermediate frames - and, in a project made of a job's output folder, what that job keeps in the project's
+    /// own folder, its runs' archives among it.
     std::uint64_t integrationBytes = 0;
 
     /// The frames a run makes on its way - calibrated, corrected and registered lights - which a later run can make
-    /// again from the lights.
+    /// again from the lights: the folders `cleanIntermediateFrames` removes, and exactly them.
     std::uint64_t intermediateBytes = 0;
 
     /// Everything else: the document, the layouts, the thumbnails and the notes.
@@ -266,8 +267,16 @@ enum class ProjectFolderState : std::uint8_t
 /// showed and which was used last - and the images that floated (`setWorkspaces`): what a shell that keeps a project's
 /// arrangement writes as the project is left and reads as it is opened.
 ///
+/// **A project made of a job's folder.** `createInFolder` makes a project of a folder that is there already and
+/// holds what a job wrote - an integration's output folder - beside which the document and the project's folders are
+/// put: nothing of the job is moved or changed. Its origin says so, and what the job keeps there is counted as the
+/// project's integration data. A project records its jobs (`addIntegration`), each by the name of its session and the
+/// folder its runs write to.
+///
 /// **Storage.** What the open project takes on disk is measured on the thread pool (`storageReport`) and told on the
-/// GUI thread: each image's undo history, the integration data, the rest and what is free on the drive.
+/// GUI thread: each image's undo history, the integration data, the frames a run can make again, the rest and what is
+/// free on the drive. `cleanIntermediateFrames` removes those frames - the folders the report counts as them, and
+/// nothing else - on the thread pool.
 ///
 /// **The projects used last** are kept in the settings (`projects/recent`, the last ten, most recent first, each with
 /// the name it was opened under; `projects/last`, the one used last), and the project used last is opened at the start
@@ -331,6 +340,14 @@ public:
 
     /// Makes a project's folder under the request's location, and opens it.
     [[nodiscard]] ProjectOutcome create(const ProjectCreateRequest& request);
+
+    /// Makes a project of a folder that is there already, whatever it holds - a job's output folder - and opens it:
+    /// the document and the project's own folders are put beside what is there, and nothing of it is touched. A
+    /// folder that is not there is made. The request's name is the project's, and its location is not read.
+    ///
+    /// @return a refusal for a folder that is a project already (`AlreadyAProject`, for the caller to open it), that
+    ///         is no folder's path, or that cannot be written.
+    [[nodiscard]] ProjectOutcome createInFolder(const QString& folder, const ProjectCreateRequest& request);
 
     /// Opens the project of a folder; the one already open is answered as open.
     [[nodiscard]] ProjectOutcome open(const QString& folder, ProjectLockPolicy policy = ProjectLockPolicy::Respect);
@@ -403,6 +420,14 @@ public:
     /// no project open or for an id that is none.
     [[nodiscard]] QString historyDirectoryFor(const QString& imageId) const;
 
+    // ---- Integration jobs
+
+    /// Records a job as one of the open project's, by the name its session has and the folder its runs write to;
+    /// a job of that name is recorded once, and its folder follows where it writes now.
+    ///
+    /// @return false with no project open, for an empty name, or when the document could not be written.
+    bool addIntegration(const QString& name, const QString& folder);
+
     // ---- Workspaces
 
     /// Records the open project's workspaces - each with its name, its lock, the images it showed and whether it is the
@@ -424,6 +449,15 @@ public:
     /// dropped.
     void storageReport(StorageDone done) const;
 
+    /// Told on the GUI thread how many bytes were freed.
+    using CleanDone = std::function<void(std::uint64_t freedBytes)>;
+
+    /// Removes the frames the open project's jobs can make again - the folders of calibrated, corrected and
+    /// registered lights the storage report counts as intermediate - on the thread pool, and tells `done` on the GUI
+    /// thread what was freed: the bytes of the files it removed. Never waits. With no project open nothing is
+    /// removed and nothing freed.
+    void cleanIntermediateFrames(CleanDone done) const;
+
     // ---- Observers
 
     /// Tells `observer` of every change from now on; the token `unsubscribe` takes.
@@ -431,6 +465,9 @@ public:
     void unsubscribe(std::size_t token);
 
 private:
+    /// Makes the project of a folder that may be made one, and opens it.
+    [[nodiscard]] ProjectOutcome makeIn(const QString& folder, const ProjectCreateRequest& request);
+
     struct Impl;
     std::unique_ptr<Impl> m_impl;
 };

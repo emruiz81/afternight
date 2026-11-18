@@ -71,6 +71,14 @@ class TopBar;
 /// an image opened while a project is open joins it is the shell core's (`ProjectHistoryBinder`), which the window
 /// tells of each view.
 ///
+/// **A project for a job.** A job that runs in the application - an integration - reaches the projects through the
+/// shell (`ObservatoryShell::jobProjects`, the core's `JobProjects`): a job about to run with no project open gets
+/// one in its output folder when the settings ask for it. What the window adds is this unit's, while it lives (the
+/// core's `JobProjects::Hooks`). One made there is said in the window's
+/// transient message, with the way to the setting; one that was there already is opened as Open Project opens it,
+/// its arrangement put back, and said the same way; one that cannot be made or opened is said as any refusal is, and
+/// the job runs outside any project.
+///
 /// A project that opens gets its workspaces and its images back (`ProjectLayoutStore`). The images whose files are
 /// gone are said once, in one message over the window: `Locate...` asks where each is now - the project's record
 /// follows the file and the image opens in the workspace it was in - and `Remove from the project` forgets them, their
@@ -168,6 +176,9 @@ private:
     void accepted(const an::ui::NewProjectChoice& choice);
     /// Says what the service refused.
     void say(const an::ui::shell::ProjectOutcome& outcome);
+
+    /// Says that a job runs in a project made of its output folder, or in the one that was there.
+    void sayProjectForJob(bool made);
     /// Asks where each image that was not found is now; one found is the project's again and opens.
     void locateMissingImages(const std::vector<an::ui::shell::ProjectMissingImage>& missing);
     /// What says, while steps are copied into a project on another volume, how far the move is.

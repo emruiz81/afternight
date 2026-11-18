@@ -10,6 +10,7 @@
 
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
+#include "projects/JobProjects.h"
 
 #include <QObject>
 #include <QString>
@@ -77,6 +78,11 @@ an::ui::shell::IStatusDisplay& ObservatoryShell::statusDisplay()
 an::ui::IProcessPresenter* ObservatoryShell::processPresenter()
 {
     return m_window != nullptr ? m_window->taskPresenter() : nullptr;
+}
+
+an::ui::IJobProjects* ObservatoryShell::jobProjects()
+{
+    return m_window != nullptr ? &m_core.jobProjects() : nullptr;
 }
 
 void ObservatoryShell::setSessionConsoleVisible(const bool visible)

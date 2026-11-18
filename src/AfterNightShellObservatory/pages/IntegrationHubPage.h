@@ -42,6 +42,8 @@ namespace an::ui::observatory
 /// process; and the **integration jobs** of the model it is given, as a table - the job, its project, its frames, its
 /// masters, its last run, how long it took and its status - the running one first with a thin bar of its progress, each
 /// with Open (Show for a running one), searched by name or project and shown for every project, for none or for one.
+/// Under the table, while the settings ask for it, a line says that a job run with no project open makes one in its
+/// output folder (`setJobsGetAProject`).
 ///
 /// What it asks for it asks in its signals, which are the window's to answer. Its sizes are the parts' (`kHub*`), its
 /// colours the tokens' read where it paints.
@@ -93,6 +95,13 @@ public:
 
     /// The status a job's row says, as its tag says it; empty while the table does not show the row.
     [[nodiscard]] QString jobStatusText(const QString& databasePath, const QString& session) const;
+
+    /// Whether a job run with no project open is given one in its output folder: the line under the table says so
+    /// while it is, and is not shown otherwise.
+    void setJobsGetAProject(bool given);
+
+    /// The line under the jobs' table; empty while it is not shown.
+    [[nodiscard]] QString jobsProjectLine() const;
 
     /// A process is asked for: a way to stack or a single step, by its registry id.
     void processRequested(const QString& descriptorId) W_SIGNAL(processRequested, descriptorId);

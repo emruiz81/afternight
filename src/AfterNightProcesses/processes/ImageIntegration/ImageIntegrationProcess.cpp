@@ -7,6 +7,7 @@
 #include "app/ApplicationStorage.h"
 #include "app/DesktopUtils.h"
 #include "app/FileDialogUtils.h"
+#include "app/JobProjects.h"
 #include "controls/CalibrationPreviewConfig.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
@@ -363,6 +364,21 @@ int tabIndexForFixTarget(FixTarget target)
 
 } // namespace
 
+namespace
+{
+/// The files a run made that a project keeps as its images: the masters it stacked and its stacked images. A run
+/// that did not succeed made none to keep.
+[[nodiscard]] QStringList runOutputs(const WorkflowExecutor::Result& result)
+{
+    if (!result.success)
+    {
+        return {};
+    }
+    return result.generatedBiasMasters + result.generatedDarkMasters + result.generatedFlatMasters +
+           result.generatedLightMasters;
+}
+} // namespace
+
 /// What the page's header says of the job, and what it was last read from.
 struct ImageIntegrationProcess::JobHeadingState
 {
@@ -464,6 +480,20 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
     }
 
     m_sessionDatabasePath = ImageIntegration::applicationSessionDatabasePath();
+    // Made while a project is open, the job is the project's: its session is kept in the project's own database.
+    std::optional<an::ui::JobProject> project;
+    if (const an::ui::IJobProjects* const projects = an::ui::jobProjects())
+    {
+        project = projects->openProject();
+    }
+    if (project.has_value() && QDir().mkpath(project->jobsFolder))
+    {
+        m_sessionDatabasePath = ImageIntegration::projectSessionDatabasePath(project->jobsFolder);
+    }
+    else
+    {
+        project.reset();
+    }
     m_database = std::make_unique<IntegrationDatabase>(m_sessionDatabasePath);
     // What the person is told about the stored sessions once the window is up. A database of another format is never
     // read, written or deleted: it is set aside beside itself and a new one made in its place. A database or a session
@@ -521,6 +551,12 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
         QTimer::singleShot(0, this, [this, startupIcon, startupMessage]() {
             openNonBlockingMessageBox(this, startupIcon, tr("Saved Sessions"), startupMessage);
         });
+    }
+
+    // A job of a project that names no output folder yet writes into one of its own under the project's.
+    if (project.has_value() && m_model->outputDirectory().trimmed().isEmpty())
+    {
+        m_model->setOutputDirectory(QDir(project->jobsFolder).filePath(m_sessionName));
     }
 
     m_presetManager = std::make_unique<PresetManager>(dir.filePath(QStringLiteral("presets")));
@@ -1187,15 +1223,122 @@ bool ImageIntegrationProcess::startRun(const WorkflowManifest& manifest,
     {
         return false;
     }
+    joinProjectForRun(manifest.outputDirectory);
     WorkflowExecutionController executionController(m_model.get(), this);
     executionController.setPipeline(std::move(pipeline));
     const QPointer<ImageIntegrationProcess> self(this);
-    return executionController.runAsyncPrevalidated(manifest, [self](const WorkflowExecutor::Result&) {
+    return executionController.runAsyncPrevalidated(manifest, [self](const WorkflowExecutor::Result& result) {
         if (self)
         {
+            self->recordRunOutputs(runOutputs(result));
             self->refreshAfterRun();
         }
     });
+}
+
+void ImageIntegrationProcess::joinProjectForRun(const QString& outputDirectory)
+{
+    an::ui::IJobProjects* const projects = an::ui::jobProjects();
+    if (projects == nullptr)
+    {
+        return;
+    }
+    // The project that is open, or - with none open - the one the application gives the job in its output folder.
+    std::optional<an::ui::JobProject> project = projects->openProject();
+    if (!project.has_value())
+    {
+        project = projects->projectForJob(outputDirectory);
+    }
+    if (!project.has_value())
+    {
+        return;
+    }
+    if (!moveSessionInto(ImageIntegration::projectSessionDatabasePath(project->jobsFolder)))
+    {
+        return;
+    }
+    projects->recordJob(m_sessionName, outputDirectory);
+}
+
+bool ImageIntegrationProcess::moveSessionInto(const QString& databasePath)
+{
+    if (!m_model)
+    {
+        return false;
+    }
+    if (m_database && ImageIntegration::sameSessionDatabase(databasePath, m_sessionDatabasePath))
+    {
+        return true;
+    }
+    if (!QDir().mkpath(QFileInfo(databasePath).absolutePath()))
+    {
+        LOG_WARNING("ImageIntegrationProcess: the folder of the session database '{}' could not be made",
+                    databasePath.toStdString());
+        return false;
+    }
+    auto database = std::make_unique<IntegrationDatabase>(databasePath);
+    if (!database->initialize())
+    {
+        LOG_WARNING("ImageIntegrationProcess: the session database '{}' was refused: {}", databasePath.toStdString(),
+                    database->lastError().toStdString());
+        return false;
+    }
+    // A job of this name that is there already is this job when it writes to the same folder - it ran there before -
+    // and another job otherwise, which is not written over: this one takes a name of its own.
+    const QString folder = QDir::cleanPath(m_model->outputDirectory());
+    QString name = m_sessionName;
+    for (int number = 2;; ++number)
+    {
+        const SessionLoadResult there = database->loadSessionResult(name);
+        if (!there.model.has_value() && there.error.isEmpty())
+        {
+            break;
+        }
+        if (there.model.has_value())
+        {
+            IntegrationDataModel held;
+            held.fromJson(*there.model);
+            // The same folder, as the host's file systems tell paths apart: the comparison two databases' paths take.
+            if (ImageIntegration::sameSessionDatabase(held.outputDirectory(), folder))
+            {
+                break;
+            }
+        }
+        name = QStringLiteral("%1 %2").arg(m_sessionName).arg(number);
+    }
+    if (!database->saveSession(name, m_model->toJson()))
+    {
+        LOG_WARNING("ImageIntegrationProcess: the session '{}' could not be saved into '{}': {}", name.toStdString(),
+                    databasePath.toStdString(), database->lastError().toStdString());
+        return false;
+    }
+    // The job is kept there from now on, and the database it was in holds it no more: it is listed once.
+    if (m_autosave)
+    {
+        m_autosave->stop();
+        m_autosave.reset();
+    }
+    if (m_database)
+    {
+        (void)m_database->deleteSession(m_sessionName);
+    }
+    m_database = std::move(database);
+    m_sessionDatabasePath = databasePath;
+    m_sessionName = name;
+    startAutosave();
+    updateWindowTitle();
+    scheduleJobHeadingRefresh();
+    return true;
+}
+
+void ImageIntegrationProcess::recordRunOutputs(const QStringList& files)
+{
+    an::ui::IJobProjects* const projects = an::ui::jobProjects();
+    if (projects == nullptr || files.isEmpty() || !projects->openProject().has_value())
+    {
+        return;
+    }
+    projects->addJobImages(files);
 }
 
 bool ImageIntegrationProcess::cancelRun()
@@ -3953,6 +4096,7 @@ void ImageIntegrationProcess::onExecute()
                         return;
                     }
 
+                    self->joinProjectForRun(manifest.outputDirectory);
                     WorkflowExecutionController executionController(self->m_model.get(), self);
                     (void)executionController.runAsyncPrevalidated(
                         manifest,
@@ -3961,6 +4105,7 @@ void ImageIntegrationProcess::onExecute()
                             {
                                 return;
                             }
+                            self->recordRunOutputs(runOutputs(result));
                             self->refreshAfterRun();
                             if (!result.success)
                             {
@@ -4088,6 +4233,7 @@ void ImageIntegrationProcess::onRunIntegrationForGroup(const QString& integratio
                         return;
                     }
 
+                    self->joinProjectForRun(manifest.outputDirectory);
                     WorkflowExecutionController executionController(self->m_model.get(), self);
                     (void)executionController.runAsyncPrevalidated(
                         manifest,
@@ -4096,6 +4242,7 @@ void ImageIntegrationProcess::onRunIntegrationForGroup(const QString& integratio
                             {
                                 return;
                             }
+                            self->recordRunOutputs(runOutputs(result));
 
                             if (result.success && self->m_summaryTab && self->m_model)
                             {
@@ -4242,12 +4389,14 @@ void ImageIntegrationProcess::onRunRegistrationForGroup(const QString& registrat
             if (!self || !self->m_model)
                 return;
 
+            self->joinProjectForRun(pass1.outputDirectory);
             WorkflowExecutionController executionController(self->m_model.get(), self);
             (void)executionController.runAsyncValidated(
                 pass1,
                 [self, pass1](const WorkflowExecutor::Result& result) {
                     if (!self)
                         return;
+                    self->recordRunOutputs(runOutputs(result));
                     if (result.success && self->m_model)
                     {
                         const QString metrics_path =
@@ -4341,12 +4490,14 @@ void ImageIntegrationProcess::onRunRegistrationForAllGroups()
                     if (!self || !self->m_model)
                         return;
                     self->m_runRegistrationAllInProgress = true;
+                    self->joinProjectForRun(unfilteredManifest.outputDirectory);
                     WorkflowExecutionController executionController(self->m_model.get(), self);
                     const bool launched = executionController.runAsyncValidated(
                         manifest,
                         [self, unfilteredManifest](const WorkflowExecutor::Result& result) {
                             if (!self)
                                 return;
+                            self->recordRunOutputs(runOutputs(result));
                             if (result.success && self->m_model)
                             {
                                 const QString metrics_path = QDir(unfilteredManifest.outputDirectory)

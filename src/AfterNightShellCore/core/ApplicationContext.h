@@ -100,6 +100,7 @@ public:
     [[nodiscard]] an::ui::IRawOpenPolicyService* getRawOpenPolicyService() override;
     [[nodiscard]] QWidget* getMainWindow() override;
     [[nodiscard]] an::ui::IProcessPresenter* getProcessPresenter() override;
+    [[nodiscard]] an::ui::IJobProjects* getJobProjects() override;
 
     // ---- IGlobalSettingsProvider
     bool upsert(const QString& key, const QString& value) override;

@@ -115,6 +115,20 @@ class StageNavigator;
  *   the rest of the application stays usable. Esc cancels the import and leaves the page; closing the page cancels it.
  * - **Closing it** is closing the window: the session saved at once, the settings stored, nothing asked.
  *
+ * ### In a project
+ *
+ * The application's projects are reached through one interface (`app/JobProjects.h`) and nothing more is known of
+ * them here; in an application that offers none, nothing of this happens.
+ *
+ * - **A window made while a project is open** keeps its session in the project's own database, in the folder the
+ *   project keeps its jobs in, and a job with no output folder yet is given one there, named as its session.
+ * - **A run that starts** makes the job the project's (`joinProjectForRun`): the project that is open, or - with none
+ *   open - the one the application gives the job in its output folder, when its settings ask for one. The session is
+ *   moved into the project's database, so the job is listed once, with its project; it takes a name of its own there
+ *   when the project already holds another job of its name; and it is recorded in the project by its name and the
+ *   folder its runs write to. A job the application gives no project stays where it is.
+ * - **What a run made** - its masters and its stacked images - are recorded as the project's images when it ends.
+ *
  * ### Intermediate artifacts and incremental reuse
  *
  * A run materializes calibrated, chromatic-aberration-corrected and registered frames alongside its
@@ -214,6 +228,13 @@ public:
     /// Asks the run on its way to stop, as its Cancel does.
     bool cancelRun() override;
 
+    /// A run is about to start into a folder: the job becomes the open project's, or the one the application gives
+    /// it there. Nothing where the application offers no projects, or gives the job none.
+    void joinProjectForRun(const QString& outputDirectory);
+
+    /// A run ended having made these files - masters, stacked images: they are the open project's images.
+    void recordRunOutputs(const QStringList& files);
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
@@ -240,6 +261,10 @@ private:
     void presentStagesAsAList();
     /// What the process does when another page is shown, whatever shows it.
     void followNavigator();
+
+    /// Moves the session the window shows into another session database, where it takes a name no other job there
+    /// has, and keeps it there from now on; the database it was in holds it no more. False leaves it where it is.
+    bool moveSessionInto(const QString& databasePath);
 
     /// Makes the page's own acts wait for a run - the stages' pages, the list's foot, the menus' entries but the ones
     /// that move between the stages - and gives them back, with the run's view shown, once it has ended.

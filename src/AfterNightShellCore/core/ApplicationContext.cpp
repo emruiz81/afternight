@@ -213,6 +213,12 @@ an::ui::IProcessPresenter* ApplicationContext::getProcessPresenter()
     return answering != nullptr ? answering->processPresenter() : nullptr;
 }
 
+an::ui::IJobProjects* ApplicationContext::getJobProjects()
+{
+    IShell* const answering = shell();
+    return answering != nullptr ? answering->jobProjects() : nullptr;
+}
+
 // ---- IGlobalSettingsProvider
 
 bool ApplicationContext::upsert(const QString& key, const QString& value)

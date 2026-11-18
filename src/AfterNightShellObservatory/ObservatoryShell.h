@@ -48,6 +48,9 @@ public:
     /// The window's tasks (`TaskPresenter`): every process is a window of its own still, and each is a task in the
     /// rail. Null once the window is on its way out.
     [[nodiscard]] an::ui::IProcessPresenter* processPresenter() override;
+    /// The core's `JobProjects`: this shell offers projects, so a job that runs in it reaches them. Null until the
+    /// shell is built and once the window is on its way out.
+    [[nodiscard]] an::ui::IJobProjects* jobProjects() override;
     void setSessionConsoleVisible(bool visible) override;
     [[nodiscard]] bool isSessionConsoleVisible() const override;
     void refreshTheme() override;

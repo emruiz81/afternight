@@ -28,6 +28,7 @@ class ImageViewControl;
 class QCloseEvent;
 class QDragEnterEvent;
 class QDropEvent;
+class QMessageBox;
 class QPoint;
 class QResizeEvent;
 class QShowEvent;
@@ -298,6 +299,12 @@ public:
 
     /// Opens the Compact history dialog over the open project's images, once their history is measured.
     void openCompactHistory();
+    /// Asks whether to remove the frames the open project's jobs can make again - saying what that frees, as the
+    /// storage shown counts it - and removes them on the thread pool when the person says so; nothing while an
+    /// integration of the application runs, which writes such frames.
+    void cleanIntermediateFiles();
+    /// The question Clean intermediate files... asks, while it is open; null otherwise.
+    [[nodiscard]] QMessageBox* cleanIntermediateQuestion() const noexcept;
     /// The Compact history dialog while it is open; null otherwise.
     [[nodiscard]] an::ui::CompactHistoryDialog* compactHistoryDialog() const noexcept;
     /// Shows the workspace.
@@ -347,6 +354,8 @@ private:
     void projectOpened();
     /// The projects used last changed: Home shows them.
     void refreshRecentProjects();
+    /// The hub's line about a project made for a job follows the setting that makes one.
+    void refreshHubProjectLine();
     void openSettings();
     void openSettingsAt(const QString& pageName);
     void showConsole(bool visible);

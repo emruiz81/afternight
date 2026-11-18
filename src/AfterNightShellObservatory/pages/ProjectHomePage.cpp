@@ -471,6 +471,7 @@ struct ProjectHomePage::Impl
     std::vector<HomeText*> legendNotes;
     std::vector<Swatch*> swatches;
     QPushButton* compact = nullptr;
+    QPushButton* clean = nullptr;
     std::optional<an::ui::shell::ProjectStorageReport> storage;
     quint64 storageGeneration = 0;
 
@@ -649,6 +650,12 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     impl.compact = new QPushButton(tr("Compact history..."), impl.storageCard);
     impl.compact->setObjectName(QStringLiteral("projectHomeCompactHistory"));
     storageButtons->addWidget(impl.compact, 0);
+    impl.clean = new QPushButton(tr("Clean intermediate files..."), impl.storageCard);
+    impl.clean->setObjectName(QStringLiteral("projectHomeCleanIntermediate"));
+    impl.clean->setToolTip(tr("Remove the calibrated, corrected and registered frames of this project's integration "
+                              "jobs. A run makes them again from the lights."));
+    impl.clean->setEnabled(false);
+    storageButtons->addWidget(impl.clean, 0);
     storageButtons->addStretch(1);
     impl.storageCard->body()->addLayout(storageButtons);
     right->addWidget(impl.storageCard, 0);
@@ -679,6 +686,7 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     connectHook(impl.settings, &Hooks::projectSettings);
     connectHook(impl.close, &Hooks::closeProject);
     connectHook(impl.compact, &Hooks::compactHistory);
+    connectHook(impl.clean, &Hooks::cleanIntermediate);
     QObject::connect(impl.showFolder, &QAbstractButton::clicked, this, [this]() {
         const QString folder = m_impl->core.projects().currentFolder();
         if (!folder.isEmpty())
@@ -893,6 +901,11 @@ std::vector<std::pair<QString, std::uint64_t>> ProjectHomePage::storageLegend() 
         legend.emplace_back(m_impl->legend[index].first->text(), bytes[index]);
     }
     return legend;
+}
+
+QAbstractButton* ProjectHomePage::cleanIntermediateButton() const
+{
+    return m_impl->clean;
 }
 
 QAbstractButton* ProjectHomePage::compactHistoryButton() const
@@ -1255,6 +1268,7 @@ void ProjectHomePage::showStorage()
                                 report.intermediateBytes + report.otherBytes;
     impl.size->setText(an::ui::homeSizeText(static_cast<qint64>(whole)));
     impl.compact->setEnabled(report.historyBytes + report.unlistedHistoryBytes > 0u);
+    impl.clean->setEnabled(report.intermediateBytes > 0u);
     rebuildImages();
 }
 

@@ -129,7 +129,9 @@
 #include <QMimeData>
 #include <QTimer>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPointer>
+#include <QPushButton>
 #include <QPainter>
 #include <QResizeEvent>
 #include <QScopedValueRollback>
@@ -269,6 +271,7 @@ struct ObservatoryWindow::Impl
     // ask about a heavy history once its storage is measured, and what the page hears of the views' pictures.
     ProjectHomePage* projectHome = nullptr;
     QPointer<an::ui::CompactHistoryDialog> compactDialog;
+    QPointer<QMessageBox> cleanQuestion;
     bool askAboutHistory = false;
     // The pictures of the views the miniatures show: a thumbnails' service of the page's own, which follows the views
     // docked in the workspaces while a project is open; the task presenter's follows only the views tasks target.
@@ -930,6 +933,7 @@ void ObservatoryWindow::buildRegions()
         }
     };
     homeHooks.compactHistory = [this]() { openCompactHistory(); };
+    homeHooks.cleanIntermediate = [this]() { cleanIntermediateFiles(); };
     homeHooks.showWorkspace = [this](const QString& id) { showWorkspace(id); };
     homeHooks.renameWorkspace = [this](const QString& id) { renameWorkspace(id); };
     homeHooks.openJob = [this](const QString& databasePath, const QString& session) {
@@ -1574,6 +1578,68 @@ ProjectHomePage* ObservatoryWindow::projectHomePage() const noexcept
     return m_impl->projectHome;
 }
 
+QMessageBox* ObservatoryWindow::cleanIntermediateQuestion() const noexcept
+{
+    return m_impl->cleanQuestion.data();
+}
+
+void ObservatoryWindow::cleanIntermediateFiles()
+{
+    Impl& impl = *m_impl;
+    if (!impl.core.projects().isOpen() || impl.projectHome == nullptr)
+    {
+        return;
+    }
+    if (!impl.cleanQuestion.isNull())
+    {
+        impl.cleanQuestion->raise();
+        impl.cleanQuestion->activateWindow();
+        return;
+    }
+    // What is said to be freed is what the storage shown counts, which is what is removed.
+    const std::optional<an::ui::shell::ProjectStorageReport>& storage = impl.projectHome->storage();
+    const std::uint64_t counted = storage.has_value() ? storage->intermediateBytes : 0u;
+    if (counted == 0u)
+    {
+        return;
+    }
+    // A run on its way reads and writes such frames: none is removed under it.
+    for (TopLevelProcessBaseControl* process : impl.core.openProcesses().snapshot())
+    {
+        if (dynamic_cast<ImageIntegrationProcess*>(process) != nullptr && process->runState().running())
+        {
+            showSnackbar(tr("An integration is running"), tr("Its intermediate files can be cleaned once it has ended"),
+                         QString(), {});
+            return;
+        }
+    }
+    auto* const question = new QMessageBox(this);
+    question->setObjectName(QStringLiteral("cleanIntermediateQuestion"));
+    question->setAttribute(Qt::WA_DeleteOnClose);
+    question->setWindowModality(Qt::WindowModal);
+    question->setIcon(QMessageBox::Question);
+    question->setWindowTitle(tr("Clean intermediate files"));
+    question->setText(tr("Remove the calibrated, corrected and registered frames of this project's integration jobs?"));
+    question->setInformativeText(tr("This frees %1. The masters, the stacked images and the reports stay. A run "
+                                    "makes the frames again from the lights.")
+                                     .arg(an::ui::homeSizeText(static_cast<qint64>(counted))));
+    QPushButton* const clean = question->addButton(tr("Clean"), QMessageBox::AcceptRole);
+    clean->setObjectName(QStringLiteral("cleanIntermediateConfirm"));
+    question->setDefaultButton(question->addButton(QMessageBox::Cancel));
+    QObject::connect(clean, &QPushButton::clicked, this, [this]() {
+        m_impl->core.projects().cleanIntermediateFrames([this](const std::uint64_t freed) {
+            showSnackbar(tr("Intermediate files cleaned"),
+                         tr("%1 freed").arg(an::ui::homeSizeText(static_cast<qint64>(freed))), QString(), {});
+            if (m_impl->projectHome != nullptr)
+            {
+                m_impl->projectHome->refresh();
+            }
+        });
+    });
+    impl.cleanQuestion = question;
+    question->open();
+}
+
 an::ui::CompactHistoryDialog* ObservatoryWindow::compactHistoryDialog() const noexcept
 {
     return m_impl->compactDialog.data();
@@ -1698,8 +1764,24 @@ bool ObservatoryWindow::isIntegrationHubShown() const
 
 void ObservatoryWindow::showIntegrationHub()
 {
+    refreshHubProjectLine();
     m_impl->centre->setCurrentWidget(m_impl->hubPage);
     placeChanged();
+}
+
+void ObservatoryWindow::refreshHubProjectLine()
+{
+    if (m_impl->hubPage == nullptr)
+    {
+        return;
+    }
+    // The line under the jobs says what the settings do, while they do it.
+    an::ui::IGlobalSettingsProvider* const settings = m_impl->core.globalSettings();
+    const an::ui::ProjectSettings stored =
+        an::ui::readProjectSettings([settings](const QString& key, const QString& fallback) {
+            return settings != nullptr ? settings->select(key, fallback) : fallback;
+        });
+    m_impl->hubPage->setJobsGetAProject(stored.createForIntegrationJobs);
 }
 
 // ---- What the shell asks of its window
@@ -2454,6 +2536,7 @@ void ObservatoryWindow::openSettings()
     {
         m_impl->dialogs->openSettings();
         m_impl->core.processMenus().refreshStoredLists();
+        refreshHubProjectLine();
     }
 }
 

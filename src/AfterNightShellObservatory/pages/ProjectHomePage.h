@@ -71,7 +71,8 @@ struct WorkspaceTileFacts
 /// one used last marked, Continue or Open and Rename...; Images and sequences - a row each with its picture, its name,
 /// its type, its size, its history as its steps and their size, where it is open and when its file changed;
 /// Integrations - the project's jobs, each with what it holds, its status and Open; Storage - a bar of what the folder
-/// holds and its legend, with Compact history...; Notes - the project's notes.md, saved as they are written.
+/// holds and its legend, with Compact history... and Clean intermediate files..., which is offered while the project's
+/// jobs keep frames a run can make again; Notes - the project's notes.md, saved as they are written.
 ///
 /// The project is the open one of the core's project service. The storage is measured on the thread pool and shown
 /// when it lands; the images' pictures and sizes are read off the GUI thread as Home's tiles are. What the window
@@ -92,6 +93,7 @@ public:
         std::function<void()> projectSettings;
         std::function<void()> closeProject;
         std::function<void()> compactHistory;
+        std::function<void()> cleanIntermediate;
         std::function<void(const QString& workspaceId)> showWorkspace;
         std::function<void(const QString& workspaceId)> renameWorkspace;
         std::function<void(const QString& databasePath, const QString& session)> openJob;
@@ -184,6 +186,8 @@ public:
     /// calibrated and registered frames, the reports, layouts and notes, and what is free on the drive.
     [[nodiscard]] std::vector<std::pair<QString, std::uint64_t>> storageLegend() const;
     [[nodiscard]] QAbstractButton* compactHistoryButton() const;
+    /// Clean intermediate files...: enabled while the storage shown counts frames a run can make again.
+    [[nodiscard]] QAbstractButton* cleanIntermediateButton() const;
     [[nodiscard]] QPlainTextEdit* notes() const;
 
     /// The storage of the open project was measured: what the window asks of it - a question about a heavy history.

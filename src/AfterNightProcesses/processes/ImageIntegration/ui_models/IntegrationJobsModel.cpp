@@ -130,6 +130,11 @@ QString applicationSessionDatabasePath()
     return QDir(an::ui::applicationLocalDataPath()).filePath(QString::fromLatin1(kSessionDatabaseFileName));
 }
 
+QString projectSessionDatabasePath(const QString& jobsFolder)
+{
+    return QDir(jobsFolder).filePath(QString::fromLatin1(kSessionDatabaseFileName));
+}
+
 bool sameSessionDatabase(const QString& lhs, const QString& rhs)
 {
     if (lhs.isEmpty() || rhs.isEmpty())

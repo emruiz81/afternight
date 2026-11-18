@@ -183,6 +183,10 @@ public:
     {
         return presenter;
     }
+    [[nodiscard]] an::ui::IJobProjects* getJobProjects() override
+    {
+        return jobProjects;
+    }
 
     // ---- IEngineSessionProvider.
 
@@ -304,6 +308,9 @@ public:
 
     /// What takes a window into a page at its first show; none leaves every window the window it is.
     an::ui::IProcessPresenter* presenter = nullptr;
+
+    /// The application's projects, as a job reaches them; none leaves the application one that offers no projects.
+    an::ui::IJobProjects* jobProjects = nullptr;
 
 private:
     struct StoredProcess

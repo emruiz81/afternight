@@ -354,6 +354,8 @@ struct IntegrationHubPage::Impl
     QWidget* table = nullptr;
     QVBoxLayout* rows = nullptr;
     HomeText* empty = nullptr;
+    HomeText* projectLine = nullptr;
+    bool jobsGetAProject = false;
 
     /// A shown row: its job, its button and its tag.
     struct ShownJob
@@ -602,6 +604,15 @@ IntegrationHubPage::IntegrationHubPage(ImageIntegration::IntegrationJobsModel& j
     m_impl->empty->setObjectName(QStringLiteral("integrationJobsEmpty"));
     tableLayout->addWidget(m_impl->empty);
     jobsSection->addWidget(m_impl->table);
+    m_impl->projectLine = new HomeText(
+        HomeText::Role::Caption,
+        tr("A job run without a project creates one in its output folder (Settings \u203A Projects), so its masters, "
+           "its report and its history stay together."),
+        content);
+    m_impl->projectLine->setObjectName(QStringLiteral("integrationJobsProjectLine"));
+    m_impl->projectLine->setWordWrap(true);
+    m_impl->projectLine->setVisible(false);
+    jobsSection->addWidget(m_impl->projectLine);
     column->addLayout(jobsSection);
     column->addStretch(1);
     setWidget(content);
@@ -679,6 +690,17 @@ QComboBox* IntegrationHubPage::jobProjects() const
 QString IntegrationHubPage::jobsCountText() const
 {
     return m_impl->jobsCount->text();
+}
+
+void IntegrationHubPage::setJobsGetAProject(const bool given)
+{
+    m_impl->jobsGetAProject = given;
+    m_impl->projectLine->setVisible(given);
+}
+
+QString IntegrationHubPage::jobsProjectLine() const
+{
+    return m_impl->jobsGetAProject ? m_impl->projectLine->text() : QString();
 }
 
 QStringList IntegrationHubPage::shownJobs() const
