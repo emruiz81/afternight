@@ -130,7 +130,7 @@ color.actionColorize | preview page | wide
 sensor_calibration.actionImage_Calibration | window | -
 multi_image_stacking.actionImage_Stacking | window | -
 multi_image_stacking.actionImage_Registration | window | -
-multi_image_stacking.actionImage_Integration | window | -
+multi_image_stacking.actionImage_Integration | full page | -
 multi_image_stacking.actionImage_Integration_Lite | window | -
 color.actionLinear_Match | mirror page | standard
 transforms.actionPixel_Math_2 | mirror page | wide

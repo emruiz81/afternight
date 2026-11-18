@@ -587,6 +587,7 @@ sources Test_ControlsProcessFramework
     header   src/AfterNightControls/controls/ProcessLaunchScope.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h
     header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightControls/components/AnTaskHeader.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -2810,6 +2811,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/TaskRunTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationHubTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/IntegrationPageTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
@@ -3042,6 +3044,7 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
     header   src/AfterNightControls/controls/HomeProjectsRow.h
     header   src/AfterNightControls/dialogs/CompactHistoryDialog.h
+    header   src/AfterNightControls/controls/PageShortcutScope.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -5593,6 +5596,7 @@ sources AfterNightWorkflowDriver
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageResult.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     header   src/AfterNightProcesses/AfterNightProcessesExport.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/ImportProgressPanel.h
     include  src/AfterNightWorkflowDriver
     include  src/AfterNightProcesses
     include  src/AfterNightControls
@@ -5744,6 +5748,8 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_tree_display_mode_widget.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_history_model.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationJobsModelTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/unit/test_integration_job_facts.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_progress_dialog_v2.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_registration_metrics_persistence.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_standalone_registration_persistence.cpp
@@ -6073,6 +6079,13 @@ sources Test_ImageIntegration
     header   src/AfterNightTests/Test_ImageIntegration/TempDirFixture.h
     header   src/AfterNightTests/Test_ImageIntegration/ui/OpenDialogs.h
     header   src/AfterNightTests/Test_ImageIntegration/ui/ProcessWindowContext.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/components/AnTaskHeader.h
+    header   src/AfterNightControls/controls/PageShortcutScope.h
+    header   src/AfterNightControls/controls/ProcessLaunchScope.h
+    header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/ImportProgressPanel.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationJobFacts.h
     include  src/AfterNightTests
     include  src/AfterNightWorkflowDriver
     include  src/AfterNightProcesses

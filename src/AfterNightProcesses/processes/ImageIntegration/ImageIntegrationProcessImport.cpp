@@ -9,8 +9,12 @@
  * file.
  *
  * performImportWithProgress() is the whole of it - detection runs on a worker thread while a timer
- * pumps the progress dialog, and the model is only touched once the worker has finished. The two
+ * pumps the progress panel, and the model is only touched once the worker has finished. The two
  * dialog entry points above it just gather paths and hand them over.
+ *
+ * The panel is shown in a dialog over a process that is a window of its own, which waits behind it; a process
+ * shown as a page shows the panel in its page and makes its own acts wait, so the rest of the application
+ * stays usable while frames are read.
  */
 #include "stdafx.hpp"
 #include "processes/ImageIntegration/ImageIntegrationImportSession.h"
@@ -22,13 +26,22 @@
 #include "processes/ImageIntegration/model/FrameMetadata.h"
 #include "processes/ProcessCommonUtils.h"
 
+#include "theme/AnDesignTokens.h"
+
+#include <QAction>
 #include <QApplication>
+#include <QBoxLayout>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
+#include <QTabWidget>
+#include <QVBoxLayout>
 
 #include <algorithm>
+#include <functional>
 #include <utility>
 
 namespace ImageIntegration::detail
@@ -41,7 +54,15 @@ void refreshImportProgressDialog(const std::shared_ptr<ImportProgressSession>& s
         return;
     }
 
-    session->progress->setProgress(session->reporter.completedFiles());
+    // The dialog closes itself once every file is read; a page's panel goes when the import ends.
+    if (session->dialog)
+    {
+        session->dialog->setProgress(session->reporter.completedFiles());
+    }
+    else
+    {
+        session->progress->setProgress(session->reporter.completedFiles());
+    }
     session->progress->setCurrentFile(session->reporter.currentFile());
     session->progress->setEtaMs(session->reporter.estimatedRemainingMs());
 
@@ -106,8 +127,20 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
     session->engineSession = engineSession;
     session->reporter.setTotalFiles(total);
 
-    auto* progress = new ImageIntegration::ImportProgressDialog(total, this);
+    // In a window of its own the process waits behind the import's dialog; as a page it shows the import in itself.
+    ImageIntegration::ImportProgressDialog* dialog = nullptr;
+    ImageIntegration::ImportProgressPanel* progress = nullptr;
+    if (hasPageLayout())
+    {
+        progress = beginPageImport(total);
+    }
+    else
+    {
+        dialog = new ImageIntegration::ImportProgressDialog(total, this);
+        progress = dialog->panel();
+    }
     session->progress = progress;
+    session->dialog = dialog;
 
     auto* progressRefreshTimer = new QTimer(progress);
     session->progressRefreshTimer = progressRefreshTimer;
@@ -128,10 +161,10 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
 
         const bool importCancelled = session->isCanceled.load(std::memory_order_acquire) ||
                                      (session->progress && session->progress->isCancelled());
-        if (session->progress)
+        if (session->dialog)
         {
-            session->progress->close();
-            session->progress->deleteLater();
+            session->dialog->close();
+            session->dialog->deleteLater();
         }
 
         if (!process)
@@ -139,6 +172,7 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
             return;
         }
 
+        process->endPageImport();
         process->m_importInProgress = false;
         if (importCancelled)
         {
@@ -177,7 +211,13 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
     // Propagate cancel/pause to worker threads
     QObject::connect(progress->cancelButton(), &QPushButton::clicked, progress,
                      [session]() { session->isCanceled.store(true, std::memory_order_release); });
-    QObject::connect(progress, &QDialog::rejected, progress,
+    if (dialog != nullptr)
+    {
+        QObject::connect(dialog, &QDialog::rejected, dialog,
+                         [session]() { session->isCanceled.store(true, std::memory_order_release); });
+    }
+    // What holds the panel going away under the import cancels it: a page closed while its frames are read.
+    QObject::connect(progress, &QObject::destroyed,
                      [session]() { session->isCanceled.store(true, std::memory_order_release); });
     QObject::connect(progress->pauseButton(), &QPushButton::clicked, progress, [session]() {
         if (!session->progress)
@@ -197,7 +237,10 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
     QObject::connect(progressRefreshTimer, &QTimer::timeout, progress,
                      [session]() { refreshImportProgressDialog(session); });
     progressRefreshTimer->start();
-    progress->open();
+    if (dialog != nullptr)
+    {
+        dialog->open();
+    }
 
     // Run TBB in a worker thread to keep the dialog responsive. UI updates are polled from
     // the main thread so the worker never queues lambdas against a dialog that might be closing.
@@ -244,6 +287,92 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
             }
         });
     });
+}
+
+ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(const int totalFiles)
+{
+    // A band over the stages, inside what the page holds, with the import's panel in it.
+    QWidget* const content = rootTabWidget != nullptr ? rootTabWidget->parentWidget() : this;
+    auto* band = new QWidget(content);
+    band->setObjectName(QStringLiteral("importProgressBand"));
+    const auto& spacing = an::ui::tokens().spacing;
+    auto* bandLayout = new QVBoxLayout(band);
+    bandLayout->setContentsMargins(spacing.lg, spacing.md, spacing.lg, spacing.md);
+    bandLayout->setSpacing(0);
+    auto* panel = new ImageIntegration::ImportProgressPanel(totalFiles, band);
+    bandLayout->addWidget(panel);
+    auto* const held = content != nullptr ? qobject_cast<QBoxLayout*>(content->layout()) : nullptr;
+    if (held != nullptr && rootTabWidget != nullptr)
+    {
+        held->insertWidget((std::max)(0, held->indexOf(rootTabWidget)), band);
+    }
+    band->show();
+    m_pageImportBand = band;
+    m_pageImportPanel = panel;
+
+    // The page's own acts wait for the import, as its window waits behind the import's dialog: the stages, the foot
+    // and every entry of the menus - the header's buttons and the page's keys with them.
+    if (rootTabWidget != nullptr)
+    {
+        rootTabWidget->setEnabled(false);
+    }
+    if (m_ui.bottomActionBar != nullptr)
+    {
+        m_ui.bottomActionBar->setEnabled(false);
+    }
+    m_importHeldActions.clear();
+    const std::function<void(const QList<QAction*>&)> hold = [this, &hold](const QList<QAction*>& entries) {
+        for (QAction* entry : entries)
+        {
+            if (entry->isEnabled())
+            {
+                m_importHeldActions.emplace_back(entry);
+                entry->setEnabled(false);
+            }
+            if (const QMenu* menu = entry->menu())
+            {
+                hold(menu->actions());
+            }
+        }
+    };
+    if (mainMenuBar != nullptr)
+    {
+        hold(mainMenuBar->actions());
+    }
+    return panel;
+}
+
+void ImageIntegrationProcess::endPageImport()
+{
+    if (m_pageImportBand.isNull() && m_importHeldActions.empty())
+    {
+        return;
+    }
+    m_pageImportPanel = nullptr;
+    if (!m_pageImportBand.isNull())
+    {
+        m_pageImportBand->hide();
+        m_pageImportBand->deleteLater();
+        m_pageImportBand = nullptr;
+    }
+    if (rootTabWidget != nullptr)
+    {
+        rootTabWidget->setEnabled(true);
+    }
+    if (m_ui.bottomActionBar != nullptr)
+    {
+        m_ui.bottomActionBar->setEnabled(true);
+    }
+    // Every act that waited is given back; the ones that follow the job - Execute, the removals - are then set from it.
+    for (const QPointer<QAction>& entry : m_importHeldActions)
+    {
+        if (!entry.isNull())
+        {
+            entry->setEnabled(true);
+        }
+    }
+    m_importHeldActions.clear();
+    updateButtonStates();
 }
 
 void ImageIntegrationProcess::importFilesDialog(FrameType frameType, bool forceToType)

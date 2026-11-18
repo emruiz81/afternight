@@ -365,9 +365,10 @@ Sequence), the colour tools (Color Calibration, Background Neutralization, Linea
 spectrophotometric calibrations, Pixel Math, the external tools (StarNet, its star mask, DeepSNR) and the two star
 profilers. The processes launched on no image, which choose every image they read in their controls, are preview pages
 with no single target: Channel Composition, Merge CFA, the two Starmask recombinations and the Narrowband Palette
-Composer. The integration workflow's windows (Image Integration and its Lite front end, Image Calibration, Image
-Registration, Image Stacking, Image List Analyzer) are the only processes that stay windows of their own; they become
-full pages (`ProcessSurface::FullPage`) when their pages are built. Every descriptor's surface and column is held to a
+Composer. Image Integration is a full page (`ProcessSurface::FullPage`): the process whole, under a header that says its
+job ("Image Integration as a page", below). The other windows of the integration workflow (Image Integration Lite, Image
+Calibration, Image Registration, Image Stacking, Image List Analyzer) are the only processes that stay windows of their
+own; they become full pages when their pages are built. Every descriptor's surface and column is held to a
 record (`ProcessSurfaces.MatchTheRecord`, `Test_ProcessFramework/data/ProcessSurfaces.txt`). A presenter is asked once, at the process's first `setVisible(true)` and before it is visible (`adopt`); taking it means
 `attachToPage(host)`, which arranges the process as a page the first time (`makePageLayout`) and lays it into `host`. A
 process that cannot be one answers no page and stays the window it was. The arrangement is generic, made from what the
@@ -472,6 +473,15 @@ process already is:
   that fills the page and scrolls only when the page is smaller than the least the process takes. Its own menu bar is
   hidden there and its menus offered (`ProcessPageLayout::menus`); the Observatory shell lists them under the task
   header's menu button, each entry the process's own action.
+- **A job** (`ProcessPageLayout::setJobHeading`, `JobHeading` in `components/AnTaskHeader.h`). A process that holds a
+  body of work with a name of its own - an integration - says it to its page for a shell's task header to show in
+  place of the process's name: an eyebrow, the job's name, its facts on a line, a measure with a bar (a share, and
+  whether it is exceeded), acts shown as icon buttons and a primary act shown as the primary button. The acts are the
+  process's own `QAction`s, so a button is enabled while its action is, says what it says and triggers it, and nothing
+  about the job is kept twice. The process states it once it is a page (`pageLayoutMade`) and again when it changes;
+  the page tells one listener. It is a description and holds no widget, so Controls draws the header, Processes fills
+  it and neither names the other's classes: a process cannot include a shell, and a shell's header must not know which
+  process it serves.
 - **Compare names what it shows.** The toggles row's Compare shows the preview's alternate in place of what the canvas
   shows: "Processed" and "Original" for a process, whose alternate is the image before it. Image Compare's alternate is
   its second image, so it names the two "Image 1" and "Image 2" (`ProcessPageLayout::setCompareNames`); its one
@@ -495,7 +505,11 @@ process already is:
   page waiting for the press would run nothing with the focus on one; the press that does reach the page is let go
   by. A shortcut made for a widget and its children still runs only with the focus inside it; a field that edits with
   a key accepts its override first and keeps it; with the focus outside the page the window's shortcut runs. Detached
-  to a window, the sequences are put back and the objects are live, as in a 1.1 window.
+  to a window, the sequences are put back and the objects are live, as in a 1.1 window. An action that is an entry of
+  a menu would lose its keys from the entry with its sequence - a menu draws them from the action's shortcut - so the
+  scope writes them into the entry's text after a tab, which a menu draws as an entry's keys, and takes them out again
+  when it lets go. An object in a window of its own that the page opened - a dialog's action or shortcut - is left as
+  it is: a key pressed in that window never reaches the page, so its sequence could be taken but never run.
 
 ### The history (`controls/ImageHistoryTracker.h`, `controls/ImageHistoryBackupQueue.h`, `controls/ImageHistoryStepCodec.h`, `controls/ImageHistoryIndex.h`, `controls/ImageHistoryCompanion.cpp`)
 
@@ -1589,6 +1603,43 @@ not there gives no job and is not made by being read. What an open Image Integra
 named session (`ImageIntegrationProcess::openSession`): what it showed is saved first, and a run or an import on its way
 refuses it. `Test_ImageIntegration` holds the record (`IntegrationRunRecord.*`) and the model (`IntegrationJobsModel.*`).
 
+**Image Integration as a page.** Its descriptor states a full page, so a shell that shows processes as pages holds it
+whole in one, and in the classic shell - or made outside a launch - it is the window it has always been: nothing of
+what follows runs in a window.
+
+- **Its header says its job** (`pageLayoutMade`, `publishJobHeading`): the session's name, as the jobs' list names it;
+  its facts (`ui_models/IntegrationJobFacts.h`) - its lights, their groups, the time the included ones integrate, what
+  their files weigh, and the setup they say (readout mode, frame size, gain, offset, each where the frames say it, or
+  how many setups they are of when they do not agree); the disk its runs write to, what is free there and what a run
+  would write, with a bar; Undo and Redo, the Edit menu's; and Execute Integration, the Run menu's, as the primary act.
+  The facts are read from the model on the GUI thread when a signal of the model says they moved, a burst gathered into
+  one refresh. What the disk adds - the sizes of the lights' files, the room free in the output folder or, while it is
+  not made, where it will be made - is read on the thread pool (`readIntegrationJobDisk`) when the lights or the folder
+  change, when a run ends and when the page is shown again, and a read that lands after a later one was asked for is
+  dropped: a slow volume holds no window. What a run would write is one estimate (`estimateIntegrationOutput`) that the
+  header and the Summary tab's disk line both read, so the two cannot disagree.
+- **Its menus and its keys.** The six menus are the page's (`ProcessPageLayout::menus`), entry for entry; the Frames
+  menu's acts are also the buttons its frame pages carry over their trees. Its key sequences are held by the page's
+  shortcut scope, so `Ctrl+O` adds files with the focus in the page and opens an image with the focus elsewhere in the
+  window. `triggerPrimaryAction` runs Execute Integration when the job is ready and no run is on its way; in the window
+  Execute's sequence is the keypad's Enter alone, and on a page the scope adds the main Enter key to it.
+- **An import is shown in the page.** The import's progress is a part of its own (`widgets/ImportProgressPanel.h`): the
+  file on its way, the counts and the time left, the issues met, Pause, Resume and Cancel. A window shows it in a dialog
+  modal to that window (`dialogs/ImportProgressDialog.h`), behind which the window waits; a page shows it in a band over
+  its stages (`beginPageImport`) and makes its own acts wait instead - the stages, the foot and every entry of the
+  menus are disabled, the header's buttons and the page's keys with them - so that an import cannot meet a removal, a
+  reset or a run it was never written to meet, while the rest of the application stays usable. Esc in the page cancels
+  the import and leaves the page; closing the page destroys the panel, which cancels it; nothing joins the job from a
+  cancelled import.
+- **Closing the page is closing the window**: the session is saved at once by its autosave, the settings are stored,
+  and nothing is asked - the window asks nothing either.
+- **A run** opens the Processing window as in a window of its own.
+
+`IntegrationPage.*` in `Test_ImageIntegration` hold the process as a page - its menus against the window's bar, every
+sequence the record of the process windows holds for it, Execute, closing and the job it says - and in
+`Test_ShellObservatory` the page in the Observatory window; `IntegrationJobFacts.*` and `ImportProgressPanelTest.*` hold
+the facts and the panel.
+
 ### The frame pipeline and performance (`workflow/stages/StageFramePipeline.h`, `memory/BudgetedMemoryResource.h`)
 
 The registration and the alignment read their lights ahead, and the alignment writes them behind, through
@@ -2098,7 +2149,11 @@ the preview view and the target's history strip under it, and whose readout slot
 page's canvas is its view of the target, which the floating toolbar serves and the looking actions act on, and it
 carries no compact readout, having no preview to read. A page with no single target names its process alone in its
 header. A full page has no canvas and no column: the process lies whole under the header, whose menu button lists the
-process's own menus (`TaskPage::makeProcessMenu`). Showing
+process's own menus (`TaskPage::makeProcessMenu`). Where the process holds a job - Image Integration - the header says
+the job instead (`AnTaskHeader::setJob`, from `ProcessPageLayout::jobHeading`, said again each time the process states it
+anew): three lines high - the eyebrow, the job's name, its facts - with the job's measure and its bar, its acts, the menu
+button and its primary act before Float as window and Close; the measure is left out where the header is too narrow to
+leave the name its least width. Floated, the task is the same page in its window, header and keys included. Showing
 a task's page makes its target the active view and names the target and the preview to the view service
 (`setTaskSubject`): the image actions act on the target and the looking ones - the zoom, the fit - on the canvas
 (`ImageOperationsCoordinator::Dependencies::lookingViewControl`); Close, Close All Others and Maximize View are

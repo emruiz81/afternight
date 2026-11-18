@@ -14,6 +14,7 @@
 #include "processes/ImageIntegration/tabs/WorkflowHistoryModel.h"
 #include "processes/ImageIntegration/tabs/RunHistoryThumbnailCache.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
+#include "processes/ImageIntegration/ui_models/IntegrationJobFacts.h"
 #include "processes/ImageIntegration/core/FileImport.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -313,6 +314,7 @@ int historyContextMatchScore(const QModelIndex& source, const QModelIndex& candi
 }
 
 QString formatDuration(double seconds);
+using ImageIntegration::formatOutputBytes;
 
 struct MasterFileMetadata
 {
@@ -1075,51 +1077,6 @@ QString formatDuration(double seconds)
         return SummaryTab::tr("%1m %2s").arg(minutes).arg(secs);
     }
     return SummaryTab::tr("%1s").arg(secs);
-}
-
-QString formatOutputBytes(qint64 bytes)
-{
-    if (bytes < 1024)
-        return QString::number(bytes) + " B";
-    double kb = bytes / 1024.0;
-    if (kb < 1024)
-        return QString::number(kb, 'f', 1) + " KB";
-    double mb = kb / 1024.0;
-    if (mb < 1024)
-        return QString::number(mb, 'f', 1) + " MB";
-    double gb = mb / 1024.0;
-    return QString::number(gb, 'f', 2) + " GB";
-}
-
-/// What the files a run makes from one light weigh. Every image the run writes holds 32-bit floats: calibrated, the
-/// light keeps its own channels; registered or stacked, it holds the demosaiced ones.
-struct LightOutputBytes
-{
-    qint64 calibrated = 0;
-    qint64 developed = 0;
-    /// Whether the import recorded no layout, so the light counted as a colour mosaic.
-    bool layoutAssumed = false;
-};
-
-LightOutputBytes lightOutputBytes(const FrameInfo& frame)
-{
-    constexpr qint64 kSampleBytes = 4;
-    const QSize dimensions = frame.metadata.dimensions();
-    if (dimensions.width() <= 0 || dimensions.height() <= 0)
-    {
-        // The probe read no size: the file's own size is the only figure left.
-        const QFileInfo info(frame.displayPath);
-        const qint64 fileBytes = info.exists() ? info.size() : 0;
-        return LightOutputBytes{.calibrated = fileBytes, .developed = fileBytes};
-    }
-    const qint64 plane = static_cast<qint64>(dimensions.width()) * dimensions.height() * kSampleBytes;
-    const std::optional<FrameSampleLayout> layout = frame.metadata.sampleLayout();
-    if (!layout.has_value())
-    {
-        // A project saved before the import recorded the layout: the heavier reading, a colour mosaic.
-        return LightOutputBytes{.calibrated = plane, .developed = plane * 3, .layoutAssumed = true};
-    }
-    return LightOutputBytes{.calibrated = plane * layout->channels, .developed = plane * layout->developedChannels()};
 }
 
 QString summarizeDirectories(const QStringList& dirs, int maxCount = 3)
@@ -2574,107 +2531,20 @@ public:
         const QStorageInfo storage(outputDir);
         const qint64 freeBytes = storage.isValid() ? static_cast<qint64>(storage.bytesAvailable()) : 0;
 
-        // What the run writes is read from each light's size and layout, not from its file: a raw file holds one
-        // mosaic plane of 12 or 16 bits, its calibrated copy that plane in 32-bit floats, and its registered copy
-        // three.
-        int includedLights = 0;
-        qint64 registeredLightBytes = 0;
-        // A stacked image or map is as large as the largest light, demosaiced.
-        qint64 largestLightBytes = 0;
-        bool anyLayoutAssumed = false;
-        const auto frames = model->lightFrames().frames();
-        for (const auto& frame : frames)
-        {
-            if (frame.excluded)
-            {
-                continue;
-            }
-            ++includedLights;
-            const LightOutputBytes bytes = lightOutputBytes(frame);
-            registeredLightBytes += bytes.developed;
-            largestLightBytes = (std::max)(largestLightBytes, bytes.developed);
-            anyLayoutAssumed = anyLayoutAssumed || bytes.layoutAssumed;
-        }
-
-        const auto& groupKeys = model->integrationGroups();
-        const int groupCount = (std::max<int>)(1, static_cast<int>(groupKeys.size()));
-
-        const auto& stackingSettings = model->stackingSettings(FrameType::Light);
-        // A group with no settings of its own runs with the defaults, as the manifest builds it.
-        const StackingSettings defaultSettings{};
-        bool anyDrizzle = false;
-        bool anyNonDrizzle = false;
-        int rejectionMapFiles = 0;
-        for (const auto& key : groupKeys)
-        {
-            const auto it = stackingSettings.find(key);
-            const StackingSettings& settings = it != stackingSettings.end() ? it->second : defaultSettings;
-            anyDrizzle = anyDrizzle || settings.drizzle.enabled;
-            anyNonDrizzle = anyNonDrizzle || !settings.drizzle.enabled;
-
-            if (settings.createRejectionMaps && isAverageStackMethod(settings.stackMethod))
-            {
-                rejectionMapFiles += settings.mergeRejectionMaps ? 1 : 2;
-            }
-        }
-
-        const qint64 stackedBytes = largestLightBytes * groupCount;
-        const qint64 rejectionBytes = largestLightBytes * rejectionMapFiles;
-
-        // Calculate calibrated frame count excluding pre-calibrated groups
-        const bool calibrationToDisk = (model->lightCalibrationCacheMode() == LightCalibrationCacheMode::Disk);
-        int calibratedLightCount = 0;
-        qint64 calibratedBytes = 0;
-        if (calibrationToDisk)
-        {
-            const auto& lightCalibSettings = model->lightCalibrationSettings();
-            for (const auto& group : model->lightGroups())
-            {
-                // Check if this group is pre-calibrated
-                auto calIt = lightCalibSettings.find(group.key);
-                const bool isPreCalibrated = (calIt != lightCalibSettings.end() && calIt->second.preCalibrated);
-
-                if (!isPreCalibrated)
-                {
-                    for (const auto& frame : group.frames)
-                    {
-                        if (!frame.excluded)
-                        {
-                            ++calibratedLightCount;
-                            calibratedBytes += lightOutputBytes(frame).calibrated;
-                        }
-                    }
-                }
-            }
-        }
-
-        const qint64 registeredBytes = anyNonDrizzle ? registeredLightBytes : 0;
-
-        qint64 drizzlePixmapBytes = 0;
-        if (anyDrizzle)
-        {
-            for (const auto& frame : frames)
-            {
-                if (frame.excluded)
-                {
-                    continue;
-                }
-
-                const QSize dims = frame.metadata.dimensions();
-                if (dims.width() <= 0 || dims.height() <= 0)
-                {
-                    continue;
-                }
-
-                const qint64 w = static_cast<qint64>(dims.width());
-                const qint64 h = static_cast<qint64>(dims.height());
-                // Pixmaps store x/y maps as 2 floats per pixel.
-                drizzlePixmapBytes += w * h * 8;
-            }
-        }
-
-        const qint64 estimatedBytes =
-            stackedBytes + rejectionBytes + calibratedBytes + registeredBytes + drizzlePixmapBytes;
+        // What the run would write, as the page's header says it too.
+        const ImageIntegration::IntegrationOutputEstimate estimate =
+            ImageIntegration::estimateIntegrationOutput(*model);
+        const int includedLights = estimate.includedLights;
+        const int groupCount = estimate.groups;
+        const int rejectionMapFiles = estimate.rejectionMapFiles;
+        const int calibratedLightCount = estimate.calibratedLights;
+        const qint64 stackedBytes = estimate.stackedBytes;
+        const qint64 rejectionBytes = estimate.rejectionBytes;
+        const qint64 calibratedBytes = estimate.calibratedBytes;
+        const qint64 registeredBytes = estimate.registeredBytes;
+        const qint64 drizzlePixmapBytes = estimate.drizzlePixmapBytes;
+        const bool anyLayoutAssumed = estimate.layoutAssumed;
+        const qint64 estimatedBytes = estimate.total();
 
         const bool tight = (estimatedBytes > 0 && freeBytes > 0 && freeBytes < estimatedBytes);
 

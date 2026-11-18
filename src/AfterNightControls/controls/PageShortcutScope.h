@@ -13,6 +13,7 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QString>
 
 #include <functional>
 #include <vector>
@@ -31,7 +32,9 @@ namespace an::ui
 /// the focus is inside the page. Three things together make the page's win:
 ///
 /// - **The objects carry no live shortcut.** While the scope is active, the sequences of the page's actions and
-///   `QShortcut`s are taken off them (an action keeps its text and tooltip; a shortcut is disabled).
+///   `QShortcut`s are taken off them (an action keeps its tooltip; a shortcut is disabled). An action that is an entry
+///   of a menu still says its keys there: they are written into its text after a tab, which a menu draws as an entry's
+///   keys, and its text is its own again once the scope is inactive.
 /// - **The override is accepted.** The page's widget accepts the `QEvent::ShortcutOverride` of a sequence the scope
 ///   holds, so the window's shortcut is not looked for; a widget inside the page that edits with the key - a line edit
 ///   with `Delete` - accepts it first and keeps it.
@@ -43,6 +46,9 @@ namespace an::ui
 /// A `QShortcut` made for a widget and its children runs only with the focus inside that widget, as it does on its own.
 /// With the focus outside the page, nothing of this applies and the window's shortcut runs. `Ctrl+Enter` is matched
 /// with or without the keypad's modifier.
+///
+/// An object in a window of its own that the page opened - a dialog's action, a dialog's shortcut - is left as it is:
+/// a key pressed in that window never reaches the page, so the scope could take its sequence but not run it.
 ///
 /// Inactive - the process in a window of its own - every sequence is put back and the objects are live again, as in
 /// AfterNight 1.1. Used on the GUI thread.
@@ -80,6 +86,10 @@ private:
     {
         QPointer<QAction> action;
         QList<QKeySequence> keys;
+        /// A menu entry's own text, and its text with its keys after a tab, which it shows while they are held; empty
+        /// for an action of no menu.
+        QString text;
+        QString textWithKeys;
     };
     struct HeldShortcut
     {

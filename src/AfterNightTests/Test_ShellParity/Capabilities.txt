@@ -446,25 +446,25 @@ capability integration.menus
     title        Its six menus
     shared       KeyboardActionsTest.MenuBarHasExpectedTopLevelMenus, KeyboardActionsTest.FramesMenuHasExpectedActionsAndTooltips, KeyboardActionsTest.AllMenusHaveTooltipsOnAllEntries
     classic
-    observatory  pending
+    observatory  IntegrationPage.MenusEqualTheMenuBar, IntegrationPage.OpensAsATaskPageUnderAHeaderThatSaysItsJob
 
 capability integration.frame-tree
     title        Frame tree menu
     shared       TreeContextMenuHandlerTest.LightFrameShowsSetAsReferenceFrameAction, TreeContextMenuHandlerTest.ChangeTypeSubmenuHasAllFrameTypes, TreeContextMenuHandlerTest.GroupContextMenuShowsExpandCollapseActions
     classic
-    observatory  pending
+    observatory  IntegrationPage.TheFrameTreeMenuOpensOnThePageAndBlinks
 
 capability integration.settings
     title        Stacking, Registration, Local Normalization, Calibration, Weighting dialogs
     shared       RegistrationSettingsDialog.RegistrationSettingsSnapshotReflectsLiveWidgetEdits, DialogModernizationLifecycle.TheLocalNormalizationDialogOffersOnlyWhatTheRunReads, DialogModernizationLifecycle.TheLightCalibrationDialogOffersAndSaysWhatTheRunReads
     classic
-    observatory  pending
+    observatory  IntegrationPage.ASettingsDialogAndTheToolsOpenFromThePage
 
 capability integration.tools
     title        Blink, manual registration points, comet tracking
     shared       BlinkComparatorTest.NextButtonAdvancesIndex, AccessibilityTest.ManualRegistrationDialog_HasAccessibleControls, CometTrackingDialog.AutoTrackRunsAsyncHandlerAndDisplaysCandidatesForAcceptance
     classic
-    observatory  pending
+    observatory  IntegrationPage.TheFrameTreeMenuOpensOnThePageAndBlinks, IntegrationPage.ASettingsDialogAndTheToolsOpenFromThePage
 
 capability integration.run
     title        Processing window with the timeline; Open Report
@@ -476,7 +476,7 @@ capability integration.import
     title        Import progress with Pause and Resume
     shared       ImportProgressDialogTest.ShowsCurrentFile, ImportProgressDialogTest.CancelButtonMarksImportCancelled, ImportProgressReporter.SupportsPauseResume
     classic
-    observatory  pending
+    observatory  IntegrationPage.ImportShowsProgressInPlace
 
 capability integration.history
     title        Run history and session notes

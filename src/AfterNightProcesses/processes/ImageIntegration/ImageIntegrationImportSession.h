@@ -8,7 +8,7 @@
  * Split out of ImageIntegrationProcess.cpp with the import helpers that drive it.
  *
  * ImportProgressSession owns everything one import run needs while it is in flight - the worker
- * thread, the concurrent detection and issue vectors, the cancel flag and the progress dialog - so
+ * thread, the concurrent detection and issue vectors, the cancel flag and the progress panel - so
  * it is declared here rather than left file-local: the process starts a session from the import
  * dialogs and the frame tree starts one from a drag-and-drop, and those now live in different
  * translation units.
@@ -20,6 +20,7 @@
 #include "processes/ImageIntegration/core/FileImport.h"
 #include "processes/ImageIntegration/core/ImportProgressReporter.h"
 #include "processes/ImageIntegration/dialogs/ImportProgressDialog.h"
+#include "processes/ImageIntegration/widgets/ImportProgressPanel.h"
 #include "processes/ImageIntegration/model/FrameCollection.h"
 #include "processes/ImageIntegration/model/FrameType.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
@@ -67,12 +68,15 @@ struct ImportProgressSession
     std::atomic<bool> isCanceled{false};
     ImageIntegration::ImportProgressReporter reporter;
     QElapsedTimer importTimer;
-    QPointer<ImageIntegration::ImportProgressDialog> progress;
+    /// The panel that shows the import, and the dialog that holds it over a process in a window of its own; a process
+    /// shown as a page holds the panel in its page, and there is no dialog.
+    QPointer<ImageIntegration::ImportProgressPanel> progress;
+    QPointer<ImageIntegration::ImportProgressDialog> dialog;
     QPointer<QTimer> progressRefreshTimer;
     std::thread worker;
 };
 
-/// Push the session counts collected so far into its progress dialog.
+/// Push the session counts collected so far into its progress panel.
 void refreshImportProgressDialog(const std::shared_ptr<ImportProgressSession>& session);
 
 /// Group detected frames by final type and pick out master candidates, without touching the model.

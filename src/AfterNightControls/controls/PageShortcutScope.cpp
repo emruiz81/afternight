@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QMenu>
 #include <QShortcut>
 #include <QWidget>
 
@@ -40,6 +41,34 @@ namespace
         const QKeySequence plain(
             QKeyCombination(combination.keyboardModifiers() & ~Qt::KeypadModifier, combination.key()));
         if (plain == pressed)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Whether an action is an entry of a menu.
+[[nodiscard]] bool isAMenuEntry(const QAction& action)
+{
+    for (const QObject* shownIn : action.associatedObjects())
+    {
+        if (qobject_cast<const QMenu*>(shownIn) != nullptr)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Whether an object of the page lies in a window of its own that the page opened - a dialog - and not in the page: a
+/// menu is the page's, wherever it pops up.
+[[nodiscard]] bool inAWindowOfItsOwn(const QObject& object, const QWidget& page)
+{
+    for (const QObject* at = object.parent(); at != nullptr && at != &page; at = at->parent())
+    {
+        const auto* const widget = qobject_cast<const QWidget*>(at);
+        if (widget != nullptr && widget->isWindow() && widget->windowType() != Qt::Popup)
         {
             return true;
         }
@@ -80,17 +109,25 @@ void PageShortcutScope::setActive(const bool active)
         for (QAction* action : m_page.findChildren<QAction*>())
         {
             const QList<QKeySequence> keys = action->shortcuts();
-            if (keys.isEmpty())
+            if (keys.isEmpty() || inAWindowOfItsOwn(*action, m_page))
             {
                 continue;
             }
-            m_actions.push_back(HeldAction{action, keys});
+            HeldAction held{action, keys, {}, {}};
             action->setShortcuts({});
+            // An entry of a menu still says its keys: a menu draws what follows a tab in an entry's text as its keys.
+            if (isAMenuEntry(*action) && !action->text().contains(QLatin1Char('\t')))
+            {
+                held.text = action->text();
+                held.textWithKeys = held.text + QLatin1Char('\t') + keys.front().toString(QKeySequence::NativeText);
+                action->setText(held.textWithKeys);
+            }
+            m_actions.push_back(std::move(held));
         }
         for (QShortcut* shortcut : m_page.findChildren<QShortcut*>())
         {
             const QList<QKeySequence> keys = shortcut->keys();
-            if (keys.isEmpty())
+            if (keys.isEmpty() || inAWindowOfItsOwn(*shortcut, m_page))
             {
                 continue;
             }
@@ -103,6 +140,11 @@ void PageShortcutScope::setActive(const bool active)
     {
         if (held.action)
         {
+            // Its text is its own again, unless the page gave it another meanwhile.
+            if (!held.textWithKeys.isEmpty() && held.action->text() == held.textWithKeys)
+            {
+                held.action->setText(held.text);
+            }
             held.action->setShortcuts(held.keys);
         }
     }

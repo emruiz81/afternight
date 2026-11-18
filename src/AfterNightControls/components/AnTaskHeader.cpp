@@ -14,12 +14,17 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QHelpEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPushButton>
 #include <QResizeEvent>
 #include <QTimer>
+#include <QToolTip>
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 #include <verdigris/wobjectimpl.h>
 
@@ -73,6 +78,74 @@ namespace
     return t.colors.textSecondary;
 }
 
+// ---- A job's type
+
+[[nodiscard]] QFont jobEyebrowFont()
+{
+    const DesignTokens& t = tokens();
+    return parts::capsFont(t.typography.caption, t.metrics.fontCaption);
+}
+
+[[nodiscard]] QFont jobTitleFont()
+{
+    return parts::sizedFont(tokens().typography.heading1, parts::kJobHeaderTitleFont, QFont::DemiBold);
+}
+
+[[nodiscard]] QFont jobFactsFont()
+{
+    const DesignTokens& t = tokens();
+    return parts::sizedFont(t.typography.monospace, t.metrics.fontSmall);
+}
+
+[[nodiscard]] QFont jobMeterLabelFont()
+{
+    const DesignTokens& t = tokens();
+    return parts::sizedFont(t.typography.body, t.metrics.fontCaption);
+}
+
+[[nodiscard]] QFont jobMeterTextFont()
+{
+    const DesignTokens& t = tokens();
+    return parts::sizedFont(t.typography.monospace, t.metrics.fontCaption);
+}
+
+/// How high a job's three lines are together.
+[[nodiscard]] int jobTextHeight()
+{
+    return QFontMetrics(jobEyebrowFont()).height() + QFontMetrics(jobTitleFont()).height() + parts::kJobHeaderFactsGap +
+           QFontMetrics(jobFactsFont()).height();
+}
+
+/// What an action says it does: its tooltip, or its text without the mnemonic's mark.
+[[nodiscard]] QString saidBy(const QAction& action)
+{
+    QString text = action.text();
+    text.remove(QLatin1Char('&'));
+    const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+    if (tab >= 0)
+    {
+        text.truncate(tab);
+    }
+    const QString tip = action.toolTip();
+    // An action with no tooltip of its own answers its text for one.
+    QString plainTip = tip;
+    plainTip.remove(QLatin1Char('&'));
+    return tip.isEmpty() || plainTip == text || tip == action.text() ? text : tip;
+}
+
+/// An action's text as a button shows it: without the mnemonic's mark and the keys after a tab.
+[[nodiscard]] QString buttonText(const QAction& action)
+{
+    QString text = action.text();
+    text.remove(QLatin1Char('&'));
+    const qsizetype tab = text.indexOf(QLatin1Char('\t'));
+    if (tab >= 0)
+    {
+        text.truncate(tab);
+    }
+    return text;
+}
+
 } // namespace
 
 struct AnTaskHeader::Impl
@@ -92,6 +165,35 @@ struct AnTaskHeader::Impl
     AnIconButton* menuButton = nullptr;
     QTimer slide;
     int slideStep = 0;
+
+    /// The job the header says in place of a process and its image, its buttons, and what follows its actions.
+    std::optional<JobHeading> job;
+    std::vector<AnIconButton*> actButtons;
+    QPushButton* primaryButton = nullptr;
+    std::vector<QMetaObject::Connection> jobConnections;
+    /// Where the job's text ends, where its measure's text and bar lie - empty when the measure is left out - and where
+    /// the hairline before the ways out stands; laid out with the buttons.
+    int jobTextRight = 0;
+    QRect meterText;
+    QRect meterBar;
+    int separatorX = -1;
+
+    /// How wide the measure's label and text are drawn, a space between them.
+    [[nodiscard]] int meterTextWidth() const
+    {
+        if (!job.has_value() || !job->meter.has_value())
+        {
+            return 0;
+        }
+        int width = parts::textWidth(jobMeterTextFont(), job->meter->text);
+        if (!job->meter->label.isEmpty())
+        {
+            const QFont labelFont = jobMeterLabelFont();
+            width += parts::textWidth(labelFont, job->meter->label) +
+                     QFontMetrics(labelFont).horizontalAdvance(QLatin1Char(' '));
+        }
+        return width;
+    }
 
     /// Where the buttons begin: the text ends a gap before them.
     [[nodiscard]] int buttonsLeft(const AnTaskHeader& header) const
@@ -134,7 +236,190 @@ AnTaskHeader::AnTaskHeader(QWidget* parent) : QWidget(parent), m_impl(new Impl)
 
 AnTaskHeader::~AnTaskHeader()
 {
+    for (const QMetaObject::Connection& connection : m_impl->jobConnections)
+    {
+        QObject::disconnect(connection);
+    }
     delete m_impl;
+}
+
+void AnTaskHeader::setJob(const std::optional<JobHeading>& job)
+{
+    Impl& impl = *m_impl;
+    if (impl.job == job)
+    {
+        return;
+    }
+    // The buttons are made again only when the actions they stand for change: a job said again with other facts keeps
+    // them, and the focus one of them holds.
+    const bool sameActs =
+        impl.job.has_value() && job.has_value() && impl.job->acts == job->acts && impl.job->primary == job->primary;
+    const bool heightChanges = impl.job.has_value() != job.has_value();
+    impl.job = job;
+    if (!sameActs)
+    {
+        for (const QMetaObject::Connection& connection : impl.jobConnections)
+        {
+            QObject::disconnect(connection);
+        }
+        impl.jobConnections.clear();
+        // A button may be the one whose press brought the new job: it goes once that press has returned.
+        for (AnIconButton* button : impl.actButtons)
+        {
+            button->hide();
+            button->deleteLater();
+        }
+        impl.actButtons.clear();
+        if (impl.primaryButton != nullptr)
+        {
+            impl.primaryButton->hide();
+            impl.primaryButton->deleteLater();
+            impl.primaryButton = nullptr;
+        }
+        if (job.has_value())
+        {
+            for (const JobHeading::Act& act : job->acts)
+            {
+                auto* button = new AnIconButton(act.iconKey, QString(), this);
+                button->setObjectName(QStringLiteral("taskHeaderAct.%1").arg(act.iconKey));
+                impl.actButtons.push_back(button);
+                const QPointer<QAction> action = act.action;
+                const auto follow = [button, action]() {
+                    button->setEnabled(!action.isNull() && action->isEnabled());
+                    if (!action.isNull())
+                    {
+                        button->setDescription(saidBy(*action));
+                    }
+                };
+                follow();
+                if (!action.isNull())
+                {
+                    impl.jobConnections.push_back(QObject::connect(action.data(), &QAction::changed, button, follow));
+                    impl.jobConnections.push_back(QObject::connect(action.data(), &QObject::destroyed, button,
+                                                                   [button]() { button->setEnabled(false); }));
+                }
+                QObject::connect(button, &QAbstractButton::clicked, this, [action]() {
+                    if (!action.isNull() && action->isEnabled())
+                    {
+                        action->trigger();
+                    }
+                });
+                button->show();
+            }
+            if (!job->primary.isNull())
+            {
+                auto* button = new QPushButton(this);
+                button->setObjectName(QStringLiteral("taskHeaderPrimary"));
+                button->setProperty("anButtonVariant", QStringLiteral("primary"));
+                impl.primaryButton = button;
+                const QPointer<QAction> action = job->primary;
+                const auto follow = [this, button, action]() {
+                    if (action.isNull())
+                    {
+                        button->setEnabled(false);
+                        return;
+                    }
+                    button->setEnabled(action->isEnabled());
+                    const QString text = buttonText(*action);
+                    const bool resized = text != button->text();
+                    button->setText(text);
+                    button->setToolTip(saidBy(*action) == text ? QString() : saidBy(*action));
+                    if (resized)
+                    {
+                        resizeEvent(nullptr);
+                        update();
+                    }
+                };
+                follow();
+                impl.jobConnections.push_back(QObject::connect(action.data(), &QAction::changed, button, follow));
+                impl.jobConnections.push_back(QObject::connect(action.data(), &QObject::destroyed, button,
+                                                               [button]() { button->setEnabled(false); }));
+                QObject::connect(button, &QAbstractButton::clicked, this, [action]() {
+                    if (!action.isNull() && action->isEnabled())
+                    {
+                        action->trigger();
+                    }
+                });
+                button->show();
+            }
+        }
+    }
+    if (job.has_value() && !sameActs)
+    {
+        // The keyboard meets the buttons in the order they are read in: the acts, the menus, the primary act, the ways
+        // out.
+        QWidget* before = nullptr;
+        const auto next = [&before](QWidget* button) {
+            if (button == nullptr || button->isHidden())
+            {
+                return;
+            }
+            if (before != nullptr)
+            {
+                QWidget::setTabOrder(before, button);
+            }
+            before = button;
+        };
+        for (AnIconButton* button : impl.actButtons)
+        {
+            next(button);
+        }
+        next(impl.menuButton);
+        next(impl.primaryButton);
+        next(impl.floatButton);
+        next(impl.closeButton);
+    }
+    if (job.has_value())
+    {
+        setAccessibleName(job->eyebrow.isEmpty() ? job->title : QStringLiteral("%1: %2").arg(job->eyebrow, job->title));
+        setAccessibleDescription(job->facts);
+    }
+    else
+    {
+        setProcessName(impl.processName);
+        setAccessibleDescription(impl.stateText);
+    }
+    if (heightChanges)
+    {
+        updateGeometry();
+    }
+    resizeEvent(nullptr);
+    update();
+}
+
+const std::optional<JobHeading>& AnTaskHeader::job() const noexcept
+{
+    return m_impl->job;
+}
+
+QList<QAbstractButton*> AnTaskHeader::jobActButtons() const
+{
+    QList<QAbstractButton*> buttons;
+    for (AnIconButton* button : m_impl->actButtons)
+    {
+        buttons.append(button);
+    }
+    return buttons;
+}
+
+QAbstractButton* AnTaskHeader::jobPrimaryButton() const noexcept
+{
+    return m_impl->primaryButton;
+}
+
+QRect AnTaskHeader::jobMeterRect() const
+{
+    return m_impl->job.has_value() ? m_impl->meterBar : QRect();
+}
+
+QString AnTaskHeader::shownJobTitle() const
+{
+    if (!m_impl->job.has_value())
+    {
+        return {};
+    }
+    const int room = (std::max)(0, m_impl->jobTextRight - parts::kJobHeaderPaddingStart);
+    return QFontMetrics(jobTitleFont()).elidedText(m_impl->job->title, Qt::ElideRight, room);
 }
 
 void AnTaskHeader::setThumbnail(const QImage& thumbnail)
@@ -162,7 +447,11 @@ QImage AnTaskHeader::thumbnail() const
 void AnTaskHeader::setProcessName(const QString& name)
 {
     m_impl->processName = name;
-    setAccessibleName(m_impl->targetName.isEmpty() ? name : translated("%1 on %2").arg(name, m_impl->targetName));
+    if (!m_impl->job.has_value())
+    {
+        // A header that says a job is named by the job.
+        setAccessibleName(m_impl->targetName.isEmpty() ? name : translated("%1 on %2").arg(name, m_impl->targetName));
+    }
     update();
 }
 
@@ -187,7 +476,10 @@ void AnTaskHeader::setState(const State state, const QString& text, const std::o
     m_impl->state = state;
     m_impl->stateText = text;
     m_impl->progress = progress;
-    setAccessibleDescription(text);
+    if (!m_impl->job.has_value())
+    {
+        setAccessibleDescription(text);
+    }
     // A run that cannot tell how far it has come slides its bar across, while animations are on.
     if (state == State::Running && !progress.has_value() && AnimationUtils::animationsEnabled() && isVisible())
     {
@@ -289,12 +581,16 @@ QRect AnTaskHeader::runBarRect() const
 QSize AnTaskHeader::sizeHint() const
 {
     const DesignTokens& t = tokens();
+    if (m_impl->job.has_value())
+    {
+        return QSize(t.metrics.strip * 10, jobTextHeight() + 2 * parts::kJobHeaderPaddingVertical);
+    }
     return QSize(t.metrics.strip * 10, t.metrics.strip);
 }
 
 QSize AnTaskHeader::minimumSizeHint() const
 {
-    return QSize(0, tokens().metrics.strip);
+    return QSize(0, sizeHint().height());
 }
 
 bool AnTaskHeader::event(QEvent* event)
@@ -314,6 +610,21 @@ bool AnTaskHeader::event(QEvent* event)
     {
         m_impl->slide.stop();
     }
+    else if (type == QEvent::ToolTip && m_impl->job.has_value() && m_impl->job->meter.has_value() &&
+             !m_impl->meterBar.isEmpty())
+    {
+        // The measure says what it is made of where it is drawn.
+        const auto* const help = static_cast<const QHelpEvent*>(event);
+        const QRect measure = m_impl->meterText.united(m_impl->meterBar);
+        if (measure.contains(help->pos()) && !m_impl->job->meter->toolTip.isEmpty())
+        {
+            QToolTip::showText(help->globalPos(), m_impl->job->meter->toolTip, this, measure);
+            return true;
+        }
+        QToolTip::hideText();
+        event->ignore();
+        return true;
+    }
     return QWidget::event(event);
 }
 
@@ -324,8 +635,61 @@ void AnTaskHeader::resizeEvent(QResizeEvent* event)
         QWidget::resizeEvent(event);
     }
     const DesignTokens& t = tokens();
+    Impl& impl = *m_impl;
+    if (impl.job.has_value())
+    {
+        // From the right: Close, Float as window, a hairline, the primary act, the menu button, the acts, the measure.
+        const int gap = parts::kJobHeaderPartsGap;
+        int right = width() - parts::kJobHeaderPaddingEnd;
+        const auto place = [this, &right, gap](QWidget* widget) {
+            const QSize size = widget->sizeHint();
+            right -= size.width();
+            widget->setGeometry(right, (height() - size.height()) / 2, size.width(), size.height());
+            right -= gap;
+        };
+        place(impl.closeButton);
+        place(impl.floatButton);
+        impl.separatorX = right;
+        right -= 1 + gap;
+        if (impl.primaryButton != nullptr)
+        {
+            place(impl.primaryButton);
+        }
+        if (!impl.menuButton->isHidden())
+        {
+            place(impl.menuButton);
+        }
+        for (auto button = impl.actButtons.rbegin(); button != impl.actButtons.rend(); ++button)
+        {
+            place(*button);
+        }
+        impl.meterText = QRect();
+        impl.meterBar = QRect();
+        impl.jobTextRight = right + gap - parts::kJobHeaderGap;
+        if (impl.job->meter.has_value())
+        {
+            // The measure keeps its place only where the name keeps its least width beside it.
+            const int block = (std::max)(impl.meterTextWidth(), parts::kJobHeaderMeterWidth);
+            const int blockRight = right - parts::kJobHeaderMeterMargin;
+            const int blockLeft = blockRight - block;
+            const int textRight = blockLeft - parts::kJobHeaderGap;
+            if (textRight - parts::kJobHeaderPaddingStart >= parts::kJobHeaderTextLeast)
+            {
+                const int textHeight =
+                    (std::max)(QFontMetrics(jobMeterLabelFont()).height(), QFontMetrics(jobMeterTextFont()).height());
+                const int blockHeight = textHeight + parts::kJobHeaderMeterGap + parts::kJobHeaderMeterBar;
+                const int top = (height() - blockHeight) / 2;
+                impl.meterText = QRect(blockLeft, top, block, textHeight);
+                impl.meterBar =
+                    QRect(blockRight - parts::kJobHeaderMeterWidth, top + textHeight + parts::kJobHeaderMeterGap,
+                          parts::kJobHeaderMeterWidth, parts::kJobHeaderMeterBar);
+                impl.jobTextRight = textRight;
+            }
+        }
+        return;
+    }
     int right = width() - parts::kTaskHeaderPaddingEnd;
-    for (AnIconButton* button : {m_impl->closeButton, m_impl->floatButton, m_impl->menuButton})
+    for (AnIconButton* button : {impl.closeButton, impl.floatButton, impl.menuButton})
     {
         if (button->isHidden())
         {
@@ -345,6 +709,70 @@ void AnTaskHeader::paintEvent(QPaintEvent* /*event*/)
     painter.setRenderHint(QPainter::Antialiasing);
     painter.fillRect(rect(), t.layers.surface1);
     painter.fillRect(QRect(0, height() - 1, width(), 1), t.colors.borderSubtle);
+    if (m_impl->job.has_value())
+    {
+        const Impl& impl = *m_impl;
+        const JobHeading& job = *impl.job;
+        const int left = parts::kJobHeaderPaddingStart;
+        const int room = (std::max)(0, impl.jobTextRight - left);
+        int top = (height() - jobTextHeight()) / 2;
+        const auto line = [&painter, left, room, &top](const QString& text, const QFont& font, const QColor& colour) {
+            const QFontMetrics metrics(font);
+            painter.setFont(font);
+            painter.setPen(colour);
+            painter.drawText(QRect(left, top, room, metrics.height()), Qt::AlignVCenter | Qt::AlignLeft,
+                             metrics.elidedText(text, Qt::ElideRight, room));
+            top += metrics.height();
+        };
+        line(job.eyebrow, jobEyebrowFont(), t.colors.textAccent);
+        line(job.title, jobTitleFont(), t.colors.textPrimary);
+        top += parts::kJobHeaderFactsGap;
+        line(job.facts, jobFactsFont(), t.colors.textSecondary);
+
+        // The measure: its label and its text over its bar, at the right of its place.
+        if (job.meter.has_value() && !impl.meterBar.isEmpty())
+        {
+            const QFont labelFont = jobMeterLabelFont();
+            const QFont textFont = jobMeterTextFont();
+            const int textWidth = parts::textWidth(textFont, job.meter->text);
+            painter.setFont(textFont);
+            painter.setPen(t.colors.textPrimary);
+            painter.drawText(
+                QRect(impl.meterText.right() + 1 - textWidth, impl.meterText.top(), textWidth, impl.meterText.height()),
+                Qt::AlignVCenter | Qt::AlignLeft, job.meter->text);
+            if (!job.meter->label.isEmpty())
+            {
+                painter.setFont(labelFont);
+                painter.setPen(t.colors.textSecondary);
+                painter.drawText(QRect(impl.meterText.left(), impl.meterText.top(), impl.meterText.width() - textWidth,
+                                       impl.meterText.height()),
+                                 Qt::AlignVCenter | Qt::AlignLeft, job.meter->label);
+            }
+            const QRectF bar(impl.meterBar);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(job.meter->exceeded ? t.colors.statusErrorSoft : t.colors.statusSuccessSoft);
+            painter.drawRoundedRect(bar, parts::kJobHeaderMeterRadius, parts::kJobHeaderMeterRadius);
+            const double share = std::isfinite(job.meter->share) ? std::clamp(job.meter->share, 0.0, 1.0) : 0.0;
+            if (share > 0.0)
+            {
+                painter.setBrush(job.meter->exceeded ? t.colors.statusError : t.colors.statusSuccess);
+                painter.drawRoundedRect(QRectF(bar.left(), bar.top(), bar.width() * share, bar.height()),
+                                        parts::kJobHeaderMeterRadius, parts::kJobHeaderMeterRadius);
+            }
+        }
+        if (impl.separatorX >= 0)
+        {
+            painter.fillRect(
+                QRect(impl.separatorX, (height() - parts::kJobHeaderSeparator) / 2, 1, parts::kJobHeaderSeparator),
+                t.colors.borderSubtle);
+        }
+        const QRect runBar = runBarRect();
+        if (!runBar.isEmpty())
+        {
+            painter.fillRect(runBar.intersected(rect()), t.colors.accentPrimary);
+        }
+        return;
+    }
     const int gap = t.metrics.gap;
     int x = parts::kTaskHeaderPaddingStart;
     const int middle = height() / 2;

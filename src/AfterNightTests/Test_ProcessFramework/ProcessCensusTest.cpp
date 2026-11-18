@@ -903,12 +903,12 @@ constexpr const char* kProcessSurfacesPath = "src/AfterNightTests/Test_ProcessFr
 /// The record's one section.
 constexpr const char* kSurfacesSection = "surfaces";
 
-/// The processes of the integration workflow: whole windows of their own, each with its own way through its frames,
-/// which are not yet arranged as full pages.
-constexpr std::array<std::string_view, 6> kIntegrationWorkflowWindows = {
-    "sensor_calibration.actionImage_Calibration",    "multi_image_stacking.actionImage_Stacking",
-    "multi_image_stacking.actionImage_Registration", "multi_image_stacking.actionImage_List_Analyzer",
-    "multi_image_stacking.actionImage_Integration",  "multi_image_stacking.actionImage_Integration_Lite",
+/// The processes of the integration workflow that are still whole windows of their own, each with its own way through
+/// its frames, and not yet arranged as full pages; Image Integration is one.
+constexpr std::array<std::string_view, 5> kIntegrationWorkflowWindows = {
+    "sensor_calibration.actionImage_Calibration",        "multi_image_stacking.actionImage_Stacking",
+    "multi_image_stacking.actionImage_Registration",     "multi_image_stacking.actionImage_List_Analyzer",
+    "multi_image_stacking.actionImage_Integration_Lite",
 };
 
 /// The comment the record of the surfaces opens with.

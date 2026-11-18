@@ -8,6 +8,7 @@
 #include "components/AnCollapsibleSection.h"
 #include "components/AnIconButton.h"
 #include "components/AnInfoBanner.h"
+#include "components/AnTaskHeader.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "widgets/ImageViewWidget.h"
@@ -662,6 +663,8 @@ struct ProcessPageLayout::Impl : public QObject
     QPointer<ImageViewControl> preview;
     std::vector<QMetaObject::Connection> previewConnections;
     std::function<void(ImageViewControl*)> previewListener;
+    std::optional<JobHeading> job;
+    std::function<void()> jobListener;
     ProcessRunState run;
     QString message;
 
@@ -1582,6 +1585,29 @@ QList<QMenu*> ProcessPageLayout::menus() const
         }
     }
     return menus;
+}
+
+void ProcessPageLayout::setJobHeading(const JobHeading& job)
+{
+    if (m_impl->job.has_value() && *m_impl->job == job)
+    {
+        return;
+    }
+    m_impl->job = job;
+    if (m_impl->jobListener)
+    {
+        m_impl->jobListener();
+    }
+}
+
+const JobHeading* ProcessPageLayout::jobHeading() const noexcept
+{
+    return m_impl->job.has_value() ? &*m_impl->job : nullptr;
+}
+
+void ProcessPageLayout::setJobHeadingListener(std::function<void()> listener)
+{
+    m_impl->jobListener = std::move(listener);
 }
 
 QAbstractButton* ProcessPageLayout::footerButton(const QDialogButtonBox::StandardButton which) const

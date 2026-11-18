@@ -10,6 +10,7 @@
 #include "Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h"
 
 #include "app/ProcessRegistry.h"
+#include "components/AnTaskHeader.h"
 #include "controls/ProcessLaunchScope.h"
 #include "controls/ProcessPageLayout.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -192,6 +193,36 @@ TEST(FullPage, ALargerPageScrollsAndASmallerOneDoesNot)
     EXPECT_TRUE(scrolls(*area->horizontalScrollBar())) << "a smaller centre scrolls sideways";
     EXPECT_TRUE(scrolls(*area->verticalScrollBar())) << "and up and down";
     EXPECT_EQ(process.body->width(), kLeast.width()) << "the process keeps its least size";
+}
+
+// A full page says the job its process holds once the process states one, and tells its listener each time what it
+// says changes - and only then.
+TEST(FullPage, TheJobItsProcessHoldsIsToldToItsListener)
+{
+    FullPageCase paged;
+    ASSERT_NE(paged.context, nullptr);
+    MenuBarProcess& process = paged.open();
+    ProcessPageLayout* const page = process.pageLayout();
+    ASSERT_NE(page, nullptr);
+    EXPECT_EQ(page->jobHeading(), nullptr) << "a process that states no job is named by its process";
+    int told = 0;
+    page->setJobHeadingListener([&told]() { ++told; });
+
+    an::ui::JobHeading job;
+    job.title = QStringLiteral("Carina Nebula LRGB");
+    job.primary = process.execute;
+    page->setJobHeading(job);
+    ASSERT_NE(page->jobHeading(), nullptr);
+    EXPECT_EQ(page->jobHeading()->title, QStringLiteral("Carina Nebula LRGB"));
+    EXPECT_EQ(page->jobHeading()->primary.data(), process.execute);
+    EXPECT_EQ(told, 1);
+
+    page->setJobHeading(job);
+    EXPECT_EQ(told, 1) << "the same job said again tells nothing";
+    job.facts = QStringLiteral("3 frames");
+    page->setJobHeading(job);
+    EXPECT_EQ(told, 2);
+    EXPECT_EQ(page->jobHeading()->facts, QStringLiteral("3 frames"));
 }
 
 // A process made outside every launch belongs to no descriptor: it stays the window it is, its menu bar its own.

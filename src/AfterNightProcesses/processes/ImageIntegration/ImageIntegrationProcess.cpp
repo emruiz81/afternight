@@ -9,7 +9,9 @@
 #include "app/FileDialogUtils.h"
 #include "controls/CalibrationPreviewConfig.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ProcessPageLayout.h"
 #include "components/AnProgressCard.h"
+#include "components/AnTaskHeader.h"
 #include "processes/ProcessCommonUtils.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/CalibrationMatcher.h"
@@ -45,6 +47,7 @@
 #include "processes/ImageIntegration/persistence/PresetManager.h"
 #include "processes/ImageIntegration/persistence/ProjectManager.h"
 #include "processes/ImageIntegration/persistence/SessionDocument.h"
+#include "processes/ImageIntegration/ui_models/IntegrationJobFacts.h"
 #include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
@@ -69,6 +72,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
@@ -82,6 +86,7 @@
 #include <QSettings>
 #include <QTabWidget>
 #include <QTabBar>
+#include <QThreadPool>
 #include <QTimer>
 #include <QMenu>
 #include <QMenuBar>
@@ -360,6 +365,27 @@ int tabIndexForFixTarget(FixTarget target)
 }
 
 } // namespace
+
+/// What the page's header says of the job, and what it was last read from.
+struct ImageIntegrationProcess::JobHeadingState
+{
+    ImageIntegration::IntegrationJobFacts facts;
+    ImageIntegration::IntegrationJobDisk disk;
+
+    /// The lights and the folder the disk was last read for; a read is asked again when they change.
+    QStringList readPaths;
+    QString readFolder;
+    bool everRead = false;
+
+    /// Whether the disk is to be read again whatever it was last read for: a run ended, the page is shown again.
+    bool readWanted = false;
+
+    /// The read asked for last: one that lands after a later one was asked for is dropped.
+    quint64 generation = 0;
+
+    /// Gathers the changes of a burst - an import adds its frames one signal each - into one refresh.
+    QTimer debounce;
+};
 
 ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProcessBaseControl(getProcessNameStatic())
 {
@@ -665,6 +691,8 @@ IntegrationDataModel* ImageIntegrationProcess::model() const noexcept
 
 void ImageIntegrationProcess::refreshAfterRun()
 {
+    // A run wrote into the output folder: what is free there is read again for the page's header.
+    scheduleJobHeadingRefresh(true);
     // The tabs read the output directory's registration records only when something moves them; a run writes them
     // without moving anything.
     if (m_registrationTab)
@@ -786,6 +814,7 @@ bool ImageIntegrationProcess::openSession(const QString& databasePath, const QSt
     m_model->fromJson(*loaded.model);
     startAutosave();
     updateWindowTitle();
+    scheduleJobHeadingRefresh(true);
     return true;
 }
 
@@ -798,6 +827,150 @@ void ImageIntegrationProcess::closeEvent(QCloseEvent* evt)
     }
 
     TopLevelProcessBaseControl::closeEvent(evt);
+}
+
+bool ImageIntegrationProcess::triggerPrimaryAction()
+{
+    if (runState().running() || m_executeAction == nullptr || !m_executeAction->isEnabled())
+    {
+        return false;
+    }
+    m_executeAction->trigger();
+    return true;
+}
+
+void ImageIntegrationProcess::keyPressEvent(QKeyEvent* evt)
+{
+    // In a window Esc closes the import's dialog, which cancels the import; on a page it cancels the import shown
+    // there, and closes the page only when none is on its way.
+    if (evt->key() == Qt::Key_Escape && !m_pageImportPanel.isNull())
+    {
+        m_pageImportPanel->cancel();
+        evt->accept();
+        return;
+    }
+    TopLevelProcessBaseControl::keyPressEvent(evt);
+}
+
+void ImageIntegrationProcess::showEvent(QShowEvent* evt)
+{
+    TopLevelProcessBaseControl::showEvent(evt);
+    // What is free on the disk may have changed while the page was not shown.
+    scheduleJobHeadingRefresh(true);
+}
+
+void ImageIntegrationProcess::pageLayoutMade()
+{
+    m_jobHeading = std::make_unique<JobHeadingState>();
+    m_jobHeading->debounce.setSingleShot(true);
+    m_jobHeading->debounce.setInterval(ImageIntegration::Config::kDebounceIntervalMs);
+    connect(&m_jobHeading->debounce, &QTimer::timeout, this, &ImageIntegrationProcess::refreshJobHeading);
+    if (m_model)
+    {
+        // Whatever moves the job's facts: its frames, their grouping and exclusion, what a run would write, where.
+        const IntegrationDataModel* const model = m_model.get();
+        const auto moved = [this]() { scheduleJobHeadingRefresh(); };
+        connect(model, &IntegrationDataModel::framesAdded, this, moved);
+        connect(model, &IntegrationDataModel::framesRemoved, this, moved);
+        connect(model, &IntegrationDataModel::frameUpdated, this, moved);
+        connect(model, &IntegrationDataModel::groupingChanged, this, moved);
+        connect(model, &IntegrationDataModel::calibrationChanged, this, moved);
+        connect(model, &IntegrationDataModel::integrationGroupsChanged, this, moved);
+        connect(model, &IntegrationDataModel::settingsChanged, this, moved);
+        connect(model, &IntegrationDataModel::outputDirectoryChanged, this, moved);
+        connect(model, &IntegrationDataModel::modelReset, this, moved);
+    }
+    refreshJobHeading();
+}
+
+void ImageIntegrationProcess::scheduleJobHeadingRefresh(const bool readDisk)
+{
+    if (!m_jobHeading)
+    {
+        return;
+    }
+    m_jobHeading->readWanted = m_jobHeading->readWanted || readDisk;
+    m_jobHeading->debounce.start();
+}
+
+void ImageIntegrationProcess::refreshJobHeading()
+{
+    if (!m_jobHeading || !m_model || pageLayout() == nullptr)
+    {
+        return;
+    }
+    JobHeadingState& state = *m_jobHeading;
+    state.facts = ImageIntegration::integrationJobFacts(*m_model);
+    publishJobHeading();
+
+    // What the disk adds - what the lights' files weigh, what is free where the runs write - is read on the thread
+    // pool, and the header says it when it lands; until then it says what it read last.
+    const bool moved =
+        !state.everRead || state.readPaths != state.facts.lightPaths || state.readFolder != state.facts.outputDirectory;
+    if (!moved && !state.readWanted)
+    {
+        return;
+    }
+    state.everRead = true;
+    state.readWanted = false;
+    state.readPaths = state.facts.lightPaths;
+    state.readFolder = state.facts.outputDirectory;
+    const quint64 generation = ++state.generation;
+    const QPointer<ImageIntegrationProcess> self(this);
+    QThreadPool::globalInstance()->start([self, generation, paths = state.readPaths, folder = state.readFolder]() {
+        const ImageIntegration::IntegrationJobDisk disk = ImageIntegration::readIntegrationJobDisk(paths, folder);
+        QObject* const application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, generation, disk]() {
+                if (self.isNull() || !self->m_jobHeading || self->m_jobHeading->generation != generation)
+                {
+                    return;
+                }
+                self->m_jobHeading->disk = disk;
+                self->publishJobHeading();
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageIntegrationProcess::publishJobHeading()
+{
+    an::ui::ProcessPageLayout* const page = pageLayout();
+    if (page == nullptr || !m_jobHeading)
+    {
+        return;
+    }
+    const JobHeadingState& state = *m_jobHeading;
+    an::ui::JobHeading job;
+    job.eyebrow = tr("Image Integration \u00B7 Job");
+    job.title = m_sessionName;
+    job.facts = ImageIntegration::integrationJobFactsText(state.facts, state.disk);
+    const QString disk = ImageIntegration::integrationJobDiskText(state.facts, state.disk);
+    if (!state.facts.outputDirectory.isEmpty() && !disk.isEmpty())
+    {
+        QString tip = QDir::toNativeSeparators(state.facts.outputDirectory) + QLatin1Char('\n') +
+                      tr("Available: %1").arg(ImageIntegration::formatOutputBytes(state.disk.freeBytes));
+        if (state.facts.neededBytes > 0)
+        {
+            tip += QLatin1Char('\n') +
+                   tr("Estimated needed: ~%1").arg(ImageIntegration::formatOutputBytes(state.facts.neededBytes));
+        }
+        job.meter =
+            an::ui::JobHeading::Meter{.label = tr("Disk space"),
+                                      .text = disk,
+                                      .share = ImageIntegration::integrationJobDiskShare(state.facts, state.disk),
+                                      .exceeded = ImageIntegration::integrationJobDiskExceeded(state.facts, state.disk),
+                                      .toolTip = tip};
+    }
+    job.acts = {an::ui::JobHeading::Act{m_undoAction, QStringLiteral("undo")},
+                an::ui::JobHeading::Act{m_redoAction, QStringLiteral("redo")}};
+    job.primary = m_executeAction;
+    page->setJobHeading(job);
 }
 
 std::string ImageIntegrationProcess::serialize_json_settings()
@@ -4037,6 +4210,12 @@ void ImageIntegrationProcess::onFixWithGroupRequested(FixTarget target, const QS
 
 void ImageIntegrationProcess::updateButtonStates()
 {
+    // While an import shown in the page holds the page's acts, they stay as it left them; they are set again from the
+    // job when it ends.
+    if (!m_importHeldActions.empty())
+    {
+        return;
+    }
     bool ready = m_model && m_model->isReadyForIntegration();
     if (m_executeAction)
     {

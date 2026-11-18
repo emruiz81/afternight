@@ -22,6 +22,8 @@
 #include <QResizeEvent>
 #include <QVBoxLayout>
 
+#include <optional>
+
 namespace an::ui::observatory
 {
 
@@ -53,6 +55,11 @@ TaskPage::TaskPage(QWidget* parent) : QWidget(parent)
 
 TaskPage::~TaskPage()
 {
+    // A process that outlives its page tells it of its job no more.
+    if (an::ui::ProcessPageLayout* const page = m_process ? m_process->pageLayout() : nullptr)
+    {
+        page->setJobHeadingListener({});
+    }
     // The players stop telling the page before its views go, and the binder lets go of the views before the toolbar
     // and the strip go with the page.
     m_clearance.reset();
@@ -104,10 +111,18 @@ void TaskPage::dress(TopLevelProcessBaseControl& process, std::function<void(Ima
     }
     if (page->canvas() == nullptr)
     {
-        // A full page: the process whole, its own menus under the header's button.
+        // A full page: the process whole, its own menus under the header's button, and the job it holds - when it
+        // states one - said in the header in place of the process's name, now and each time it changes.
         m_readout->hide();
         m_strip->hide();
         m_header->setMenuButtonVisible(!page->menus().isEmpty());
+        const auto sayTheJob = [this]() {
+            const an::ui::ProcessPageLayout* const layout = m_process ? m_process->pageLayout() : nullptr;
+            const an::ui::JobHeading* const job = layout != nullptr ? layout->jobHeading() : nullptr;
+            m_header->setJob(job != nullptr ? std::optional<an::ui::JobHeading>(*job) : std::nullopt);
+        };
+        page->setJobHeadingListener(sayTheJob);
+        sayTheJob();
         return;
     }
     if (QLayout* const foot = page->canvasFoot()->layout())

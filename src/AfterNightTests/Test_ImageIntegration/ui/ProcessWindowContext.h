@@ -179,6 +179,10 @@ public:
     {
         return nullptr;
     }
+    [[nodiscard]] an::ui::IProcessPresenter* getProcessPresenter() override
+    {
+        return presenter;
+    }
 
     // ---- IEngineSessionProvider.
 
@@ -297,6 +301,9 @@ public:
 
     /// How many windows are registered now.
     int registeredProcesses = 0;
+
+    /// What takes a window into a page at its first show; none leaves every window the window it is.
+    an::ui::IProcessPresenter* presenter = nullptr;
 
 private:
     struct StoredProcess

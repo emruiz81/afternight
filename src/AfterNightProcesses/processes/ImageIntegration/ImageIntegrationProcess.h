@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <array>
+#include <vector>
 #include <QObjectCleanupHandler>
 #include <QPointer>
 #include <QSet>
@@ -30,6 +31,7 @@ class AutosaveManager;
 class IntegrationDatabase;
 class QAction;
 class QDialogButtonBox;
+class QKeyEvent;
 class QLabel;
 class QLineEdit;
 class QMenu;
@@ -58,6 +60,11 @@ class FrameSourceTab;
 struct GroupKey;
 struct WorkflowManifest;
 
+namespace ImageIntegration
+{
+class ImportProgressPanel;
+} // namespace ImageIntegration
+
 /**
  * @class ImageIntegrationProcess
  * @brief Main controller for the Image Integration process.
@@ -71,6 +78,22 @@ struct WorkflowManifest;
  *
  * Inherits from TopLevelProcessBaseControl for dock widget integration.
  * Uses a programmatic UI builder.
+ *
+ * ### As a page
+ *
+ * Its descriptor states a full page: a shell that shows processes as pages holds it whole in one, and in a shell
+ * that does not - or made outside a launch - it is the window it has always been. As a page:
+ *
+ * - **Its header says its job.** It states a job heading to its page (`an::ui::JobHeading`): the session's name,
+ *   its facts - its lights, their groups, the time they integrate, what their files weigh, the setup they say - the
+ *   disk its runs write to, Undo and Redo as its acts and Execute Integration as its primary act. The facts are read
+ *   from the model when it changes; what the disk adds is read on the thread pool.
+ * - **Its menus are under the header's button**, the same six, and its key sequences are the page's own
+ *   (`an::ui::PageShortcutScope`); Execute is its primary action, from either Enter key with Ctrl.
+ * - **An import is shown in the page**, not in a dialog over the window: the import's panel stands over the stages,
+ *   and the stages, the foot and every entry of the menus wait for it - as the window waits behind the dialog - while
+ *   the rest of the application stays usable. Esc cancels the import and leaves the page; closing the page cancels it.
+ * - **Closing it** is closing the window: the session saved at once, the settings stored, nothing asked.
  *
  * ### Intermediate artifacts and incremental reuse
  *
@@ -138,12 +161,31 @@ public:
     /// @return whether the window shows that session.
     bool openSession(const QString& databasePath, const QString& name);
 
+    /// Runs Execute Integration, the process's primary action, when the job is ready for it and no run is on its way.
+    ///
+    /// @return whether it ran.
+    bool triggerPrimaryAction() override;
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
     static constexpr int kParentTabCount = 2;
 
     void closeEvent(QCloseEvent* evt) override;
+    void keyPressEvent(QKeyEvent* evt) override;
+    void showEvent(QShowEvent* evt) override;
+    void pageLayoutMade() override;
+
+    /// Shows an import's panel at the head of the page and makes the page's own acts wait for the import.
+    ImageIntegration::ImportProgressPanel* beginPageImport(int totalFiles);
+    /// Takes an import's panel off the page and gives the page's acts back; nothing for a window of its own.
+    void endPageImport();
+
+    /// Says the job again for the page's header once the events at hand are done: its facts from the model and - when
+    /// its lights or its output folder changed, or `readDisk` asks - what the disk adds, read off the GUI thread.
+    void scheduleJobHeadingRefresh(bool readDisk = false);
+    void refreshJobHeading();
+    void publishJobHeading();
 
     std::string serialize_json_settings() override;
     void deserialize_json_settings(const std::string& json_settings) override;
@@ -266,7 +308,15 @@ private:
     bool m_importInProgress = false;
     bool m_skipRemoveConfirmationForSession = false;
     bool m_runRegistrationAllInProgress = false;
-    /// The output directories whose earlier-version notice this window has shown.
+
+    /// An import shown in the page: the band over the stages, the panel in it, and the acts that wait for it.
+    QPointer<QWidget> m_pageImportBand;
+    QPointer<ImageIntegration::ImportProgressPanel> m_pageImportPanel;
+    std::vector<QPointer<QAction>> m_importHeldActions;
+
+    /// What the page's header says of the job; made when the process becomes a page.
+    struct JobHeadingState;
+    std::unique_ptr<JobHeadingState> m_jobHeading;
 
     an::ui::processes::ImageIntegrationProcessUiElements m_ui;
 

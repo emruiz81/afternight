@@ -97,6 +97,26 @@ inline constexpr int kTaskHeaderRunBar = 2;
 /// The share of the header's width the bar of a run that cannot tell its progress slides across.
 inline constexpr qreal kTaskHeaderSlidingShare = 0.3;
 
+// A task's header that says a job: 8 px above and below its three lines - the eyebrow, the name at 22 px, the facts 1
+// px under it - 20 px before them and 16 px after its last button; 16 px between the text and what follows it, 6 px
+// between the parts at its right. Its measure: a bar of 180 x 4 px with corners of 2, 3 px under its text and 6 px
+// before the buttons, left out where the text would keep less than its least width. A hairline 20 px high stands
+// before the ways out.
+inline constexpr int kJobHeaderPaddingVertical = 8;
+inline constexpr int kJobHeaderPaddingStart = 20;
+inline constexpr int kJobHeaderPaddingEnd = 16;
+inline constexpr int kJobHeaderGap = 16;
+inline constexpr int kJobHeaderPartsGap = 6;
+inline constexpr int kJobHeaderTitleFont = 22;
+inline constexpr int kJobHeaderFactsGap = 1;
+inline constexpr int kJobHeaderMeterWidth = 180;
+inline constexpr int kJobHeaderMeterBar = 4;
+inline constexpr int kJobHeaderMeterRadius = 2;
+inline constexpr int kJobHeaderMeterGap = 3;
+inline constexpr int kJobHeaderMeterMargin = 6;
+inline constexpr int kJobHeaderTextLeast = 260;
+inline constexpr int kJobHeaderSeparator = 20;
+
 // A stage list's row: a status mark in a box, a title over one line, an optional progress.
 inline constexpr int kStageMark = 14;
 inline constexpr int kStageMarkBox = 24;

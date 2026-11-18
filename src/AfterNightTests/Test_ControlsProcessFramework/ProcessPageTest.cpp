@@ -23,14 +23,17 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QDialog>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QMenu>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
@@ -1081,5 +1084,69 @@ TEST(PageShortcuts, InAWindowTheShortcutsAreLiveAgain)
     pumpQuietly();
     EXPECT_TRUE(shortcuts.addFiles->shortcut().isEmpty());
     EXPECT_FALSE(remove->isEnabled());
+    context->presenter = nullptr;
+}
+
+// An action of a menu still says its keys in its menu's entry while the page holds them - a menu draws what follows a
+// tab in an entry's text as its keys - and is itself again in a window; an action of no menu has no entry to say them
+// in, and keeps its text.
+TEST(PageShortcuts, AMenuEntryStillSaysItsKeys)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle target = flatTarget(context->engineSession(), 0.25f);
+    ShortcutCase shortcuts(*context, *target);
+    ASSERT_TRUE(shortcuts.process->isPresentedAsPage());
+    shortcuts.process->detachToWindow();
+    pumpQuietly();
+    auto* const menu = new QMenu(QStringLiteral("Frames"), shortcuts.process.get());
+    QAction* const goTo = menu->addAction(QStringLiteral("Go to Group..."));
+    const QKeySequence keys(Qt::CTRL | Qt::Key_G);
+    goTo->setShortcut(keys);
+    int went = 0;
+    QObject::connect(goTo, &QAction::triggered, shortcuts.process.get(), [&went]() { ++went; });
+
+    ASSERT_TRUE(shortcuts.process->attachToPage(*shortcuts.window.centre));
+    pumpQuietly();
+    EXPECT_TRUE(goTo->shortcut().isEmpty()) << "the action carries no live shortcut in a page";
+    EXPECT_EQ(goTo->text(), QStringLiteral("Go to Group...\t") + keys.toString(QKeySequence::NativeText));
+    EXPECT_EQ(shortcuts.addFiles->text(), QStringLiteral("Add files")) << "an action of no menu keeps its text";
+    // The key as it reaches a widget of the page: its override, which the page answers by running the action.
+    QKeyEvent pressed(QEvent::ShortcutOverride, Qt::Key_G, Qt::ControlModifier);
+    QCoreApplication::sendEvent(shortcuts.process->channelSelector, &pressed);
+    EXPECT_TRUE(pressed.isAccepted());
+    EXPECT_EQ(went, 1) << "and its keys still run it inside the page";
+
+    shortcuts.process->detachToWindow();
+    pumpQuietly();
+    EXPECT_EQ(goTo->text(), QStringLiteral("Go to Group..."));
+    EXPECT_EQ(goTo->shortcut(), keys);
+    context->presenter = nullptr;
+}
+
+// A dialog the page opened is a window of its own, where no key reaches the page: its actions and its shortcuts keep
+// their keys while the page holds its own.
+TEST(PageShortcuts, ADialogOfThePageKeepsItsKeys)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle target = flatTarget(context->engineSession(), 0.25f);
+    ShortcutCase shortcuts(*context, *target);
+    ASSERT_TRUE(shortcuts.process->isPresentedAsPage());
+    shortcuts.process->detachToWindow();
+    pumpQuietly();
+    auto* const dialog = new QDialog(shortcuts.process.get());
+    auto* const next = new QAction(QStringLiteral("Next frame"), dialog);
+    next->setShortcut(QKeySequence(Qt::Key_Right));
+    dialog->addAction(next);
+    auto* const blink = new QShortcut(QKeySequence(Qt::Key_Space), dialog);
+
+    ASSERT_TRUE(shortcuts.process->attachToPage(*shortcuts.window.centre));
+    pumpQuietly();
+    EXPECT_TRUE(shortcuts.addFiles->shortcut().isEmpty()) << "the page holds its own";
+    EXPECT_EQ(next->shortcut(), QKeySequence(Qt::Key_Right)) << "a dialog's action keeps its keys";
+    EXPECT_TRUE(blink->isEnabled()) << "and a dialog's shortcut stays live";
     context->presenter = nullptr;
 }

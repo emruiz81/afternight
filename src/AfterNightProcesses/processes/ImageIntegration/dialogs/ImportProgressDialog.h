@@ -7,7 +7,6 @@
 
 #include <QDialog>
 #include <QStringList>
-#include "components/AnProgressCard.h"
 
 class QCloseEvent;
 class QLabel;
@@ -16,11 +15,19 @@ class QTextEdit;
 
 namespace ImageIntegration
 {
+class ImportProgressPanel;
+
+/// The progress of an import in a dialog over the window that started it: the import's panel
+/// (`widgets/ImportProgressPanel.h`), modal to that window. Rejecting or closing the dialog cancels the import, and it
+/// closes itself once every file is read. A process shown as a page shows the panel in its page instead.
 class AFTERNIGHTPROCESSES_API ImportProgressDialog : public QDialog
 {
 
 public:
     explicit ImportProgressDialog(int totalFiles, QWidget* parent = nullptr);
+
+    /// The panel the dialog shows.
+    [[nodiscard]] ImportProgressPanel* panel() const noexcept;
 
     void setProgress(int completed);
     void setCurrentFile(const QString& fileName);
@@ -46,19 +53,6 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
-    void onCancel();
-    void onTogglePause();
-
-    int m_totalFiles = 0;
-
-    an::ui::AnProgressCard* m_progress = nullptr;
-    QLabel* m_lblCurrent = nullptr;
-    QLabel* m_lblIssues = nullptr;
-    QTextEdit* m_txtIssues = nullptr;
-    QPushButton* m_btnPause = nullptr;
-    QPushButton* m_btnCancel = nullptr;
-
-    bool m_cancelled = false;
-    bool m_paused = false;
+    ImportProgressPanel* m_panel = nullptr;
 };
 } // namespace ImageIntegration

@@ -40,6 +40,7 @@ namespace an::ui
 
 class AnCollapsibleSection;
 class AnInfoBanner;
+struct JobHeading;
 
 /// The parts of a standard process window, as `initializeStandardProcess` is handed them.
 struct ProcessStandardParts
@@ -104,6 +105,11 @@ enum class PageMessageTone : std::uint8_t
 /// process's least size. Its own menu bar is hidden there and its menus offered (`menus`) for a shell to put under a
 /// button. The parts of a column - the header, the body, the footer, the canvas - are null on a full page, and what
 /// would show in them is kept and shows nowhere.
+///
+/// **A job** (`setJobHeading`). A process that holds a body of work with a name of its own - an integration - says it
+/// here for a shell's task header to show in place of the process's name alone (`components/AnTaskHeader.h`,
+/// `JobHeading`): its name and its facts, a measure of it, and the acts of its own the header offers. The process
+/// states it once it is a page and again whenever it changes; the page keeps it and tells one listener.
 ///
 /// **The body fits its column** by three means: it scrolls up and down, never sideways, the footer staying in view;
 /// the controls' top-level group boxes are sections that open and close, titled as the groups, in order - none when the
@@ -198,6 +204,15 @@ public:
     /// A full page's menus: the menus of the process's own menu bar, in its order, which the page hides; none for a
     /// process with no menu bar and on a page with a column.
     [[nodiscard]] QList<QMenu*> menus() const;
+
+    /// States the job the process holds, for a shell's task header to say; said again as it is, it tells nothing.
+    void setJobHeading(const JobHeading& job);
+
+    /// The job the process stated; null for a process that states none, which its header names by its process.
+    [[nodiscard]] const JobHeading* jobHeading() const noexcept;
+
+    /// Tells a listener, on the GUI thread, each time the job the process states changes.
+    void setJobHeadingListener(std::function<void()> listener);
 
     /// The footer's button for a standard button of the box; null for one the box does not hold.
     [[nodiscard]] QAbstractButton* footerButton(QDialogButtonBox::StandardButton which) const;

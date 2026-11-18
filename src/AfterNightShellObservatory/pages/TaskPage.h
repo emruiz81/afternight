@@ -56,7 +56,9 @@ class ToolbarClearance;
 /// history strip goes under its canvas, the compact readout at the head of its column, the toolbar floats over its
 /// canvas, 12 px above its foot or 8 px above a sequence's player there (`ToolbarClearance`), and shows the preview
 /// view; the strip shows the target's history. A full page has no canvas and no column: it is the process whole under
-/// the header, whose menu button lists the process's own menus when it has any. Used on the GUI thread.
+/// the header, whose menu button lists the process's own menus when it has any; and where its process holds a job -
+/// an integration - the header says the job in place of the process's name (`ProcessPageLayout::jobHeading`), and
+/// says it again each time the process states it anew. Used on the GUI thread.
 class AFTERNIGHTSHELLOBSERVATORY_API TaskPage final : public QWidget
 {
 public:

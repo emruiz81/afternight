@@ -17,6 +17,7 @@
 #include <QTextEdit>
 
 #include "processes/ImageIntegration/dialogs/ImportProgressDialog.h"
+#include "processes/ImageIntegration/widgets/ImportProgressPanel.h"
 
 namespace
 {
@@ -266,4 +267,77 @@ TEST(ImportProgressDialogTest, CancelButtonMarksImportCancelled)
     dlg.cancelButton()->click();
 
     EXPECT_TRUE(dlg.isCancelled());
+}
+
+// The dialog shows the import's panel, and what it answers is the panel's.
+TEST(ImportProgressDialogTest, TheDialogShowsThePanel)
+{
+    ensureApp();
+
+    ImageIntegration::ImportProgressDialog dlg(4);
+    ImageIntegration::ImportProgressPanel* const panel = dlg.panel();
+    ASSERT_NE(panel, nullptr);
+    EXPECT_TRUE(dlg.isAncestorOf(panel));
+    EXPECT_EQ(dlg.pauseButton(), panel->pauseButton());
+    EXPECT_EQ(dlg.cancelButton(), panel->cancelButton());
+    EXPECT_EQ(dlg.currentLabel(), panel->currentLabel());
+
+    dlg.pauseButton()->click();
+    EXPECT_TRUE(dlg.isPaused());
+    EXPECT_TRUE(panel->isPaused());
+}
+
+// The panel says the file on its way, how many are read of how many, and the issues met, on its own - as a page shows
+// it.
+TEST(ImportProgressPanelTest, SaysItsFileItsCountsAndItsIssues)
+{
+    ensureApp();
+
+    ImageIntegration::ImportProgressPanel panel(12);
+    EXPECT_EQ(panel.objectName(), QStringLiteral("importProgressPanel"));
+    EXPECT_EQ(panel.totalFiles(), 12);
+    panel.setCurrentFile(QStringLiteral("light_003.fit"));
+    EXPECT_TRUE(panel.currentLabel()->text().contains(QStringLiteral("light_003.fit")));
+    panel.setProgress(3);
+    EXPECT_EQ(panel.completedFiles(), 3);
+    panel.setProgress(40);
+    EXPECT_EQ(panel.completedFiles(), 12) << "never more than there are";
+
+    EXPECT_TRUE(panel.issuesTextEdit()->isHidden());
+    panel.setIssueCount(2);
+    panel.setIssueDetails({QStringLiteral("a.fit: Corrupt header"), QStringLiteral("b.fit: Missing keyword")});
+    EXPECT_TRUE(panel.issuesLabel()->text().contains(QStringLiteral("2")));
+    EXPECT_FALSE(panel.issuesTextEdit()->isHidden());
+    EXPECT_TRUE(panel.issuesTextEdit()->toPlainText().contains(QStringLiteral("Missing keyword")));
+}
+
+// Pause becomes Resume and back; Cancel is pressed once - by the person or for them - marks the import cancelled, says
+// so and cannot be pressed again.
+TEST(ImportProgressPanelTest, PauseBecomesResumeAndCancelIsPressedOnce)
+{
+    ensureApp();
+
+    ImageIntegration::ImportProgressPanel panel(5);
+    ASSERT_NE(panel.pauseButton(), nullptr);
+    ASSERT_NE(panel.cancelButton(), nullptr);
+    EXPECT_EQ(panel.pauseButton()->objectName(), QStringLiteral("importPause"));
+    EXPECT_EQ(panel.cancelButton()->objectName(), QStringLiteral("importCancel"));
+    EXPECT_EQ(panel.pauseButton()->text(), QStringLiteral("Pause"));
+    panel.pauseButton()->click();
+    EXPECT_TRUE(panel.isPaused());
+    EXPECT_EQ(panel.pauseButton()->text(), QStringLiteral("Resume"));
+    panel.pauseButton()->click();
+    EXPECT_FALSE(panel.isPaused());
+    EXPECT_EQ(panel.pauseButton()->text(), QStringLiteral("Pause"));
+
+    int pressed = 0;
+    QObject::connect(panel.cancelButton(), &QPushButton::clicked, &panel, [&pressed]() { ++pressed; });
+    EXPECT_FALSE(panel.isCancelled());
+    panel.cancel();
+    EXPECT_TRUE(panel.isCancelled());
+    EXPECT_EQ(pressed, 1) << "whoever hears the button hears a cancel asked for it";
+    EXPECT_FALSE(panel.cancelButton()->isEnabled());
+    EXPECT_TRUE(panel.currentLabel()->text().contains(QStringLiteral("Cancelling")));
+    panel.cancel();
+    EXPECT_EQ(pressed, 1);
 }

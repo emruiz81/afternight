@@ -287,6 +287,9 @@ constexpr PageSurface kPageSurfaces[] = {
     {"actionStarmask_Recombination", ProcessSurface::PreviewPage, ProcessColumnWidth::Standard},
     {"actionNarrowbandPaletteComposer", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
     {"actionProfiled_Starmask_Recombination", ProcessSurface::PreviewPage, ProcessColumnWidth::Wide},
+    // Image Integration fills its page whole: its frame sources, its workflow and its foot under a header that says
+    // its job, its menus under the header's button.
+    {"actionImage_Integration", ProcessSurface::FullPage, ProcessColumnWidth::Standard},
 };
 
 /// The surface and column of a registered action: its row of `kPageSurfaces`, else a window and the standard column.

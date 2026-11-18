@@ -4,6 +4,10 @@
 // A task's header: a strip high in every look, the process's name, "on" and the image's name elided in the middle, the
 // state in its colour with the run's bar along its foot, and its buttons - Float as window or Attach, Close, and the
 // menu button of a full page.
+//
+// And the header of a task that holds a job: three lines - the eyebrow, the job's name, its facts - with the job's
+// measure and its bar, its acts as icon buttons that follow their actions and its primary act as the primary button,
+// before the ways out; the measure left out where the name would keep too little room.
 
 #include "RenderTestSupport.h"
 
@@ -11,6 +15,8 @@
 #include "components/AnTaskHeader.h"
 #include "theme/ComponentParts.h"
 
+#include <QAbstractButton>
+#include <QAction>
 #include <QFontMetrics>
 #include <QImage>
 #include <QSignalSpy>
@@ -44,6 +50,34 @@ using an::ui::DesignTokens;
     QImage picture(60, 60, QImage::Format_ARGB32_Premultiplied);
     picture.fill(colour);
     return picture;
+}
+
+/// A colour laid over an opaque one, as a painter lays it.
+[[nodiscard]] QColor laidOver(const QColor& top, const QColor& under)
+{
+    const double alpha = top.alphaF();
+    return QColor::fromRgbF(top.redF() * alpha + under.redF() * (1.0 - alpha),
+                            top.greenF() * alpha + under.greenF() * (1.0 - alpha),
+                            top.blueF() * alpha + under.blueF() * (1.0 - alpha));
+}
+
+/// A job as an integration's header says it: a measure a quarter used, Undo and Redo as its acts, Execute as its
+/// primary act.
+[[nodiscard]] an::ui::JobHeading jobOf(QAction* undo, QAction* redo, QAction* execute)
+{
+    an::ui::JobHeading job;
+    job.eyebrow = QStringLiteral("Image Integration - Job");
+    job.title = QStringLiteral("Carina Nebula LRGB");
+    job.facts = QStringLiteral("718 frames - 11 groups - 20h 2m");
+    job.meter = an::ui::JobHeading::Meter{.label = QStringLiteral("Disk space"),
+                                          .text = QStringLiteral("253.75 GB free - need ~62.56 GB"),
+                                          .share = 0.25,
+                                          .exceeded = false,
+                                          .toolTip = QStringLiteral("Available: 253.75 GB")};
+    job.acts = {an::ui::JobHeading::Act{undo, QStringLiteral("undo")},
+                an::ui::JobHeading::Act{redo, QStringLiteral("redo")}};
+    job.primary = execute;
+    return job;
 }
 
 } // namespace
@@ -207,4 +241,154 @@ TEST(TaskHeader, ItsButtons)
     EXPECT_LT(header.menuButton()->x(), header.floatButton()->x());
     header.menuButton()->click();
     EXPECT_EQ(menus.count(), 1);
+}
+
+// A header that says a job is three lines high in every look: the eyebrow in the accent's text, the job's name at its
+// own size in semibold, its facts in the secondary text; the measure's bar filled by its share in the success colour,
+// or whole in the error colour once the need is over what there is; and, from the left, the job's acts, the menu
+// button, the primary act, Float as window and Close.
+TEST(TaskHeader, AJobIsSaidOnThreeLinesWithItsMeasure)
+{
+    forEachLook([](const DesignTokens& t) {
+        QAction undo(QStringLiteral("&Undo"));
+        QAction redo(QStringLiteral("&Redo"));
+        QAction execute(QStringLiteral("Execute Integration"));
+        AnTaskHeader header;
+        header.setJob(jobOf(&undo, &redo, &execute));
+        header.setMenuButtonVisible(true);
+        // Wide enough for the measure beside the name, whatever a character measures on this host.
+        header.resize(3000, header.sizeHint().height());
+        EXPECT_GT(header.sizeHint().height(), t.metrics.strip) << "three lines, not a strip";
+        showOffScreen(header);
+
+        EXPECT_EQ(recordedText(header, QStringLiteral("Image Integration")).colour, t.colors.textAccent);
+        const an::ui::testing::RecordedText title = recordedText(header, QStringLiteral("Carina Nebula"));
+        EXPECT_EQ(title.colour, t.colors.textPrimary);
+        EXPECT_EQ(title.font.weight(), QFont::DemiBold);
+        EXPECT_EQ(an::tests::widgets::logicalPixels(title.font), an::ui::parts::kJobHeaderTitleFont);
+        const an::ui::testing::RecordedText facts = recordedText(header, QStringLiteral("718 frames"));
+        EXPECT_EQ(facts.colour, t.colors.textSecondary);
+        EXPECT_EQ(facts.font.family(), t.typography.monospace.family());
+        EXPECT_EQ(recordedText(header, QStringLiteral("Disk space")).colour, t.colors.textSecondary);
+        EXPECT_FALSE(recordedText(header, QStringLiteral("253.75 GB free")).text.isEmpty());
+        EXPECT_TRUE(an::tests::widgets::accessibleName(header).contains(QStringLiteral("Carina Nebula LRGB")));
+
+        const QRect bar = header.jobMeterRect();
+        ASSERT_EQ(bar.size(), QSize(an::ui::parts::kJobHeaderMeterWidth, an::ui::parts::kJobHeaderMeterBar));
+        an::ui::testing::RenderedPicture picture =
+            an::ui::testing::RenderedPicture::ofWidget(header, 1.0, t.layers.surface1);
+        const qreal middle = bar.top() + bar.height() / 2.0;
+        an::tests::widgets::expectColour(picture.at(bar.left() + bar.width() * 0.125, middle), t.colors.statusSuccess,
+                                         "the share of the measure that is used");
+        an::tests::widgets::expectColour(picture.at(bar.left() + bar.width() * 0.75, middle),
+                                         laidOver(t.colors.statusSuccessSoft, t.layers.surface1),
+                                         "the rest of the measure");
+
+        an::ui::JobHeading over = jobOf(&undo, &redo, &execute);
+        over.meter->share = 1.0;
+        over.meter->exceeded = true;
+        header.setJob(over);
+        picture = an::ui::testing::RenderedPicture::ofWidget(header, 1.0, t.layers.surface1);
+        an::tests::widgets::expectColour(picture.at(bar.left() + bar.width() * 0.75, middle), t.colors.statusError,
+                                         "a need over what there is");
+
+        const QList<QAbstractButton*> acts = header.jobActButtons();
+        ASSERT_EQ(acts.size(), 2);
+        ASSERT_NE(header.jobPrimaryButton(), nullptr);
+        EXPECT_GT(acts[0]->x(), bar.right()) << "the measure is before the buttons";
+        EXPECT_LT(acts[0]->x(), acts[1]->x());
+        EXPECT_LT(acts[1]->x(), header.menuButton()->x());
+        EXPECT_LT(header.menuButton()->x(), header.jobPrimaryButton()->x());
+        EXPECT_LT(header.jobPrimaryButton()->x(), header.floatButton()->x());
+        EXPECT_LT(header.floatButton()->x(), header.closeButton()->x());
+        EXPECT_LE(header.closeButton()->geometry().right(), header.width() - an::ui::parts::kJobHeaderPaddingEnd);
+    });
+}
+
+// A job's acts are their actions: a button is enabled while its action is, says what the action says and triggers it;
+// the primary button reads the primary act's text and triggers it.
+TEST(TaskHeader, AJobsButtonsFollowTheirActions)
+{
+    QAction undo(QStringLiteral("&Undo"));
+    undo.setToolTip(QStringLiteral("Undo the last change."));
+    undo.setEnabled(false);
+    QAction redo(QStringLiteral("&Redo"));
+    QAction execute(QStringLiteral("Execute Integration"));
+    execute.setToolTip(QStringLiteral("Run the integration workflow using the current settings."));
+    execute.setEnabled(false);
+    AnTaskHeader header;
+    header.setJob(jobOf(&undo, &redo, &execute));
+    header.resize(1492, header.sizeHint().height());
+    showOffScreen(header);
+    const QList<QAbstractButton*> acts = header.jobActButtons();
+    ASSERT_EQ(acts.size(), 2);
+    QAbstractButton* const primary = header.jobPrimaryButton();
+    ASSERT_NE(primary, nullptr);
+
+    EXPECT_FALSE(acts[0]->isEnabled()) << "nothing to undo";
+    EXPECT_TRUE(acts[1]->isEnabled());
+    EXPECT_EQ(acts[0]->toolTip(), QStringLiteral("Undo the last change."));
+    EXPECT_EQ(acts[1]->toolTip(), QStringLiteral("Redo")) << "an action that says nothing more is named by its text";
+    EXPECT_EQ(primary->text(), QStringLiteral("Execute Integration"));
+    EXPECT_EQ(primary->toolTip(), QStringLiteral("Run the integration workflow using the current settings."));
+    EXPECT_FALSE(primary->isEnabled());
+
+    QSignalSpy undone(&undo, &QAction::triggered);
+    QSignalSpy redone(&redo, &QAction::triggered);
+    QSignalSpy executed(&execute, &QAction::triggered);
+    acts[0]->click();
+    acts[1]->click();
+    primary->click();
+    EXPECT_EQ(undone.count(), 0) << "a disabled act does nothing";
+    EXPECT_EQ(redone.count(), 1);
+    EXPECT_EQ(executed.count(), 0);
+
+    undo.setEnabled(true);
+    execute.setEnabled(true);
+    execute.setText(QStringLiteral("Execute Again"));
+    EXPECT_TRUE(acts[0]->isEnabled());
+    EXPECT_TRUE(primary->isEnabled());
+    EXPECT_EQ(primary->text(), QStringLiteral("Execute Again"));
+    acts[0]->click();
+    primary->click();
+    EXPECT_EQ(undone.count(), 1);
+    EXPECT_EQ(executed.count(), 1);
+}
+
+// A header too narrow for the name beside the measure leaves the measure out, and elides the name where it still does
+// not fit; a job's run draws its bar along the header's foot as a process's does.
+TEST(TaskHeader, ANarrowJobHeaderLeavesTheMeasureOutAndARunDrawsItsBar)
+{
+    QAction undo(QStringLiteral("&Undo"));
+    QAction redo(QStringLiteral("&Redo"));
+    QAction execute(QStringLiteral("Execute Integration"));
+    an::ui::JobHeading job = jobOf(&undo, &redo, &execute);
+    AnTaskHeader header;
+    header.setJob(job);
+    // Wide enough for the whole of it, whatever a character measures on this host.
+    header.resize(6000, header.sizeHint().height());
+    showOffScreen(header);
+    EXPECT_FALSE(header.jobMeterRect().isEmpty());
+    EXPECT_EQ(header.shownJobTitle(), job.title);
+
+    // Narrow by what the header itself needs, whatever a character measures on this host.
+    const int buttonsLeft = header.jobActButtons().front()->x();
+    const int withoutRoom = header.width() - buttonsLeft + an::ui::parts::kJobHeaderPaddingStart +
+                            an::ui::parts::kJobHeaderTextLeast + an::ui::parts::kJobHeaderGap;
+    header.resize(withoutRoom, header.height());
+    EXPECT_TRUE(header.jobMeterRect().isEmpty()) << "the name keeps its room before the measure does";
+
+    const QFontMetrics metrics(header.font());
+    while (metrics.horizontalAdvance(job.title) < 2 * header.width())
+    {
+        job.title += QStringLiteral(" and the Gabriela Mistral nebula");
+    }
+    header.setJob(job);
+    EXPECT_NE(header.shownJobTitle(), job.title);
+    EXPECT_TRUE(header.shownJobTitle().startsWith(QStringLiteral("Carina"))) << header.shownJobTitle().toStdString();
+
+    header.setState(AnTaskHeader::State::Running, QStringLiteral("running"), 0.5);
+    const QRect bar = header.runBarRect();
+    EXPECT_EQ(bar.bottom(), header.height() - 1);
+    EXPECT_EQ(bar.width(), header.width() / 2);
 }
