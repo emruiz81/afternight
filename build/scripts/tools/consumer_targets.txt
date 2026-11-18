@@ -987,6 +987,19 @@ target Fuzz_ConsumerProtocol
                  host or the application could send, each held to answering and to round-tripping. It links the
                  Apache-2.0 protocol library and Qt's core alone, as the lite host does.
 
+target Fuzz_ConsumerPanel
+    workspace    tests
+    kind         console
+    class        engine
+    state        active
+    depends      AfterNightConsumerRuntime, AfterNightControls, AfterNightEngine, AfterNightExtensionProtocol, AfterNightPlatform
+    sources      @Fuzz_ConsumerPanel
+    fixture      none
+    note         The description of an extension's panel fuzzed: a description in its own form, a process window's
+                 list of parameters and a tree of widgets, each read or refused with a reason, and every description
+                 the validator accepts written and read back the same. Compiled from its explicit list with the fuzz
+                 harness and its standalone driver, against the Controls library that holds the description.
+
 target Fuzz_EngineCodec
     workspace    tests
     kind         console

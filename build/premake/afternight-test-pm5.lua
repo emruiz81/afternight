@@ -616,7 +616,7 @@ end
     -- fuzz harness. AFTERNIGHT_FUZZ=1 regenerates them for libFuzzer as it does the engine's: libFuzzer supplies `main`,
     -- the sanitizers come with it, and the standalone driver their lists name is left out.
     local consumerFuzzInstrumented = os.getenv("AFTERNIGHT_FUZZ") == "1" and not os.istarget("windows")
-    for _, consumerFuzzTarget in ipairs({ "Fuzz_ConsumerDocuments", "Fuzz_ConsumerProtocol" }) do
+    for _, consumerFuzzTarget in ipairs({ "Fuzz_ConsumerDocuments", "Fuzz_ConsumerProtocol", "Fuzz_ConsumerPanel" }) do
         addIsolatedTestProject { name = consumerFuzzTarget }
         if consumerFuzzInstrumented then
             removefiles { "../../src/AfterNightTests/FuzzEngine/FuzzDriver.cpp" }

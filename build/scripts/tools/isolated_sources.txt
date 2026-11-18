@@ -238,6 +238,20 @@ sources Fuzz_ConsumerDocuments
     link     AfterNightConsumerRuntime
     qt       core gui widgets sql
 
+# The description of an extension's panel fuzzed: the description's readers and its validator, with the fuzz harness
+# and its standalone driver, against the Controls library that holds them.
+sources Fuzz_ConsumerPanel
+    unit     src/AfterNightTests/Fuzz_ConsumerPanel/PanelFuzz.cpp
+    unit     src/AfterNightTests/FuzzEngine/FuzzHarness.cpp
+    unit     src/AfterNightTests/FuzzEngine/FuzzDriver.cpp
+    header   src/AfterNightTests/FuzzEngine/FuzzHarness.h
+    header   src/AfterNightControls/AfterNightControlsExport.h
+    header   src/AfterNightControls/controls/ExtensionPanelDescription.h
+    include  src/AfterNightTests
+    include  src/AfterNightControls
+    link     AfterNightControls
+    qt       core
+
 # The extension protocol fuzzed, class none: the protocol library's decoders and encoders, with the fuzz harness and
 # its standalone driver. It links the protocol library and Qt's core and nothing else of the product.
 sources Fuzz_ConsumerProtocol
@@ -3254,6 +3268,7 @@ sources Test_ExtensionHostNative
     unit     src/AfterNightExtensionHost/HostPreviewFrames.cpp
     unit     src/AfterNightExtensionHost/HostRuntimeSession.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/HostLookTest.cpp
+    unit     src/AfterNightTests/Test_ExtensionHostNative/NativeWindowInventoryTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -3346,6 +3361,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightTests/Test_ExtensionHostNative/HostNativeTestSupport.h
     header   src/AfterNightTests/Test_ExtensionHostNative/HostRuntimeScenarios.h
     header   src/AfterNightTests/Test_ExtensionRuntimeBackend/RuntimeBackendTestSupport.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightTests/fixtures/HeadlessQtFixture.h
     header   src/AfterNightTests/fixtures/ScopedEnvVar.h
     header   src/AfterNightTests/fixtures/ScopedTestTempDir.h
@@ -3647,6 +3663,7 @@ sources Test_ControlsExtensionSeam
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/SharedBufferSeamTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionHandoffTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExternalTasksTest.cpp
+    unit     src/AfterNightTests/Test_ControlsExtensionSeam/PanelDescriptionTest.cpp
     header   src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionSeamTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -3660,6 +3677,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/app/ExtensionManager.h
     header   src/AfterNightControls/app/ExtensionSdkService.h
     header   src/AfterNightControls/app/ProcessRegistry.h
+    header   src/AfterNightControls/controls/ExtensionPanelDescription.h
     header   src/AfterNightControls/controls/ProcessPresentation.h
     header   src/AfterNightControls/app/SharedBufferManager.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h

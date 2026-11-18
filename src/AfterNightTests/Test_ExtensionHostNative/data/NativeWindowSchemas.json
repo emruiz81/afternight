@@ -1,0 +1,768 @@
+{
+  "an_custom_ui_demo": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "custom"
+    },
+    {
+      "id": "panel_banner",
+      "type": "section",
+      "label": "Film Fade Studio"
+    },
+    {
+      "id": "panel_summary",
+      "type": "info",
+      "tone": "warning",
+      "text": "This demo intentionally leans into a more editorial, studio style layout. It is execute-only, uses the same native AfterNight controls under the hood, and should feel clearly different from the standard process panels."
+    },
+    {
+      "id": "strength",
+      "type": "double",
+      "label": "Fade Amount",
+      "default": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05
+    },
+    {
+      "id": "iterations",
+      "type": "int",
+      "label": "Layer Passes",
+      "default": 4,
+      "min": 1,
+      "max": 12,
+      "step": 1
+    },
+    {
+      "id": "sigma",
+      "type": "double",
+      "label": "Glow Radius",
+      "default": 1.2,
+      "min": 0.1,
+      "max": 5.0,
+      "step": 0.1
+    },
+    {
+      "id": "use_mask",
+      "type": "bool",
+      "label": "Use Mask",
+      "default": true
+    },
+    {
+      "id": "mode",
+      "type": "choice",
+      "label": "Render Strategy",
+      "default": "fast",
+      "options": [
+        [
+          "Fast",
+          "fast"
+        ],
+        [
+          "Quality",
+          "quality"
+        ]
+      ]
+    },
+    {
+      "id": "output_section",
+      "type": "section",
+      "label": "Delivery"
+    },
+    {
+      "id": "output_hint",
+      "type": "info",
+      "tone": "info",
+      "text": "Output fields stay in the panel so the demo still exercises typed parameter capture and settings-backed defaults, but without any RT preview surface."
+    },
+    {
+      "id": "output_name",
+      "type": "string",
+      "label": "Rendered Name",
+      "default": "Custom UI Demo",
+      "placeholder": "Film fade render"
+    },
+    {
+      "id": "export_dir",
+      "type": "string",
+      "label": "Export Folder",
+      "default": "/tmp/output"
+    },
+    {
+      "id": "quality_preset",
+      "type": "choice",
+      "label": "Preset",
+      "default": "balanced",
+      "options": [
+        [
+          "Fast",
+          "fast"
+        ],
+        [
+          "Balanced",
+          "balanced"
+        ],
+        [
+          "Best",
+          "best"
+        ]
+      ]
+    }
+  ],
+  "an_echo_demo": [
+    {
+      "id": "compatibility_banner",
+      "type": "section",
+      "label": "Compatibility Echo"
+    },
+    {
+      "id": "compatibility_summary",
+      "type": "info",
+      "text": "Inverts the active image (photographic negative) and annotates the result with host session and view metadata. This validates bundled discovery, ProcessWindow launch, and ViewRef compatibility without using preview."
+    }
+  ],
+  "an_rt_preview_demo": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native",
+      "sub_area": true,
+      "sub_area_size": [
+        800,
+        600
+      ],
+      "sub_area_label": "Preview: Contrast Demo",
+      "preview_autostretch": true,
+      "target_channel_filter": [
+        1,
+        3
+      ],
+      "target_selector": true
+    },
+    {
+      "id": "preview_banner",
+      "type": "section",
+      "label": "RT Preview"
+    },
+    {
+      "id": "preview_summary",
+      "type": "info",
+      "tone": "info",
+      "text": "This is the single real-time preview demo. Change the sliders and the preview refreshes automatically. Use the Preview area checkbox in the RT preview toolbar to limit processing to a selected ROI."
+    },
+    {
+      "id": "strength",
+      "type": "float",
+      "label": "Contrast Strength",
+      "default": 0.45,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05
+    },
+    {
+      "id": "lift",
+      "type": "float",
+      "label": "Black Point Lift",
+      "default": 0.0,
+      "min": -0.25,
+      "max": 0.25,
+      "step": 0.01
+    },
+    {
+      "id": "mode",
+      "type": "choice",
+      "label": "Mode",
+      "default": "balanced",
+      "options": [
+        [
+          "Balanced",
+          "balanced"
+        ],
+        [
+          "Punchy",
+          "punchy"
+        ],
+        [
+          "Gentle",
+          "gentle"
+        ]
+      ]
+    },
+    {
+      "id": "preserve_background",
+      "type": "bool",
+      "label": "Preserve Background",
+      "default": true
+    }
+  ],
+  "an_sequence_workflow_demo": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "workflow"
+    },
+    {
+      "id": "workflow_overview",
+      "type": "info",
+      "text": "Creates synthetic calibration and light frames, runs the native workflow SDK calibration, registration, and stacking domains, and writes a report through WorkflowContext."
+    },
+    {
+      "id": "synthetic_frames",
+      "type": "int",
+      "label": "Synthetic Frames",
+      "default": 3,
+      "min": 1,
+      "max": 12
+    },
+    {
+      "id": "output_name",
+      "type": "string",
+      "label": "Report File",
+      "default": "sequence_workflow_report.txt"
+    }
+  ],
+  "an_standalone_preview_demo": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native",
+      "preview_surface": false
+    },
+    {
+      "id": "standalone_section",
+      "type": "section",
+      "label": "Standalone Window"
+    },
+    {
+      "id": "standalone_summary",
+      "type": "info",
+      "tone": "info",
+      "text": "At runtime this demo hides the stock process shell, opens its own PySide6 dialog, reads the active image through ViewRef, and commits the result back with ui.commit_image()."
+    }
+  ],
+  "auxiliary_buffers_process": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native"
+    },
+    {
+      "id": "auxiliary",
+      "type": "section",
+      "label": "Auxiliary Buffers"
+    },
+    {
+      "id": "mask_strength",
+      "type": "float",
+      "label": "Mask Strength",
+      "default": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05
+    },
+    {
+      "id": "weight_boost",
+      "type": "float",
+      "label": "Weight Boost",
+      "default": 0.15,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05
+    }
+  ],
+  "basic_process": [
+    {
+      "id": "strength",
+      "type": "float",
+      "label": "Strength",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.05
+    }
+  ],
+  "lite_protocol_process": [
+    {
+      "id": "note",
+      "type": "info",
+      "tone": "info",
+      "text": "Lite extensions use protocol-safe app/view services and own their UI."
+    }
+  ],
+  "locked_wheelhouse_process": [],
+  "rt_preview_process": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native",
+      "sub_area": true,
+      "sub_area_size": [
+        800,
+        600
+      ],
+      "sub_area_label": "Preview Area",
+      "preview_autostretch": true,
+      "preview_autostretch_default": true,
+      "target_selector": true
+    },
+    {
+      "id": "adjustment",
+      "type": "section",
+      "label": "Adjustment"
+    },
+    {
+      "id": "strength",
+      "type": "float",
+      "label": "Strength",
+      "default": 0.35,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.05
+    },
+    {
+      "id": "black_point",
+      "type": "float",
+      "label": "Black Point",
+      "default": 0.0,
+      "min": -0.25,
+      "max": 0.25,
+      "step": 0.01
+    },
+    {
+      "id": "mode",
+      "type": "choice",
+      "label": "Mode",
+      "default": "balanced",
+      "options": [
+        [
+          "Balanced",
+          "balanced"
+        ],
+        [
+          "Brighten",
+          "brighten"
+        ],
+        [
+          "Darken",
+          "darken"
+        ]
+      ]
+    }
+  ],
+  "settings_diagnostics_process": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native"
+    },
+    {
+      "id": "run",
+      "type": "section",
+      "label": "Run"
+    },
+    {
+      "id": "strength",
+      "type": "float",
+      "label": "Strength",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.05
+    },
+    {
+      "id": "write_artifact",
+      "type": "bool",
+      "label": "Write Artifact",
+      "default": true
+    }
+  ],
+  "standalone_preview_process": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native",
+      "preview_surface": false
+    },
+    {
+      "id": "standalone",
+      "type": "section",
+      "label": "Standalone Workflow"
+    },
+    {
+      "id": "message",
+      "type": "info",
+      "tone": "info",
+      "text": "This process hides the stock shell and opens an extension-owned dialog."
+    }
+  ],
+  "every_kind": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "native",
+      "controls_panel_width": 420,
+      "header_progress": false,
+      "tool_configuration": {
+        "settings_key": "example_tool_dir",
+        "label": "Example Tool",
+        "primary_executable": "exampletool",
+        "not_configured_text": "Example Tool is not configured."
+      }
+    },
+    {
+      "id": "credits",
+      "type": "info",
+      "text": "Made by the examples."
+    },
+    {
+      "id": "loose_value",
+      "type": "float",
+      "label": "Loose Value",
+      "default": 0.5,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.1
+    },
+    {
+      "id": "loose_note",
+      "type": "info",
+      "text": "A note outside any section."
+    },
+    {
+      "id": "main_tabs",
+      "type": "tabs"
+    },
+    {
+      "id": "tab_basic",
+      "type": "tab",
+      "label": "Basic"
+    },
+    {
+      "id": "basics",
+      "type": "section",
+      "label": "Basics",
+      "tooltip": "The basic settings"
+    },
+    {
+      "id": "strength",
+      "type": "float",
+      "label": "Strength",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.05,
+      "tooltip": "How strong"
+    },
+    {
+      "id": "gain",
+      "type": "double",
+      "label": "Gain",
+      "default": 0.25,
+      "min": -1.0,
+      "max": 1.0,
+      "step": 0.001,
+      "tracking": false
+    },
+    {
+      "id": "iterations",
+      "type": "int",
+      "label": "Iterations",
+      "default": 5,
+      "min": 1,
+      "max": 20,
+      "step": 2,
+      "preview_invalidates": true
+    },
+    {
+      "id": "enabled_flag",
+      "type": "bool",
+      "label": "Enabled",
+      "default": true,
+      "tooltip": "Turn it on"
+    },
+    {
+      "id": "mode",
+      "type": "choice",
+      "label": "Mode",
+      "default": "quality",
+      "options": [
+        [
+          "Fast",
+          "fast"
+        ],
+        [
+          "Quality",
+          "quality"
+        ],
+        [
+          "Best",
+          "best"
+        ]
+      ],
+      "inline_actions": [
+        {
+          "id": "refresh_preview",
+          "label": "Update Preview",
+          "button_role": "primary",
+          "tooltip": "Refresh the preview",
+          "preview_refresh_role": true
+        }
+      ]
+    },
+    {
+      "id": "note",
+      "type": "string",
+      "label": "Note",
+      "default": "hello",
+      "placeholder": "Type a note"
+    },
+    {
+      "id": "mix",
+      "type": "percentage_mix_label",
+      "source": "gain",
+      "left_label": "Ha",
+      "right_label": "OIII",
+      "tooltip": "The blend"
+    },
+    {
+      "id": "strength_description",
+      "type": "value_description_label",
+      "source": "strength",
+      "decimals": 3,
+      "prefix": "x",
+      "suffix": "!",
+      "ranges": [
+        [
+          0.0,
+          0.5,
+          "Low"
+        ],
+        [
+          0.5,
+          2.0,
+          "High"
+        ]
+      ]
+    },
+    {
+      "id": "conditional",
+      "type": "section",
+      "label": "Conditional",
+      "presentation": "collapsible",
+      "visible_when": "enabled_flag == true"
+    },
+    {
+      "id": "conditional_value",
+      "type": "float",
+      "label": "Conditional Value",
+      "default": 0.0,
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.25,
+      "enabled_when": {
+        "param": "mode",
+        "equals": "quality"
+      }
+    },
+    {
+      "id": "danger_action",
+      "type": "button",
+      "label": "Reset Stuff",
+      "role": "danger",
+      "enabled_when": "mode != fast"
+    },
+    {
+      "id": "preview_status_banner",
+      "type": "info",
+      "preview_status": true,
+      "text": "Preview update needed.",
+      "stale_text": "The preview is stale.",
+      "ready_text": "The preview is current.",
+      "updating_text": "The preview is updating."
+    },
+    {
+      "id": "careful",
+      "type": "info",
+      "tone": "warning",
+      "text": "Careful."
+    },
+    {
+      "id": "tab_tools",
+      "type": "tab",
+      "label": "Tools"
+    },
+    {
+      "id": "curve",
+      "type": "curve_editor",
+      "label": "Curve",
+      "default": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.25,
+          0.4
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ],
+      "interpolation": "linear",
+      "grid": false,
+      "tooltip": "The curve"
+    },
+    {
+      "id": "frame_histogram",
+      "type": "rt_histogram",
+      "height": 180,
+      "show_clipping_info_control": false
+    },
+    {
+      "id": "second_histogram",
+      "type": "rt_histogram",
+      "height": 120,
+      "local_channel_normalization": true,
+      "histogram_areas": true
+    },
+    {
+      "id": "vectors",
+      "type": "vector_slope",
+      "label": "Vectors",
+      "height": 160
+    },
+    {
+      "id": "reference",
+      "type": "view_selector",
+      "label": "Reference",
+      "placeholder": "Choose a reference",
+      "channel_filter": [
+        1,
+        3
+      ],
+      "match_target_geometry": true,
+      "exclude_target": true
+    },
+    {
+      "id": "target",
+      "type": "target_selector",
+      "label": "Target",
+      "tooltip": "The image to change"
+    },
+    {
+      "id": "mask",
+      "type": "manual_mask_editor",
+      "label": "Mask",
+      "use_param": "use_mask",
+      "use_label": "Use the mask",
+      "display_param": "mode",
+      "display_value": "best",
+      "brush_size": 40
+    },
+    {
+      "id": "end",
+      "type": "end_tabs"
+    },
+    {
+      "id": "after_tabs",
+      "type": "section",
+      "label": "After"
+    },
+    {
+      "id": "do_it",
+      "type": "action",
+      "label": "Do It",
+      "variant": "primary"
+    },
+    {
+      "id": "no_type"
+    },
+    {
+      "type": "float",
+      "label": "No Id"
+    },
+    {
+      "id": "unsupported",
+      "type": "color"
+    }
+  ],
+  "every_kind_custom": [
+    {
+      "id": "window_meta",
+      "type": "meta",
+      "panel_variant": "custom"
+    },
+    {
+      "id": "first",
+      "type": "int",
+      "label": "First",
+      "default": 3,
+      "min": 0,
+      "max": 9
+    },
+    {
+      "id": "custom_note",
+      "type": "info",
+      "text": "A custom note."
+    },
+    {
+      "id": "loose_tab",
+      "type": "tab",
+      "label": "Loose Tab"
+    },
+    {
+      "id": "in_tab",
+      "type": "bool",
+      "label": "In Tab",
+      "default": false
+    },
+    {
+      "id": "tab_section",
+      "type": "section",
+      "label": "Tab Section"
+    },
+    {
+      "id": "slope",
+      "type": "vector_slope",
+      "label": "",
+      "height": 140,
+      "vectors": [
+        {
+          "key": "red",
+          "hue_param": "red_hue",
+          "saturation_param": "red_saturation",
+          "base_hue_degrees": 10,
+          "color": "#ff2020"
+        }
+      ]
+    },
+    {
+      "id": "after_slope",
+      "type": "string",
+      "label": "After Slope",
+      "default": "x"
+    },
+    {
+      "id": "done",
+      "type": "end_tabs"
+    },
+    {
+      "id": "tail",
+      "type": "choice",
+      "label": "Tail",
+      "default": "b",
+      "options": [
+        [
+          "A",
+          "a"
+        ],
+        [
+          "B",
+          "b"
+        ]
+      ]
+    }
+  ]
+}

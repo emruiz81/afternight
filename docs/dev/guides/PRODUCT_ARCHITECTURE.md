@@ -2715,6 +2715,28 @@ own process, and holds the window's frames and the seam (`NativeWindowPreviewFra
 opt-in `NativeWindowPreviewBenchmark` drags the window over a frame through the seam ([BENCHMARKS.md](BENCHMARKS.md)). The Lite host links only the protocol library; `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` is the
 boundary.
 
+### An extension's panel (`controls/ExtensionPanelDescription.h`)
+
+An extension states its controls as data, in two vocabularies: a process window's list of parameters (`get_params()`),
+flat, whose `section`, `tabs`, `tab` and `end_tabs` entries open and close groups; and a tree of widgets, which an
+extension's settings and a panel sent through the protocol use. `ExtensionPanelDescription` holds both as one tree of
+`PanelNode`s - a kind, the fields it states and, for a group, its children - and states nothing about a window: a
+`meta` entry's `panel_variant` is the description's variant, and the rest of the entry (its size, its preview, its
+target) stays the window's. One tree for both, so that one builder draws every panel and a built-in process's
+parameters can be stated in the same terms. `panelKinds()` is the one place a kind is declared: every kind with its
+fields, what each holds, what an absent field means and its bound. `panelDescriptionFromParamDefs` reads the list by the
+rules the window has always drawn it by - a parameter with no section before it opens one titled "Parameters"
+("Creative Controls" in the custom look), a `tab` with no `tabs` opens a set, a slope graph sits in the page beside the
+sections, an entry with no id or of a type the window never drew is left out and named - so that a panel built from the
+tree is the one the window built from the list; `panelDescriptionFromWidgetTree` reads the tree. A description is
+untrusted data: `validatePanelDescription` refuses it whole at the first error and names the node - a kind or a field it
+does not know, more than 512 nodes, groups nested deeper than 32, a text past its bound or holding a control character,
+a list past its bound, a range whose least is above its most, a negative step, a choice with no entries, a parameter or
+an action with no id, two values under one id. The description's own form (`panelDescriptionToCbor`,
+`panelDescriptionFromCbor`) is what it is carried in, and a description read back from it is equal to the one written;
+`Fuzz_ConsumerPanel` holds the three readings and the validator to answering, and every description the validator
+accepts to that round trip.
+
 ### The extension regression (`Test_ProcessFramework/test_extension_regression.cpp`, `ProtocolSdkContractTest`)
 
 Every bundled extension and author template is run on the host its backend names - previewed, executed, committed and
@@ -2768,8 +2790,8 @@ checker alone is never evidence of what an installer contains. Both test runners
   stamped image, a document and a payload with its manifest through their pending siblings, the standalone stack's
   group - held to `fault_points.txt` beside `Test_EngineFaults` (`suite=` names the executable).
   `Fuzz_ConsumerDocuments` reads the integration's envelopes, sessions, transform records, drizzle descriptors and
-  coefficients and a project's document, and `Fuzz_ConsumerProtocol` the extension protocol's messages, frames, buffer descriptors and error
-  records, each held to what its writer reads back. `run_sanitizer_campaign.py` makes every active consumer suite of
+  coefficients and a project's document, `Fuzz_ConsumerProtocol` the extension protocol's messages, frames, buffer descriptors and error
+  records, and `Fuzz_ConsumerPanel` the descriptions of an extension's panel, each held to what its writer reads back. `run_sanitizer_campaign.py` makes every active consumer suite of
   the registry a row of each configuration and refuses one whose consumer libraries are not instrumented; the platform
   library's containers are unannotated because Crashpad's static libraries are not instrumented
   (`applyEngineSanitizer({ unannotatedContainers = true })`); `thread` runs the Qt-free suites and skips the rest by

@@ -33,6 +33,8 @@ Fuzz_EngineMetadata     iterations=10000000  seconds=180
 Fuzz_EngineCodec        iterations=20000     seconds=240
 Fuzz_EngineSequence     iterations=20000     seconds=240
 
-# The consumer's targets: the integration's durable documents and the extension protocol.
+# The consumer's targets: the integration's durable documents, the extension protocol and the description of an
+# extension's panel.
 Fuzz_ConsumerDocuments iterations=10000000 seconds=180
 Fuzz_ConsumerProtocol  iterations=10000000 seconds=180
+Fuzz_ConsumerPanel     iterations=3000000  seconds=180

@@ -450,10 +450,11 @@ class RepositoryTests(unittest.TestCase):
 
     def test_the_registry_reads(self):
         targets = campaign.read_registry()
-        self.assertEqual(len(targets), 8)
+        self.assertEqual(len(targets), 9)
         self.assertEqual({target.name for target in targets},
                          {'Fuzz_EngineDescriptor', 'Fuzz_EngineConversion', 'Fuzz_EnginePixelMath', 'Fuzz_EngineMetadata',
-                          'Fuzz_EngineCodec', 'Fuzz_EngineSequence', 'Fuzz_ConsumerDocuments', 'Fuzz_ConsumerProtocol'})
+                          'Fuzz_EngineCodec', 'Fuzz_EngineSequence', 'Fuzz_ConsumerDocuments', 'Fuzz_ConsumerProtocol',
+                          'Fuzz_ConsumerPanel'})
 
     def test_every_registered_target_has_a_source_directory(self):
         for target in campaign.read_registry():

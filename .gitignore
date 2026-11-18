@@ -64,6 +64,8 @@
 !src/AfterNightTests/Test_ProcessFramework/data/*.txt
 !src/AfterNightTests/Test_ImageIntegration/data/*.txt
 !src/AfterNightTests/Test_ThemeSystem/data/*.txt
+!src/AfterNightTests/Test_ExtensionHostNative/data/*.txt
+!src/AfterNightTests/Test_ControlsExtensionSeam/data/*.txt
 *.mk
 *.tlog
 

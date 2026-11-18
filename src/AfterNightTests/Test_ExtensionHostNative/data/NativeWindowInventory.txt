@@ -1,0 +1,373 @@
+# The widgets of the native process window's parameter panel, built from each schema of
+# NativeWindowSchemas.json, a section a schema. A widget a line, in the order it was made,
+# indented four spaces under the widget that holds it:
+#   class | name | marks | state | tooltip | content | sizes | own layout | place
+#
+# marks       the widget's own properties that start with `an`, as name=value.
+# state       `hidden` when it is hidden itself, `disabled` when it is not enabled.
+# content     what the widget shows or holds: a label's text, a button's text and check,
+#             an edit's text and placeholder, a spin box's range, step and value, a slider's,
+#             a combo box's entries as text=value, a tab widget's tabs, a banner's message
+#             and tone, a card's or a section's title.
+# sizes       the minimum and maximum the widget was given, and its size policy.
+# own layout  the class of the widget's layout, its margins and its spacing.
+# place       where the layout of the widget's parent puts it: the path of item indexes
+#             through nested layouts, a grid's row and column, and the alignment.
+#
+# Widgets Qt makes inside its own (named qt_...) are not listed, nor walked through but for
+# a scroll area's viewport and a tab widget's pages. A collapsible section's content is sized
+# to its fonts, so its size is not recorded.
+
+[an_custom_ui_demo]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anCustomPanelSeparator | - | - | - | frame=4/16 | min=0x2, max=16777215x2, policy=Minimum/Fixed | - | 0 stretch=0 align=0
+    QWidget | anNativeParamSectionContainer | anSectionId=panel_banner | - | - | title=Film Fade Studio, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 1 stretch=0 align=0
+        QToolButton | anCollapsibleSectionToggle | - | - | - | text=Film Fade Studio, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+        QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=This demo intentionally leans into a more editorial, studio style layout. It is execute-only, uses the same native AfterNight controls under the hood, and should feel clearly different from the standard process panels., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=This demo intentionally leans into a more editorial, studio style layout. It is execute-only, uses the same native AfterNight controls under the hood, and should feel clearly different from the standard process panels., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+            QWidget | - | anParamId=strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Fade Amount, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | - | range=0..1, step=0.05, decimals=2, value=0.5 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=iterations | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Layer Passes, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QSpinBox | anNativeParamSpinBox | anParamId=iterations | - | - | range=1..12, step=1, value=4 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamSlider | - | - | - | range=1..12, steps=1/10, value=4, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=sigma | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 3 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Glow Radius, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=sigma | - | - | range=0.1..5, step=0.1, decimals=2, value=1.2 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=224, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=use_mask | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 4 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Use Mask, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QCheckBox | anNativeParamCheckBox | anParamId=use_mask | - | - | text=, checked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+            QWidget | - | anParamId=mode | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 5 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Render Strategy, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QComboBox | anNativeParamComboBox | anParamId=mode | - | - | entries=Fast=fast; Quality=quality, current=0 | policy=Preferred/Fixed | - | 1 cell=0,1 align=0
+    QWidget | anNativeParamSectionContainer | anSectionId=output_section | - | - | title=Delivery, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 2 stretch=0 align=0
+        QToolButton | anCollapsibleSectionToggle | - | - | - | text=Delivery, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+        QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=Output fields stay in the panel so the demo still exercises typed parameter capture and settings-backed defaults, but without any RT preview surface., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=Output fields stay in the panel so the demo still exercises typed parameter capture and settings-backed defaults, but without any RT preview surface., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+            QWidget | - | anParamId=output_name | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Rendered Name, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QLineEdit | anNativeParamLineEdit | anParamId=output_name | - | - | text=Custom UI Demo, placeholder=Film fade render, echo=0 | policy=Expanding/Fixed | - | 1 cell=0,1 align=0
+            QWidget | - | anParamId=export_dir | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Export Folder, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QLineEdit | anNativeParamLineEdit | anParamId=export_dir | - | - | text=/tmp/output, placeholder=Export Folder, echo=0 | policy=Expanding/Fixed | - | 1 cell=0,1 align=0
+            QWidget | - | anParamId=quality_preset | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 3 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Preset, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QComboBox | anNativeParamComboBox | anParamId=quality_preset | - | - | entries=Fast=fast; Balanced=balanced; Best=best, current=1 | policy=Preferred/Fixed | - | 1 cell=0,1 align=0
+
+[an_echo_demo]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=compatibility_banner | - | - | title=Compatibility Echo, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Compatibility Echo, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=Inverts the active image (photographic negative) and annotates the result with host session and view metadata. This validates bundled discovery, ProcessWindow launch, and ViewRef compatibility without using preview., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=Inverts the active image (photographic negative) and annotates the result with host session and view metadata. This validates bundled discovery, ProcessWindow launch, and ViewRef compatibility without using preview., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+
+[an_rt_preview_demo]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=preview_banner | - | - | title=RT Preview, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=RT Preview, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=This is the single real-time preview demo. Change the sliders and the preview refreshes automatically. Use the Preview area checkbox in the RT preview toolbar to limit processing to a selected ROI., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=This is the single real-time preview demo. Change the sliders and the preview refreshes automatically. Use the Preview area checkbox in the RT preview toolbar to limit processing to a selected ROI., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+            QWidget | - | anParamId=strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Contrast Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | - | range=0..1, step=0.05, decimals=2, value=0.45 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=450, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=lift | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Black Point Lift, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=lift | - | - | range=-0.25..0.25, step=0.01, decimals=2, value=0 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=mode | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 3 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Mode, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QComboBox | anNativeParamComboBox | anParamId=mode | - | - | entries=Balanced=balanced; Punchy=punchy; Gentle=gentle, current=0 | policy=Preferred/Fixed | - | 1 cell=0,1 align=0
+            QWidget | - | anParamId=preserve_background | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 4 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Preserve Background, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QCheckBox | anNativeParamCheckBox | anParamId=preserve_background | - | - | text=, checked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+
+[an_sequence_workflow_demo]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamInfoBanner | - | - | - | message=Creates synthetic calibration and light frames, runs the native workflow SDK calibration, registration, and stacking domains, and writes a report through WorkflowContext., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+        QLabel | anInfoBannerMessage | - | - | - | text=Creates synthetic calibration and light frames, runs the native workflow SDK calibration, registration, and stacking domains, and writes a report through WorkflowContext., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId= | - | - | title=Parameters, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 1 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Parameters, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=synthetic_frames | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Synthetic Frames, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QSpinBox | anNativeParamSpinBox | anParamId=synthetic_frames | - | - | range=1..12, step=1, value=3 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamSlider | - | - | - | range=1..12, steps=1/10, value=3, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=output_name | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Report File, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QLineEdit | anNativeParamLineEdit | anParamId=output_name | - | - | text=sequence_workflow_report.txt, placeholder=Report File, echo=0 | policy=Expanding/Fixed | - | 1 cell=0,1 align=0
+
+[an_standalone_preview_demo]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=standalone_section | - | - | title=Standalone Window, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Standalone Window, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=At runtime this demo hides the stock process shell, opens its own PySide6 dialog, reads the active image through ViewRef, and commits the result back with ui.commit_image()., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=At runtime this demo hides the stock process shell, opens its own PySide6 dialog, reads the active image through ViewRef, and commits the result back with ui.commit_image()., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+
+[auxiliary_buffers_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=auxiliary | - | - | title=Auxiliary Buffers, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Auxiliary Buffers, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=mask_strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Mask Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=mask_strength | - | - | range=0..1, step=0.05, decimals=2, value=0.5 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=weight_boost | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Weight Boost, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=weight_boost | - | - | range=0..1, step=0.05, decimals=2, value=0.15 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=150, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+
+[basic_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId= | - | - | title=Parameters, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Parameters, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | - | range=0..2, step=0.05, decimals=2, value=1 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+
+[every_kind]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeProcessToolConfigBanner | - | - | - | message=Example Tool is not configured., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+        QLabel | anInfoBannerMessage | - | - | - | text=Example Tool is not configured., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId= | - | - | title=Parameters, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 1 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Parameters, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=loose_value | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Loose Value, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=loose_value | - | - | range=0..1, step=0.1, decimals=2, value=0.5 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=A note outside any section., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=A note outside any section., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+    QTabWidget | anNativeParamTabs | anParamId=main_tabs | - | - | tabs=Basic; Tools, current=0 | policy=Expanding/Preferred | - | 2 stretch=0 align=0
+        QWidget | anNativeParamTabPage | anParamId=tab_tools | hidden | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,8,0,0 spacing=8 | 1 align=0
+            QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId= | - | - | title=Parameters, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+                QLabel | anCardWidgetHeader | - | - | - | text=Parameters, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+                QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+                    QWidget | anNativeParamCurveEditorPanel | anParamId=curve | - | The curve | - | policy=Preferred/Preferred | QVBoxLayout margins=0,0,0,0 spacing=8 | 0 stretch=0 align=0
+                        QScrollArea | anNativeParamCurveEditorScrollArea | - | - | The curve | resizable=yes | min=350x250, policy=Expanding/Expanding | - | 0 stretch=1 align=0
+                            QWidget | anNativeParamCurveEditor | anParamId=curve | - | The curve | - | min=348x248, policy=Preferred/Preferred | - | outside the layout
+                                QWidget | - | - | - | - | - | policy=Preferred/Preferred | - | outside the layout
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=8,0,8,0 spacing=4 | 1 stretch=0 align=0
+                            QToolButton | - | - | - | Zoom in | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 0 stretch=0 align=0
+                            QToolButton | - | - | - | Zoom out | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 1 stretch=0 align=0
+                            QToolButton | - | - | - | Zoom reset | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 2 stretch=0 align=0
+                            QFrame | - | - | - | - | frame=5/48 | policy=Fixed/Minimum | - | 3 stretch=0 align=0
+                            QToolButton | - | - | - | Show grid | text=, unchecked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 4 stretch=0 align=0
+                            QToolButton | - | - | - | Show guide | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 5 stretch=0 align=0
+                            QToolButton | - | - | - | Draw histogram areas | text=, unchecked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 6 stretch=0 align=0
+                            QToolButton | - | - | - | Show histogram | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 7 stretch=0 align=0
+                    QWidget | anNativeParamRtHistogramPanel | anParamId=frame_histogram | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,0,0,0 spacing=8 | 1 stretch=0 align=0
+                        QScrollArea | anNativeParamRtHistogramScrollArea | - | - | - | resizable=yes | min=350x180, policy=Expanding/Expanding | - | 0 stretch=1 align=0
+                            QWidget | anNativeParamRtHistogram | anParamId=frame_histogram | - | - | - | min=348x178, policy=Preferred/Preferred | - | outside the layout
+                                QWidget | - | - | - | - | - | policy=Preferred/Preferred | - | outside the layout
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=4 | 1 stretch=0 align=0
+                            QToolButton | zoomIn | - | - | Zoom in | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 0 stretch=0 align=0
+                            QToolButton | zoomOut | - | - | Zoom out | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 1 stretch=0 align=0
+                            QToolButton | zoomReset | - | - | Zoom reset | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 2 stretch=0 align=0
+                            QFrame | - | - | - | - | frame=5/48 | policy=Fixed/Minimum | - | 3 stretch=0 align=0
+                            QToolButton | gridButton | - | - | Show grid | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 4 stretch=0 align=0
+                            QToolButton | localChannelNormalization | - | - | Absolute scales | text=, unchecked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 5 stretch=0 align=0
+                            QToolButton | showHistogramAreas | - | - | Draw histogram areas | text=, unchecked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 6 stretch=0 align=0
+                            QFrame | - | - | - | - | frame=5/48 | policy=Fixed/Minimum | - | 7 stretch=0 align=0
+                            QComboBox | plotResolution | - | - | Plot resolution | entries=6-bit (64)=; 7-bit (128)=; 8-bit (256)=; 9-bit (512)=; 10-bit (1024)=; 12-bit (4096)=; 14-bit (16K)=; 16-bit (64K)=; 100 levels=; 1000 levels=; 10000 levels=, current=2 | min=150x0, policy=Preferred/Fixed | - | 8 stretch=0 align=0
+                    QWidget | anNativeParamRtHistogramPanel | anParamId=second_histogram | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,0,0,0 spacing=8 | 2 stretch=0 align=0
+                        QScrollArea | anNativeParamRtHistogramScrollArea | - | - | - | resizable=yes | min=350x120, policy=Expanding/Expanding | - | 0 stretch=1 align=0
+                            QWidget | anNativeParamRtHistogram | anParamId=second_histogram | - | - | - | min=348x118, policy=Preferred/Preferred | - | outside the layout
+                                QWidget | - | - | - | - | - | policy=Preferred/Preferred | - | outside the layout
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=4 | 1 stretch=0 align=0
+                            QToolButton | zoomIn | - | - | Zoom in | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 0 stretch=0 align=0
+                            QToolButton | zoomOut | - | - | Zoom out | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 1 stretch=0 align=0
+                            QToolButton | zoomReset | - | - | Zoom reset | text= | min=28x28, max=28x28, policy=Fixed/Fixed | - | 2 stretch=0 align=0
+                            QFrame | - | - | - | - | frame=5/48 | policy=Fixed/Minimum | - | 3 stretch=0 align=0
+                            QToolButton | gridButton | - | - | Show grid | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 4 stretch=0 align=0
+                            QToolButton | showClippingInfo | - | - | Show clipping info | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 5 stretch=0 align=0
+                            QToolButton | localChannelNormalization | - | - | Absolute scales | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 6 stretch=0 align=0
+                            QToolButton | showHistogramAreas | - | - | Draw histogram areas | text=, checked | min=28x28, max=28x28, policy=Fixed/Fixed | - | 7 stretch=0 align=0
+                            QFrame | - | - | - | - | frame=5/48 | policy=Fixed/Minimum | - | 8 stretch=0 align=0
+                            QComboBox | plotResolution | - | - | Plot resolution | entries=6-bit (64)=; 7-bit (128)=; 8-bit (256)=; 9-bit (512)=; 10-bit (1024)=; 12-bit (4096)=; 14-bit (16K)=; 16-bit (64K)=; 100 levels=; 1000 levels=; 10000 levels=, current=2 | min=150x0, policy=Preferred/Fixed | - | 9 stretch=0 align=0
+                    QWidget | - | anParamId=reference | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 3 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Reference, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QComboBox | anNativeParamViewSelector | anParamId=reference | - | - | entries=Choose a reference=, current=0 | min=150x0, policy=Ignored/Fixed | - | 1 cell=0,1 align=0
+                    QWidget | - | anParamId=target | - | The image to change | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 4 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | The image to change | text=Target, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QComboBox | anNativeProcessTargetSelector | - | - | The image to change | entries=, current=-1 | min=150x0, policy=Ignored/Fixed | - | 1 cell=0,1 align=0
+                    QGroupBox | anNativeManualMaskEditor | anParamId=mask | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=8 | 5 stretch=0 align=0
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                            QLabel | anNativeParamLabel | - | - | - | text=Use the mask, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                            QCheckBox | anNativeManualMaskUseCheckBox | anParamId=use_mask | disabled | Use the stored manual mask when previewing or applying. | text=, unchecked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 stretch=0 align=0
+                            QPushButton | anNativeManualMaskEditButton | anProcessButtonRole=primary | disabled | Edit the manual mask on the original source image. | text=Edit Mask | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                            QPushButton | anNativeManualMaskCancelButton | anProcessButtonRole=secondary | hidden | Discard mask edits made in this editing session. | text=Cancel | policy=Minimum/Fixed | - | 1 stretch=0 align=0
+                            QPushButton | anNativeManualMaskClearButton | anProcessButtonRole=secondary | disabled | Remove everything painted on the manual mask. | text=Clear Mask | policy=Minimum/Fixed | - | 2 stretch=0 align=0
+                        QWidget | anNativeManualMaskToolPanel | - | hidden, disabled | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                            QLabel | anNativeParamLabel | - | disabled | - | text=Tool, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                            QWidget | - | - | disabled | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=4 | 1 cell=0,1 align=0
+                                QPushButton | anNativeManualMaskToolButton | - | disabled | - | text=Brush, checked | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                                QPushButton | anNativeManualMaskToolButton | - | disabled | - | text=Lasso, unchecked | policy=Minimum/Fixed | - | 1 stretch=0 align=0
+                                QPushButton | anNativeManualMaskToolButton | - | disabled | - | text=Eraser, unchecked | policy=Minimum/Fixed | - | 2 stretch=0 align=0
+                            QLabel | anNativeParamLabel | - | disabled | - | text=Brush Size, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 2 cell=1,0 align=129
+                            QWidget | - | - | disabled | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 3 cell=1,1 align=0
+                                QSpinBox | anNativeManualMaskBrushSizeSpinBox | - | disabled | - | range=10..200, step=1, value=40 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                                QSlider | anNativeManualMaskBrushSizeSlider | - | disabled | - | range=10..200, steps=1/10, value=40, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | anNativeParamVectorSlopePanel | anParamId=vectors | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,0,0,0 spacing=8 | 1 stretch=0 align=0
+                QLabel | anNativeParamVectorSlopeLabel | - | - | - | text=Vectors, wrap=no, align=129 | policy=Preferred/Preferred | - | 0 stretch=0 align=0
+                an::ui::VectorSlopeWidget | anNativeParamVectorSlope | anParamId=vectors, anVectorSlopeBlueHueShift=0, anVectorSlopeBlueSaturation=0, anVectorSlopeCyanHueShift=0, anVectorSlopeCyanSaturation=0, anVectorSlopeGreenHueShift=0, anVectorSlopeGreenSaturation=0, anVectorSlopeMagentaHueShift=0, anVectorSlopeMagentaSaturation=0, anVectorSlopeRedHueShift=0, anVectorSlopeRedSaturation=0, anVectorSlopeYellowHueShift=0, anVectorSlopeYellowSaturation=0 | - | - | - | min=260x160, max=16777215x160, policy=Expanding/Fixed | - | 1 stretch=0 align=0
+        QWidget | anNativeParamTabPage | anParamId=tab_basic | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,8,0,0 spacing=8 | 0 align=0
+            QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=basics | - | - | title=Basics, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+                QLabel | anCardWidgetHeader | - | - | - | text=Basics, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+                QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+                    QWidget | - | anParamId=strength | - | How strong | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | How strong | text=Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                            QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | How strong | range=0..2, step=0.05, decimals=2, value=1 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                            QSlider | anNativeParamDoubleSlider | - | - | How strong | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+                    QWidget | - | anParamId=gain | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Gain, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                            QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=gain | - | - | range=-1..1, step=0.001, decimals=3, value=0.25 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                            QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=625, tracking=no | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+                    QWidget | - | anParamId=iterations | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Iterations, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                            QSpinBox | anNativeParamSpinBox | anParamId=iterations | - | - | range=1..20, step=2, value=5 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                            QSlider | anNativeParamSlider | - | - | - | range=1..20, steps=1/10, value=5, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+                    QWidget | - | anParamId=enabled_flag | - | Turn it on | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 3 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | Turn it on | text=Enabled, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QCheckBox | anNativeParamCheckBox | anParamId=enabled_flag | - | Turn it on | text=, checked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+                    QWidget | - | anParamId=mode | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 4 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Mode, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                            QComboBox | anNativeParamComboBox | anParamId=mode | - | - | entries=Fast=fast; Quality=quality; Best=best off, current=1 | policy=Preferred/Fixed | - | 0 stretch=1 align=0
+                            QPushButton | anNativeParamActionButton | anParamActionId=refresh_preview, anProcessButtonRole=primary | disabled | Refresh the preview | text=Update Preview | policy=Minimum/Fixed | - | 1 stretch=0 align=0
+                    QWidget | - | anParamId=note | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 5 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Note, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QLineEdit | anNativeParamLineEdit | anParamId=note | - | - | text=hello, placeholder=Type a note, echo=0 | policy=Expanding/Fixed | - | 1 cell=0,1 align=0
+                    QWidget | - | anParamId=mix | - | The blend | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 6 stretch=0 align=0
+                        QLabel | anNativeParamPercentageMixLabel | anParamId=mix | - | The blend | text=75% Ha, 25% OIII, wrap=no, align=129 | policy=Preferred/Preferred | - | 0 cell=0,1 align=0
+                    QWidget | - | anParamId=strength_description | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 7 stretch=0 align=0
+                        QLabel | anNativeParamValueDescriptionLabel | anParamId=strength_description | - | - | text=x1.000! - High, wrap=no, align=129 | policy=Preferred/Preferred | - | 0 cell=0,1 align=0
+            QWidget | anNativeParamSectionContainer | anSectionId=conditional | - | - | title=Conditional, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 1 stretch=0 align=0
+                QToolButton | anCollapsibleSectionToggle | - | - | - | text=Conditional, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+                QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+                    QWidget | - | anParamId=conditional_value | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=Conditional Value, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                            QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=conditional_value | - | - | range=0..1, step=0.25, decimals=2, value=0 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                            QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=0, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+                    QWidget | - | anParamId=danger_action | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                        QPushButton | anNativeParamActionButton | anParamActionId=danger_action, anProcessButtonRole=danger | - | - | text=Reset Stuff | policy=Minimum/Fixed | - | 0 cell=0,1 align=0
+                    QFrame | anNativeParamInfoBanner | - | - | - | message=The preview is stale., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 2 stretch=0 align=0
+                        QLabel | anInfoBannerMessage | - | - | - | text=The preview is stale., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+                    QFrame | anNativeParamInfoBanner | - | - | - | message=Careful., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 3 stretch=0 align=0
+                        QLabel | anInfoBannerMessage | - | - | - | text=Careful., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=after_tabs | - | - | title=After, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 3 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=After, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=do_it | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QPushButton | anNativeParamActionButton | anParamActionId=do_it, anProcessButtonRole=primary | - | - | text=Do It | policy=Minimum/Fixed | - | 0 cell=0,1 align=0
+
+[every_kind_custom]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anCustomPanelSeparator | - | - | - | frame=4/16 | min=0x2, max=16777215x2, policy=Minimum/Fixed | - | 0 stretch=0 align=0
+    QWidget | anNativeParamSectionContainer | anSectionId= | - | - | title=Creative Controls, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 1 stretch=0 align=0
+        QToolButton | anCollapsibleSectionToggle | - | - | - | text=Creative Controls, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+        QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+            QWidget | - | anParamId=first | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=First, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QSpinBox | anNativeParamSpinBox | anParamId=first | - | - | range=0..9, step=1, value=3 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamSlider | - | - | - | range=0..9, steps=1/10, value=3, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=A custom note., tone=2, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=A custom note., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+    QTabWidget | anNativeParamTabs | anParamId=tabs | - | - | tabs=Loose Tab, current=0 | policy=Expanding/Preferred | - | 2 stretch=0 align=0
+        QWidget | anNativeParamTabPage | anParamId=loose_tab | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,8,0,0 spacing=8 | 0 align=0
+            QWidget | anNativeParamSectionContainer | anSectionId= | - | - | title=Creative Controls, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 0 stretch=0 align=0
+                QToolButton | anCollapsibleSectionToggle | - | - | - | text=Creative Controls, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+                QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+                    QWidget | - | anParamId=in_tab | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=In Tab, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QCheckBox | anNativeParamCheckBox | anParamId=in_tab | - | - | text=, unchecked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+            QWidget | anNativeParamSectionContainer | anSectionId=tab_section | - | - | title=Tab Section, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 1 stretch=0 align=0
+                QToolButton | anCollapsibleSectionToggle | - | - | - | text=Tab Section, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+                QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+                    QWidget | - | anParamId=after_slope | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                        QLabel | anNativeParamLabel | - | - | - | text=After Slope, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                        QLineEdit | anNativeParamLineEdit | anParamId=after_slope | - | - | text=x, placeholder=After Slope, echo=0 | policy=Expanding/Fixed | - | 1 cell=0,1 align=0
+            QWidget | anNativeParamVectorSlopePanel | anParamId=slope | - | - | - | policy=Preferred/Preferred | QVBoxLayout margins=0,0,0,0 spacing=8 | 2 stretch=0 align=0
+                an::ui::VectorSlopeWidget | anNativeParamVectorSlope | anParamId=slope, anVectorSlopeBlueHueShift=0, anVectorSlopeBlueSaturation=0, anVectorSlopeCyanHueShift=0, anVectorSlopeCyanSaturation=0, anVectorSlopeGreenHueShift=0, anVectorSlopeGreenSaturation=0, anVectorSlopeMagentaHueShift=0, anVectorSlopeMagentaSaturation=0, anVectorSlopeRedHueShift=0, anVectorSlopeRedSaturation=0, anVectorSlopeYellowHueShift=0, anVectorSlopeYellowSaturation=0, anVectorSloperedHueShift=0, anVectorSloperedSaturation=0 | - | - | - | min=260x160, max=16777215x160, policy=Expanding/Fixed | - | 0 stretch=0 align=0
+    QWidget | anNativeParamSectionContainer | anSectionId= | - | - | title=Creative Controls, expanded | policy=Preferred/Preferred | QVBoxLayout margins=4,4,4,4 spacing=4 | 3 stretch=0 align=0
+        QToolButton | anCollapsibleSectionToggle | - | - | - | text=Creative Controls, checked | policy=Expanding/Fixed | - | 0 stretch=0 align=0
+        QWidget | anCollapsibleSectionContent | - | - | - | - | sized to its content, policy=Expanding/Preferred | QVBoxLayout margins=8,4,8,8 spacing=8 | 1 stretch=0 align=0
+            QWidget | - | anParamId=tail | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Tail, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QComboBox | anNativeParamComboBox | anParamId=tail | - | - | entries=A=a; B=b, current=1 | policy=Preferred/Fixed | - | 1 cell=0,1 align=0
+
+[lite_protocol_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamInfoBanner | - | - | - | message=Lite extensions use protocol-safe app/view services and own their UI., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+        QLabel | anInfoBannerMessage | - | - | - | text=Lite extensions use protocol-safe app/view services and own their UI., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+
+[locked_wheelhouse_process]
+panel | hidden | QVBoxLayout margins=0,0,0,0 spacing=8
+
+[rt_preview_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=adjustment | - | - | title=Adjustment, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Adjustment, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | - | range=0..1, step=0.05, decimals=2, value=0.35 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=350, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=black_point | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Black Point, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=black_point | - | - | range=-0.25..0.25, step=0.01, decimals=2, value=0 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=mode | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 2 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Mode, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QComboBox | anNativeParamComboBox | anParamId=mode | - | - | entries=Balanced=balanced; Brighten=brighten; Darken=darken, current=0 | policy=Preferred/Fixed | - | 1 cell=0,1 align=0
+
+[settings_diagnostics_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=run | - | - | title=Run, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Run, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QWidget | - | anParamId=strength | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 0 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Strength, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QWidget | - | - | - | - | - | policy=Preferred/Preferred | QHBoxLayout margins=0,0,0,0 spacing=8 | 1 cell=0,1 align=0
+                    QDoubleSpinBox | anNativeParamDoubleSpinBox | anParamId=strength | - | - | range=0..2, step=0.05, decimals=2, value=1 | policy=Minimum/Fixed | - | 0 stretch=0 align=0
+                    QSlider | anNativeParamDoubleSlider | - | - | - | range=0..1000, steps=1/10, value=500, tracking=yes | policy=Expanding/Fixed | - | 1 stretch=1 align=0
+            QWidget | - | anParamId=write_artifact | - | - | - | policy=Preferred/Preferred | QGridLayout margins=0,0,0,0 spacing=12/4 columns=204:0 0:1 | 1 stretch=0 align=0
+                QLabel | anNativeParamLabel | - | - | - | text=Write Artifact, wrap=no, align=129 | min=204x0, max=204x16777215, policy=Fixed/Fixed | - | 0 cell=0,0 align=129
+                QCheckBox | anNativeParamCheckBox | anParamId=write_artifact | - | - | text=, checked | policy=Minimum/Fixed | - | 1 cell=0,1 align=129
+
+[standalone_preview_process]
+panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
+    QFrame | anNativeParamSectionContainer | anCardBgColor=#f8ffffff, anCardBodyPadded=true, anCardBorderColor=#dccacace, anCardCompact=true, anCardRadius=12, anSectionId=standalone | - | - | title=Standalone Workflow, frame=0/16 | policy=Preferred/Preferred | QVBoxLayout margins=8,8,8,8 spacing=4 | 0 stretch=0 align=0
+        QLabel | anCardWidgetHeader | - | - | - | text=Standalone Workflow, wrap=no, align=129 | policy=Expanding/Maximum | - | 0 stretch=0 align=0
+        QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
+            QFrame | anNativeParamInfoBanner | - | - | - | message=This process hides the stock shell and opens an extension-owned dialog., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
+                QLabel | anInfoBannerMessage | - | - | - | text=This process hides the stock shell and opens an extension-owned dialog., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
