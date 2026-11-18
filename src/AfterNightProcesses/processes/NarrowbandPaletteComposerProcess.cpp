@@ -1620,7 +1620,7 @@ void NarrowbandPaletteComposerProcess::startGridBuild()
             }
             scope.finish(landing->outcome);
         }
-        postToGui([guard, grid, generation, landing, params]() {
+        postToGui([guard, grid, generation, landing]() {
             if (!guard)
             {
                 return;
@@ -1651,12 +1651,15 @@ void NarrowbandPaletteComposerProcess::startGridBuild()
                 return;
             }
             window.m_ui.warningLabel->setText(landing->warnings.join(QStringLiteral("\n")));
+            // The palette shown selected is the one chosen now: the grid may have been asked for before another was
+            // chosen, and the pictures do not take the choice back.
+            const an::NarrowbandPalette chosen = window.selectedPalette();
             window.m_syncingPaletteSelection = true;
             std::vector<an::ui::processes::NarrowbandPaletteComposerPreviewFrame> singleFrames = landing->frames;
             window.m_ui.paletteGrid->setPreviewImages(std::move(landing->frames));
-            window.m_ui.paletteGrid->setSelectedPalette(params->palette);
+            window.m_ui.paletteGrid->setSelectedPalette(chosen);
             window.m_ui.singlePreview->setPreviewImages(std::move(singleFrames));
-            window.m_ui.singlePreview->setSelectedPalette(params->palette);
+            window.m_ui.singlePreview->setSelectedPalette(chosen);
             window.m_syncingPaletteSelection = false;
             ++grid->shown;
             window.m_ui.statusLabel->setText(QStringLiteral("Palette grid ready."));

@@ -110,14 +110,16 @@ TEST(ProjectSettings, NothingStoredReadsAsTheDefaults)
 }
 
 // What is stored is read, what is written reads back, and a value that is none of a setting's reads as its default.
+// The location is stored in the host's own separators, as its folder chooser gives it: a backslash separates only on
+// Windows, and elsewhere is a character of a file's name.
 TEST(ProjectSettings, StoredValuesAreReadAndWrittenBack)
 {
-    const ProjectSettings stored = an::ui::readProjectSettings(
-        readerOf({{key(SettingsKeys::PROJECTS_DEFAULT_LOCATION), QStringLiteral("D:\\Astro\\Projects\\")},
-                  {key(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS), QStringLiteral("0")},
-                  {key(SettingsKeys::HISTORY_COMPRESSION), QStringLiteral(" ZSTD ")},
-                  {key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QStringLiteral(" 25 ")},
-                  {key(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), QStringLiteral("1")}}));
+    const ProjectSettings stored = an::ui::readProjectSettings(readerOf(
+        {{key(SettingsKeys::PROJECTS_DEFAULT_LOCATION), QDir::toNativeSeparators(QStringLiteral("D:/Astro/Projects/"))},
+         {key(SettingsKeys::PROJECTS_CREATE_FOR_INTEGRATION_JOBS), QStringLiteral("0")},
+         {key(SettingsKeys::HISTORY_COMPRESSION), QStringLiteral(" ZSTD ")},
+         {key(SettingsKeys::PROJECTS_COMPACT_ASK_THRESHOLD_GB), QStringLiteral(" 25 ")},
+         {key(SettingsKeys::PROJECTS_OPEN_LAST_ON_STARTUP), QStringLiteral("1")}}));
     EXPECT_EQ(stored.defaultLocation, QStringLiteral("D:/Astro/Projects"));
     EXPECT_FALSE(stored.createForIntegrationJobs);
     EXPECT_EQ(stored.historyCompression, StepCompression::Zstd);

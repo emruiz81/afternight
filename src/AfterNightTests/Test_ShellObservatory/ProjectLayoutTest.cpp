@@ -317,8 +317,13 @@ TEST_F(ProjectLayout, RoundTrip)
             ASSERT_NE(groupOf(grid[left]), groupOf(grid[right])) << "the split left two images in one group";
         }
     }
+    // Which cell of the grid the image lands in is the split's to choose: it grows towards its neighbours, whichever
+    // sides of the area it lies against.
     const QRect evenly = placeOf(*grid.front());
-    grid.front()->getDockWidget()->dockWidget()->resizeInLayout(0, 0, 60, 40);
+    const bool againstLeft = evenly.x() == 0;
+    const bool againstTop = evenly.y() == 0;
+    grid.front()->getDockWidget()->dockWidget()->resizeInLayout(againstLeft ? 0 : 60, againstTop ? 0 : 40,
+                                                                againstLeft ? 60 : 0, againstTop ? 40 : 0);
     settleProjects();
     ASSERT_FALSE(near(placeOf(*grid.front()), evenly)) << "no splitter moved";
 

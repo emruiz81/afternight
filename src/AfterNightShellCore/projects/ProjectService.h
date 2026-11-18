@@ -370,7 +370,9 @@ public:
     /// the project's folder, is that image, whose record then states where the file is now - and stamps it as opened
     /// now.
     ///
-    /// @return the image; null with no project open, for an empty path, or when the document could not be written.
+    /// @return the image, a record held by the open project and valid until its images next change (another add, a
+    ///         removal, a close); null with no project open, for an empty path, or when the document could not be
+    ///         written.
     const ProjectImage* addImage(const QString& filePath, ProjectImageKind kind);
 
     /// Forgets an image of the open project, and the views of it its workspaces listed; the file is not touched.
@@ -379,9 +381,10 @@ public:
     bool removeImage(const QString& imageId);
 
     /// The image of the open project a file is, by its path or by its path from the project's folder; null for none.
+    /// The record is valid until the images next change, as `addImage`'s.
     [[nodiscard]] const ProjectImage* imageFor(const QString& filePath) const;
 
-    /// The image of the open project an id names; null for none.
+    /// The image of the open project an id names; null for none. The record is valid until the images next change.
     [[nodiscard]] const ProjectImage* image(const QString& imageId) const;
 
     /// Takes an image's record to another file: the image was saved under another name, and its history stays with

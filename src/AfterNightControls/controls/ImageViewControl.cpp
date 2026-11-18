@@ -473,6 +473,24 @@ void hideDefaultToolbarExtensionButton(QToolBar* toolbar, const QIcon& fallbackI
     }
 }
 
+/// Whether the toolbar's own layout finds no room for every entry it shows: laid out again, it shows its extension
+/// button. The button is hidden first, so that showing it is this layout's answer.
+[[nodiscard]] bool toolbarLayoutRunsOutOfRoom(QToolBar* toolbar)
+{
+    auto* extensionButton =
+        toolbar != nullptr
+            ? toolbar->findChild<QToolButton*>(QStringLiteral("qt_toolbar_ext_button"), Qt::FindDirectChildrenOnly)
+            : nullptr;
+    if (extensionButton == nullptr || toolbar->layout() == nullptr)
+    {
+        return false;
+    }
+    extensionButton->hide();
+    toolbar->layout()->invalidate();
+    toolbar->layout()->activate();
+    return extensionButton->isVisibleTo(toolbar);
+}
+
 // A toolbar action the overflow hides reads as disabled, whatever it was set to, so the overflow records each action's
 // state when it hides it. These two keep that record current and read through it.
 
@@ -6656,35 +6674,48 @@ void CustomToolBar::updateOverflowLayout()
     const int availableWidth = (std::max)(0, contentsRect().width());
     const int overflowButtonWidth = resolveToolbarActionWidth(this, m_OverflowAction, m_OverflowButton);
 
+    const int count = static_cast<int>(candidates.size());
     int overflowIndex = an::ui::controls::firstOverflowIndex(widths, availableWidth, overflowButtonWidth);
     if (overflowIndex < 0)
     {
-        m_OverflowAction->setVisible(false);
-        m_OverflowButton->setVisible(false);
-        m_OverflowMenu->clear();
-        m_UpdatingOverflowLayout = false;
-        return;
+        overflowIndex = count;
     }
 
-    while (overflowIndex > 0 && candidates[overflowIndex - 1].action->isSeparator())
+    // The toolbar's own layout has the last word: it measures the entries with margins and spacing of its own, and
+    // where it finds no room for one it hides it behind its extension button, which the overflow button stands in for
+    // and which takes no click. So while the layout runs out of room, one more entry goes into the menu.
+    int hiddenFrom = count;
+    while (true)
     {
-        --overflowIndex;
+        while (overflowIndex > 0 && overflowIndex < count && candidates[overflowIndex - 1].action->isSeparator())
+        {
+            --overflowIndex;
+        }
+        for (int i = overflowIndex; i < hiddenFrom; ++i)
+        {
+            auto& candidate = candidates[static_cast<size_t>(i)];
+            candidate.action->setProperty(kOverflowWasEnabledProperty, candidate.action->isEnabled());
+            candidate.action->setProperty(kOverflowHiddenProperty, true);
+            candidate.action->setVisible(false);
+        }
+        hiddenFrom = (std::min)(hiddenFrom, overflowIndex);
+
+        m_OverflowedActions.clear();
+        for (int i = hiddenFrom; i < count; ++i)
+        {
+            m_OverflowedActions.append(candidates[static_cast<size_t>(i)].action);
+        }
+        rebuildOverflowMenu();
+
+        const bool hasOverflowEntries = !m_OverflowMenu->actions().isEmpty();
+        m_OverflowAction->setVisible(hasOverflowEntries);
+        m_OverflowButton->setVisible(hasOverflowEntries);
+        if (hiddenFrom == 0 || !toolbarLayoutRunsOutOfRoom(this))
+        {
+            break;
+        }
+        overflowIndex = hiddenFrom - 1;
     }
-
-    for (int i = overflowIndex; i < static_cast<int>(candidates.size()); ++i)
-    {
-        auto& candidate = candidates[static_cast<size_t>(i)];
-        candidate.action->setProperty(kOverflowWasEnabledProperty, candidate.action->isEnabled());
-        candidate.action->setProperty(kOverflowHiddenProperty, true);
-        candidate.action->setVisible(false);
-        m_OverflowedActions.append(candidate.action);
-    }
-
-    rebuildOverflowMenu();
-
-    const bool hasOverflowEntries = !m_OverflowMenu->actions().isEmpty();
-    m_OverflowAction->setVisible(hasOverflowEntries);
-    m_OverflowButton->setVisible(hasOverflowEntries);
     hideDefaultToolbarExtensionButton(this);
 
     m_UpdatingOverflowLayout = false;

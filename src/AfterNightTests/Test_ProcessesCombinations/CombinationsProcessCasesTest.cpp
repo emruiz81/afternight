@@ -22,6 +22,7 @@
 #include "widgets/waitingspinnerwidget.h"
 #include "processes/ImageCompareProcess.h"
 #include "processes/NBColorMapperProcess.h"
+#include "processes/NarrowbandPaletteComposerPreviewGridWidget.h"
 #include "processes/NarrowbandPaletteComposerProcess.h"
 #include "processes/PointwiseProcessUtils.h"
 #include "processes/ProfiledStarmaskRecombinationProcess.h"
@@ -42,6 +43,7 @@
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QTemporaryDir>
 #include <QThreadPool>
 
@@ -1050,6 +1052,47 @@ TEST_F(CombinationsProcessCase, NarrowbandPaletteGridReadsItsSourcesOffTheGuiThr
     gate.letGo();
     EXPECT_FALSE(gate.releasedAtDeadline());
     ASSERT_TRUE(pumpUntil([composer]() { return !composer->isGridBuilding() && composer->hasGrid(); }));
+    window.reset();
+    dropTargets(context(), targets);
+}
+
+// A grid that lands after the person chose another palette shows its pictures and leaves the choice alone: it was
+// started while SHO was selected, HOO was chosen while it waited for a source, and Apply composes HOO.
+TEST_F(CombinationsProcessCase, NarrowbandPaletteGridThatLandsLateKeepsThePaletteChosenMeanwhile)
+{
+    const CombinationsProcess& under = processNamed("NarrowbandPaletteComposer");
+    Targets targets = openScene(context(), under);
+    ASSERT_NE(targets.target, nullptr);
+    ImageViewControl* ha = targets.side("ha");
+    ASSERT_NE(ha, nullptr);
+    WindowHandle window = under.open(nullptr);
+    auto* composer = dynamic_cast<NarrowbandPaletteComposerProcess*>(window.get());
+    ASSERT_NE(composer, nullptr);
+    auto* scrollArea = widgetOf<QScrollArea>(*window, "paletteGridScrollArea");
+    ASSERT_NE(scrollArea, nullptr);
+    auto* grid = dynamic_cast<an::ui::processes::NarrowbandPaletteComposerPreviewGridWidget*>(scrollArea->widget());
+    ASSERT_NE(grid, nullptr);
+    std::optional<an::ui::ImageDocumentWriter> writer = writerOf(*ha);
+    ASSERT_TRUE(writer.has_value());
+    HeldWriter gate(std::move(*writer));
+
+    under.configure(*window, targets, "-");
+    ASSERT_TRUE(composer->isGridBuilding()) << "the grid for SHO waits for its H-alpha source";
+    grid->setSelectedPalette(an::NarrowbandPalette::Hoo);
+    pumpQuietly();
+    EXPECT_FALSE(composer->hasGrid());
+
+    gate.letGo();
+    EXPECT_FALSE(gate.releasedAtDeadline());
+    ASSERT_TRUE(pumpUntil([composer]() { return !composer->isGridBuilding() && composer->hasGrid(); }));
+    EXPECT_EQ(grid->selectedPalette(), an::NarrowbandPalette::Hoo) << "the grid that landed put its own palette back";
+
+    const std::size_t before = context().madeViews.size();
+    const std::optional<fixtures::FixtureSamples> composed = applyAndRead(context(), under, *window, targets);
+    ASSERT_TRUE(composed.has_value());
+    const std::vector<ImageViewControl*> made = viewsMadeSince(context(), before);
+    ASSERT_EQ(made.size(), 1u);
+    EXPECT_NE(made.front()->getUniqueName().find("HOO"), std::string::npos) << made.front()->getUniqueName();
     window.reset();
     dropTargets(context(), targets);
 }

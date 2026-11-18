@@ -751,13 +751,15 @@ TEST_F(ProjectServiceCase, AMovedImageIsFoundThroughItsRelativePath)
     touch(under(QStringLiteral("Before/Captures/L.fits")));
     touch(under(QStringLiteral("Before/Captures/R.fits")));
     ASSERT_TRUE(m_service->open(before).ok());
+    // An image is read before the next is added: the record an add returns lives in the project's list of images,
+    // which the next add may move.
     const ProjectImage* const left =
         m_service->addImage(under(QStringLiteral("Before/Captures/L.fits")), ProjectImageKind::Image);
+    ASSERT_NE(left, nullptr);
+    const QString leftId = left->id;
     const ProjectImage* const right =
         m_service->addImage(under(QStringLiteral("Before/Captures/R.fits")), ProjectImageKind::Image);
-    ASSERT_NE(left, nullptr);
     ASSERT_NE(right, nullptr);
-    const QString leftId = left->id;
     const QString rightId = right->id;
     EXPECT_EQ(m_service->locateImage(leftId), under(QStringLiteral("Before/Captures/L.fits")));
     ASSERT_TRUE(m_service->close());

@@ -25,11 +25,13 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QFile>
 #include <QList>
 #include <QMenu>
 #include <QSignalSpy>
 #include <QStringList>
+#include <QTest>
 #include <QTemporaryDir>
 #include <QToolBar>
 #include <QToolButton>
@@ -643,6 +645,52 @@ TEST_F(StaticPreviewBehavior, ACalibratedToggleTheToolbarHasNoRoomForIsOfferedIn
     offered->trigger();
     EXPECT_TRUE(calibrated->isChecked()) << "checking the overflow entry checks the toggle";
     EXPECT_TRUE(view->isCalibrationPreviewEnabled());
+}
+
+// A toolbar of any width leaves nothing out of reach: what it has no room for is in its overflow menu, and the
+// toolbar's own extension button - which the overflow menu stands in for, and which takes no click - never shows. The
+// toolbar's layout measures its entries with margins and spacing of its own: at a width where the overflow's measure
+// found room and the layout's did not, the layout hid the last entries behind that button.
+TEST_F(StaticPreviewBehavior, AToolbarOfAnyWidthLeavesNothingOutOfReach)
+{
+    open();
+    for (const ViewControlMode mode : {ViewControlMode::standard, ViewControlMode::st_preview})
+    {
+        ViewHandle view = makeView("toolbar widths", mode);
+        view->show();
+        ASSERT_TRUE(QTest::qWaitForWindowExposed(view.get()));
+        QToolBar* toolbar = toolbarOf(*view);
+        ASSERT_NE(toolbar, nullptr);
+        const int widest = toolbar->sizeHint().width() + 40;
+        QStringList outOfReach;
+        for (int width = widest; width >= 120; --width)
+        {
+            view->resize(width, 480);
+            for (int pass = 0; pass < 3; ++pass)
+            {
+                QCoreApplication::processEvents();
+            }
+            const auto* extension =
+                toolbar->findChild<QToolButton*>(QStringLiteral("qt_toolbar_ext_button"), Qt::FindDirectChildrenOnly);
+            if (extension != nullptr && extension->isVisible())
+            {
+                outOfReach.append(QStringLiteral("%1 px: the toolbar's extension shows").arg(width));
+            }
+            for (QAction* entry : toolbar->actions())
+            {
+                const QWidget* const shown = toolbar->widgetForAction(entry);
+                if (entry->isVisible() && !entry->isSeparator() && shown != nullptr && shown->isHidden())
+                {
+                    outOfReach.append(QStringLiteral("%1 px: '%2' is neither on the toolbar nor in its menu")
+                                          .arg(width)
+                                          .arg(entry->text()));
+                }
+            }
+        }
+        EXPECT_TRUE(outOfReach.isEmpty())
+            << static_cast<int>(mode) << ": " << outOfReach.size() << " of " << (widest - 119) << " widths, the first "
+            << outOfReach.mid(0, 6).join(QStringLiteral("; ")).toStdString();
+    }
 }
 
 // The Calibrated toggle comes before the display mode and its settings, so the overflow takes them first.
