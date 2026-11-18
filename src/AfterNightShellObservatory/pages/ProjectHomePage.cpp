@@ -447,6 +447,8 @@ struct ProjectHomePage::Impl
     SectionCard* workspacesCard = nullptr;
     QGridLayout* tiles = nullptr;
     std::vector<WorkspaceTile*> tileWidgets;
+    // The empty half of the last row when the tiles are odd in number.
+    QWidget* tileFiller = nullptr;
     std::vector<WorkspaceTileFacts> workspaces;
     std::map<QString, QImage> viewPictures;
 
@@ -588,6 +590,9 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     impl.tiles = new QGridLayout();
     impl.tiles->setContentsMargins(0, 0, 0, 0);
     impl.tiles->setSpacing(parts::kProjectSectionPadding);
+    // Two tiles to a row, each as wide however many there are.
+    impl.tiles->setColumnStretch(0, 1);
+    impl.tiles->setColumnStretch(1, 1);
     impl.workspacesCard->body()->addLayout(impl.tiles);
     left->addWidget(impl.workspacesCard, 0);
     impl.imagesCard = new SectionCard(tr("Images and sequences"), content);
@@ -1169,6 +1174,12 @@ void ProjectHomePage::rebuildWorkspaces()
         tile->deleteLater();
     }
     impl.tileWidgets.clear();
+    if (impl.tileFiller != nullptr)
+    {
+        impl.tileFiller->hide();
+        impl.tileFiller->deleteLater();
+        impl.tileFiller = nullptr;
+    }
     int index = 0;
     for (const WorkspaceTileFacts& facts : impl.workspaces)
     {
@@ -1193,6 +1204,12 @@ void ProjectHomePage::rebuildWorkspaces()
         impl.tiles->addWidget(tile, index / 2, index % 2);
         impl.tileWidgets.push_back(tile);
         ++index;
+    }
+    if (index % 2 == 1)
+    {
+        // A lone last tile leaves the other half of its row empty: the half holds its place, and the gap before it.
+        impl.tileFiller = new QWidget(impl.workspacesCard);
+        impl.tiles->addWidget(impl.tileFiller, index / 2, 1);
     }
     impl.workspacesCard->setSummary(QString::number(impl.workspaces.size()) + QStringLiteral(" · ") +
                                     tr("their layouts are kept in the project"));

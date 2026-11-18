@@ -45,6 +45,7 @@
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 
 #include <QAbstractButton>
+#include <QAction>
 #include <QCheckBox>
 #include <QDirIterator>
 #include <QFile>
@@ -446,6 +447,34 @@ TEST_F(ProjectHome, TheWorkspacesAreTilesOfTheirArrangement)
     QTest::mouseClick(tiles[0]->openButton(), Qt::LeftButton);
     settleProjects();
     EXPECT_TRUE(window().isWorkspaceShown());
+}
+
+// The workspaces' tiles are two to a row: one workspace's tile is as wide as each of two, and leaves the other half of
+// the card empty, rather than stretching across it.
+TEST_F(ProjectHome, AWorkspaceTileIsOneOfTwoToARow)
+{
+    (void)makeProject(QStringLiteral("Halves"));
+    openFile(writeImage(QStringLiteral("halves/a.fits"), 0.2f));
+    settleProjects();
+    ASSERT_TRUE(showProjectHome());
+    std::vector<ProjectHomePage::WorkspaceTile*> tiles = page().workspaceTiles();
+    ASSERT_EQ(tiles.size(), 1u);
+    const QWidget* const card = tiles[0]->parentWidget();
+    ASSERT_NE(card, nullptr);
+    const int alone = tiles[0]->width();
+    EXPECT_LT(alone, card->width() * 2 / 3)
+        << "one tile took " << alone << " px of a card " << card->width() << " px wide";
+
+    QAction* const newWorkspace = window().shellActions().action(shellIds::kNewWorkspace);
+    ASSERT_NE(newWorkspace, nullptr);
+    newWorkspace->trigger();
+    settleProjects();
+    ASSERT_TRUE(showProjectHome());
+    tiles = page().workspaceTiles();
+    ASSERT_EQ(tiles.size(), 2u);
+    EXPECT_EQ(tiles[0]->width(), alone);
+    EXPECT_EQ(tiles[1]->width(), alone);
+    EXPECT_EQ(tiles[0]->y(), tiles[1]->y()) << "two tiles are not on one row";
 }
 
 // The integrations are the project's jobs: a session of its own database, with its status, and Open opens it.
