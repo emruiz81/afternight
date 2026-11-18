@@ -4,7 +4,7 @@
 #pragma once
 
 #include "HostPreviewFrames.h"
-#include "controls/ExtensionUiSchemaUtils.h"
+#include "controls/ExtensionParamPanel.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "components/AnInfoBanner.h"
 #include "widgets/CurvesWidget.h"
@@ -94,8 +94,9 @@ namespace an::ui::extensions
 /// Instead this window — shown directly from the extension host process — owns
 /// the visible process UI surface.
 ///
-/// The contents area hosts the preview view plus the shipped ParamDef-driven native parameter panel exposed through
-/// `ProcessExtension.get_params()`.
+/// The contents area hosts the preview view plus the extension's parameter panel: an `ExtensionParamPanel` built from
+/// the description its `get_params()` list reads as, which the window draws the target selector and the manual mask
+/// into and whose one event it answers.
 ///
 /// **Its preview is the framework's.** The window is a real-time preview window whose target is the host's mirror of
 /// the image the application bound (`setSourceView`), and whose body hands each frame's source to the extension's
@@ -105,7 +106,7 @@ namespace an::ui::extensions
 /// extension's manifest's to declare (`setPreviewScaling`): the whole image, unless it states its body maps every
 /// pixel alone or reads no farther than a reach it states. An Apply runs the extension's `execute` over the mirror's
 /// own image, never over a preview's.
-class ExtensionNativeProcessWindow : public ImageRTPreviewControl, public CurvesWidgetListener
+class ExtensionNativeProcessWindow : public ImageRTPreviewControl
 {
     W_OBJECT(ExtensionNativeProcessWindow)
 public:
@@ -343,8 +344,6 @@ public:
     /// Whether the preview runs over a preview area.
     [[nodiscard]] bool isSubAreaEnabled() const;
 
-    void onCurvesUpdated(const an::ui::ToneCurveModel& curve) override;
-
     // --- Target image selector ---
 
     /// Show a target image selector combo populated from the host's view list.
@@ -418,7 +417,6 @@ public:
     }
 
 protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
     void onContentLayoutReplaced(QBoxLayout* contentLayout) override;
@@ -480,11 +478,16 @@ private:
     void refreshViewSelectorParams();
     void applyPreviewMeta();
 
-    enum class PanelVariant
-    {
-        native,
-        custom
-    };
+    /// What the panel said a person did: a value changed, an action pressed, a curve taken and let go.
+    void onPanelEvent(const QString& id, const QString& name, const QCborValue& value);
+
+    /// Draws a kind the panel leaves to the window: the target selector and the manual mask's editor.
+    [[nodiscard]] QWidget* buildHostedControl(const an::ui::extensions::PanelNode& node,
+                                              const an::ui::extensions::ExtensionPanelHost::Placement& place);
+
+    /// Takes what the window keeps of the panel's controls once they are built: the manual preview's button, banner
+    /// and parameters, and the view selectors to list the open images in.
+    void adoptPanelControls();
 
     void onExecuteClicked();
     void onCancelClicked();
@@ -513,16 +516,11 @@ private:
     bool setChoiceParamValueSilently(const QString& id, const QVariant& value);
     void setChoiceParamOptionEnabled(const QString& id, const QVariant& value, bool enabled);
     bool setChoiceParamToDefaultSilently(const QString& id);
-    void updateConditionalWidgets();
-    void updatePercentageMixLabels();
-    void updateValueDescriptionLabels();
-    void updateVectorSlopeGraphs();
     void syncCurveEditorHistograms(const SharedAsset& explicitSource = {});
-    bool setParamValue(const QString& id, const QCborValue& value);
     void updateExecuteButtonEnabled();
     void resetExternalToolConfiguration();
     void parseExternalToolConfiguration(const QJsonObject& config);
-    void ensureExternalToolConfigurationWidgets(QVBoxLayout* panelLayout);
+    void ensureExternalToolConfigurationWidgets();
     void setExternalToolConfigurationStatus(bool valid, const QString& message, an::ui::AnInfoBanner::Tone tone);
     [[nodiscard]] QString currentExternalToolDirectory() const;
     [[nodiscard]] QString platformAdjustedRequiredFile(const QString& fileName) const;
@@ -532,25 +530,6 @@ private:
     void startExternalToolVersionQuery(const QString& executablePath);
     void completeExternalToolVersionQuery(QProcess* process, const QString& executablePath, int queryGeneration);
 
-    /// One rendered parameter widget plus its schema metadata.
-    struct ParamEntry
-    {
-        std::string id;
-        std::string type;
-        QWidget* widget = nullptr;
-        QVariant default_value;
-    };
-    struct ConditionalWidget
-    {
-        QPointer<QWidget> widget;
-        QString param_id;
-        QVariant equals;
-        bool has_equals = false;
-        QVariant not_equals;
-        bool has_not_equals = false;
-        std::optional<an::ui::extensions::schema_utils::SchemaCondition> visible_condition;
-        std::optional<an::ui::extensions::schema_utils::SchemaCondition> enabled_condition;
-    };
     struct ExternalToolResolution
     {
         bool valid = false;
@@ -559,29 +538,6 @@ private:
         QString source;
         QString version;
         QString diagnostic;
-    };
-    struct PercentageMixLabel
-    {
-        QPointer<QLabel> label;
-        QString source_param_id;
-        QString left_label;
-        QString right_label;
-    };
-    struct ValueDescriptionRange
-    {
-        double min = 0.0;
-        double max = 0.0;
-        QString text;
-    };
-    struct ValueDescriptionLabel
-    {
-        QPointer<QLabel> label;
-        QString source_param_id;
-        int decimals = 2;
-        QString prefix;
-        QString suffix;
-        QString separator = QStringLiteral(" - ");
-        std::vector<ValueDescriptionRange> ranges;
     };
     struct ViewSelectorParam
     {
@@ -594,26 +550,6 @@ private:
         bool match_target_channels = false;
         bool exclude_target = false;
     };
-    struct RtHistogramParam
-    {
-        QString id;
-        QPointer<HistogramWidget> histogram;
-        QPointer<QScrollArea> scroll_area;
-        QPointer<QComboBox> plot_resolution;
-        QPointer<QToolButton> zoom_in;
-        QPointer<QToolButton> zoom_out;
-        QPointer<QToolButton> zoom_reset;
-        QPointer<QToolButton> grid_button;
-        QPointer<QToolButton> local_channel_normalization;
-        QPointer<QToolButton> show_clipping_info;
-        QPointer<QToolButton> show_histogram_areas;
-    };
-    struct VectorSlopeParam
-    {
-        QString id;
-        QPointer<QWidget> graph;
-    };
-
     std::string session_id_;
     QPointer<ImageViewControl> source_view_;
 
@@ -627,7 +563,7 @@ private:
     QLabel* placeholder_label_ = nullptr;
     bool view_area_visible_ = true;
     QScrollArea* param_scroll_area_ = nullptr;
-    QWidget* param_panel_ = nullptr;
+    an::ui::extensions::ExtensionParamPanel* param_panel_ = nullptr;
     QWidget* action_bar_ = nullptr;
     QDialogButtonBox* button_box_ = nullptr;
     QPushButton* reset_button_ = nullptr;
@@ -687,15 +623,8 @@ private:
     std::vector<std::pair<QPointer<QWidget>, bool>> execution_locked_widgets_;
     QList<int> last_splitter_sizes_;
 
-    std::vector<ParamEntry> param_entries_;
-    std::vector<ConditionalWidget> conditional_widgets_;
-    std::vector<PercentageMixLabel> percentage_mix_labels_;
-    std::vector<ValueDescriptionLabel> value_description_labels_;
-    std::vector<RtHistogramParam> rt_histogram_params_;
-    std::vector<VectorSlopeParam> vector_slope_params_;
     std::map<const HistogramWidget*, std::unique_ptr<an::ui::HistogramCountScheduler>> histogram_counts_;
     std::unordered_set<std::string> manual_preview_invalidating_param_ids_;
-    PanelVariant panel_variant_ = PanelVariant::native;
     bool preview_area_enabled_ = true;
     bool updating_param_defs_ = false;
     bool configured_preview_autostretch_ = false;

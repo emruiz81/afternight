@@ -118,6 +118,7 @@
 #include <AfterNightEngine/Core/Result.h>
 #include <AfterNightEngine/Core/Status.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
+#include <AfterNightPlatform/Logging.h>
 
 namespace
 {

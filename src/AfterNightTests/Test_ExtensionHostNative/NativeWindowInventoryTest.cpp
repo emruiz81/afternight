@@ -7,10 +7,10 @@
 /// `data/NativeWindowSchemas.json` holds the parameters of every bundled extension and author template, as each one's
 /// `get_params()` answered when the record was made, and two schemas written for this case that use every kind the
 /// window draws, each field of it and the lenient readings of a malformed entry. The case builds a window from each and
-/// writes down every widget its parameter panel holds - in the order the widgets were made, which is the order the Tab
-/// key follows - with its class, its name and marks, its state, its text and values, its sizes and where its layout
-/// puts it. `data/NativeWindowInventory.txt` is what that was when the record was made: a change to how the window
-/// builds its controls fails the case until the entry it moves is edited.
+/// writes down every widget its parameter panel holds, under the widget that holds it, with its class, its name and
+/// marks, its state, its text and values, its sizes and where its layout puts it; and the widgets the Tab key reaches,
+/// in its order, which is the order they were made in. `data/NativeWindowInventory.txt` is what that was when the
+/// record was made: a change to how the window builds its controls fails the case until the entry it moves is edited.
 
 // The window's header dereferences a guarded view, whose class must be complete before it.
 #include "controls/ImageViewControl.h"
@@ -84,6 +84,12 @@ constexpr const char* kSchemasPath = "src/AfterNightTests/Test_ExtensionHostNati
         QStringLiteral("Widgets Qt makes inside its own (named qt_...) are not listed, nor walked through but for"),
         QStringLiteral("a scroll area's viewport and a tab widget's pages. A collapsible section's content is sized"),
         QStringLiteral("to its fonts, so its size is not recorded."),
+        QString(),
+        QStringLiteral(
+            "A section named for a schema and `focus` lists the widgets the Tab key reaches in the panel, in its"),
+        QStringLiteral(
+            "order, as `class | name | id` - the id of the widget or of the row it sits in. That order is the"),
+        QStringLiteral("order the widgets were made in."),
     };
 }
 
@@ -440,6 +446,39 @@ void inventoryOf(const QWidget& holder, int depth, QStringList* entries)
     return entries;
 }
 
+/// The widgets of a window's parameter panel the Tab key reaches, in its order.
+[[nodiscard]] QStringList focusOrder(an::ui::extensions::ExtensionNativeProcessWindow& window)
+{
+    QStringList entries;
+    auto* scroll = window.findChild<QScrollArea*>(QStringLiteral("anNativeProcessParamScrollArea"));
+    QWidget* panel = scroll ? scroll->widget() : nullptr;
+    QWidget* widget = &window;
+    for (int step = 0; panel != nullptr && step < 4096; ++step)
+    {
+        widget = widget->nextInFocusChain();
+        if (widget == &window)
+        {
+            break;
+        }
+        if (!panel->isAncestorOf(widget) || widget->focusPolicy() == Qt::NoFocus)
+        {
+            continue;
+        }
+        QString id = widget->property("anParamId").toString() + widget->property("anParamActionId").toString();
+        if (id.isEmpty() && widget->parentWidget())
+        {
+            id = widget->parentWidget()->property("anParamId").toString();
+        }
+        entries.append(
+            baselineEntry({QString::fromLatin1(widget->metaObject()->className()), widget->objectName(), id}));
+    }
+    if (entries.isEmpty())
+    {
+        entries.append(QStringLiteral("no control takes the focus"));
+    }
+    return entries;
+}
+
 [[nodiscard]] QJsonObject readSchemas()
 {
     QFile file(repositoryFile(QString::fromLatin1(kSchemasPath)));
@@ -461,6 +500,7 @@ TEST(NativeWindow, ControlInventoryIsUnchanged)
         an::ui::extensions::ExtensionNativeProcessWindow window(it.key().toStdString(), "session-inventory", nullptr);
         window.setParamDefs(it.value().toArray());
         EXPECT_TRUE(record.matches(it.key(), panelInventory(window))) << it.key().toStdString();
+        EXPECT_TRUE(record.matches(it.key() + QStringLiteral(" focus"), focusOrder(window))) << it.key().toStdString();
     }
 }
 

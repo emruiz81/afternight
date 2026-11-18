@@ -1383,6 +1383,7 @@ private:
             opened.fields.insert(QStringLiteral("label"), m_description.variant == PanelVariant::Custom
                                                               ? QStringLiteral("Creative Controls")
                                                               : QStringLiteral("Parameters"));
+            opened.opened = true;
             m_section = add(activeContainer(), std::move(opened));
         }
         return *m_section;
@@ -1443,6 +1444,7 @@ private:
                 PanelNode opened;
                 opened.kind = QStringLiteral("tabs");
                 opened.fields.insert(QStringLiteral("id"), QStringLiteral("tabs"));
+                opened.opened = true;
                 m_tabs = add(std::nullopt, std::move(opened));
             }
             m_tab = add(m_tabs, std::move(node));

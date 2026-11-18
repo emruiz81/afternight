@@ -2715,7 +2715,7 @@ own process, and holds the window's frames and the seam (`NativeWindowPreviewFra
 opt-in `NativeWindowPreviewBenchmark` drags the window over a frame through the seam ([BENCHMARKS.md](BENCHMARKS.md)). The Lite host links only the protocol library; `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` is the
 boundary.
 
-### An extension's panel (`controls/ExtensionPanelDescription.h`)
+### An extension's panel (`controls/ExtensionPanelDescription.h`, `controls/ExtensionParamPanel.h`)
 
 An extension states its controls as data, in two vocabularies: a process window's list of parameters (`get_params()`),
 flat, whose `section`, `tabs`, `tab` and `end_tabs` entries open and close groups; and a tree of widgets, which an
@@ -2736,6 +2736,26 @@ an action with no id, two values under one id. The description's own form (`pane
 `panelDescriptionFromCbor`) is what it is carried in, and a description read back from it is equal to the one written;
 `Fuzz_ConsumerPanel` holds the three readings and the validator to answering, and every description the validator
 accepts to that round trip.
+
+`ExtensionParamPanel` (`controls/ExtensionParamPanel.h`) builds the controls of a description, each kind as the process
+window has always drawn it - the widgets, their names and marks, their layout and the order they are made in, which is
+the order the Tab key follows: a section the reading opened for a parameter is made when that parameter's row is placed,
+after the row's own widgets, as the window made it (`PanelNode::opened`). It keeps what the panel holds - each
+parameter's value and default, the readouts that follow a parameter, the conditions that show or enable a control - and
+takes values, defaults and patches (`value`, `enabled`, `visible`, `choices`, `text`, `tooltip`) without a word, refusing
+a patch it cannot make whole. What a person does is its one event, `controlEvent`: a value changed, an action clicked, a
+curve pressed and released. Delivered `LastOfABurst`, the changes one control makes in one turn of the event loop are
+said once, its last, after the turn - what a panel whose events cross to another process wants; `EachChange` says each
+as it is made, as the native window's extension has always heard them on its GUI thread. The panel names no window: what
+needs the showing process - the target selector and the manual mask's editor (`PanelKindRole::Hosted`), the preview's
+own histogram, a slider held - it asks of its `ExtensionPanelHost`, and a hosted control's value it holds as its own
+(`registerHostedValue`). `ExtensionNativeProcessWindow` is rebuilt on it: the window keeps its meta entries, the credits
+it shows with its description, the target selector, the manual mask, the manual preview's button and banner, the view
+selectors' lists and the histograms' counts, and builds nothing of the panel itself.
+`NativeWindow.ControlInventoryIsUnchanged` (`Test_ExtensionHostNative`) holds the window's panel to a record taken
+before the builder moved - every widget of the panel built from each bundled extension's and author template's
+parameters and from two schemas that use every kind, and the order the Tab key reaches them - and the panel's own cases
+are `ParamPanel.*` in `Test_ControlsExtensionSeam`.
 
 ### The extension regression (`Test_ProcessFramework/test_extension_regression.cpp`, `ProtocolSdkContractTest`)
 

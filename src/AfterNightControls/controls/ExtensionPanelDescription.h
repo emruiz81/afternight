@@ -153,6 +153,11 @@ struct PanelNode
     /// What a group holds, in order.
     std::vector<PanelNode> children;
 
+    /// Whether the reading of a process window's list opened this group for the control after it, rather than the
+    /// list stating it: the window made that control before the group, and the Tab key reaches it first. Not part of
+    /// the description's own form, nor of its equality.
+    bool opened = false;
+
     /// The node's id, or empty.
     [[nodiscard]] AFTERNIGHTCONTROLS_API QString id() const;
 

@@ -106,160 +106,6 @@ W_OBJECT_IMPL(ExtensionNativeProcessWindow)
 namespace
 {
 
-constexpr int kNativeParamLabelColumnWidth = 204;
-const QString kHistogramResolution6Bit = QStringLiteral("6-bit (64)");
-const QString kHistogramResolution7Bit = QStringLiteral("7-bit (128)");
-const QString kHistogramResolution8Bit = QStringLiteral("8-bit (256)");
-const QString kHistogramResolution9Bit = QStringLiteral("9-bit (512)");
-const QString kHistogramResolution10Bit = QStringLiteral("10-bit (1024)");
-const QString kHistogramResolution12Bit = QStringLiteral("12-bit (4096)");
-const QString kHistogramResolution14Bit = QStringLiteral("14-bit (16K)");
-const QString kHistogramResolution16Bit = QStringLiteral("16-bit (64K)");
-const QString kHistogramResolution100Levels = QStringLiteral("100 levels");
-const QString kHistogramResolution1000Levels = QStringLiteral("1000 levels");
-const QString kHistogramResolution10000Levels = QStringLiteral("10000 levels");
-
-an::ui::PreviewHistogramResolution previewHistogramResolutionFromLabel(const QString& label)
-{
-    using Resolution = an::ui::PreviewHistogramResolution;
-    if (label == kHistogramResolution6Bit)
-    {
-        return Resolution::Bits6;
-    }
-    if (label == kHistogramResolution7Bit)
-    {
-        return Resolution::Bits7;
-    }
-    if (label == kHistogramResolution9Bit)
-    {
-        return Resolution::Bits9;
-    }
-    if (label == kHistogramResolution10Bit)
-    {
-        return Resolution::Bits10;
-    }
-    if (label == kHistogramResolution12Bit)
-    {
-        return Resolution::Bits12;
-    }
-    if (label == kHistogramResolution14Bit)
-    {
-        return Resolution::Bits14;
-    }
-    if (label == kHistogramResolution16Bit)
-    {
-        return Resolution::Bits16;
-    }
-    if (label == kHistogramResolution100Levels)
-    {
-        return Resolution::Levels100;
-    }
-    if (label == kHistogramResolution1000Levels)
-    {
-        return Resolution::Levels1000;
-    }
-    if (label == kHistogramResolution10000Levels)
-    {
-        return Resolution::Levels10000;
-    }
-    return Resolution::Bits8;
-}
-
-an::ui::HistogramResolution histogramResolutionFromLabel(const QString& label)
-{
-    return an::ui::histogramResolutionOf(previewHistogramResolutionFromLabel(label));
-}
-
-void populateHistogramResolutionCombo(QComboBox* combo)
-{
-    if (!combo)
-    {
-        return;
-    }
-    combo->addItem(kHistogramResolution6Bit);
-    combo->addItem(kHistogramResolution7Bit);
-    combo->addItem(kHistogramResolution8Bit);
-    combo->addItem(kHistogramResolution9Bit);
-    combo->addItem(kHistogramResolution10Bit);
-    combo->addItem(kHistogramResolution12Bit);
-    combo->addItem(kHistogramResolution14Bit);
-    combo->addItem(kHistogramResolution16Bit);
-    combo->addItem(kHistogramResolution100Levels);
-    combo->addItem(kHistogramResolution1000Levels);
-    combo->addItem(kHistogramResolution10000Levels);
-    combo->setCurrentText(kHistogramResolution8Bit);
-}
-
-void clearLayout(QLayout* layout)
-{
-    if (!layout)
-    {
-        return;
-    }
-
-    while (QLayoutItem* item = layout->takeAt(0))
-    {
-        if (QLayout* child_layout = item->layout())
-        {
-            clearLayout(child_layout);
-            delete child_layout;
-        }
-
-        if (QWidget* widget = item->widget())
-        {
-            delete widget;
-        }
-
-        delete item;
-    }
-}
-
-void applyRowLabelTheme(QLabel* label)
-{
-    if (!label)
-    {
-        return;
-    }
-
-    label->setFont(an::ui::tokens().typography.body);
-    QPalette palette = label->palette();
-    palette.setColor(QPalette::WindowText, an::ui::tokens().colors.textPrimary);
-    label->setPalette(palette);
-}
-
-void configureParamRowLabel(QLabel* label)
-{
-    if (!label)
-    {
-        return;
-    }
-
-    applyRowLabelTheme(label);
-    label->setMinimumWidth(kNativeParamLabelColumnWidth);
-    label->setMaximumWidth(kNativeParamLabelColumnWidth);
-    label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    label->setWordWrap(false);
-    label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-}
-
-void applyParamReadoutLabelTheme(QLabel* label)
-{
-    if (!label)
-    {
-        return;
-    }
-
-    label->setFont(an::ui::tokens().typography.caption);
-    QPalette palette = label->palette();
-    palette.setColor(QPalette::WindowText, an::ui::tokens().colors.textSecondary);
-    label->setPalette(palette);
-}
-
-int clampToInt(const double value)
-{
-    return static_cast<int>(std::clamp(value, static_cast<double>(INT_MIN), static_cast<double>(INT_MAX)));
-}
-
 QString selectorTooltipFromView(const std::map<std::string, QVariant>& view)
 {
     const auto tooltip_it = view.find("selector_tooltip");
@@ -335,298 +181,6 @@ void selectRtPreviewAutostretchMode(ImageViewControl* view)
     }
 }
 
-an::ui::AnInfoBanner::Tone parseBannerTone(const QJsonObject& obj, const bool custom_variant)
-{
-    const QString tone = obj[QStringLiteral("tone")].toString().trimmed().toLower();
-    if (tone == QLatin1String("success"))
-    {
-        return an::ui::AnInfoBanner::Tone::Success;
-    }
-    if (tone == QLatin1String("warning"))
-    {
-        return an::ui::AnInfoBanner::Tone::Warning;
-    }
-    if (tone == QLatin1String("error"))
-    {
-        return an::ui::AnInfoBanner::Tone::Error;
-    }
-
-    return custom_variant ? an::ui::AnInfoBanner::Tone::Warning : an::ui::AnInfoBanner::Tone::Info;
-}
-
-int decimalsForStep(const double step)
-{
-    if (step <= 0.0)
-    {
-        return 4;
-    }
-
-    int decimals = 0;
-    double scaled = step;
-    while (decimals < 6 && std::abs(scaled - std::round(scaled)) > 1.0e-9)
-    {
-        scaled *= 10.0;
-        ++decimals;
-    }
-    return (std::max)(2, decimals);
-}
-
-bool sliderTrackingEnabled(const QJsonObject& obj)
-{
-    const QJsonValue tracking = obj.value(QStringLiteral("tracking"));
-    if (!tracking.isUndefined())
-    {
-        return tracking.toBool(true);
-    }
-
-    const QJsonValue slider_tracking = obj.value(QStringLiteral("slider_tracking"));
-    if (!slider_tracking.isUndefined())
-    {
-        return slider_tracking.toBool(true);
-    }
-
-    return true;
-}
-
-// The schema's interpolation names: "cubic" is the natural cubic spline, and anything else Akima's.
-an::CurveInterpolation curveInterpolationFromString(QString value)
-{
-    value = value.trimmed().toLower();
-    if (value == QLatin1String("linear"))
-    {
-        return an::CurveInterpolation::Linear;
-    }
-    if (value == QLatin1String("cubic"))
-    {
-        return an::CurveInterpolation::NaturalCubic;
-    }
-    if (value == QLatin1String("steffen"))
-    {
-        return an::CurveInterpolation::Steffen;
-    }
-    return an::CurveInterpolation::Akima;
-}
-
-QCborArray defaultCurvePointArray()
-{
-    return QCborArray{QCborArray{0.0, 0.0}, QCborArray{0.5, 0.5}, QCborArray{1.0, 1.0}};
-}
-
-std::optional<double> cborNumber(const QCborValue& value)
-{
-    if (value.isDouble())
-    {
-        const double number = value.toDouble();
-        return std::isfinite(number) ? std::optional<double>(number) : std::nullopt;
-    }
-    if (value.isInteger())
-    {
-        return static_cast<double>(value.toInteger());
-    }
-    if (value.isString())
-    {
-        bool ok = false;
-        const double number = value.toString().trimmed().toDouble(&ok);
-        if (ok && std::isfinite(number))
-        {
-            return number;
-        }
-    }
-    return std::nullopt;
-}
-
-QColor colorFromJsonValue(const QJsonValue& value, const QColor& fallback)
-{
-    if (value.isString())
-    {
-        const QColor color(value.toString().trimmed());
-        return color.isValid() ? color : fallback;
-    }
-    if (value.isArray())
-    {
-        const QJsonArray array = value.toArray();
-        if (array.size() >= 3)
-        {
-            const int red = std::clamp(array.at(0).toInt(fallback.red()), 0, 255);
-            const int green = std::clamp(array.at(1).toInt(fallback.green()), 0, 255);
-            const int blue = std::clamp(array.at(2).toInt(fallback.blue()), 0, 255);
-            const int alpha = array.size() >= 4 ? std::clamp(array.at(3).toInt(fallback.alpha()), 0, 255) : 255;
-            return QColor(red, green, blue, alpha);
-        }
-    }
-    return fallback;
-}
-
-std::vector<an::ui::VectorSlopeWidget::VectorDefinition> vectorSlopeDefinitionsFromJson(const QJsonObject& obj)
-{
-    const QJsonArray vectors_value = obj.value(QStringLiteral("vectors")).toArray();
-    if (vectors_value.isEmpty())
-    {
-        return an::ui::VectorSlopeWidget::defaultHueWheelVectors();
-    }
-
-    std::vector<an::ui::VectorSlopeWidget::VectorDefinition> definitions;
-    definitions.reserve(static_cast<size_t>(vectors_value.size()));
-    const auto defaults = an::ui::VectorSlopeWidget::defaultHueWheelVectors();
-    for (qsizetype i = 0; i < vectors_value.size(); ++i)
-    {
-        const QJsonObject vector_obj = vectors_value.at(i).toObject();
-        const auto& fallback = defaults.at(static_cast<size_t>(i) % defaults.size());
-        an::ui::VectorSlopeWidget::VectorDefinition definition;
-        definition.key = vector_obj.value(QStringLiteral("key")).toString(fallback.key).trimmed();
-        definition.hue_param = vector_obj.value(QStringLiteral("hue_param")).toString(fallback.hue_param).trimmed();
-        definition.saturation_param =
-            vector_obj.value(QStringLiteral("saturation_param")).toString(fallback.saturation_param).trimmed();
-        definition.property_name =
-            vector_obj.value(QStringLiteral("property_name")).toString(definition.key).trimmed().toLatin1();
-        definition.base_hue_degrees =
-            vector_obj.value(QStringLiteral("base_hue_degrees"))
-                .toDouble(vector_obj.value(QStringLiteral("base_hue")).toDouble(fallback.base_hue_degrees));
-        definition.saturation_scale =
-            vector_obj.value(QStringLiteral("saturation_scale")).toDouble(fallback.saturation_scale);
-        definition.color = colorFromJsonValue(vector_obj.value(QStringLiteral("color")), fallback.color);
-        if (!definition.key.isEmpty() && !definition.hue_param.isEmpty() && !definition.saturation_param.isEmpty())
-        {
-            definitions.push_back(std::move(definition));
-        }
-    }
-
-    return definitions.empty() ? an::ui::VectorSlopeWidget::defaultHueWheelVectors() : definitions;
-}
-
-bool appendCurvePoint(const QCborValue& value, std::vector<std::pair<double, double>>* points)
-{
-    if (!points)
-    {
-        return false;
-    }
-
-    std::optional<double> x;
-    std::optional<double> y;
-    if (value.isArray())
-    {
-        const QCborArray point = value.toArray();
-        if (point.size() >= 2)
-        {
-            x = cborNumber(point.at(0));
-            y = cborNumber(point.at(1));
-        }
-    }
-    else if (value.isMap())
-    {
-        const QCborMap point = value.toMap();
-        x = cborNumber(point.value(QStringLiteral("x")));
-        y = cborNumber(point.value(QStringLiteral("y")));
-        if (!x.has_value())
-        {
-            x = cborNumber(point.value(QStringLiteral("input")));
-        }
-        if (!y.has_value())
-        {
-            y = cborNumber(point.value(QStringLiteral("output")));
-        }
-    }
-
-    if (!x.has_value() || !y.has_value())
-    {
-        return false;
-    }
-
-    points->push_back({std::clamp(*x, 0.0, 1.0), std::clamp(*y, 0.0, 1.0)});
-    return true;
-}
-
-std::vector<std::pair<double, double>> normalizedCurvePoints(const QCborValue& value)
-{
-    std::vector<std::pair<double, double>> points;
-    const QCborArray source = value.isArray() ? value.toArray() : defaultCurvePointArray();
-    points.reserve(static_cast<std::size_t>(source.size()) + 2);
-    for (const QCborValue& point : source)
-    {
-        appendCurvePoint(point, &points);
-    }
-
-    if (points.size() < 2)
-    {
-        points = {{0.0, 0.0}, {0.5, 0.5}, {1.0, 1.0}};
-    }
-
-    std::sort(points.begin(), points.end(),
-              [](const auto& left, const auto& right) { return left.first < right.first; });
-
-    std::vector<std::pair<double, double>> cleaned;
-    cleaned.reserve(points.size() + 2);
-    for (const auto& point : points)
-    {
-        if (!cleaned.empty() && point.first <= cleaned.back().first + 1.0e-6)
-        {
-            cleaned.back().second = point.second;
-            continue;
-        }
-        cleaned.push_back(point);
-    }
-
-    if (cleaned.empty())
-    {
-        cleaned = {{0.0, 0.0}, {0.5, 0.5}, {1.0, 1.0}};
-    }
-    if (cleaned.front().first > 1.0e-6)
-    {
-        cleaned.insert(cleaned.begin(), {0.0, 0.0});
-    }
-    else
-    {
-        cleaned.front().first = 0.0;
-    }
-    if (cleaned.back().first < 1.0 - 1.0e-6)
-    {
-        cleaned.push_back({1.0, 1.0});
-    }
-    else
-    {
-        cleaned.back().first = 1.0;
-    }
-
-    if (cleaned.size() < 2)
-    {
-        return {{0.0, 0.0}, {1.0, 1.0}};
-    }
-    return cleaned;
-}
-
-an::ui::ToneCurveModel curveFromCurvePoints(const QCborValue& value, const an::CurveInterpolation interpolation)
-{
-    const std::vector<std::pair<double, double>> points = normalizedCurvePoints(value);
-    std::vector<an::CurveControlPoint> nodes;
-    nodes.reserve(points.size());
-    for (const auto& [x, y] : points)
-    {
-        nodes.push_back(an::CurveControlPoint{x, y});
-    }
-    return an::ui::ToneCurveModel(std::move(nodes), interpolation);
-}
-
-QCborArray curvePointsFromEditor(CurvesWidget* editor)
-{
-    if (!editor)
-    {
-        return defaultCurvePointArray();
-    }
-
-    const an::ui::ToneCurveModel curve = editor->getCurve();
-    if (curve.isEmpty())
-    {
-        return defaultCurvePointArray();
-    }
-
-    QCborArray points;
-    for (const an::CurveControlPoint& point : curve.points())
-    {
-        points.append(QCborArray{point.input, point.output});
-    }
-    return points;
-}
-
 QString tooltipText(const QJsonObject& obj)
 {
     return obj[QStringLiteral("tooltip")].toString().trimmed();
@@ -638,41 +192,6 @@ void applyTooltip(QWidget* widget, const QString& tooltip)
     {
         widget->setToolTip(tooltip);
     }
-}
-
-void setupParamRowGrid(QGridLayout* layout)
-{
-    if (!layout)
-    {
-        return;
-    }
-
-    const auto& spacing = an::ui::tokens().spacing;
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setHorizontalSpacing(spacing.md);
-    layout->setVerticalSpacing(spacing.xs);
-    layout->setColumnMinimumWidth(0, kNativeParamLabelColumnWidth);
-    layout->setColumnStretch(0, 0);
-    layout->setColumnStretch(1, 1);
-}
-
-bool variantsEqual(const QVariant& left, const QVariant& right)
-{
-    if (left.userType() == QMetaType::Bool || right.userType() == QMetaType::Bool)
-    {
-        return left.toBool() == right.toBool();
-    }
-
-    bool left_ok = false;
-    bool right_ok = false;
-    const double left_number = left.toDouble(&left_ok);
-    const double right_number = right.toDouble(&right_ok);
-    if (left_ok && right_ok)
-    {
-        return std::abs(left_number - right_number) < 1.0e-9;
-    }
-
-    return left.toString() == right.toString();
 }
 
 QSize jsonSizePair(const QJsonValue& value)
@@ -1675,10 +1194,54 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
     param_scroll_area_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     param_scroll_area_->hide();
 
-    param_panel_ = new QWidget(param_scroll_area_);
-    auto* param_layout = new QVBoxLayout(param_panel_);
-    param_layout->setContentsMargins(0, 0, 0, 0);
-    param_layout->setSpacing(0);
+    // The extension hears each change as it is made, on this thread, as its window has always told it.
+    param_panel_ = new an::ui::extensions::ExtensionParamPanel(param_scroll_area_);
+    param_panel_->setEventDelivery(an::ui::extensions::ExtensionParamPanel::EventDelivery::EachChange);
+    an::ui::extensions::ExtensionPanelHost panel_host;
+    panel_host.interactionWatcher = this;
+    panel_host.makeFrameHistogram = [this](QScrollArea* scroll_area) -> HistogramWidget* {
+        m_HistogramPreview = an::ui::createPreviewHistogram(scroll_area, an::consumer::OperationPurpose::Preview);
+        auto* histogram = dynamic_cast<HistogramWidget*>(m_HistogramPreview->widget());
+        m_UseHistogramPreviewWidget = histogram != nullptr;
+        return histogram;
+    };
+    panel_host.frameHistogramResolutionChosen = [this](const QString& resolution) {
+        if (!m_HistogramPreview)
+        {
+            return;
+        }
+        m_HistogramPreview->setResolution(an::ui::extensions::previewHistogramResolutionNamed(resolution));
+        if (updating_param_defs_)
+        {
+            return;
+        }
+        // The preview's histogram is made by the next frame at the new resolution, or counted again from what is
+        // shown while the window does not preview.
+        if (previewView())
+        {
+            requestFrame();
+        }
+        else
+        {
+            m_HistogramPreview->setImage(sourceImage());
+        }
+    };
+    panel_host.histogramResolutionChosen = [this](HistogramWidget* histogram) {
+        if (an::ui::HistogramCountScheduler* counts = histogramCountsFor(histogram))
+        {
+            counts->recount();
+        }
+    };
+    panel_host.curveHistogramShown = [this](CurvesWidget*) { syncCurveEditorHistograms(); };
+    panel_host.buildHosted = [this](const an::ui::extensions::PanelNode& node,
+                                    const an::ui::extensions::ExtensionPanelHost::Placement& place) {
+        return buildHostedControl(node, place);
+    };
+    param_panel_->setHost(std::move(panel_host));
+    QObject::connect(param_panel_, &an::ui::extensions::ExtensionParamPanel::controlEvent, this,
+                     [this](const QString& id, const QString& name, const QCborValue& value, bool) {
+                         onPanelEvent(id, name, value);
+                     });
     param_scroll_area_->setWidget(param_panel_);
 
     action_bar_ = new QWidget(controls_panel_ ? controls_panel_ : this);
@@ -1807,56 +1370,6 @@ void ExtensionNativeProcessWindow::showEvent(QShowEvent* event)
     QTimer::singleShot(30, this, apply_deferred_constraints);
 }
 
-bool ExtensionNativeProcessWindow::eventFilter(QObject* watched, QEvent* event)
-{
-    if (watched && event && watched->objectName() == QStringLiteral("anNativeParamCurveEditor"))
-    {
-        switch (event->type())
-        {
-        case QEvent::MouseButtonPress: {
-            const auto* mouse_event = static_cast<QMouseEvent*>(event);
-            if (mouse_event->button() == Qt::LeftButton)
-            {
-                // A curve dragged is shown in interactive frames, as a dragged slider is, and settled when let go.
-                curve_edit_in_progress_ = true;
-                curve_edit_pending_preview_ = false;
-                controlHeld(watched, true);
-            }
-            break;
-        }
-        case QEvent::MouseButtonRelease: {
-            const auto* mouse_event = static_cast<QMouseEvent*>(event);
-            if (mouse_event->button() == Qt::LeftButton && curve_edit_in_progress_)
-            {
-                const bool should_refresh = curve_edit_pending_preview_;
-                curve_edit_in_progress_ = false;
-                curve_edit_pending_preview_ = false;
-                controlHeld(watched, false);
-                if (!updating_param_defs_ && should_refresh)
-                {
-                    updateConditionalWidgets();
-                    if (param_changed_callback_)
-                    {
-                        QStringList changed_keys;
-                        const QString param_id = watched->property("anParamId").toString();
-                        if (!param_id.isEmpty())
-                        {
-                            changed_keys.push_back(param_id);
-                        }
-                        param_changed_callback_(currentParams(), changed_keys, QStringLiteral("user"));
-                    }
-                }
-            }
-            break;
-        }
-        default:
-            break;
-        }
-    }
-
-    return QWidget::eventFilter(watched, event);
-}
-
 void ExtensionNativeProcessWindow::refreshTheme()
 {
     ImageRTPreviewControl::refreshTheme();
@@ -1866,16 +1379,6 @@ void ExtensionNativeProcessWindow::refreshTheme()
         const auto& spacing = an::ui::tokens().spacing;
         root_layout_->setSpacing(0);
         root_layout_->setContentsMargins(0, 0, 0, 0);
-    }
-
-    if (param_panel_)
-    {
-        if (auto* layout = qobject_cast<QVBoxLayout*>(param_panel_->layout()))
-        {
-            const auto& spacing = an::ui::tokens().spacing;
-            layout->setSpacing(spacing.sm);
-            layout->setContentsMargins(0, 0, 0, 0);
-        }
     }
 
     if (controls_layout_)
@@ -1937,19 +1440,11 @@ void ExtensionNativeProcessWindow::refreshTheme()
         external_tool_config_button_->update();
     }
 
-    for (auto* label : findChildren<QLabel*>(QStringLiteral("anNativeParamLabel")))
+    if (param_panel_)
     {
-        applyRowLabelTheme(label);
+        param_panel_->refreshTheme();
     }
-    for (auto* label : findChildren<QLabel*>(QStringLiteral("anNativeParamPercentageMixLabel")))
-    {
-        applyParamReadoutLabelTheme(label);
-    }
-    for (auto* label : findChildren<QLabel*>(QStringLiteral("anNativeParamValueDescriptionLabel")))
-    {
-        applyParamReadoutLabelTheme(label);
-    }
-    applyRowLabelTheme(target_selector_label_);
+    panel_rows::applyRowLabelTheme(target_selector_label_);
     for (auto* widget : findChildren<QWidget*>())
     {
         if (auto* card = dynamic_cast<an::ui::AnCardWidget*>(widget))
@@ -2441,12 +1936,6 @@ void ExtensionNativeProcessWindow::setOpenSettingsCallback(OpenSettingsCallback 
 
 void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
 {
-    param_entries_.clear();
-    conditional_widgets_.clear();
-    percentage_mix_labels_.clear();
-    value_description_labels_.clear();
-    rt_histogram_params_.clear();
-    vector_slope_params_.clear();
     manual_preview_invalidating_param_ids_.clear();
     manual_preview_enabled_ = false;
     manual_preview_dirty_ = false;
@@ -2481,7 +1970,6 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
     manual_mask_default_brush_size_ = 50;
     manual_mask_copy_.reset();
     manual_mask_copy_document_ = nullptr;
-    panel_variant_ = PanelVariant::native;
     preview_area_enabled_ = true;
     // The framework's histogram is the first real-time histogram parameter's; new definitions make it again.
     m_UseHistogramPreviewWidget = false;
@@ -2511,16 +1999,14 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
     updating_param_defs_ = true;
     resetExternalToolConfiguration();
 
-    auto* panel_layout = qobject_cast<QVBoxLayout*>(param_panel_->layout());
-    if (!panel_layout)
+    // A target selector the panel drew goes with the panel's controls; one the window drew beside them stays.
+    if (target_selector_section_ && param_panel_->isAncestorOf(target_selector_section_))
     {
-        panel_layout = new QVBoxLayout(param_panel_);
+        target_selector_section_ = nullptr;
+        target_selector_label_ = nullptr;
+        target_selector_ = nullptr;
     }
-    clearLayout(panel_layout);
-
-    const auto& spacing = an::ui::tokens().spacing;
-    panel_layout->setContentsMargins(0, 0, 0, 0);
-    panel_layout->setSpacing(spacing.sm);
+    param_panel_->clear();
 
     for (const auto& entry_value : defs)
     {
@@ -2538,397 +2024,20 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
         }
     }
 
-    ensureExternalToolConfigurationWidgets(panel_layout);
+    ensureExternalToolConfigurationWidgets();
 
-    QVBoxLayout* current_section_layout = nullptr;
-    QTabWidget* current_tabs_widget = nullptr;
-    QVBoxLayout* current_tab_layout = nullptr;
-    std::vector<QVBoxLayout*> tab_page_layouts;
-    bool has_visible_content = external_tool_status_banner_ != nullptr;
-    bool custom_header_emitted = false;
+    // The window's own part of the list - its meta entries and the credits it shows with its description - in the
+    // list's order; the panel draws the rest.
     bool enable_sub_area_by_default = false;
-
-    auto registerConditionalWidget = [&](QWidget* widget, const QJsonObject& source) {
-        if (!widget)
-        {
-            return;
-        }
-        ConditionalWidget conditional;
-        conditional.widget = widget;
-
-        const QString visible_expression = source.value(QStringLiteral("visible_when")).toString().trimmed();
-        if (!visible_expression.isEmpty())
-        {
-            conditional.visible_condition = an::ui::extensions::schema_utils::parseSchemaCondition(visible_expression);
-        }
-
-        const QJsonValue condition_value = source.value(QStringLiteral("enabled_when"));
-        if (condition_value.isString())
-        {
-            const QString enabled_expression = condition_value.toString().trimmed();
-            if (!enabled_expression.isEmpty())
-            {
-                conditional.enabled_condition =
-                    an::ui::extensions::schema_utils::parseSchemaCondition(enabled_expression);
-            }
-        }
-        else if (condition_value.isObject())
-        {
-            const QJsonObject condition = condition_value.toObject();
-            const QString param_id = condition.value(QStringLiteral("param")).toString().trimmed();
-            if (!param_id.isEmpty())
-            {
-                conditional.param_id = param_id;
-                if (condition.contains(QStringLiteral("equals")))
-                {
-                    conditional.equals = condition.value(QStringLiteral("equals")).toVariant();
-                    conditional.has_equals = true;
-                }
-                if (condition.contains(QStringLiteral("not_equals")))
-                {
-                    conditional.not_equals = condition.value(QStringLiteral("not_equals")).toVariant();
-                    conditional.has_not_equals = true;
-                }
-            }
-        }
-
-        if (conditional.visible_condition.has_value() || conditional.enabled_condition.has_value() ||
-            conditional.has_equals || conditional.has_not_equals)
-        {
-            conditional_widgets_.push_back(std::move(conditional));
-        }
-    };
-
-    auto createSectionLayout = [&](const QString& title, const QString& presentation, const QString& section_id,
-                                   QVBoxLayout* parent_layout, const QJsonObject& source) -> QVBoxLayout* {
-        QVBoxLayout* target_layout = parent_layout ? parent_layout : panel_layout;
-        QWidget* section_parent = target_layout->parentWidget() ? target_layout->parentWidget() : param_panel_;
-        const bool use_collapsible =
-            panel_variant_ == PanelVariant::custom || presentation == QLatin1String("collapsible");
-        if (use_collapsible)
-        {
-            auto* section = new an::ui::AnCollapsibleSection(title, section_parent);
-            section->setObjectName(QStringLiteral("anNativeParamSectionContainer"));
-            section->setProperty("anSectionId", section_id);
-            auto* content_layout = new QVBoxLayout();
-            content_layout->setContentsMargins(spacing.sm, spacing.sm, spacing.sm, spacing.sm);
-            content_layout->setSpacing(spacing.sm);
-            section->setContentLayout(content_layout);
-            section->setExpanded(true);
-            registerConditionalWidget(section, source);
-            target_layout->addWidget(section);
-            return content_layout;
-        }
-
-        auto* card = new an::ui::AnCardWidget(title, section_parent);
-        card->setObjectName(QStringLiteral("anNativeParamSectionContainer"));
-        card->setProperty("anSectionId", section_id);
-        card->setProperty("anCardCompact", true);
-        card->setProperty("anCardBodyPadded", true);
-        auto* content_layout = new QVBoxLayout();
-        content_layout->setContentsMargins(spacing.sm, spacing.sm, spacing.sm, spacing.sm);
-        content_layout->setSpacing(spacing.sm);
-        card->setContentLayout(content_layout);
-        content_layout->setContentsMargins(spacing.sm, spacing.sm, spacing.sm, spacing.sm);
-        registerConditionalWidget(card, source);
-        target_layout->addWidget(card);
-        return content_layout;
-    };
-
-    auto activeContainerLayout = [&]() -> QVBoxLayout* {
-        return current_tab_layout ? current_tab_layout : panel_layout;
-    };
-
-    auto emitCustomHeader = [&]() {
-        if (panel_variant_ != PanelVariant::custom || custom_header_emitted)
-        {
-            return;
-        }
-        custom_header_emitted = true;
-
-        // Emit a distinctive separator line so the custom panel is
-        // unmistakably different from native-variant panels.
-        auto* separator = new QFrame(param_panel_);
-        separator->setObjectName(QStringLiteral("anCustomPanelSeparator"));
-        separator->setFrameShape(QFrame::HLine);
-        separator->setFrameShadow(QFrame::Plain);
-        separator->setFixedHeight(2);
-        {
-            QPalette pal = separator->palette();
-            pal.setColor(QPalette::WindowText, an::ui::tokens().colors.accent().primary);
-            separator->setPalette(pal);
-        }
-        panel_layout->addWidget(separator);
-        has_visible_content = true;
-    };
-
-    auto ensureSectionLayout = [&]() -> QVBoxLayout* {
-        if (!current_section_layout)
-        {
-            emitCustomHeader();
-            current_section_layout =
-                createSectionLayout(panel_variant_ == PanelVariant::custom ? QStringLiteral("Creative Controls")
-                                                                           : QStringLiteral("Parameters"),
-                                    QString(), QString(), activeContainerLayout(), QJsonObject());
-            has_visible_content = true;
-        }
-        return current_section_layout;
-    };
-
     for (const auto& entry_value : defs)
     {
         const QJsonObject obj = entry_value.toObject();
         const QString type = obj[QStringLiteral("type")].toString().trimmed().toLower();
-        const QString id = obj[QStringLiteral("id")].toString();
-
-        if (type == QLatin1String("meta"))
-        {
-            const QString variant = obj[QStringLiteral("panel_variant")].toString().trimmed().toLower();
-            panel_variant_ = variant == QLatin1String("custom") ? PanelVariant::custom : PanelVariant::native;
-            // "preview_surface" chose between a pane of the preview's own and the source pane showing it: a window
-            // that previews now shows its frames in the one view it has, so an extension that still states it changes
-            // nothing.
-            if (obj.contains(QStringLiteral("preview_area")))
-            {
-                preview_area_enabled_ = obj[QStringLiteral("preview_area")].toBool(true);
-            }
-            if (obj.contains(QStringLiteral("preview_area_enabled")))
-            {
-                preview_area_enabled_ = obj[QStringLiteral("preview_area_enabled")].toBool(true);
-            }
-            if (obj.contains(QStringLiteral("header_progress")))
-            {
-                setHeaderProgressVisible(obj[QStringLiteral("header_progress")].toBool(true));
-            }
-            if (obj.contains(QStringLiteral("show_header_progress")))
-            {
-                setHeaderProgressVisible(obj[QStringLiteral("show_header_progress")].toBool(true));
-            }
-            const QString header_description = headerDescriptionFromMeta(obj);
-            if (!header_description.isEmpty())
-            {
-                setProcessDescription(header_description);
-            }
-            // "preview_hq_default" is read as nothing: every view carries each sample at full precision through its
-            // stretch, so an extension that states it changes nothing.
-            if (obj.contains(QStringLiteral("preview_autostretch")))
-            {
-                configured_preview_autostretch_ = obj[QStringLiteral("preview_autostretch")].toBool(false);
-            }
-            if (obj.contains(QStringLiteral("preview_autostretch_default")))
-            {
-                configured_preview_autostretch_default_ =
-                    obj[QStringLiteral("preview_autostretch_default")].toBool(false);
-            }
-            if (obj.contains(QStringLiteral("controls_panel_width")))
-            {
-                configured_controls_panel_width_ =
-                    (std::max)(1, clampToInt(obj[QStringLiteral("controls_panel_width")].toDouble(0)));
-            }
-            const auto window_config_value = obj.value(QStringLiteral("window"));
-            const QJsonObject window_config =
-                window_config_value.isObject() ? window_config_value.toObject() : QJsonObject();
-            QSize requested_window_size = jsonSizePair(window_config.value(QStringLiteral("size")));
-            if (!requested_window_size.isValid())
-            {
-                requested_window_size = jsonSizePair(obj.value(QStringLiteral("window_size")));
-            }
-            if (requested_window_size.isValid())
-            {
-                configured_window_size_ = requested_window_size;
-            }
-            if (window_config.contains(QStringLiteral("fixed_size")))
-            {
-                setFixedSizeWindow(window_config.value(QStringLiteral("fixed_size")).toBool(false));
-            }
-            if (window_config.contains(QStringLiteral("fixed")))
-            {
-                setFixedSizeWindow(window_config.value(QStringLiteral("fixed")).toBool(false));
-            }
-            if (window_config.contains(QStringLiteral("resizable")))
-            {
-                setFixedSizeWindow(!window_config.value(QStringLiteral("resizable")).toBool(true));
-            }
-            if (obj.contains(QStringLiteral("fixed_size")))
-            {
-                setFixedSizeWindow(obj[QStringLiteral("fixed_size")].toBool(false));
-            }
-            if (obj.contains(QStringLiteral("resizable")))
-            {
-                setFixedSizeWindow(!obj[QStringLiteral("resizable")].toBool(true));
-            }
-            applyNativeWindowSizeConstraints();
-            if (preview_area_enabled_ && obj[QStringLiteral("sub_area")].toBool(false))
-            {
-                const auto size_arr = obj[QStringLiteral("sub_area_size")].toArray();
-                const int w = size_arr.size() >= 1 ? size_arr[0].toInt(800) : 800;
-                const int h = size_arr.size() >= 2 ? size_arr[1].toInt(600) : 600;
-                const QString sub_label = obj[QStringLiteral("sub_area_label")].toString();
-                enable_sub_area_by_default = obj[QStringLiteral("sub_area_default_enabled")].toBool(true);
-                configured_sub_area_size_ = QSize(w, h);
-                configured_sub_area_label_ = sub_label;
-            }
-            if (obj[QStringLiteral("target_selector")].toBool(false))
-            {
-                const auto filter_arr = obj[QStringLiteral("target_channel_filter")].toArray();
-                pending_target_channel_filter_.clear();
-                for (const auto& val : filter_arr)
-                {
-                    pending_target_channel_filter_.push_back(val.toInt());
-                }
-                pending_target_selector_label_ = obj.value(QStringLiteral("target_selector_label")).toString();
-                pending_target_selector_position_ =
-                    obj.value(QStringLiteral("target_selector_position")).toString().trimmed().toLower();
-                pending_target_selector_ = true;
-            }
-            continue;
-        }
-
-        const QString label = obj[QStringLiteral("label")].toString(id);
-        const QString text = obj[QStringLiteral("text")].toString(label);
-
-        if (type == QLatin1String("tabs"))
-        {
-            emitCustomHeader();
-            auto* tabs = new QTabWidget(param_panel_);
-            tabs->setObjectName(QStringLiteral("anNativeParamTabs"));
-            tabs->setProperty("anParamId", id);
-            tabs->setDocumentMode(false);
-            tabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-            registerConditionalWidget(tabs, obj);
-            panel_layout->addWidget(tabs);
-            current_tabs_widget = tabs;
-            current_tab_layout = nullptr;
-            current_section_layout = nullptr;
-            has_visible_content = true;
-            continue;
-        }
-
-        if (type == QLatin1String("tab"))
-        {
-            emitCustomHeader();
-            if (!current_tabs_widget)
-            {
-                auto* tabs = new QTabWidget(param_panel_);
-                tabs->setObjectName(QStringLiteral("anNativeParamTabs"));
-                tabs->setProperty("anParamId", QStringLiteral("tabs"));
-                tabs->setDocumentMode(false);
-                tabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-                panel_layout->addWidget(tabs);
-                current_tabs_widget = tabs;
-            }
-
-            auto* page = new QWidget(current_tabs_widget);
-            page->setObjectName(QStringLiteral("anNativeParamTabPage"));
-            page->setProperty("anParamId", id);
-            auto* page_layout = new QVBoxLayout(page);
-            page_layout->setContentsMargins(0, spacing.sm, 0, 0);
-            page_layout->setSpacing(spacing.sm);
-            current_tabs_widget->addTab(page, text);
-            tab_page_layouts.push_back(page_layout);
-            current_tab_layout = page_layout;
-            current_section_layout = nullptr;
-            has_visible_content = true;
-            continue;
-        }
-
-        if (type == QLatin1String("end_tabs"))
-        {
-            current_tabs_widget = nullptr;
-            current_tab_layout = nullptr;
-            current_section_layout = nullptr;
-            continue;
-        }
-
-        if (type == QLatin1String("section"))
-        {
-            emitCustomHeader();
-            current_section_layout =
-                createSectionLayout(text, obj[QStringLiteral("presentation")].toString().trimmed().toLower(), id,
-                                    activeContainerLayout(), obj);
-            has_visible_content = true;
-            continue;
-        }
-
-        if (type == QLatin1String("percentage_mix_label"))
-        {
-            auto* readout_row = new QWidget(param_panel_);
-            readout_row->setProperty("anParamId", id);
-            auto* readout_layout = new QGridLayout(readout_row);
-            setupParamRowGrid(readout_layout);
-
-            auto* label_widget = new QLabel(readout_row);
-            label_widget->setObjectName(QStringLiteral("anNativeParamPercentageMixLabel"));
-            label_widget->setProperty("anParamId", id);
-            label_widget->setText(text);
-            applyParamReadoutLabelTheme(label_widget);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(readout_row, tooltip);
-            applyTooltip(label_widget, tooltip);
-            readout_layout->addWidget(label_widget, 0, 1);
-            ensureSectionLayout()->addWidget(readout_row);
-            registerConditionalWidget(readout_row, obj);
-
-            PercentageMixLabel mix_label;
-            mix_label.label = label_widget;
-            mix_label.source_param_id = obj.value(QStringLiteral("source")).toString().trimmed();
-            mix_label.left_label = obj.value(QStringLiteral("left_label")).toString(QStringLiteral("Ha"));
-            mix_label.right_label = obj.value(QStringLiteral("right_label")).toString(QStringLiteral("OIII"));
-            percentage_mix_labels_.push_back(std::move(mix_label));
-
-            has_visible_content = true;
-            continue;
-        }
-
-        if (type == QLatin1String("value_description_label"))
-        {
-            auto* readout_row = new QWidget(param_panel_);
-            readout_row->setProperty("anParamId", id);
-            auto* readout_layout = new QGridLayout(readout_row);
-            setupParamRowGrid(readout_layout);
-
-            auto* label_widget = new QLabel(readout_row);
-            label_widget->setObjectName(QStringLiteral("anNativeParamValueDescriptionLabel"));
-            label_widget->setProperty("anParamId", id);
-            label_widget->setText(text);
-            applyParamReadoutLabelTheme(label_widget);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(readout_row, tooltip);
-            applyTooltip(label_widget, tooltip);
-            readout_layout->addWidget(label_widget, 0, 1);
-            ensureSectionLayout()->addWidget(readout_row);
-            registerConditionalWidget(readout_row, obj);
-
-            ValueDescriptionLabel value_label;
-            value_label.label = label_widget;
-            value_label.source_param_id = obj.value(QStringLiteral("source")).toString().trimmed();
-            value_label.decimals = clampToInt(obj.value(QStringLiteral("decimals")).toDouble(2.0));
-            value_label.decimals = std::clamp(value_label.decimals, 0, 6);
-            value_label.prefix = obj.value(QStringLiteral("prefix")).toString();
-            value_label.suffix = obj.value(QStringLiteral("suffix")).toString();
-            value_label.separator = obj.value(QStringLiteral("separator")).toString(QStringLiteral(" - "));
-            for (const auto& range_value : obj.value(QStringLiteral("ranges")).toArray())
-            {
-                const QJsonArray range = range_value.toArray();
-                if (range.size() < 3)
-                {
-                    continue;
-                }
-
-                ValueDescriptionRange range_item;
-                range_item.min = range[0].toDouble();
-                range_item.max = range[1].toDouble();
-                range_item.text = range[2].toString();
-                value_label.ranges.push_back(std::move(range_item));
-            }
-            value_description_labels_.push_back(std::move(value_label));
-
-            has_visible_content = true;
-            continue;
-        }
-
         if (type == QLatin1String("info"))
         {
+            const QString id = obj[QStringLiteral("id")].toString();
+            const QString label = obj[QStringLiteral("label")].toString(id);
+            const QString text = obj[QStringLiteral("text")].toString(label);
             if (isAttributionParam(obj))
             {
                 const QString header_description = text.trimmed();
@@ -2936,768 +2045,128 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
                 {
                     setProcessDescription(header_description);
                 }
-                continue;
             }
-
-            auto* banner = new an::ui::AnInfoBanner(text, parseBannerTone(obj, panel_variant_ == PanelVariant::custom),
-                                                    param_panel_);
-            banner->setObjectName(QStringLiteral("anNativeParamInfoBanner"));
-            if (obj.value(QStringLiteral("preview_status")).toBool(false))
-            {
-                manual_preview_status_banner_ = banner;
-                manual_preview_stale_text_ =
-                    obj.value(QStringLiteral("stale_text")).toString(manual_preview_stale_text_);
-                manual_preview_ready_text_ =
-                    obj.value(QStringLiteral("ready_text")).toString(manual_preview_ready_text_);
-                manual_preview_updating_text_ =
-                    obj.value(QStringLiteral("updating_text")).toString(manual_preview_updating_text_);
-                updateManualPreviewRefreshUi();
-            }
-            if (current_section_layout)
-            {
-                current_section_layout->addWidget(banner);
-            }
-            else
-            {
-                activeContainerLayout()->addWidget(banner);
-            }
-            has_visible_content = true;
             continue;
         }
-
-        if (type == QLatin1String("manual_mask_editor"))
-        {
-            setupManualMaskEditor(obj, ensureSectionLayout());
-            if (manual_mask_group_)
-            {
-                registerConditionalWidget(manual_mask_group_, obj);
-            }
-            has_visible_content = true;
-            continue;
-        }
-
-        if (id.isEmpty() || type.isEmpty())
+        if (type != QLatin1String("meta"))
         {
             continue;
         }
 
-        auto* row = new QWidget(param_panel_);
-        row->setProperty("anParamId", id);
-        auto* row_layout = new QGridLayout(row);
-        setupParamRowGrid(row_layout);
-
-        QWidget* value_widget = nullptr;
-
-        if (type == QLatin1String("float") || type == QLatin1String("double"))
+        // "preview_surface" chose between a pane of the preview's own and the source pane showing it: a window that
+        // previews now shows its frames in the one view it has, so an extension that still states it changes nothing.
+        if (obj.contains(QStringLiteral("preview_area")))
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* controls = new QWidget(row);
-            auto* controls_layout = new QHBoxLayout(controls);
-            controls_layout->setContentsMargins(0, 0, 0, 0);
-            controls_layout->setSpacing(spacing.sm);
-
-            auto* spin = new QDoubleSpinBox(controls);
-            spin->setObjectName(QStringLiteral("anNativeParamDoubleSpinBox"));
-            applyTooltip(spin, tooltip);
-            spin->setMinimum(obj[QStringLiteral("min")].toDouble(-1.0e6));
-            spin->setMaximum(obj[QStringLiteral("max")].toDouble(1.0e6));
-            spin->setSingleStep(obj[QStringLiteral("step")].toDouble(0.01));
-            spin->setDecimals(decimalsForStep(spin->singleStep()));
-
-            auto* slider = new QSlider(Qt::Horizontal, controls);
-            slider->setObjectName(QStringLiteral("anNativeParamDoubleSlider"));
-            applyTooltip(slider, tooltip);
-            slider->setTracking(sliderTrackingEnabled(obj));
-            controls_layout->addWidget(spin, 0);
-            controls_layout->addWidget(slider, 1);
-            row_layout->addWidget(controls, 0, 1);
-
-            auto* control = new QSliderDoubleSpinBox(spin, slider, row);
-            control->setValue(obj[QStringLiteral("default")].toDouble(0.0));
-            QObject::connect(control, &QSliderDoubleSpinBox::valueChanged, this,
-                             [this, id](double) { onInteractiveParamChanged(id); });
-            watchInteraction(*control);
-            value_widget = spin;
+            preview_area_enabled_ = obj[QStringLiteral("preview_area")].toBool(true);
         }
-        else if (type == QLatin1String("int"))
+        if (obj.contains(QStringLiteral("preview_area_enabled")))
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* controls = new QWidget(row);
-            auto* controls_layout = new QHBoxLayout(controls);
-            controls_layout->setContentsMargins(0, 0, 0, 0);
-            controls_layout->setSpacing(spacing.sm);
-
-            auto* spin = new QSpinBox(controls);
-            spin->setObjectName(QStringLiteral("anNativeParamSpinBox"));
-            applyTooltip(spin, tooltip);
-            spin->setMinimum(clampToInt(obj[QStringLiteral("min")].toDouble(-1000)));
-            spin->setMaximum(clampToInt(obj[QStringLiteral("max")].toDouble(1000)));
-            spin->setSingleStep((std::max)(1, clampToInt(obj[QStringLiteral("step")].toDouble(1))));
-
-            auto* slider = new QSlider(Qt::Horizontal, controls);
-            slider->setObjectName(QStringLiteral("anNativeParamSlider"));
-            applyTooltip(slider, tooltip);
-            slider->setTracking(sliderTrackingEnabled(obj));
-            controls_layout->addWidget(spin, 0);
-            controls_layout->addWidget(slider, 1);
-            row_layout->addWidget(controls, 0, 1);
-
-            auto* control = new QSliderSpinBox(spin, slider, row);
-            control->setValue(clampToInt(obj[QStringLiteral("default")].toDouble(0)));
-            QObject::connect(control, &QSliderSpinBox::valueChanged, this,
-                             [this, id](int) { onInteractiveParamChanged(id); });
-            watchInteraction(*control);
-            value_widget = spin;
+            preview_area_enabled_ = obj[QStringLiteral("preview_area_enabled")].toBool(true);
         }
-        else if (type == QLatin1String("bool"))
+        if (obj.contains(QStringLiteral("header_progress")))
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-
-            auto* checkbox = new QCheckBox(row);
-            checkbox->setObjectName(QStringLiteral("anNativeParamCheckBox"));
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            applyTooltip(checkbox, tooltip);
-            checkbox->setChecked(obj[QStringLiteral("default")].toBool(false));
-            QObject::connect(checkbox, &QCheckBox::checkStateChanged, this,
-                             [this, id](Qt::CheckState) { onInteractiveParamChanged(id); });
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-            row_layout->addWidget(checkbox, 0, 1, Qt::AlignLeft | Qt::AlignVCenter);
-            value_widget = checkbox;
+            setHeaderProgressVisible(obj[QStringLiteral("header_progress")].toBool(true));
         }
-        else if (type == QLatin1String("choice"))
+        if (obj.contains(QStringLiteral("show_header_progress")))
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* combo = new QComboBox(row);
-            combo->setObjectName(QStringLiteral("anNativeParamComboBox"));
-            applyTooltip(combo, tooltip);
-            for (const auto& option_value : obj[QStringLiteral("options")].toArray())
-            {
-                const QJsonArray option = option_value.toArray();
-                if (option.size() >= 2)
-                {
-                    combo->addItem(option[0].toString(), option[1].toVariant());
-                }
-            }
-            const QString default_value = obj[QStringLiteral("default")].toString();
-            for (int index = 0; index < combo->count(); ++index)
-            {
-                if (combo->itemData(index).toString() == default_value)
-                {
-                    combo->setCurrentIndex(index);
-                    break;
-                }
-            }
-            QObject::connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                             [this, id](int) { onInteractiveParamChanged(id); });
-
-            const QJsonArray inline_actions = obj.value(QStringLiteral("inline_actions")).toArray();
-            if (inline_actions.isEmpty())
-            {
-                row_layout->addWidget(combo, 0, 1);
-            }
-            else
-            {
-                auto* controls = new QWidget(row);
-                auto* controls_layout = new QHBoxLayout(controls);
-                controls_layout->setContentsMargins(0, 0, 0, 0);
-                controls_layout->setSpacing(spacing.sm);
-                combo->setParent(controls);
-                controls_layout->addWidget(combo, 1);
-                for (const QJsonValue& action_value : inline_actions)
-                {
-                    const QJsonObject action = action_value.toObject();
-                    const QString action_id = action.value(QStringLiteral("id")).toString().trimmed();
-                    if (action_id.isEmpty())
-                    {
-                        continue;
-                    }
-                    auto* button = new QPushButton(action.value(QStringLiteral("label")).toString(action_id), controls);
-                    button->setObjectName(QStringLiteral("anNativeParamActionButton"));
-                    button->setProperty("anParamActionId", action_id);
-                    QString button_role = action.value(QStringLiteral("button_role")).toString().trimmed().toLower();
-                    if (button_role.isEmpty())
-                    {
-                        button_role = action.value(QStringLiteral("role")).toString().trimmed().toLower();
-                    }
-                    if (button_role.isEmpty())
-                    {
-                        button_role = action.value(QStringLiteral("variant")).toString().trimmed().toLower();
-                    }
-                    button->setProperty("anProcessButtonRole",
-                                        button_role.isEmpty() ? QStringLiteral("secondary") : button_role);
-                    const QString action_tooltip = tooltipText(action);
-                    applyTooltip(button, action_tooltip);
-                    QObject::connect(button, &QPushButton::clicked, this,
-                                     [this, action_id]() { onParamActionClicked(action_id); });
-                    controls_layout->addWidget(button, 0);
-                    if (action.value(QStringLiteral("preview_refresh_role")).toBool(false))
-                    {
-                        registerManualPreviewRefreshButton(button, action_id);
-                        if (action.value(QStringLiteral("preview_refresh_on_open")).toBool(false))
-                        {
-                            manual_preview_refresh_on_open_pending_ = true;
-                            updateManualPreviewRefreshUi();
-                        }
-                    }
-                }
-                row_layout->addWidget(controls, 0, 1);
-            }
-            value_widget = combo;
+            setHeaderProgressVisible(obj[QStringLiteral("show_header_progress")].toBool(true));
         }
-        else if (type == QLatin1String("view_selector"))
+        const QString header_description = headerDescriptionFromMeta(obj);
+        if (!header_description.isEmpty())
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* combo = new QComboBox(row);
-            combo->setObjectName(QStringLiteral("anNativeParamViewSelector"));
-            applyTooltip(combo, tooltip);
-            combo->setMinimumWidth(150);
-            combo->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
-            const QString default_value = obj.value(QStringLiteral("default")).toString();
-            const QString placeholder = obj.value(QStringLiteral("placeholder")).toString(tr("Select image"));
-            combo->addItem(placeholder, default_value);
-            combo->setCurrentIndex(0);
-            QObject::connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-                             [this, id](int) { onInteractiveParamChanged(id); });
-            row_layout->addWidget(combo, 0, 1);
-
-            ViewSelectorParam selector;
-            selector.id = id;
-            selector.combo = combo;
-            selector.default_value = default_value;
-            selector.placeholder = placeholder;
-            selector.match_target_geometry = obj.value(QStringLiteral("match_target_geometry")).toBool(false);
-            selector.match_target_channels = obj.value(QStringLiteral("match_target_channels")).toBool(false);
-            selector.exclude_target = obj.value(QStringLiteral("exclude_target")).toBool(false);
-            for (const QJsonValue& value : obj.value(QStringLiteral("channel_filter")).toArray())
-            {
-                selector.channel_filter.push_back(value.toInt());
-            }
-            view_selector_params_.push_back(std::move(selector));
-            value_widget = combo;
+            setProcessDescription(header_description);
         }
-        else if (type == QLatin1String("target_selector"))
+        // "preview_hq_default" is read as nothing: every view carries each sample at full precision through its
+        // stretch, so an extension that states it changes nothing.
+        if (obj.contains(QStringLiteral("preview_autostretch")))
         {
-            if (target_selector_)
-            {
-                delete row;
-                continue;
-            }
-
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* combo = new QComboBox(row);
-            combo->setObjectName(QStringLiteral("anNativeProcessTargetSelector"));
-            applyTooltip(combo, tooltip);
-            combo->setMinimumWidth(150);
-            combo->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
-            row_layout->addWidget(combo, 0, 1);
-
-            target_selector_section_ = row;
-            target_selector_label_ = title;
-            target_selector_ = combo;
-
-            QObject::connect(target_selector_, &QComboBox::currentTextChanged, this, [this](const QString& text) {
-                refreshViewSelectorParams();
-                if (target_changed_callback_)
-                {
-                    target_changed_callback_(text.toStdString());
-                }
-            });
-
-            ensureSectionLayout()->addWidget(row);
-            registerConditionalWidget(row, obj);
-            has_visible_content = true;
-            continue;
+            configured_preview_autostretch_ = obj[QStringLiteral("preview_autostretch")].toBool(false);
         }
-        else if (type == QLatin1String("string"))
+        if (obj.contains(QStringLiteral("preview_autostretch_default")))
         {
-            auto* title = new QLabel(label, row);
-            title->setObjectName(QStringLiteral("anNativeParamLabel"));
-            configureParamRowLabel(title);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(title, tooltip);
-            row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
-
-            auto* edit = new QLineEdit(row);
-            edit->setObjectName(QStringLiteral("anNativeParamLineEdit"));
-            applyTooltip(edit, tooltip);
-            edit->setText(obj[QStringLiteral("default")].toString());
-            edit->setPlaceholderText(obj[QStringLiteral("placeholder")].toString(label));
-            QObject::connect(edit, &QLineEdit::textChanged, this,
-                             [this, id](const QString&) { onInteractiveParamChanged(id); });
-            row_layout->addWidget(edit, 0, 1);
-            value_widget = edit;
+            configured_preview_autostretch_default_ = obj[QStringLiteral("preview_autostretch_default")].toBool(false);
         }
-        else if (type == QLatin1String("curve_editor"))
+        if (obj.contains(QStringLiteral("controls_panel_width")))
         {
-            delete row;
-
-            auto* editor_panel = new QWidget(param_panel_);
-            editor_panel->setObjectName(QStringLiteral("anNativeParamCurveEditorPanel"));
-            editor_panel->setProperty("anParamId", id);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(editor_panel, tooltip);
-
-            auto* editor_layout = new QVBoxLayout(editor_panel);
-            editor_layout->setContentsMargins(0, 0, 0, 0);
-            editor_layout->setSpacing(spacing.sm);
-
-            auto* scroll_area = new QScrollArea(editor_panel);
-            scroll_area->setObjectName(QStringLiteral("anNativeParamCurveEditorScrollArea"));
-            scroll_area->setMinimumSize(QSize(350, 250));
-            scroll_area->setWidgetResizable(true);
-            applyTooltip(scroll_area, tooltip);
-
-            auto* curve_editor = new CurvesWidget(scroll_area);
-            curve_editor->setObjectName(QStringLiteral("anNativeParamCurveEditor"));
-            curve_editor->setProperty("anParamId", id);
-            curve_editor->setMinimumSize(QSize(348, 248));
-            curve_editor->setClippingInfoEnabled(obj.value(QStringLiteral("clipping_info")).toBool(true));
-            curve_editor->setGridEnabled(obj.value(QStringLiteral("grid")).toBool(true));
-            curve_editor->setGuideLineEnabled(obj.value(QStringLiteral("guide")).toBool(true));
-            curve_editor->setHistogramEnabled(obj.value(QStringLiteral("histogram")).toBool(true));
-            curve_editor->setAreaModeEnabled(obj.value(QStringLiteral("histogram_areas")).toBool(false));
-            curve_editor->setCurve(curveFromCurvePoints(
-                QCborValue::fromVariant(obj.value(QStringLiteral("default")).toVariant()),
-                curveInterpolationFromString(
-                    obj.value(QStringLiteral("interpolation")).toString(QStringLiteral("akima")))));
-            curve_editor->setListener(this);
-            curve_editor->installEventFilter(this);
-            applyTooltip(curve_editor, tooltip);
-            scroll_area->setWidget(curve_editor);
-            editor_layout->addWidget(scroll_area, 1);
-
-            auto* toolbar = new QWidget(editor_panel);
-            auto* toolbar_layout = new QHBoxLayout(toolbar);
-            toolbar_layout->setContentsMargins(spacing.sm, 0, spacing.sm, 0);
-            toolbar_layout->setSpacing(spacing.xs);
-
-            auto* zoom_in = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(zoom_in, tr("Zoom in"), QStringLiteral("zoom_in"));
-            toolbar_layout->addWidget(zoom_in);
-            QObject::connect(zoom_in, &QToolButton::clicked, curve_editor,
-                             [curve_editor]() { curve_editor->zoomIn(); });
-
-            auto* zoom_out = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(zoom_out, tr("Zoom out"), QStringLiteral("zoom_out"));
-            toolbar_layout->addWidget(zoom_out);
-            QObject::connect(zoom_out, &QToolButton::clicked, curve_editor,
-                             [curve_editor]() { curve_editor->zoomOut(); });
-
-            auto* zoom_reset = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(zoom_reset, tr("Zoom reset"),
-                                                                QStringLiteral("zoom_fit"));
-            toolbar_layout->addWidget(zoom_reset);
-            QObject::connect(zoom_reset, &QToolButton::clicked, curve_editor,
-                             [curve_editor]() { curve_editor->resetZoom(); });
-
-            auto* divider = new QFrame(toolbar);
-            divider->setFrameShape(QFrame::VLine);
-            divider->setFrameShadow(QFrame::Sunken);
-            toolbar_layout->addWidget(divider);
-
-            auto* grid = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(grid, tr("Show grid"), QStringLiteral("grid"));
-            grid->setCheckable(true);
-            grid->setChecked(curve_editor->getGridEnabled());
-            toolbar_layout->addWidget(grid);
-            QObject::connect(grid, &QToolButton::clicked, curve_editor,
-                             [curve_editor](const bool checked) { curve_editor->setGridEnabled(checked); });
-
-            auto* guide = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(guide, tr("Show guide"), QStringLiteral("stat_line"));
-            guide->setCheckable(true);
-            guide->setChecked(curve_editor->getGuideLineEnabled());
-            toolbar_layout->addWidget(guide);
-            QObject::connect(guide, &QToolButton::clicked, curve_editor,
-                             [curve_editor](const bool checked) { curve_editor->setGuideLineEnabled(checked); });
-
-            auto* areas = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(areas, tr("Draw histogram areas"),
-                                                                QStringLiteral("area_chart"));
-            areas->setCheckable(true);
-            areas->setChecked(curve_editor->getAreaModeEnabled());
-            toolbar_layout->addWidget(areas);
-            QObject::connect(areas, &QToolButton::clicked, curve_editor,
-                             [curve_editor](const bool checked) { curve_editor->setAreaModeEnabled(checked); });
-
-            auto* histogram = new QToolButton(toolbar);
-            an::ui::processes::rt_preview_ui::initToolbarButton(histogram, tr("Show histogram"),
-                                                                QStringLiteral("histogram"));
-            histogram->setCheckable(true);
-            histogram->setChecked(curve_editor->getHistogramEnabled());
-            toolbar_layout->addWidget(histogram);
-            QObject::connect(histogram, &QToolButton::clicked, this, [this, curve_editor](const bool checked) {
-                curve_editor->setHistogramEnabled(checked);
-                if (checked)
-                {
-                    syncCurveEditorHistograms();
-                }
-            });
-
-            toolbar_layout->addStretch(1);
-            editor_layout->addWidget(toolbar, 0);
-
-            ensureSectionLayout()->addWidget(editor_panel);
-            registerConditionalWidget(editor_panel, obj);
-            param_entries_.push_back(
-                {id.toStdString(), type.toStdString(), curve_editor, obj[QStringLiteral("default")].toVariant()});
-            has_visible_content = true;
-            continue;
+            configured_controls_panel_width_ =
+                (std::max)(1, panel_rows::clampToInt(obj[QStringLiteral("controls_panel_width")].toDouble(0)));
         }
-        else if (type == QLatin1String("rt_histogram"))
+        const auto window_config_value = obj.value(QStringLiteral("window"));
+        const QJsonObject window_config =
+            window_config_value.isObject() ? window_config_value.toObject() : QJsonObject();
+        QSize requested_window_size = jsonSizePair(window_config.value(QStringLiteral("size")));
+        if (!requested_window_size.isValid())
         {
-            delete row;
-
-            auto* histogram_panel = new QWidget(param_panel_);
-            histogram_panel->setObjectName(QStringLiteral("anNativeParamRtHistogramPanel"));
-            histogram_panel->setProperty("anParamId", id);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(histogram_panel, tooltip);
-
-            auto* histogram_layout = new QVBoxLayout(histogram_panel);
-            histogram_layout->setContentsMargins(0, 0, 0, 0);
-            histogram_layout->setSpacing(spacing.sm);
-
-            auto* scroll_area = new QScrollArea(histogram_panel);
-            scroll_area->setObjectName(QStringLiteral("anNativeParamRtHistogramScrollArea"));
-            const int minimum_height = (std::max)(120, obj.value(QStringLiteral("height")).toInt(220));
-            scroll_area->setMinimumSize(QSize(350, minimum_height));
-            scroll_area->setWidgetResizable(true);
-            applyTooltip(scroll_area, tooltip);
-
-            // The first real-time histogram is the preview's: each frame makes its counts in its own operation and they
-            // land with it, as a native window's histogram does. Any other is counted from what the preview shows.
-            const bool frame_histogram = !m_HistogramPreview;
-            HistogramWidget* histogram = nullptr;
-            if (frame_histogram)
-            {
-                m_HistogramPreview =
-                    an::ui::createPreviewHistogram(scroll_area, an::consumer::OperationPurpose::Preview);
-                histogram = dynamic_cast<HistogramWidget*>(m_HistogramPreview->widget());
-                m_UseHistogramPreviewWidget = histogram != nullptr;
-            }
-            if (!histogram)
-            {
-                histogram = new HistogramWidget(scroll_area);
-            }
-            histogram->setObjectName(QStringLiteral("anNativeParamRtHistogram"));
-            histogram->setProperty("anParamId", id);
-            histogram->setMinimumSize(QSize(348, (std::max)(118, minimum_height - 2)));
-            histogram->setClippingInfoEnabled(obj.value(QStringLiteral("clipping_info")).toBool(true));
-            histogram->setGridEnabled(obj.value(QStringLiteral("grid")).toBool(true));
-            histogram->setLocalChannelNormalization(
-                obj.value(QStringLiteral("local_channel_normalization")).toBool(false));
-            histogram->setAreaModeEnabled(obj.value(QStringLiteral("histogram_areas")).toBool(false));
-            histogram->setMouseTracking(true);
-            histogram->setParentScrollArea(scroll_area);
-            histogram->setInteractiveZoomEnabled(true);
-            applyTooltip(histogram, tooltip);
-            scroll_area->setWidget(histogram);
-            histogram_layout->addWidget(scroll_area, 1);
-
-            auto* toolbar = new QWidget(histogram_panel);
-            auto* toolbar_layout = new QHBoxLayout(toolbar);
-            toolbar_layout->setContentsMargins(0, 0, 0, 0);
-            toolbar_layout->setSpacing(spacing.xs);
-            const auto toolbar_elements = an::ui::processes::rt_preview_ui::buildHistogramToolbar(
-                toolbar, toolbar_layout,
-                {
-                    .translationContext = "ExtensionNativeProcessWindow",
-                    .includeShowClippingInfo = obj.value(QStringLiteral("show_clipping_info_control")).toBool(true),
-                    .includeShowHistogram = false,
-                    .localChannelNormalizationChecked =
-                        obj.value(QStringLiteral("local_channel_normalization")).toBool(false),
-                    .showHistogramAreasChecked = obj.value(QStringLiteral("histogram_areas")).toBool(false),
-                });
-            histogram_layout->addWidget(toolbar, 0);
-
-            populateHistogramResolutionCombo(toolbar_elements.plotResolution);
-            const QString resolution_label = toolbar_elements.plotResolution
-                                                 ? toolbar_elements.plotResolution->currentText()
-                                                 : kHistogramResolution8Bit;
-            if (frame_histogram && m_HistogramPreview)
-            {
-                m_HistogramPreview->setResolution(previewHistogramResolutionFromLabel(resolution_label));
-            }
-            else
-            {
-                histogram->setHistogramResolution(histogramResolutionFromLabel(resolution_label));
-            }
-
-            const QPointer<HistogramWidget> histogram_ptr(histogram);
-            if (toolbar_elements.zoomIn)
-            {
-                QObject::connect(toolbar_elements.zoomIn, &QToolButton::clicked, histogram, [histogram_ptr]() {
-                    if (histogram_ptr)
-                    {
-                        histogram_ptr->zoomIn();
-                    }
-                });
-            }
-            if (toolbar_elements.zoomOut)
-            {
-                QObject::connect(toolbar_elements.zoomOut, &QToolButton::clicked, histogram, [histogram_ptr]() {
-                    if (histogram_ptr)
-                    {
-                        histogram_ptr->zoomOut();
-                    }
-                });
-            }
-            if (toolbar_elements.zoomReset)
-            {
-                QObject::connect(toolbar_elements.zoomReset, &QToolButton::clicked, histogram, [histogram_ptr]() {
-                    if (histogram_ptr)
-                    {
-                        histogram_ptr->resetZoom();
-                    }
-                });
-            }
-            if (toolbar_elements.gridButton)
-            {
-                QObject::connect(toolbar_elements.gridButton, &QToolButton::clicked, histogram,
-                                 [histogram_ptr](const bool checked) {
-                                     if (histogram_ptr)
-                                     {
-                                         histogram_ptr->setGridEnabled(checked);
-                                     }
-                                 });
-            }
-            if (toolbar_elements.localChannelNormalization)
-            {
-                QObject::connect(toolbar_elements.localChannelNormalization, &QToolButton::clicked, histogram,
-                                 [histogram_ptr](const bool checked) {
-                                     if (histogram_ptr)
-                                     {
-                                         histogram_ptr->setLocalChannelNormalization(checked);
-                                     }
-                                 });
-            }
-            if (toolbar_elements.showClippingInfo)
-            {
-                QObject::connect(toolbar_elements.showClippingInfo, &QToolButton::clicked, histogram,
-                                 [histogram_ptr](const bool checked) {
-                                     if (histogram_ptr)
-                                     {
-                                         histogram_ptr->setClippingInfoEnabled(checked);
-                                     }
-                                 });
-            }
-            if (toolbar_elements.showHistogramAreas)
-            {
-                QObject::connect(toolbar_elements.showHistogramAreas, &QToolButton::clicked, histogram,
-                                 [histogram_ptr](const bool checked) {
-                                     if (histogram_ptr)
-                                     {
-                                         histogram_ptr->setAreaModeEnabled(checked);
-                                     }
-                                 });
-            }
-            if (toolbar_elements.plotResolution && frame_histogram && m_UseHistogramPreviewWidget)
-            {
-                // The preview's histogram is made by the next frame at the new resolution, or counted again from what
-                // is shown while the window does not preview.
-                QObject::connect(toolbar_elements.plotResolution, &QComboBox::currentTextChanged, histogram,
-                                 [this](const QString& text) {
-                                     if (!m_HistogramPreview)
-                                     {
-                                         return;
-                                     }
-                                     m_HistogramPreview->setResolution(previewHistogramResolutionFromLabel(text));
-                                     if (previewView())
-                                     {
-                                         requestFrame();
-                                     }
-                                     else
-                                     {
-                                         m_HistogramPreview->setImage(sourceImage());
-                                     }
-                                 });
-            }
-            else if (toolbar_elements.plotResolution)
-            {
-                QObject::connect(toolbar_elements.plotResolution, &QComboBox::currentTextChanged, histogram,
-                                 [this, histogram_ptr](const QString& text) {
-                                     if (histogram_ptr)
-                                     {
-                                         histogram_ptr->setHistogramResolution(histogramResolutionFromLabel(text));
-                                         if (an::ui::HistogramCountScheduler* counts =
-                                                 histogramCountsFor(histogram_ptr.data()))
-                                         {
-                                             counts->recount();
-                                         }
-                                     }
-                                 });
-            }
-
-            ensureSectionLayout()->addWidget(histogram_panel);
-            registerConditionalWidget(histogram_panel, obj);
-            rt_histogram_params_.push_back({
-                id,
-                histogram,
-                scroll_area,
-                toolbar_elements.plotResolution,
-                toolbar_elements.zoomIn,
-                toolbar_elements.zoomOut,
-                toolbar_elements.zoomReset,
-                toolbar_elements.gridButton,
-                toolbar_elements.localChannelNormalization,
-                toolbar_elements.showClippingInfo,
-                toolbar_elements.showHistogramAreas,
-            });
-            has_visible_content = true;
-            continue;
+            requested_window_size = jsonSizePair(obj.value(QStringLiteral("window_size")));
         }
-        else if (type == QLatin1String("vector_slope"))
+        if (requested_window_size.isValid())
         {
-            delete row;
-
-            auto* graph_panel = new QWidget(param_panel_);
-            graph_panel->setObjectName(QStringLiteral("anNativeParamVectorSlopePanel"));
-            graph_panel->setProperty("anParamId", id);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(graph_panel, tooltip);
-
-            auto* graph_layout = new QVBoxLayout(graph_panel);
-            graph_layout->setContentsMargins(0, 0, 0, 0);
-            graph_layout->setSpacing(spacing.sm);
-
-            if (!label.isEmpty())
-            {
-                auto* title = new QLabel(label, graph_panel);
-                title->setObjectName(QStringLiteral("anNativeParamVectorSlopeLabel"));
-                applyParamReadoutLabelTheme(title);
-                applyTooltip(title, tooltip);
-                graph_layout->addWidget(title);
-            }
-
-            auto* graph = new an::ui::VectorSlopeWidget(graph_panel);
-            graph->setProperty("anParamId", id);
-            graph->setGraphHeight(obj.value(QStringLiteral("height")).toInt(220));
-            graph->setVectorDefinitions(vectorSlopeDefinitionsFromJson(obj));
-            applyTooltip(graph, tooltip);
-            graph_layout->addWidget(graph);
-
-            activeContainerLayout()->addWidget(graph_panel);
-            registerConditionalWidget(graph_panel, obj);
-            vector_slope_params_.push_back({id, graph});
-            has_visible_content = true;
-            continue;
+            configured_window_size_ = requested_window_size;
         }
-        else if (type == QLatin1String("button") || type == QLatin1String("action"))
+        if (window_config.contains(QStringLiteral("fixed_size")))
         {
-            auto* button = new QPushButton(label, row);
-            button->setObjectName(QStringLiteral("anNativeParamActionButton"));
-            button->setProperty("anParamActionId", id);
-            QString button_role = obj[QStringLiteral("button_role")].toString().trimmed().toLower();
-            if (button_role.isEmpty())
-            {
-                button_role = obj[QStringLiteral("role")].toString().trimmed().toLower();
-            }
-            if (button_role.isEmpty())
-            {
-                button_role = obj[QStringLiteral("variant")].toString().trimmed().toLower();
-            }
-            button->setProperty("anProcessButtonRole",
-                                button_role.isEmpty() ? QStringLiteral("secondary") : button_role);
-            const QString tooltip = tooltipText(obj);
-            applyTooltip(row, tooltip);
-            applyTooltip(button, tooltip);
-            QObject::connect(button, &QPushButton::clicked, this, [this, id]() { onParamActionClicked(id); });
-            row_layout->addWidget(button, 0, 1);
-            ensureSectionLayout()->addWidget(row);
-            registerConditionalWidget(row, obj);
-            if (obj.value(QStringLiteral("preview_refresh_role")).toBool(false))
-            {
-                registerManualPreviewRefreshButton(button, id);
-                if (obj.value(QStringLiteral("preview_refresh_on_open")).toBool(false))
-                {
-                    manual_preview_refresh_on_open_pending_ = true;
-                    updateManualPreviewRefreshUi();
-                }
-            }
-            has_visible_content = true;
-            continue;
+            setFixedSizeWindow(window_config.value(QStringLiteral("fixed_size")).toBool(false));
         }
-
-        if (!value_widget)
+        if (window_config.contains(QStringLiteral("fixed")))
         {
-            delete row;
-            continue;
+            setFixedSizeWindow(window_config.value(QStringLiteral("fixed")).toBool(false));
         }
-
-        value_widget->setProperty("anParamId", id);
-        if (obj.value(QStringLiteral("preview_invalidates")).toBool(false))
+        if (window_config.contains(QStringLiteral("resizable")))
         {
-            manual_preview_invalidating_param_ids_.insert(id.toStdString());
+            setFixedSizeWindow(!window_config.value(QStringLiteral("resizable")).toBool(true));
         }
-        ensureSectionLayout()->addWidget(row);
-        registerConditionalWidget(row, obj);
-        param_entries_.push_back(
-            {id.toStdString(), type.toStdString(), value_widget, obj[QStringLiteral("default")].toVariant()});
-        has_visible_content = true;
+        if (obj.contains(QStringLiteral("fixed_size")))
+        {
+            setFixedSizeWindow(obj[QStringLiteral("fixed_size")].toBool(false));
+        }
+        if (obj.contains(QStringLiteral("resizable")))
+        {
+            setFixedSizeWindow(!obj[QStringLiteral("resizable")].toBool(true));
+        }
+        applyNativeWindowSizeConstraints();
+        if (preview_area_enabled_ && obj[QStringLiteral("sub_area")].toBool(false))
+        {
+            const auto size_arr = obj[QStringLiteral("sub_area_size")].toArray();
+            const int w = size_arr.size() >= 1 ? size_arr[0].toInt(800) : 800;
+            const int h = size_arr.size() >= 2 ? size_arr[1].toInt(600) : 600;
+            const QString sub_label = obj[QStringLiteral("sub_area_label")].toString();
+            enable_sub_area_by_default = obj[QStringLiteral("sub_area_default_enabled")].toBool(true);
+            configured_sub_area_size_ = QSize(w, h);
+            configured_sub_area_label_ = sub_label;
+        }
+        if (obj[QStringLiteral("target_selector")].toBool(false))
+        {
+            const auto filter_arr = obj[QStringLiteral("target_channel_filter")].toArray();
+            pending_target_channel_filter_.clear();
+            for (const auto& val : filter_arr)
+            {
+                pending_target_channel_filter_.push_back(val.toInt());
+            }
+            pending_target_selector_label_ = obj.value(QStringLiteral("target_selector_label")).toString();
+            pending_target_selector_position_ =
+                obj.value(QStringLiteral("target_selector_position")).toString().trimmed().toLower();
+            pending_target_selector_ = true;
+        }
     }
 
-    if (has_visible_content)
+    an::ui::extensions::PanelReadingNotes notes;
+    const an::ui::extensions::ExtensionPanelDescription description =
+        an::ui::extensions::panelDescriptionFromParamDefs(defs, &notes);
+    for (const QString& left_out : notes.leftOut)
     {
-        for (QVBoxLayout* tab_layout : tab_page_layouts)
-        {
-            if (tab_layout)
-            {
-                tab_layout->addStretch(1);
-            }
-        }
-        panel_layout->addStretch(1);
-        if (param_scroll_area_)
-        {
-            param_scroll_area_->show();
-        }
+        LOG_DEBUG("Native process window: the parameter list's {} is not drawn", left_out.toStdString());
     }
-    else
+    std::string refusal;
+    if (!param_panel_->setDescription(description, &refusal))
     {
-        if (param_scroll_area_)
-        {
-            param_scroll_area_->hide();
-        }
+        LOG_WARNING("Native process window: the extension's parameters were refused: {}", refusal);
+        showProcessMessage(tr("Parameters refused"), QString::fromStdString(refusal), ProcessMessageTone::Error);
+    }
+    adoptPanelControls();
+
+    if (param_scroll_area_)
+    {
+        param_scroll_area_->setVisible(param_panel_->hasVisibleContent());
     }
 
     if (controls_panel_ && configured_controls_panel_width_ > 0)
@@ -3730,10 +2199,8 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
     }
 
     updating_param_defs_ = false;
-    updatePercentageMixLabels();
-    updateValueDescriptionLabels();
-    updateVectorSlopeGraphs();
-    updateConditionalWidgets();
+    param_panel_->updateReadouts();
+    param_panel_->updateConditions();
     updateManualPreviewRefreshUi();
     if (m_HistogramPreview && !previewView())
     {
@@ -3745,56 +2212,193 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
     requestFrame();
 }
 
-QCborMap ExtensionNativeProcessWindow::currentParams() const
+QWidget*
+ExtensionNativeProcessWindow::buildHostedControl(const an::ui::extensions::PanelNode& node,
+                                                 const an::ui::extensions::ExtensionPanelHost::Placement& place)
 {
-    QCborMap map;
-    for (const auto& entry : param_entries_)
+    const QJsonObject obj = node.fields.toJsonObject();
+    if (node.kind == QLatin1String("manual_mask_editor"))
     {
-        const QString key = QString::fromStdString(entry.id);
-        if (entry.type == "float" || entry.type == "double")
+        setupManualMaskEditor(obj, place());
+        return manual_mask_group_.data();
+    }
+    if (node.kind != QLatin1String("target_selector") || target_selector_)
+    {
+        return nullptr;
+    }
+
+    const QString id = node.id();
+    const QString label = obj[QStringLiteral("label")].toString(id);
+    auto* row = new QWidget(param_panel_);
+    row->setProperty("anParamId", id);
+    auto* row_layout = new QGridLayout(row);
+    panel_rows::setUpRowGrid(row_layout);
+
+    auto* title = new QLabel(label, row);
+    title->setObjectName(QStringLiteral("anNativeParamLabel"));
+    panel_rows::setUpRowLabel(title);
+    const QString tooltip = tooltipText(obj);
+    applyTooltip(row, tooltip);
+    applyTooltip(title, tooltip);
+    row_layout->addWidget(title, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
+
+    auto* combo = new QComboBox(row);
+    combo->setObjectName(QStringLiteral("anNativeProcessTargetSelector"));
+    applyTooltip(combo, tooltip);
+    combo->setMinimumWidth(150);
+    combo->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    row_layout->addWidget(combo, 0, 1);
+
+    target_selector_section_ = row;
+    target_selector_label_ = title;
+    target_selector_ = combo;
+
+    QObject::connect(target_selector_, &QComboBox::currentTextChanged, this, [this](const QString& text) {
+        refreshViewSelectorParams();
+        if (target_changed_callback_)
         {
-            if (const auto* spin = qobject_cast<const QDoubleSpinBox*>(entry.widget))
+            target_changed_callback_(text.toStdString());
+        }
+    });
+
+    place()->addWidget(row);
+    return row;
+}
+
+void ExtensionNativeProcessWindow::adoptPanelControls()
+{
+    const auto& description = param_panel_->description();
+    if (!description.has_value())
+    {
+        return;
+    }
+
+    const auto registerRefreshButton = [this](const QString& action_id, const bool refresh_on_open) {
+        if (QPushButton* button = param_panel_->actionButton(action_id))
+        {
+            registerManualPreviewRefreshButton(button, action_id);
+            if (refresh_on_open)
             {
-                map.insert(key, spin->value());
+                manual_preview_refresh_on_open_pending_ = true;
+                updateManualPreviewRefreshUi();
             }
         }
-        else if (entry.type == "int")
+    };
+
+    std::function<void(const std::vector<an::ui::extensions::PanelNode>&)> adopt;
+    adopt = [&](const std::vector<an::ui::extensions::PanelNode>& nodes) {
+        for (const an::ui::extensions::PanelNode& node : nodes)
         {
-            if (const auto* spin = qobject_cast<const QSpinBox*>(entry.widget))
+            const QString id = node.id();
+            const QString& kind = node.kind;
+            if (kind == QLatin1String("float") || kind == QLatin1String("int") || kind == QLatin1String("bool") ||
+                kind == QLatin1String("choice") || kind == QLatin1String("view_selector") ||
+                kind == QLatin1String("string"))
             {
-                map.insert(key, spin->value());
+                if (node.field(u"preview_invalidates").toBool(false) && param_panel_->control(id))
+                {
+                    manual_preview_invalidating_param_ids_.insert(id.toStdString());
+                }
             }
+            if (kind == QLatin1String("choice"))
+            {
+                for (const QCborValue& action_value : node.field(u"inline_actions").toArray())
+                {
+                    const QCborMap action = action_value.toMap();
+                    if (action.value(QStringLiteral("preview_refresh_role")).toBool(false))
+                    {
+                        registerRefreshButton(action.value(QStringLiteral("id")).toString().trimmed(),
+                                              action.value(QStringLiteral("preview_refresh_on_open")).toBool(false));
+                    }
+                }
+            }
+            if (kind == QLatin1String("action") && node.field(u"preview_refresh_role").toBool(false))
+            {
+                registerRefreshButton(id, node.field(u"preview_refresh_on_open").toBool(false));
+            }
+            if (kind == QLatin1String("info") && node.field(u"preview_status").toBool(false))
+            {
+                if (auto* banner = dynamic_cast<an::ui::AnInfoBanner*>(param_panel_->widgetOf(node)))
+                {
+                    manual_preview_status_banner_ = banner;
+                    const auto text = [&node](const char16_t* name, const QString& fallback) {
+                        const QCborValue value = node.field(QStringView(name));
+                        return value.isString() ? value.toString() : fallback;
+                    };
+                    manual_preview_stale_text_ = text(u"stale_text", manual_preview_stale_text_);
+                    manual_preview_ready_text_ = text(u"ready_text", manual_preview_ready_text_);
+                    manual_preview_updating_text_ = text(u"updating_text", manual_preview_updating_text_);
+                    updateManualPreviewRefreshUi();
+                }
+            }
+            if (kind == QLatin1String("view_selector"))
+            {
+                if (auto* combo = qobject_cast<QComboBox*>(param_panel_->control(id)))
+                {
+                    ViewSelectorParam selector;
+                    selector.id = id;
+                    selector.combo = combo;
+                    selector.default_value = node.field(u"default").toString();
+                    selector.placeholder = combo->count() > 0 ? combo->itemText(0) : tr("Select image");
+                    selector.match_target_geometry = node.field(u"match_target_geometry").toBool(false);
+                    selector.match_target_channels = node.field(u"match_target_channels").toBool(false);
+                    selector.exclude_target = node.field(u"exclude_target").toBool(false);
+                    for (const QCborValue& channels : node.field(u"channel_filter").toArray())
+                    {
+                        selector.channel_filter.push_back(panel_rows::clampToInt(
+                            channels.isInteger() ? static_cast<double>(channels.toInteger()) : channels.toDouble()));
+                    }
+                    view_selector_params_.push_back(std::move(selector));
+                }
+            }
+            adopt(node.children);
         }
-        else if (entry.type == "bool")
+    };
+    adopt(description->nodes);
+}
+
+void ExtensionNativeProcessWindow::onPanelEvent(const QString& id, const QString& name, const QCborValue&)
+{
+    if (name == QLatin1String("value_changed"))
+    {
+        // A curve's change has always reached the extension with no key named: its release names it.
+        onInteractiveParamChanged(param_panel_->kindOf(id) == QLatin1String("curve_editor") ? QString() : id);
+        return;
+    }
+    if (name == QLatin1String("clicked"))
+    {
+        onParamActionClicked(id);
+        return;
+    }
+    if (name == QLatin1String("pressed"))
+    {
+        // A curve dragged is shown in interactive frames, as a dragged slider is, and settled when let go.
+        curve_edit_in_progress_ = true;
+        curve_edit_pending_preview_ = false;
+        controlHeld(param_panel_->control(id), true);
+        return;
+    }
+    if (name == QLatin1String("released"))
+    {
+        const bool should_refresh = curve_edit_pending_preview_;
+        curve_edit_in_progress_ = false;
+        curve_edit_pending_preview_ = false;
+        controlHeld(param_panel_->control(id), false);
+        if (!updating_param_defs_ && should_refresh && param_changed_callback_)
         {
-            if (const auto* checkbox = qobject_cast<const QCheckBox*>(entry.widget))
+            QStringList changed_keys;
+            if (!id.isEmpty())
             {
-                map.insert(key, checkbox->isChecked());
+                changed_keys.push_back(id);
             }
-        }
-        else if (entry.type == "choice" || entry.type == "view_selector")
-        {
-            if (const auto* combo = qobject_cast<const QComboBox*>(entry.widget))
-            {
-                map.insert(key, combo->currentData().toString());
-            }
-        }
-        else if (entry.type == "string")
-        {
-            if (const auto* edit = qobject_cast<const QLineEdit*>(entry.widget))
-            {
-                map.insert(key, edit->text());
-            }
-        }
-        else if (entry.type == "curve_editor")
-        {
-            if (auto* editor = dynamic_cast<CurvesWidget*>(entry.widget))
-            {
-                map.insert(key, curvePointsFromEditor(editor));
-            }
+            param_changed_callback_(currentParams(), changed_keys, QStringLiteral("user"));
         }
     }
-    return map;
+}
+
+QCborMap ExtensionNativeProcessWindow::currentParams() const
+{
+    return param_panel_ ? param_panel_->values() : QCborMap();
 }
 
 bool ExtensionNativeProcessWindow::hasManualMask() const
@@ -3816,7 +2420,7 @@ bool ExtensionNativeProcessWindow::manualMaskDisplayModeSelected() const
         return false;
     }
 
-    return variantsEqual(it.value().toVariant(), manual_mask_display_value_);
+    return panel_rows::valuesEqual(it.value().toVariant(), manual_mask_display_value_);
 }
 
 ExtensionNativeProcessWindow::SharedAsset ExtensionNativeProcessWindow::manualMaskImage() const
@@ -3852,30 +2456,19 @@ void ExtensionNativeProcessWindow::applyParamUpdates(const QCborMap& updates, co
     }
 
     updating_param_defs_ = true;
-    bool changed = false;
+    const QStringList changed_keys = param_panel_->setValues(updates);
     bool changed_manual_preview_invalidating_param = false;
-    QStringList changed_keys;
-    for (auto it = updates.begin(); it != updates.end(); ++it)
+    for (const QString& param_id : changed_keys)
     {
-        const QString param_id = it.key().toString();
-        const bool entry_changed = setParamValue(param_id, it.value());
-        if (entry_changed)
-        {
-            changed_keys.push_back(param_id);
-            changed_manual_preview_invalidating_param =
-                changed_manual_preview_invalidating_param || paramInvalidatesManualPreview(param_id);
-            markManualPreviewDirty(param_id);
-        }
-        changed = entry_changed || changed;
+        changed_manual_preview_invalidating_param =
+            changed_manual_preview_invalidating_param || paramInvalidatesManualPreview(param_id);
+        markManualPreviewDirty(param_id);
     }
     updating_param_defs_ = false;
 
-    if (changed)
+    if (!changed_keys.isEmpty())
     {
-        updatePercentageMixLabels();
-        updateValueDescriptionLabels();
-        updateVectorSlopeGraphs();
-        updateConditionalWidgets();
+        // The panel's readouts and conditions followed its values.
         updateManualMaskUiState();
         if (!changed_manual_preview_invalidating_param)
         {
@@ -3922,234 +2515,6 @@ void ExtensionNativeProcessWindow::onParamActionClicked(const QString& actionId)
                                    guard->requestFrame();
                                }
                            });
-}
-
-bool ExtensionNativeProcessWindow::setParamValue(const QString& id, const QCborValue& value)
-{
-    if (id.isEmpty())
-    {
-        return false;
-    }
-
-    for (const auto& entry : param_entries_)
-    {
-        if (QString::fromStdString(entry.id) != id)
-        {
-            continue;
-        }
-
-        if (entry.type == "float" || entry.type == "double")
-        {
-            auto* spin = qobject_cast<QDoubleSpinBox*>(entry.widget);
-            if (!spin)
-            {
-                return false;
-            }
-            const double next_value = value.toDouble(spin->value());
-            const bool changed = std::abs(spin->value() - next_value) > 1.0e-12;
-            spin->setValue(next_value);
-            return changed;
-        }
-
-        if (entry.type == "int")
-        {
-            auto* spin = qobject_cast<QSpinBox*>(entry.widget);
-            if (!spin)
-            {
-                return false;
-            }
-            const int next_value = clampToInt(static_cast<double>(value.toInteger(spin->value())));
-            const bool changed = spin->value() != next_value;
-            spin->setValue(next_value);
-            return changed;
-        }
-
-        if (entry.type == "bool")
-        {
-            auto* checkbox = qobject_cast<QCheckBox*>(entry.widget);
-            if (!checkbox)
-            {
-                return false;
-            }
-            const bool next_value = value.toBool(checkbox->isChecked());
-            const bool changed = checkbox->isChecked() != next_value;
-            checkbox->setChecked(next_value);
-            return changed;
-        }
-
-        if (entry.type == "choice" || entry.type == "view_selector")
-        {
-            auto* combo = qobject_cast<QComboBox*>(entry.widget);
-            if (!combo)
-            {
-                return false;
-            }
-
-            const QVariant next_value = value.toVariant();
-            for (int index = 0; index < combo->count(); ++index)
-            {
-                if (variantsEqual(combo->itemData(index), next_value))
-                {
-                    const bool changed = combo->currentIndex() != index;
-                    combo->setCurrentIndex(index);
-                    return changed;
-                }
-            }
-            return false;
-        }
-
-        if (entry.type == "string")
-        {
-            auto* edit = qobject_cast<QLineEdit*>(entry.widget);
-            if (!edit)
-            {
-                return false;
-            }
-            const QString next_value = value.toString(edit->text());
-            const bool changed = edit->text() != next_value;
-            edit->setText(next_value);
-            return changed;
-        }
-
-        if (entry.type == "curve_editor")
-        {
-            auto* editor = dynamic_cast<CurvesWidget*>(entry.widget);
-            if (!editor)
-            {
-                return false;
-            }
-
-            const QCborArray before = curvePointsFromEditor(editor);
-            editor->setCurve(curveFromCurvePoints(value, editor->getCurve().interpolation()));
-            return before != curvePointsFromEditor(editor);
-        }
-
-        return false;
-    }
-
-    return false;
-}
-
-void ExtensionNativeProcessWindow::updateConditionalWidgets()
-{
-    if (conditional_widgets_.empty())
-    {
-        return;
-    }
-
-    const QCborMap params = currentParams();
-    for (const ConditionalWidget& conditional : conditional_widgets_)
-    {
-        if (!conditional.widget)
-        {
-            continue;
-        }
-
-        if (conditional.visible_condition.has_value())
-        {
-            conditional.widget->setVisible(
-                an::ui::extensions::schema_utils::evaluateSchemaCondition(*conditional.visible_condition, params));
-        }
-
-        bool enabled = true;
-        if (conditional.enabled_condition.has_value())
-        {
-            enabled = enabled &&
-                      an::ui::extensions::schema_utils::evaluateSchemaCondition(*conditional.enabled_condition, params);
-        }
-
-        const QVariant actual = params.value(conditional.param_id).toVariant();
-        if (conditional.has_equals)
-        {
-            enabled = enabled && variantsEqual(actual, conditional.equals);
-        }
-        if (conditional.has_not_equals)
-        {
-            enabled = enabled && !variantsEqual(actual, conditional.not_equals);
-        }
-        conditional.widget->setEnabled(enabled);
-    }
-}
-
-void ExtensionNativeProcessWindow::updatePercentageMixLabels()
-{
-    if (percentage_mix_labels_.empty())
-    {
-        return;
-    }
-
-    const QCborMap params = currentParams();
-    for (const PercentageMixLabel& mix_label : percentage_mix_labels_)
-    {
-        if (!mix_label.label || mix_label.source_param_id.isEmpty())
-        {
-            continue;
-        }
-
-        const double right_fraction = std::clamp(params.value(mix_label.source_param_id).toDouble(0.0), 0.0, 1.0);
-        const int right_percent = clampToInt(std::round(right_fraction * 100.0));
-        const int left_percent = (std::max)(0, 100 - right_percent);
-        mix_label.label->setText(QStringLiteral("%1% %2, %3% %4")
-                                     .arg(left_percent)
-                                     .arg(mix_label.left_label)
-                                     .arg(right_percent)
-                                     .arg(mix_label.right_label));
-    }
-}
-
-void ExtensionNativeProcessWindow::updateValueDescriptionLabels()
-{
-    if (value_description_labels_.empty())
-    {
-        return;
-    }
-
-    const QCborMap params = currentParams();
-    for (const ValueDescriptionLabel& value_label : value_description_labels_)
-    {
-        if (!value_label.label || value_label.source_param_id.isEmpty())
-        {
-            continue;
-        }
-
-        const double value = params.value(value_label.source_param_id).toDouble(0.0);
-        QString description;
-        for (const ValueDescriptionRange& range : value_label.ranges)
-        {
-            if (value >= range.min && value <= range.max)
-            {
-                description = range.text;
-                break;
-            }
-        }
-
-        QString text = QStringLiteral("%1%2%3")
-                           .arg(value_label.prefix)
-                           .arg(value, 0, 'f', value_label.decimals)
-                           .arg(value_label.suffix);
-        if (!description.isEmpty())
-        {
-            text += value_label.separator + description;
-        }
-        value_label.label->setText(text);
-    }
-}
-
-void ExtensionNativeProcessWindow::updateVectorSlopeGraphs()
-{
-    if (vector_slope_params_.empty())
-    {
-        return;
-    }
-
-    const QCborMap params = currentParams();
-    for (const auto& graph_param : vector_slope_params_)
-    {
-        if (auto* graph = dynamic_cast<an::ui::VectorSlopeWidget*>(graph_param.graph.data()))
-        {
-            graph->setVectorsFromParams(params);
-        }
-    }
 }
 
 void ExtensionNativeProcessWindow::setSourceView(ImageViewControl* view)
@@ -4714,9 +3079,9 @@ void ExtensionNativeProcessWindow::parseExternalToolConfiguration(const QJsonObj
     }
 }
 
-void ExtensionNativeProcessWindow::ensureExternalToolConfigurationWidgets(QVBoxLayout* panelLayout)
+void ExtensionNativeProcessWindow::ensureExternalToolConfigurationWidgets()
 {
-    if (!panelLayout || !external_tool_config_enabled_)
+    if (!param_panel_ || !external_tool_config_enabled_)
     {
         return;
     }
@@ -4724,7 +3089,7 @@ void ExtensionNativeProcessWindow::ensureExternalToolConfigurationWidgets(QVBoxL
     external_tool_status_banner_ =
         new an::ui::AnInfoBanner(external_tool_not_configured_text_, an::ui::AnInfoBanner::Tone::Warning, param_panel_);
     external_tool_status_banner_->setObjectName(QStringLiteral("anNativeProcessToolConfigBanner"));
-    panelLayout->addWidget(external_tool_status_banner_);
+    param_panel_->addLeadingWidget(external_tool_status_banner_);
     refreshExternalToolConfiguration();
 }
 
@@ -5523,11 +3888,11 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
     manual_mask_display_param_id_ = obj.value(QStringLiteral("display_param")).toString().trimmed();
     manual_mask_display_value_ = obj.value(QStringLiteral("display_value")).toVariant();
     manual_mask_default_brush_size_ =
-        std::clamp(clampToInt(obj.value(QStringLiteral("brush_size")).toDouble(50.0)), 1, 512);
+        std::clamp(panel_rows::clampToInt(obj.value(QStringLiteral("brush_size")).toDouble(50.0)), 1, 512);
     const int min_brush_size =
-        std::clamp(clampToInt(obj.value(QStringLiteral("min_brush_size")).toDouble(10.0)), 1, 512);
-    const int max_brush_size =
-        std::clamp(clampToInt(obj.value(QStringLiteral("max_brush_size")).toDouble(200.0)), min_brush_size, 512);
+        std::clamp(panel_rows::clampToInt(obj.value(QStringLiteral("min_brush_size")).toDouble(10.0)), 1, 512);
+    const int max_brush_size = std::clamp(
+        panel_rows::clampToInt(obj.value(QStringLiteral("max_brush_size")).toDouble(200.0)), min_brush_size, 512);
     manual_mask_default_brush_size_ = std::clamp(manual_mask_default_brush_size_, min_brush_size, max_brush_size);
 
     auto* group = new QGroupBox(label, param_panel_);
@@ -5542,11 +3907,11 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
 
     auto* use_row = new QWidget(group);
     auto* use_layout = new QGridLayout(use_row);
-    setupParamRowGrid(use_layout);
+    panel_rows::setUpRowGrid(use_layout);
 
     auto* use_label_widget = new QLabel(use_label, use_row);
     use_label_widget->setObjectName(QStringLiteral("anNativeParamLabel"));
-    configureParamRowLabel(use_label_widget);
+    panel_rows::setUpRowLabel(use_label_widget);
     use_layout->addWidget(use_label_widget, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
     auto* use_checkbox = new QCheckBox(use_row);
@@ -5587,12 +3952,12 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
     auto* controls_widget = new QWidget(group);
     controls_widget->setObjectName(QStringLiteral("anNativeManualMaskToolPanel"));
     auto* controls_layout = new QGridLayout(controls_widget);
-    setupParamRowGrid(controls_layout);
+    panel_rows::setUpRowGrid(controls_layout);
     applyTooltip(controls_widget, tooltip);
 
     auto* tool_label = new QLabel(tr("Tool"), controls_widget);
     tool_label->setObjectName(QStringLiteral("anNativeParamLabel"));
-    configureParamRowLabel(tool_label);
+    panel_rows::setUpRowLabel(tool_label);
     controls_layout->addWidget(tool_label, 0, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
     auto* tool_controls = new QWidget(controls_widget);
@@ -5641,7 +4006,7 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
 
     auto* size_label = new QLabel(tr("Brush Size"), controls_widget);
     size_label->setObjectName(QStringLiteral("anNativeParamLabel"));
-    configureParamRowLabel(size_label);
+    panel_rows::setUpRowLabel(size_label);
     controls_layout->addWidget(size_label, 1, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
     auto* size_controls = new QWidget(controls_widget);
@@ -5692,8 +4057,8 @@ void ExtensionNativeProcessWindow::setupManualMaskEditor(const QJsonObject& obj,
         {
             manual_preview_invalidating_param_ids_.insert(manual_mask_use_param_id_.toStdString());
         }
-        param_entries_.push_back(
-            {manual_mask_use_param_id_.toStdString(), "bool", use_checkbox, QVariant(manual_mask_use_default_)});
+        param_panel_->registerHostedValue(manual_mask_use_param_id_, QStringLiteral("bool"), use_checkbox,
+                                          QVariant(manual_mask_use_default_));
     }
 
     QObject::connect(use_checkbox, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState) {
@@ -5774,7 +4139,7 @@ void ExtensionNativeProcessWindow::setManualMaskEditingEnabled(const bool enable
     manual_mask_edit_snapshot_.reset();
 
     updateManualMaskUiState();
-    updateConditionalWidgets();
+    param_panel_->updateConditions();
     syncManualMaskCanvas();
     updateManualPreviewRefreshUi();
     if (!manual_preview_enabled_)
@@ -5852,7 +4217,7 @@ void ExtensionNativeProcessWindow::updateManualMaskUiState()
         if (!mask_view_enabled)
         {
             if (QComboBox* combo = findChoiceParamCombo(manual_mask_display_param_id_);
-                combo && variantsEqual(combo->currentData(), manual_mask_display_value_))
+                combo && panel_rows::valuesEqual(combo->currentData(), manual_mask_display_value_))
             {
                 display_mode_changed = setChoiceParamToDefaultSilently(manual_mask_display_param_id_);
             }
@@ -6040,19 +4405,11 @@ void ExtensionNativeProcessWindow::onManualMaskChanged()
 
 QComboBox* ExtensionNativeProcessWindow::findChoiceParamCombo(const QString& id) const
 {
-    if (id.isEmpty())
+    if (id.isEmpty() || param_panel_->kindOf(id) != QLatin1String("choice"))
     {
         return nullptr;
     }
-
-    for (const ParamEntry& entry : param_entries_)
-    {
-        if (entry.type == "choice" && QString::fromStdString(entry.id) == id)
-        {
-            return qobject_cast<QComboBox*>(entry.widget);
-        }
-    }
-    return nullptr;
+    return qobject_cast<QComboBox*>(param_panel_->control(id));
 }
 
 bool ExtensionNativeProcessWindow::setChoiceParamValueSilently(const QString& id, const QVariant& value)
@@ -6065,7 +4422,7 @@ bool ExtensionNativeProcessWindow::setChoiceParamValueSilently(const QString& id
 
     for (int index = 0; index < combo->count(); ++index)
     {
-        if (variantsEqual(combo->itemData(index), value))
+        if (panel_rows::valuesEqual(combo->itemData(index), value))
         {
             const bool changed = combo->currentIndex() != index;
             const QSignalBlocker blocker(combo);
@@ -6093,7 +4450,7 @@ void ExtensionNativeProcessWindow::setChoiceParamOptionEnabled(const QString& id
 
     for (int index = 0; index < combo->count(); ++index)
     {
-        if (!variantsEqual(combo->itemData(index), value))
+        if (!panel_rows::valuesEqual(combo->itemData(index), value))
         {
             continue;
         }
@@ -6113,15 +4470,8 @@ bool ExtensionNativeProcessWindow::setChoiceParamToDefaultSilently(const QString
         return false;
     }
 
-    QVariant default_value;
-    for (const ParamEntry& entry : param_entries_)
-    {
-        if (entry.type == "choice" && QString::fromStdString(entry.id) == id)
-        {
-            default_value = entry.default_value;
-            break;
-        }
-    }
+    const QVariant default_value =
+        param_panel_->kindOf(id) == QLatin1String("choice") ? param_panel_->defaultOf(id) : QVariant();
 
     if (default_value.isValid() && setChoiceParamValueSilently(id, default_value))
     {
@@ -6159,9 +4509,7 @@ void ExtensionNativeProcessWindow::onInteractiveParamChanged(const QString& para
     {
         const bool manual_preview_invalidated = paramInvalidatesManualPreview(paramId);
         markManualPreviewDirty(paramId);
-        updatePercentageMixLabels();
-        updateValueDescriptionLabels();
-        updateVectorSlopeGraphs();
+        param_panel_->updateReadouts();
         if (curve_edit_in_progress_)
         {
             // The curve being dragged is shown in interactive frames; the extension hears of it once it is let go.
@@ -6172,7 +4520,7 @@ void ExtensionNativeProcessWindow::onInteractiveParamChanged(const QString& para
             }
             return;
         }
-        updateConditionalWidgets();
+        param_panel_->updateConditions();
         syncManualMaskCanvas();
         if (!manual_preview_invalidated)
         {
@@ -6188,12 +4536,6 @@ void ExtensionNativeProcessWindow::onInteractiveParamChanged(const QString& para
             param_changed_callback_(currentParams(), changed_keys, QStringLiteral("user"));
         }
     }
-}
-
-void ExtensionNativeProcessWindow::onCurvesUpdated(const an::ui::ToneCurveModel& curve)
-{
-    (void)curve;
-    onInteractiveParamChanged();
 }
 
 void ExtensionNativeProcessWindow::syncCurveEditorHistograms(const SharedAsset& explicit_source)
@@ -6225,13 +4567,8 @@ void ExtensionNativeProcessWindow::syncCurveEditorHistograms(const SharedAsset& 
     }
     last_histogram_source_ = histogram_source;
 
-    for (const auto& entry : param_entries_)
+    for (CurvesWidget* editor : param_panel_->curveEditors())
     {
-        if (entry.type != "curve_editor")
-        {
-            continue;
-        }
-        auto* editor = dynamic_cast<CurvesWidget*>(entry.widget);
         if (editor && editor->getHistogramEnabled())
         {
             if (an::ui::HistogramCountScheduler* counts = histogramCountsFor(editor))
@@ -6244,7 +4581,7 @@ void ExtensionNativeProcessWindow::syncCurveEditorHistograms(const SharedAsset& 
     // The preview's own histogram is made by its frames; any other real-time histogram counts what is shown.
     const QWidget* frame_histogram =
         m_UseHistogramPreviewWidget && m_HistogramPreview ? m_HistogramPreview->widget() : nullptr;
-    for (const auto& param : rt_histogram_params_)
+    for (const auto& param : param_panel_->histograms())
     {
         if (param.histogram && param.histogram.data() != frame_histogram)
         {
@@ -6266,83 +4603,13 @@ void ExtensionNativeProcessWindow::resetParamsToDefaults()
     const QCborMap before = currentParams();
     updating_param_defs_ = true;
     bool manual_preview_reset_changed = false;
-
-    for (const auto& entry : param_entries_)
+    for (const QString& param_id : param_panel_->resetToDefaults())
     {
-        if (entry.type == "float" || entry.type == "double")
-        {
-            if (auto* spin = qobject_cast<QDoubleSpinBox*>(entry.widget))
-            {
-                manual_preview_reset_changed = manual_preview_reset_changed ||
-                                               (paramInvalidatesManualPreview(QString::fromStdString(entry.id)) &&
-                                                std::abs(spin->value() - entry.default_value.toDouble()) > 1.0e-12);
-                spin->setValue(entry.default_value.toDouble());
-            }
-        }
-        else if (entry.type == "int")
-        {
-            if (auto* spin = qobject_cast<QSpinBox*>(entry.widget))
-            {
-                manual_preview_reset_changed =
-                    manual_preview_reset_changed || (paramInvalidatesManualPreview(QString::fromStdString(entry.id)) &&
-                                                     spin->value() != entry.default_value.toInt());
-                spin->setValue(entry.default_value.toInt());
-            }
-        }
-        else if (entry.type == "bool")
-        {
-            if (auto* checkbox = qobject_cast<QCheckBox*>(entry.widget))
-            {
-                manual_preview_reset_changed =
-                    manual_preview_reset_changed || (paramInvalidatesManualPreview(QString::fromStdString(entry.id)) &&
-                                                     checkbox->isChecked() != entry.default_value.toBool());
-                checkbox->setChecked(entry.default_value.toBool());
-            }
-        }
-        else if (entry.type == "choice")
-        {
-            if (auto* combo = qobject_cast<QComboBox*>(entry.widget))
-            {
-                const QString default_val = entry.default_value.toString();
-                for (int i = 0; i < combo->count(); ++i)
-                {
-                    if (combo->itemData(i).toString() == default_val)
-                    {
-                        manual_preview_reset_changed =
-                            manual_preview_reset_changed ||
-                            (paramInvalidatesManualPreview(QString::fromStdString(entry.id)) &&
-                             combo->currentIndex() != i);
-                        combo->setCurrentIndex(i);
-                        break;
-                    }
-                }
-            }
-        }
-        else if (entry.type == "string")
-        {
-            if (auto* edit = qobject_cast<QLineEdit*>(entry.widget))
-            {
-                manual_preview_reset_changed =
-                    manual_preview_reset_changed || (paramInvalidatesManualPreview(QString::fromStdString(entry.id)) &&
-                                                     edit->text() != entry.default_value.toString());
-                edit->setText(entry.default_value.toString());
-            }
-        }
-        else if (entry.type == "curve_editor")
-        {
-            if (auto* editor = dynamic_cast<CurvesWidget*>(entry.widget))
-            {
-                editor->setCurve(curveFromCurvePoints(QCborValue::fromVariant(entry.default_value),
-                                                      editor->getCurve().interpolation()));
-            }
-        }
+        manual_preview_reset_changed = manual_preview_reset_changed || paramInvalidatesManualPreview(param_id);
     }
 
     updating_param_defs_ = false;
-    updatePercentageMixLabels();
-    updateValueDescriptionLabels();
-    updateVectorSlopeGraphs();
-    updateConditionalWidgets();
+    // The panel's readouts and conditions followed its defaults.
     updateManualMaskUiState();
     if (manual_preview_reset_changed)
     {
@@ -6358,10 +4625,10 @@ void ExtensionNativeProcessWindow::resetParamsToDefaults()
     {
         const QCborMap after = currentParams();
         QStringList changed_keys;
-        for (const auto& entry : param_entries_)
+        for (auto it = after.begin(); it != after.end(); ++it)
         {
-            const QString key = QString::fromStdString(entry.id);
-            if (before.value(key) != after.value(key))
+            const QString key = it.key().toString();
+            if (before.value(key) != it.value())
             {
                 changed_keys.push_back(key);
             }
@@ -6632,7 +4899,7 @@ void ExtensionNativeProcessWindow::refreshViewSelectorParams()
         }
         for (int index = 0; index < combo->count(); ++index)
         {
-            if (variantsEqual(combo->itemData(index), value))
+            if (panel_rows::valuesEqual(combo->itemData(index), value))
             {
                 return index;
             }
@@ -6695,7 +4962,7 @@ void ExtensionNativeProcessWindow::enableTargetSelector(const std::vector<std::m
             pending_target_selector_label_.trimmed().isEmpty() ? tr("Target Image") : pending_target_selector_label_;
         target_selector_label_ = new QLabel(label, target_selector_section_);
         target_selector_label_->setObjectName(QStringLiteral("anNativeProcessTargetSelectorLabel"));
-        applyRowLabelTheme(target_selector_label_);
+        panel_rows::applyRowLabelTheme(target_selector_label_);
         target_selector_layout->setWidget(0, QFormLayout::LabelRole, target_selector_label_);
 
         target_selector_ = new QComboBox(target_selector_section_);

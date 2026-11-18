@@ -17,6 +17,10 @@
 # Widgets Qt makes inside its own (named qt_...) are not listed, nor walked through but for
 # a scroll area's viewport and a tab widget's pages. A collapsible section's content is sized
 # to its fonts, so its size is not recorded.
+#
+# A section named for a schema and `focus` lists the widgets the Tab key reaches in the panel, in its
+# order, as `class | name | id` - the id of the widget or of the row it sits in. That order is the
+# order the widgets were made in.
 
 [an_custom_ui_demo]
 panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
@@ -371,3 +375,141 @@ panel | - | QVBoxLayout margins=0,0,0,0 spacing=8
         QWidget | anCardWidgetContent | - | - | - | - | policy=Expanding/Expanding | QVBoxLayout margins=8,8,8,8 spacing=8 | 1 stretch=1 align=0
             QFrame | anNativeParamInfoBanner | - | - | - | message=This process hides the stock shell and opens an extension-owned dialog., tone=0, frame=0/16 | policy=Expanding/Preferred | QHBoxLayout margins=8,8,8,8 spacing=8 | 0 stretch=0 align=0
                 QLabel | anInfoBannerMessage | - | - | - | text=This process hides the stock shell and opens an extension-owned dialog., wrap=yes, align=129 | policy=Ignored/Preferred | - | 0 stretch=1 align=0
+
+[an_custom_ui_demo focus]
+QToolButton | anCollapsibleSectionToggle | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+QSpinBox | anNativeParamSpinBox | iterations
+QLineEdit | qt_spinbox_lineedit | iterations
+QSlider | anNativeParamSlider | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | sigma
+QLineEdit | qt_spinbox_lineedit | sigma
+QSlider | anNativeParamDoubleSlider | -
+QCheckBox | anNativeParamCheckBox | use_mask
+QComboBox | anNativeParamComboBox | mode
+QToolButton | anCollapsibleSectionToggle | -
+QLineEdit | anNativeParamLineEdit | output_name
+QLineEdit | anNativeParamLineEdit | export_dir
+QComboBox | anNativeParamComboBox | quality_preset
+
+[an_echo_demo focus]
+no control takes the focus
+
+[an_rt_preview_demo focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | lift
+QLineEdit | qt_spinbox_lineedit | lift
+QSlider | anNativeParamDoubleSlider | -
+QComboBox | anNativeParamComboBox | mode
+QCheckBox | anNativeParamCheckBox | preserve_background
+
+[an_sequence_workflow_demo focus]
+QSpinBox | anNativeParamSpinBox | synthetic_frames
+QLineEdit | qt_spinbox_lineedit | synthetic_frames
+QSlider | anNativeParamSlider | -
+QLineEdit | anNativeParamLineEdit | output_name
+
+[an_standalone_preview_demo focus]
+no control takes the focus
+
+[auxiliary_buffers_process focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | mask_strength
+QLineEdit | qt_spinbox_lineedit | mask_strength
+QSlider | anNativeParamDoubleSlider | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | weight_boost
+QLineEdit | qt_spinbox_lineedit | weight_boost
+QSlider | anNativeParamDoubleSlider | -
+
+[basic_process focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+
+[every_kind focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | loose_value
+QLineEdit | qt_spinbox_lineedit | loose_value
+QSlider | anNativeParamDoubleSlider | -
+QTabWidget | anNativeParamTabs | main_tabs
+QTabBar | qt_tabwidget_tabbar | main_tabs
+QToolButton | ScrollLeftButton | -
+QToolButton | ScrollRightButton | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | gain
+QLineEdit | qt_spinbox_lineedit | gain
+QSlider | anNativeParamDoubleSlider | -
+QSpinBox | anNativeParamSpinBox | iterations
+QLineEdit | qt_spinbox_lineedit | iterations
+QSlider | anNativeParamSlider | -
+QCheckBox | anNativeParamCheckBox | enabled_flag
+QComboBox | anNativeParamComboBox | mode
+QPushButton | anNativeParamActionButton | refresh_preview
+QLineEdit | anNativeParamLineEdit | note
+QToolButton | anCollapsibleSectionToggle | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | conditional_value
+QLineEdit | qt_spinbox_lineedit | conditional_value
+QSlider | anNativeParamDoubleSlider | -
+QPushButton | anNativeParamActionButton | danger_action
+QScrollArea | anNativeParamCurveEditorScrollArea | curve
+QScrollArea | anNativeParamRtHistogramScrollArea | frame_histogram
+QComboBox | plotResolution | -
+QScrollArea | anNativeParamRtHistogramScrollArea | second_histogram
+QComboBox | plotResolution | -
+QComboBox | anNativeParamViewSelector | reference
+QComboBox | anNativeProcessTargetSelector | target
+QCheckBox | anNativeManualMaskUseCheckBox | use_mask
+QPushButton | anNativeManualMaskEditButton | -
+QPushButton | anNativeManualMaskCancelButton | -
+QPushButton | anNativeManualMaskClearButton | -
+QPushButton | anNativeManualMaskToolButton | -
+QPushButton | anNativeManualMaskToolButton | -
+QPushButton | anNativeManualMaskToolButton | -
+QSpinBox | anNativeManualMaskBrushSizeSpinBox | -
+QLineEdit | qt_spinbox_lineedit | -
+QSlider | anNativeManualMaskBrushSizeSlider | -
+QPushButton | anNativeParamActionButton | do_it
+
+[every_kind_custom focus]
+QSpinBox | anNativeParamSpinBox | first
+QLineEdit | qt_spinbox_lineedit | first
+QSlider | anNativeParamSlider | -
+QToolButton | anCollapsibleSectionToggle | -
+QTabWidget | anNativeParamTabs | tabs
+QTabBar | qt_tabwidget_tabbar | tabs
+QToolButton | ScrollLeftButton | -
+QToolButton | ScrollRightButton | -
+QCheckBox | anNativeParamCheckBox | in_tab
+QToolButton | anCollapsibleSectionToggle | -
+QToolButton | anCollapsibleSectionToggle | -
+QLineEdit | anNativeParamLineEdit | after_slope
+QComboBox | anNativeParamComboBox | tail
+QToolButton | anCollapsibleSectionToggle | -
+
+[lite_protocol_process focus]
+no control takes the focus
+
+[locked_wheelhouse_process focus]
+no control takes the focus
+
+[rt_preview_process focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+QDoubleSpinBox | anNativeParamDoubleSpinBox | black_point
+QLineEdit | qt_spinbox_lineedit | black_point
+QSlider | anNativeParamDoubleSlider | -
+QComboBox | anNativeParamComboBox | mode
+
+[settings_diagnostics_process focus]
+QDoubleSpinBox | anNativeParamDoubleSpinBox | strength
+QLineEdit | qt_spinbox_lineedit | strength
+QSlider | anNativeParamDoubleSlider | -
+QCheckBox | anNativeParamCheckBox | write_artifact
+
+[standalone_preview_process focus]
+no control takes the focus
