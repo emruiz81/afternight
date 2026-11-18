@@ -14,6 +14,7 @@
 
 #include "controls/TopLevelProcessBaseControl.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessUiBuilder.h"
+#include "processes/ImageIntegration/workflow/WorkflowRunObserver.h"
 #include "processes/ImageIntegration/model/ValidationResult.h" // For FixTarget
 #include "processes/ImageIntegration/model/FrameType.h"
 
@@ -63,6 +64,8 @@ struct WorkflowManifest;
 namespace ImageIntegration
 {
 class ImportProgressPanel;
+class StageListNavigator;
+class StageNavigator;
 } // namespace ImageIntegration
 
 /**
@@ -90,6 +93,13 @@ class ImportProgressPanel;
  *   from the model when it changes; what the disk adds is read on the thread pool.
  * - **Its menus are under the header's button**, the same six, and its key sequences are the page's own
  *   (`an::ui::PageShortcutScope`); Execute is its primary action, from either Enter key with Ctrl.
+ * - **Its stages are a list**, in place of the window's two levels of tabs (`widgets/StageNavigator.h`): a row for
+ *   each frame source and each stage of the workflow, with the summary last, each saying where it stands by a mark and
+ *   a line (`ui_models/IntegrationStageStates.h`) - from the job as it stands, from what its output folder holds of
+ *   its last runs, read off the GUI thread, and from a run on its way. The pages are the widgets the tabs hold. The
+ *   list's foot holds the output folder and the project file's acts; the window's foot, with its Close and Reset, is
+ *   not shown. A page with a side panel keeps it as an aside of a fixed width, and the stacking page lays its
+ *   execution options in two rows, so the page fits the centre of a main window.
  * - **An import is shown in the page**, not in a dialog over the window: the import's panel stands over the stages,
  *   and the stages, the foot and every entry of the menus wait for it - as the window waits behind the dialog - while
  *   the rest of the application stays usable. Esc cancels the import and leaves the page; closing the page cancels it.
@@ -110,7 +120,7 @@ class ImportProgressPanel;
  * `docs/dev/IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md` documents the contract, what it deliberately
  * does not detect, and the two hazards to respect when adding a new writer.
  */
-class AFTERNIGHTPROCESSES_API ImageIntegrationProcess : public TopLevelProcessBaseControl
+class AFTERNIGHTPROCESSES_API ImageIntegrationProcess : public TopLevelProcessBaseControl, public IWorkflowRunObserver
 {
 public:
     explicit ImageIntegrationProcess(QObject* parent = nullptr);
@@ -166,10 +176,15 @@ public:
     /// @return whether it ran.
     bool triggerPrimaryAction() override;
 
+    /// What moves between the pages: the window's tabs, or the stage list once the process is a page.
+    [[nodiscard]] ImageIntegration::StageNavigator* stageNavigator() const noexcept;
+
+    /// A run launched from here moved on: the stage list's rows follow it.
+    void workflowRunProgressed(const WorkflowProgress& progress) override;
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
-    static constexpr int kParentTabCount = 2;
 
     void closeEvent(QCloseEvent* evt) override;
     void keyPressEvent(QKeyEvent* evt) override;
@@ -186,6 +201,19 @@ private:
     void scheduleJobHeadingRefresh(bool readDisk = false);
     void refreshJobHeading();
     void publishJobHeading();
+
+    /// Puts the pages under a list of the job's stages in place of the tabs, the output folder and the project file's
+    /// acts at the list's foot, and arranges the pages for the centre of a main window. Once, as the process becomes
+    /// a page.
+    void presentStagesAsAList();
+    /// What the process does when another page is shown, whatever shows it.
+    void followNavigator();
+
+    /// Reads again where the job's stages stand once the events at hand are done: the job's facts from the model, and
+    /// what its output folder says of its runs, read off the GUI thread.
+    void scheduleStageStatesRead();
+    void readStageStates();
+    void publishStageRows();
 
     std::string serialize_json_settings() override;
     void deserialize_json_settings(const std::string& json_settings) override;
@@ -242,6 +270,7 @@ private:
     void goToGroupDefinition(FrameType type, const GroupKey& key);
     void showKeyboardShortcutsHelp();
 
+    /// Says again what the validation finds in each page: as the tabs' badges, or in the stage list's rows.
     void scheduleTabBadgeRefresh();
     void updateTabBadgesNow();
     void updateFrameTabLabels();
@@ -256,10 +285,9 @@ private:
     void applyFrameTypeChange(const QStringList& paths, FrameType newType);
     void autoDetectMasters();
 
-    // Helper to map flat index (0-7) to nested tabs
+    // The pages by their index, 0 to 7, in the Navigate menu's order.
     void setCurrentLogicalIndex(int index);
     [[nodiscard]] int currentLogicalIndex() const;
-    void setupTabIcons();
 
     [[nodiscard]] int currentFrameTabIndex() const;
     [[nodiscard]] FrameType currentFrameTypeForActions() const;
@@ -288,8 +316,10 @@ private:
     int m_lastFrameTabIndex = 0;
 
     QTimer* m_tabBadgeDebounce = nullptr;
-    std::array<QLabel*, kLogicalTabCount> m_tabBadges{};
-    std::array<QLabel*, kParentTabCount> m_parentTabBadges{};
+
+    /// What moves between the pages, a child of this widget; and the same object while it is the stage list.
+    ImageIntegration::StageNavigator* m_navigator = nullptr;
+    ImageIntegration::StageListNavigator* m_stageList = nullptr;
 
     CalibrationTab* m_calibrationTab = nullptr;
     RegistrationTab* m_registrationTab = nullptr;
@@ -317,6 +347,10 @@ private:
     /// What the page's header says of the job; made when the process becomes a page.
     struct JobHeadingState;
     std::unique_ptr<JobHeadingState> m_jobHeading;
+
+    /// Where the job's stages stand, for the stage list's rows; made when the process becomes a page.
+    struct StageStatesState;
+    std::unique_ptr<StageStatesState> m_stageStates;
 
     an::ui::processes::ImageIntegrationProcessUiElements m_ui;
 

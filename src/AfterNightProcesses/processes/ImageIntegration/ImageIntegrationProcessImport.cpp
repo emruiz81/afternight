@@ -21,6 +21,8 @@
 
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
+
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/model/FrameMetadata.h"
@@ -292,7 +294,8 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
 ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(const int totalFiles)
 {
     // A band over the stages, inside what the page holds, with the import's panel in it.
-    QWidget* const content = rootTabWidget != nullptr ? rootTabWidget->parentWidget() : this;
+    QWidget* const stages = m_navigator != nullptr ? m_navigator->widget() : nullptr;
+    QWidget* const content = stages != nullptr ? stages->parentWidget() : this;
     auto* band = new QWidget(content);
     band->setObjectName(QStringLiteral("importProgressBand"));
     const auto& spacing = an::ui::tokens().spacing;
@@ -302,9 +305,9 @@ ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(
     auto* panel = new ImageIntegration::ImportProgressPanel(totalFiles, band);
     bandLayout->addWidget(panel);
     auto* const held = content != nullptr ? qobject_cast<QBoxLayout*>(content->layout()) : nullptr;
-    if (held != nullptr && rootTabWidget != nullptr)
+    if (held != nullptr && stages != nullptr)
     {
-        held->insertWidget((std::max)(0, held->indexOf(rootTabWidget)), band);
+        held->insertWidget((std::max)(0, held->indexOf(stages)), band);
     }
     band->show();
     m_pageImportBand = band;
@@ -312,9 +315,9 @@ ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(
 
     // The page's own acts wait for the import, as its window waits behind the import's dialog: the stages, the foot
     // and every entry of the menus - the header's buttons and the page's keys with them.
-    if (rootTabWidget != nullptr)
+    if (stages != nullptr)
     {
-        rootTabWidget->setEnabled(false);
+        stages->setEnabled(false);
     }
     if (m_ui.bottomActionBar != nullptr)
     {
@@ -355,9 +358,9 @@ void ImageIntegrationProcess::endPageImport()
         m_pageImportBand->deleteLater();
         m_pageImportBand = nullptr;
     }
-    if (rootTabWidget != nullptr)
+    if (QWidget* const stages = m_navigator != nullptr ? m_navigator->widget() : nullptr)
     {
-        rootTabWidget->setEnabled(true);
+        stages->setEnabled(true);
     }
     if (m_ui.bottomActionBar != nullptr)
     {

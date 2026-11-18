@@ -2823,6 +2823,13 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/controls/HomeWelcome.h
     header   src/AfterNightControls/widgets/StructuredElementWidget.h
     header   src/AfterNightControls/widgets/StructuringElementGrid.h
+    header   src/AfterNightControls/components/AnStageList.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationStageStates.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/StageListNavigator.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/StageNavigator.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/ProgressReporter.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowLogger.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunObserver.h
     include  src/AfterNightTests
     include  src/AfterNightShellObservatory
     include  src/AfterNightShellCore
@@ -5749,7 +5756,9 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_history_model.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationJobsModelTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/StageListTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_integration_job_facts.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/unit/IntegrationStageStatesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_progress_dialog_v2.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_registration_metrics_persistence.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/core/test_standalone_registration_persistence.cpp
@@ -6086,6 +6095,13 @@ sources Test_ImageIntegration
     header   src/AfterNightControls/controls/ProcessPageLayout.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/ImportProgressPanel.h
     header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationJobFacts.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/ui_models/IntegrationStageStates.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/StageListNavigator.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/StageNavigator.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunObserver.h
+    header   src/AfterNightControls/components/AnStageList.h
+    header   src/AfterNightControls/theme/ComponentParts.h
+    header   src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageCase.h
     include  src/AfterNightTests
     include  src/AfterNightWorkflowDriver
     include  src/AfterNightProcesses

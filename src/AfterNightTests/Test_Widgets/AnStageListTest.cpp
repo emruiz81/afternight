@@ -153,6 +153,70 @@ TEST(AnStageList, PaintsTheMarksAndTheSelectedRow)
     });
 }
 
+// A stage that is ready and one that is out of date draw hollow marks of their own: a ring of the accent with a dot at
+// its centre, and a ring of the warning with a check - so the seven states differ by their shape, not by a colour
+// alone. Each is said in words to assistive technology, and a row's tooltip is the item's.
+TEST(AnStageList, AStageThatIsReadyOrOutOfDateDrawsAHollowMarkOfItsOwn)
+{
+    const std::vector<StageRow> rows = {
+        StageRow{QStringLiteral("lights"), QStringLiteral("Lights"), QStringLiteral("718 frames"), StageStatus::Ready,
+                 std::nullopt, QStringLiteral("Ready: no run has used these frames yet.")},
+        StageRow{QStringLiteral("stacking"), QStringLiteral("Stacking"), QStringLiteral("4 groups"),
+                 StageStatus::OutOfDate, std::nullopt, QStringLiteral("Out of date: the stack method changed.")},
+        StageRow{QStringLiteral("drizzle"), QStringLiteral("Drizzle"), QStringLiteral("off"), StageStatus::Pending,
+                 std::nullopt},
+        StageRow{QStringLiteral("summary"), QStringLiteral("Summary"), QStringLiteral("4 masters"), StageStatus::Done,
+                 std::nullopt},
+    };
+    forEachLook([&rows](const DesignTokens& t) {
+        const QColor bg = t.layers.surface1;
+        AnStageList list;
+        an::tests::widgets::showOffScreen(list);
+        list.setRows(rows);
+        list.resize(240, list.sizeHint().height());
+        forEachRatio(*list.viewport(), bg, [&](const RenderedPicture& picture) {
+            const auto markEdge = [&](const int row) {
+                const QPointF centre = markCentre(list, row);
+                return picture.at(centre.x() - kStageMark / 2.0 + 1.0, centre.y());
+            };
+            // Inside the ring, clear of what the mark holds at its centre and of a check's arms.
+            const auto markInside = [&](const int row) {
+                const QPointF centre = markCentre(list, row);
+                return picture.at(centre.x() - 3.0, centre.y() - 2.5);
+            };
+            const auto markCentreColour = [&](const int row) {
+                const QPointF centre = markCentre(list, row);
+                return picture.at(centre.x(), centre.y());
+            };
+            expectColour(markEdge(0), t.colors.accentPrimary, "ready: a ring of the accent", 32);
+            expectColour(markInside(0), bg, "ready: hollow", 32);
+            expectColour(markCentreColour(0), t.colors.accentPrimary, "ready: a dot at its centre", 40);
+            expectColour(markEdge(1), t.colors.statusWarning, "out of date: a ring of the warning", 32);
+            expectColour(markInside(1), bg, "out of date: hollow", 32);
+            expectColour(markEdge(2), t.colors.textTertiary, "to come: a ring", 32);
+            expectColour(markCentreColour(2), bg, "to come: empty", 32);
+            expectColour(markInside(3), t.colors.statusSuccess, "done: filled", 32);
+        });
+    });
+
+    AnStageList list;
+    an::tests::widgets::showOffScreen(list);
+    list.setRows(rows);
+    list.resize(240, list.sizeHint().height());
+    EXPECT_EQ(list.rows().at(0).status, StageStatus::Ready);
+    EXPECT_EQ(list.rows().at(1).status, StageStatus::OutOfDate);
+    EXPECT_EQ(list.rows().at(1).toolTip, QStringLiteral("Out of date: the stack method changed."));
+    EXPECT_EQ(list.model()->index(0, 0).data(Qt::ToolTipRole).toString(),
+              QStringLiteral("Ready: no run has used these frames yet."));
+    EXPECT_FALSE(list.model()->index(2, 0).data(Qt::ToolTipRole).isValid()) << "a row with nothing to add has none";
+    QAccessibleInterface* const iface = QAccessible::queryAccessibleInterface(&list);
+    ASSERT_NE(iface, nullptr);
+    QAccessibleTableInterface* const table = iface->tableInterface();
+    ASSERT_NE(table, nullptr);
+    EXPECT_EQ(table->cellAt(0, 0)->text(QAccessible::Name), QStringLiteral("Lights, ready, 718 frames"));
+    EXPECT_EQ(table->cellAt(1, 0)->text(QAccessible::Name), QStringLiteral("Stacking, out of date, 4 groups"));
+}
+
 // A click selects a row and tells its id; Up and Down move the selection and tell each new row; setting the selection
 // by id tells it too.
 TEST(AnStageList, SelectsByThePointerAndTheKeyboard)

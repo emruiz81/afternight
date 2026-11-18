@@ -49,6 +49,9 @@
 #include "processes/ImageIntegration/persistence/SessionDocument.h"
 #include "processes/ImageIntegration/ui_models/IntegrationJobFacts.h"
 #include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
+#include "processes/ImageIntegration/ui_models/IntegrationStageStates.h"
+#include "processes/ImageIntegration/widgets/StageListNavigator.h"
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
 #include "processes/ImageIntegration/ImageIntegrationImportSession.h"
@@ -61,6 +64,7 @@
 #include "controls/JsonSerializer.h"
 #include "controls/PersistenceDbExecutor.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 
 #include <QAction>
 #include <QAbstractButton>
@@ -152,18 +156,7 @@ enum class LogicalTabIndex : int
     Summary
 };
 
-enum class RootTabIndex : int
-{
-    FrameSources = 0,
-    Workflow = 1
-};
-
 constexpr int toIndex(const LogicalTabIndex tab)
-{
-    return static_cast<int>(tab);
-}
-
-constexpr int toIndex(const RootTabIndex tab)
 {
     return static_cast<int>(tab);
 }
@@ -387,6 +380,29 @@ struct ImageIntegrationProcess::JobHeadingState
     QTimer debounce;
 };
 
+/// Where the job's stages stand, and what it was last read from.
+struct ImageIntegrationProcess::StageStatesState
+{
+    /// The job as it stands, with what its validation says of each page.
+    ImageIntegration::StageModelFacts model;
+
+    /// What its output folder says of its runs, as the last read found it.
+    ImageIntegration::StageRunFacts run;
+
+    /// A run on its way: the stage it is at and how far it has come.
+    std::optional<WorkflowProgress> progress;
+
+    /// The read asked for last: one that lands after a later one was asked for is dropped.
+    quint64 generation = 0;
+
+    /// One read at a time: a change that comes while one is on the pool asks for another when it lands.
+    bool reading = false;
+    bool readAgain = false;
+
+    /// Gathers the changes of a burst into one read.
+    QTimer debounce;
+};
+
 ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProcessBaseControl(getProcessNameStatic())
 {
     Q_UNUSED(parent);
@@ -552,7 +568,10 @@ void ImageIntegrationProcess::refreshTheme()
 
     TopLevelProcessBaseControl::refreshTheme();
 
-    setupTabIcons();
+    if (m_navigator)
+    {
+        m_navigator->refreshTheme();
+    }
 
     if (m_addFilesAction)
     {
@@ -691,8 +710,14 @@ IntegrationDataModel* ImageIntegrationProcess::model() const noexcept
 
 void ImageIntegrationProcess::refreshAfterRun()
 {
-    // A run wrote into the output folder: what is free there is read again for the page's header.
+    // A run wrote into the output folder: what is free there is read again for the page's header, and where its
+    // stages stand for the stage list.
     scheduleJobHeadingRefresh(true);
+    if (m_stageStates)
+    {
+        m_stageStates->progress.reset();
+        scheduleStageStatesRead();
+    }
     // The tabs read the output directory's registration records only when something moves them; a run writes them
     // without moving anything.
     if (m_registrationTab)
@@ -815,6 +840,7 @@ bool ImageIntegrationProcess::openSession(const QString& databasePath, const QSt
     startAutosave();
     updateWindowTitle();
     scheduleJobHeadingRefresh(true);
+    scheduleStageStatesRead();
     return true;
 }
 
@@ -855,12 +881,251 @@ void ImageIntegrationProcess::keyPressEvent(QKeyEvent* evt)
 void ImageIntegrationProcess::showEvent(QShowEvent* evt)
 {
     TopLevelProcessBaseControl::showEvent(evt);
-    // What is free on the disk may have changed while the page was not shown.
+    // What is free on the disk may have changed while the page was not shown, and so may what the output folder holds.
     scheduleJobHeadingRefresh(true);
+    scheduleStageStatesRead();
+}
+
+ImageIntegration::StageNavigator* ImageIntegrationProcess::stageNavigator() const noexcept
+{
+    return m_navigator;
+}
+
+void ImageIntegrationProcess::presentStagesAsAList()
+{
+    using ImageIntegration::StagePage;
+    QWidget* const content = rootTabWidget != nullptr ? rootTabWidget->parentWidget() : nullptr;
+    auto* const held = content != nullptr ? qobject_cast<QBoxLayout*>(content->layout()) : nullptr;
+    if (m_navigator == nullptr || m_stageList != nullptr || held == nullptr)
+    {
+        return;
+    }
+    std::array<QWidget*, ImageIntegration::kStagePageCount> pages{};
+    for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
+    {
+        pages[static_cast<std::size_t>(page)] = m_navigator->page(static_cast<StagePage>(page));
+    }
+    const StagePage current = m_navigator->currentPage();
+    const ImageIntegration::StageListNavigator::Foot foot{.outputLabel = m_ui.label,
+                                                          .outputEdit = outputDirectoryEdit,
+                                                          .outputBrowse = outputDirectoryBrowseButton,
+                                                          .importProject = m_importProjectAction,
+                                                          .exportProject = m_exportProjectAction,
+                                                          .recentProjects = m_recentProjectsMenu,
+                                                          .presets = m_presetsMenu,
+                                                          .resetSettings = m_resetAction};
+
+    // The tabs' navigator goes before the tabs it asks; the pages leave the tabs for the list's own widget, which
+    // takes the tabs' place; and the tabs, empty, go: nothing of them is shown again.
+    delete m_navigator;
+    m_navigator = nullptr;
+    auto* const list = new ImageIntegration::StageListNavigator(pages, current, foot, content, this);
+    held->insertWidget((std::max)(0, held->indexOf(rootTabWidget)), list->widget(), 1);
+    delete rootTabWidget;
+    rootTabWidget = nullptr;
+    sourceTabWidget = nullptr;
+    workflowTabWidget = nullptr;
+    m_ui.rootTabWidget = nullptr;
+    m_ui.sourceTabWidget = nullptr;
+    m_ui.workflowTabWidget = nullptr;
+    m_ui.pageSources = nullptr;
+    m_ui.pageWorkflow = nullptr;
+    m_ui.verticalLayout_Sources = nullptr;
+    m_ui.verticalLayout_Workflow = nullptr;
+    // The window's foot held the output folder, which the list's foot holds now, and Close and Reset, which a page's
+    // header and the list's foot offer.
+    if (m_ui.bottomActionBar != nullptr)
+    {
+        m_ui.bottomActionBar->hide();
+    }
+    m_navigator = list;
+    m_stageList = list;
+    followNavigator();
+
+    // The pages fit the centre of a main window beside the list: a side panel is an aside of a fixed width, and the
+    // stacking page's execution options stand in two rows.
+    for (FrameSourceTab* const tab : m_frameSourceTabs)
+    {
+        if (tab != nullptr)
+        {
+            tab->presentSidePanelAsAside(an::ui::parts::kStageAsideWidth);
+        }
+    }
+    if (m_calibrationTab != nullptr)
+    {
+        m_calibrationTab->presentSidePanelAsAside(an::ui::parts::kStageAsideWidth);
+    }
+    if (m_stackingTab != nullptr)
+    {
+        m_stackingTab->layExecutionOptionsInRows();
+    }
+    // A page that was never shown keeps the least size it was last asked for: a layout that was never activated tells
+    // none above it of a change, and a hidden page tells its parent of none. Every layout of each page measures again,
+    // and every widget forgets the size its place in a layout remembered, so the page's least size is the arranged
+    // pages' from its first show.
+    for (QWidget* const page : pages)
+    {
+        if (page == nullptr)
+        {
+            continue;
+        }
+        for (QLayout* const layout : page->findChildren<QLayout*>())
+        {
+            layout->invalidate();
+        }
+        for (QWidget* const part : page->findChildren<QWidget*>())
+        {
+            part->updateGeometry();
+        }
+        page->updateGeometry();
+    }
+
+    // The rows follow the job: its model, what its validation says, and what its output folder holds of its runs.
+    m_stageStates = std::make_unique<StageStatesState>();
+    m_stageStates->debounce.setSingleShot(true);
+    m_stageStates->debounce.setInterval(ImageIntegration::Config::kDebounceIntervalMs);
+    connect(&m_stageStates->debounce, &QTimer::timeout, this, &ImageIntegrationProcess::readStageStates);
+    if (m_model)
+    {
+        const IntegrationDataModel* const model = m_model.get();
+        const auto moved = [this]() { scheduleStageStatesRead(); };
+        connect(model, &IntegrationDataModel::framesAdded, this, moved);
+        connect(model, &IntegrationDataModel::framesRemoved, this, moved);
+        connect(model, &IntegrationDataModel::frameUpdated, this, moved);
+        connect(model, &IntegrationDataModel::groupingChanged, this, moved);
+        connect(model, &IntegrationDataModel::calibrationChanged, this, moved);
+        connect(model, &IntegrationDataModel::registrationChanged, this, moved);
+        connect(model, &IntegrationDataModel::integrationGroupsChanged, this, moved);
+        connect(model, &IntegrationDataModel::stackExclusionsChanged, this, moved);
+        connect(model, &IntegrationDataModel::settingsChanged, this, moved);
+        connect(model, &IntegrationDataModel::outputDirectoryChanged, this, moved);
+        connect(model, &IntegrationDataModel::modelReset, this, moved);
+    }
+    updateTabBadgesNow();
+    readStageStates();
+}
+
+void ImageIntegrationProcess::followNavigator()
+{
+    if (m_navigator == nullptr)
+    {
+        return;
+    }
+    connect(m_navigator, &ImageIntegration::StageNavigator::currentPageChanged, this,
+            [this](const ImageIntegration::StagePage page) {
+                // The frame source shown last is the one the acts of the other pages add frames to.
+                const int index = static_cast<int>(page);
+                if (index >= 0 && index < kFrameTabCount)
+                {
+                    m_lastFrameTabIndex = index;
+
+                    // Ensure the page's grouping widget reflects any model changes.
+                    if (auto* tab = frameSourceTabForIndex(index))
+                    {
+                        tab->refreshGroupingOptionsFromModel();
+                    }
+                }
+                // What the page left may have changed what a run would do: the stacking page's execution options.
+                scheduleStageStatesRead();
+            });
+}
+
+void ImageIntegrationProcess::scheduleStageStatesRead()
+{
+    if (m_stageStates)
+    {
+        m_stageStates->debounce.start();
+    }
+}
+
+void ImageIntegrationProcess::readStageStates()
+{
+    if (!m_stageStates || !m_model)
+    {
+        return;
+    }
+    StageStatesState& state = *m_stageStates;
+    const auto issues = state.model.issues;
+    state.model = ImageIntegration::stageModelFacts(*m_model);
+    state.model.issues = issues;
+    publishStageRows();
+
+    // A run writes the folder its stages are read from: they are read when it ends.
+    if (runState().running())
+    {
+        return;
+    }
+    if (state.reading)
+    {
+        state.readAgain = true;
+        return;
+    }
+    state.reading = true;
+    const quint64 generation = ++state.generation;
+    const ImageIntegration::FullWorkflowOptions options{
+        .reprocessExisting = m_stackingTab ? m_stackingTab->isReprocessExistingEnabled() : false,
+        .maxParallelCores = m_stackingTab ? m_stackingTab->maxParallelCores() : 0,
+        .combineRgbImages = m_stackingTab ? m_stackingTab->isCombineRgbImagesEnabled() : false};
+    const QPointer<ImageIntegrationProcess> self(this);
+    QThreadPool::globalInstance()->start([self, generation, snapshot = m_model->toJson(), options]() {
+        const ImageIntegration::StageRunFacts facts = ImageIntegration::readStageRunFacts(snapshot, options);
+        QObject* const application = QCoreApplication::instance();
+        if (application == nullptr)
+        {
+            return;
+        }
+        QMetaObject::invokeMethod(
+            application,
+            [self, generation, facts]() {
+                if (self.isNull() || !self->m_stageStates)
+                {
+                    return;
+                }
+                StageStatesState& landed = *self->m_stageStates;
+                landed.reading = false;
+                if (landed.generation == generation && facts.known)
+                {
+                    landed.run = facts;
+                    self->publishStageRows();
+                }
+                if (landed.readAgain)
+                {
+                    landed.readAgain = false;
+                    self->scheduleStageStatesRead();
+                }
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void ImageIntegrationProcess::publishStageRows()
+{
+    if (!m_stageStates || m_stageList == nullptr)
+    {
+        return;
+    }
+    StageStatesState& state = *m_stageStates;
+    // A progress that lands after its run ended says nothing any more.
+    if (state.progress.has_value() && !runState().running())
+    {
+        state.progress.reset();
+    }
+    m_stageList->setRows(ImageIntegration::integrationStageRows(state.model, state.run, state.progress));
+}
+
+void ImageIntegrationProcess::workflowRunProgressed(const WorkflowProgress& progress)
+{
+    if (!m_stageStates)
+    {
+        return;
+    }
+    m_stageStates->progress = progress;
+    publishStageRows();
 }
 
 void ImageIntegrationProcess::pageLayoutMade()
 {
+    presentStagesAsAList();
     m_jobHeading = std::make_unique<JobHeadingState>();
     m_jobHeading->debounce.setSingleShot(true);
     m_jobHeading->debounce.setInterval(ImageIntegration::Config::kDebounceIntervalMs);
@@ -1100,69 +1365,12 @@ void ImageIntegrationProcess::setupTabs()
     m_modelBoundCleanup.add(m_summaryTab);
     addTabWidget(summaryTab, m_summaryTab);
 
-    // Add tab icons for visual differentiation.
-    setupTabIcons();
-
-    // Add notification badges to tabs indicating issues.
-    const auto createTabIssueBadge = [this](QTabBar* bar, const QString& objectName) -> QLabel* {
-        if (!bar)
-        {
-            return nullptr;
-        }
-
-        auto* badge = new TabIssueBadge(bar);
-        badge->setObjectName(objectName);
-        badge->setVisible(false);
-        badge->setAlignment(Qt::AlignCenter);
-        badge->setProperty("anTabIssueBadge", true);
-        applyBadgeSeverityStyle(badge, ValidationIssue::Severity::Warning);
-        return badge;
-    };
-
-    if (sourceTabWidget)
+    // In its window the pages are moved between by the two levels of tabs, which say each source's frames in their
+    // labels and each page's issues in their badges; a page of a main window puts a list of stages in their place.
+    if (rootTabWidget && sourceTabWidget && workflowTabWidget)
     {
-        auto* bar = sourceTabWidget->tabBar();
-        for (int i = 0; i < kFrameTabCount; ++i)
-        {
-            auto* badge = createTabIssueBadge(bar, QStringLiteral("childBadge_%1").arg(i));
-            if (!badge)
-            {
-                continue;
-            }
-            bar->setTabButton(i, QTabBar::RightSide, badge);
-            m_tabBadges[static_cast<size_t>(i)] = badge;
-        }
-    }
-
-    if (workflowTabWidget)
-    {
-        auto* bar = workflowTabWidget->tabBar();
-        for (int i = 0; i < kFrameTabCount; ++i)
-        {
-            const int logicalIndex = i + toIndex(LogicalTabIndex::Calibration);
-            auto* badge = createTabIssueBadge(bar, QStringLiteral("childBadge_%1").arg(logicalIndex));
-            if (!badge)
-            {
-                continue;
-            }
-            bar->setTabButton(i, QTabBar::RightSide, badge);
-            m_tabBadges[static_cast<size_t>(logicalIndex)] = badge;
-        }
-    }
-
-    if (rootTabWidget)
-    {
-        auto* bar = rootTabWidget->tabBar();
-        for (int i = 0; i < kParentTabCount; ++i)
-        {
-            auto* badge = createTabIssueBadge(bar, QStringLiteral("parentBadge_%1").arg(i));
-            if (!badge)
-            {
-                continue;
-            }
-            bar->setTabButton(i, QTabBar::RightSide, badge);
-            m_parentTabBadges[static_cast<size_t>(i)] = badge;
-        }
+        m_navigator =
+            new ImageIntegration::TabStageNavigator(*rootTabWidget, *sourceTabWidget, *workflowTabWidget, this);
     }
 
     // Update badges synchronously on first run to prevent flicker.
@@ -1185,32 +1393,10 @@ void ImageIntegrationProcess::scheduleTabBadgeRefresh()
 
 void ImageIntegrationProcess::updateTabBadgesNow()
 {
-    if (!rootTabWidget || !m_model)
+    if (!m_navigator || !m_model)
     {
         return;
     }
-
-    const auto forceTabRelayout = [](QTabWidget* tabs) {
-        if (!tabs)
-        {
-            return;
-        }
-
-        // Qt doesn't always recompute tab widths when a tab button widget (badge)
-        // changes visibility/text. Nudge it by re-applying tab text.
-        for (int i = 0; i < tabs->count(); ++i)
-        {
-            tabs->setTabText(i, tabs->tabText(i));
-        }
-
-        if (auto* bar = tabs->tabBar())
-        {
-            bar->updateGeometry();
-            bar->update();
-        }
-        tabs->updateGeometry();
-        tabs->update();
-    };
 
     std::array<int, kLogicalTabCount> counts{};
     std::array<std::optional<ValidationIssue::Severity>, kLogicalTabCount> severity{};
@@ -1523,200 +1709,62 @@ void ImageIntegrationProcess::updateTabBadgesNow()
                 // lines << tr("(Using nearby session - yellow cells in table)");
             }
 
-            lines << QString();
-            lines << tr("Click to open Calibration tab.");
+            if (m_stageList == nullptr)
+            {
+                // A tab's badge opens its tab; a row of the stage list is the page already.
+                lines << QString();
+                lines << tr("Click to open Calibration tab.");
+            }
             details.toolTip = lines.join(QStringLiteral("\n"));
 
             calibrationDetails = details;
         }
     }
 
-    bool any_badge_geometry_changed = false;
+    // What each page's validation says: how many issues, how grave, in the badge's text and spelled out.
+    std::array<ImageIntegration::StagePageIssues, kLogicalTabCount> said;
     for (int i = 0; i < kLogicalTabCount; ++i)
     {
-        QLabel* badge = m_tabBadges[static_cast<size_t>(i)];
-        if (!badge)
-        {
-            continue;
-        }
-
-        const bool wasVisible = badge->isVisible();
-        const QString oldText = badge->text();
-        const QColor oldBadgeColor = badge->palette().color(QPalette::Window);
-
-        int count = counts[static_cast<size_t>(i)]; // Use mutable local var for adjustment
-
-        if (i == toIndex(LogicalTabIndex::Calibration) && calibrationDetails.has_value())
-        {
-            // Sync the count to what is displayed on the badge
-            count = calibrationDetails->displayedCount;
-            counts[static_cast<size_t>(i)] = count; // Update array for parent aggregation
-        }
-
+        const bool calibration = i == toIndex(LogicalTabIndex::Calibration) && calibrationDetails.has_value();
+        // The calibration page counts the groups its table shows as missing or fallen back, not the raw issues.
+        const int count = calibration ? calibrationDetails->displayedCount : counts[static_cast<size_t>(i)];
         if (count <= 0)
         {
-            badge->setVisible(false);
-            badge->setToolTip(QString());
-
-            if (wasVisible)
-            {
-                any_badge_geometry_changed = true;
-            }
             continue;
         }
-
-        QString text = (count > 99) ? QStringLiteral("99+") : QString::number(count);
-        QString tooltip = buildTooltipForIssues(issues_by_tab[static_cast<size_t>(i)]);
-
         auto sev = severity[static_cast<size_t>(i)].value_or(ValidationIssue::Severity::Warning);
-        if (i == toIndex(LogicalTabIndex::Calibration) && calibrationDetails.has_value())
+        ImageIntegration::StagePageIssues& page = said[static_cast<size_t>(i)];
+        page.count = count;
+        page.text = (count > 99) ? QStringLiteral("99+") : QString::number(count);
+        page.toolTip = buildTooltipForIssues(issues_by_tab[static_cast<size_t>(i)]);
+        if (calibration)
         {
-            text = calibrationDetails->badgeText;
-            tooltip = calibrationDetails->toolTip;
+            page.text = calibrationDetails->badgeText;
+            page.toolTip = calibrationDetails->toolTip;
             sev = calibrationDetails->worstSeverity.value_or(sev);
         }
-
-        badge->setText(text);
-        badge->setToolTip(tooltip);
-
-        applyBadgeSeverityStyle(badge, sev);
-        badge->setVisible(true);
-
-        if (!wasVisible || oldText != badge->text() || oldBadgeColor != badge->palette().color(QPalette::Window))
-        {
-            any_badge_geometry_changed = true;
-        }
+        page.errors = sev == ValidationIssue::Severity::Error;
     }
-
-    // Propagate status to parent tabs
-    if (rootTabWidget)
+    m_navigator->setIssues(said);
+    if (m_stageStates)
     {
-        bool any_parent_badge_geometry_changed = false;
-        for (int p = 0; p < kParentTabCount; ++p)
-        {
-            QLabel* parentBadge = m_parentTabBadges[static_cast<size_t>(p)];
-            if (!parentBadge)
-                continue;
-
-            const bool wasVisible = parentBadge->isVisible();
-            const QString oldText = parentBadge->text();
-
-            int totalIssues = 0;
-            auto worstSev = std::optional<ValidationIssue::Severity>();
-
-            const int start = (p == toIndex(RootTabIndex::FrameSources)) ? 0 : toIndex(LogicalTabIndex::Calibration);
-            const int end =
-                (p == toIndex(RootTabIndex::FrameSources)) ? toIndex(LogicalTabIndex::Calibration) : kLogicalTabCount;
-
-            for (int i = start; i < end; ++i)
-            {
-                if (counts[static_cast<size_t>(i)] > 0)
-                {
-                    totalIssues += counts[static_cast<size_t>(i)];
-                    auto s = severity[static_cast<size_t>(i)];
-                    if (!worstSev.has_value() || (s.has_value() && *s == ValidationIssue::Severity::Error))
-                    {
-                        worstSev = s;
-                    }
-                }
-            }
-
-            if (totalIssues > 0)
-            {
-                parentBadge->setVisible(true);
-                QString text = (totalIssues > 99) ? QStringLiteral("99+") : QString::number(totalIssues);
-                parentBadge->setText(text);
-
-                auto s = worstSev.value_or(ValidationIssue::Severity::Warning);
-                applyBadgeSeverityStyle(parentBadge, s);
-
-                QStringList summaryLines;
-                const int errCount =
-                    (s == ValidationIssue::Severity::Error) ? 1 : 0; // Rough heuristic for header color/tone
-
-                // Header
-                summaryLines << (totalIssues == 1 ? tr("1 Issue Found:") : tr("%1 Issues Found:").arg(totalIssues));
-
-                for (int i = start; i < end; ++i)
-                {
-                    const int c = counts[static_cast<size_t>(i)];
-                    if (c > 0)
-                    {
-                        QString name;
-                        if (p == 0 && sourceTabWidget)
-                            name = sourceTabWidget->tabText(i);
-                        else if (p == 1 && workflowTabWidget)
-                            name = workflowTabWidget->tabText(i - 4);
-
-                        // Clean name
-                        int paren = name.lastIndexOf(" (");
-                        if (paren > 0)
-                            name = name.left(paren);
-
-                        // Determine type label
-                        auto tabSev = severity[static_cast<size_t>(i)].value_or(ValidationIssue::Severity::Warning);
-                        QString typeLabel =
-                            (tabSev == ValidationIssue::Severity::Error) ? tr("Errors") : tr("Warnings");
-
-                        // Format: "• Calibration Warnings (5)"
-                        summaryLines << tr("• %1 %2 (%3)").arg(name, typeLabel, QString::number(c));
-                    }
-                }
-                parentBadge->setToolTip(summaryLines.join(QStringLiteral("\n")));
-
-                if (!wasVisible || oldText != parentBadge->text())
-                {
-                    any_parent_badge_geometry_changed = true;
-                }
-            }
-            else
-            {
-                parentBadge->setVisible(false);
-
-                if (wasVisible)
-                {
-                    any_parent_badge_geometry_changed = true;
-                }
-            }
-        }
-
-        if (any_parent_badge_geometry_changed)
-        {
-            any_badge_geometry_changed = true;
-        }
-    }
-
-    if (any_badge_geometry_changed)
-    {
-        forceTabRelayout(sourceTabWidget);
-        forceTabRelayout(workflowTabWidget);
-        forceTabRelayout(rootTabWidget);
+        m_stageStates->model.issues = said;
+        publishStageRows();
     }
 }
 
 void ImageIntegrationProcess::updateFrameTabLabels()
 {
-    if (!sourceTabWidget || !m_model)
+    if (!m_navigator || !m_model)
     {
         return;
     }
 
-    // Frame type tab names with counts
-    const std::array<QString, 4> baseNames = {tr("Bias"), tr("Darks"), tr("Flats"), tr("Lights")};
-
-    const std::array<FrameType, kFrameTabCount> types = {FrameType::Bias, FrameType::Dark, FrameType::Flat,
-                                                         FrameType::Light};
-
-    for (int i = 0; i < kFrameTabCount; ++i)
-    {
-        const size_t count = m_model->frames(types[static_cast<size_t>(i)]).size();
-        QString tabText = baseNames[static_cast<size_t>(i)];
-        if (count > 0)
-        {
-            tabText += QStringLiteral(" (%1)").arg(count);
-        }
-        sourceTabWidget->setTabText(i, tabText);
-    }
+    // How many frames each source holds, as its tab says after its name.
+    m_navigator->setFrameCounts({static_cast<int>(m_model->frames(FrameType::Bias).size()),
+                                 static_cast<int>(m_model->frames(FrameType::Dark).size()),
+                                 static_cast<int>(m_model->frames(FrameType::Flat).size()),
+                                 static_cast<int>(m_model->frames(FrameType::Light).size())});
 }
 
 void ImageIntegrationProcess::updateLightCalibrationPreview(const QString& selectedPath)
@@ -2161,21 +2209,7 @@ void ImageIntegrationProcess::setupUIConnections()
     }
 
     // Track most recently used frame tab for actions invoked from non-frame tabs.
-    if (sourceTabWidget)
-    {
-        connect(sourceTabWidget, &QTabWidget::currentChanged, this, [this](int index) {
-            if (index >= 0 && index < kFrameTabCount)
-            {
-                m_lastFrameTabIndex = index;
-
-                // Ensure the tab's grouping widget reflects any model changes.
-                if (auto* tab = frameSourceTabForIndex(index))
-                {
-                    tab->refreshGroupingOptionsFromModel();
-                }
-            }
-        });
-    }
+    followNavigator();
 
     if (dialogButtonBox)
     {
@@ -4684,59 +4718,14 @@ void ImageIntegrationProcess::showKeyboardShortcutsHelp()
 
 void ImageIntegrationProcess::setCurrentLogicalIndex(int index)
 {
-    if (index < 0 || index >= kLogicalTabCount)
+    if (index < 0 || index >= kLogicalTabCount || m_navigator == nullptr)
     {
         return;
     }
-
-    if (index < kFrameTabCount)
-    {
-        if (rootTabWidget)
-            rootTabWidget->setCurrentIndex(toIndex(RootTabIndex::FrameSources));
-        if (sourceTabWidget)
-            sourceTabWidget->setCurrentIndex(index);
-    }
-    else
-    {
-        if (rootTabWidget)
-            rootTabWidget->setCurrentIndex(toIndex(RootTabIndex::Workflow));
-        if (workflowTabWidget)
-            workflowTabWidget->setCurrentIndex(index - toIndex(LogicalTabIndex::Calibration));
-    }
+    m_navigator->setCurrentPage(static_cast<ImageIntegration::StagePage>(index));
 }
 
 int ImageIntegrationProcess::currentLogicalIndex() const
 {
-    if (!rootTabWidget)
-    {
-        return 0;
-    }
-
-    const int rootIdx = rootTabWidget->currentIndex();
-    if (rootIdx == toIndex(RootTabIndex::FrameSources))
-    {
-        return sourceTabWidget ? sourceTabWidget->currentIndex() : 0;
-    }
-
-    return workflowTabWidget ? (toIndex(LogicalTabIndex::Calibration) + workflowTabWidget->currentIndex())
-                             : toIndex(LogicalTabIndex::Calibration);
-}
-
-void ImageIntegrationProcess::setupTabIcons()
-{
-    if (sourceTabWidget)
-    {
-        sourceTabWidget->setTabIcon(0, integrationIcon(QStringLiteral("image_linear"))); // Bias
-        sourceTabWidget->setTabIcon(1, integrationIcon(QStringLiteral("image_linear"))); // Darks
-        sourceTabWidget->setTabIcon(2, integrationIcon(QStringLiteral("image_linear"))); // Flats
-        sourceTabWidget->setTabIcon(3, integrationIcon(QStringLiteral("camera"))); // Lights
-    }
-
-    if (workflowTabWidget)
-    {
-        workflowTabWidget->setTabIcon(0, integrationIcon(QStringLiteral("settings"))); // Calibration
-        workflowTabWidget->setTabIcon(1, integrationIcon(QStringLiteral("grid"))); // Registration
-        workflowTabWidget->setTabIcon(2, integrationIcon(QStringLiteral("stack"))); // Stacking
-        workflowTabWidget->setTabIcon(3, integrationIcon(QStringLiteral("summary"))); // Summary
-    }
+    return m_navigator != nullptr ? static_cast<int>(m_navigator->currentPage()) : 0;
 }

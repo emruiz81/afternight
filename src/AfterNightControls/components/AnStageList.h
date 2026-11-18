@@ -26,11 +26,16 @@ namespace an::ui
 /// Where a stage stands.
 enum class StageStatus
 {
+    /// Not started: nothing for it to do yet, or it is off.
     Pending,
+    /// It has what it needs and has not run.
+    Ready,
     Running,
     Done,
     Warning,
-    Failed
+    Failed,
+    /// It ran, and what it made is no longer what is asked of it.
+    OutOfDate
 };
 
 /// A stage as a stage list shows it.
@@ -41,6 +46,7 @@ struct StageRow
     QString line; ///< One line of state: "running - 412 / 718".
     StageStatus status = StageStatus::Pending;
     std::optional<int> progress; ///< How far a run has come, 0 to 100; no bar when absent.
+    QString toolTip; ///< What the row adds when it is pointed at; none when empty.
 
     [[nodiscard]] bool operator==(const StageRow&) const = default;
 };
@@ -48,9 +54,10 @@ struct StageRow
 /// Rows of a status mark, a title in the body text and semibold, and one line of state in the monospace at the
 /// caption's size in the secondary text, elided at the right; a stage with a progress shows a thin bar under its line,
 /// the accent over the accent's track. The marks are joined by a line. A mark is a ring of the tertiary text for a
-/// stage to come, the accent while it runs, success with a check when done, the warning with an exclamation mark and
-/// the error with a cross: never colour alone. The selected row is the accent's container with its texts in the
-/// container's text; a hovered row lays the state colour over itself.
+/// stage to come, a ring of the accent with a dot at its centre for one that is ready, the accent filled while it
+/// runs, success with a check when done, the warning with an exclamation mark, the error with a cross, and a ring of
+/// the warning with a check for one that is out of date: never colour alone. The selected row is the accent's
+/// container with its texts in the container's text; a hovered row lays the state colour over itself.
 ///
 /// The rows are given whole (`setRows`) or one at a time by id (`updateRow`), and a list given again keeps its
 /// selection. The keyboard moves the selection with Up and Down, the pointer selects a row by a click, and every new

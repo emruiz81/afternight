@@ -1633,12 +1633,57 @@ what follows runs in a window.
   cancelled import.
 - **Closing the page is closing the window**: the session is saved at once by its autosave, the settings are stored,
   and nothing is asked - the window asks nothing either.
-- **A run** opens the Processing window as in a window of its own.
+- **A run** opens the Processing window as in a window of its own, and the stage list follows it behind that window.
+- **Its stages are a list, in place of the window's tabs** (`widgets/StageNavigator.h`). The eight pages - the four
+  frame sources, calibration, registration, stacking and the summary - are the same widgets whatever moves between
+  them, and the process reaches them through one seam: a `StageNavigator` answers for a page, for the page shown and
+  for showing another, and is told what the process has to say of each - a source's frames, what the validation finds
+  in a page. In a window it is `TabStageNavigator`: the two levels of tabs, which say those in their labels and their
+  badges. When a main window takes the process as a page (`presentStagesAsAList`, once, before the first show) the
+  pages leave the tabs for a `StageListNavigator` (`widgets/StageListNavigator.h`) and the tabs go. A part of a page
+  that must show another page - a frame shown in the lights' tree from the stacking page - asks the navigator above
+  itself (`StageNavigator::of`), never a tab by its name: under the list there is no tab to find. A seam, rather than
+  tabs with their bars hidden, because the two say a stage's state by different means, and the process should know
+  neither.
+- **The list's rows** are `kStageRows` (`ui_models/IntegrationStageStates.h`): the frame sources and the workflow's
+  stages in the order a run reaches them, the summary last. Normalization and drizzle are stages of the workflow with
+  no page of their own - their settings are the stacking page's - so their rows show that page, and ten rows reach the
+  eight pages. The Navigate menu's actions and their keys select the row named as their page; a row that shows the page
+  already keeps the selection. `Test_ImageIntegration/data/IntegrationPages.txt` records the pages the tabs reach, and
+  `StageList.HoldsEveryTabPage` holds the list to them: the same pages, the same widgets.
+- **A row's mark and line** are read from three places and guessed from none (`integrationStageRows`). The job as it
+  stands, from the model on the GUI thread (`stageModelFacts`), with what the validation says of each page - the count
+  and the words the tabs' badges show. What the output folder holds of its runs, read on the thread pool
+  (`readStageRunFacts`): the manifest the job would run now, built from a snapshot of the model and adjusted as a run
+  adjusts it, compared with the manifest the last successful run left (`stageStandings`, over `compareManifests`) - a
+  stage the comparison says must run again is out of date, and with it every later stage that reads what it makes - and
+  the record of the last run, whatever its end. And a run on its way: the launch tells the widget it was launched from
+  each progress the run reports (`IWorkflowRunObserver`, `workflow/WorkflowRunObserver.h`). A row is, in this order:
+  running; failed, for an error of its page's validation or the stage the last run failed at; out of date; a warning,
+  for a lesser issue or the stage the last run was cancelled at; done; ready; not started. The read compares two
+  manifests and reads no image and no artifact: whether a file on disk is still the one a manifest names is the plan's
+  to say when a run is prepared, with its stat of every artifact, and is not asked at every edit. One read is on the
+  pool at a time, a burst of changes is gathered into one, a read that lands after a later one was asked for is
+  dropped, and none is made during a run, which writes the folder it would read.
+- **The list's foot** holds the job's output folder - the window's own label, field and button, moved - and the
+  project file's acts, each a button for an act or a menu of the Project menu's own: import, export, the recent
+  projects, the presets and Reset Settings. The window's foot, with its Close and Reset, is not shown on a page: the
+  header closes the page and the list's foot resets.
+- **The pages fit the centre of a main window.** A page with a side panel keeps it as an aside 288 px wide
+  (`presentSidePanelAsAside`): the frame pages' - the preview over the grouping, the statistics, the issues and the
+  quick actions, which stand in two rows there - and the calibration page's. The width a person gave a panel in a
+  window is neither applied to the aside nor overwritten by it. The stacking page lays its execution options in two
+  rows (`layExecutionOptionsInRows`), where the window's one row set the whole window's least width. A page arranged
+  before it was ever shown is told to measure again: a layout that was never activated tells none above it of a
+  change, and the page behind the one shown would otherwise keep its old least width until visited. With the list the
+  page's least size is 1006 x 539 at the compact density, from 1437 x 637 with the tabs.
 
 `IntegrationPage.*` in `Test_ImageIntegration` hold the process as a page - its menus against the window's bar, every
 sequence the record of the process windows holds for it, Execute, closing and the job it says - and in
-`Test_ShellObservatory` the page in the Observatory window; `IntegrationJobFacts.*` and `ImportProgressPanelTest.*` hold
-the facts and the panel.
+`Test_ShellObservatory` the page in the Observatory window; `StageList.*` hold the list - the pages it reaches, the
+rows' states for a job of each standing, the Navigate menu and the keyboard, the foot, the aside - and
+`IntegrationStageStates.*` the rows and the standings by themselves; `IntegrationJobFacts.*` and
+`ImportProgressPanelTest.*` hold the facts and the panel.
 
 ### The frame pipeline and performance (`workflow/stages/StageFramePipeline.h`, `memory/BudgetedMemoryResource.h`)
 

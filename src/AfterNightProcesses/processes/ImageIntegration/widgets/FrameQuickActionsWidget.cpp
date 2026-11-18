@@ -34,6 +34,7 @@ public:
     QPushButton* btnIncludeAll = nullptr;
     QPushButton* btnExcludeAll = nullptr;
     QPushButton* btnClearTags = nullptr;
+    QGridLayout* grid = nullptr;
 
     explicit Impl(FrameQuickActionsWidget* parent, FrameType type, IntegrationDataModel* m, QUndoStack* undo)
         : q(parent), model(m), undoStack(undo), frameType(type)
@@ -48,7 +49,7 @@ public:
         layout->addWidget(title);
 
         // Grid layout for action buttons
-        auto* grid = new QGridLayout();
+        grid = new QGridLayout();
         grid->setSpacing(4);
 
         btnIncludeAll = new QPushButton(QObject::tr("Include All"), q);
@@ -268,6 +269,20 @@ FrameQuickActionsWidget::FrameQuickActionsWidget(FrameType frameType, Integratio
 }
 
 FrameQuickActionsWidget::~FrameQuickActionsWidget() = default;
+
+void FrameQuickActionsWidget::setNarrow(const bool narrow)
+{
+    // The third button under the first two, or beside them.
+    m_impl->grid->removeWidget(m_impl->btnClearTags);
+    if (narrow)
+    {
+        m_impl->grid->addWidget(m_impl->btnClearTags, 1, 0, 1, 2);
+    }
+    else
+    {
+        m_impl->grid->addWidget(m_impl->btnClearTags, 0, 2);
+    }
+}
 
 void FrameQuickActionsWidget::setFrameType(FrameType type)
 {

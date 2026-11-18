@@ -44,6 +44,9 @@ public:
     void setFrameType(FrameType type);
     [[nodiscard]] FrameType frameType() const;
 
+    /// Lays the buttons in two rows where a row of three would not fit: the side of a page 288 px wide.
+    void setNarrow(bool narrow);
+
     // Signals for actions that require external handling
     void selectAllRequested() W_SIGNAL(selectAllRequested);
     void selectNoneRequested() W_SIGNAL(selectNoneRequested);

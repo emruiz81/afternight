@@ -115,6 +115,10 @@ std::vector<std::unique_ptr<QWidget>> everyPart()
                          an::ui::StageStatus::Pending, std::nullopt},
         an::ui::StageRow{QStringLiteral("e"), QStringLiteral("Drizzle"), QStringLiteral("no output"),
                          an::ui::StageStatus::Failed, std::nullopt},
+        an::ui::StageRow{QStringLiteral("f"), QStringLiteral("Lights"), QStringLiteral("718 frames"),
+                         an::ui::StageStatus::Ready, std::nullopt},
+        an::ui::StageRow{QStringLiteral("g"), QStringLiteral("Normalization"), QStringLiteral("local"),
+                         an::ui::StageStatus::OutOfDate, std::nullopt},
     });
     stages->setSelectedId(QStringLiteral("d"));
     parts.push_back(std::move(stages));

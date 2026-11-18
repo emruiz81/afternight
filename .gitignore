@@ -62,6 +62,7 @@
 !src/AfterNightTests/Test_ShellParity/Capabilities.txt
 !src/AfterNightTests/Test_ShellObservatory/data/*.txt
 !src/AfterNightTests/Test_ProcessFramework/data/*.txt
+!src/AfterNightTests/Test_ImageIntegration/data/*.txt
 !src/AfterNightTests/Test_ThemeSystem/data/*.txt
 *.mk
 *.tlog

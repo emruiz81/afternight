@@ -70,6 +70,17 @@ public:
     void refreshQuickStats();
     void refreshFilterStats();
 
+    /// Keeps the side panel - the preview over the grouping, the statistics, the issues and the quick actions - as an
+    /// aside of a fixed width at the page's right: what a page of a main window shows, where the window lets a person
+    /// drag the panel wider. The panel's own least width gives way, its padding becomes the aside's, and the width a
+    /// person gave the panel in a window is neither applied nor overwritten.
+    ///
+    /// @param width the aside's width.
+    void presentSidePanelAsAside(int width);
+
+    /// The side panel: the preview and what scrolls under it.
+    [[nodiscard]] QWidget* sidePanel() const;
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
@@ -114,6 +125,8 @@ private:
     QString m_regroupWarningOriginalStyle;
     bool m_splitterAutoSized = false;
     bool m_splitterUserSized = false;
+    /// The width the side panel keeps as an aside; none while a person sizes it.
+    int m_asideWidth = 0;
 
     QTimer* m_persistDebounce = nullptr;
     QTimer* m_previewClampDebounce = nullptr;

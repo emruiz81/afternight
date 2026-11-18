@@ -43,6 +43,16 @@ public:
     explicit CalibrationTab(IntegrationDataModel* model, QWidget* parent = nullptr, QUndoStack* undoStack = nullptr);
     ~CalibrationTab() override;
 
+    /// Keeps the side panel - the coverage, the frames' summary, the matching policy, the quick actions and the
+    /// issues - as an aside of a fixed width at the page's right: what a page of a main window shows, where the window
+    /// lets a person drag the panel between its least and its greatest width.
+    ///
+    /// @param width the aside's width.
+    void presentSidePanelAsAside(int width);
+
+    /// The side panel.
+    [[nodiscard]] QWidget* sidePanel() const;
+
 public slots:
     void refreshAll();
     void showGroupInTable(FrameType type, const GroupKey& key);

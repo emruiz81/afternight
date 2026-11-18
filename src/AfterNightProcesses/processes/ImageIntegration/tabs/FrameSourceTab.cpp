@@ -18,6 +18,7 @@
 #include "processes/ImageIntegration/widgets/GroupingOptionsWidget.h"
 #include "controls/ImageViewControl.h"
 #include "processes/ImageIntegration/widgets/TreeDisplayModeWidget.h"
+#include "theme/ComponentParts.h"
 
 #include <QCheckBox>
 #include <QAction>
@@ -616,6 +617,52 @@ QLineEdit* FrameSourceTab::searchBar() const
     return m_searchBar;
 }
 
+void FrameSourceTab::presentSidePanelAsAside(const int width)
+{
+    QWidget* const side = sidePanel();
+    if (side == nullptr || width <= 0)
+    {
+        return;
+    }
+    m_asideWidth = width;
+    // The panel's parts fit the aside: its scrolling part has no least width of its own, its padding is the aside's,
+    // and its three quick actions stand in two rows.
+    if (auto* const scroll = side->findChild<QScrollArea*>(QStringLiteral("frameSourceRightScrollArea")))
+    {
+        scroll->setMinimumWidth(0);
+        if (QWidget* const contents = scroll->widget(); contents != nullptr && contents->layout() != nullptr)
+        {
+            const int padding = an::ui::parts::kStageAsidePadding;
+            contents->layout()->setContentsMargins(padding, padding, padding, padding);
+        }
+    }
+    if (m_preview)
+    {
+        m_preview->setMinimumWidth(0);
+    }
+    if (m_quickActionsWidget)
+    {
+        m_quickActionsWidget->setNarrow(true);
+    }
+    side->setFixedWidth(width);
+    // The splitter keeps the width it last gave each part and gives a part that does not stretch that width again,
+    // whatever the part's greatest: told the aside's width, it gives the frames everything else.
+    m_splitter->setSizes({(std::max)(1, m_splitter->width() - width), width});
+    // Nothing is left to drag: the handle between the two parts is a line.
+    if (QSplitterHandle* const handle = m_splitter->handle(1))
+    {
+        handle->setEnabled(false);
+        handle->setCursor(Qt::ArrowCursor);
+    }
+    m_splitterUserSized = true;
+    schedulePreviewPanelAspectClamp();
+}
+
+QWidget* FrameSourceTab::sidePanel() const
+{
+    return m_splitter != nullptr && m_splitter->count() >= 2 ? m_splitter->widget(1) : nullptr;
+}
+
 void FrameSourceTab::refreshGroupingOptionsFromModel()
 {
     if (!m_model || !m_groupingOptions)
@@ -977,7 +1024,11 @@ void FrameSourceTab::persistUiStateNow()
 
     QSettings settings = an::ui::applicationSettings();
     settings.beginGroup(settingsGroupFor(m_type));
-    settings.setValue(QStringLiteral("splitterState"), m_splitter->saveState());
+    if (m_asideWidth <= 0)
+    {
+        // An aside's width is the page's, not a person's: the width given in a window stays the one kept.
+        settings.setValue(QStringLiteral("splitterState"), m_splitter->saveState());
+    }
     if (m_tree && m_tree->header())
     {
         settings.setValue(QStringLiteral("treeHeaderState"), m_tree->header()->saveState());

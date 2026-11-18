@@ -454,8 +454,9 @@ that cannot be captured again, and a checked-in record is never regenerated ("Th
   enforces; and the About dialog's licence credit, held by `Test_ControlsDialogs`. Licence and copyright text is not a
   planning reference. See AGENTS.md, "Credit for derived code".
 - **The interface's records are edited, never regenerated.** The tokens, actions, menus, shortcuts, process
-  registry, the shape of every process window and the Session Console's toolbar are held to text records beside
-  `Test_ThemeSystem`, `Test_ShellClassic`, `Test_ShellObservatory` and `Test_ProcessFramework` (`data/*.txt`). A change that
+  registry, the shape of every process window, the pages of Image Integration and the Session Console's toolbar are
+  held to text records beside `Test_ThemeSystem`, `Test_ShellClassic`, `Test_ShellObservatory`, `Test_ProcessFramework`
+  and `Test_ImageIntegration` (`data/*.txt`). A change that
   means to move one edits its entry in the same diff; see "The interface's records" in
   [docs/dev/guides/TESTING.md](docs/dev/guides/TESTING.md).
 - **TDD is mandatory** for new features (failing test first), and bug fixes need a regression test.

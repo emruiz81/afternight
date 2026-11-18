@@ -673,6 +673,32 @@ CalibrationTab::~CalibrationTab()
     }
 }
 
+void CalibrationTab::presentSidePanelAsAside(const int width)
+{
+    QScrollArea* const side = m_impl->ui.rightPanelScrollArea;
+    if (side == nullptr || width <= 0)
+    {
+        return;
+    }
+    side->setMinimumWidth(width);
+    side->setMaximumWidth(width);
+    // Nothing is left to drag: the handle between the two parts is a line.
+    if (QSplitter* const splitter = m_impl->ui.mainSplitter)
+    {
+        splitter->setCollapsible(splitter->indexOf(side), false);
+        if (QSplitterHandle* const handle = splitter->handle(splitter->indexOf(side)))
+        {
+            handle->setEnabled(false);
+            handle->setCursor(Qt::ArrowCursor);
+        }
+    }
+}
+
+QWidget* CalibrationTab::sidePanel() const
+{
+    return m_impl->ui.rightPanelScrollArea;
+}
+
 void CalibrationTab::refreshAll()
 {
     if (!m_impl)

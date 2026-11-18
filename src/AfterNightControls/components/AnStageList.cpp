@@ -67,6 +67,10 @@ QString statusWords(const StageStatus status, const std::optional<int>& progress
         return QStringLiteral("warning");
     case StageStatus::Failed:
         return QStringLiteral("failed");
+    case StageStatus::Ready:
+        return QStringLiteral("ready");
+    case StageStatus::OutOfDate:
+        return QStringLiteral("out of date");
     case StageStatus::Pending:
     default:
         return QStringLiteral("to come");
@@ -80,6 +84,7 @@ void fillItem(QStandardItem& item, const StageRow& row)
     item.setData(row.line, LineRole);
     item.setData(static_cast<int>(row.status), StatusRole);
     item.setData(row.progress ? std::clamp(*row.progress, 0, 100) : -1, ProgressRole);
+    item.setData(row.toolTip.isEmpty() ? QVariant() : QVariant(row.toolTip), Qt::ToolTipRole);
     item.setData(row.title + QStringLiteral(", ") + statusWords(row.status, row.progress) + QStringLiteral(", ") +
                      row.line,
                  Qt::AccessibleTextRole);
@@ -88,9 +93,12 @@ void fillItem(QStandardItem& item, const StageRow& row)
 StageRow rowOf(const QModelIndex& index)
 {
     const int progress = index.data(ProgressRole).toInt();
-    return StageRow{index.data(IdRole).toString(), index.data(Qt::DisplayRole).toString(),
-                    index.data(LineRole).toString(), static_cast<StageStatus>(index.data(StatusRole).toInt()),
-                    progress >= 0 ? std::optional<int>(progress) : std::nullopt};
+    return StageRow{index.data(IdRole).toString(),
+                    index.data(Qt::DisplayRole).toString(),
+                    index.data(LineRole).toString(),
+                    static_cast<StageStatus>(index.data(StatusRole).toInt()),
+                    progress >= 0 ? std::optional<int>(progress) : std::nullopt,
+                    index.data(Qt::ToolTipRole).toString()};
 }
 
 /// A row's height in the tokens in force: its padding, its title and its line, the gap under it, and a progress bar
@@ -203,16 +211,30 @@ private:
         const QRectF glyph(centre.x() - kStageGlyph / 2.0, centre.y() - kStageGlyph / 2.0, kStageGlyph, kStageGlyph);
         const QColor glyphColour = t.layers.surface1;
         painter.setPen(Qt::NoPen);
-        switch (status)
-        {
-        case StageStatus::Pending: {
-            // A ring over the first surface, which hides the joining line inside it.
+        // A ring over the first surface, which hides the joining line inside it.
+        const auto ring = [&painter, &disc, &t](const QColor& colour) {
             const qreal half = kStageMarkBorder / 2.0;
             painter.setBrush(t.layers.surface1);
-            painter.setPen(QPen(t.colors.textTertiary, kStageMarkBorder));
+            painter.setPen(QPen(colour, kStageMarkBorder));
             painter.drawEllipse(disc.adjusted(half, half, -half, -half));
+            painter.setPen(Qt::NoPen);
+        };
+        switch (status)
+        {
+        case StageStatus::Pending:
+            ring(t.colors.textTertiary);
             break;
-        }
+        case StageStatus::Ready:
+            // Hollow, with the run's dot: it waits to run.
+            ring(t.colors.accentPrimary);
+            painter.setBrush(t.colors.accentPrimary);
+            painter.drawEllipse(centre, kStageMarkBorder, kStageMarkBorder);
+            break;
+        case StageStatus::OutOfDate:
+            // Hollow, with the check of a stage that was done.
+            ring(t.colors.statusWarning);
+            paintCheckMark(painter, glyph.adjusted(1.0, 1.0, -1.0, -1.0), t.colors.statusWarning, kStageMarkBorder);
+            break;
         case StageStatus::Running:
             painter.setBrush(t.colors.accentPrimary);
             painter.drawEllipse(disc);

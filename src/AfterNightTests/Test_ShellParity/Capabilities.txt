@@ -440,7 +440,7 @@ capability integration.navigation
     title        Frame sources and workflow as two levels of tabs
     shared       ImageIntegrationProcessTest.NestedTabStructure, ImageIntegrationProcessTest.TabWidgetCanNavigateProgrammatically, ImageIntegrationProcessTest.TabNavigationWithKeyboardShortcuts
     classic
-    observatory  pending
+    observatory  IntegrationPage.TheStagesAreAListThatNavigates, StageList.HoldsEveryTabPage, StageList.NavigateActions
 
 capability integration.menus
     title        Its six menus
@@ -488,7 +488,7 @@ capability integration.project-files
     title        Project import, export, recents, presets, Reset Settings
     shared       KeyboardActionsTest.ProjectMenuHasExpectedActionsAndTooltips, ProjectManager.TracksRecentProjects, PresetManagerTest.CanLoadPreset
     classic
-    observatory  pending
+    observatory  IntegrationPage.TheListsFootHoldsTheProjectFile, StageList.TheFootHoldsTheOutputFolderAndTheProjectFilesActs
 
 capability integration.lite
     title        Image Integration Lite

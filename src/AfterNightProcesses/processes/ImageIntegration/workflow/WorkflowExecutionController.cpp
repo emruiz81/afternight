@@ -9,6 +9,7 @@
 #include "processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h"
 #include "processes/ImageIntegration/workflow/WorkflowProgressController.h"
 #include "processes/ImageIntegration/workflow/WorkflowPreparation.h"
+#include "processes/ImageIntegration/workflow/WorkflowRunObserver.h"
 #include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 
 #include "controls/IAppContext.h"
@@ -129,6 +130,19 @@ void openWarningMessage(QWidget* parent, const QString& title, const QString& te
             guard->setRunState(an::ui::ProcessRunState{.phase = an::ui::ProcessRunState::Phase::Succeeded});
         }
     };
+}
+
+/// Tells the widget a workflow is launched from each progress the run reports, when the widget asks to be told
+/// (`IWorkflowRunObserver`), for as long as the widget lives.
+void followRunProgress(WorkflowProgressController& controller, QWidget* parent)
+{
+    auto* const observer = dynamic_cast<IWorkflowRunObserver*>(parent);
+    if (observer == nullptr)
+    {
+        return;
+    }
+    QObject::connect(&controller, &WorkflowProgressController::progressUpdated, parent,
+                     [observer](const WorkflowProgress& progress) { observer->workflowRunProgressed(progress); });
 }
 
 [[nodiscard]] qint64 elapsedMilliseconds(const std::chrono::steady_clock::time_point start)
@@ -297,6 +311,7 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
     auto* controller = new WorkflowProgressController(m_model, applicationSession());
     auto* dialog = new WorkflowProgressDialogV2(controller, m_parent);
     controller->setParent(dialog);
+    followRunProgress(*controller, m_parent);
     dialog->setStages(manifest.stageSequence);
 
     QObject::connect(controller, &WorkflowProgressController::finished, dialog,
@@ -335,6 +350,7 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
     auto* controller = new WorkflowProgressController(m_model, applicationSession());
     auto* dialog = new WorkflowProgressDialogV2(controller, m_parent);
     controller->setParent(dialog);
+    followRunProgress(*controller, m_parent);
     dialog->setStages({trImageIntegrationProcess("Preparing")});
     dialog->onLogMessage(WorkflowLogLevel::Info, trImageIntegrationProcess("Preparing workflow..."));
 

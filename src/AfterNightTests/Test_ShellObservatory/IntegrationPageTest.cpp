@@ -8,7 +8,10 @@
 /// the page and the window's outside it - Ctrl+O adds files with the focus in the page and opens an image with the
 /// focus on the rail; Execute from Ctrl+Enter in the page and from Apply with the focus outside it; an import shown in
 /// the page, paused, resumed and cancelled there, while the rest of the window stays usable; the frame tree's menu, a
-/// settings dialog and the three tools opened from the page; and the page floated to a window of its own.
+/// settings dialog and the three tools opened from the page; the page floated to a window of its own; its stages as a
+/// list that a click, the Navigate menu and its keys move, each row saying where its stage stands; and the list's foot
+/// with the output folder and the project file's acts - export, import, the recent projects, the presets, Reset
+/// Settings.
 
 #include "ObservatoryWindowCase.h"
 
@@ -23,6 +26,7 @@
 #include "app/FileCompanions.h"
 #include "components/AnIconButton.h"
 #include "components/AnIconRail.h"
+#include "components/AnStageList.h"
 #include "components/AnTaskHeader.h"
 #include "controls/IAppContext.h"
 #include "controls/PageShortcutScope.h"
@@ -35,9 +39,12 @@
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/persistence/IntegrationDatabase.h"
 #include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
+#include "processes/ImageIntegration/widgets/StageListNavigator.h"
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
 #include "services/ProcessLaunchService.h"
 #include "tasks/TaskModel.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 
 #include <QAbstractButton>
 #include <QAbstractItemModel>
@@ -51,6 +58,7 @@
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPointer>
@@ -76,6 +84,8 @@ namespace
 
 using an::ui::observatory::IntegrationHubPage;
 using an::ui::shell::Task;
+using ImageIntegration::StageListNavigator;
+using ImageIntegration::StagePage;
 namespace shellIds = an::ui::observatory::ids;
 namespace actionIds = an::ui::shell::ids;
 
@@ -347,6 +357,28 @@ protected:
         return process.findChild<QPushButton*>(QStringLiteral("outputDirectoryBrowseButton"));
     }
 
+    /// The page's stages: the list a page shows them as; null for a process that keeps its tabs.
+    [[nodiscard]] static StageListNavigator* stagesOf(const ImageIntegrationProcess& process)
+    {
+        return dynamic_cast<StageListNavigator*>(process.stageNavigator());
+    }
+
+    /// The row of a stage as the list shows it now; a row with no id for none.
+    [[nodiscard]] static an::ui::StageRow rowOf(const ImageIntegrationProcess& process, const char* id)
+    {
+        if (const StageListNavigator* const stages = stagesOf(process))
+        {
+            for (const an::ui::StageRow& row : stages->list()->rows())
+            {
+                if (row.id == QLatin1String(id))
+                {
+                    return row;
+                }
+            }
+        }
+        return {};
+    }
+
     /// The panel of an import on its way in the page; null for none shown.
     [[nodiscard]] static QWidget* importPanelOf(const ImageIntegrationProcess& process)
     {
@@ -372,10 +404,11 @@ TEST_F(IntegrationPage, OpensAsATaskPageUnderAHeaderThatSaysItsJob)
     const an::ui::ProcessPageLayout* const layout = process->pageLayout();
     ASSERT_NE(layout, nullptr);
     ASSERT_NE(layout->fullArea(), nullptr);
-    const auto* const tabs = process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
-    ASSERT_NE(tabs, nullptr);
-    EXPECT_TRUE(layout->fullArea()->isAncestorOf(tabs));
-    EXPECT_TRUE(tabs->isVisibleTo(page));
+    const StageListNavigator* const stages = stagesOf(*process);
+    ASSERT_NE(stages, nullptr) << "its stages are a list";
+    EXPECT_TRUE(layout->fullArea()->isAncestorOf(stages->widget()));
+    EXPECT_TRUE(stages->widget()->isVisibleTo(page));
+    EXPECT_EQ(process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget")), nullptr) << "no tabs on a page";
     EXPECT_FALSE(process->findChild<QMenuBar*>(QStringLiteral("mainMenuBar"))->isVisibleTo(process));
 
     an::ui::AnTaskHeader* const header = page->header();
@@ -551,7 +584,8 @@ TEST_F(IntegrationPage, ImportShowsProgressInPlace)
     an::tests::app::answerEveryMessageBox(said);
     QAction* const addFiles = actionOf(*process, QStringLiteral("Auto-sort by file type..."));
     ASSERT_NE(addFiles, nullptr);
-    const auto* const tabs = process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
+    ASSERT_NE(process->stageNavigator(), nullptr);
+    const QWidget* const tabs = process->stageNavigator()->widget();
     ASSERT_NE(tabs, nullptr);
 
     an::tests::app::Answered chosen;
@@ -627,10 +661,9 @@ TEST_F(IntegrationPage, TheFrameTreeMenuOpensOnThePageAndBlinks)
     ASSERT_NE(process, nullptr);
     ASSERT_TRUE(process->isPresentedAsPage());
     addLights(*process, files);
-    auto* const sources = process->findChild<QTabWidget*>(QStringLiteral("sourceTabWidget"));
     auto* const lights = process->findChild<QWidget*>(QStringLiteral("lightTab"));
-    ASSERT_TRUE(sources != nullptr && lights != nullptr);
-    sources->setCurrentWidget(lights);
+    ASSERT_TRUE(process->stageNavigator() != nullptr && lights != nullptr);
+    process->stageNavigator()->setCurrentPage(StagePage::Lights);
     settle();
     auto* const tree = lights->findChild<QTreeView*>();
     ASSERT_NE(tree, nullptr);
@@ -705,12 +738,9 @@ TEST_F(IntegrationPage, ASettingsDialogAndTheToolsOpenFromThePage)
     ASSERT_TRUE(process->isPresentedAsPage());
     const auto said = std::make_shared<an::tests::app::Answered>();
     addLights(*process, files);
-    auto* const root = process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
-    auto* const workflow = process->findChild<QTabWidget*>(QStringLiteral("workflowTabWidget"));
     auto* const registration = process->findChild<QWidget*>(QStringLiteral("registrationTab"));
-    ASSERT_TRUE(root != nullptr && workflow != nullptr && registration != nullptr);
-    root->setCurrentIndex(1);
-    workflow->setCurrentWidget(registration);
+    ASSERT_TRUE(process->stageNavigator() != nullptr && registration != nullptr);
+    process->stageNavigator()->setCurrentPage(StagePage::Registration);
     settle();
     auto* const groups = registration->findChild<QTableWidget*>(QStringLiteral("tblRegistrationGroups"));
     ASSERT_NE(groups, nullptr);
@@ -804,6 +834,198 @@ TEST_F(IntegrationPage, FloatedItIsTheSamePageWithItsKeys)
     settle();
     EXPECT_TRUE(window().isTaskPageShown());
     EXPECT_FALSE(page->header()->isFloating());
+}
+
+// The page's stages are a list at its left, in place of the window's tabs: a click on a row shows its page, the
+// Navigate menu under the header's button and its keys in the page move the selection, and each row says where its
+// stage stands - a source with no frames not started, the lights ready once there are some.
+TEST_F(IntegrationPage, TheStagesAreAListThatNavigates)
+{
+    ImageIntegrationProcess* const process = launch();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    StageListNavigator* const stages = stagesOf(*process);
+    ASSERT_NE(stages, nullptr);
+    an::ui::AnStageList* const list = stages->list();
+    ASSERT_TRUE(list->isVisibleTo(page));
+    EXPECT_EQ(stages->column()->width(), an::ui::parts::kStageColumnWidth);
+    EXPECT_EQ(stages->column()->mapTo(process, QPoint(0, 0)).x(), 0) << "the list is at the page's left";
+    ASSERT_EQ(list->rowCount(), 10);
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("bias")) << "it opens on the page the window opens on";
+
+    // A click on a row shows its page.
+    const auto click = [list](const int row) {
+        QTest::mouseClick(list->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          list->visualRect(list->model()->index(row, 0)).center());
+        settle();
+    };
+    click(5);
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("registration"));
+    EXPECT_EQ(stages->currentPage(), StagePage::Registration);
+    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("registrationTab"))->isVisibleTo(page));
+    EXPECT_FALSE(process->findChild<QWidget*>(QStringLiteral("biasTab"))->isVisibleTo(page));
+    click(7);
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("drizzle"));
+    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("stackingTab"))->isVisibleTo(page))
+        << "drizzle's settings are the stacking page's";
+
+    // The Navigate menu, under the header's button, moves the selection.
+    std::unique_ptr<QMenu> menu(page->makeProcessMenu(nullptr));
+    QAction* toSummary = nullptr;
+    QAction* toLights = nullptr;
+    for (const QAction* top : menu->actions())
+    {
+        if (entryText(*top) != QStringLiteral("Navigate") || top->menu() == nullptr)
+        {
+            continue;
+        }
+        for (QAction* entry : top->menu()->actions())
+        {
+            if (entryText(*entry) == QStringLiteral("Summary"))
+            {
+                toSummary = entry;
+            }
+            if (entryText(*entry) == QStringLiteral("Lights"))
+            {
+                toLights = entry;
+            }
+        }
+    }
+    ASSERT_TRUE(toSummary != nullptr && toLights != nullptr);
+    toSummary->trigger();
+    settle();
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("summary"));
+    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("summaryTab"))->isVisibleTo(page));
+
+    // Its keys are the page's: Ctrl+4 shows the lights.
+    QPushButton* const inside = insideOf(*process);
+    ASSERT_NE(inside, nullptr);
+    ASSERT_TRUE(inside->isVisibleTo(page));
+    press(*inside, Qt::Key_4, Qt::ControlModifier);
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("lights"));
+    EXPECT_TRUE(process->findChild<QWidget*>(QStringLiteral("lightTab"))->isVisibleTo(page));
+
+    // The rows follow the job.
+    // A job with no lights cannot run: its validation says so of the lights' page, and the row with it.
+    EXPECT_EQ(rowOf(*process, "lights").line, QStringLiteral("1 issue · no frames"));
+    EXPECT_EQ(rowOf(*process, "lights").status, an::ui::StageStatus::Failed);
+    EXPECT_FALSE(rowOf(*process, "lights").toolTip.isEmpty()) << "the issue is spelled out in the row's tooltip";
+    EXPECT_EQ(rowOf(*process, "darks").line, QStringLiteral("no frames"));
+    EXPECT_EQ(rowOf(*process, "darks").status, an::ui::StageStatus::Pending);
+    QTemporaryDir output(QDir(folder()).filePath(QStringLiteral("stages-XXXXXX")));
+    ASSERT_TRUE(output.isValid());
+    process->model()->setOutputDirectory(output.path());
+    addLights(*process,
+              {QDir(folder()).filePath(QStringLiteral("s1.fit")), QDir(folder()).filePath(QStringLiteral("s2.fit")),
+               QDir(folder()).filePath(QStringLiteral("s3.fit"))});
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() { return rowOf(*process, "stacking").status == an::ui::StageStatus::Ready; }, kWaitMs))
+        << rowOf(*process, "stacking").line.toStdString();
+    EXPECT_EQ(rowOf(*process, "lights").status, an::ui::StageStatus::Ready);
+    EXPECT_EQ(rowOf(*process, "lights").line, QStringLiteral("3 frames \u00B7 1 group"));
+    EXPECT_EQ(rowOf(*process, "registration").status, an::ui::StageStatus::Ready);
+    EXPECT_EQ(rowOf(*process, "darks").status, an::ui::StageStatus::Pending);
+
+    // Floated, the same list in the task's window.
+    const Task* const task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    const an::ui::shell::TaskId id = task->id;
+    ASSERT_TRUE(window().floatTask(id));
+    settle();
+    EXPECT_EQ(stagesOf(*process), stages) << "floated, the page keeps its list";
+    EXPECT_EQ(stages->currentRow(), QStringLiteral("lights"));
+    ASSERT_TRUE(window().attachTask(id));
+    settle();
+}
+
+// The list's foot holds the job's output folder and the project file's acts: Export writes the job to a file, which
+// is then the first of the recent projects; Reset Settings asks and resets; Import reads a project file back into the
+// job; and the presets are the Project menu's.
+TEST_F(IntegrationPage, TheListsFootHoldsTheProjectFile)
+{
+    ImageIntegrationProcess* const process = launch();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_NE(page, nullptr);
+    StageListNavigator* const stages = stagesOf(*process);
+    ASSERT_NE(stages, nullptr);
+    const auto said = std::make_shared<an::tests::app::Answered>();
+    an::tests::app::answerEveryMessageBox(said);
+
+    // The output folder is the foot's field; the window's foot is not shown.
+    auto* const edit = process->findChild<QLineEdit*>(QStringLiteral("outputDirectoryEdit"));
+    ASSERT_NE(edit, nullptr);
+    EXPECT_TRUE(stages->foot()->isAncestorOf(edit));
+    EXPECT_TRUE(edit->isVisibleTo(page));
+    EXPECT_FALSE(process->findChild<QWidget*>(QStringLiteral("bottomActionBar"))->isVisibleTo(page));
+    QTemporaryDir output(QDir(folder()).filePath(QStringLiteral("foot-XXXXXX")));
+    ASSERT_TRUE(output.isValid());
+    process->model()->setOutputDirectory(output.path());
+    settle();
+    EXPECT_EQ(QDir::cleanPath(edit->text()), QDir::cleanPath(output.path()));
+
+    const QList<QAbstractButton*> buttons = stages->footButtons();
+    ASSERT_EQ(buttons.size(), 5);
+    for (const QAbstractButton* button : buttons)
+    {
+        EXPECT_TRUE(button->isVisibleTo(page)) << button->text().toStdString();
+        EXPECT_TRUE(button->isEnabled()) << button->text().toStdString();
+    }
+    addLights(*process,
+              {QDir(folder()).filePath(QStringLiteral("p1.fit")), QDir(folder()).filePath(QStringLiteral("p2.fit"))});
+    ASSERT_EQ(framesOf(*process), 2);
+
+    // Export...: the job is written to the file chosen, and the file is the first of the recent projects.
+    const QString file = QDir(output.path()).filePath(QStringLiteral("carina.json"));
+    an::tests::app::Answered chosen;
+    an::tests::app::chooseInTheNextFileDialog({file}, &chosen);
+    buttons[1]->click();
+    ASSERT_TRUE(chosen.seen) << "Export... asks for the file";
+    EXPECT_EQ(chosen.title, QStringLiteral("Export Project"));
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return QFileInfo::exists(file); }, kWaitMs))
+        << "the project file is written";
+    settle();
+    auto* const recent = qobject_cast<QPushButton*>(buttons[2]);
+    ASSERT_TRUE(recent != nullptr && recent->menu() != nullptr);
+    ASSERT_FALSE(recent->menu()->actions().isEmpty());
+    EXPECT_TRUE(entryText(*recent->menu()->actions().front()).contains(QStringLiteral("carina")))
+        << entryText(*recent->menu()->actions().front()).toStdString();
+    ASSERT_FALSE(process->recentProjects().isEmpty());
+    EXPECT_EQ(QDir::cleanPath(process->recentProjects().front()), QDir::cleanPath(file));
+
+    // The presets are the Project menu's: Save Preset..., and the presets to load and to delete.
+    auto* const presets = qobject_cast<QPushButton*>(buttons[3]);
+    ASSERT_TRUE(presets != nullptr && presets->menu() != nullptr);
+    QStringList offered;
+    for (const QAction* entry : presets->menu()->actions())
+    {
+        offered.append(entryText(*entry));
+    }
+    EXPECT_EQ(offered, (QStringList{QStringLiteral("Save Preset..."), QStringLiteral("Load Preset..."),
+                                    QStringLiteral("Delete Preset...")}));
+
+    // Import...: the frames go, and the file brings them back.
+    process->model()->removeFrames(FrameType::Light, {QDir(folder()).filePath(QStringLiteral("p1.fit")),
+                                                      QDir(folder()).filePath(QStringLiteral("p2.fit"))});
+    settle();
+    ASSERT_EQ(framesOf(*process), 0);
+    an::tests::app::Answered imported;
+    an::tests::app::chooseInTheNextFileDialog({file}, &imported);
+    buttons[0]->click();
+    ASSERT_TRUE(imported.seen) << "Import... asks for the file";
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return framesOf(*process) == 2; }, kWaitMs))
+        << "the project file's frames are the job's again";
+
+    // Reset Settings... is the Project menu's act: it asks before it resets.
+    said->seen = false;
+    buttons[4]->click();
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return said->seen; }, kWaitMs))
+        << "Reset Settings... asks before it resets";
+    settle();
+    EXPECT_EQ(framesOf(*process), 2) << "a reset keeps the frames";
 }
 
 } // namespace an::tests::observatory

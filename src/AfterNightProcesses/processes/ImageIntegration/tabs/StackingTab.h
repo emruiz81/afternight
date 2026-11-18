@@ -51,6 +51,11 @@ public:
     [[nodiscard]] bool isCombineRgbImagesEnabled() const;
     [[nodiscard]] int maxParallelCores() const;
 
+    /// Lays the execution options in two rows - what a run writes and reads, then what it may use of the machine -
+    /// where the window lays them in one: a page of a main window is narrower than that row. The options are the same
+    /// widgets, in the same card.
+    void layExecutionOptionsInRows();
+
 public slots:
     void refreshAll();
     void showFrameInTable(const QString& framePath);

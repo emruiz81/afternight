@@ -1772,6 +1772,35 @@ bool StackingTab::isCombineRgbImagesEnabled() const
            m_impl->ui.chkCombineRgbImages->isChecked();
 }
 
+void StackingTab::layExecutionOptionsInRows()
+{
+    auto& ui = m_impl->ui;
+    QHBoxLayout* const row = ui.horizontalLayoutOptions;
+    QVBoxLayout* const card = ui.verticalLayout_3;
+    const int at = row != nullptr && card != nullptr ? card->indexOf(row) : -1;
+    if (at < 0 || card->findChild<QHBoxLayout*>(QStringLiteral("horizontalLayoutMachineOptions")) != nullptr)
+    {
+        return;
+    }
+    // What a run writes and reads stays in the first row; what it may use of the machine goes to a second.
+    auto* machine = new QHBoxLayout();
+    machine->setObjectName(QStringLiteral("horizontalLayoutMachineOptions"));
+    machine->setSpacing(row->spacing());
+    for (QWidget* const option :
+         {static_cast<QWidget*>(ui.chkSaveCalibratedFrames), static_cast<QWidget*>(ui.chkLimitMemory),
+          static_cast<QWidget*>(ui.spinMaxMemory), static_cast<QWidget*>(ui.lblMaxParallelCores),
+          static_cast<QWidget*>(ui.spinMaxParallelCores)})
+    {
+        if (option != nullptr)
+        {
+            row->removeWidget(option);
+            machine->addWidget(option);
+        }
+    }
+    machine->addStretch(1);
+    card->insertLayout(at + 1, machine);
+}
+
 int StackingTab::maxParallelCores() const
 {
     if (!m_impl || !m_impl->ui.spinMaxParallelCores)

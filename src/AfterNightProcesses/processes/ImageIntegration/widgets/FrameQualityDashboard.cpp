@@ -56,6 +56,7 @@ W_OBJECT_IMPL(FrameQualityDashboard)
 #include "processes/ImageIntegration/core/MathUtils.h"
 #include "processes/ImageIntegration/ui_models/GroupTreeModel.h"
 #include "processes/ImageIntegration/widgets/FrameTreeView.h"
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
 #include "theme/AnDesignTokens.h"
 #include "processes/ImageIntegration/widgets/FrameQualityDashboardColumns.h"
 #include "processes/ImageIntegration/widgets/WeightHistogramWidget.h"
@@ -976,21 +977,12 @@ void FrameQualityDashboard::showInLightsTree(const QString& canonicalPath)
         return;
     }
 
-    // Navigate to the Lights tab so the selection is visible in the tree.
-    // sourceTabWidget indices: Bias=0, Darks=1, Flats=2, Lights=3, ...
-    QWidget* top = window();
-    auto* rootTabs = top ? top->findChild<QTabWidget*>(QStringLiteral("rootTabWidget")) : nullptr;
-    auto* sourceTabs = top ? top->findChild<QTabWidget*>(QStringLiteral("sourceTabWidget")) : nullptr;
-    auto* mainTabs = top ? top->findChild<QTabWidget*>(QStringLiteral("mainTabWidget")) : nullptr;
-    if (rootTabs)
+    // Show the lights' page, whatever moves between the pages, so the selection is visible in the tree.
+    ImageIntegration::StageNavigator* const pages = ImageIntegration::StageNavigator::of(this);
+    const QPointer<QWidget> lights = pages != nullptr ? pages->page(ImageIntegration::StagePage::Lights) : nullptr;
+    if (pages != nullptr)
     {
-        rootTabs->setCurrentIndex(0); // Frame Sources
-    }
-
-    auto* tabs = sourceTabs ? sourceTabs : mainTabs;
-    if (tabs)
-    {
-        tabs->setCurrentIndex(static_cast<int>(FrameType::Light));
+        pages->setCurrentPage(ImageIntegration::StagePage::Lights);
     }
 
     // Trigger normal selection sync (preview, model state).
@@ -1001,19 +993,13 @@ void FrameQualityDashboard::showInLightsTree(const QString& canonicalPath)
 
     // Ensure the tree actually expands and scrolls to the frame.
     // Selecting an index that is under a collapsed group doesn't make it visible.
-    QTimer::singleShot(0, this, [tabs, path]() {
-        if (!tabs)
+    QTimer::singleShot(0, this, [lights, path]() {
+        if (lights.isNull())
         {
             return;
         }
 
-        QWidget* lightTabWidget = tabs->widget(static_cast<int>(FrameType::Light));
-        if (!lightTabWidget)
-        {
-            return;
-        }
-
-        auto* tree = lightTabWidget->findChild<FrameTreeView*>();
+        auto* tree = lights->findChild<FrameTreeView*>();
         if (!tree || !tree->selectionModel())
         {
             return;
