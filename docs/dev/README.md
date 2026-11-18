@@ -21,6 +21,8 @@ works; there are no decision records.
   hosts, the runtime backend's contract and the licensing boundary between them.
 - [PLUGIN_SDK_SUPPORTED_DOMAIN_MATRIX.md](PLUGIN_SDK_SUPPORTED_DOMAIN_MATRIX.md) - which SDK domains each backend
   publishes.
+- [EXTENSION_PANEL_KINDS.md](EXTENSION_PANEL_KINDS.md) - every kind an extension's panel may hold, each field and the
+  bounds a panel is held to; generated from its record.
 - [THEME_SYSTEM.md](THEME_SYSTEM.md) - the UI theme: design tokens, the proxy styles and the rules every widget
   follows.
 

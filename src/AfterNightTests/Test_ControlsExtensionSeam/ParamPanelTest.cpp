@@ -499,6 +499,88 @@ TEST(ParamPanel, TheFirstHistogramIsTheHostsAndItsResolutionIsSaid)
     EXPECT_EQ(chosen.size(), 2u);
 }
 
+// A tree of widgets is the panel's too: each widget built with its range, step and value, its value the panel's, a
+// patch of it taken without a word, and a person's change said through the panel's one event.
+TEST(ParamPanel, EachWidgetOfATreeBuildsItsControl)
+{
+    const QCborArray options{QCborValue(QCborArray{QStringLiteral("Fast"), QStringLiteral("fast")}),
+                             QStringLiteral("slow")};
+    const QCborMap root{
+        {QStringLiteral("widget"), QStringLiteral("column")},
+        {QStringLiteral("children"),
+         QCborArray{
+             QCborMap{{QStringLiteral("widget"), QStringLiteral("spin_double")},
+                      {QStringLiteral("id"), QStringLiteral("gain")},
+                      {QStringLiteral("min"), -1.0},
+                      {QStringLiteral("max"), 4.0},
+                      {QStringLiteral("step"), 0.25},
+                      {QStringLiteral("value"), 1.5}},
+             QCborMap{{QStringLiteral("widget"), QStringLiteral("spin_int")},
+                      {QStringLiteral("id"), QStringLiteral("count")},
+                      {QStringLiteral("min"), 2},
+                      {QStringLiteral("max"), 8},
+                      {QStringLiteral("value"), 5}},
+             QCborMap{{QStringLiteral("widget"), QStringLiteral("checkbox")},
+                      {QStringLiteral("id"), QStringLiteral("gpu")},
+                      {QStringLiteral("value"), true}},
+             QCborMap{{QStringLiteral("widget"), QStringLiteral("combo")},
+                      {QStringLiteral("id"), QStringLiteral("mode")},
+                      {QStringLiteral("options"), options},
+                      {QStringLiteral("value"), QStringLiteral("slow")}},
+             QCborMap{{QStringLiteral("widget"), QStringLiteral("line_edit")},
+                      {QStringLiteral("id"), QStringLiteral("name")},
+                      {QStringLiteral("value"), QStringLiteral("M31")}},
+         }},
+    };
+    ExtensionPanelDescription description;
+    std::string error;
+    ASSERT_TRUE(an::ui::extensions::panelDescriptionFromWidgetTree(root, &description, &error)) << error;
+    ExtensionParamPanel panel;
+    ASSERT_TRUE(panel.setDescription(description, &error)) << error;
+    Listener listener(panel);
+
+    auto* gain =
+        qobject_cast<QDoubleSpinBox*>(panel.treeWidget(QStringLiteral("gain"))
+                                          ->findChild<QDoubleSpinBox*>(QStringLiteral("anExtensionUiDoubleSpinBox")));
+    ASSERT_NE(gain, nullptr);
+    EXPECT_DOUBLE_EQ(gain->minimum(), -1.0);
+    EXPECT_DOUBLE_EQ(gain->maximum(), 4.0);
+    EXPECT_DOUBLE_EQ(gain->singleStep(), 0.25);
+    EXPECT_DOUBLE_EQ(gain->value(), 1.5);
+    auto* count =
+        panel.treeWidget(QStringLiteral("count"))->findChild<QSpinBox*>(QStringLiteral("anExtensionUiSpinBox"));
+    ASSERT_NE(count, nullptr);
+    EXPECT_EQ(count->minimum(), 2);
+    EXPECT_EQ(count->maximum(), 8);
+    EXPECT_EQ(count->value(), 5);
+    EXPECT_EQ(panel.treeWidgetIds(),
+              (QStringList{QStringLiteral("gain"), QStringLiteral("count"), QStringLiteral("gpu"),
+                           QStringLiteral("mode"), QStringLiteral("name")}));
+
+    const QCborMap values = panel.values();
+    EXPECT_DOUBLE_EQ(values.value(QStringLiteral("gain")).toDouble(), 1.5);
+    EXPECT_EQ(values.value(QStringLiteral("count")).toInteger(), 5);
+    EXPECT_TRUE(values.value(QStringLiteral("gpu")).toBool());
+    EXPECT_EQ(values.value(QStringLiteral("mode")).toString(), QStringLiteral("slow"));
+    EXPECT_EQ(values.value(QStringLiteral("name")).toString(), QStringLiteral("M31"));
+
+    ASSERT_TRUE(panel.applyPatches({{QStringLiteral("count"), QStringLiteral("value"), 7},
+                                    {QStringLiteral("gpu"), QStringLiteral("enabled"), false}},
+                                   &error))
+        << error;
+    EXPECT_EQ(count->value(), 7);
+    EXPECT_FALSE(panel.treeWidget(QStringLiteral("gpu"))->isEnabledTo(&panel));
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(listener.said.empty()) << "a patch says nothing";
+
+    count->setValue(3);
+    QCoreApplication::processEvents();
+    ASSERT_EQ(listener.said.size(), 1u);
+    EXPECT_EQ(listener.said[0].id, QStringLiteral("count"));
+    EXPECT_EQ(listener.said[0].name, QStringLiteral("value_changed"));
+    EXPECT_EQ(listener.said[0].value.toInteger(), 3);
+}
+
 // The panel is drawn from the tokens of the look in force: its controls are a control high in each density, and a
 // banner's tone bar is the tone's colour - under dark, light and a tinted preset, at every device pixel ratio.
 TEST(ParamPanel, RendersFromTheTokensInEachLookAndDensity)

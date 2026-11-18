@@ -1234,6 +1234,15 @@ private:
         {
             return refuse(nodeName(node) + " holds children, which a " + kind->name + " does not");
         }
+        for (const PanelNode& child : node.children)
+        {
+            const PanelKindSpec* childKind = panelKind(child.kind);
+            if (childKind != nullptr && childKind->vocabulary != kind->vocabulary)
+            {
+                return refuse(nodeName(node) + " holds a " + child.kind.toStdString() +
+                              ", a kind of the other vocabulary: a group holds nodes of its own");
+            }
+        }
         for (auto it = node.fields.begin(); it != node.fields.end(); ++it)
         {
             const QString name = it.key().toString();

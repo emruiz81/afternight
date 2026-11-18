@@ -118,9 +118,10 @@ INTERNAL_REQUIRED_SETTINGS = {
 
 GUIDES_DIR = 'docs/dev/guides'
 GUIDES_INDEX = GUIDES_DIR + '/README.md'
-# Documents outside the guides directory that are read as guides: what is true of every header, and
-# the page the generated reference opens on.
-EXTRA_GUIDES = ('docs/dev/PUBLIC_API_CONTRACT.md', 'build/doxygen/AfterNightEngine.mainpage.md')
+# Documents outside the guides directory that are read as guides: what is true of every header, the
+# page the generated reference opens on, and the extension author's reference of a panel's kinds.
+EXTRA_GUIDES = ('docs/dev/PUBLIC_API_CONTRACT.md', 'build/doxygen/AfterNightEngine.mainpage.md',
+                'docs/dev/EXTENSION_PANEL_KINDS.md')
 
 TOOL_UNUSABLE = 2
 PROBLEMS_FOUND = 1

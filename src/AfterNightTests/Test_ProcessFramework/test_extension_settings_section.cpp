@@ -12,6 +12,7 @@
 #include "app/ExtensionSdkService.h"
 #include "components/AnCardWidget.h"
 #include "components/AnInfoBanner.h"
+#include "controls/ExtensionParamPanel.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/PersistenceDbExecutor.h"
 #include "controls/settings/ExtensionSettingsSection.h"
@@ -150,6 +151,47 @@ an::ui::AnInfoBanner* findInfoBannerByObjectName(QWidget& root, const QString& o
 } // anonymous namespace
 
 // Saving writes each field's value under the extension's own scope.
+// The section is drawn by the extension's panel: its host is an ExtensionParamPanel whose description is the settings'
+// tree - a column of the fields' widgets - whose values are the section's, and whose one event says a person's change.
+TEST(SettingsSection, BuildsThroughThePanel)
+{
+    PersistenceDbExecutor executor(QStringLiteral(":memory:"), QStringLiteral("extension_settings_section_panel_test"));
+    ASSERT_TRUE(executor.isOpen());
+    GlobalSettingsPersistence settings(executor);
+    ASSERT_TRUE(settings.initializeTable());
+
+    ExtensionSettingsSection section(&settings);
+    std::string error;
+    ASSERT_TRUE(section.bindExtension(makeSettingsResult(), &error)) << error;
+
+    auto* panel = dynamic_cast<an::ui::extensions::ExtensionParamPanel*>(section.widgetHost());
+    ASSERT_NE(panel, nullptr);
+    ASSERT_TRUE(panel->description().has_value());
+    const std::vector<an::ui::extensions::PanelNode>& nodes = panel->description()->nodes;
+    ASSERT_EQ(nodes.size(), 1u);
+    EXPECT_EQ(nodes[0].kind, QStringLiteral("column"));
+    ASSERT_EQ(nodes[0].children.size(), 2u);
+    EXPECT_EQ(nodes[0].children[0].kind, QStringLiteral("checkbox"));
+    EXPECT_EQ(nodes[0].children[0].id(), QStringLiteral("gpu_enabled"));
+    EXPECT_EQ(nodes[0].children[1].kind, QStringLiteral("dir_picker"));
+    EXPECT_EQ(nodes[0].children[1].id(), QStringLiteral("models_dir"));
+    EXPECT_EQ(panel->treeWidgetIds(), (QStringList{QStringLiteral("gpu_enabled"), QStringLiteral("models_dir")}));
+
+    QCborMap snapshot;
+    ASSERT_TRUE(section.widgetHost()->snapshotValidationParams(&snapshot, &error)) << error;
+    EXPECT_EQ(panel->values(), snapshot);
+    EXPECT_TRUE(snapshot.value(QStringLiteral("gpu_enabled")).toBool());
+
+    QStringList said;
+    QObject::connect(panel, &an::ui::extensions::ExtensionParamPanel::controlEvent, panel,
+                     [&said](const QString& id, const QString& name, const QCborValue&, bool) {
+                         said.append(id + QLatin1Char(' ') + name);
+                     });
+    findSettingsCheckBoxById(panel, QStringLiteral("gpu_enabled"))->click();
+    EXPECT_EQ(said, QStringList{QStringLiteral("gpu_enabled value_changed")});
+    EXPECT_FALSE(panel->values().value(QStringLiteral("gpu_enabled")).toBool());
+}
+
 TEST(ExtensionSettingsSectionTest, SaveSettingsPersistsExtensionScopedValues)
 {
     PersistenceDbExecutor executor(QStringLiteral(":memory:"), QStringLiteral("extension_settings_section_test"));

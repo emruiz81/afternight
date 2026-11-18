@@ -4,9 +4,11 @@
 /// @file
 /// An extension's panel as data: every kind of both vocabularies read with its fields, each bound refused with its
 /// reason, a kind or a field the panel does not know refused by name, a description written and read back the same,
-/// and a process window's list read into the tree the window draws.
+/// and a process window's list read into the tree the window draws. The kinds and their fields are held to a record,
+/// `data/PanelKinds.txt`, from which the extension author's reference is generated.
 
 #include "controls/ExtensionPanelDescription.h"
+#include "fixtures/BaselineRecord.h"
 
 #include <QCborArray>
 #include <QCborMap>
@@ -23,6 +25,8 @@
 namespace
 {
 
+using an::tests::fixtures::baselineEntry;
+using an::tests::fixtures::BaselineRecord;
 using an::ui::extensions::ExtensionPanelDescription;
 using an::ui::extensions::panelDescriptionFromCbor;
 using an::ui::extensions::panelDescriptionFromParamDefs;
@@ -36,6 +40,7 @@ using an::ui::extensions::PanelKindSpec;
 using an::ui::extensions::PanelNode;
 using an::ui::extensions::PanelReadingNotes;
 using an::ui::extensions::PanelVariant;
+using an::ui::extensions::PanelVocabulary;
 using an::ui::extensions::validatePanelDescription;
 namespace panel_limits = an::ui::extensions::panel_limits;
 
@@ -97,8 +102,11 @@ QCborMap everyFieldOf(const PanelKindSpec& kind)
     }
     if (kind.holdsChildren)
     {
+        // A child of the group's own vocabulary.
+        const bool widgets = kind.vocabulary == an::ui::extensions::PanelVocabulary::Widgets;
         node.insert(QStringLiteral("children"),
-                    QCborArray{QCborMap{{QStringLiteral("kind"), QStringLiteral("column")}}});
+                    QCborArray{QCborMap{
+                        {QStringLiteral("kind"), widgets ? QStringLiteral("column") : QStringLiteral("info")}}});
     }
     return node;
 }
@@ -359,6 +367,126 @@ TEST(PanelDescription, AProcessWindowsListReadsAsTheWindowDrawsIt)
     ASSERT_EQ(notes.leftOut.size(), 2);
     EXPECT_TRUE(notes.leftOut[0].contains(QStringLiteral("no id")));
     EXPECT_TRUE(notes.leftOut[1].contains(QStringLiteral("'unknown'")));
+}
+
+TEST(PanelDescription, AGroupHoldsNodesOfItsOwnVocabulary)
+{
+    const QCborMap mixed{
+        {QStringLiteral("kind"), QStringLiteral("section")},
+        {QStringLiteral("children"), QCborArray{QCborMap{{QStringLiteral("kind"), QStringLiteral("checkbox")}}}}};
+    EXPECT_NE(refusalOf(descriptionOf({mixed})).find("other vocabulary"), std::string::npos);
+
+    // At the top of the panel the two may stand side by side.
+    ExtensionPanelDescription read;
+    std::string error;
+    EXPECT_TRUE(panelDescriptionFromCbor(
+        descriptionOf({floatNode(QStringLiteral("strength")),
+                       QCborMap{{QStringLiteral("kind"), QStringLiteral("column")},
+                                {QStringLiteral("children"),
+                                 QCborArray{QCborMap{{QStringLiteral("kind"), QStringLiteral("checkbox")}}}}}}),
+        &read, &error))
+        << error;
+}
+
+/// The record of the kinds, from the repository's root.
+constexpr const char* kPanelKindsPath = "src/AfterNightTests/Test_ControlsExtensionSeam/data/PanelKinds.txt";
+
+QStringList panelKindsPreamble()
+{
+    return {
+        QStringLiteral("Every kind a description of an extension's panel may hold, each field of it and the bounds a"),
+        QStringLiteral("description is held to: what panelKinds() of controls/ExtensionPanelDescription.h declares."),
+        QStringLiteral("docs/dev/EXTENSION_PANEL_KINDS.md, the extension author's reference, is generated from this"),
+        QStringLiteral("record by build/scripts/tools/panel_kinds_reference.py."),
+        QString(),
+        QStringLiteral("limits      name | value | what it bounds"),
+        QStringLiteral("parameters  the kinds of a process window's list; widgets, those of a tree of widgets:"),
+        QStringLiteral("              kind | role | holds children | aliases | what it is"),
+        QStringLiteral("                  field | what it holds | when absent | bound | what it does"),
+    };
+}
+
+QStringList limitEntries()
+{
+    namespace limits = an::ui::extensions::panel_limits;
+    const auto entry = [](const char* name, const int value, const char* meaning) {
+        return baselineEntry({QString::fromLatin1(name), QString::number(value), QString::fromLatin1(meaning)});
+    };
+    return {
+        entry("nodes", limits::kMaxNodes, "How many nodes a description may hold, groups and what they hold counted."),
+        entry("depth", limits::kMaxDepth, "How deep groups may nest."),
+        entry("short text", limits::kMaxShortText, "The characters of an id, a label, a title or a placeholder."),
+        entry("long text", limits::kMaxLongText,
+              "The characters of a prose text: a banner's message, a tooltip, a description."),
+        entry("console text", limits::kMaxConsoleText, "The characters of a console's text."),
+        entry("entries of a choice", limits::kMaxOptions, "The entries of a choice, a combo box or a button group."),
+        entry("entries of a list", limits::kMaxEntries, "The entries of any other list: points, ranges, rows."),
+    };
+}
+
+/// A field's bound as the record writes it: characters of a text, entries of a list, nothing for a number.
+QString boundOf(const an::ui::extensions::PanelFieldSpec& field)
+{
+    switch (field.type)
+    {
+    case PanelFieldType::Text:
+    case PanelFieldType::Scalar:
+    case PanelFieldType::Condition:
+    case PanelFieldType::Lines:
+        return QStringLiteral("%1 characters").arg(field.limit);
+    case PanelFieldType::Options:
+    case PanelFieldType::Integers:
+    case PanelFieldType::Points:
+    case PanelFieldType::Ranges:
+    case PanelFieldType::Actions:
+    case PanelFieldType::Vectors:
+    case PanelFieldType::Columns:
+    case PanelFieldType::Rows:
+        return QStringLiteral("%1 entries").arg(field.limit);
+    case PanelFieldType::Number:
+    case PanelFieldType::Integer:
+    case PanelFieldType::Boolean:
+        break;
+    }
+    return {};
+}
+
+QStringList kindEntries(const PanelVocabulary vocabulary)
+{
+    QStringList entries;
+    for (const PanelKindSpec& kind : panelKinds())
+    {
+        if (kind.vocabulary != vocabulary)
+        {
+            continue;
+        }
+        QStringList aliases;
+        for (const char* alias : kind.aliases)
+        {
+            aliases.append(QString::fromLatin1(alias));
+        }
+        entries.append(baselineEntry({QString::fromLatin1(kind.name),
+                                      QString::fromLatin1(an::ui::extensions::panelKindRoleName(kind.role)),
+                                      kind.holdsChildren ? QStringLiteral("holds children") : QString(),
+                                      aliases.join(QStringLiteral(", ")), QString::fromUtf8(kind.meaning)}));
+        for (const PanelFieldSpec& field : kind.fields)
+        {
+            entries.append(
+                baselineEntry({QString::fromLatin1(field.name),
+                               QString::fromLatin1(an::ui::extensions::panelFieldTypeName(field.type)),
+                               QString::fromUtf8(field.absent), boundOf(field), QString::fromUtf8(field.meaning)},
+                              1));
+        }
+    }
+    return entries;
+}
+
+TEST(PanelDescription, KindsMatchTheRecord)
+{
+    BaselineRecord record(QString::fromLatin1(kPanelKindsPath), panelKindsPreamble());
+    EXPECT_TRUE(record.matches(QStringLiteral("limits"), limitEntries()));
+    EXPECT_TRUE(record.matches(QStringLiteral("parameters"), kindEntries(PanelVocabulary::Parameters)));
+    EXPECT_TRUE(record.matches(QStringLiteral("widgets"), kindEntries(PanelVocabulary::Widgets)));
 }
 
 TEST(PanelDescription, AWidgetTreeReadsAsOneNode)

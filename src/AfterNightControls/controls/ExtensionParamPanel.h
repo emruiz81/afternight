@@ -7,12 +7,12 @@
 /// The controls of an extension's panel, built from its description.
 ///
 /// `ExtensionParamPanel` turns an `ExtensionPanelDescription` into controls: each kind its own, drawn as the process
-/// window has always drawn it. It keeps what the panel holds - every parameter's value and default, the readouts that
-/// follow a parameter, the conditions that show or enable a control - and answers its values, takes the values and
-/// patches it is given without a word, and says what a person did through its one event, `controlEvent`. It names no
-/// window and no extension: the process that shows it draws the kinds that need its image (the target, the manual
-/// mask) through its host's builder, makes the preview's histogram, and hears a held slider through its interaction
-/// watcher.
+/// window has always drawn a parameter and the settings section a widget of its tree. It keeps what the panel holds -
+/// every parameter's value and default, the readouts that follow a parameter, the conditions that show or enable a
+/// control - and answers its values, takes the values and patches it is given without a word, and says what a person
+/// did through its one event, `controlEvent`. It names no window and no extension: the process that shows it draws the
+/// kinds that need its image (the target, the manual mask) through its host's builder, makes the preview's histogram,
+/// and hears a held slider through its interaction watcher.
 
 #include "AfterNightControlsExport.h"
 
@@ -232,6 +232,18 @@ public:
     /// The real-time histograms, in order.
     [[nodiscard]] const std::vector<ExtensionPanelHistogram>& histograms() const noexcept;
 
+    /// A widget of a tree the description holds, by its id, or null.
+    [[nodiscard]] QWidget* treeWidget(const QString& id) const;
+
+    /// The ids of the tree's widgets, in the order the tree states them.
+    [[nodiscard]] QStringList treeWidgetIds() const;
+
+    /// A tree widget's value: whether its kind holds one and, when it does, the value.
+    ///
+    /// @return false, with why, for a widget of a kind that holds a value and is not built.
+    [[nodiscard]] bool treeWidgetValue(const QString& id, QCborValue* value, bool* holds,
+                                       std::string* error = nullptr) const;
+
     /// Registers a value a hosted control holds, as the builder of a hosted kind calls it while it builds: the value is
     /// read and set and reset with the panel's own. The hosted control says its changes itself.
     ///
@@ -260,7 +272,8 @@ private:
     struct Built;
     class CurveListener;
 
-    void build(const ExtensionPanelDescription& description);
+    [[nodiscard]] bool build(const ExtensionPanelDescription& description, std::string* error);
+    void clearControls();
     void say(const QString& id, const QString& name, const QCborValue& value, bool coalescable);
     void flushWaitingEvents();
     void onUserChange(const QString& id, bool coalescable);

@@ -8,6 +8,7 @@
 #include "components/AnCardWidget.h"
 #include "components/AnCollapsibleSection.h"
 #include "components/AnInfoBanner.h"
+#include "controls/ExtensionPanelWidgets.h"
 #include "controls/ExtensionUiSchemaUtils.h"
 #include "controls/ProcessCompanions.h"
 #include "controls/QSliderSpinBox.h"
@@ -694,6 +695,10 @@ struct ExtensionParamPanel::Built
     std::map<QString, QPointer<an::ui::AnInfoBanner>> banners;
     std::map<QString, Patchable> patchables;
     std::map<const PanelNode*, QPointer<QWidget>> byNode;
+
+    /// The widgets of a tree the description holds, and the first of them, its root.
+    panel_widgets::WidgetIndex tree;
+    QPointer<QWidget> treeRoot;
     std::vector<std::unique_ptr<CurveListener>> curveListeners;
     std::vector<QPointer<QWidget>> widgets;
     bool visibleContent = false;
@@ -811,21 +816,24 @@ bool ExtensionParamPanel::setDescription(const ExtensionPanelDescription& descri
     {
         return false;
     }
-    for (const PanelNode& node : description.nodes)
-    {
-        const PanelKindSpec* kind = panelKind(node.kind);
-        if (kind != nullptr && kind->vocabulary == PanelVocabulary::Widgets)
-        {
-            if (error)
-            {
-                *error = "a " + node.kind.toStdString() +
-                         " is a widget of a settings tree, which this panel does not "
-                         "draw";
-            }
-            return false;
-        }
-    }
 
+    clearControls();
+    ++m_quiet;
+    m_description = description;
+    const bool built = build(*m_description, error);
+    --m_quiet;
+    if (!built)
+    {
+        clearControls();
+        return false;
+    }
+    updateReadouts();
+    updateConditions();
+    return true;
+}
+
+void ExtensionParamPanel::clearControls()
+{
     // The earlier description's controls go; the leading widgets stay, at the top.
     std::vector<QPointer<QWidget>> leading = std::move(m_leading);
     for (const QPointer<QWidget>& widget : leading)
@@ -845,18 +853,12 @@ bool ExtensionParamPanel::setDescription(const ExtensionPanelDescription& descri
             addLeadingWidget(widget);
         }
     }
-
-    ++m_quiet;
-    m_description = description;
-    build(*m_description);
-    --m_quiet;
-    updateReadouts();
-    updateConditions();
-    return true;
 }
 
-void ExtensionParamPanel::build(const ExtensionPanelDescription& description)
+bool ExtensionParamPanel::build(const ExtensionPanelDescription& description, std::string* error)
 {
+    // A widget of a tree that cannot be built refuses the whole description.
+    std::string failure;
     Built& built = *m_built;
     const bool custom = description.variant == PanelVariant::Custom;
     const auto& spacing = an::ui::tokens().spacing;
@@ -1020,6 +1022,33 @@ void ExtensionParamPanel::build(const ExtensionPanelDescription& description)
     buildNode = [&](const PanelNode& node, const Placement& place) {
         const QString& type = node.kind;
         const QString id = node.id();
+        if (!failure.empty())
+        {
+            return;
+        }
+
+        if (const PanelKindSpec* spec = panelKind(type);
+            spec != nullptr && spec->vocabulary == PanelVocabulary::Widgets)
+        {
+            // A widget of a tree, drawn as the settings section draws it, with what it holds.
+            QWidget* widget = panel_widgets::buildWidget(node, param_panel, &built.tree, &failure);
+            if (widget == nullptr)
+            {
+                if (failure.empty())
+                {
+                    failure = "the panel could not build a " + type.toStdString();
+                }
+                return;
+            }
+            place()->addWidget(widget);
+            built.byNode[&node] = widget;
+            if (!built.treeRoot)
+            {
+                built.treeRoot = widget;
+            }
+            built.visibleContent = true;
+            return;
+        }
         const QString label = textField(node, QStringLiteral("label"), id);
         const QString text = textField(node, QStringLiteral("text"), label);
 
@@ -1754,8 +1783,28 @@ void ExtensionParamPanel::build(const ExtensionPanelDescription& description)
     {
         buildNode(node, top);
     }
+    if (!failure.empty())
+    {
+        if (error)
+        {
+            *error = failure;
+        }
+        return false;
+    }
+    if (!built.tree.byId.isEmpty())
+    {
+        panel_widgets::connectWidgets(built.tree,
+                                      [this](const QString& id, const QString& name, const QCborValue& value,
+                                             const bool coalescable) { say(id, name, value, coalescable); });
+    }
 
-    if (hasVisibleContent())
+    // A list of parameters is held to the top of the panel, as the process window has always held it; a tree takes the
+    // room it is given, as the settings section's has.
+    const bool listed = std::any_of(description.nodes.begin(), description.nodes.end(), [](const PanelNode& node) {
+        const PanelKindSpec* kind = panelKind(node.kind);
+        return kind != nullptr && kind->vocabulary == PanelVocabulary::Parameters;
+    });
+    if (hasVisibleContent() && (listed || description.nodes.empty()))
     {
         for (QVBoxLayout* tab_layout : tab_page_layouts)
         {
@@ -1766,6 +1815,7 @@ void ExtensionParamPanel::build(const ExtensionPanelDescription& description)
         }
         panel_layout->addStretch(1);
     }
+    return true;
 }
 
 // ---- What the panel holds.
@@ -1818,7 +1868,46 @@ QCborMap ExtensionParamPanel::values() const
             }
         }
     }
+    for (const QString& id : m_built->tree.order)
+    {
+        QCborValue value;
+        bool holds = false;
+        if (treeWidgetValue(id, &value, &holds) && holds)
+        {
+            map.insert(id, value);
+        }
+    }
     return map;
+}
+
+QWidget* ExtensionParamPanel::treeWidget(const QString& id) const
+{
+    return m_built->tree.byId.value(id);
+}
+
+QStringList ExtensionParamPanel::treeWidgetIds() const
+{
+    return m_built->tree.order;
+}
+
+bool ExtensionParamPanel::treeWidgetValue(const QString& id, QCborValue* value, bool* holds, std::string* error) const
+{
+    const QString type = m_built->tree.types.value(id);
+    *holds = panel_widgets::holdsValue(type);
+    if (!*holds)
+    {
+        return true;
+    }
+    QWidget* widget = m_built->tree.byId.value(id);
+    if (widget == nullptr)
+    {
+        if (error)
+        {
+            *error = "Validation snapshot references a widget that is not rendered: " + id.toStdString();
+        }
+        return false;
+    }
+    return panel_widgets::readValue(widget, type, value, error);
 }
 
 bool ExtensionParamPanel::setValue(const QString& id, const QCborValue& value)
@@ -2362,6 +2451,11 @@ bool ExtensionParamPanel::applyPatch(const ExtensionPanelPatch& patch, std::stri
         }
         return false;
     };
+    if (m_built->tree.byId.contains(patch.id))
+    {
+        return panel_widgets::patchWidget(m_built->tree,
+                                          ExtensionUiPatchOperation{patch.id, patch.property, patch.value}, error);
+    }
     const auto patchable = m_built->patchables.find(patch.id);
     if (patchable == m_built->patchables.end() || !patchable->second.outer)
     {
@@ -2497,6 +2591,10 @@ void ExtensionParamPanel::refreshTheme()
     {
         m_layout->setSpacing(an::ui::tokens().spacing.sm);
         m_layout->setContentsMargins(0, 0, 0, 0);
+    }
+    if (m_built->treeRoot)
+    {
+        panel_widgets::refreshWidgets(m_built->tree, m_built->treeRoot, m_layout);
     }
     for (auto* label : findChildren<QLabel*>(QStringLiteral("anNativeParamLabel")))
     {

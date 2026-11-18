@@ -3719,6 +3719,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/ObservatoryLook.h
     header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightTests/fixtures/BaselineRecord.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -6622,5 +6623,7 @@ sources Test_ProcessFramework
     header   src/AfterNightTests/fixtures/RecordedMenus.h
     header   src/AfterNightControls/theme/NightImage.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/controls/ExtensionPanelDescription.h
+    header   src/AfterNightControls/controls/ExtensionParamPanel.h
     header   src/AfterNightControls/app/ExtensionSessionFeed.h
     header   src/AfterNightControls/app/ExtensionThemeState.h

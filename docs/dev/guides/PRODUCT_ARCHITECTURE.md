@@ -2757,6 +2757,17 @@ before the builder moved - every widget of the panel built from each bundled ext
 parameters and from two schemas that use every kind, and the order the Tab key reaches them - and the panel's own cases
 are `ParamPanel.*` in `Test_ControlsExtensionSeam`.
 
+The panel draws a tree of widgets too, each kind as an extension's settings section has always drawn it
+(`controls/ExtensionPanelWidgets.h`, used by the panel alone): `ExtensionUiWidgetHost` is a panel that keeps the
+protocol's terms - the `ui.describe` description and the patches as they came, a patch refused when it is not the
+session's - reads its tree through `panelDescriptionFromWidgetTree`, and says each change as `widgetEvent` the moment
+it is made; `ExtensionSettingsSection` is built on it, as is the dialog a settings action collects its fields in. A
+group holds nodes of its own vocabulary; the two stand side by side only at the top of a panel. Every kind and field is
+recorded in `Test_ControlsExtensionSeam/data/PanelKinds.txt`, which `PanelDescription.KindsMatchTheRecord` holds to
+`panelKinds()`, and the extension author's reference, [EXTENSION_PANEL_KINDS.md](../EXTENSION_PANEL_KINDS.md), is
+generated from that record by `build/scripts/tools/panel_kinds_reference.py` and never written by hand, so the page
+names no kind or field the product does not draw.
+
 ### The extension regression (`Test_ProcessFramework/test_extension_regression.cpp`, `ProtocolSdkContractTest`)
 
 Every bundled extension and author template is run on the host its backend names - previewed, executed, committed and

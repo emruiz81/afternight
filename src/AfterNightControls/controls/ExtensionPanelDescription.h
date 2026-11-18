@@ -249,9 +249,9 @@ panelDescriptionFromCbor(const QCborValue& value, ExtensionPanelDescription* out
 
 /// Holds a description to its kinds and bounds, and refuses it whole at the first error: a kind it does not know, by
 /// name; more nodes than `panel_limits::kMaxNodes` or groups nested deeper than `panel_limits::kMaxDepth`; children
-/// under a kind that holds none; a field of the wrong type; a text past its field's bound or holding a control
-/// character; a list past its bound; a range whose least is above its most; a negative step; a choice with no entries;
-/// two values under one id.
+/// under a kind that holds none, or of the other vocabulary than the group's; a field of the wrong type; a text past
+/// its field's bound or holding a control character; a list past its bound; a range whose least is above its most; a
+/// negative step; a choice with no entries; two values under one id.
 ///
 /// @param description the description.
 /// @param error why it was refused, naming the node by its kind and id.

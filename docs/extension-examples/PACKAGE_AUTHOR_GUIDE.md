@@ -29,6 +29,13 @@ The checked-in examples are package roots that should stay validator-clean:
 - `lite_protocol_process/` - protocol-only lite hosted package that avoids Engine/native-control imports, uses `afternight.ui_protocol` for host result/dialog helpers, and may use a non-GPL license.
 - `locked_wheelhouse_process/` - hash-locked dependency declarations plus the exceptional custom/private wheelhouse path.
 
+## Parameters And Settings
+
+A process's parameters (`get_params()`) and its settings (`get_settings_params()`) are data AfterNight draws.
+[The kinds of an extension's panel](../dev/EXTENSION_PANEL_KINDS.md) lists every kind, each field, what it holds,
+what its absence means and how long it may be. A list that breaks any of it is refused whole, with the reason, and its
+panel is drawn empty.
+
 ## Manifest Rules
 
 Repository-ready packages must declare:
