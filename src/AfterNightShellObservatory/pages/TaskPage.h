@@ -88,6 +88,9 @@ public:
     /// The process the page shows; null once it has gone.
     [[nodiscard]] TopLevelProcessBaseControl* process() const;
 
+    /// What is told each time the process of a full page states its job, after the header says it; set before `dress`.
+    void setJobChanged(std::function<void()> told);
+
     /// The view the toolbar shows - the process's preview - and the view whose history the strip shows - its target.
     void bindViews(ImageViewControl* canvas, ImageViewControl* target);
 
@@ -114,6 +117,7 @@ private:
     QPointer<TopLevelProcessBaseControl> m_process;
     QPointer<QWidget> m_canvas;
     std::unique_ptr<ToolbarClearance> m_clearance;
+    std::function<void()> m_jobChanged;
 };
 
 } // namespace an::ui::observatory

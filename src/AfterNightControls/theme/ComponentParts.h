@@ -129,6 +129,9 @@ inline constexpr int kStageRowSpacing = 4;
 inline constexpr int kStageProgress = 3;
 inline constexpr int kStageProgressGap = 4;
 inline constexpr int kStageConnector = 2;
+inline constexpr int kStageStepMark = 8;
+inline constexpr int kStageStepGap = 2;
+inline constexpr int kStageStepTextGap = 6;
 
 // A job's page in three parts. The stage list's column: 216 px wide on the first surface behind a hairline, 10 px
 // above and below and 8 px at its sides, 8 px between its parts - an eyebrow set 10 px in, the list, the foot set 4 px

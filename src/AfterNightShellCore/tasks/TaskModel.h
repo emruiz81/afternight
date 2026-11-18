@@ -72,7 +72,8 @@ struct Task
     /// The image the process runs on; null for a process with no single target.
     QPointer<ImageViewControl> target;
 
-    /// The target view's full name; empty with no target.
+    /// The target view's full name; for a process with no target that holds a job - an integration - the job's name;
+    /// empty otherwise.
     QString targetName;
 
     ProcessSurface surface = ProcessSurface::Window;
@@ -160,6 +161,10 @@ public:
 
     /// A view was renamed: the tasks that target it take its new name.
     void targetRenamed(const ImageViewControl* view);
+
+    /// A process that targets no image says the job it holds, or that it holds none: its task is named by it. Nothing
+    /// for a task that targets an image, which is named by that.
+    void setJobName(const TopLevelProcessBaseControl& process, const QString& name);
 
     /// A task's target's thumbnail.
     void setThumbnail(TaskId id, const QImage& thumbnail);

@@ -1633,7 +1633,34 @@ what follows runs in a window.
   cancelled import.
 - **Closing the page is closing the window**: the session is saved at once by its autosave, the settings are stored,
   and nothing is asked - the window asks nothing either.
-- **A run** opens the Processing window as in a window of its own, and the stage list follows it behind that window.
+- **A run is shown in the page.** What follows a run is one widget, `WorkflowRunView`
+  (`widgets/WorkflowRunView.h`): the stages the run goes through as a list (`AnStageList`) whose stage on its way
+  carries its progress, the group it is at and, under its line, the parts of what it does to that group as the run
+  names them; what the run does now; a bar for the whole run; the file it is at; the log; the time it has taken and,
+  once it can tell, the time it has left; Cancel; and Open Report and Close once it has ended. The launch
+  (`WorkflowExecutionController`) asks the widget a run is launched from to show the view in itself
+  (`IWorkflowRunHost`, `workflow/WorkflowRunObserver.h`). A window of its own answers no, and the launch opens the
+  Processing window (`dialogs/WorkflowProgressDialogV2.h`), which holds the view and adds what a window adds: it stands
+  over the application until the run has ended, closing it during a run asks the run to stop, and the run's end is said
+  in a message over it. A page answers yes (`ImageIntegrationProcess::showWorkflowRun`): the view takes the place of
+  the stage's page, beside the list (`StageListNavigator::showRun`), and no window opens, so the rest of the
+  application stays usable and leaving the page leaves the run running - the view and the run's controller live with
+  the process, not with what is on screen. While the run is on its way the page's own acts wait for it, as its window
+  waits behind the Processing window (`holdPageForRun`): the stages' pages and the list's foot are disabled and so is
+  every entry of the menus but the Navigate menu's and the help - a job is not edited under its run, whose completion
+  reads the model. The stages can still be looked at: a row selected, or a Navigate entry, shows its page, and the
+  header's primary act, which in place of Execute is "Show progress" with how far the run has come, shows the run
+  again. When the run ends the acts are given back (`releasePageAfterRun`, from `refreshAfterRun`, which every launch's
+  completion calls) and the view is shown with how the run ended, until its Close puts it away and the stage that was
+  shown is shown again.
+- **Where a run stands** is one figure for every front end (`workflow/WorkflowRunStanding.h`): the step the run is at
+  among the stages its manifest names, the stage's name, and how far the whole has come - the stages passed and the
+  share of the one on its way, each stage weighing the seconds the run is expected to spend in it
+  (`workflowStageWeights`, from `WorkflowTimeEstimator::estimateStageSeconds`), so that a run that spends nine tenths
+  of its time registering is not half done as it starts to. The view computes it, holds it from going back, and tells
+  it; the launch makes it the run state of the process the run was launched from - "Step 5/9: Registration", 58 % -
+  which is what a shell's rail, a task's header and the jobs' table say of the run without knowing what a workflow is.
+  The time left is the time taken scaled by what is left, said only after ten seconds and a twentieth of the way.
 - **Its stages are a list, in place of the window's tabs** (`widgets/StageNavigator.h`). The eight pages - the four
   frame sources, calibration, registration, stacking and the summary - are the same widgets whatever moves between
   them, and the process reaches them through one seam: a `StageNavigator` answers for a page, for the page shown and

@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <array>
+#include <functional>
 #include <vector>
 #include <QObjectCleanupHandler>
 #include <QPointer>
@@ -60,6 +61,8 @@ class SummaryTab;
 class FrameSourceTab;
 struct GroupKey;
 struct WorkflowManifest;
+class WorkflowExecutor;
+class WorkflowRunView;
 
 namespace ImageIntegration
 {
@@ -100,6 +103,13 @@ class StageNavigator;
  *   list's foot holds the output folder and the project file's acts; the window's foot, with its Close and Reset, is
  *   not shown. A page with a side panel keeps it as an aside of a fixed width, and the stacking page lays its
  *   execution options in two rows, so the page fits the centre of a main window.
+ * - **A run is shown in the page**, not in the Processing window over the application (`showWorkflowRun`): the run's
+ *   view (`widgets/WorkflowRunView.h`) takes the place of the stage's page, beside the list, whose rows follow the run.
+ *   While the run is on its way the page's own acts wait for it, as its window waits behind the Processing window -
+ *   the stages' pages, the list's foot and the menus' entries - but the stages can still be looked at, from the list
+ *   and the Navigate menu, and the header's primary act, in place of Execute, is the way back to the run: "Show
+ *   progress" with how far the run has come. Leaving the page leaves the run running. When the run ends the page's
+ *   acts are given back and the view is shown, with how it ended, until it is closed.
  * - **An import is shown in the page**, not in a dialog over the window: the import's panel stands over the stages,
  *   and the stages, the foot and every entry of the menus wait for it - as the window waits behind the dialog - while
  *   the rest of the application stays usable. Esc cancels the import and leaves the page; closing the page cancels it.
@@ -120,7 +130,9 @@ class StageNavigator;
  * `docs/dev/IMAGE_INTEGRATION_ARTIFACT_VALIDATION.md` documents the contract, what it deliberately
  * does not detect, and the two hazards to respect when adding a new writer.
  */
-class AFTERNIGHTPROCESSES_API ImageIntegrationProcess : public TopLevelProcessBaseControl, public IWorkflowRunObserver
+class AFTERNIGHTPROCESSES_API ImageIntegrationProcess : public TopLevelProcessBaseControl,
+                                                        public IWorkflowRunObserver,
+                                                        public IWorkflowRunHost
 {
 public:
     explicit ImageIntegrationProcess(QObject* parent = nullptr);
@@ -182,6 +194,26 @@ public:
     /// A run launched from here moved on: the stage list's rows follow it.
     void workflowRunProgressed(const WorkflowProgress& progress) override;
 
+    /// Shows a run that starts in the page - its view where the stage's page is, the page's acts waiting for the run -
+    /// and answers true; in a window of its own it answers false, and the run opens the Processing window.
+    bool showWorkflowRun(WorkflowRunView* view) override;
+
+    /// The view of the run the page shows or showed last, until it is closed; null in a window of its own.
+    [[nodiscard]] WorkflowRunView* runView() const noexcept;
+
+    /// Whether the page shows the run's view, and not a stage's page looked at meanwhile.
+    [[nodiscard]] bool isRunShown() const;
+
+    /// Starts a run of a manifest as it is, shown as any run launched from here is: for a caller that holds a manifest
+    /// of its own, where Execute builds one from the job, plans it and asks first. The run goes through the stages
+    /// `pipeline` makes when one is given - a suite's own - and through the application's otherwise.
+    ///
+    /// @return whether the run was started; false while another is on its way.
+    bool startRun(const WorkflowManifest& manifest, std::function<std::unique_ptr<WorkflowExecutor>()> pipeline = {});
+
+    /// Asks the run on its way to stop, as its Cancel does.
+    bool cancelRun() override;
+
 private:
     static constexpr int kFrameTabCount = 4;
     static constexpr int kLogicalTabCount = 8;
@@ -208,6 +240,15 @@ private:
     void presentStagesAsAList();
     /// What the process does when another page is shown, whatever shows it.
     void followNavigator();
+
+    /// Makes the page's own acts wait for a run - the stages' pages, the list's foot, the menus' entries but the ones
+    /// that move between the stages - and gives them back, with the run's view shown, once it has ended.
+    void holdPageForRun();
+    void releasePageAfterRun();
+    /// Puts the view of a run that has ended away and shows the stage that was shown.
+    void dismissRun();
+    /// Says how far the run has come in the act that shows its progress.
+    void updateShowRunAction();
 
     /// Reads again where the job's stages stand once the events at hand are done: the job's facts from the model, and
     /// what its output folder says of its runs, read off the GUI thread.
@@ -343,6 +384,14 @@ private:
     QPointer<QWidget> m_pageImportBand;
     QPointer<ImageIntegration::ImportProgressPanel> m_pageImportPanel;
     std::vector<QPointer<QAction>> m_importHeldActions;
+
+    /// A run shown in the page: its view, the act that shows it again, and the acts that wait for it.
+    QPointer<WorkflowRunView> m_runView;
+    QAction* m_showRunAction = nullptr;
+    std::vector<QPointer<QAction>> m_runHeldActions;
+    bool m_runHolds = false;
+    QPointer<QMenu> m_navigateMenu;
+    QPointer<QMenu> m_helpMenu;
 
     /// What the page's header says of the job; made when the process becomes a page.
     struct JobHeadingState;

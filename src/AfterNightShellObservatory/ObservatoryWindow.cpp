@@ -3723,6 +3723,12 @@ void ObservatoryWindow::appendTaskItems(std::vector<an::ui::RailItem>& items) co
         if (task.run.running())
         {
             made.runPhase = an::ui::RailRunPhase::Running;
+            // What the run says it does - the step a job is at; a run that says only that it applies says nothing.
+            if (task.run.text != an::ui::applyingRunText() &&
+                task.run.text.compare(QLatin1String("running"), Qt::CaseInsensitive) != 0)
+            {
+                made.runText = task.run.text;
+            }
             if (task.run.progress.has_value())
             {
                 made.progress = static_cast<int>(std::lround(*task.run.progress * 100.0));
@@ -3875,6 +3881,16 @@ bool ObservatoryWindow::adoptTaskPage(TopLevelProcessBaseControl& process)
         return false;
     }
     impl.centre->addWidget(page);
+    // A process that holds a job names its task by it: the rail, the breadcrumb and a floating task's title say it.
+    page->setJobChanged([this, tracked = QPointer<TopLevelProcessBaseControl>(&process)]() {
+        if (tracked.isNull() || !m_impl->tasks)
+        {
+            return;
+        }
+        const an::ui::ProcessPageLayout* const layout = tracked->pageLayout();
+        const an::ui::JobHeading* const job = layout != nullptr ? layout->jobHeading() : nullptr;
+        m_impl->tasks->model().setJobName(*tracked, job != nullptr ? job->title : QString());
+    });
     page->dress(process, [this, id](ImageViewControl* preview) {
         // The canvas the looking actions act on is the preview shown now.
         if (m_impl->shownTask == id)
@@ -4033,6 +4049,9 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         }
     }
     const auto at = std::chrono::steady_clock::now();
+    // A task that holds a job - an integration - runs the job, and applies nothing to an image.
+    const an::ui::ProcessPageLayout* const layout = task->process->pageLayout();
+    const bool holdsAJob = layout != nullptr && layout->jobHeading() != nullptr;
     // The end of a run is said to assistive technology: applied, politely; failed, with why, at once; stopped.
     if (before.running() && now.ended())
     {
@@ -4040,8 +4059,10 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
         auto politeness = QAccessible::AnnouncementPoliteness::Polite;
         if (now.phase == an::ui::ProcessRunState::Phase::Succeeded)
         {
-            message = task->targetName.isEmpty() ? tr("%1 applied").arg(task->displayName)
-                                                 : tr("%1 applied to %2").arg(task->displayName, task->targetName);
+            message = holdsAJob ? tr("%1 finished").arg(task->displayName)
+                                : (task->targetName.isEmpty()
+                                       ? tr("%1 applied").arg(task->displayName)
+                                       : tr("%1 applied to %2").arg(task->displayName, task->targetName));
         }
         else if (now.phase == an::ui::ProcessRunState::Phase::Failed)
         {
@@ -4065,11 +4086,29 @@ void ObservatoryWindow::taskRunChanged(const an::ui::shell::TaskId id, const an:
     }
     // A page's run that succeeded is told in its header for a minute, floating or not, and in the snackbar of the
     // window it is in.
-    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && taskPage(id) != nullptr)
+    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && taskPage(id) != nullptr &&
+        !holdsAJob)
     {
         impl.appliedAt[id] = at;
     }
-    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() &&
+    // A job's run that ends while another place is shown is said where the person is, with the way to its task; its
+    // own page says how it ended.
+    if (holdsAJob && before.running() && now.ended() && task->presentation == an::ui::shell::TaskPresentation::Page &&
+        !(isTaskPageShown() && impl.shownTask == id))
+    {
+        const QString said =
+            now.phase == an::ui::ProcessRunState::Phase::Succeeded
+                ? tr("%1 finished").arg(task->displayName)
+                : (now.phase == an::ui::ProcessRunState::Phase::Failed ? tr("%1 failed").arg(task->displayName)
+                                                                       : tr("%1 stopped").arg(task->displayName));
+        showSnackbar(said, task->targetName, tr("Show"), [this, id]() {
+            if (m_impl->tasks)
+            {
+                (void)m_impl->tasks->show(id);
+            }
+        });
+    }
+    if (now.phase == an::ui::ProcessRunState::Phase::Succeeded && before.running() && !holdsAJob &&
         task->presentation == an::ui::shell::TaskPresentation::Page)
     {
         const auto started = impl.runStarted.find(id);

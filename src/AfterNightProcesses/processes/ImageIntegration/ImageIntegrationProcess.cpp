@@ -22,6 +22,7 @@
 #include "processes/ImageIntegration/widgets/FrameTreeDragDropHandler.h"
 #include "processes/ImageIntegration/dialogs/BlinkComparatorDialog.h"
 #include "processes/ImageIntegration/dialogs/ConfirmationDialogUtils.h"
+#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/tabs/CalibrationTab.h"
 #include "processes/ImageIntegration/tabs/CalibrationPanelUtils.h"
 #include "processes/ImageIntegration/tabs/FrameSourceTab.h"
@@ -52,6 +53,8 @@
 #include "processes/ImageIntegration/ui_models/IntegrationStageStates.h"
 #include "processes/ImageIntegration/widgets/StageListNavigator.h"
 #include "processes/ImageIntegration/widgets/StageNavigator.h"
+#include "processes/ImageIntegration/widgets/WorkflowRunView.h"
+#include "processes/ImageIntegration/workflow/WorkflowRunStanding.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
 #include "processes/ImageIntegration/ImageIntegrationImportSession.h"
@@ -130,6 +133,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <map>
 #include <memory>
@@ -710,6 +714,8 @@ IntegrationDataModel* ImageIntegrationProcess::model() const noexcept
 
 void ImageIntegrationProcess::refreshAfterRun()
 {
+    // The page's own acts waited for the run.
+    releasePageAfterRun();
     // A run wrote into the output folder: what is free there is read again for the page's header, and where its
     // stages stand for the stage list.
     scheduleJobHeadingRefresh(true);
@@ -1110,7 +1116,20 @@ void ImageIntegrationProcess::publishStageRows()
     {
         state.progress.reset();
     }
-    m_stageList->setRows(ImageIntegration::integrationStageRows(state.model, state.run, state.progress));
+    std::vector<an::ui::StageRow> rows = ImageIntegration::integrationStageRows(state.model, state.run, state.progress);
+    // The summary's bar is the whole run's, as the run's view in the page says it; the stages' bars are their own.
+    if (state.progress.has_value() && !m_runView.isNull() && !m_runView->isFinished())
+    {
+        const int whole = static_cast<int>(std::lround(m_runView->standing().fraction * 100.0));
+        for (an::ui::StageRow& row : rows)
+        {
+            if (row.id == QLatin1String("summary") && row.progress.has_value())
+            {
+                row.progress = whole;
+            }
+        }
+    }
+    m_stageList->setRows(rows);
 }
 
 void ImageIntegrationProcess::workflowRunProgressed(const WorkflowProgress& progress)
@@ -1121,6 +1140,182 @@ void ImageIntegrationProcess::workflowRunProgressed(const WorkflowProgress& prog
     }
     m_stageStates->progress = progress;
     publishStageRows();
+}
+
+bool ImageIntegrationProcess::showWorkflowRun(WorkflowRunView* const view)
+{
+    if (view == nullptr || !hasPageLayout() || m_stageList == nullptr)
+    {
+        return false;
+    }
+    if (m_showRunAction == nullptr)
+    {
+        m_showRunAction = new QAction(this);
+        m_showRunAction->setObjectName(QStringLiteral("actionShowRunProgress"));
+        connect(m_showRunAction, &QAction::triggered, this, [this]() {
+            if (m_stageList != nullptr)
+            {
+                m_stageList->showRunAgain();
+            }
+        });
+    }
+    m_runView = view;
+    // The view of a run before, still shown with how it ended, gives way.
+    m_stageList->showRun(view);
+    connect(view, &WorkflowRunView::closeRequested, this, [this]() { dismissRun(); });
+    connect(view, &WorkflowRunView::standingChanged, this, [this]() { updateShowRunAction(); });
+    updateShowRunAction();
+    holdPageForRun();
+    publishJobHeading();
+    return true;
+}
+
+WorkflowRunView* ImageIntegrationProcess::runView() const noexcept
+{
+    return m_runView.data();
+}
+
+bool ImageIntegrationProcess::isRunShown() const
+{
+    return m_stageList != nullptr && m_stageList->isRunShown();
+}
+
+bool ImageIntegrationProcess::startRun(const WorkflowManifest& manifest,
+                                       std::function<std::unique_ptr<WorkflowExecutor>()> pipeline)
+{
+    if (!m_model || runState().running())
+    {
+        return false;
+    }
+    WorkflowExecutionController executionController(m_model.get(), this);
+    executionController.setPipeline(std::move(pipeline));
+    const QPointer<ImageIntegrationProcess> self(this);
+    return executionController.runAsyncPrevalidated(manifest, [self](const WorkflowExecutor::Result&) {
+        if (self)
+        {
+            self->refreshAfterRun();
+        }
+    });
+}
+
+bool ImageIntegrationProcess::cancelRun()
+{
+    if (!runState().running())
+    {
+        return false;
+    }
+    // The run's view is the page's, or the Processing window's over a window of its own.
+    WorkflowRunView* view = m_runView.data();
+    if (view == nullptr)
+    {
+        if (const auto* const window = findChild<WorkflowProgressDialogV2*>())
+        {
+            view = window->runView();
+        }
+    }
+    if (view == nullptr || view->isFinished())
+    {
+        return false;
+    }
+    view->requestCancellation();
+    return true;
+}
+
+void ImageIntegrationProcess::holdPageForRun()
+{
+    if (m_runHolds)
+    {
+        return;
+    }
+    m_runHolds = true;
+    if (m_stageList != nullptr)
+    {
+        m_stageList->setPagesHeld(true);
+    }
+    // Every entry of the menus waits - the header's Undo, Redo and Execute and the page's keys with them - but the
+    // ones that move between the stages, which can still be looked at, and the help.
+    m_runHeldActions.clear();
+    const std::function<void(const QList<QAction*>&)> hold = [this, &hold](const QList<QAction*>& entries) {
+        for (QAction* entry : entries)
+        {
+            const QMenu* const menu = entry->menu();
+            if (menu != nullptr && (menu == m_navigateMenu.data() || menu == m_helpMenu.data()))
+            {
+                continue;
+            }
+            if (entry->isEnabled())
+            {
+                m_runHeldActions.emplace_back(entry);
+                entry->setEnabled(false);
+            }
+            if (menu != nullptr)
+            {
+                hold(menu->actions());
+            }
+        }
+    };
+    if (mainMenuBar != nullptr)
+    {
+        hold(mainMenuBar->actions());
+    }
+}
+
+void ImageIntegrationProcess::releasePageAfterRun()
+{
+    if (!m_runHolds)
+    {
+        return;
+    }
+    m_runHolds = false;
+    if (m_stageList != nullptr)
+    {
+        m_stageList->setPagesHeld(false);
+    }
+    // Every act that waited is given back; the ones that follow the job - Execute, the removals - are then set from it.
+    for (const QPointer<QAction>& entry : m_runHeldActions)
+    {
+        if (!entry.isNull())
+        {
+            entry->setEnabled(true);
+        }
+    }
+    m_runHeldActions.clear();
+    updateButtonStates();
+    // How the run ended is shown, whatever stage was looked at meanwhile.
+    if (m_stageList != nullptr && !m_runView.isNull())
+    {
+        m_stageList->showRunAgain();
+    }
+    publishJobHeading();
+}
+
+void ImageIntegrationProcess::dismissRun()
+{
+    if (m_runView.isNull() || !m_runView->isFinished())
+    {
+        return;
+    }
+    m_runView = nullptr;
+    if (m_stageList != nullptr)
+    {
+        m_stageList->dismissRun();
+    }
+    publishJobHeading();
+}
+
+void ImageIntegrationProcess::updateShowRunAction()
+{
+    if (m_showRunAction == nullptr)
+    {
+        return;
+    }
+    const ImageIntegration::WorkflowRunStanding standing =
+        m_runView.isNull() ? ImageIntegration::WorkflowRunStanding{} : m_runView->standing();
+    const int percent = static_cast<int>(std::lround(standing.fraction * 100.0));
+    const QString step = ImageIntegration::workflowRunStandingText(standing);
+    m_showRunAction->setText(tr("Show progress %1 %").arg(percent));
+    m_showRunAction->setToolTip(step.isEmpty() ? tr("The run is on its way: show its progress.")
+                                               : tr("The run is on its way - %1: show its progress.").arg(step));
 }
 
 void ImageIntegrationProcess::pageLayoutMade()
@@ -1234,7 +1429,8 @@ void ImageIntegrationProcess::publishJobHeading()
     }
     job.acts = {an::ui::JobHeading::Act{m_undoAction, QStringLiteral("undo")},
                 an::ui::JobHeading::Act{m_redoAction, QStringLiteral("redo")}};
-    job.primary = m_executeAction;
+    // While a run shown in the page is on its way, the way back to its progress takes Execute's place.
+    job.primary = m_runHolds && m_showRunAction != nullptr ? m_showRunAction : m_executeAction;
     page->setJobHeading(job);
 }
 
@@ -4244,9 +4440,9 @@ void ImageIntegrationProcess::onFixWithGroupRequested(FixTarget target, const QS
 
 void ImageIntegrationProcess::updateButtonStates()
 {
-    // While an import shown in the page holds the page's acts, they stay as it left them; they are set again from the
-    // job when it ends.
-    if (!m_importHeldActions.empty())
+    // While an import or a run shown in the page holds the page's acts, they stay as it left them; they are set again
+    // from the job when it ends.
+    if (!m_importHeldActions.empty() || m_runHolds)
     {
         return;
     }

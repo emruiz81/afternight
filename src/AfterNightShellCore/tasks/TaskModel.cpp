@@ -307,6 +307,17 @@ void TaskModel::setTarget(const TopLevelProcessBaseControl& process, ImageViewCo
     m_impl->tell(Change::Changed, task->id);
 }
 
+void TaskModel::setJobName(const TopLevelProcessBaseControl& process, const QString& name)
+{
+    Task* task = m_impl->findFor(&process);
+    if (task == nullptr || !task->target.isNull() || task->targetName == name)
+    {
+        return;
+    }
+    task->targetName = name;
+    m_impl->tell(Change::Changed, task->id);
+}
+
 void TaskModel::targetRenamed(const ImageViewControl* view)
 {
     if (view == nullptr)

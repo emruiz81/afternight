@@ -468,9 +468,9 @@ capability integration.tools
 
 capability integration.run
     title        Processing window with the timeline; Open Report
-    shared       WorkflowProgressDialogV2Test.InitializesWithPendingStages, WorkflowProgressDialogV2Test.HandlesProgressUpdate, WorkflowProgressDialogV2Test.OpenReportButtonFollowsHtmlReportPath
+    shared       WorkflowRunViewCase.ShowsWhatTheWindowShows, WorkflowProgressDialogV2Test.HandlesProgressUpdate, WorkflowProgressDialogV2Test.OpenReportButtonFollowsHtmlReportPath
     classic
-    observatory  pending
+    observatory  IntegrationTask.RailFollowsTheRun, IntegrationTask.RunContinuesWhenThePageIsLeft, IntegrationTask.TheEndOfARunIsSaidWhereAnotherPlaceIsShown
 
 capability integration.import
     title        Import progress with Pause and Resume

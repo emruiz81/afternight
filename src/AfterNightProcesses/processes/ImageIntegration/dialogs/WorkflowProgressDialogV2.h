@@ -11,21 +11,20 @@
 #include "processes/ImageIntegration/workflow/WorkflowExecutor.h"
 #include "processes/ImageIntegration/workflow/ProgressReporter.h"
 
-class StageTimelineWidget;
-class QProgressBar;
-class QLabel;
-class QTextEdit;
-namespace an::ui
-{
-class AnCardWidget;
-}
-class QPushButton;
-class WorkflowProgressController;
+#include <memory>
+
 class QCloseEvent;
+class WorkflowProgressController;
+class WorkflowRunView;
 
 /**
  * @class WorkflowProgressDialogV2
- * @brief Redesigned progress dialog with single timeline view.
+ * @brief The Processing window: a run of the workflow shown over the application.
+ *
+ * It holds the run's view (`widgets/WorkflowRunView.h`) - the run's stages, what it does, its log, its times, Cancel,
+ * and Open Report and Close once it has ended - and adds what a window of its own adds: it stands over the
+ * application until the run has ended, closing it during a run asks the run to stop and leaves it open, and the run's
+ * end is said in a message over it. A front end that shows a run in itself holds the same view and opens no window.
  */
 class AFTERNIGHTPROCESSES_API WorkflowProgressDialogV2 : public QDialog
 {
@@ -34,6 +33,9 @@ class AFTERNIGHTPROCESSES_API WorkflowProgressDialogV2 : public QDialog
 public:
     explicit WorkflowProgressDialogV2(WorkflowProgressController* controller, QWidget* parent = nullptr);
     ~WorkflowProgressDialogV2() override;
+
+    /// The run's view the window holds.
+    [[nodiscard]] WorkflowRunView* runView() const noexcept;
 
     // Setup
     void setStages(const QStringList& stages);
@@ -51,17 +53,11 @@ signals:
     void cancelRequested() W_SIGNAL(cancelRequested);
 
 private:
-    void setupUi();
-    void setupConnections();
-    void applyTheme();
-    void requestCancellation();
-    void updateTimeDisplay();
-    int stageIndexFor(WorkflowStage stage) const;
-    QString formatDuration(qint64 ms) const;
+    /// Says how the run ended in a message over the window.
+    void announceEnd(const WorkflowExecutor::Result& result);
 
     void reject() override;
     void closeEvent(QCloseEvent* event) override;
 
-    class Impl;
-    std::unique_ptr<Impl> m_impl;
+    WorkflowRunView* m_view = nullptr;
 };

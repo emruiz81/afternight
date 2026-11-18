@@ -2812,6 +2812,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/HomeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationHubTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationPageTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/IntegrationTaskTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
@@ -3052,6 +3053,22 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/controls/HomeProjectsRow.h
     header   src/AfterNightControls/dialogs/CompactHistoryDialog.h
     header   src/AfterNightControls/controls/PageShortcutScope.h
+    header   src/AfterNightControls/app/CancellationToken.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/core/PersistedChoiceMaps.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/model/IntegrationError.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/WorkflowRunView.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/ArtifactTracker.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/CancellationToken.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowExecutor.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowImageCache.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRawLoadPolicy.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunStanding.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/IWorkflowStage.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageParsingUtils.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/stages/StageResult.h
+    header   src/AfterNightTests/Test_ImageIntegration/workflow/FixturePipeline.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -5745,7 +5762,6 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_stacking_recommendation_dialog.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_stacking_recommendations_logic.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_stacking_tab.cpp
-    unit     src/AfterNightTests/Test_ImageIntegration/ui/test_stage_timeline_widget.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_summary_dashboard.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_summary_tab.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_summary_tab_actions.cpp
@@ -5757,6 +5773,8 @@ sources Test_ImageIntegration
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationJobsModelTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/StageListTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/ui/WorkflowRunViewTest.cpp
+    unit     src/AfterNightTests/Test_ImageIntegration/unit/WorkflowRunStandingTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/test_integration_job_facts.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/unit/IntegrationStageStatesTest.cpp
     unit     src/AfterNightTests/Test_ImageIntegration/ui/test_workflow_progress_dialog_v2.cpp
@@ -6073,7 +6091,6 @@ sources Test_ImageIntegration
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/FrameTreeView.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/GroupingOptionsWidget.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/QualityDistributionWidget.h
-    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/StageTimelineWidget.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/TabIssueBadge.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/TreeContextMenuHandler.h
     header   src/AfterNightProcesses/processes/ImageIntegration/widgets/TreeDisplayModeWidget.h
@@ -6102,6 +6119,9 @@ sources Test_ImageIntegration
     header   src/AfterNightControls/components/AnStageList.h
     header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightTests/Test_ImageIntegration/ui/IntegrationPageCase.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/widgets/WorkflowRunView.h
+    header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowRunStanding.h
+    header   src/AfterNightTests/Test_ImageIntegration/workflow/FixturePipeline.h
     include  src/AfterNightTests
     include  src/AfterNightWorkflowDriver
     include  src/AfterNightProcesses

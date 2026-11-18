@@ -29,6 +29,7 @@ namespace
 
 using an::ui::StageRow;
 using an::ui::StageStatus;
+using an::ui::StageStep;
 
 /// What a row's item holds beside its title.
 enum StageRole
@@ -36,7 +37,9 @@ enum StageRole
     IdRole = Qt::UserRole + 1,
     LineRole,
     StatusRole,
-    ProgressRole
+    ProgressRole,
+    StepNamesRole,
+    StepStatusesRole
 };
 
 QFont titleFont(const an::ui::DesignTokens& t)
@@ -77,6 +80,19 @@ QString statusWords(const StageStatus status, const std::optional<int>& progress
     }
 }
 
+/// The part a stage is at among its parts, in words: "step 2 of 3: Match"; empty when it says none.
+QString stepWords(const std::vector<StageStep>& steps)
+{
+    for (std::size_t at = 0; at < steps.size(); ++at)
+    {
+        if (steps[at].status == StageStatus::Running)
+        {
+            return QStringLiteral("step %1 of %2: %3").arg(at + 1).arg(steps.size()).arg(steps[at].name);
+        }
+    }
+    return {};
+}
+
 void fillItem(QStandardItem& item, const StageRow& row)
 {
     item.setData(row.title, Qt::DisplayRole);
@@ -85,9 +101,36 @@ void fillItem(QStandardItem& item, const StageRow& row)
     item.setData(static_cast<int>(row.status), StatusRole);
     item.setData(row.progress ? std::clamp(*row.progress, 0, 100) : -1, ProgressRole);
     item.setData(row.toolTip.isEmpty() ? QVariant() : QVariant(row.toolTip), Qt::ToolTipRole);
-    item.setData(row.title + QStringLiteral(", ") + statusWords(row.status, row.progress) + QStringLiteral(", ") +
-                     row.line,
-                 Qt::AccessibleTextRole);
+    QStringList names;
+    QVariantList statuses;
+    for (const StageStep& step : row.steps)
+    {
+        names.append(step.name);
+        statuses.append(static_cast<int>(step.status));
+    }
+    item.setData(names, StepNamesRole);
+    item.setData(statuses, StepStatusesRole);
+    QString said =
+        row.title + QStringLiteral(", ") + statusWords(row.status, row.progress) + QStringLiteral(", ") + row.line;
+    if (const QString at = stepWords(row.steps); !at.isEmpty())
+    {
+        said += QStringLiteral(", ") + at;
+    }
+    item.setData(said, Qt::AccessibleTextRole);
+}
+
+std::vector<StageStep> stepsOf(const QModelIndex& index)
+{
+    const QStringList names = index.data(StepNamesRole).toStringList();
+    const QVariantList statuses = index.data(StepStatusesRole).toList();
+    std::vector<StageStep> steps;
+    steps.reserve(static_cast<std::size_t>(names.size()));
+    for (qsizetype at = 0; at < names.size(); ++at)
+    {
+        steps.push_back(StageStep{names[at], at < statuses.size() ? static_cast<StageStatus>(statuses[at].toInt())
+                                                                  : StageStatus::Pending});
+    }
+    return steps;
 }
 
 StageRow rowOf(const QModelIndex& index)
@@ -98,24 +141,32 @@ StageRow rowOf(const QModelIndex& index)
                     index.data(LineRole).toString(),
                     static_cast<StageStatus>(index.data(StatusRole).toInt()),
                     progress >= 0 ? std::optional<int>(progress) : std::nullopt,
-                    index.data(Qt::ToolTipRole).toString()};
+                    index.data(Qt::ToolTipRole).toString(),
+                    stepsOf(index)};
 }
 
-/// A row's height in the tokens in force: its padding, its title and its line, the gap under it, and a progress bar
-/// with its gap when it has one.
-int rowHeight(const an::ui::DesignTokens& t, const bool withProgress)
+/// A row's height in the tokens in force: its padding, its title and its line, a line for each of its parts, the gap
+/// under it, and a progress bar with its gap when it has one.
+int rowHeight(const an::ui::DesignTokens& t, const QModelIndex& index)
 {
     using namespace an::ui::parts;
-    return 2 * kStageRowPaddingVertical + lineHeight(titleFont(t)) + lineHeight(lineFont(t)) + kStageRowSpacing +
+    const int steps = static_cast<int>(index.data(StepNamesRole).toStringList().size());
+    const bool withProgress = index.data(ProgressRole).toInt() >= 0;
+    return 2 * kStageRowPaddingVertical + lineHeight(titleFont(t)) + lineHeight(lineFont(t)) +
+           steps * (kStageStepGap + lineHeight(lineFont(t))) + kStageRowSpacing +
            (withProgress ? kStageProgressGap + kStageProgress : 0);
 }
 
-/// A row's width with its title and its line whole.
+/// A row's width with its title, its line and its parts whole.
 int naturalWidth(const an::ui::DesignTokens& t, const QModelIndex& index)
 {
     using namespace an::ui::parts;
-    const int text = (std::max)(textWidth(titleFont(t), index.data(Qt::DisplayRole).toString()),
-                                textWidth(lineFont(t), index.data(LineRole).toString()));
+    int text = (std::max)(textWidth(titleFont(t), index.data(Qt::DisplayRole).toString()),
+                          textWidth(lineFont(t), index.data(LineRole).toString()));
+    for (const QString& step : index.data(StepNamesRole).toStringList())
+    {
+        text = (std::max)(text, kStageStepMark + kStageStepTextGap + textWidth(lineFont(t), step));
+    }
     return 2 * kStageRowPaddingHorizontal + kStageMarkBox + kStageRowGap + text;
 }
 
@@ -130,7 +181,7 @@ public:
         const an::ui::DesignTokens& t = an::ui::tokens();
         // A row spans the list's width, so its fill and its line's room reach the list's edge.
         const int width = m_list->viewport()->width() > 0 ? m_list->viewport()->width() : naturalWidth(t, index);
-        return QSize(width, rowHeight(t, index.data(ProgressRole).toInt() >= 0));
+        return QSize(width, rowHeight(t, index));
     }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override
@@ -187,6 +238,24 @@ public:
         painter->drawText(QRectF(left, lineTop, right - left, lineHeight(line)), Qt::AlignLeft | Qt::AlignVCenter,
                           QFontMetricsF(line).elidedText(row.line, Qt::ElideRight, right - left));
 
+        // The stage's parts, under its line: a small mark, then the part's name.
+        qreal stepTop = lineTop + lineHeight(line);
+        for (const StageStep& step : row.steps)
+        {
+            stepTop += kStageStepGap;
+            paintStepMark(*painter, QPointF(left + kStageStepMark / 2.0, stepTop + lineHeight(line) / 2.0), step.status,
+                          selected, t);
+            const qreal textLeft = left + kStageStepMark + kStageStepTextGap;
+            const bool at = step.status == StageStatus::Running;
+            painter->setPen(selected ? t.colors.textOnAccentContainer
+                                     : (at ? t.colors.textPrimary : t.colors.textSecondary));
+            painter->setFont(line);
+            painter->drawText(QRectF(textLeft, stepTop, right - textLeft, lineHeight(line)),
+                              Qt::AlignLeft | Qt::AlignVCenter,
+                              QFontMetricsF(line).elidedText(step.name, Qt::ElideRight, right - textLeft));
+            stepTop += lineHeight(line);
+        }
+
         if (row.progress)
         {
             const QRectF track(left, bounds.bottom() - kStageRowPaddingVertical - kStageProgress, right - left,
@@ -202,6 +271,36 @@ public:
     }
 
 private:
+    /// The mark of a part of a stage: a check for one done, the accent's dot for the one the stage is at, a ring for
+    /// one to come.
+    static void paintStepMark(QPainter& painter, const QPointF& centre, const StageStatus status, const bool selected,
+                              const an::ui::DesignTokens& t)
+    {
+        using namespace an::ui::parts;
+        const qreal r = kStageStepMark / 2.0;
+        const QRectF box(centre.x() - r, centre.y() - r, kStageStepMark, kStageStepMark);
+        painter.setBrush(Qt::NoBrush);
+        if (status == StageStatus::Done)
+        {
+            paintCheckMark(painter, box, selected ? t.colors.textOnAccentContainer : t.colors.statusSuccess,
+                           kStageMarkBorder);
+        }
+        else if (status == StageStatus::Running)
+        {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(selected ? t.colors.textOnAccentContainer : t.colors.accentPrimary);
+            painter.drawEllipse(box);
+        }
+        else
+        {
+            const qreal half = kStageMarkBorder / 2.0;
+            painter.setPen(QPen(selected ? t.colors.textOnAccentContainer : t.colors.textTertiary, kStageMarkBorder));
+            painter.drawEllipse(box.adjusted(half, half, -half, -half));
+        }
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::NoBrush);
+    }
+
     static void paintMark(QPainter& painter, const QPointF& centre, const StageStatus status,
                           const an::ui::DesignTokens& t)
     {
@@ -375,7 +474,7 @@ QSize AnStageList::sizeHint() const
     {
         const QModelIndex at = m_model->index(index, 0);
         width = (std::max)(width, naturalWidth(t, at));
-        height += rowHeight(t, at.data(ProgressRole).toInt() >= 0);
+        height += rowHeight(t, at);
     }
     const int frame = 2 * frameWidth();
     return QSize(width + frame, height + frame);

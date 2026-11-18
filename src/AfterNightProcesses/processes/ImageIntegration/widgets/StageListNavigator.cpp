@@ -379,6 +379,82 @@ QString StageListNavigator::currentRow() const
     return m_list->selectedId();
 }
 
+void StageListNavigator::showRun(QWidget* const runView)
+{
+    if (runView == nullptr || m_pages == nullptr)
+    {
+        return;
+    }
+    QWidget* const before = m_runView.data() != runView ? m_runView.data() : nullptr;
+    m_runView = runView;
+    if (m_pages->indexOf(runView) < 0)
+    {
+        m_pages->addWidget(runView);
+    }
+    showRunAgain();
+    // The view of a run before goes once the new one is shown, so that the stack shows no page between the two.
+    if (before != nullptr)
+    {
+        m_pages->removeWidget(before);
+        before->hide();
+        before->deleteLater();
+    }
+}
+
+void StageListNavigator::showRunAgain()
+{
+    if (m_runView.isNull() || m_pages == nullptr)
+    {
+        return;
+    }
+    m_pages->setCurrentWidget(m_runView.data());
+    // No row is selected while the run is shown: any row a person selects from here shows its page.
+    m_list->setSelectedId(QString());
+}
+
+void StageListNavigator::dismissRun()
+{
+    if (m_runView.isNull() || m_pages == nullptr)
+    {
+        return;
+    }
+    QWidget* const gone = m_runView.data();
+    m_runView = nullptr;
+    // The page that was shown first, so that the stack does not choose another as the view leaves it.
+    const StagePage back = m_current;
+    if (QWidget* const shown = m_page[static_cast<std::size_t>(back)])
+    {
+        m_pages->setCurrentWidget(shown);
+    }
+    m_pages->removeWidget(gone);
+    gone->hide();
+    gone->deleteLater();
+    if (stagePageOfRow(m_list->selectedId()) != back)
+    {
+        m_list->setSelectedId(stageRowOfPage(back));
+    }
+}
+
+bool StageListNavigator::isRunShown() const
+{
+    return !m_runView.isNull() && m_pages != nullptr && m_pages->currentWidget() == m_runView.data();
+}
+
+void StageListNavigator::setPagesHeld(const bool held)
+{
+    for (QWidget* const page : m_page)
+    {
+        if (page != nullptr)
+        {
+            page->setEnabled(!held);
+        }
+    }
+    if (m_foot != nullptr)
+    {
+        m_foot->setEnabled(!held);
+    }
+}
+
 void StageListNavigator::rowSelected(const QString& rowId)
 {
     const std::optional<StagePage> page = stagePageOfRow(rowId);

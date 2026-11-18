@@ -38,6 +38,17 @@ enum class StageStatus
     OutOfDate
 };
 
+/// A part of a stage on its way, as its row shows it under its line: "Detect".
+struct StageStep
+{
+    QString name;
+
+    /// Done, running - the part the stage is at - or pending for one to come.
+    StageStatus status = StageStatus::Pending;
+
+    [[nodiscard]] bool operator==(const StageStep&) const = default;
+};
+
 /// A stage as a stage list shows it.
 struct StageRow
 {
@@ -47,22 +58,25 @@ struct StageRow
     StageStatus status = StageStatus::Pending;
     std::optional<int> progress; ///< How far a run has come, 0 to 100; no bar when absent.
     QString toolTip; ///< What the row adds when it is pointed at; none when empty.
+    std::vector<StageStep> steps; ///< The parts of a stage on its way, under its line; none for most.
 
     [[nodiscard]] bool operator==(const StageRow&) const = default;
 };
 
 /// Rows of a status mark, a title in the body text and semibold, and one line of state in the monospace at the
 /// caption's size in the secondary text, elided at the right; a stage with a progress shows a thin bar under its line,
-/// the accent over the accent's track. The marks are joined by a line. A mark is a ring of the tertiary text for a
-/// stage to come, a ring of the accent with a dot at its centre for one that is ready, the accent filled while it
-/// runs, success with a check when done, the warning with an exclamation mark, the error with a cross, and a ring of
-/// the warning with a check for one that is out of date: never colour alone. The selected row is the accent's
-/// container with its texts in the container's text; a hovered row lays the state colour over itself.
+/// the accent over the accent's track. A stage that says its parts (`StageRow::steps`) lists them under its line, one
+/// a line in the line's font, each after a small mark - a check for a part done, the accent's dot for the part it is
+/// at, a ring for one to come - the part it is at in the primary text. The marks are joined by a line. A mark is a ring
+/// of the tertiary text for a stage to come, a ring of the accent with a dot at its centre for one that is ready, the
+/// accent filled while it runs, success with a check when done, the warning with an exclamation mark, the error with a
+/// cross, and a ring of the warning with a check for one that is out of date: never colour alone. The selected row is
+/// the accent's container with its texts in the container's text; a hovered row lays the state colour over itself.
 ///
 /// The rows are given whole (`setRows`) or one at a time by id (`updateRow`), and a list given again keeps its
 /// selection. The keyboard moves the selection with Up and Down, the pointer selects a row by a click, and every new
 /// selection is told by the stage's id (`selectedStageChanged`). Assistive technology reads a list whose rows are named
-/// by the title, the state and the line.
+/// by the title, the state and the line, and by the part a stage is at among its parts when it says them.
 class AFTERNIGHTCONTROLS_API AnStageList : public QListView
 {
     W_OBJECT(AnStageList)

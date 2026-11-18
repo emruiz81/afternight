@@ -563,6 +563,28 @@ TEST(Rail, Tooltips)
     EXPECT_FALSE(tip->isVisible());
 }
 
+// A task whose run says what it does - the step a job is at - says it in its tooltip in place of "applying", with how
+// far the run has come when it tells.
+TEST(Rail, ATasksToolTipSaysWhatItsRunDoes)
+{
+    std::vector<RailItem> items = ordinaryRail();
+    items[4].text = QStringLiteral("Image Integration - Carina Nebula LRGB");
+    items[4].runText = QStringLiteral("Step 5/9: Registration");
+    items[4].progress = 58;
+    ShownRail shown(items);
+    AnIconRail& rail = shown.rail;
+    EXPECT_EQ(rail.itemToolTip(QStringLiteral("t2")),
+              QStringLiteral("Image Integration - Carina Nebula LRGB - Step 5/9: Registration 58 %"));
+    EXPECT_EQ(an::ui::railItemDescription(items[4]), rail.itemToolTip(QStringLiteral("t2")));
+    items[4].progress.reset();
+    rail.updateItem(items[4]);
+    EXPECT_EQ(rail.itemToolTip(QStringLiteral("t2")),
+              QStringLiteral("Image Integration - Carina Nebula LRGB - Step 5/9: Registration"));
+    RailItem other = items[4];
+    other.runText = QStringLiteral("Step 6/9: Alignment");
+    EXPECT_FALSE(an::ui::sameRailItem(items[4], other)) << "what a run does is part of what an item shows";
+}
+
 // The menu of an item is asked for by a right click, or by a press held 500 ms - after which the release activates
 // nothing - each with the global point it was asked at.
 TEST(Rail, MenuRequest)

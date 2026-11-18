@@ -27,14 +27,27 @@ class IntegrationDataModel;
  * read IntegrationDataModel directly. Callers that use prepared execution must
  * build the manifest from an immutable snapshot rather than touching UI-owned
  * model state from the preparation worker.
+ *
+ * Where the run is shown:
+ * A run is followed in its view (`widgets/WorkflowRunView.h`). The widget the run is launched from is asked to show
+ * the view in itself (`IWorkflowRunHost`, `workflow/WorkflowRunObserver.h`): a process shown as a page does, and no
+ * window opens. Any other front end gets the Processing window, which holds the view and stands over the application
+ * until the run has ended. Either way the process window the run is launched from says the run's standing as its run
+ * state: the step it is at among its stages and how far the whole has come.
  */
 class AFTERNIGHTPROCESSES_API WorkflowExecutionController
 {
 public:
     using CompletionCallback = std::function<void(const WorkflowExecutor::Result&)>;
     using ManifestPreparationCallback = std::function<WorkflowManifest()>;
+    /// What makes the executor of a run with its stages: the application's when none is given.
+    using Pipeline = std::function<std::unique_ptr<WorkflowExecutor>()>;
 
     WorkflowExecutionController(IntegrationDataModel* model, QWidget* parent);
+
+    /// Runs go through the stages `pipeline` makes in place of the application's - a suite's own - and a manifest
+    /// given to `runAsyncPrevalidated` is then run as it is, with no preparation of its own.
+    void setPipeline(Pipeline pipeline);
 
     [[nodiscard]] bool
     runAsyncValidated(const WorkflowManifest& manifest, CompletionCallback onFinished = {},
@@ -59,4 +72,5 @@ private:
 
     IntegrationDataModel* m_model = nullptr;
     QWidget* m_parent = nullptr;
+    Pipeline m_pipeline;
 };

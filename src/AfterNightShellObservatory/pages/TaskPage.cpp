@@ -101,6 +101,11 @@ TopLevelProcessBaseControl* TaskPage::process() const
     return m_process.data();
 }
 
+void TaskPage::setJobChanged(std::function<void()> told)
+{
+    m_jobChanged = std::move(told);
+}
+
 void TaskPage::dress(TopLevelProcessBaseControl& process, std::function<void(ImageViewControl*)> previewChanged)
 {
     m_process = &process;
@@ -120,6 +125,10 @@ void TaskPage::dress(TopLevelProcessBaseControl& process, std::function<void(Ima
             const an::ui::ProcessPageLayout* const layout = m_process ? m_process->pageLayout() : nullptr;
             const an::ui::JobHeading* const job = layout != nullptr ? layout->jobHeading() : nullptr;
             m_header->setJob(job != nullptr ? std::optional<an::ui::JobHeading>(*job) : std::nullopt);
+            if (m_jobChanged)
+            {
+                m_jobChanged();
+            }
         };
         page->setJobHeadingListener(sayTheJob);
         sayTheJob();

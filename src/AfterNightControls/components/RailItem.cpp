@@ -13,7 +13,8 @@ bool sameRailItem(const RailItem& a, const RailItem& b)
     return a.id == b.id && a.section == b.section && a.iconKey == b.iconKey && a.text == b.text &&
            a.badgeText == b.badgeText && a.selected == b.selected && a.enabled == b.enabled &&
            a.thumbnail.cacheKey() == b.thumbnail.cacheKey() && a.glyphKey == b.glyphKey && a.runPhase == b.runPhase &&
-           a.progress == b.progress && a.unseenResult == b.unseenResult && a.floating == b.floating;
+           a.progress == b.progress && a.runText == b.runText && a.unseenResult == b.unseenResult &&
+           a.floating == b.floating;
 }
 
 QString railItemDescription(const RailItem& item)
@@ -25,10 +26,12 @@ QString railItemDescription(const RailItem& item)
     }
     switch (item.runPhase)
     {
-    case RailRunPhase::Running:
-        description +=
-            item.progress ? QStringLiteral(" - applying %1 %").arg(*item.progress) : QStringLiteral(" - applying");
+    case RailRunPhase::Running: {
+        const QString does = item.runText.isEmpty() ? QStringLiteral("applying") : item.runText;
+        description += item.progress ? QStringLiteral(" - %1 %2 %").arg(does).arg(*item.progress)
+                                     : QStringLiteral(" - %1").arg(does);
         break;
+    }
     case RailRunPhase::Succeeded:
         if (item.unseenResult)
         {

@@ -108,6 +108,78 @@ TEST(AnStageList, RowsHoldTheirPartsAndFollowTheDensity)
     });
 }
 
+// A stage on its way shows its parts under its line, one a line in the line's font, each with a small mark: a part
+// done, the part it is at, the parts to come. A row with parts is taller by them, gives them back as it was given them,
+// and reads them to assistive technology after its line.
+TEST(AnStageList, AStageShowsItsStepsUnderItsLine)
+{
+    using an::ui::StageStep;
+    forEachLook([](const DesignTokens& t) {
+        AnStageList list;
+        an::tests::widgets::showOffScreen(list);
+        std::vector<StageRow> rows = runSheet();
+        rows[2].steps = {StageStep{QStringLiteral("Detect"), StageStatus::Done},
+                         StageStep{QStringLiteral("Match"), StageStatus::Running},
+                         StageStep{QStringLiteral("Solve"), StageStatus::Pending}};
+        list.setRows(rows);
+        list.resize(240, list.sizeHint().height());
+        ASSERT_EQ(list.rows().at(2).steps.size(), 3u);
+        EXPECT_EQ(list.rows().at(2).steps.at(1).name, QStringLiteral("Match"));
+        EXPECT_EQ(list.rows().at(2).steps.at(1).status, StageStatus::Running);
+        EXPECT_TRUE(list.rows().at(1).steps.empty());
+
+        const QFont line = an::ui::parts::sizedFont(t.typography.monospace, t.metrics.fontCaption);
+        const QFont title = an::ui::parts::sizedFont(t.typography.body, t.metrics.fontBody, QFont::DemiBold);
+        const int plain = 2 * kStageRowPaddingVertical + lineHeight(title) + lineHeight(line) + kStageRowSpacing;
+        const int steps = 3 * (kStageStepGap + lineHeight(line));
+        EXPECT_EQ(list.visualRect(list.model()->index(2, 0)).height(),
+                  plain + steps + kStageProgressGap + kStageProgress);
+
+        // Each part is written in the line's font, the part on its way in the primary text.
+        const an::ui::testing::RecordedText done = recordedText(*list.viewport(), QStringLiteral("Detect"));
+        const an::ui::testing::RecordedText at = recordedText(*list.viewport(), QStringLiteral("Match"));
+        const an::ui::testing::RecordedText toCome = recordedText(*list.viewport(), QStringLiteral("Solve"));
+        ASSERT_EQ(done.text, QStringLiteral("Detect"));
+        ASSERT_EQ(at.text, QStringLiteral("Match"));
+        ASSERT_EQ(toCome.text, QStringLiteral("Solve"));
+        EXPECT_EQ(logicalPixels(at.font), t.metrics.fontCaption);
+        EXPECT_EQ(at.font.families(), t.typography.monospace.families());
+        expectColour(at.colour, t.colors.textPrimary, "the part on its way", 0);
+        expectColour(done.colour, t.colors.textSecondary, "a part done", 0);
+        expectColour(toCome.colour, t.colors.textSecondary, "a part to come", 0);
+
+        // The part on its way carries the accent's mark at the head of its line, under the stage's line.
+        const RenderedPicture picture = RenderedPicture::ofWidget(*list.viewport(), 1.0, t.layers.surface1);
+        const QRect row = list.visualRect(list.model()->index(2, 0));
+        const qreal textLeft = row.left() + kStageRowPaddingHorizontal + kStageMarkBox + kStageRowGap;
+        const qreal second = row.top() + kStageRowPaddingVertical + lineHeight(title) + lineHeight(line) +
+                             kStageStepGap + lineHeight(line) + kStageStepGap + lineHeight(line) / 2.0;
+        expectColour(picture.at(textLeft + kStageStepMark / 2.0, second), t.colors.accentPrimary,
+                     "the mark of the part on its way", 24);
+
+        // A stage that has passed its parts shows none.
+        StageRow registration = list.rows().at(2);
+        registration.steps.clear();
+        list.updateRow(registration);
+        EXPECT_EQ(list.visualRect(list.model()->index(2, 0)).height(), plain + kStageProgressGap + kStageProgress);
+    });
+
+    AnStageList list;
+    an::tests::widgets::showOffScreen(list);
+    std::vector<StageRow> rows = runSheet();
+    rows[2].steps = {StageStep{QStringLiteral("Detect"), StageStatus::Done},
+                     StageStep{QStringLiteral("Match"), StageStatus::Running},
+                     StageStep{QStringLiteral("Solve"), StageStatus::Pending}};
+    list.setRows(rows);
+    list.resize(240, list.sizeHint().height());
+    QAccessibleInterface* const iface = QAccessible::queryAccessibleInterface(&list);
+    ASSERT_NE(iface, nullptr);
+    QAccessibleTableInterface* const table = iface->tableInterface();
+    ASSERT_NE(table, nullptr);
+    EXPECT_EQ(table->cellAt(2, 0)->text(QAccessible::Name),
+              QStringLiteral("Registration, running 57 %, running - 412 / 718, step 2 of 3: Match"));
+}
+
 // Each status draws its mark - the ring of a stage to come, the accent of a run, success, warning and error with their
 // glyphs - and the selected row is the container with its texts in the container's text.
 TEST(AnStageList, PaintsTheMarksAndTheSelectedRow)

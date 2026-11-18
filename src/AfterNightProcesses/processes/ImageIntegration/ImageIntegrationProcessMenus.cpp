@@ -52,6 +52,8 @@ void ImageIntegrationProcess::setupMenuBar()
     auto* runMenu = mainMenuBar->addMenu(tr("Run"));
     auto* navigateMenu = mainMenuBar->addMenu(tr("Navigate"));
     auto* helpMenu = mainMenuBar->addMenu(tr("Help"));
+    m_navigateMenu = navigateMenu;
+    m_helpMenu = helpMenu;
 
     for (auto* menu : {framesMenu, projectMenu, editMenu, runMenu, navigateMenu, helpMenu})
     {

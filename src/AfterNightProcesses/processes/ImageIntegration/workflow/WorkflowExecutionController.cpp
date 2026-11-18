@@ -10,7 +10,9 @@
 #include "processes/ImageIntegration/workflow/WorkflowProgressController.h"
 #include "processes/ImageIntegration/workflow/WorkflowPreparation.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunObserver.h"
+#include "processes/ImageIntegration/workflow/WorkflowRunStanding.h"
 #include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
+#include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 
 #include "controls/IAppContext.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -28,6 +30,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <exception>
 #include <memory>
@@ -145,6 +148,78 @@ void followRunProgress(WorkflowProgressController& controller, QWidget* parent)
                      [observer](const WorkflowProgress& progress) { observer->workflowRunProgressed(progress); });
 }
 
+/// Makes the run state of the process window a workflow is launched from say where the run stands as its view says
+/// it: the step it is at among its stages - "Step 5/9: Registration" - and how far the whole has come, to the percent.
+/// A run at none of its stages yet - it prepares - says nothing more than that it runs.
+void followRunStanding(WorkflowRunView& view, QWidget* parent)
+{
+    auto* process = dynamic_cast<TopLevelProcessBaseControl*>(parent);
+    if (process == nullptr)
+    {
+        return;
+    }
+    QObject::connect(
+        &view, &WorkflowRunView::standingChanged, process,
+        [guard = QPointer<TopLevelProcessBaseControl>(process), shown = QPointer<WorkflowRunView>(&view)]() {
+            if (!guard || !shown || shown->isFinished())
+            {
+                return;
+            }
+            const ImageIntegration::WorkflowRunStanding& standing = shown->standing();
+            const QString text = ImageIntegration::workflowRunStandingText(standing);
+            if (text.isEmpty())
+            {
+                return;
+            }
+            guard->reportRunProgress(std::round(standing.fraction * 100.0) / 100.0, text);
+        });
+}
+
+/// What shows a run: its controller, its view, and the Processing window where the front end the run is launched from
+/// does not show the view in itself.
+struct RunFront
+{
+    WorkflowProgressController* controller = nullptr;
+    WorkflowRunView* view = nullptr;
+    WorkflowProgressDialogV2* dialog = nullptr;
+
+    /// Opens the Processing window; a front end that took the view shows it already.
+    void show() const
+    {
+        if (dialog != nullptr)
+        {
+            dialog->open();
+        }
+    }
+};
+
+/// Makes a run's controller and what shows the run. The front end the run is launched from is asked to show the view
+/// in itself, and the controller then lives with the view; otherwise the Processing window is made over the front
+/// end, holding the view and the controller, and goes when it is closed.
+[[nodiscard]] RunFront openRunFront(IntegrationDataModel* model, QWidget* parent,
+                                    const WorkflowExecutionController::Pipeline& pipeline)
+{
+    RunFront front;
+    front.controller = new WorkflowProgressController(model, applicationSession(), nullptr, pipeline);
+    if (auto* const host = dynamic_cast<IWorkflowRunHost*>(parent))
+    {
+        auto* const view = new WorkflowRunView(front.controller);
+        if (host->showWorkflowRun(view))
+        {
+            front.controller->setParent(view);
+            front.view = view;
+            return front;
+        }
+        delete view;
+    }
+    front.dialog = new WorkflowProgressDialogV2(front.controller, parent);
+    front.controller->setParent(front.dialog);
+    front.view = front.dialog->runView();
+    QObject::connect(front.dialog, &QDialog::finished, front.dialog,
+                     [dialog = front.dialog](int) { dialog->deleteLater(); });
+    return front;
+}
+
 [[nodiscard]] qint64 elapsedMilliseconds(const std::chrono::steady_clock::time_point start)
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
@@ -259,6 +334,11 @@ WorkflowExecutionController::WorkflowExecutionController(IntegrationDataModel* m
 {
 }
 
+void WorkflowExecutionController::setPipeline(Pipeline pipeline)
+{
+    m_pipeline = std::move(pipeline);
+}
+
 void WorkflowExecutionController::normalizeManifestForExecution(
     WorkflowManifest& manifest, const std::optional<std::uint64_t> availablePhysicalBytes)
 {
@@ -303,18 +383,19 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
     {
         return false;
     }
-    if (!preparationSnapshot)
+    // A pipeline of the caller's own runs the manifest as it is; the application's needs what a preparation read.
+    if (!preparationSnapshot && !m_pipeline)
     {
         return runAsyncPrepared([manifest]() { return manifest; }, std::move(onFinished));
     }
 
-    auto* controller = new WorkflowProgressController(m_model, applicationSession());
-    auto* dialog = new WorkflowProgressDialogV2(controller, m_parent);
-    controller->setParent(dialog);
+    const RunFront front = openRunFront(m_model, m_parent, m_pipeline);
+    WorkflowProgressController* const controller = front.controller;
+    WorkflowRunView* const view = front.view;
     followRunProgress(*controller, m_parent);
-    dialog->setStages(manifest.stageSequence);
+    view->setStages(manifest.stageSequence, ImageIntegration::workflowStageWeights(manifest));
 
-    QObject::connect(controller, &WorkflowProgressController::finished, dialog,
+    QObject::connect(controller, &WorkflowProgressController::finished, view,
                      [onFinished = std::move(onFinished),
                       endRunState = followRunState(m_parent)](const WorkflowExecutor::Result& result) {
                          endRunState(result);
@@ -323,10 +404,10 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
                              onFinished(result);
                          }
                      });
-    QObject::connect(dialog, &QDialog::finished, dialog, [dialog](int) { dialog->deleteLater(); });
+    followRunStanding(*view, m_parent);
 
     const auto executionManifest = std::make_shared<WorkflowManifest>(manifest);
-    QTimer::singleShot(0, dialog,
+    QTimer::singleShot(0, view,
                        [controllerPtr = QPointer<WorkflowProgressController>(controller), executionManifest,
                         preparationTiming, preparationSnapshot = std::move(preparationSnapshot)]() mutable {
                            if (controllerPtr)
@@ -335,7 +416,7 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
                                                     std::move(preparationSnapshot));
                            }
                        });
-    dialog->open();
+    front.show();
     return true;
 }
 
@@ -347,14 +428,14 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
         return false;
     }
 
-    auto* controller = new WorkflowProgressController(m_model, applicationSession());
-    auto* dialog = new WorkflowProgressDialogV2(controller, m_parent);
-    controller->setParent(dialog);
+    const RunFront front = openRunFront(m_model, m_parent, m_pipeline);
+    WorkflowProgressController* const controller = front.controller;
+    WorkflowRunView* const view = front.view;
     followRunProgress(*controller, m_parent);
-    dialog->setStages({trImageIntegrationProcess("Preparing")});
-    dialog->onLogMessage(WorkflowLogLevel::Info, trImageIntegrationProcess("Preparing workflow..."));
+    view->setStages({trImageIntegrationProcess("Preparing")});
+    view->onLogMessage(WorkflowLogLevel::Info, trImageIntegrationProcess("Preparing workflow..."));
 
-    auto* watcher = new QFutureWatcher<PreparedWorkflowManifest>(dialog);
+    auto* watcher = new QFutureWatcher<PreparedWorkflowManifest>(view);
     const auto preparationCancelled = std::make_shared<std::atomic_bool>(false);
     // The run state ends with the workflow, or with a preparation that never reached it.
     const auto endRunState =
@@ -368,30 +449,30 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
             }
         });
 
-    QObject::connect(dialog, &WorkflowProgressDialogV2::cancelRequested, dialog,
+    QObject::connect(view, &WorkflowRunView::cancelRequested, view,
                      [preparationCancelled]() { preparationCancelled->store(true, std::memory_order_relaxed); });
-    QObject::connect(controller, &WorkflowProgressController::finished, dialog,
+    QObject::connect(controller, &WorkflowProgressController::finished, view,
                      [completion](const WorkflowExecutor::Result& result) {
                          if (completion && *completion)
                          {
                              (*completion)(result);
                          }
                      });
-    QObject::connect(dialog, &QDialog::finished, dialog, [dialog](int) { dialog->deleteLater(); });
+    followRunStanding(*view, m_parent);
     QObject::connect(
-        watcher, &QFutureWatcher<PreparedWorkflowManifest>::finished, dialog,
-        [watcher, dialogPtr = QPointer<WorkflowProgressDialogV2>(dialog),
+        watcher, &QFutureWatcher<PreparedWorkflowManifest>::finished, view,
+        [watcher, viewPtr = QPointer<WorkflowRunView>(view),
          controllerPtr = QPointer<WorkflowProgressController>(controller), parent = QPointer<QWidget>(m_parent),
          completion, preparationCancelled]() {
             watcher->deleteLater();
 
-            if (!dialogPtr || !controllerPtr)
+            if (!viewPtr || !controllerPtr)
             {
                 return;
             }
 
             const auto finishWithoutExecutor = [&](const WorkflowExecutor::Result& result) {
-                dialogPtr->onFinished(result);
+                viewPtr->onFinished(result);
                 if (completion && *completion)
                 {
                     (*completion)(result);
@@ -422,10 +503,11 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
                 return;
             }
 
-            dialogPtr->setStages(normalizedManifest.stageSequence);
+            viewPtr->setStages(normalizedManifest.stageSequence,
+                               ImageIntegration::workflowStageWeights(normalizedManifest));
 
             const auto executionManifest = std::make_shared<WorkflowManifest>(std::move(normalizedManifest));
-            QTimer::singleShot(0, dialogPtr,
+            QTimer::singleShot(0, viewPtr,
                                [controllerPtr, executionManifest, preparationTiming = prepared.preparationTiming,
                                 preparationSnapshot = std::move(prepared.preparationSnapshot)]() mutable {
                                    if (controllerPtr)
@@ -436,9 +518,9 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
                                });
         });
 
-    dialog->open();
+    front.show();
     QTimer::singleShot(
-        0, dialog, [watcher, prepareManifest = std::move(prepareManifest), preparationCancelled]() mutable {
+        0, view, [watcher, prepareManifest = std::move(prepareManifest), preparationCancelled]() mutable {
             watcher->setFuture(QtConcurrent::run([prepareManifest = std::move(prepareManifest), preparationCancelled,
                                                   session = applicationSession()]() mutable {
                 return ImageIntegration::prepareDirectWorkflowExecution(

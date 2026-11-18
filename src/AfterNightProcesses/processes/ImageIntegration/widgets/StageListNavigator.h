@@ -50,6 +50,11 @@ namespace ImageIntegration
 /// here - and the acts of the project file, each a button for an act or a menu of the process's own: import, export,
 /// the recent projects, the presets and Reset Settings. A button is enabled as its act is, and says the act's tooltip.
 ///
+/// **A run** on its way is shown where the stage's page is (`showRun`): its view takes the pages' place, and no row is
+/// selected while it does. A row selected meanwhile shows its page, held so that it is looked at and not changed
+/// (`setPagesHeld`), and the view is shown again when it is asked for (`showRunAgain`) or put away for good
+/// (`dismissRun`).
+///
 /// The pages are the widgets it is given and it holds them for as long as it lives; nothing of them is changed.
 class AFTERNIGHTPROCESSES_API StageListNavigator final : public StageNavigator
 {
@@ -101,6 +106,23 @@ public:
     /// The row selected.
     [[nodiscard]] QString currentRow() const;
 
+    /// Shows a run's view where the stage's page is, the view the navigator's from then on; no row is selected while
+    /// it is shown, so that any row a person selects shows its page. A view shown before is put away first.
+    void showRun(QWidget* runView);
+
+    /// Shows the run's view again after a stage's page was looked at; nothing when there is none.
+    void showRunAgain();
+
+    /// Puts the run's view away and deletes it, and shows the page that was shown, its row selected again.
+    void dismissRun();
+
+    /// Whether the run's view is what the pages' place shows.
+    [[nodiscard]] bool isRunShown() const;
+
+    /// Makes the stages' pages and the foot wait - disabled, to be looked at and not changed - or gives them back. The
+    /// list stays live either way: it moves between the pages.
+    void setPagesHeld(bool held);
+
 private:
     void rowSelected(const QString& rowId);
 
@@ -112,6 +134,7 @@ private:
     QList<QAbstractButton*> m_footButtons;
     std::array<QWidget*, kStagePageCount> m_page{};
     StagePage m_current = StagePage::Bias;
+    QPointer<QWidget> m_runView;
 };
 
 } // namespace ImageIntegration

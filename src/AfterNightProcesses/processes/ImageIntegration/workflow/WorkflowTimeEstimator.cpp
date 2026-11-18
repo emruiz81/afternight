@@ -6,9 +6,52 @@
 
 #include <QTime>
 
-int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest)
+double WorkflowTimeEstimator::StageSeconds::of(const QString& stageToken) const
 {
-    double totalSeconds = 0.0;
+    if (stageToken == QLatin1String("Bias"))
+    {
+        return bias;
+    }
+    if (stageToken == QLatin1String("Dark"))
+    {
+        return dark;
+    }
+    if (stageToken == QLatin1String("Flat"))
+    {
+        return flat;
+    }
+    if (stageToken == QLatin1String("LightsCalibration"))
+    {
+        return lightsCalibration;
+    }
+    if (stageToken == QLatin1String("LightsRegistration"))
+    {
+        return lightsRegistration;
+    }
+    if (stageToken == QLatin1String("LightsNormalization"))
+    {
+        return lightsNormalization;
+    }
+    if (stageToken == QLatin1String("LightsDrizzle"))
+    {
+        return lightsDrizzle;
+    }
+    if (stageToken == QLatin1String("LightsStacking"))
+    {
+        return lightsStacking;
+    }
+    return 0.0;
+}
+
+double WorkflowTimeEstimator::StageSeconds::total() const
+{
+    return bias + dark + flat + lightsCalibration + lightsRegistration + lightsNormalization + lightsDrizzle +
+           lightsStacking;
+}
+
+WorkflowTimeEstimator::StageSeconds WorkflowTimeEstimator::estimateStageSeconds(const WorkflowManifest& manifest)
+{
+    StageSeconds seconds;
 
     // Heuristics (seconds per frame)
     constexpr double kIntegrationTimePerFrame = 0.05;
@@ -28,7 +71,7 @@ int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest
         for (const auto& group : manifest.biasStage->groups)
         {
             if (!group.skipIfExists)
-                totalSeconds += group.inputFiles.size() * kIntegrationTimePerFrame;
+                seconds.bias += group.inputFiles.size() * kIntegrationTimePerFrame;
         }
     }
     if (manifest.darkStage.has_value())
@@ -36,7 +79,7 @@ int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest
         for (const auto& group : manifest.darkStage->groups)
         {
             if (!group.skipIfExists)
-                totalSeconds += group.inputFiles.size() * kIntegrationTimePerFrame;
+                seconds.dark += group.inputFiles.size() * kIntegrationTimePerFrame;
         }
     }
     if (manifest.flatStage.has_value())
@@ -44,18 +87,19 @@ int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest
         for (const auto& group : manifest.flatStage->groups)
         {
             if (!group.skipIfExists)
-                totalSeconds += group.inputFiles.size() * kIntegrationTimePerFrame;
+                seconds.flat += group.inputFiles.size() * kIntegrationTimePerFrame;
         }
     }
 
     // 2. Lights Calibration
     // manifest.lightsCalibration contains all light frames to be calibrated
-    totalSeconds += manifest.lightsCalibration.size() * kCalibrationTimePerFrame;
+    seconds.lightsCalibration += manifest.lightsCalibration.size() * kCalibrationTimePerFrame;
 
     // 3. Registration (star detection + transform computation)
     for (const auto& group : manifest.registrationGroups)
     {
-        totalSeconds += group.lightFiles.size() * (kStarDetectionTimePerFrame + kRegistrationTransformTimePerFrame);
+        seconds.lightsRegistration +=
+            group.lightFiles.size() * (kStarDetectionTimePerFrame + kRegistrationTransformTimePerFrame);
     }
 
     // 4. Integration (Normalization + Stacking + Drizzle)
@@ -64,20 +108,23 @@ int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest
         if (group.skipIfExists)
             continue;
 
-        double groupCost = kStackingTimePerFrame;
+        seconds.lightsStacking += group.lightFiles.size() * kStackingTimePerFrame;
         if (!group.normalizationReferenceFrames.empty())
         {
-            groupCost += kNormalizationTimePerFrame;
+            seconds.lightsNormalization += group.lightFiles.size() * kNormalizationTimePerFrame;
         }
         if (group.drizzle.has_value() && group.drizzle->enabled)
         {
-            groupCost += kDrizzleTimePerFrame;
+            seconds.lightsDrizzle += group.lightFiles.size() * kDrizzleTimePerFrame;
         }
-
-        totalSeconds += group.lightFiles.size() * groupCost;
     }
 
-    return static_cast<int>(totalSeconds);
+    return seconds;
+}
+
+int WorkflowTimeEstimator::estimateTotalSeconds(const WorkflowManifest& manifest)
+{
+    return static_cast<int>(estimateStageSeconds(manifest).total());
 }
 
 QString WorkflowTimeEstimator::formatDuration(int seconds)

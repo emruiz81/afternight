@@ -47,6 +47,7 @@ struct RailItem
     QString glyphKey; ///< A task's process, by the name of its glyph's file in the icons.
     RailRunPhase runPhase = RailRunPhase::None;
     std::optional<int> progress; ///< How far a run has come, 0 to 100; none while it says nothing of it.
+    QString runText; ///< What a run on its way does, when it says: "Step 5/9: Registration"; "applying" when empty.
     bool unseenResult = false; ///< A run that ended while the task was not shown: its result's dot is drawn.
     bool floating = false; ///< A task in a window of its own, or a workspace in one.
 };
@@ -55,7 +56,8 @@ struct RailItem
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool sameRailItem(const RailItem& a, const RailItem& b);
 
 /// What an item is called - its tooltip, and its name to assistive technology: its text, and for a task where its run
-/// stands ("applying 42 %", "applied", "failed") and whether it is in a window of its own.
+/// stands ("applying 42 %", or what the run says it does: "Step 5/9: Registration 58 %"; "applied", "failed") and
+/// whether it is in a window of its own.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString railItemDescription(const RailItem& item);
 
 } // namespace an::ui
