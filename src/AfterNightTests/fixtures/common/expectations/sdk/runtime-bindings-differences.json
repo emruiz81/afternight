@@ -3,6 +3,12 @@
  "note": "Every place the runtime SDK contract the runtime module answers (runtime-bindings-current.json) differs from the recorded reference contract (runtime-bindings.json), by the path of the difference, with its class and its reason. RuntimeContractTest holds the two records to this register in both directions.",
  "differences": [
   {
+   "path": "contract",
+   "exact": true,
+   "class": "intentional change",
+   "reason": "The current contract records the names of the theme state afternight.ui_protocol.tokens() answers (theme_state_names), which the reference contract does not state: the application sends a host the choices in force with the tokens they resolve to, and the package names them."
+  },
+  {
    "path": "contract.calls[image_from_numpy metadata].result",
    "class": "intentional change",
    "reason": "The metadata dictionary lists the cards the image carries. The structural cards a writer derives from the samples - SIMPLE, BITPIX, NAXISn, EXTEND, BZERO, BSCALE - describe a file rather than the image and are not listed; the reference lists the ones its header model initialized."

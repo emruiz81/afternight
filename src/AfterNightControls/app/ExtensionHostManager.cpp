@@ -7,6 +7,7 @@
 #include "app/ExtensionCommon.h"
 #include "app/ReadRequests.h"
 #include "app/ExtensionProtocolFraming.h"
+#include "app/ExtensionThemeState.h"
 #include "controls/IAppContext.h"
 #include "controls/ExtensionUiSchemaUtils.h"
 #include "controls/ImageCropController.h"
@@ -16,6 +17,7 @@
 #include "controls/settings/ProcessingLimits.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
+#include "theme/AnDesignTokens.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightConsumerRuntime/ImageAsset.h>
@@ -2355,6 +2357,18 @@ void appendNativePreviewArguments(const an::ui::extensions::ExtensionCapabilitie
     host_arguments.insert(host_arguments.end(), preview.begin(), preview.end());
 }
 
+/// The look a full host is started under, for a launch whose arguments do not state it already: the style profile in
+/// force, so the host's windows are drawn as the application's are.
+void appendHostLookArguments(std::vector<std::string>& host_arguments)
+{
+    if (hasHostArgument(host_arguments, "--style-profile"))
+    {
+        return;
+    }
+    const std::vector<std::string> look = an::ui::extensions::hostLookArguments(an::ui::styleProfile());
+    host_arguments.insert(host_arguments.end(), look.begin(), look.end());
+}
+
 struct PreviewSubAreaSchemaConfig
 {
     QSize size{800, 600};
@@ -2920,6 +2934,195 @@ ExtensionHostLaunchCoordinator::ExtensionHostLaunchCoordinator()
 ExtensionHostLaunchCoordinator::~ExtensionHostLaunchCoordinator()
 {
     stopAllSessions();
+}
+
+bool takeSessionActivity(ExtensionHostRunningSession* running_session, const ExtensionProtocolMessage& message,
+                         std::string* error)
+{
+    const auto refuse = [error](std::string reason) {
+        if (error)
+        {
+            *error = std::move(reason);
+        }
+        return false;
+    };
+    if (!running_session)
+    {
+        return refuse("Extension host running session is null");
+    }
+    if (!hasCapability(running_session->handshake.hello.capabilities, kSessionActivityCapability))
+    {
+        return refuse("Extension host sent session.activity without stating the session_activity capability");
+    }
+    if (message.session_id != running_session->prepared_session.session_id)
+    {
+        return refuse("Extension host sent session.activity for another session");
+    }
+    SessionActivityMessage activity;
+    std::string local_error;
+    if (!sessionActivityFromProtocolMessage(message, &activity, &local_error))
+    {
+        return refuse(std::move(local_error));
+    }
+    running_session->run_activity = std::move(activity);
+    return true;
+}
+
+ExtensionSessionStanding standingOf(const ExtensionSessionController& session)
+{
+    const ExtensionHostRunningSession& running = session.running_session;
+    ExtensionSessionStanding standing;
+    standing.sessionId = running.prepared_session.session_id;
+    standing.descriptorId = session.descriptor_id;
+    standing.displayName = QString::fromStdString(session.display_name);
+    standing.target = session.target_control;
+    if (running.state == ExtensionHostSessionState::Unresponsive)
+    {
+        standing.host = ExtensionHostStanding::NotResponding;
+    }
+    else if (session.isActive() && !running.runtime_ready)
+    {
+        standing.host = ExtensionHostStanding::Starting;
+    }
+    else
+    {
+        standing.host = ExtensionHostStanding::Ready;
+    }
+
+    // The application's own execute in flight is a run; otherwise the run is what the host last told of its window's.
+    if (running.in_flight_request_kind == "execute" || running.in_flight_request_kind == "workflow")
+    {
+        standing.run = runningState();
+    }
+    else if (running.run_activity.has_value())
+    {
+        const SessionActivityMessage& activity = *running.run_activity;
+        const QString text = QString::fromStdString(activity.text);
+        if (activity.running)
+        {
+            standing.run = runningState(text, activity.progress);
+        }
+        else if (activity.outcome == "succeeded")
+        {
+            standing.run.phase = ProcessRunState::Phase::Succeeded;
+        }
+        else if (activity.outcome == "failed")
+        {
+            standing.run.phase = ProcessRunState::Phase::Failed;
+            standing.run.text = text;
+        }
+        else
+        {
+            standing.run.phase = ProcessRunState::Phase::Cancelled;
+        }
+    }
+    // A host is asked nothing before its runtime is ready: it reads no such message while it starts.
+    standing.raisesItsWindow = session.isActive() && running.runtime_ready &&
+                               hasCapability(running.handshake.hello.capabilities, kWindowRaiseCapability);
+    return standing;
+}
+
+ExtensionSessionEnd endOf(const ExtensionSessionController& session)
+{
+    const ExtensionHostRunningSession& running = session.running_session;
+    ExtensionSessionEnd end;
+    end.sessionId = running.prepared_session.session_id;
+    const ExtensionHostSessionState state =
+        session.ended_as != ExtensionHostSessionState::Inactive ? session.ended_as : running.state;
+    // A host that went before its runtime was ready failed to start, unless its window was closed meanwhile.
+    const bool startFailed =
+        (state == ExtensionHostSessionState::Disconnected || state == ExtensionHostSessionState::Exited) &&
+        !running.runtime_ready && !running.native_window_close_requested;
+    switch (state)
+    {
+    case ExtensionHostSessionState::Unresponsive:
+        end.failed = true;
+        end.reason = QStringLiteral("The extension stopped responding.");
+        return end;
+    case ExtensionHostSessionState::Crashed:
+    case ExtensionHostSessionState::Failed:
+        end.failed = true;
+        break;
+    default:
+        end.failed = startFailed;
+        break;
+    }
+    if (end.failed)
+    {
+        // What the session's last error says, without the host's output it carries.
+        QString reason = QString::fromStdString(running.last_error).trimmed();
+        if (const qsizetype output = reason.indexOf(QStringLiteral(" output: ")); output >= 0)
+        {
+            reason.truncate(output);
+        }
+        constexpr qsizetype kReasonLimit = 300;
+        if (reason.size() > kReasonLimit)
+        {
+            reason = reason.left(kReasonLimit).trimmed() + QStringLiteral("...");
+        }
+        end.reason = reason.isEmpty() ? QStringLiteral("The extension's host ended unexpectedly.") : reason;
+    }
+    return end;
+}
+
+std::vector<ExtensionSessionStanding> ExtensionHostLaunchCoordinator::sessionStandings() const
+{
+    return session_report_.told();
+}
+
+std::size_t ExtensionHostLaunchCoordinator::observeSessions(Observer observer)
+{
+    return session_report_.observe(std::move(observer));
+}
+
+void ExtensionHostLaunchCoordinator::stopObservingSessions(const std::size_t token)
+{
+    session_report_.stopObserving(token);
+}
+
+bool ExtensionHostLaunchCoordinator::raiseSessionWindow(const std::string_view session_id, std::string* error)
+{
+    ExtensionSessionController* const session = findSessionControllerBySessionId(sessions_, session_id);
+    if (!session || !session->isActive())
+    {
+        if (error)
+        {
+            *error = "No running extension host session has that id";
+        }
+        return false;
+    }
+    return host_manager_.sendWindowRaise(&session->running_session, error);
+}
+
+void ExtensionHostLaunchCoordinator::closeSession(const std::string_view session_id)
+{
+    ExtensionSessionController* const session = findSessionControllerBySessionId(sessions_, session_id);
+    if (!session)
+    {
+        return;
+    }
+    stopManagedSession(session, false);
+    // The session ends as it should, and goes at the next pump.
+    reportSessions();
+}
+
+void ExtensionHostLaunchCoordinator::reportSessions()
+{
+    for (const auto& session : sessions_)
+    {
+        if (!session)
+        {
+            continue;
+        }
+        if (session->isStopped())
+        {
+            session_report_.ended(endOf(*session));
+        }
+        else
+        {
+            session_report_.stood(standingOf(*session));
+        }
+    }
 }
 
 void ExtensionSessionController::detachUiHandles()
@@ -4468,6 +4671,7 @@ bool ExtensionHostManager::launchSession(const ExtensionHostPreparedSession& ses
     running_session->runtime_bootstrap_state_ready = false;
     running_session->last_preview_result.reset();
     running_session->last_view_commit.reset();
+    running_session->run_activity.reset();
     running_session->latest_ui_validation_request_id.clear();
     running_session->last_ui_validation_result.reset();
     running_session->last_error.clear();
@@ -4869,6 +5073,16 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
             running_session->in_flight_request_buffers.clear();
             running_session->cancel_requested = false;
             running_session->cancel_requested_elapsed_ms = -1;
+            continue;
+        }
+
+        if (message.type == "session.activity")
+        {
+            if (!takeSessionActivity(running_session, message, &local_error))
+            {
+                return fail_session(ExtensionHostSessionState::Failed,
+                                    "Extension host sent an invalid session.activity message: " + local_error);
+            }
             continue;
         }
 
@@ -5502,6 +5716,39 @@ bool ExtensionHostManager::pumpManagedSession(ExtensionHostExecutionGateState* g
     return true;
 }
 
+bool ExtensionHostManager::sendWindowRaise(ExtensionHostRunningSession* running_session, std::string* error) const
+{
+    if (!running_session || running_session->state != ExtensionHostSessionState::Active ||
+        !running_session->runtime_ready || !running_session->socket)
+    {
+        if (error)
+        {
+            *error = "The extension host session is not running";
+        }
+        return false;
+    }
+    if (!hasCapability(running_session->handshake.hello.capabilities, kWindowRaiseCapability))
+    {
+        if (error)
+        {
+            *error = "The extension's host does not raise its window";
+        }
+        return false;
+    }
+#ifdef _WIN32
+    // Only the application in front may bring a window forward: the host is let do it before it is asked.
+    if (running_session->process && running_session->process->processId() > 0)
+    {
+        static_cast<void>(AllowSetForegroundWindow(static_cast<DWORD>(running_session->process->processId())));
+    }
+#endif
+    WindowRaiseMessage message;
+    message.session_id = running_session->prepared_session.session_id;
+    message.request_id = generateOpaqueToken();
+    return writeProtocolMessage(running_session->socket.get(), toProtocolMessage(message),
+                                running_session->prepared_session.handshake_timeout_ms, error);
+}
+
 void ExtensionHostManager::stopSession(ExtensionHostRunningSession* running_session) const
 {
     if (!running_session)
@@ -5767,6 +6014,7 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
         // after this one.
         appendNativePreviewArguments(binding.process_capabilities, previewFrameRate(), request.host_arguments);
         refreshPreviewFrameRate();
+        appendHostLookArguments(request.host_arguments);
     }
 
     ExtensionSessionController session_controller;
@@ -5852,6 +6100,7 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
         sessions_.back()->configureManagedPreviewSubArea();
     }
     recordReadySessionLaunch(sessions_.back().get());
+    reportSessions();
     return true;
 }
 
@@ -6060,6 +6309,10 @@ bool ExtensionHostLaunchCoordinator::launchWorkflowDescriptor(const ExtensionHos
         request.host_arguments.push_back("--stay-alive-ms");
         request.host_arguments.push_back("86400000");
     }
+    if (binding.extension_host_owns_process_window)
+    {
+        appendHostLookArguments(request.host_arguments);
+    }
 
     ExtensionSessionController session_controller;
     session_controller.descriptor_id = binding.descriptor_id;
@@ -6104,6 +6357,7 @@ bool ExtensionHostLaunchCoordinator::launchWorkflowDescriptor(const ExtensionHos
     sessions_.push_back(std::make_unique<ExtensionSessionController>(std::move(session_controller)));
     armSessionPumpWake(sessions_.back().get());
     recordReadySessionLaunch(sessions_.back().get());
+    reportSessions();
     return true;
 }
 
@@ -6312,6 +6566,10 @@ void ExtensionHostLaunchCoordinator::stopManagedSession(ExtensionSessionControll
 
     session->detachUiHandles();
     session->cancelMaterialization();
+    if (session->ended_as == ExtensionHostSessionState::Inactive)
+    {
+        session->ended_as = session->running_session.state;
+    }
 
     if (!session->launch_outcome_recorded)
     {
@@ -6503,6 +6761,9 @@ void ExtensionHostLaunchCoordinator::pumpSessions()
         }
     }
 
+    // Where every session stands now is told, a stopped session's end with it, before it is pruned.
+    reportSessions();
+
     // Prune fully stopped sessions from the managed list, each out of the execution gate before it is destroyed.
     sessions_.erase(std::remove_if(sessions_.begin(), sessions_.end(),
                                    [this](const std::unique_ptr<ExtensionSessionController>& session) {
@@ -6530,6 +6791,7 @@ void ExtensionHostLaunchCoordinator::stopAllSessions()
             stopManagedSession(session.get(), true);
         }
     }
+    reportSessions();
     sessions_.clear();
 }
 

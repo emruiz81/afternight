@@ -50,6 +50,7 @@ struct RailItem
     QString runText; ///< What a run on its way does, when it says: "Step 5/9: Registration"; "applying" when empty.
     bool unseenResult = false; ///< A run that ended while the task was not shown: its result's dot is drawn.
     bool floating = false; ///< A task in a window of its own, or a workspace in one.
+    bool external = false; ///< A task whose window is another program's own: an extension's, in its host.
 };
 
 /// Whether two items show the same; a thumbnail is the same picture when it is the same image (its cache key).
@@ -57,7 +58,7 @@ struct RailItem
 
 /// What an item is called - its tooltip, and its name to assistive technology: its text, and for a task where its run
 /// stands ("applying 42 %", or what the run says it does: "Step 5/9: Registration 58 %"; "applied", "failed") and
-/// whether it is in a window of its own.
+/// whether it is in a window of its own, or opens in one its program shows.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString railItemDescription(const RailItem& item);
 
 } // namespace an::ui

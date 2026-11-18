@@ -3802,6 +3802,7 @@ void ObservatoryWindow::appendTaskItems(std::vector<an::ui::RailItem>& items) co
         made.thumbnail = task.target.isNull() ? QImage() : task.thumbnail;
         made.glyphKey = task.iconKey;
         made.floating = task.presentation == an::ui::shell::TaskPresentation::Window;
+        made.external = task.presentation == an::ui::shell::TaskPresentation::External;
         made.selected = task.id == model.current() && task.presentation == an::ui::shell::TaskPresentation::Page;
         if (task.run.running())
         {
@@ -3837,19 +3838,24 @@ void ObservatoryWindow::buildTaskMenu(QMenu& menu, const an::ui::shell::TaskId i
     }
     QAction* const show = menu.addAction(tr("Show"));
     show->setObjectName(QStringLiteral("actionShowTask"));
+    show->setEnabled(tasks->canShow(id));
     QObject::connect(show, &QAction::triggered, this, [this, id]() {
         if (m_impl->tasks)
         {
             (void)m_impl->tasks->show(id);
         }
     });
-    // A page floats in a window of its own and attaches again; a process shown as a window of its own has no page.
-    const bool floats = task->presentation == an::ui::shell::TaskPresentation::Window;
-    QAction* const place = menu.addAction(floats ? tr("Attach") : tr("Float as Window"));
-    place->setObjectName(QStringLiteral("actionPlaceTask"));
-    place->setEnabled(taskPage(id) != nullptr);
-    QObject::connect(place, &QAction::triggered, this,
-                     [this, id, floats]() { (void)(floats ? attachTask(id) : floatTask(id)); });
+    // A page floats in a window of its own and attaches again; a process shown as a window of its own has no page; an
+    // extension's window is its host's, which the application neither floats nor attaches.
+    if (task->presentation != an::ui::shell::TaskPresentation::External)
+    {
+        const bool floats = task->presentation == an::ui::shell::TaskPresentation::Window;
+        QAction* const place = menu.addAction(floats ? tr("Attach") : tr("Float as Window"));
+        place->setObjectName(QStringLiteral("actionPlaceTask"));
+        place->setEnabled(taskPage(id) != nullptr);
+        QObject::connect(place, &QAction::triggered, this,
+                         [this, id, floats]() { (void)(floats ? attachTask(id) : floatTask(id)); });
+    }
     menu.addSeparator();
     QAction* const close = menu.addAction(tr("Close"));
     close->setObjectName(QStringLiteral("actionCloseTask"));

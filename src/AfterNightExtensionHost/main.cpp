@@ -99,6 +99,7 @@
 #include "HostPreviewFrames.h"
 #include "HostRuntimeSession.h"
 #include "HostThemeSync.h"
+#include "app/ExtensionThemeState.h"
 #include "app/AfterNightExtensionProtocol.h"
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionManager.h"
@@ -1775,9 +1776,53 @@ public:
             applyThemeState(message.theme_name, message.tokens);
             return true;
         }
+        if (inbound.type == "window.raise")
+        {
+            an::ui::extensions::WindowRaiseMessage message;
+            if (!an::ui::extensions::windowRaiseFromProtocolMessage(inbound, &message, error))
+            {
+                return false;
+            }
+            raiseNativeProcessWindow();
+            return true;
+        }
 
         *handled = false;
         return true;
+    }
+
+    /// Shows the native window in front, as the application asked: brought back when minimized and raised; a window the
+    /// extension hid stays hidden.
+    void raiseNativeProcessWindow()
+    {
+        if (!native_process_window_ || native_process_window_hidden_by_extension_)
+        {
+            return;
+        }
+        QWidget* const window = native_process_window_->window();
+        if (window->isMinimized())
+        {
+            window->showNormal();
+        }
+        else if (!window->isVisible())
+        {
+            window->show();
+        }
+        window->raise();
+        window->activateWindow();
+    }
+
+    /// How far the native window's run has come, from 0 to 1, when it can tell. Read on the GUI thread.
+    [[nodiscard]] std::optional<double> nativeProgressFraction() const
+    {
+        return native_progress_value_.has_value() ? std::optional<double>(*native_progress_value_ / 100.0)
+                                                  : std::nullopt;
+    }
+
+    /// What the native window's run says it does. Read on the GUI thread.
+    [[nodiscard]] const std::string& nativeProgressText() const noexcept
+    {
+        return native_progress_text_;
     }
 
     void setIgnoreCancel(const bool ignore_cancel) noexcept
@@ -7288,6 +7333,11 @@ int main(int argc, char* argv[])
         QStringLiteral("preview-region-margin"),
         QStringLiteral("How far a native_region preview's answer at a pixel reads around it, in pixels."),
         QStringLiteral("pixels"), QStringLiteral("0"));
+    const QCommandLineOption style_profile_option(
+        QStringLiteral("style-profile"),
+        QStringLiteral("The style profile the application draws under, which the host's windows are drawn under too: "
+                       "classic or observatory."),
+        QStringLiteral("profile"));
     parser.addOption(endpoint_option);
     parser.addOption(session_option);
     parser.addOption(extension_option);
@@ -7333,7 +7383,25 @@ int main(int argc, char* argv[])
     parser.addOption(preview_frame_rate_option);
     parser.addOption(preview_scaling_option);
     parser.addOption(preview_region_margin_option);
+    parser.addOption(style_profile_option);
     parser.process(app);
+
+    // The host draws under the application's style profile, put in force before its first widget as the application
+    // puts it.
+    if (parser.isSet(style_profile_option))
+    {
+        if (const std::optional<an::ui::StyleProfile> profile =
+                an::ui::extensions::styleProfileNamed(parser.value(style_profile_option));
+            profile.has_value())
+        {
+            (void)an::ui::setStyleProfile(*profile);
+        }
+        else
+        {
+            LOG_WARNING("Extension host: the style profile '{}' is not one; the classic profile is kept",
+                        parser.value(style_profile_option).toStdString());
+        }
+    }
 
     const QString endpoint_name = parser.value(endpoint_option).trimmed();
     QString session_id = parser.value(session_option).trimmed();
@@ -7685,6 +7753,15 @@ int main(int argc, char* argv[])
     // test environments.
     hello.native_process_window = true;
     hello.bootstrap_status_messages = deferred_managed_bootstrap;
+    // The host tells the application where its window's run stands, and raises its window when asked.
+    for (const std::string_view capability :
+         {an::ui::extensions::kSessionActivityCapability, an::ui::extensions::kWindowRaiseCapability})
+    {
+        if (std::find(hello.capabilities.begin(), hello.capabilities.end(), capability) == hello.capabilities.end())
+        {
+            hello.capabilities.emplace_back(capability);
+        }
+    }
 
     QLocalSocket duplicate_socket;
     if (parser.isSet(duplicate_connect_option))
@@ -8025,6 +8102,55 @@ int main(int argc, char* argv[])
             socket.write(frame);
             socket.flush();
         };
+        // Where the native window's run stands, told to the application (`session.activity`): its start, how far it has
+        // come - each whole percent, or a new text - and its end. A text is made plain and cut to the protocol's limit,
+        // since the application refuses a message that is not one whole.
+        std::optional<int> told_percent;
+        std::string told_text;
+        const auto activity_text = [](const std::string& text) {
+            QString plain = QString::fromStdString(text).simplified();
+            plain.removeIf([](const QChar character) { return character.category() == QChar::Other_Control; });
+            return plain.left(static_cast<qsizetype>(an::ui::extensions::kSessionActivityTextLimit)).toStdString();
+        };
+        const auto send_session_activity = [&](const bool running, const std::optional<double> progress,
+                                               const std::string& text, const std::string& outcome) {
+            if (socket.state() != QLocalSocket::ConnectedState)
+            {
+                return;
+            }
+            an::ui::extensions::SessionActivityMessage activity;
+            activity.session_id = hello.session_id;
+            activity.request_id = generateOpaqueToken();
+            activity.running = running;
+            if (running && progress.has_value())
+            {
+                activity.progress = (std::clamp)(*progress, 0.0, 1.0);
+            }
+            activity.text = activity_text(text);
+            activity.outcome = running ? std::string() : outcome;
+            std::string activity_error;
+            const QByteArray frame = an::ui::extensions::frameProtocolMessage(
+                an::ui::extensions::toProtocolMessage(activity), &activity_error);
+            if (frame.isEmpty())
+            {
+                return;
+            }
+            socket.write(frame);
+            socket.flush();
+        };
+        const auto report_run_progress = [&]() {
+            const std::optional<double> fraction = extension_runtime.bridge()->nativeProgressFraction();
+            const std::optional<int> percent =
+                fraction.has_value() ? std::optional<int>(static_cast<int>(*fraction * 100.0)) : std::nullopt;
+            const std::string& text = extension_runtime.bridge()->nativeProgressText();
+            if (percent == told_percent && text == told_text)
+            {
+                return;
+            }
+            told_percent = percent;
+            told_text = text;
+            send_session_activity(true, fraction, text, {});
+        };
         const auto send_runtime_closed_once = [&](const bool active_work) {
             if (native_closed_message_sent)
             {
@@ -8364,6 +8490,9 @@ int main(int argc, char* argv[])
                                                           TopLevelProcessBaseControl::ProcessMessageTone::Info);
                 extension_runtime.bridge()->progressSetText(execute_progress_text);
                 extension_runtime.bridge()->progressSetSyntheticValue(0.0);
+                told_percent.reset();
+                told_text.clear();
+                report_run_progress();
 
                 auto* execute_progress_timer = new QTimer(native_process_window.get());
                 execute_progress_timer->setInterval(250);
@@ -8379,6 +8508,7 @@ int main(int argc, char* argv[])
                                      const double elapsed_ms = static_cast<double>(execute_progress_elapsed->elapsed());
                                      const double progress = (std::min)(95.0, 1.0 + elapsed_ms / 750.0);
                                      extension_runtime.bridge()->progressSetSyntheticValue(progress);
+                                     report_run_progress();
                                  });
                 execute_progress_timer->start();
 
@@ -8406,6 +8536,12 @@ int main(int argc, char* argv[])
                         }
 
                         extension_runtime.bridge()->resetProgressFeedback();
+                        const bool run_cancelled = native_window_close_requested || native_execution_cancel_requested ||
+                                                   (window_guard && window_guard->executionCancelRequested()) ||
+                                                   result.cancelled;
+                        send_session_activity(false, std::nullopt,
+                                              run_cancelled || result.ok ? std::string() : result.error,
+                                              run_cancelled ? "cancelled" : (result.ok ? "succeeded" : "failed"));
                         if (!window_guard)
                         {
                             return;

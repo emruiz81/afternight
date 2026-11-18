@@ -2007,7 +2007,22 @@ target (`Task::singleTarget`), whatever image the process reads, and takes none;
 them. The current task is the one the person looks at; a run that succeeded or failed while its task was not current
 leaves an unseen result, which making the task current clears, the ended run with it: so a shell can mark a result the
 person has not seen without the model knowing what showing is. The model is a shell's, made over the core's registry
-by the presenter that feeds it. `views/ViewThumbnailService` makes the small picture of a view a task's item shows: the
+by the presenter that feeds it.
+
+The sessions of the extension host are tasks too, External ones (`TaskPresentation::External`): the window a session
+shows is its host's, in another process, and is never embedded in the main window - a child window of another process
+shares its input queue with its parent on Windows, so a hung extension could freeze the application, and a Wayland
+client cannot embed another's surface at all. The launch coordinator is the model's second feed
+(`app/ExtensionSessionFeed.h`, `IExtensionSessionFeed`, which `ApplicationCore::extensionSessions()` answers and a
+suite replaces with a stand-in): it tells where each session stands after every launch and pump - its host starting,
+ready or not responding, the run of its window and whether its host raises that window - and once how it ended. A
+standing is read from the session's controller (`standingOf`), and a report (`ExtensionSessionReport`) tells only what
+changed. The run is the host's word, `session.activity`, or the application's own execute in flight; a host's run holds
+no lock on its image, so an External task never blocks a view (`runningTaskOn` leaves it out). A session that ends as it
+should - its window closed, the application stopped it - takes its task away; one whose host crashed, stopped answering
+or failed to start (`endOf`) leaves its task failed with why (`Task::hostFailed`) until the person closes it, so a dead
+extension is never silently gone. Show asks the host to raise its window (`raiseExternal`) and Close ends the session or
+dismisses the failed task (`closeExternal`). `views/ViewThumbnailService` makes the small picture of a view a task's item shows: the
 whole image as the view presents it - its stretch and its channel, what the view states when it is on screen and what
 it stated last when it is not - reduced for display and covering a 60-pixel square, in one operation on the thread pool
 admitted as `Preview` through `tryAdmit`, through the analysis the view keeps of the image or one measured when it keeps
@@ -2277,7 +2292,10 @@ task in a window floats; the ring and its arc while the run is on its way and sa
 run that ended while its task was not the one looked at - the task whose window is active - which showing the task
 clears. A click, and the task menu's Show, raise and activate its window or show its page; the menu's Float as Window
 floats a page and its Attach brings it back (below), neither offered for a process shown as a window of its own, and
-Close is refused while the run is on its way. A view a run writes
+Close is refused while the run is on its way. An extension's session is an item from its start, its tool tip saying it
+opens in its own window (`RailItem::external`): a click and Show ask its host to raise that window, offered only while
+the host raises it, the menu has no Float or Attach, Close ends the session, and a host that died leaves the item's
+failed dot until it is closed. A view a run writes
 carries the notice that names the running task and how far it has come, with Show, set as its processing lock is taken
 and as the run moves on - the lock is taken before the run is stated, so the notice names the task once it is - and
 cleared as the lock is let go and the run ends; a task's run on the view blocks it even without the lock, since an edit

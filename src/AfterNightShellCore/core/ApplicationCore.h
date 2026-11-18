@@ -57,6 +57,11 @@ class RuntimeStorageCoordinator;
 struct RawOpenSettings;
 } // namespace an::ui
 
+namespace an::ui::extensions
+{
+class IExtensionSessionFeed;
+}
+
 namespace an::ui::shell
 {
 
@@ -242,6 +247,14 @@ public:
 
     /// The installed extensions and the host sessions their processes run in.
     [[nodiscard]] ExtensionService& extensions() noexcept;
+
+    /// The sessions of the extension host as a shell shows them: the extension service's launch coordinator, unless
+    /// another was given (`setExtensionSessions`).
+    [[nodiscard]] an::ui::extensions::IExtensionSessionFeed& extensionSessions() noexcept;
+
+    /// Gives the sessions a shell made from now on shows in place of the launch coordinator's - a suite's stand-in -
+    /// or, with null, the coordinator's again. The caller's, and it outlives every shell that shows it.
+    void setExtensionSessions(an::ui::extensions::IExtensionSessionFeed* sessions) noexcept;
 
     /// The icons the application draws with, in the theme's colours.
     [[nodiscard]] const std::shared_ptr<IconManager>& iconManager() const noexcept;

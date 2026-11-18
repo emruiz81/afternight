@@ -10,6 +10,7 @@
 #include "app/ProcessRegistry.h"
 #include "app/AfterNightExtensionProtocol.h"
 #include "app/ExtensionSdkService.h"
+#include "app/ExtensionSessionFeed.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ImageCropController.h"
 
@@ -155,6 +156,8 @@ struct ExtensionHostRunningSession
     std::optional<ExecutionResultMessage> last_preview_result;
     // Execute requests complete via view.commit.
     std::optional<ViewCommitMessage> last_view_commit;
+    /// What the host last told of the run of the window it shows (`session.activity`); none before it tells.
+    std::optional<SessionActivityMessage> run_activity;
     std::string latest_ui_validation_request_id;
     std::optional<UiValidateResultMessage> last_ui_validation_result;
     std::string last_error;
@@ -324,6 +327,9 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
     bool execute_request_pending = false;
     bool managed_preview_sub_area_enabled = false;
     bool launch_outcome_recorded = false;
+    /// The state the session was in when the application stopped it: `Active` for one it stopped while it ran, a
+    /// terminal state for one that had ended; `Inactive` until it is stopped.
+    ExtensionHostSessionState ended_as = ExtensionHostSessionState::Inactive;
     QSize managed_preview_sub_area_size;
     QString managed_preview_sub_area_label;
     std::unique_ptr<ImageCropController> managed_preview_crop_controller;
@@ -589,6 +595,21 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
     void newSelectionFinished() override;
 };
 
+/// Takes a `session.activity` a host sent into its session: what the run of the window it shows is now. Refused for a
+/// host that did not state `kSessionActivityCapability` in its hello, for one that is not the session's, and for a
+/// message that is not a valid `session.activity`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool takeSessionActivity(ExtensionHostRunningSession* running_session,
+                                                              const ExtensionProtocolMessage& message,
+                                                              std::string* error = nullptr);
+
+/// Where a session stands, as a shell shows it: its host starting, ready or not responding; the run of the window it
+/// shows, as its host tells it or as the application's execute in flight is; and whether its host raises its window.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionSessionStanding standingOf(const ExtensionSessionController& session);
+
+/// How a session the application stopped ended: failed when its host had crashed, stopped answering, refused what it
+/// was sent or failed to start - with why - and as it should otherwise.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionSessionEnd endOf(const ExtensionSessionController& session);
+
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<QRect>
 normalizeManagedPreviewSubArea(bool selection_enabled, const QSize& source_image_size, const QRect& selection_area);
 
@@ -671,13 +692,18 @@ public:
     [[nodiscard]] bool pumpManagedSession(ExtensionHostExecutionGateState* gate_state,
                                           ExtensionHostRunningSession* running_session, int timeout_ms,
                                           std::string* error = nullptr) const;
+    /// Asks a host to show its window in front (`window.raise`); refused for a host that did not state
+    /// `kWindowRaiseCapability`, which would refuse the message. Where the window system lets only the application in
+    /// front bring another's window forward, the host is let do it first.
+    [[nodiscard]] bool sendWindowRaise(ExtensionHostRunningSession* running_session,
+                                       std::string* error = nullptr) const;
     void stopSession(ExtensionHostRunningSession* running_session) const;
 
 private:
     ExtensionSdkService* sdk_service_ = nullptr;
 };
 
-class AFTERNIGHTCONTROLS_API ExtensionHostLaunchCoordinator
+class AFTERNIGHTCONTROLS_API ExtensionHostLaunchCoordinator : public IExtensionSessionFeed
 {
 public:
     // The application's side of a managed session: how a result lands in the target view (recorded as a history
@@ -700,7 +726,16 @@ public:
     ExtensionHostLaunchCoordinator& operator=(const ExtensionHostLaunchCoordinator&) = delete;
     ExtensionHostLaunchCoordinator(ExtensionHostLaunchCoordinator&&) noexcept = delete;
     ExtensionHostLaunchCoordinator& operator=(ExtensionHostLaunchCoordinator&&) noexcept = delete;
-    ~ExtensionHostLaunchCoordinator();
+    ~ExtensionHostLaunchCoordinator() override;
+
+    // ---- IExtensionSessionFeed: the sessions as a shell shows them. A session is told of once it starts, again each
+    // time where it stands changes - at a launch, at each pump - and once more when it ends.
+
+    [[nodiscard]] std::vector<ExtensionSessionStanding> sessionStandings() const override;
+    std::size_t observeSessions(Observer observer) override;
+    void stopObservingSessions(std::size_t token) override;
+    bool raiseSessionWindow(std::string_view session_id, std::string* error = nullptr) override;
+    void closeSession(std::string_view session_id) override;
 
     void configureSdkService(GlobalSettingsPersistence* global_settings_persistence,
                              ExtensionSdkViewStateProvider view_state_provider = {},
@@ -789,6 +824,8 @@ private:
     void stopManagedSessionBySessionId(std::string_view session_id);
     void recordReadySessionLaunch(ExtensionSessionController* session);
     void armSessionPumpWake(ExtensionSessionController* session);
+    /// Tells the observers where every session stands now.
+    void reportSessions();
 
     // The parameter schemas launches read and the reads still running; defined beside the launches.
     struct SchemaReads;
@@ -801,6 +838,7 @@ private:
     ExtensionSdkService sdk_service_;
     ExtensionHostExecutionGateState execution_gate_;
     std::vector<std::unique_ptr<ExtensionSessionController>> sessions_;
+    ExtensionSessionReport session_report_;
     ManagedResultPresenter managed_result_presenter_;
     ManagedGeneratedResultPresenter managed_generated_result_presenter_;
     ManagedPreviewPresenter managed_preview_presenter_;

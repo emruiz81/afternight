@@ -57,7 +57,32 @@ def commit_image(image_or_array,
     )
 
 
+#: The names of the entries ``tokens()`` answers, in the order the application states them: the choices in force -
+#: whether the theme is dark, the style profile, the contrast profile, the accent, the surface tint, its strength, the
+#: preset they make, the density and Night - and the tokens they resolve to - the colours, the surface ladder, the
+#: sizes, the spacing, the radii and the type. A host that was sent no theme answers none of them.
+THEME_STATE_NAMES = (
+    "is_dark",
+    "style_profile",
+    "contrast_profile",
+    "accent_family",
+    "surface_tint_family",
+    "tint_strength",
+    "preset",
+    "density",
+    "night",
+    "colors",
+    "layers",
+    "metrics",
+    "spacing",
+    "radius",
+    "typography",
+)
+
+
 def tokens():
+    """The application's theme state as the host was last sent it, by the names of ``THEME_STATE_NAMES``; empty
+    without a host, or before a host is sent one."""
     if not _host_available():
         return {}
     try:
@@ -91,6 +116,7 @@ def confirm(message, title="Extension Confirmation", warn=False):
 
 
 __all__ = [
+    "THEME_STATE_NAMES",
     "commit_image",
     "confirm",
     "open_image",

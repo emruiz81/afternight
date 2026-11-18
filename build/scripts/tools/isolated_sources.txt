@@ -1856,6 +1856,8 @@ sources Test_ShellCore
     header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
     header   src/AfterNightControls/app/JobProjects.h
     header   src/AfterNightShellCore/projects/JobProjects.h
+    header   src/AfterNightTests/Test_ShellCore/StandInExtensionSessions.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -2571,6 +2573,7 @@ sources Test_AfterNightApp
     header   src/AfterNightTests/fixtures/common/FixtureImage.h
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
     header   src/AfterNightShellCore/tasks/TaskModel.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
 
 sources Test_ShellClassic
     unit     src/AfterNightTests/Test_ShellClassic/NightWindowTest.cpp
@@ -3052,6 +3055,7 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowManifest.h
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectHomeTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ExternalTasksTest.cpp
     header   src/AfterNightShellObservatory/pages/ProjectHomePage.h
     header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
     header   src/AfterNightControls/controls/HomeProjectsRow.h
@@ -3082,6 +3086,8 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/ImageIntegrationLiteProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/ImageListAnalyzerProcess.h
     header   src/AfterNightProcesses/processes/ImageListAnalyzerProcessUiBuilder.h
+    header   src/AfterNightTests/Test_ShellCore/StandInExtensionSessions.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3219,6 +3225,7 @@ sources Test_ShellParity
     header   src/AfterNightTests/fixtures/common/RawPolicyCases.h
     header   src/AfterNightShellCore/tasks/TaskModel.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
 
 # The full extension host's native suite: its application context, its native process window and the session it borrows
 # from the runtime backend, compiled from the host's sources and linked against the processes and Controls libraries. It
@@ -3246,6 +3253,7 @@ sources Test_ExtensionHostNative
     unit     src/AfterNightExtensionHost/ExtensionNativeProcessWindow.cpp
     unit     src/AfterNightExtensionHost/HostPreviewFrames.cpp
     unit     src/AfterNightExtensionHost/HostRuntimeSession.cpp
+    unit     src/AfterNightTests/Test_ExtensionHostNative/HostLookTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/EngineSession.h
@@ -3349,6 +3357,11 @@ sources Test_ExtensionHostNative
     header   src/AfterNightTests/fixtures/harness/QtTestHarness.h
     header   src/AfterNightTests/fixtures/harness/TestHarness.h
     header   src/AfterNightTests/fixtures/engine/EngineFixtureAdapter.h
+    header   src/AfterNightControls/app/ExtensionThemeState.h
+    header   src/AfterNightTests/fixtures/ScopedStyleProfile.h
+    header   src/AfterNightControls/app/ExtensionManager.h
+    header   src/AfterNightControls/app/ExtensionSdkService.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
     include  src/AfterNightTests
     include  src/AfterNightExtensionHost
     include  src/AfterNightExtensionRuntimeBackend
@@ -3633,6 +3646,7 @@ sources Test_ControlsExtensionSeam
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/main.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/SharedBufferSeamTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionHandoffTest.cpp
+    unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExternalTasksTest.cpp
     header   src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionSeamTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
@@ -3687,6 +3701,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -6572,3 +6587,5 @@ sources Test_ProcessFramework
     header   src/AfterNightTests/fixtures/RecordedMenus.h
     header   src/AfterNightControls/theme/NightImage.h
     header   src/AfterNightControls/controls/ProcessPageLayout.h
+    header   src/AfterNightControls/app/ExtensionSessionFeed.h
+    header   src/AfterNightControls/app/ExtensionThemeState.h

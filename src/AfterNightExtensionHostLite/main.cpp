@@ -1060,6 +1060,31 @@ struct LitePythonHostBridge
     int timeout_ms = kDefaultIoTimeoutMs;
     std::unordered_map<std::string, LiteImageBinding> image_bindings;
     std::deque<an::ui::extensions::ExtensionProtocolMessage> deferred_protocol_responses;
+    /// The theme state the application sent last (`theme.describe`, `theme.changed`): what `theme_tokens` answers an
+    /// extension that paints itself. Empty until one is sent.
+    QCborMap theme_tokens;
+
+    /// Keeps the theme state a theme message carries; a message that is not one changes nothing.
+    void takeTheme(const an::ui::extensions::ExtensionProtocolMessage& inbound)
+    {
+        std::string ignored;
+        if (inbound.type == "theme.describe")
+        {
+            an::ui::extensions::ThemeDescribeMessage message;
+            if (an::ui::extensions::themeDescribeFromProtocolMessage(inbound, &message, &ignored))
+            {
+                theme_tokens = std::move(message.tokens);
+            }
+        }
+        else if (inbound.type == "theme.changed")
+        {
+            an::ui::extensions::ThemeChangedMessage message;
+            if (an::ui::extensions::themeChangedFromProtocolMessage(inbound, &message, &ignored))
+            {
+                theme_tokens = std::move(message.tokens);
+            }
+        }
+    }
 
     [[nodiscard]] bool hasControlSocket() const noexcept
     {
@@ -1160,6 +1185,12 @@ struct LitePythonHostBridge
         if (inbound.type == "execution.cancel")
         {
             cancel_requested = true;
+            return true;
+        }
+
+        if (inbound.type == "theme.describe" || inbound.type == "theme.changed")
+        {
+            takeTheme(inbound);
             return true;
         }
 
@@ -2639,6 +2670,15 @@ PyObject* liteHostProgressSetText(PyObject*, PyObject* args)
     Py_RETURN_NONE;
 }
 
+PyObject* liteHostThemeTokens(PyObject*, PyObject*)
+{
+    if (!g_lite_python_bridge)
+    {
+        return PyDict_New();
+    }
+    return cborMapToPythonDict(g_lite_python_bridge->theme_tokens);
+}
+
 PyObject* liteHostProgressIsCancelled(PyObject*, PyObject*)
 {
     if (g_lite_python_bridge && g_lite_python_bridge->cancel_requested)
@@ -2670,6 +2710,7 @@ PyMethodDef kLiteHostMethods[] = {
     {"progress_set_value", liteHostProgressSetValue, METH_VARARGS, nullptr},
     {"progress_set_text", liteHostProgressSetText, METH_VARARGS, nullptr},
     {"progress_is_cancelled", liteHostProgressIsCancelled, METH_NOARGS, nullptr},
+    {"theme_tokens", liteHostThemeTokens, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr},
 };
 
@@ -2886,6 +2927,10 @@ bool handleInboundMessage(QLocalSocket& socket, const an::ui::extensions::Extens
             inbound.type == "view.destroyed")
         {
             return dispatchLiteViewNotification(inbound, error);
+        }
+        if ((inbound.type == "theme.describe" || inbound.type == "theme.changed") && g_lite_python_bridge)
+        {
+            g_lite_python_bridge->takeTheme(inbound);
         }
         return true;
     }

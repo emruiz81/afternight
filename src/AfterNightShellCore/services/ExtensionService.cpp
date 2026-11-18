@@ -18,6 +18,7 @@
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionManager.h"
 #include "app/ExtensionSdkService.h"
+#include "app/ExtensionThemeState.h"
 #include "app/FileCompanions.h"
 #include "app/FileDialogUtils.h"
 #include "app/ProcessRegistry.h"
@@ -29,7 +30,6 @@
 #include "controls/settings/ExtensionStatusPage.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
-#include "theme/AnDesignTokens.h"
 #include "widgets/ImageViewWidget.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
@@ -40,7 +40,6 @@
 #include <AfterNightEngine/Image/ImageDescriptor.h>
 #include <AfterNightEngine/Image/SampleTraits.h>
 
-#include <QCborMap>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
@@ -168,69 +167,6 @@ std::string maskRenderingModeName(const MaskRenderingMode mode)
         return "multiply";
     }
     return "unknown";
-}
-
-QString colorTokenHex(const QColor& color)
-{
-    return color.name(QColor::HexArgb);
-}
-
-QCborMap fontTokenToCborMap(const QFont& font)
-{
-    return QCborMap{
-        {QStringLiteral("family"), font.family()},       {QStringLiteral("point_size"), font.pointSizeF()},
-        {QStringLiteral("weight"), font.weight()},       {QStringLiteral("italic"), font.italic()},
-        {QStringLiteral("underline"), font.underline()}, {QStringLiteral("fixed_pitch"), font.fixedPitch()}};
-}
-
-QCborMap currentExtensionThemeTokens()
-{
-    const auto& tokenSet = an::ui::tokens();
-    return QCborMap{{QStringLiteral("is_dark"), an::ui::isDarkTheme()},
-                    {QStringLiteral("contrast_profile"), static_cast<int>(an::ui::themeContrastProfile())},
-                    {QStringLiteral("accent_family"), static_cast<int>(an::ui::themeAccentFamily())},
-                    {QStringLiteral("surface_tint_family"), static_cast<int>(an::ui::themeSurfaceTintFamily())},
-                    {QStringLiteral("colors"),
-                     QCborMap{{QStringLiteral("bgPrimary"), colorTokenHex(tokenSet.colors.bgPrimary)},
-                              {QStringLiteral("bgSurface"), colorTokenHex(tokenSet.colors.bgSurface)},
-                              {QStringLiteral("bgCard"), colorTokenHex(tokenSet.colors.bgCard)},
-                              {QStringLiteral("textPrimary"), colorTokenHex(tokenSet.colors.textPrimary)},
-                              {QStringLiteral("textSecondary"), colorTokenHex(tokenSet.colors.textSecondary)},
-                              {QStringLiteral("textTertiary"), colorTokenHex(tokenSet.colors.textTertiary)},
-                              {QStringLiteral("textOnAccent"), colorTokenHex(tokenSet.colors.textOnAccent)},
-                              {QStringLiteral("accentPrimary"), colorTokenHex(tokenSet.colors.accentPrimary)},
-                              {QStringLiteral("accentHover"), colorTokenHex(tokenSet.colors.accentHover)},
-                              {QStringLiteral("borderPrimary"), colorTokenHex(tokenSet.colors.borderPrimary)},
-                              {QStringLiteral("borderSubtle"), colorTokenHex(tokenSet.colors.borderSubtle)},
-                              {QStringLiteral("statusSuccess"), colorTokenHex(tokenSet.colors.statusSuccess)},
-                              {QStringLiteral("statusWarning"), colorTokenHex(tokenSet.colors.statusWarning)},
-                              {QStringLiteral("statusError"), colorTokenHex(tokenSet.colors.statusError)},
-                              {QStringLiteral("statusInfo"), colorTokenHex(tokenSet.colors.statusInfo)}}},
-                    {QStringLiteral("spacing"), QCborMap{{QStringLiteral("xs"), tokenSet.spacing.xs},
-                                                         {QStringLiteral("sm"), tokenSet.spacing.sm},
-                                                         {QStringLiteral("md"), tokenSet.spacing.md},
-                                                         {QStringLiteral("lg"), tokenSet.spacing.lg},
-                                                         {QStringLiteral("xl"), tokenSet.spacing.xl}}},
-                    {QStringLiteral("radius"), QCborMap{{QStringLiteral("none"), tokenSet.radius.none},
-                                                        {QStringLiteral("sm"), tokenSet.radius.sm},
-                                                        {QStringLiteral("md"), tokenSet.radius.md},
-                                                        {QStringLiteral("lg"), tokenSet.radius.lg},
-                                                        {QStringLiteral("xl"), tokenSet.radius.xl}}},
-                    {QStringLiteral("typography"),
-                     QCborMap{{QStringLiteral("heading1"), fontTokenToCborMap(tokenSet.typography.heading1)},
-                              {QStringLiteral("heading2"), fontTokenToCborMap(tokenSet.typography.heading2)},
-                              {QStringLiteral("heading3"), fontTokenToCborMap(tokenSet.typography.heading3)},
-                              {QStringLiteral("body"), fontTokenToCborMap(tokenSet.typography.body)},
-                              {QStringLiteral("caption"), fontTokenToCborMap(tokenSet.typography.caption)},
-                              {QStringLiteral("monospace"), fontTokenToCborMap(tokenSet.typography.monospace)}}}};
-}
-
-an::ui::extensions::ExtensionThemeSnapshot currentExtensionThemeSnapshot()
-{
-    an::ui::extensions::ExtensionThemeSnapshot snapshot;
-    snapshot.theme_name = an::ui::isDarkTheme() ? "AfterNight Dark" : "AfterNight Light";
-    snapshot.tokens = currentExtensionThemeTokens();
-    return snapshot;
 }
 
 /// Binds every process of the ready packages `discovered` to the extension host that runs it: the full host for a
@@ -1314,7 +1250,9 @@ void ExtensionService::configureSdk()
 
             return true;
         },
-        []() -> an::ui::extensions::ExtensionThemeSnapshot { return currentExtensionThemeSnapshot(); },
+        []() -> an::ui::extensions::ExtensionThemeSnapshot {
+            return an::ui::extensions::currentExtensionThemeSnapshot();
+        },
         std::move(interaction),
         [&impl](const std::string_view sessionId, const std::string_view viewName, std::string* error) -> bool {
             return impl.launches->bindSessionTargetView(sessionId, viewName, error);

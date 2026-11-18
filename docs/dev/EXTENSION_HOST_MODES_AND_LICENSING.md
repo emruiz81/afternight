@@ -118,6 +118,33 @@ Until `runtime.ready` the session sends no execute, preview, view notification o
 
 A host started without the variable - a caller of `ExtensionHostManager::launchSession` that leaves `defer_runtime_bootstrap` off, as the suites' direct sessions do - starts the runtime first and connects after. The launch then waits for the connection while the host process runs, up to the same 60-second start bound, and fails at once, with what the host printed, when the host exits first. Either way the messages and fields are protocol 1's own: package format, protocol and SDK stay at version 1, and an extension sees its import, its launch hook and its requests in the same order whichever way its host starts.
 
+## The Host's Window In The Application
+
+A session whose host shows a window of its own - every `runtime` session's native process window, and a `protocol`
+extension's own toolkit - is a task of the application's shell, its window staying in the host's process. Two messages,
+additive to protocol 1, let the shell follow and show it; each is announced by a capability the host states in its
+`runtime.hello`, and the full host states both:
+
+- `session.activity` (host to application, capability `session_activity`): where the window's run stands - `running`,
+  a `progress` from 0 to 1 while it runs, a plain `text` of at most 200 characters, and once it ends an `outcome`,
+  `succeeded`, `failed` or `cancelled`. The full host sends it as its window's Apply starts, at each whole percent or
+  new text, and as it ends. The application refuses it, ending the session, from a host that did not state the
+  capability and when it is not whole.
+- `window.raise` (application to host, capability `window_raise`): the person asked to see the window. The host shows
+  it in front - brought back when minimized, never a window the extension hid. The application never sends it to a
+  host that did not state the capability, since a host refuses a message it does not know; on Windows it first lets the
+  host take the foreground (`AllowSetForegroundWindow`).
+
+A host follows the application's look. The full host is started under the application's style profile
+(`--style-profile` and the profile's name, `hostLookArguments`), put in force before its first widget, and both hosts are
+sent the theme state (`theme.describe`, then `theme.changed` at each change): the choices in force - the theme, the
+style profile, the contrast profile, the accent, the surface tint, its strength, the preset they make, the density and
+Night - and the tokens they resolve to - the colours, the surface ladder, the sizes, the spacing, the radii and the
+type (`app/ExtensionThemeState.h`, `extensionThemeStateNames`). The full host applies the choices to its own tokens
+(`HostThemeSync.h`), so its windows are drawn as the application's are, Night included; an enumerator it does not know
+is left as it was. `afternight.ui_protocol.tokens()` answers the state whole on either host, for an extension that
+paints itself, under the names `afternight.ui_protocol.THEME_STATE_NAMES` states.
+
 ## Lite Hosted Extensions
 
 Lite hosted extensions are for packages that should not link or import AfterNight GPL Engine/native-control code. They run in `AfterNightExtensionHostLite` and communicate with the application through `AfterNightExtensionProtocol`.

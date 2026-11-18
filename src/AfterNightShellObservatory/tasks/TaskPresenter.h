@@ -46,7 +46,9 @@ namespace an::ui::observatory
 ///
 /// **Showing a task.** A task in a page is shown by the window (`Hooks::showPage`); a task in a window by raising and
 /// activating its window - its process's own, or the window its page floats in (`Hooks::showWindow`) - the task whose
-/// window is active being the current one. Used on the GUI thread.
+/// window is active being the current one. An External task - an extension's session, whose window its host shows - is
+/// shown by asking its host to raise that window, and closed by ending its session or, once its host failed, by being
+/// dismissed. Used on the GUI thread.
 class AFTERNIGHTSHELLOBSERVATORY_API TaskPresenter final : public an::ui::IProcessPresenter
 {
 public:
@@ -89,14 +91,20 @@ public:
     [[nodiscard]] an::ui::shell::TaskModel& model() noexcept;
     [[nodiscard]] an::ui::shell::ViewThumbnailService& thumbnails() noexcept;
 
-    /// Shows a task: its page, or its window raised and activated; it is the current task then. False for a task the
-    /// model does not hold or whose process is gone.
+    /// Shows a task: its page, or its window raised and activated, or for an External task the window its host shows,
+    /// asked to come in front; it is the current task then. False for a task the model does not hold, whose process is
+    /// gone, or whose host does not raise its window or failed.
     bool show(an::ui::shell::TaskId id);
 
-    /// Closes a task's process as its window's Close does; refused while its run is on its way.
+    /// Whether a task can be shown now: always for a process's, and for an External task while its host raises its
+    /// window.
+    [[nodiscard]] bool canShow(an::ui::shell::TaskId id) const;
+
+    /// Closes a task's process as its window's Close does, or an External task's session; refused while its run is on
+    /// its way. A failed External task is dismissed.
     bool close(an::ui::shell::TaskId id);
 
-    /// Whether a task's process may be closed now: not while its run is on its way.
+    /// Whether a task may be closed now: not while its run is on its way.
     [[nodiscard]] bool canClose(an::ui::shell::TaskId id) const;
 
     /// The task that names a view: the one whose run writes it, else the first opened on it; null for none.

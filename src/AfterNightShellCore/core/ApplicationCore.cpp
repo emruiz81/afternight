@@ -29,6 +29,7 @@
 #include "views/DockLayoutOperations.h"
 #include "views/ViewService.h"
 
+#include "app/ExtensionHostManager.h"
 #include "app/IconManager.h"
 #include "app/ModernizationFeatureFlags.h"
 
@@ -155,6 +156,7 @@ struct ApplicationCore::Impl
     std::unique_ptr<ViewService> views;
     std::unique_ptr<ProcessLaunchService> launches;
     std::unique_ptr<ExtensionService> extensions;
+    an::ui::extensions::IExtensionSessionFeed* extensionSessions = nullptr;
     std::unique_ptr<CommandIndex> commands;
 
     // The context the application reaches the core through, made as the application starts and gone with the core.
@@ -700,6 +702,20 @@ ProcessLaunchService& ApplicationCore::processLaunch() noexcept
 ExtensionService& ApplicationCore::extensions() noexcept
 {
     return *m_impl->extensions;
+}
+
+an::ui::extensions::IExtensionSessionFeed& ApplicationCore::extensionSessions() noexcept
+{
+    if (m_impl->extensionSessions != nullptr)
+    {
+        return *m_impl->extensionSessions;
+    }
+    return m_impl->extensions->launchCoordinator();
+}
+
+void ApplicationCore::setExtensionSessions(an::ui::extensions::IExtensionSessionFeed* sessions) noexcept
+{
+    m_impl->extensionSessions = sessions;
 }
 
 const std::shared_ptr<IconManager>& ApplicationCore::iconManager() const noexcept

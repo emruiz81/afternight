@@ -2497,7 +2497,24 @@
    "afternight.ui_protocol.show_info": "(message, title='Extension Message')",
    "afternight.ui_protocol.show_warning": "(message, title='Extension Warning')",
    "afternight.ui_protocol.tokens": "()"
-  }
+  },
+  "theme_state_names": [
+   "is_dark",
+   "style_profile",
+   "contrast_profile",
+   "accent_family",
+   "surface_tint_family",
+   "tint_strength",
+   "preset",
+   "density",
+   "night",
+   "colors",
+   "layers",
+   "metrics",
+   "spacing",
+   "radius",
+   "typography"
+  ]
  },
  "provenance": {
   "captured": "2026-10-13",

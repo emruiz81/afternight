@@ -464,6 +464,14 @@ The full extension host loads the same style through the `afternight` style plug
 or calls `installAnProxyStyle()` when the plugin is not found. The application installs the style
 unless `AN_UI_TOKENS_ENABLED` is set false.
 
+The host draws under the application's style profile, which the application passes it at its start
+(`--style-profile`) and the host sets before its first widget, and under the application's choices: the
+theme state the application sends carries the theme, the contrast profile, the accent, the surface tint,
+its strength, the preset, the density and Night with the tokens they resolve to, and the host applies the
+choices to its own tokens, so a host told the state resolves the tokens the application resolved
+(`HostLook.HostResolvesTheApplicationsTokens`). See `EXTENSION_HOST_MODES_AND_LICENSING.md`, "The Host's
+Window In The Application".
+
 ### What It Overrides
 
 | Override | Widgets/Elements |

@@ -7,8 +7,9 @@
 /// with no host, through a host bridge that serves a call, and where a call fails. These are the calls every extension
 /// makes on either host, and the package did not change when the engine did; the cases hold that each still says what
 /// it said, over a bridge that records what it was asked. Two bridges stand in for the two hosts: the Lite host's
-/// serves the session, settings, progress, view, image and result calls and nothing of the native window, the theme,
-/// the dialogs or a workflow; the full host's serves those and does not clone an image or report its control socket.
+/// serves the session, settings, progress, view, image and result calls and the theme state it was sent, and nothing of
+/// the native window, the dialogs or a workflow; the full host's serves those and does not clone an image or report its
+/// control socket. The tokens either answers are the application's theme state, under the names it states.
 
 #include "RuntimeBackendTestSupport.h"
 
@@ -163,14 +164,19 @@ class CommonBridge:
 
 
 class LiteBridge(CommonBridge):
-    """The Lite host's bridge: it clones an image and says whether a control socket is connected."""
+    """The Lite host's bridge: it clones an image, says whether a control socket is connected, and answers the theme
+    state the application sent it last - none before it sends one."""
 
     def __init__(self, backend="protocol", control_socket=True):
         super().__init__(backend)
         self.control_socket = control_socket
+        self.theme = {}
 
     def has_control_socket(self):
         return self.control_socket
+
+    def theme_tokens(self):
+        return dict(self.theme)
 
     def image_clone(self, token):
         clone = token + ".clone"
@@ -840,11 +846,52 @@ with hosted(Refusing()):
     refuses(RuntimeError, lambda: ui_protocol.commit_image(array), "refused")
 
 with hosted(LiteBridge()) as bridge:
-    assert ui_protocol.tokens() == {}, "the Lite host serves no theme"
+    assert ui_protocol.tokens() == {}, "a Lite host the application sent no theme serves none"
     assert ui_protocol.commit_image(array) is True and ui_protocol.open_image(array, title="Lite") is True
     for call in (lambda: ui_protocol.show_error("e"), lambda: ui_protocol.show_warning("w"),
                  lambda: ui_protocol.show_info("i"), lambda: ui_protocol.confirm("c")):
         refuses(AttributeError, call)
+)PY");
+}
+
+// What `afternight.ui_protocol.tokens()` answers on either host is the theme state the application sent it, whole: the
+// choices in force - the theme, the style profile, the contrast, the accent, the tint, its strength, the preset, the
+// density and Night - and the tokens they resolve to, the surface ladder and the sizes among them. The names are the
+// contract an extension that paints itself reads: the package states them (`THEME_STATE_NAMES`), and the application
+// sends the same ones (`extensionThemeStateNames`).
+TEST(ProtocolSdkContractTest, TheTokensAreTheApplicationsThemeStateOnEitherHost)
+{
+    expectProtocolPython(R"PY(
+STATE = {
+    "is_dark": True, "style_profile": "observatory", "contrast_profile": 0, "accent_family": 2,
+    "surface_tint_family": 1, "tint_strength": 3, "preset": 1, "density": 1, "night": True,
+    "colors": {"bgPrimary": "#ff0d0000", "textPrimary": "#ffb30000", "accentPrimary": "#ff800000"},
+    "layers": {"surface0": "#ff0d0000", "surface1": "#ff120000", "surface2": "#ff170000", "surface3": "#ff1c0000",
+               "surface4": "#ff210000"},
+    "metrics": {"fontBody": 14, "control": 36, "rowTable": 34, "pad": 16, "gap": 10},
+    "spacing": {"xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24},
+    "radius": {"none": 0, "sm": 4, "md": 8, "lg": 12, "xl": 14},
+    "typography": {"body": {"family": "Inter", "point_size": 10.0}},
+}
+NAMES = ["is_dark", "style_profile", "contrast_profile", "accent_family", "surface_tint_family", "tint_strength",
+         "preset", "density", "night", "colors", "layers", "metrics", "spacing", "radius", "typography"]
+assert list(STATE) == NAMES
+assert ui_protocol.THEME_STATE_NAMES == tuple(NAMES), "the package states the names the application sends"
+
+class TwoPointZero(FullBridge):
+    def theme_tokens(self):
+        return dict(STATE)
+
+for bridge in (TwoPointZero(), LiteBridge()):
+    bridge.theme = dict(STATE)
+    with hosted(bridge):
+        answered = ui_protocol.tokens()
+        assert list(answered) == NAMES, list(answered)
+        assert answered == STATE
+        assert answered["style_profile"] == "observatory" and answered["night"] is True
+        assert answered["tint_strength"] == 3 and answered["preset"] == 1 and answered["density"] == 1
+        assert answered["layers"]["surface3"] == "#ff1c0000" and answered["metrics"]["control"] == 36
+        assert ui.tokens() == STATE, "afternight.ui answers the same tokens"
 )PY");
 }
 

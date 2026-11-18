@@ -291,6 +291,8 @@ for module in (calibration, core, io, registration, stacking, sequences, runtime
             if inspect.isfunction(function):
                 signatures[module.__name__ + "." + class_name + "." + name] = str(inspect.signature(function))
 contract["package_signatures"] = signatures
+# The names of the theme state the protocol side's tokens() answers, as the package states them.
+contract["theme_state_names"] = list(ui_protocol.THEME_STATE_NAMES)
 contract["native_signatures"] = {name: (getattr(native, name).__doc__ or "").split("\n")[0]
                                  for name in sorted(dir(native)) if not name.startswith("_")}
 

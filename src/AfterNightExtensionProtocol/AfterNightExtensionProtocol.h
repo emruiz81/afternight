@@ -9,6 +9,7 @@
 #include <QCborMap>
 #include <QCborValue>
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -21,6 +22,17 @@ namespace an::ui::extensions
 inline constexpr int kExtensionProtocolVersion = 1;
 inline constexpr int kExtensionSdkVersion = 1;
 inline constexpr std::uint32_t kMaxControlMessageBytes = 16u * 1024u * 1024u;
+
+/// The capability a host states in its `runtime.hello` when it tells the application where the run of the window it
+/// shows stands, with `session.activity`. An application never reads that message from a host that did not state it.
+inline constexpr std::string_view kSessionActivityCapability = "session_activity";
+
+/// The capability a host states in its `runtime.hello` when it raises the window it shows on `window.raise`. An
+/// application never sends that message to a host that did not state it: a host refuses a message it does not know.
+inline constexpr std::string_view kWindowRaiseCapability = "window_raise";
+
+/// The longest text a `session.activity` may carry, in characters.
+inline constexpr std::size_t kSessionActivityTextLimit = 200u;
 
 enum class ProtocolFrameDecodeStatus
 {
@@ -347,6 +359,30 @@ struct ThemeChangedMessage
     QCborMap tokens;
 };
 
+/// What a host tells the application of the run of the window it shows (`session.activity`, host to application): that
+/// a run started, how far it has come, and how it ended. Sent only by a host that stated `kSessionActivityCapability`.
+struct SessionActivityMessage
+{
+    std::string session_id;
+    std::string request_id;
+    /// Whether a run is on its way.
+    bool running = false;
+    /// How far the run has come, from 0 to 1, when it can tell; a run on its way's alone.
+    std::optional<double> progress;
+    /// What the run does, or why it failed; plain text of at most `kSessionActivityTextLimit` characters.
+    std::string text;
+    /// How the run ended - "succeeded", "failed" or "cancelled" - once it is not running; empty while it runs.
+    std::string outcome;
+};
+
+/// The application asks a host to show the window it shows in front (`window.raise`, application to host). Sent only to
+/// a host that stated `kWindowRaiseCapability`.
+struct WindowRaiseMessage
+{
+    std::string session_id;
+    std::string request_id;
+};
+
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ProtocolCompatibilityResult
 negotiateProtocolVersion(int supported_version, int peer_version);
 
@@ -429,6 +465,10 @@ toProtocolMessage(const ViewRenamedMessage& message);
 toProtocolMessage(const ThemeDescribeMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
 toProtocolMessage(const ThemeChangedMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const SessionActivityMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const WindowRaiseMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 runtimeHelloFromProtocolMessage(const ExtensionProtocolMessage& message, RuntimeHelloMessage* out_message,
                                 std::string* error = nullptr);
@@ -486,6 +526,15 @@ themeDescribeFromProtocolMessage(const ExtensionProtocolMessage& message, ThemeD
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 themeChangedFromProtocolMessage(const ExtensionProtocolMessage& message, ThemeChangedMessage* out_message,
                                 std::string* error = nullptr);
+/// Reads a `session.activity`, refused whole at the first error: `running` a boolean; a progress, when stated, a number
+/// from 0 to 1 and only while running; a text, when stated, plain text of at most `kSessionActivityTextLimit`
+/// characters; an outcome, "succeeded", "failed" or "cancelled", once not running and never while running.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+sessionActivityFromProtocolMessage(const ExtensionProtocolMessage& message, SessionActivityMessage* out_message,
+                                   std::string* error = nullptr);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+windowRaiseFromProtocolMessage(const ExtensionProtocolMessage& message, WindowRaiseMessage* out_message,
+                               std::string* error = nullptr);
 
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API QCborMap
 sharedBufferDescriptorToCborMap(const SharedBufferDescriptor& descriptor);

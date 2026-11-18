@@ -5,10 +5,11 @@
 
 /// @file
 /// The tasks a shell shows, with no widget: every open process, with the descriptor it was launched as, the image it
-/// targets and where its run stands.
+/// targets and where its run stands; and every session of the extension host, whose window is its host's own.
 
 #include "AfterNightShellCoreExport.h"
 
+#include "app/ExtensionSessionFeed.h"
 #include "controls/ProcessPresentation.h"
 
 #include <QImage>
@@ -20,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class ImageViewControl;
@@ -65,6 +67,20 @@ struct Task
     /// The process window; null for an External task.
     QPointer<TopLevelProcessBaseControl> process;
 
+    /// The extension host session an External task shows; empty for any other task, and for an External task whose host
+    /// failed.
+    std::string sessionId;
+
+    /// Where an External task's host stands; `Ready` for any other task.
+    an::ui::extensions::ExtensionHostStanding host = an::ui::extensions::ExtensionHostStanding::Ready;
+
+    /// Whether an External task's host shows its window in front when asked.
+    bool raisesItsWindow = false;
+
+    /// Whether an External task's session ended because its host failed: the task stays, its run failed with why, until
+    /// it is closed.
+    bool hostFailed = false;
+
     /// Whether the process works on one image, the one it was launched on: false for a process launched on no image,
     /// which chooses every image it reads in its controls and has no target, whatever image it reads.
     bool singleTarget = true;
@@ -97,6 +113,12 @@ struct Task
 /// a launch states as it registers - and the registry's descriptor for the names; the shell's presenter tells it the
 /// rest: where a run stands and which image a process targets. The model implements nothing visual.
 ///
+/// **External tasks.** Given the sessions of the extension host, the model makes an External task of each session when
+/// it starts - the window it shows is its host's, in another process - named by its descriptor, and follows where it
+/// stands: its host starting, ready or not responding, and the run of its window as the host tells it. A session that
+/// ends as it should takes its task away; one whose host failed leaves it, failed with why, until it is closed. A
+/// host's run holds no lock on its image, so an External task never blocks a view.
+///
 /// **The current task** is the one the person looks at: a page the main window shows, or a window that is active. A run
 /// that ends - succeeded or failed - on a task that is not current leaves an unseen result, which making the task
 /// current clears, the ended run with it.
@@ -122,6 +144,11 @@ public:
 
     /// Makes the model over the open processes, a task each of the windows open now; the registry outlives the model.
     explicit TaskModel(OpenProcessRegistry& processes);
+
+    /// Makes the model over the open processes and the sessions of the extension host, a task each of the windows open
+    /// now and of the sessions running now; the registry and the sessions outlive the model, and no sessions are
+    /// followed when `sessions` is null.
+    TaskModel(OpenProcessRegistry& processes, an::ui::extensions::IExtensionSessionFeed* sessions);
     ~TaskModel();
 
     TaskModel(const TaskModel&) = delete;
@@ -138,18 +165,31 @@ public:
     /// The task of a process window; null for one the model does not hold.
     [[nodiscard]] const Task* taskFor(const TopLevelProcessBaseControl* process) const;
 
+    /// The External task of an extension host session; null for a session the model holds none of.
+    [[nodiscard]] const Task* taskForSession(std::string_view sessionId) const;
+
     /// The tasks that target a view, in the order they were opened.
     [[nodiscard]] std::vector<TaskId> tasksOn(const ImageViewControl* view) const;
 
-    /// The task whose run is on its way over a view; null when none is.
+    /// The task whose run is on its way over a view, holding it; null when none is. An External task's never is: its
+    /// host holds no lock on the image.
     [[nodiscard]] const Task* runningTaskOn(const ImageViewControl* view) const;
 
     /// The current task; zero for none.
     [[nodiscard]] TaskId current() const noexcept;
 
-    /// Makes a task the current one, or none for zero: its unseen result is seen, and its ended run is let go. False
-    /// for an id the model does not hold.
+    /// Makes a task the current one, or none for zero: its unseen result is seen, and its ended run is let go - but for
+    /// an External task whose host failed, which stays failed until it is closed. False for an id the model does not
+    /// hold.
     bool setCurrent(TaskId id);
+
+    /// Asks the host of an External task to show its window in front. False for any other task, for one whose host
+    /// does not raise its window and for one whose host failed.
+    bool raiseExternal(TaskId id);
+
+    /// Closes an External task: its session is ended as it should and the task goes with it, or the task of a host that
+    /// failed is dismissed. False for any other task.
+    bool closeExternal(TaskId id);
 
     // ---- What the shell's presenter tells it.
 

@@ -15,8 +15,8 @@
 ///   with a reason; none may crash, and none may succeed without the value it promised.
 /// * **What decoded encodes, and what it encodes decodes the same.** A message read off the wire serializes, the bytes
 ///   read back as a message, and serializing that gives the same bytes again; a buffer's description written as CBOR
-///   reads back as one. A typed message - a hello, an execute, a commit, a result - decoded from a message re-encodes
-///   into a message the same typed decoder accepts.
+///   reads back as one. A typed message - a hello, an execute, a commit, a result, a theme state, a run's activity, a
+///   raise - decoded from a message re-encodes into a message the same typed decoder accepts.
 /// * **Framing consumes or stops.** Consuming frames out of a buffer either takes a whole frame, waits for more bytes
 ///   without taking any, or refuses the frame; it never takes more bytes than were there and never loops forever.
 
@@ -121,6 +121,53 @@ enum Mode : std::uint8_t
     destination.access_mode = protocol::SharedBufferAccessMode::ReadWrite;
     commit.result_buffers = {destination};
     messages.push_back(protocol::toProtocolMessage(commit));
+
+    // The theme state a host is sent, with the choices and the token groups the application states.
+    protocol::ThemeDescribeMessage theme;
+    theme.session_id = "session-1";
+    theme.request_id = "theme-1";
+    theme.theme_name = "AfterNight Dark";
+    theme.tokens = QCborMap{
+        {QStringLiteral("is_dark"), true},
+        {QStringLiteral("style_profile"), QStringLiteral("observatory")},
+        {QStringLiteral("contrast_profile"), 1},
+        {QStringLiteral("accent_family"), 2},
+        {QStringLiteral("surface_tint_family"), 1},
+        {QStringLiteral("tint_strength"), 3},
+        {QStringLiteral("preset"), 1},
+        {QStringLiteral("density"), 1},
+        {QStringLiteral("night"), true},
+        {QStringLiteral("colors"), QCborMap{{QStringLiteral("textPrimary"), QStringLiteral("#ffb30000")}}},
+        {QStringLiteral("layers"), QCborMap{{QStringLiteral("surface0"), QStringLiteral("#ff0d0000")},
+                                            {QStringLiteral("surface4"), QStringLiteral("#ff210000")}}},
+        {QStringLiteral("metrics"), QCborMap{{QStringLiteral("control"), 36}, {QStringLiteral("rowTable"), 34}}}};
+    messages.push_back(protocol::toProtocolMessage(theme));
+    protocol::ThemeChangedMessage changed;
+    changed.session_id = "session-1";
+    changed.request_id = "theme-2";
+    changed.theme_name = "AfterNight Light";
+    changed.tokens = theme.tokens;
+    changed.tokens.insert(QStringLiteral("night"), false);
+    messages.push_back(protocol::toProtocolMessage(changed));
+
+    // A run's activity, on its way and ended, and the raise the application asks.
+    protocol::SessionActivityMessage running;
+    running.session_id = "session-1";
+    running.request_id = "activity-1";
+    running.running = true;
+    running.progress = 0.42;
+    running.text = "Running extension...";
+    messages.push_back(protocol::toProtocolMessage(running));
+    protocol::SessionActivityMessage ended;
+    ended.session_id = "session-1";
+    ended.request_id = "activity-2";
+    ended.outcome = "failed";
+    ended.text = "Out of memory";
+    messages.push_back(protocol::toProtocolMessage(ended));
+    protocol::WindowRaiseMessage raise;
+    raise.session_id = "session-1";
+    raise.request_id = "raise-1";
+    messages.push_back(protocol::toProtocolMessage(raise));
     return messages;
 }
 
@@ -178,6 +225,12 @@ void checkMessage(const QByteArray& bytes)
     checkTyped<protocol::ExecutionCancelMessage>(message, protocol::executionCancelFromProtocolMessage, "typed-cancel");
     checkTyped<protocol::ExecutionResultMessage>(message, protocol::executionResultFromProtocolMessage, "typed-result");
     checkTyped<protocol::ViewCommitMessage>(message, protocol::viewCommitFromProtocolMessage, "typed-commit");
+    checkTyped<protocol::ThemeDescribeMessage>(message, protocol::themeDescribeFromProtocolMessage, "typed-theme");
+    checkTyped<protocol::ThemeChangedMessage>(message, protocol::themeChangedFromProtocolMessage,
+                                              "typed-theme-changed");
+    checkTyped<protocol::SessionActivityMessage>(message, protocol::sessionActivityFromProtocolMessage,
+                                                 "typed-activity");
+    checkTyped<protocol::WindowRaiseMessage>(message, protocol::windowRaiseFromProtocolMessage, "typed-raise");
 }
 
 void checkFrames(const QByteArray& bytes)

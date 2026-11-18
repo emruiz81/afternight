@@ -67,7 +67,8 @@ struct TaskPresenter::Impl
     };
 
     explicit Impl(an::ui::shell::ApplicationCore& application)
-        : core(application), model(application.openProcesses()), thumbnails(application)
+        : core(application), model(application.openProcesses(), &application.extensionSessions()),
+          thumbnails(application)
     {
     }
 
@@ -246,6 +247,16 @@ struct TaskPresenter::Impl
     bool show(const an::ui::shell::TaskId id)
     {
         const an::ui::shell::Task* task = model.task(id);
+        if (task != nullptr && task->presentation == an::ui::shell::TaskPresentation::External)
+        {
+            // The window is the host's own, in another process: the host is asked to bring it in front.
+            if (!model.raiseExternal(id))
+            {
+                return false;
+            }
+            (void)model.setCurrent(id);
+            return true;
+        }
         if (task == nullptr || task->process.isNull())
         {
             return false;
@@ -368,6 +379,20 @@ bool TaskPresenter::show(const an::ui::shell::TaskId id)
     return m_impl->show(id);
 }
 
+bool TaskPresenter::canShow(const an::ui::shell::TaskId id) const
+{
+    const an::ui::shell::Task* task = m_impl->model.task(id);
+    if (task == nullptr)
+    {
+        return false;
+    }
+    if (task->presentation == an::ui::shell::TaskPresentation::External)
+    {
+        return task->raisesItsWindow && !task->hostFailed;
+    }
+    return !task->process.isNull();
+}
+
 bool TaskPresenter::close(const an::ui::shell::TaskId id)
 {
     if (!canClose(id))
@@ -375,6 +400,10 @@ bool TaskPresenter::close(const an::ui::shell::TaskId id)
         return false;
     }
     const an::ui::shell::Task* task = m_impl->model.task(id);
+    if (task != nullptr && task->presentation == an::ui::shell::TaskPresentation::External)
+    {
+        return m_impl->model.closeExternal(id);
+    }
     if (task == nullptr || task->process.isNull())
     {
         return false;
@@ -385,7 +414,11 @@ bool TaskPresenter::close(const an::ui::shell::TaskId id)
 bool TaskPresenter::canClose(const an::ui::shell::TaskId id) const
 {
     const an::ui::shell::Task* task = m_impl->model.task(id);
-    return task != nullptr && !task->process.isNull() && !task->run.running();
+    if (task == nullptr || task->run.running())
+    {
+        return false;
+    }
+    return task->presentation == an::ui::shell::TaskPresentation::External || !task->process.isNull();
 }
 
 const an::ui::shell::Task* TaskPresenter::taskOn(const ImageViewControl* view) const
@@ -433,9 +466,11 @@ void TaskPresenter::activeWindowChanged(QWidget* window)
         (void)model.setCurrent(active->id);
         return;
     }
-    // A task shown in a window is no longer the one looked at once another window is.
+    // A task shown in a window - one of the application's, or its host's - is no longer the one looked at once another
+    // window is.
     if (const an::ui::shell::Task* current = model.task(model.current());
-        current != nullptr && current->presentation == an::ui::shell::TaskPresentation::Window)
+        current != nullptr && (current->presentation == an::ui::shell::TaskPresentation::Window ||
+                               current->presentation == an::ui::shell::TaskPresentation::External))
     {
         (void)model.setCurrent(0u);
     }

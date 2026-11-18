@@ -6,10 +6,13 @@
 #include <QCborArray>
 #include <QCborParserError>
 #include <QCborValue>
+#include <QChar>
+#include <QString>
 #include <QtEndian>
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <string>
@@ -2087,6 +2090,138 @@ bool themeChangedFromProtocolMessage(const ExtensionProtocolMessage& message, Th
     if (out_message)
     {
         *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const SessionActivityMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "session.activity";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("running")] = message.running;
+    if (message.progress.has_value())
+    {
+        protocol.fields[QStringLiteral("progress")] = *message.progress;
+    }
+    if (!message.text.empty())
+    {
+        protocol.fields[QStringLiteral("text")] = QString::fromStdString(message.text);
+    }
+    if (!message.outcome.empty())
+    {
+        protocol.fields[QStringLiteral("outcome")] = QString::fromStdString(message.outcome);
+    }
+    return protocol;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const WindowRaiseMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "window.raise";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    return protocol;
+}
+
+bool sessionActivityFromProtocolMessage(const ExtensionProtocolMessage& message, SessionActivityMessage* out_message,
+                                        std::string* error)
+{
+    const auto refuse = [error](const char* reason) {
+        if (error)
+        {
+            *error = reason;
+        }
+        return false;
+    };
+    if (!parseRuntimeMessageType(message, "session.activity", error))
+    {
+        return false;
+    }
+
+    SessionActivityMessage parsed;
+    parsed.session_id = message.session_id;
+    parsed.request_id = message.request_id;
+    const auto running = message.fields.find(QStringLiteral("running"));
+    if (running == message.fields.end() || !running->isBool())
+    {
+        return refuse("session.activity requires a boolean field: running");
+    }
+    parsed.running = running->toBool();
+
+    if (const auto progress = message.fields.find(QStringLiteral("progress")); progress != message.fields.end())
+    {
+        if (!progress->isDouble() && !progress->isInteger())
+        {
+            return refuse("session.activity progress must be a number");
+        }
+        const double value = progress->toDouble();
+        if (!std::isfinite(value) || value < 0.0 || value > 1.0)
+        {
+            return refuse("session.activity progress must be from 0 to 1");
+        }
+        if (!parsed.running)
+        {
+            return refuse("session.activity states a progress only while a run is on its way");
+        }
+        parsed.progress = value;
+    }
+
+    if (const auto text = message.fields.find(QStringLiteral("text")); text != message.fields.end())
+    {
+        if (!text->isString())
+        {
+            return refuse("session.activity text must be a string");
+        }
+        const QString value = text->toString();
+        if (static_cast<std::size_t>(value.size()) > kSessionActivityTextLimit)
+        {
+            return refuse("session.activity text is longer than its limit");
+        }
+        if (std::any_of(value.cbegin(), value.cend(),
+                        [](const QChar character) { return character.category() == QChar::Other_Control; }))
+        {
+            return refuse("session.activity text must be plain text");
+        }
+        parsed.text = value.toStdString();
+    }
+
+    if (const auto outcome = message.fields.find(QStringLiteral("outcome")); outcome != message.fields.end())
+    {
+        if (!outcome->isString())
+        {
+            return refuse("session.activity outcome must be a string");
+        }
+        parsed.outcome = outcome->toString().toStdString();
+    }
+    if (parsed.running && !parsed.outcome.empty())
+    {
+        return refuse("session.activity states an outcome only once a run is not running");
+    }
+    if (!parsed.running && parsed.outcome != "succeeded" && parsed.outcome != "failed" && parsed.outcome != "cancelled")
+    {
+        return refuse("session.activity outcome must be succeeded, failed or cancelled");
+    }
+
+    if (out_message)
+    {
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+bool windowRaiseFromProtocolMessage(const ExtensionProtocolMessage& message, WindowRaiseMessage* out_message,
+                                    std::string* error)
+{
+    if (!parseRuntimeMessageType(message, "window.raise", error))
+    {
+        return false;
+    }
+    if (out_message)
+    {
+        out_message->session_id = message.session_id;
+        out_message->request_id = message.request_id;
     }
     return true;
 }

@@ -18,6 +18,7 @@
 #include "Test_ProcessFramework/ProcessFrameworkSuiteSupport.h"
 #include "fixtures/TestImageGenerators.h"
 
+#include "app/ExtensionThemeState.h"
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionEnvironmentManager.h"
 #include "app/ExtensionHostManager.h"
@@ -7692,6 +7693,141 @@ TEST(ExtensionHostManagerTest, LaunchCoordinatorRecordsRuntimeTerminationStatusF
     EXPECT_FALSE(snapshot->termination_diagnostics.session_id.empty());
 
     runtime_status_registry.clear();
+}
+
+// A real full host's session, launched for a window of its own, is told to a shell from its launch: named by its
+// descriptor, its host stating that it tells of its run and raises its window once its runtime is ready - started under
+// the application's style profile, an argument a host that did not take it would refuse at its start - and, when the
+// host crashes, ended failed with why.
+TEST(ExternalTasks, ARealFullHostIsToldFromItsLaunchToItsCrash)
+{
+    const std::filesystem::path host_path = extensionHostPathForCurrentAppDir();
+    AN_REQUIRE_FULL_EXTENSION_HOST(host_path);
+
+    an::tests::processes::framework::CaseLaunchCoordinator coordinator;
+    std::vector<an::ui::extensions::ExtensionSessionStanding> stood;
+    std::vector<an::ui::extensions::ExtensionSessionEnd> ended;
+    const std::size_t token = coordinator.observeSessions(
+        {[&stood](const an::ui::extensions::ExtensionSessionStanding& standing) { stood.push_back(standing); },
+         [&ended](const an::ui::extensions::ExtensionSessionEnd& end) { ended.push_back(end); }});
+
+    an::ui::extensions::ExtensionHostLaunchBinding binding;
+    binding.descriptor_id = "filters.demo_external_task";
+    binding.extension_id = "an.demo.external_task";
+    binding.display_name = "Demo External Task";
+    binding.host_executable = host_path;
+    binding.capabilities = {"execute"};
+    binding.extension_host_owns_process_window = true;
+    binding.host_arguments = {"--stay-alive-ms", std::to_string(4000 * kIpcTimingMultiplier), "--crash-after-ack-ms",
+                              std::to_string(1500 * kIpcTimingMultiplier)};
+
+    std::string error;
+    ASSERT_TRUE(coordinator.launchBoundDescriptor(binding, fakeTargetControl(), &error)) << error;
+    ASSERT_FALSE(stood.empty()) << "a session is told from its launch";
+    const std::string session_id = stood.front().sessionId;
+    EXPECT_FALSE(session_id.empty());
+    EXPECT_EQ(stood.front().descriptorId, binding.descriptor_id);
+    EXPECT_EQ(stood.front().displayName, QStringLiteral("Demo External Task"));
+
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 1000 * kIpcTimingMultiplier, [&stood]() {
+        return stood.back().host == an::ui::extensions::ExtensionHostStanding::Ready && stood.back().raisesItsWindow;
+    })) << "the host states that it raises its window";
+    ASSERT_EQ(coordinator.sessionStandings().size(), 1u);
+    EXPECT_TRUE(coordinator.raiseSessionWindow(session_id, &error)) << error;
+
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 4000 * kIpcTimingMultiplier, [&ended]() { return !ended.empty(); }));
+    ASSERT_EQ(ended.size(), 1u);
+    EXPECT_EQ(ended.front().sessionId, session_id);
+    EXPECT_TRUE(ended.front().failed) << "a host that crashed ends its session failed";
+    EXPECT_FALSE(ended.front().reason.isEmpty());
+    EXPECT_TRUE(coordinator.sessionStandings().empty());
+    coordinator.stopObservingSessions(token);
+}
+
+// A protocol extension that paints itself reads the application's look through `afternight.ui_protocol.tokens()` on a
+// real Lite host: the theme state the application sends the session, under every name the application states it by.
+TEST(ExternalTasks, ALiteExtensionReadsTheApplicationsThemeStateThroughItsTokens)
+{
+    const std::filesystem::path host_path = extensionHostLitePathForCurrentAppDir();
+    const std::filesystem::path runtime_root = runtimeRootForCurrentAppDir();
+    const std::filesystem::path bundled_python = repositoryBundledPythonPath();
+    ASSERT_FALSE(host_path.empty()) << "AfterNightExtensionHostLite must be built before this test runs";
+    ASSERT_TRUE(std::filesystem::exists(host_path)) << host_path;
+    ASSERT_TRUE(std::filesystem::exists(runtime_root)) << runtime_root;
+    ASSERT_FALSE(bundled_python.empty()) << "Repository bundled Python runtime must be available";
+
+    const auto temp_root = uniqueExtensionRuntimeRootForTest("lite-theme-tokens");
+    removeAllNoThrow(temp_root);
+    RemovePathOnExit cleanup{temp_root};
+    std::filesystem::create_directories(temp_root);
+    const auto env_root = temp_root / "env";
+    const auto package_root = temp_root / "lite_theme_ext";
+    std::filesystem::create_directories(package_root);
+    createVirtualEnvironment(bundled_python, env_root);
+    {
+        std::ofstream out(package_root / "lite_theme_ext.py", std::ios::binary);
+        ASSERT_TRUE(out.is_open());
+        // A settings call is a request, during which the host reads what the application sent meanwhile.
+        out << "from afternight import ui_protocol\n"
+            << "from afternight.lite import LiteProcessExtension\n\n"
+            << "class LiteThemeExtension(LiteProcessExtension):\n"
+            << "    def on_launch(self):\n"
+            << "        for _ in range(2000):\n"
+            << "            if ui_protocol.tokens():\n"
+            << "                break\n"
+            << "            self.settings.get('waiting', False)\n"
+            << "        tokens = ui_protocol.tokens()\n"
+            << "        self.settings.set('theme_profile', str(tokens.get('style_profile', '')))\n"
+            << "        self.settings.set('theme_names', list(tokens.keys()))\n";
+    }
+
+    InMemorySettings settings_store;
+    GlobalSettingsPersistence& settings = settings_store.repository();
+    an::ui::extensions::ExtensionSdkService settings_reader(&settings);
+    an::tests::processes::framework::CaseLaunchCoordinator coordinator;
+    coordinator.configureSdkService(&settings, {}, {},
+                                    []() { return an::ui::extensions::currentExtensionThemeSnapshot(); });
+
+    an::ui::extensions::ExtensionHostLaunchBinding binding;
+    binding.descriptor_id = "lite.theme.descriptor";
+    binding.extension_id = "an.demo.lite.theme";
+    binding.display_name = "Lite Theme Probe";
+    binding.sdk_backend = "protocol";
+    binding.launch_mode = an::ui::extensions::ExtensionLaunchMode::SingleImage;
+    binding.host_executable = host_path;
+    binding.capabilities = {"app", "views"};
+    binding.host_arguments = {
+        "--extension-package-root", package_root.string(), "--entry-point",
+        "lite_theme_ext",           "--process-class",     "LiteThemeExtension",
+        "--environment-root",       env_root.string(),     "--runtime-root",
+        runtime_root.string(),      "--stay-alive-ms",     std::to_string(5000 * kIpcTimingMultiplier)};
+
+    std::string error;
+    ASSERT_TRUE(coordinator.launchBoundDescriptor(binding, fakeTargetControl(), &error)) << error;
+    ASSERT_TRUE(
+        pumpCoordinatorUntilNativeSessionReady(coordinator, binding.descriptor_id, 5000 * kIpcTimingMultiplier));
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 5000 * kIpcTimingMultiplier, [&settings_reader, &binding]() {
+        QCborValue names;
+        return settings_reader.selectExtensionSetting(binding.extension_id, "theme_names", &names, QCborValue(),
+                                                      nullptr) &&
+               names.isArray();
+    }));
+
+    QCborValue names_value;
+    ASSERT_TRUE(
+        settings_reader.selectExtensionSetting(binding.extension_id, "theme_names", &names_value, QCborValue(), &error))
+        << error;
+    std::vector<QString> names;
+    for (const QCborValue& name : names_value.toArray())
+    {
+        names.push_back(name.toString());
+    }
+    EXPECT_EQ(names, an::ui::extensions::extensionThemeStateNames());
+    QString profile;
+    ASSERT_TRUE(settings_reader.selectExtensionSetting(binding.extension_id, "theme_profile", &profile, {}, &error))
+        << error;
+    EXPECT_EQ(profile, an::ui::extensions::styleProfileName(an::ui::styleProfile()));
+    ASSERT_TRUE(stopCoordinatorAndWaitForSessionAbsence(coordinator, 1500 * kIpcTimingMultiplier));
 }
 
 // A host that exits after its native window was closed is not reported as a crash.

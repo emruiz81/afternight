@@ -14,7 +14,7 @@ bool sameRailItem(const RailItem& a, const RailItem& b)
            a.badgeText == b.badgeText && a.selected == b.selected && a.enabled == b.enabled &&
            a.thumbnail.cacheKey() == b.thumbnail.cacheKey() && a.glyphKey == b.glyphKey && a.runPhase == b.runPhase &&
            a.progress == b.progress && a.runText == b.runText && a.unseenResult == b.unseenResult &&
-           a.floating == b.floating;
+           a.floating == b.floating && a.external == b.external;
 }
 
 QString railItemDescription(const RailItem& item)
@@ -50,6 +50,10 @@ QString railItemDescription(const RailItem& item)
     if (item.floating)
     {
         description += QStringLiteral(" - in a window");
+    }
+    if (item.external)
+    {
+        description += QStringLiteral(" - opens in its own window");
     }
     return description;
 }

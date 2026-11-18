@@ -8,10 +8,13 @@
 /// the task is shown; a window that goes takes its task with it; the observers are told in order. And the thumbnails of
 /// the views a shell follows: a square of 60 pixels presented as the view presents its image, admitted as a preview
 /// that never waits, made again when the image changes and dropped when the view goes; the GUI thread makes no call of
-/// the engine.
+/// the engine. And the sessions of the extension host, over a stand-in for the launch coordinator: each is an External
+/// task from its start, its run its host's word, blocking no view; its end as it should takes the task away, a host
+/// that died leaves it failed until it is closed, and Show and Close ask the host.
 
 #include "ShellCoreTestSupport.h"
 #include "ShellCoreViewSupport.h"
+#include "StandInExtensionSessions.h"
 
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
@@ -281,6 +284,16 @@ protected:
         return *m_model;
     }
 
+    /// The model over the open processes and the stand-in's sessions.
+    Model& modelOverSessions()
+    {
+        if (!m_model)
+        {
+            m_model = std::make_unique<Model>(m_core.openProcesses(), &m_sessions);
+        }
+        return *m_model;
+    }
+
     Thumbnails& thumbnails()
     {
         if (!m_thumbnails)
@@ -297,6 +310,7 @@ protected:
     RecordingShell m_shell;
     std::unique_ptr<an::ui::shell::ServiceEventTarget> m_target;
     std::unique_ptr<an::ui::shell::ApplicationContext> m_context;
+    an::tests::shellcore::StandInExtensionSessions m_sessions;
     std::unique_ptr<Model> m_model;
     std::unique_ptr<Thumbnails> m_thumbnails;
     std::vector<QPointer<TopLevelProcessBaseControl>> m_processes;
@@ -310,6 +324,10 @@ class TaskModel : public TasksFixture
 };
 
 class ViewThumbnailService : public TasksFixture
+{
+};
+
+class ExternalTasks : public TasksFixture
 {
 };
 
@@ -658,4 +676,166 @@ TEST_F(ViewThumbnailService, RedoneOnAnImageUpdateAndDroppedWhenTheViewGoes)
     EXPECT_EQ(dropped, 1);
     EXPECT_TRUE(last.isNull());
     service.unsubscribe(token);
+}
+
+// A session of the extension host is an External task from the moment it starts: no process window, named by the
+// descriptor it was launched for with its glyph and its category, on the image it was launched on. A model made while a
+// session runs takes it in. The session's end as it should takes the task away, the current one among them, and the
+// observers are told both.
+TEST_F(ExternalTasks, ASessionAddsATaskAndItsEndRemovesIt)
+{
+    const RegistryKept kept;
+    const ProcessDescriptor denoise =
+        descriptorOf("an.demo.denoise", "Demo Denoise", "extensions", "actionDemoDenoise", "noise");
+    ASSERT_TRUE(ProcessRegistry::instance().registerProcess(denoise));
+    ImageViewControl* view = viewOf(QStringLiteral("M42"));
+    ASSERT_NE(view, nullptr);
+    using Sessions = an::tests::shellcore::StandInExtensionSessions;
+    m_sessions.stand(Sessions::session("early", "an.demo.denoise", QStringLiteral("Demo Denoise"), view));
+
+    Model& tasks = modelOverSessions();
+    EXPECT_EQ(m_sessions.observers(), 1);
+    ASSERT_EQ(tasks.tasks().size(), 1u) << "a session running when the model is made is a task";
+    const Task early = tasks.tasks().front();
+    EXPECT_EQ(early.presentation, an::ui::shell::TaskPresentation::External);
+    EXPECT_TRUE(early.process.isNull());
+    EXPECT_EQ(early.sessionId, "early");
+    EXPECT_EQ(early.descriptorId, "an.demo.denoise");
+    EXPECT_EQ(early.displayName, QStringLiteral("Demo Denoise"));
+    EXPECT_EQ(early.category, QStringLiteral("extensions"));
+    EXPECT_EQ(early.iconKey, QStringLiteral("noise"));
+    EXPECT_EQ(early.target.data(), view);
+    EXPECT_EQ(early.targetName, QString::fromStdString(view->getUniqueName()));
+    EXPECT_EQ(early.host, an::ui::extensions::ExtensionHostStanding::Starting);
+    EXPECT_EQ(tasks.taskForSession("early"), tasks.task(early.id));
+
+    std::vector<std::string> told;
+    const std::size_t token = tasks.subscribe([&told](const Model::Change change, const TaskId id) {
+        const char* names[] = {"added", "removed", "changed", "current"};
+        told.push_back(std::string(names[static_cast<int>(change)]) + " " + std::to_string(id));
+    });
+    // A session of no descriptor the registry holds is named as it was launched.
+    m_sessions.stand(Sessions::session("late", "an.gone.process", QStringLiteral("Gone Process")));
+    const Task* late = tasks.taskForSession("late");
+    ASSERT_NE(late, nullptr);
+    const TaskId lateId = late->id;
+    EXPECT_EQ(late->displayName, QStringLiteral("Gone Process"));
+    EXPECT_EQ(late->iconKey, QString::fromLatin1(Model::kGenericGlyph));
+    EXPECT_TRUE(late->target.isNull());
+    EXPECT_TRUE(late->targetName.isEmpty());
+
+    Sessions::Standing ready = Sessions::session("late", "an.gone.process", QStringLiteral("Gone Process"));
+    ready.host = an::ui::extensions::ExtensionHostStanding::Ready;
+    m_sessions.stand(ready);
+    EXPECT_EQ(tasks.task(lateId)->host, an::ui::extensions::ExtensionHostStanding::Ready);
+    ASSERT_TRUE(tasks.setCurrent(lateId));
+    m_sessions.end("late");
+    EXPECT_EQ(tasks.task(lateId), nullptr);
+    EXPECT_EQ(tasks.taskForSession("late"), nullptr);
+    EXPECT_EQ(tasks.current(), 0u);
+    const std::string n = std::to_string(lateId);
+    EXPECT_EQ(told,
+              (std::vector<std::string>{"added " + n, "changed " + n, "current " + n, "current 0", "removed " + n}));
+    tasks.unsubscribe(token);
+    m_model.reset();
+    EXPECT_EQ(m_sessions.observers(), 0) << "the model stops listening when it goes";
+}
+
+// The run of the window a host shows reaches its task with how far it has come; a run that ended while the task was not
+// looked at leaves its result until it is shown. A host's run never blocks the image: the host holds no lock on it.
+TEST_F(ExternalTasks, ProgressReachesTheTasksRun)
+{
+    ImageViewControl* view = viewOf(QStringLiteral("target"));
+    ASSERT_NE(view, nullptr);
+    using Sessions = an::tests::shellcore::StandInExtensionSessions;
+    Model& tasks = modelOverSessions();
+    Sessions::Standing standing = Sessions::session("s1", "an.demo.denoise", QStringLiteral("Demo Denoise"), view);
+    standing.host = an::ui::extensions::ExtensionHostStanding::Ready;
+    m_sessions.stand(standing);
+    const TaskId id = tasks.taskForSession("s1")->id;
+
+    standing.run = an::ui::runningState(QStringLiteral("Denoising"), 0.42);
+    m_sessions.stand(standing);
+    ASSERT_TRUE(tasks.task(id)->run.running());
+    EXPECT_EQ(tasks.task(id)->run.progress, std::optional<double>(0.42));
+    EXPECT_EQ(tasks.task(id)->run.text, QStringLiteral("Denoising"));
+    EXPECT_EQ(tasks.runningTaskOn(view), nullptr) << "a host's run holds no lock on its image";
+
+    standing.run = ProcessRunState{.phase = Phase::Succeeded};
+    m_sessions.stand(standing);
+    EXPECT_EQ(tasks.task(id)->run.phase, Phase::Succeeded);
+    EXPECT_TRUE(tasks.task(id)->unseenResult);
+    ASSERT_TRUE(tasks.setCurrent(id));
+    EXPECT_FALSE(tasks.task(id)->unseenResult);
+    EXPECT_EQ(tasks.task(id)->run.phase, Phase::Idle);
+    standing.raisesItsWindow = true;
+    m_sessions.stand(standing);
+    EXPECT_EQ(tasks.task(id)->run.phase, Phase::Idle) << "a run already seen is not shown again";
+    EXPECT_TRUE(tasks.task(id)->raisesItsWindow);
+}
+
+// A host that stops answering fails its task, and a session that ended because its host failed leaves the task failed,
+// with why, until the person closes it: showing it does not let the failure go, and the task is no session's any more.
+TEST_F(ExternalTasks, AHostThatDiesLeavesAFailedTaskUntilItIsDismissed)
+{
+    using Sessions = an::tests::shellcore::StandInExtensionSessions;
+    Model& tasks = modelOverSessions();
+    Sessions::Standing standing = Sessions::session("s1", "an.demo.denoise", QStringLiteral("Demo Denoise"));
+    standing.host = an::ui::extensions::ExtensionHostStanding::Ready;
+    m_sessions.stand(standing);
+    const TaskId id = tasks.taskForSession("s1")->id;
+
+    standing.host = an::ui::extensions::ExtensionHostStanding::NotResponding;
+    m_sessions.stand(standing);
+    EXPECT_EQ(tasks.task(id)->host, an::ui::extensions::ExtensionHostStanding::NotResponding);
+    EXPECT_EQ(tasks.task(id)->run.phase, Phase::Failed);
+    EXPECT_TRUE(tasks.task(id)->unseenResult);
+
+    m_sessions.end("s1", true, QStringLiteral("The extension stopped responding."));
+    const Task* failed = tasks.task(id);
+    ASSERT_NE(failed, nullptr) << "a host that died leaves its task";
+    EXPECT_TRUE(failed->hostFailed);
+    EXPECT_EQ(failed->run.phase, Phase::Failed);
+    EXPECT_EQ(failed->run.text, QStringLiteral("The extension stopped responding."));
+    EXPECT_FALSE(failed->raisesItsWindow);
+    EXPECT_EQ(tasks.taskForSession("s1"), nullptr) << "the task is no session's any more";
+    ASSERT_TRUE(tasks.setCurrent(id));
+    EXPECT_EQ(tasks.task(id)->run.phase, Phase::Failed) << "showing a failed task does not let the failure go";
+    EXPECT_TRUE(tasks.task(id)->unseenResult);
+    EXPECT_FALSE(tasks.raiseExternal(id)) << "a host that is gone shows nothing";
+
+    EXPECT_TRUE(tasks.closeExternal(id));
+    EXPECT_EQ(tasks.task(id), nullptr);
+    EXPECT_TRUE(m_sessions.closed().empty()) << "a failed task is dismissed, no session is closed";
+}
+
+// Show and Close of an External task ask its host through the feed: Show only of a host that raises its window, Close
+// ends the session and takes its task. Neither acts on a task of a process window.
+TEST_F(ExternalTasks, ShowAndCloseAskTheHost)
+{
+    ImageViewControl* view = viewOf(QStringLiteral("target"));
+    ASSERT_NE(view, nullptr);
+    using Sessions = an::tests::shellcore::StandInExtensionSessions;
+    Model& tasks = modelOverSessions();
+    Sessions::Standing standing = Sessions::session("s1", "an.demo.denoise", QStringLiteral("Demo Denoise"), view);
+    standing.host = an::ui::extensions::ExtensionHostStanding::Ready;
+    m_sessions.stand(standing);
+    const TaskId id = tasks.taskForSession("s1")->id;
+
+    EXPECT_FALSE(tasks.raiseExternal(id)) << "a host that does not raise its window";
+    EXPECT_TRUE(m_sessions.raised().empty());
+    standing.raisesItsWindow = true;
+    m_sessions.stand(standing);
+    EXPECT_TRUE(tasks.raiseExternal(id));
+    EXPECT_EQ(m_sessions.raised(), (std::vector<std::string>{"s1"}));
+
+    ImageProcessControl* process = processOn(view, "Curves Transformation");
+    const TaskId processTask = tasks.taskFor(process)->id;
+    EXPECT_FALSE(tasks.raiseExternal(processTask));
+    EXPECT_FALSE(tasks.closeExternal(processTask));
+
+    EXPECT_TRUE(tasks.closeExternal(id));
+    EXPECT_EQ(m_sessions.closed(), (std::vector<std::string>{"s1"}));
+    EXPECT_EQ(tasks.task(id), nullptr) << "the session ended as it should";
+    EXPECT_EQ(tasks.tasks().size(), 1u);
 }
