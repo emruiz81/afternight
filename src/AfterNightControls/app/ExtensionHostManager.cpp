@@ -6509,6 +6509,9 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
         session_controller.target_view_name = options.initial_view_name;
         session_controller.running_session.initial_view_name = options.initial_view_name;
     }
+    // A person who lets go of the selection area the extension asked for tells it the view's state, the rectangle in
+    // it.
+    session_controller.view_requests.setAreaReleased([this, control]() { handleViewControlUpdated(control); });
     if (const auto preview_sub_area_config = parsePreviewSubAreaSchemaConfig(auto_ui_inspection.schema))
     {
         session_controller.managed_preview_sub_area_enabled = true;

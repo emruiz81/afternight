@@ -8,6 +8,7 @@
 #include <QScrollArea>
 #include <QColor>
 #include <set>
+#include <vector>
 
 class ImageViewControl;
 class ImageViewScrollArea;
@@ -74,6 +75,9 @@ public:
 
     void subscribeListener(ImageViewScrollAreaListener* listener);
     void unsubscribeListener(ImageViewScrollAreaListener* listener);
+
+    /// The listeners subscribed now: the tools of the view, enabled or not.
+    [[nodiscard]] std::vector<ImageViewScrollAreaListener*> listeners() const;
 
     void setWidget(QWidget* widget);
     void setOverlayWidget(QWidget* widget);

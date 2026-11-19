@@ -291,6 +291,28 @@ void ImageCropController::destroy()
     m_ViewControl->getViewWidget()->update();
 }
 
+ImageAreaSelectorControl* ImageCropController::selectorControl() const noexcept
+{
+    return m_SelectorControl;
+}
+
+ImageCropController* ImageCropController::holding(ImageViewScrollArea* area)
+{
+    if (area == nullptr)
+    {
+        return nullptr;
+    }
+    for (ImageViewScrollAreaListener* listener : area->listeners())
+    {
+        auto* const crop = dynamic_cast<ImageCropController*>(listener);
+        if (crop != nullptr && crop->isListenerEnabled())
+        {
+            return crop;
+        }
+    }
+    return nullptr;
+}
+
 ImageCropController::~ImageCropController()
 {
     if (m_ViewControl)

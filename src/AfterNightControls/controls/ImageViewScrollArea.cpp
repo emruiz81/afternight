@@ -84,6 +84,11 @@ void ImageViewScrollArea::unsubscribeListener(ImageViewScrollAreaListener* liste
     m_Listeners.erase(listener);
 }
 
+std::vector<ImageViewScrollAreaListener*> ImageViewScrollArea::listeners() const
+{
+    return {m_Listeners.begin(), m_Listeners.end()};
+}
+
 void ImageViewScrollArea::setWidget(QWidget* widget)
 {
     QScrollArea::setWidget(widget);

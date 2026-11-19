@@ -53,6 +53,13 @@ public:
 
     void destroy();
 
+    /// The control the tool selects the area for.
+    [[nodiscard]] ImageAreaSelectorControl* selectorControl() const noexcept;
+
+    /// The crop tool that holds a view's selection area now - one listening on the view's scroll area and enabled - or
+    /// null for none. A view has one selection area, so a process that would take it asks first.
+    [[nodiscard]] static ImageCropController* holding(ImageViewScrollArea* area);
+
     virtual ~ImageCropController();
 
 protected:

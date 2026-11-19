@@ -3717,6 +3717,7 @@ sources Test_Persistence
 sources Test_ControlsExtensionSeam
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/main.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/SharedBufferSeamTest.cpp
+    unit     src/AfterNightTests/Test_ControlsExtensionSeam/ViewRequestsTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionHandoffTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExternalTasksTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/PanelDescriptionTest.cpp
