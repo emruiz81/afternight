@@ -1,0 +1,35 @@
+{
+  "id": "example.contributing_process",
+  "name": "Example Contributing Process",
+  "version": "1.0.0",
+  "summary": "Template for a protocol extension that adds processes while it runs.",
+  "description": "A repository-ready AfterNight extension package for the Lite host that keeps a catalogue of its own - two scripts a person may enable - and states the enabled ones as processes, which AfterNight lists in the extension's menu, the palette, the recent processes and the favourites. A session started for one of them reads which from its session.",
+  "author": "Example Author",
+  "license": "MIT",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "contributing_process",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "protocol",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "protocol",
+    "contributed"
+  ],
+  "processes": [
+    {
+      "id_suffix": "catalogue",
+      "class": "ExampleScriptCatalogue",
+      "display_name": "Example Script Catalogue",
+      "capabilities": {
+        "interface": "none",
+        "execute": true
+      }
+    }
+  ]
+}

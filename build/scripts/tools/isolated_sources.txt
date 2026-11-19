@@ -2844,7 +2844,10 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationToolsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ContributedProcessesTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ExtensionManagerTest.cpp
+    header   src/AfterNightShellCore/services/ExtensionService.h
+    header   src/AfterNightShellCore/services/RecentProcessesModel.h
     header   src/AfterNightControls/app/ShowInFileBrowser.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/HomeContinueRow.h
@@ -3157,6 +3160,15 @@ sources Test_ShellParity
     external kddockwidgets
     external tbb
     qt       core gui widgets sql svg network testlib
+    header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
+    header   src/AfterNightControls/app/ExtensionManager.h
+    header   src/AfterNightControls/app/ProcessMenuState.h
+    header   src/AfterNightControls/theme/ComponentParts.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
+    header   src/AfterNightShellCore/actions/ProcessMenuModel.h
+    header   src/AfterNightShellCore/services/ProcessLaunchService.h
+    header   src/AfterNightShellCore/services/RecentProcessesModel.h
     header   src/AfterNightApp/app/ApplicationStart.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerRuntimeExport.h

@@ -28,6 +28,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <string>
@@ -389,4 +390,170 @@ TEST_F(ProcessMenuModelTest, SaysWhatChanged)
     model->unsubscribe(subscription);
     model->notifyChanged(ProcessMenuModel::Change::Extensions);
     EXPECT_TRUE(told.empty());
+}
+
+namespace
+{
+
+/// The submenu of a menu under a text; null for none.
+[[nodiscard]] QMenu* submenuOf(const QMenu& menu, const QString& text)
+{
+    for (const QAction* action : menu.actions())
+    {
+        if (action->menu() != nullptr && action->text() == text)
+        {
+            return action->menu();
+        }
+    }
+    return nullptr;
+}
+
+/// An entry an extension contributed, as its list states it.
+[[nodiscard]] an::ui::extensions::ContributedProcessEntry
+contributedEntry(std::string idSuffix, std::string displayName, std::string group = {}, std::string category = {})
+{
+    an::ui::extensions::ContributedProcessEntry entry;
+    entry.id_suffix = std::move(idSuffix);
+    entry.display_name = std::move(displayName);
+    entry.group = std::move(group);
+    entry.category = std::move(category);
+    return entry;
+}
+
+} // namespace
+
+// What an extension contributed is listed in its family's menu after the family's own entries, in the order the
+// extension stated it: an entry stating a group in a submenu of that name, made where the group's first entry is, one
+// stating none in the family's menu itself; each an action of its own, bound to its descriptor and tagged, its summary
+// its tooltip. Both families' menus list them: the one that lists the processes first and the one of links alone.
+TEST_F(ProcessMenuModelTest, ContributedEntriesJoinTheirFamilysMenuByGroupInTheOrderStated)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    for (const auto& [id, name] :
+         {std::pair{"fancy.m42", "M42 Tone"}, std::pair{"fancy.stars", "Star Fix"},
+          std::pair{"fancy.clusters", "Open Clusters"}, std::pair{"fancy.arms", "Spiral Arms"}})
+    {
+        m_processes.add(id, name);
+    }
+    ExtensionLoadResult fancy = packageOf("fancy", "Fancy Tools", "extensions.blur", "filters");
+    auto m42 = contributedEntry("m42", "M42 Tone", "Nebulae");
+    m42.summary = "Brings out the faint arms";
+    fancy.contributed_processes = {m42, contributedEntry("stars", "Star Fix"),
+                                   contributedEntry("clusters", "Open Clusters", "Clusters"),
+                                   contributedEntry("arms", "Spiral Arms", "Nebulae")};
+    const std::unique_ptr<ProcessMenuModel> model = this->model();
+    model->setExtensions({fancy});
+
+    QMenu extensions;
+    model->buildExtensionFamilyMenus(extensions, ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
+    QMenu* const family = submenuOf(extensions, QStringLiteral("Fancy Tools"));
+    ASSERT_NE(family, nullptr);
+    EXPECT_EQ(textsOf(*family),
+              (QStringList{QStringLiteral("Fancy Blur process"), QStringLiteral("-"), QStringLiteral("Manage..."),
+                           QStringLiteral("Homepage"), QStringLiteral("-"), QStringLiteral("Nebulae"),
+                           QStringLiteral("Star Fix"), QStringLiteral("Clusters")}));
+    QMenu* const nebulae = submenuOf(*family, QStringLiteral("Nebulae"));
+    ASSERT_NE(nebulae, nullptr);
+    EXPECT_EQ(textsOf(*nebulae), (QStringList{QStringLiteral("M42 Tone"), QStringLiteral("Spiral Arms")}));
+    QMenu* const clusters = submenuOf(*family, QStringLiteral("Clusters"));
+    ASSERT_NE(clusters, nullptr);
+    EXPECT_EQ(textsOf(*clusters), QStringList{QStringLiteral("Open Clusters")});
+
+    ASSERT_FALSE(nebulae->actions().isEmpty());
+    QAction* const tone = nebulae->actions().front();
+    EXPECT_EQ(tone->objectName(), QStringLiteral("actionExtension_fancy_m42"));
+    EXPECT_EQ(tone->property("anRegistryDescriptorId").toString(), QStringLiteral("fancy.m42"));
+    EXPECT_EQ(tone->property(ProcessMenuModel::kMenuTagProperty).toString(), QStringLiteral("extension"));
+    EXPECT_EQ(tone->toolTip(), QStringLiteral("Brings out the faint arms"));
+    EXPECT_EQ(model->extensionAction("actionExtension_fancy_m42"), tone);
+    EXPECT_NE(std::find(m_bound.begin(), m_bound.end(), "actionExtension_fancy_m42 -> fancy.m42"), m_bound.end());
+
+    // The links alone come before what it contributed too, and the menus built again hold each entry once.
+    model->buildExtensionFamilyMenus(extensions);
+    QMenu* const links = submenuOf(extensions, QStringLiteral("Fancy Tools"));
+    ASSERT_NE(links, nullptr);
+    EXPECT_EQ(textsOf(*links),
+              (QStringList{QStringLiteral("Manage..."), QStringLiteral("Homepage"), QStringLiteral("-"),
+                           QStringLiteral("Nebulae"), QStringLiteral("Star Fix"), QStringLiteral("Clusters")}));
+    QMenu* const nebulaeAgain = submenuOf(*links, QStringLiteral("Nebulae"));
+    ASSERT_NE(nebulaeAgain, nullptr);
+    EXPECT_EQ(textsOf(*nebulaeAgain), (QStringList{QStringLiteral("M42 Tone"), QStringLiteral("Spiral Arms")}));
+}
+
+// An entry stating a category joins that menu of the Process menu, with an action of its own named for the entry even
+// where a catalogue action would answer for its name; one stating none joins none.
+TEST_F(ProcessMenuModelTest, AnEntryWithACategoryJoinsThatMenuWithAnActionOfItsOwn)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    m_processes.add("fancy.levels", "Levels Script");
+    m_processes.add("fancy.stars", "Star Fix");
+    ExtensionLoadResult fancy = packageOf("fancy", "Fancy Tools", "extensions.blur", "filters");
+    fancy.contributed_processes = {contributedEntry("levels", "Levels Script", {}, "transforms"),
+                                   contributedEntry("stars", "Star Fix")};
+    ProcessMenuModel::Dependencies deps = dependencies();
+    // A lookup that answers a catalogue action for every name: a manifest process may be bound to one, an entry never.
+    QAction* const histogram = m_catalogue.action("actionHistogram_Transformation");
+    ASSERT_NE(histogram, nullptr);
+    deps.actions = [histogram](std::string_view) { return histogram; };
+    ProcessMenuModel model(std::move(deps));
+    model.setExtensions({fancy});
+
+    const std::vector<QAction*> transforms = model.extensionActionsIn("menuIntensity_Transformations");
+    ASSERT_EQ(transforms.size(), 1u);
+    EXPECT_NE(transforms.front(), histogram);
+    EXPECT_EQ(transforms.front()->objectName(), QStringLiteral("actionExtension_fancy_levels"));
+    EXPECT_EQ(transforms.front()->text(), QStringLiteral("Levels Script"));
+    EXPECT_FALSE(histogram->property("anRegistryDescriptorId").toString().contains(QStringLiteral("fancy.levels")));
+
+    QMenu intensity;
+    model.appendExtensionProcesses(intensity, "menuIntensity_Transformations");
+    EXPECT_EQ(textsOf(intensity), (QStringList{QStringLiteral("-"), QStringLiteral("Levels Script")}));
+    for (const auto& category : ProcessMenuModel::categories())
+    {
+        for (const QAction* action : model.extensionActionsIn(category.menuId))
+        {
+            EXPECT_NE(action->text(), QStringLiteral("Star Fix")) << "listed in " << category.menuId;
+        }
+    }
+    EXPECT_NE(model.extensionAction("actionExtension_fancy_stars"), nullptr) << "it has its action all the same";
+}
+
+// An entry the extension withdrew leaves its family's menu and its category's at once, and the recent processes and the
+// favourites at their next refresh, as a removed extension's process does; the entry it still states stays.
+TEST_F(ProcessMenuModelTest, AWithdrawnEntryLeavesTheMenusAndAtTheNextRefreshTheStoredLists)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    m_processes.add("fancy.m42", "M42 Tone");
+    m_processes.add("fancy.stars", "Star Fix");
+    ExtensionLoadResult fancy = packageOf("fancy", "Fancy Tools", "extensions.blur", "filters");
+    fancy.contributed_processes = {contributedEntry("m42", "M42 Tone", "Nebulae", "tone_brightness"),
+                                   contributedEntry("stars", "Star Fix")};
+    const std::unique_ptr<ProcessMenuModel> model = this->model();
+    model->setExtensions({fancy});
+    ASSERT_TRUE(m_recent.record("fancy.m42", "M42 Tone"));
+    ASSERT_TRUE(m_recent.record("fancy.stars", "Star Fix"));
+    m_favourites.setIds({"fancy.m42", "fancy.stars"});
+    ASSERT_EQ(model->extensionActionsIn("menuAdjustments").size(), 1u);
+
+    // Withdrawn: the registry holds the entry no more, and the extension states Star Fix alone.
+    m_processes.remove("fancy.m42");
+    fancy.contributed_processes = {contributedEntry("stars", "Star Fix")};
+    model->setExtensions({fancy});
+    EXPECT_TRUE(model->extensionActionsIn("menuAdjustments").empty());
+    EXPECT_EQ(model->extensionAction("actionExtension_fancy_m42"), nullptr);
+    QMenu extensions;
+    model->buildExtensionFamilyMenus(extensions, ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
+    QMenu* const family = submenuOf(extensions, QStringLiteral("Fancy Tools"));
+    ASSERT_NE(family, nullptr);
+    EXPECT_EQ(textsOf(*family),
+              (QStringList{QStringLiteral("Fancy Blur process"), QStringLiteral("-"), QStringLiteral("Manage..."),
+                           QStringLiteral("Homepage"), QStringLiteral("-"), QStringLiteral("Star Fix")}));
+
+    model->refreshStoredLists();
+    EXPECT_EQ(m_recent.entries().size(), 2u) << "nothing is dropped until the extensions are said to have changed";
+    model->pruneMissingOnNextRefresh();
+    model->refreshStoredLists();
+    ASSERT_EQ(m_recent.entries().size(), 1u);
+    EXPECT_EQ(m_recent.entries().front().id, "fancy.stars");
+    EXPECT_EQ(m_favourites.ids(), std::set<std::string>{"fancy.stars"});
 }

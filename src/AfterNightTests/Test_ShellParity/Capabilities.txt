@@ -644,6 +644,12 @@ capability new.change-against-original
     classic
     observatory  TaskPage.TheCompactReadoutShowsSettledFiguresAndTheirChange
 
+capability new.contributed-processes
+    title        Processes an extension adds while it runs: in its family's menu, the palette, the recent processes and the favourites
+    shared       ContributedProcesses.AKeptListIsRegisteredAtDiscoveryWithNoHostStarted, ProcessMenuModelTest.ContributedEntriesJoinTheirFamilysMenuByGroupInTheOrderStated, CommandIndex.AContributedProcessIsListedUnderItsFamilyAndItsGroup
+    classic      ShellScenario.ContributedProcessIsFoundAndStarted/classic
+    observatory  ShellScenario.ContributedProcessIsFoundAndStarted/observatory, ContributedProcesses.AnEntryIsFoundInThePaletteAndStartedFromIt, ContributedProcesses.AFavouriteEntryStartsFromTheFavouritesAndAWithdrawnOneIsGoneFromEveryList
+
 # ---- Covered less than their lines suggest
 #
 # Read before a capability's cases are written.

@@ -19,13 +19,17 @@
 
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
+#include "actions/ProcessMenuModel.h"
 #include "app/ApplicationStart.h"
 #include "app/ModernizationFeatureFlags.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
 #include "core/IShell.h"
 #include "core/ShellRegistry.h"
+#include "services/RecentProcessesModel.h"
 
+#include "app/ExtensionManager.h"
+#include "app/ProcessRegistry.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageListTableHelpers.h"
 #include "controls/ImageRenameControl.h"
@@ -783,6 +787,75 @@ TEST_P(ShellScenario, TheSettingsDialogOpensAtAPage)
 
     EXPECT_TRUE(app::processEventsUntil([&]() { return !page->isEmpty(); }));
     EXPECT_EQ(*page, QStringLiteral("Interface"));
+}
+
+// A process an extension contributed while it ran is found in the shell's menus - its family's menu of the Extensions
+// menu, and the menu of the category it states - started from there on the active image, and among the recent processes
+// afterwards, under its name.
+TEST_P(ShellScenario, ContributedProcessIsFoundAndStarted)
+{
+    ASSERT_NE(openNew(QStringLiteral("contributed.fits")), nullptr);
+
+    // The extension as the application lists one it found: its manifest's process and the entry it contributed,
+    // registered and put in the menus; the entry's start is recorded where its host would start.
+    an::ui::extensions::ExtensionManifest manifest;
+    manifest.id = "tests.scripts";
+    manifest.name = "Script Tools";
+    an::ui::extensions::ExtensionProcessManifest runner;
+    runner.id_suffix = "runner";
+    runner.id = "tests.scripts.runner";
+    runner.class_name = "Runner";
+    runner.display_name = "Script Runner";
+    runner.process_name = "Script Runner";
+    runner.category = "filters";
+    runner.action_object_name = an::ui::extensions::default_extension_action_object_name(manifest.id, "runner");
+    manifest.processes.push_back(runner);
+    an::ui::extensions::ContributedProcessEntry entry;
+    entry.id_suffix = "m42_tone";
+    entry.display_name = "M42 Tone";
+    entry.group = "Nebulae";
+    entry.category = "tone_brightness";
+    an::ui::extensions::ExtensionLoadResult result;
+    result.status = an::ui::extensions::ExtensionLoadStatus::Ready;
+    result.manifest = manifest;
+    // Installed and prepared, as a package whose processes start is.
+    result.environment = an::ui::extensions::ExtensionEnvironmentSnapshot{};
+    result.environment->state = an::ui::extensions::ExtensionEnvironmentState::Ready;
+    result.contributed_processes = {entry};
+    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
+    an::ui::extensions::ExtensionManager().registerDiscoveredProcesses({result}, registry);
+    const std::string id = an::ui::extensions::contributedProcessId(manifest.id, entry);
+    auto* const descriptor = registry.findMutable(id);
+    ASSERT_NE(descriptor, nullptr);
+    std::vector<std::string> started;
+    descriptor->launch_single_image_checked = [&started, id](ImageViewControl* target, std::string*) {
+        started.push_back(id);
+        return target != nullptr;
+    };
+    core().processMenus().setExtensions({result});
+    settle();
+
+    const std::string action = an::ui::extensions::default_extension_action_object_name(manifest.id, entry.id_suffix);
+    EXPECT_TRUE(shell().reaches(action)) << "the shell's menus do not list the entry";
+    EXPECT_TRUE(shell().runAction(action));
+    settle();
+    EXPECT_EQ(started, std::vector<std::string>{id});
+    ASSERT_FALSE(core().recentProcesses().entries().empty());
+    EXPECT_EQ(core().recentProcesses().entries().front().id, id);
+    EXPECT_EQ(core().recentProcesses().entries().front().displayName, "M42 Tone");
+
+    // Withdrawn, it is gone from the menus.
+    result.contributed_processes.clear();
+    an::ui::extensions::ExtensionManager().registerDiscoveredProcesses({result}, registry);
+    core().processMenus().setExtensions({result});
+    settle();
+    EXPECT_FALSE(shell().reaches(action));
+
+    core().processMenus().setExtensions({});
+    (void)registry.removeExtensionProcesses();
+    core().processMenus().pruneMissingOnNextRefresh();
+    core().processMenus().refreshStoredLists();
+    settle();
 }
 
 // Closing the application with a process window open asks, closes the process window before the application's

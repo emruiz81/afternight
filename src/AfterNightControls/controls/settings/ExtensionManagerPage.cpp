@@ -9,6 +9,7 @@
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionEnvironmentManager.h"
 #include "app/FileDialogUtils.h"
+#include "app/ProcessRegistry.h"
 #include "components/AnCardWidget.h"
 #include "components/AnInfoBanner.h"
 #include "components/AnLayoutUtils.h"
@@ -1633,6 +1634,22 @@ QString opensText(const ExtensionRepositoryBrowseEntry& entry, const bool proces
                                               opensText(process.interface_kind, processesArePages).toLower()));
     }
     return each.join(QStringLiteral("; "));
+}
+
+/// How many processes an extension contributed while it ran that the application lists now: the registry's.
+int contributedProcessCount(const std::string& extension_id)
+{
+    const auto& descriptors = an::ui::process_registry::ProcessRegistry::instance().all();
+    return static_cast<int>(
+        std::count_if(descriptors.begin(), descriptors.end(), [&extension_id](const auto& descriptor) {
+            return descriptor.is_contributed_process && descriptor.extension_id == extension_id;
+        }));
+}
+
+/// How many processes an extension added, as its details say it.
+QString addedText(const int count)
+{
+    return count == 1 ? QObject::tr("1 process") : QObject::tr("%1 processes").arg(count);
 }
 
 /// Whether the shell running takes processes into pages of the main window - it has a process presenter - which is
@@ -4770,6 +4787,11 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
     addMetadataRow(grid, row, 0, tr("How It Runs:"), runsText(entry), fieldObjectName(entry.id, "runs"));
     addMetadataRow(grid, row++, 1, tr("Where It Opens:"), opensText(entry, processesOpenAsPages()),
                    fieldObjectName(entry.id, "opens"));
+    // An extension that added processes while it ran says how many it has added.
+    if (const int added = contributedProcessCount(entry.id); added > 0)
+    {
+        addMetadataRow(grid, row++, 0, tr("Processes It Added:"), addedText(added), fieldObjectName(entry.id, "added"));
+    }
 
     addMetadataSectionRow(grid, row++, tr("Provenance"), fieldObjectName(entry.id, "provenanceSection"));
     addMetadataRow(grid, row, 0, tr("Attribution:"), metadataText(entry.attribution),

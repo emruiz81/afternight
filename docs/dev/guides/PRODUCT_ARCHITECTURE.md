@@ -2918,6 +2918,46 @@ recorded in `Test_ControlsExtensionSeam/data/PanelKinds.txt`, which `PanelDescri
 generated from that record by `build/scripts/tools/panel_kinds_reference.py` and never written by hand, so the page
 names no kind or field the product does not draw.
 
+### Processes an extension contributes (`app/ExtensionSdkService.h`, `app/ExtensionManager.h`, `actions/ProcessMenuModel.h`)
+
+An extension's processes are its manifest's, and one that keeps a catalogue of its own - scripts a person enables,
+models a person downloads - states while it runs the entries a person chose: `processes.contribute`, announced by the
+capability `contributed_processes` in `runtime.hello`, which both hosts state and a host that did not state is refused
+(`ExtensionSdkService::dispatchProtocolMessage` is told the hello's capabilities). It carries the extension's whole list
+each time, so an empty one withdraws every entry and no message says what changed. A list is untrusted data, refused
+whole at the first error with its reason answered to the host and logged: the protocol library reads it
+(`contributedProcessEntriesFromCbor` - at most 512 entries, a safe `id_suffix` stated once, a `display_name` of at most
+80 characters, a `group` of 40 and a `summary` of 200, plain text, the fields an entry has and no other), since it is the
+library a fuzz target and the Lite host can link, and the application then checks it against the extension's manifest
+(`validateContributedProcesses` - no manifest process's `id_suffix` or action, a category the registry has, a host
+process the manifest has), which only the application knows.
+
+The application keeps the validated list itself, under `extensions/contributedProcesses/<extension id>` in the global
+settings store - beside the extension's own settings under `extension/<id>/`, which no key the extension states can
+reach - so the menus are whole at the next start with no host started: asking each host at start would start a process
+of every extension before the window shows. `ExtensionService` gives each package it registers its kept list
+(`attachContributedProcesses`; `ExtensionLoadResult::contributed_processes`), when the list still holds against the
+package's manifest, and registers the packages again once a list is kept, on a queued call, so the session's message is
+answered first. A whole discovery forgets the lists of the extensions it no longer finds
+(`forgetContributedProcessesOfRemovedExtensions`): removal is told by no package's manifest stating the extension's id
+(`ExtensionLoadResult::declared_id`, read even of a manifest that is refused), so an update or an invalid package keeps
+its list, and a package whose manifest cannot be read keeps every list, since which extension it is cannot be told.
+
+`ExtensionManager::registerDiscoveredProcesses` registers the entries after every manifest's processes, so that none
+takes a manifest process's id: a descriptor each, named for the entry, with its extension's availability and reason and
+its host process's capabilities, `is_contributed_process`, its group and its summary. `bindDiscoveredExtensionLaunches`
+binds each as its host process is (`contributedProcessBinding`): the same host, class, environment, launch mode and
+surface, under the entry's id and name - so its task, its rail item and the recent processes name the entry, not the
+package - with `--contributed-process <id_suffix>` added, which the extension reads as
+`current_session().contributed_process`. `ProcessMenuModel` gives an entry an action of its own, named by
+`default_extension_action_object_name`, never a catalogue action, which a manifest process of the same name may take:
+an entry is data an extension states while it runs, and taking a menu entry of the application's would let it stand in
+for one. The action is in the family's menu after the family's own entries, each `group` a submenu made where its first
+entry is, in the order the extension stated them; in the category's menu only when the entry states one; and in the
+palette under "<family> - <group>". Palette rows are one line, so an entry's summary is its action's tooltip and status
+tip, and what the palette finds it by. The recent processes and the favourites keep an entry by its id and drop one the
+registry no longer holds at their next refresh, as they drop a removed extension's process.
+
 ### The extension regression (`Test_ProcessFramework/test_extension_regression.cpp`, `ProtocolSdkContractTest`)
 
 Every bundled extension and author template is run on the host its backend names - previewed, executed, committed and

@@ -29,6 +29,7 @@ The checked-in examples are package roots that should stay validator-clean:
 - `lite_protocol_process/` - a protocol-only lite hosted package that owns its interface (`interface: "window"`), raises its window in `on_raise_window()`, avoids Engine/native-control imports, uses `afternight.ui_protocol` for host result/dialog helpers, and may use a non-GPL license.
 - `protocol_panel_process/` - a protocol package whose panel AfterNight draws (`interface: "panel"`): its parameters described with `afternight.ui_protocol`, previewed and applied through `execute_preview()` and `execute()` on the Lite host, under a non-GPL license.
 - `protocol_batch_process/` - a protocol package with no interface (`interface: "none"`): its own run processes the image it was started on, reports its progress, commits and closes.
+- `contributing_process/` - a protocol package that adds processes while it runs (`afternight.contribute_processes()`): its catalogue process states the entries a person enabled, which AfterNight lists as the extension's processes, and a session started for one reads which from `current_session().contributed_process`.
 - `locked_wheelhouse_process/` - hash-locked dependency declarations plus the exceptional custom/private wheelhouse path.
 
 ## Parameters And Settings
@@ -83,6 +84,48 @@ class Gain(LiteProcessExtension):
 `protocol_panel_process/` is that package whole. Under the Lite host, `to_numpy()` returns a view of the lent buffer,
 valid for the call alone, and `from_numpy()` writes the output AfterNight lent; check `progress.is_cancelled()` in a long
 loop, since a cancel reaches the extension when it next reports its progress or asks.
+
+## Processes An Extension Contributes
+
+An extension's processes are the entries of its manifest's `processes[]`. One that keeps a catalogue of its own -
+scripts a person enables, models a person downloads - states the entries a person chose while it runs, and AfterNight
+lists each as a process of the extension: in its family's menu of the Extensions menu, after the family's own entries,
+in a submenu for each `group`; in the Process menu of its `category` when it states one; in the palette, under its
+family and its group, with the "extension" tag; among the recent processes and the favourites. Its task is named for
+it, not for the package that runs it. Both hosts carry the call, which lives in the protocol half of the SDK:
+
+```python
+import afternight
+
+kept = afternight.contribute_processes([
+    {"id_suffix": "deepen_shadows", "display_name": "Deepen Shadows", "group": "Tone",
+     "category": "tone_brightness", "summary": "Darkens the faint end of the image"},
+    {"id_suffix": "lift_highlights", "display_name": "Lift Highlights", "group": "Tone"},
+])
+```
+
+- The list is the whole list each time: what an earlier call stated and this one does not is withdrawn, and an empty
+  list withdraws every entry. The call answers how many entries AfterNight kept - 0 with no application to keep them,
+  as in a standalone launch.
+- An entry is data, never code. `id_suffix` (letters, digits, `_` and `.`, stated once, and not one of the manifest's
+  processes') and `display_name` (at most 80 characters) are required; `group` (at most 40), `category` (one of the
+  registry's categories), `summary` (at most 200; the entry's tooltip, and what the palette finds it by) and
+  `host_process` (the `id_suffix` of the manifest process whose class runs it; the manifest's first when absent) are
+  optional. Texts are plain text: no line break, no control character. At most 512 entries.
+- An entry's id is the extension's id, a dot and its `id_suffix`, as a manifest process's is, so a recent process or a
+  favourite keeps it by the same key; it has an action of its own and never takes a catalogue action's place.
+- A list that breaks any rule is refused whole: the call raises `RuntimeError` with AfterNight's reason, which the
+  session console shows too, and the list kept before stays. A list that is not a list of mappings of strings naming
+  these fields raises `TypeError` before anything is sent.
+- AfterNight keeps the list, so the menus are whole at the next start before any host has started. It goes when the
+  extension is removed and stays when it is updated; an entry whose host process an update removed is not listed until
+  the extension states its list again.
+- Starting an entry starts the extension's host as its `host_process` starts - the same class, environment and
+  interface - with the entry named: the session reads it from `afternight.current_session().contributed_process`,
+  empty for one of the manifest's processes.
+
+`contributing_process/` is that package whole: a `protocol` package with no interface whose catalogue process states
+the entries a person enabled (its setting `enabled`) and whose session started for an entry reads which.
 
 ## Manifest Rules
 

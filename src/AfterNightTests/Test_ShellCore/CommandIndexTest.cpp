@@ -1178,4 +1178,70 @@ TEST_F(CommandIndexInTheApplication, ListsTheRecentFilesAndTheSettingsPages)
     }
 }
 
+// A process an extension contributed is listed one level deeper than its manifest's: its subtitle is its family and its
+// group, "<family> - <group>" - its family alone when it states no group - it carries the extension's tag, and it is
+// found by its family, its group and what it says it does.
+TEST_F(CommandIndex, AContributedProcessIsListedUnderItsFamilyAndItsGroup)
+{
+    std::vector<ProcessDescriptor> descriptors(2);
+    descriptors[0].id = "fancy.m42";
+    descriptors[0].display_name = "M42 Tone";
+    descriptors[0].category = "tone_brightness";
+    descriptors[0].is_extension_process = true;
+    descriptors[0].is_contributed_process = true;
+    descriptors[0].extension_id = "fancy";
+    descriptors[0].extension_group = "Nebulae";
+    descriptors[0].summary = "Brings out the faint arms";
+    descriptors[1].id = "fancy.stars";
+    descriptors[1].display_name = "Star Fix";
+    descriptors[1].category = "filters";
+    descriptors[1].is_extension_process = true;
+    descriptors[1].is_contributed_process = true;
+    descriptors[1].extension_id = "fancy";
+
+    ProcessCommands::Dependencies dependencies;
+    dependencies.descriptors = [&descriptors]() {
+        std::vector<const ProcessDescriptor*> all;
+        for (const ProcessDescriptor& descriptor : descriptors)
+        {
+            all.push_back(&descriptor);
+        }
+        return all;
+    };
+    dependencies.extensionFamily = [](const std::string& extensionId) {
+        return extensionId == "fancy" ? QStringLiteral("Fancy Tools") : QString();
+    };
+    std::vector<CommandEntry> entries;
+    ProcessCommands(dependencies).collect(entries);
+    ASSERT_EQ(entries.size(), 2u);
+
+    const CommandEntry& tone = entries[0];
+    EXPECT_EQ(tone.title, QStringLiteral("M42 Tone"));
+    EXPECT_EQ(tone.subtitle, QStringLiteral("Fancy Tools - Nebulae"));
+    EXPECT_EQ(tone.tag, QStringLiteral("extension"));
+    EXPECT_EQ(tone.tagToolTip, QStringLiteral("Runs in its own process"));
+    EXPECT_EQ(entries[1].subtitle, QStringLiteral("Fancy Tools")) << "in no group, under its family alone";
+
+    an::ui::shell::CommandIndex index;
+    index.addProvider(std::make_unique<ProcessCommands>(dependencies));
+    index.refresh();
+    for (const QString& text : {QStringLiteral("Fancy Tools"), QStringLiteral("Nebulae"), QStringLiteral("Brings out")})
+    {
+        bool found = false;
+        for (const CommandRowGroup& group : index.query(text))
+        {
+            for (const CommandRow& row : group.rows)
+            {
+                if (row.id == tone.id)
+                {
+                    found = true;
+                    EXPECT_EQ(row.subtitle, QStringLiteral("Fancy Tools - Nebulae"));
+                    EXPECT_EQ(row.tag, QStringLiteral("extension"));
+                }
+            }
+        }
+        EXPECT_TRUE(found) << text.toStdString();
+    }
+}
+
 } // namespace

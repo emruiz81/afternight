@@ -14,6 +14,7 @@ They are intentionally small. Copy one template into a new package directory, re
 - `lite_protocol_process/` - non-GPL-capable protocol-only template that selects `AfterNightExtensionHostLite` with `sdk_backend = protocol`, owns its interface (`capabilities.interface = "window"`) and raises it in `on_raise_window()`, and uses `afternight.ui_protocol` for host result/dialog helpers.
 - `protocol_panel_process/` - non-GPL-capable protocol template whose panel AfterNight draws (`capabilities.interface = "panel"`): its parameters described with `afternight.ui_protocol.process_window_meta()`, its preview and Apply written by `execute_preview()` and `execute()` on the Lite host.
 - `protocol_batch_process/` - non-GPL-capable protocol template with no interface (`capabilities.interface = "none"`): its own run processes the image it was started on, reports its progress, commits and closes its task.
+- `contributing_process/` - non-GPL-capable protocol template that adds processes while it runs: its catalogue process states the entries a person enabled with `afternight.contribute_processes()`, which AfterNight lists in the extension's menu, the palette, the recent processes and the favourites, and a session started for one reads which from `afternight.current_session().contributed_process`.
 - `locked_wheelhouse_process/` - dependency declaration template showing `requirements.lock`, `pip.require_hashes`, and the exceptional package-local `wheelhouse/` path for custom/private artifacts.
 
 ## Current Maintainer Validation
@@ -58,5 +59,6 @@ LD_LIBRARY_PATH=bin/clang/release ./bin/clang/release/Test_ProcessFramework --gt
 - Use `standalone_preview_process/` when the stock process shell is not the right interaction model and the extension owns a small PySide6 dialog. Keep dialogs non-blocking with `open()` and signal handlers.
 - Use `protocol_panel_process/` when the extension must be non-GPL-capable and a panel of parameters with a preview suits it: AfterNight draws the panel, the extension's code runs in the Lite host.
 - Use `lite_protocol_process/` when the extension must be non-GPL-capable and owns its interface - its own toolkit's window, or another program's.
+- Use `contributing_process/` when the extension keeps a catalogue of its own - scripts or models a person enables - and each entry should be found and started as a process: in the menus, the palette, the recent processes and the favourites.
 - Use `protocol_batch_process/` when the extension needs no interface at all: a run started from the menu that reports its progress and commits its result.
 - Use `locked_wheelhouse_process/` only when the package needs a reproducible private or shared dependency context populated from extension-specific/custom wheels unavailable from official PyPI.

@@ -20,6 +20,7 @@
 #include <QUrl>
 #include <QVariant>
 
+#include <map>
 #include <set>
 #include <utility>
 
@@ -124,12 +125,23 @@ struct ProcessMenuModel::Impl
         QPointer<QAction> action;
     };
 
+    /// The action of a process an extension contributed, the extension's id and the group of its family's menu it is
+    /// listed in, empty for none: what the family's menu lists after its own entries, in the order the extension
+    /// stated.
+    struct ContributedAction
+    {
+        std::string extensionId;
+        QString group;
+        QPointer<QAction> action;
+    };
+
     Dependencies deps;
     Hooks hooks;
     std::vector<ExtensionEntry> extensionEntries;
     /// The catalogue's actions an extension's process was bound to.
     std::vector<QPointer<QAction>> reboundActions;
     std::vector<ProcessAction> processActions;
+    std::vector<ContributedAction> contributedActions;
     std::vector<ExtensionFamily> families;
     std::vector<std::pair<std::size_t, std::function<void(Change)>>> listeners;
     std::size_t nextSubscription = 1u;
@@ -211,6 +223,7 @@ void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::Exten
     m_impl->extensionEntries.clear();
     m_impl->reboundActions.clear();
     m_impl->processActions.clear();
+    m_impl->contributedActions.clear();
     m_impl->families = ProcessLaunchService::extensionFamilies(discovered);
     const QString tag = process_registry::extensionProcessTag();
 
@@ -264,6 +277,42 @@ void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::Exten
             m_impl->processActions.push_back(Impl::ProcessAction{result.manifest->id, action.get()});
             m_impl->extensionEntries.push_back(Impl::ExtensionEntry{std::string(menuId), std::move(action)});
         }
+
+        // A process the extension contributed has an action of its own, never a catalogue action, and joins a menu of
+        // the Process menu only when it states a category.
+        for (const auto& entry : result.contributed_processes)
+        {
+            const std::string id = an::ui::extensions::contributedProcessId(result.manifest->id, entry);
+            const process_registry::ProcessDescriptor* const descriptor = m_impl->find(id);
+            if (!descriptor)
+            {
+                if (an::platform::isLoggingInitialized())
+                {
+                    LOG_WARNING("Contributed process descriptor missing after registration, id={}", id);
+                }
+                continue;
+            }
+
+            auto action = std::make_unique<QAction>();
+            action->setObjectName(QString::fromStdString(
+                an::ui::extensions::default_extension_action_object_name(result.manifest->id, entry.id_suffix)));
+            action->setText(QString::fromStdString(entry.display_name));
+            action->setProperty("anRegistryDescriptorId", QString::fromStdString(id));
+            action->setProperty(kExtensionProcessEntryProperty, true);
+            action->setProperty(kMenuTagProperty, tag);
+            if (!entry.summary.empty())
+            {
+                const QString summary = QString::fromStdString(entry.summary);
+                action->setToolTip(summary);
+                action->setStatusTip(summary);
+            }
+            m_impl->bind(action.get(), descriptor->category, id);
+            m_impl->contributedActions.push_back(
+                Impl::ContributedAction{result.manifest->id, QString::fromStdString(entry.group), action.get()});
+            const std::string_view menuId =
+                entry.category.empty() ? std::string_view() : menuOfCategory(entry.category);
+            m_impl->extensionEntries.push_back(Impl::ExtensionEntry{std::string(menuId), std::move(action)});
+        }
     }
     notifyChanged(Change::Extensions);
 }
@@ -288,6 +337,17 @@ void ProcessMenuModel::rebindExtensions(const std::vector<an::ui::extensions::Ex
             {
                 action->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
                 m_impl->bind(action, process.category, process.id);
+            }
+        }
+        for (const auto& entry : result.contributed_processes)
+        {
+            const std::string id = an::ui::extensions::contributedProcessId(result.manifest->id, entry);
+            QAction* const action = extensionAction(
+                an::ui::extensions::default_extension_action_object_name(result.manifest->id, entry.id_suffix));
+            const process_registry::ProcessDescriptor* const descriptor = m_impl->find(id);
+            if (action != nullptr && descriptor != nullptr)
+            {
+                m_impl->bind(action, descriptor->category, id);
             }
         }
     }
@@ -518,6 +578,34 @@ void ProcessMenuModel::buildExtensionFamilyMenus(QMenu& extensionsMenu, const Fa
                              family.repositoryUrl);
         addExternalUrlAction(*familyMenu, QCoreApplication::translate("AfterNightAppClass", "Support"),
                              family.supportUrl);
+
+        // The processes the extension contributed, after the family's own entries, in the order it stated them: one
+        // stating a group in a submenu of that name, made where the group's first entry is.
+        bool separated = false;
+        std::map<QString, QMenu*> groups;
+        for (const Impl::ContributedAction& contributed : m_impl->contributedActions)
+        {
+            if (contributed.extensionId != family.extensionId || contributed.action.isNull())
+            {
+                continue;
+            }
+            if (!separated)
+            {
+                familyMenu->addSeparator();
+                separated = true;
+            }
+            if (contributed.group.isEmpty())
+            {
+                familyMenu->addAction(contributed.action.data());
+                continue;
+            }
+            QMenu*& groupMenu = groups[contributed.group];
+            if (groupMenu == nullptr)
+            {
+                groupMenu = familyMenu->addMenu(contributed.group);
+            }
+            groupMenu->addAction(contributed.action.data());
+        }
     }
 }
 

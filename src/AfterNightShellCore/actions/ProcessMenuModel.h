@@ -41,8 +41,9 @@ class RecentProcessesModel;
 
 /// What the process menus hold apart from the catalogue's actions: the favourite processes, the processes used last,
 /// and what the installed extensions add - each of an extension's processes as an action in the menu of its category,
-/// bound to its registry descriptor, and each extension once, by name, in the Extensions menu. A shell makes its menus
-/// from it on demand and makes them again when it says it changed (`subscribe`). Used on the GUI thread.
+/// bound to its registry descriptor, each process an extension contributed while it ran as an action of its own, and
+/// each extension once, by name, in the Extensions menu. A shell makes its menus from it on demand and makes them again
+/// when it says it changed (`subscribe`). Used on the GUI thread.
 class AFTERNIGHTSHELLCORE_API ProcessMenuModel
 {
 public:
@@ -118,9 +119,12 @@ public:
     [[nodiscard]] static std::string_view menuOfCategory(std::string_view category);
 
     /// Takes what the installed packages `discovered` add: an action for each process of each package that is not
-    /// invalid - or the catalogue's action of the same name, bound in its place - in the menu of its category, each
-    /// carrying the extension tag (`kMenuTagProperty`), and each extension's family. What an earlier call added goes,
-    /// and a catalogue action it bound loses the tag. Says it changed.
+    /// invalid - or the catalogue's action of the same name, bound in its place - in the menu of its category; an
+    /// action of its own for each process its extension contributed (`ExtensionLoadResult::contributed_processes`),
+    /// never a catalogue action, in the menu of the category it states, when it states one; each carrying the extension
+    /// tag
+    /// (`kMenuTagProperty`), and each extension's family. What an earlier call added goes, and a catalogue action it
+    /// bound loses the tag. Says it changed.
     void setExtensions(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered);
 
     /// Binds again the action of each process the packages `discovered` provide, now that their environments changed.
@@ -156,7 +160,9 @@ public:
 
     /// Adds to the Extensions menu, after a separator, a menu for each extension's family: Manage, and its homepage,
     /// repository and support pages - after the extension's processes when `entries` asks for them, the very actions
-    /// its category's menu holds - and first takes away what an earlier call added.
+    /// its category's menu holds - then, after a separator, the processes the extension contributed, in the order it
+    /// stated them, each one stating a group in a submenu of that name; and first takes away what an earlier call
+    /// added.
     void buildExtensionFamilyMenus(QMenu& extensionsMenu, FamilyEntries entries = FamilyEntries::LinksOnly) const;
 
     /// Replaces the hooks.

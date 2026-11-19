@@ -223,6 +223,18 @@ void ProcessCommands::collect(std::vector<CommandEntry>& entries) const
                 entry.subtitle = family;
                 entry.keywords.append(family);
             }
+            // One the extension contributed is listed one level deeper, under its family and its group, and is found by
+            // what it says it does too.
+            if (descriptor->is_contributed_process && !descriptor->extension_group.empty())
+            {
+                const QString group = QString::fromStdString(descriptor->extension_group);
+                entry.subtitle += QStringLiteral(" - ") + group;
+                entry.keywords.append(group);
+            }
+            if (descriptor->is_contributed_process && !descriptor->summary.empty())
+            {
+                entry.keywords.append(QString::fromStdString(descriptor->summary));
+            }
             entry.tag = registry::extensionProcessTag();
             entry.tagToolTip = registry::extensionProcessTagToolTip();
         }

@@ -810,6 +810,46 @@ TEST_F(ExtensionManagerPage, DetailsSayHowItRunsAndWhereItOpens)
     EXPECT_EQ(said("none_ext", "opens"), QStringLiteral("Nowhere, it has no interface"));
 }
 
+// An extension that added processes while it ran says, in its details, how many it has added - the ones the application
+// lists now; one that added none says nothing of it.
+TEST_F(ExtensionManagerPage, DetailsSayHowManyProcessesItAdded)
+{
+    settleThePool();
+    auto& registry = an::ui::process_registry::ProcessRegistry::instance();
+    for (const auto& [extension, suffix] :
+         {std::pair{"panel_ext", "one"}, std::pair{"panel_ext", "two"}, std::pair{"window_ext", "only"}})
+    {
+        an::ui::process_registry::ProcessDescriptor descriptor;
+        descriptor.id = std::string(extension) + "." + suffix;
+        descriptor.display_name = suffix;
+        descriptor.category = "filters";
+        descriptor.is_extension_process = true;
+        descriptor.is_contributed_process = true;
+        descriptor.extension_id = extension;
+        ASSERT_TRUE(registry.registerProcess(descriptor));
+    }
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setRepositoryProvider([]() {
+        ExtensionManagerPageRepositorySnapshot snapshot;
+        snapshot.success = true;
+        snapshot.entries = {
+            repositoryEntry("panel_ext", "Panel Ext", ExtensionRepositoryInstallState::Installed, "1.4.0"),
+            repositoryEntry("window_ext", "Window Ext", ExtensionRepositoryInstallState::Installed, "1.4.0"),
+            repositoryEntry("none_ext", "None Ext", ExtensionRepositoryInstallState::Installed, "1.4.0")};
+        return snapshot;
+    });
+    page.loadSettings();
+
+    const auto said = [&page](const char* id) {
+        const auto* const label = page.findChild<QLabel*>(managerField(id, "added"));
+        return label != nullptr ? label->text() : QStringLiteral("<none>");
+    };
+    EXPECT_EQ(said("panel_ext"), QStringLiteral("2 processes"));
+    EXPECT_EQ(said("window_ext"), QStringLiteral("1 process"));
+    EXPECT_EQ(said("none_ext"), QStringLiteral("<none>")) << "an extension that added none says nothing of it";
+    (void)registry.removeExtensionProcesses();
+}
+
 // The palette finds Manage Extensions and runs it: the Extensions dialog opens at the Extension Manager.
 TEST_F(ExtensionManagerPage, OpensFromThePalette)
 {

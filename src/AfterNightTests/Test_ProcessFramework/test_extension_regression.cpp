@@ -458,7 +458,7 @@ TEST(ExtensionRegression, EveryBundledExtensionAndTemplateStatesTheVersionsThePr
     EXPECT_EQ(an::ui::extensions::kExtensionProtocolVersion, 1);
     EXPECT_EQ(an::ui::extensions::kExtensionSdkVersion, 1);
     const auto manifests = subjectManifests();
-    ASSERT_EQ(manifests.size(), 14u) << "five bundled extensions and nine author templates";
+    ASSERT_EQ(manifests.size(), 15u) << "five bundled extensions and ten author templates";
     for (const auto& [directory, manifest] : manifests)
     {
         EXPECT_EQ(manifest.value(QStringLiteral("package_format_version")).toInt(), 1) << directory;
@@ -1093,6 +1093,74 @@ TEST(ExtensionRegression, TheProtocolBatchTemplateRunsWithNoInterfaceCommitsAndC
     EXPECT_FALSE(session.session().run_activity->running);
     EXPECT_EQ(session.session().run_activity->outcome, "succeeded");
     EXPECT_TRUE(session.session().native_window_close_requested) << "it closed its task: " << session.error();
+}
+
+// The contributing template states, started as its catalogue, the entries a person enabled - every one by default - as
+// processes of its own, which the application keeps; started for each entry, it reads which it was started for; with
+// one no longer enabled, its list withdraws that one and keeps the other.
+TEST(ExtensionRegression, TheContributingTemplateContributesItsEntriesAndIsStartedForEach)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "contributing_process");
+    ASSERT_NE(subject, nullptr);
+    const std::string& extension_id = subject->manifest->id;
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+    sdk_service.setContributedProcessesHooks(
+        [subject](const std::string_view id) -> std::optional<an::ui::extensions::ExtensionManifest> {
+            if (id == subject->manifest->id)
+            {
+                return subject->manifest;
+            }
+            return std::nullopt;
+        });
+    const auto run = [&](const std::vector<std::string>& arguments) {
+        SubjectSession session(*subject, arguments, &sdk_service);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const std::vector<std::string>& stated = session.session().handshake.hello.capabilities;
+        EXPECT_NE(std::find(stated.begin(), stated.end(), an::ui::extensions::kContributedProcessesCapability),
+                  stated.end());
+        static_cast<void>(pumpUntilHolds(
+            session.manager(), session.session(),
+            [&]() { return session.session().state != an::ui::extensions::ExtensionHostSessionState::Active; },
+            &session.error()));
+        EXPECT_TRUE(session.session().native_window_close_requested) << "its run closes its task: " << session.error();
+    };
+    const auto kept = [&]() {
+        std::vector<an::ui::extensions::ContributedProcessEntry> entries;
+        std::string error;
+        EXPECT_TRUE(sdk_service.keptContributedProcesses(extension_id, &entries, &error)) << error;
+        return entries;
+    };
+
+    run({});
+    const auto stated = kept();
+    ASSERT_EQ(stated.size(), 2u);
+    EXPECT_EQ(stated[0].id_suffix, "deepen_shadows");
+    EXPECT_EQ(stated[0].display_name, "Deepen Shadows");
+    EXPECT_EQ(stated[0].group, "Tone");
+    EXPECT_EQ(stated[0].category, "tone_brightness");
+    EXPECT_FALSE(stated[0].summary.empty());
+    EXPECT_EQ(stated[1].id_suffix, "lift_highlights");
+    EXPECT_TRUE(stated[1].category.empty());
+
+    for (const char* entry : {"deepen_shadows", "lift_highlights"})
+    {
+        SCOPED_TRACE(entry);
+        run({"--contributed-process", entry});
+        QString started_for;
+        ASSERT_TRUE(sdk_service.selectExtensionSetting(extension_id, "last_started_for", &started_for));
+        EXPECT_EQ(started_for, QString::fromLatin1(entry));
+    }
+    EXPECT_EQ(kept().size(), 2u) << "a session started for an entry states no list";
+
+    std::string error;
+    ASSERT_TRUE(sdk_service.upsertExtensionSetting(extension_id, "enabled",
+                                                   QCborValue(QCborArray{QStringLiteral("lift_highlights")}), &error))
+        << error;
+    run({});
+    const auto narrowed = kept();
+    ASSERT_EQ(narrowed.size(), 1u);
+    EXPECT_EQ(narrowed.front().id_suffix, "lift_highlights");
 }
 
 // ---- Cancellation, as the application cancels each kind of subject.
