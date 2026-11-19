@@ -1907,7 +1907,8 @@ bool dispatchSdkServiceMessage(an::ui::extensions::ExtensionSdkService* sdk_serv
     an::ui::extensions::ExtensionProtocolMessage response;
     std::string local_error;
     if (!sdk_service->dispatchProtocolMessage(message, running_session->prepared_session.extension_id,
-                                              running_session->prepared_session.launch_mode, &response, &local_error))
+                                              running_session->prepared_session.launch_mode,
+                                              running_session->handshake.hello.capabilities, &response, &local_error))
     {
         if (error)
         {
@@ -2999,6 +3000,17 @@ bool takeSessionActivity(ExtensionHostRunningSession* running_session, const Ext
     }
     running_session->run_activity = std::move(activity);
     return true;
+}
+
+ExtensionHostLaunchBinding contributedProcessBinding(ExtensionHostLaunchBinding hostProcess,
+                                                     const std::string_view extension_id,
+                                                     const ContributedProcessEntry& entry)
+{
+    hostProcess.descriptor_id = contributedProcessId(extension_id, entry);
+    hostProcess.display_name = entry.display_name;
+    hostProcess.host_arguments.push_back("--contributed-process");
+    hostProcess.host_arguments.push_back(entry.id_suffix);
+    return hostProcess;
 }
 
 ExtensionSessionStanding standingOf(const ExtensionSessionController& session)
@@ -4167,6 +4179,11 @@ std::string localEndpointName(const std::string& name, const std::string& tempor
         }
     }
     return name;
+}
+
+ExtensionSdkService& ExtensionHostLaunchCoordinator::sdkService() noexcept
+{
+    return sdk_service_;
 }
 
 void ExtensionHostLaunchCoordinator::configureSdkService(
@@ -5496,7 +5513,7 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
 
             if ((message.type.rfind("logging.", 0) == 0) || (message.type.rfind("settings.", 0) == 0) ||
                 (message.type.rfind("ui.", 0) == 0) || (message.type.rfind("views.", 0) == 0) ||
-                (message.type.rfind("diagnostics.", 0) == 0))
+                (message.type.rfind("diagnostics.", 0) == 0) || (message.type.rfind("processes.", 0) == 0))
             {
                 if (!writeSdkServiceFallbackResponse(running_session, message, &local_error))
                 {

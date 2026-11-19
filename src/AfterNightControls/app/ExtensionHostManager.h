@@ -639,6 +639,12 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
 /// package was found say (`resolvedExtensionInterface`).
 [[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionInterface interfaceOf(const ExtensionHostLaunchBinding& binding);
 
+/// How a process an extension contributed is launched: as its host process is - the same host, class, environment,
+/// launch mode and surface, the parameters kept for that class - under the entry's id and name, so that its task and
+/// the recent processes are named for it, with the host told which entry it was started for (`--contributed-process`).
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionHostLaunchBinding contributedProcessBinding(
+    ExtensionHostLaunchBinding hostProcess, std::string_view extension_id, const ContributedProcessEntry& entry);
+
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<QRect>
 normalizeManagedPreviewSubArea(bool selection_enabled, const QSize& source_image_size, const QRect& selection_area);
 
@@ -773,6 +779,9 @@ public:
     void stopObservingSessions(std::size_t token) override;
     bool raiseSessionWindow(std::string_view session_id, std::string* error = nullptr) override;
     void closeSession(std::string_view session_id) override;
+
+    /// The SDK the sessions talk to: the extensions' settings, and the processes they contributed.
+    [[nodiscard]] ExtensionSdkService& sdkService() noexcept;
 
     void configureSdkService(GlobalSettingsPersistence* global_settings_persistence,
                              ExtensionSdkViewStateProvider view_state_provider = {},

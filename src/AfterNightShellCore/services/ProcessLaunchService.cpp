@@ -405,6 +405,28 @@ void ProcessLaunchService::refreshRegisteredExtensionDescriptors(const std::vect
                 descriptor->launch_top_level = {};
             }
         }
+
+        // The processes the extension contributed stand as its manifest's do, whether or not `discovered` carries
+        // their list.
+        std::vector<std::string> contributed;
+        for (const auto& descriptor : registry.all())
+        {
+            if (descriptor.is_contributed_process && descriptor.extension_id == result.manifest->id)
+            {
+                contributed.push_back(descriptor.id);
+            }
+        }
+        for (const std::string& id : contributed)
+        {
+            auto* const descriptor = registry.findMutable(id);
+            descriptor->availability = availability;
+            descriptor->availability_reason = availabilityReason;
+            if (!descriptor->is_available())
+            {
+                descriptor->launch_single_image_checked = {};
+                descriptor->launch_top_level = {};
+            }
+        }
     }
 }
 

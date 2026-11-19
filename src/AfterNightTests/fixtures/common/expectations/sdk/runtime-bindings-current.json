@@ -2436,6 +2436,7 @@
    "afternight.protocol.WorkflowProgress.set_stage": "(self, name, weight=1.0)",
    "afternight.protocol.WorkflowProgress.set_text": "(self, text)",
    "afternight.protocol.WorkflowProgress.set_value": "(self, fraction)",
+   "afternight.protocol.contribute_processes": "(entries)",
    "afternight.protocol.current_session": "()",
    "afternight.protocol.emit_settings_action_update": "(result)",
    "afternight.protocol.list_views": "()",

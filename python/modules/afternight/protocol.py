@@ -273,6 +273,7 @@ class SessionInfo:
         sdk_backend="runtime",
         runtime_target="",
         is_standalone=False,
+        contributed_process="",
     ):
         self.extension_id = str(extension_id)
         self.session_id = str(session_id)
@@ -282,6 +283,9 @@ class SessionInfo:
         self.sdk_backend = str(sdk_backend)
         self.runtime_target = str(runtime_target)
         self.is_standalone = bool(is_standalone)
+        # The id_suffix of the process the extension contributed (contribute_processes) that the session was started
+        # for; empty for one of its manifest's processes.
+        self.contributed_process = str(contributed_process)
 
 
 class SessionPaths:
@@ -310,6 +314,7 @@ def current_session():
             sdk_backend=values.get("sdk_backend", "runtime"),
             runtime_target=values.get("runtime_target", ""),
             is_standalone=values.get("is_standalone", False),
+            contributed_process=values.get("contributed_process", ""),
         )
 
     return SessionInfo(
@@ -318,7 +323,44 @@ def current_session():
         launch_mode=_session_env("LAUNCH_MODE", "single_image"),
         sdk_backend=_selected_sdk_backend(),
         is_standalone=_session_env_bool("IS_STANDALONE"),
+        contributed_process=_session_env("CONTRIBUTED_PROCESS"),
     )
+
+
+_CONTRIBUTED_PROCESS_FIELDS = ("id_suffix", "display_name", "group", "category", "summary", "host_process")
+
+
+def contribute_processes(entries):
+    """State the processes the extension adds to its manifest's while it runs - scripts a person enabled, models a
+    person downloaded - and that the application lists as the extension's own: in its family's menu, the palette, the
+    recent processes and the favourites.
+
+    ``entries`` is the whole list each time; an empty one withdraws every entry. Each entry is a mapping of strings:
+    ``id_suffix`` (a safe identifier, stated once and not one of the manifest's processes') and ``display_name`` are
+    required; ``group`` (a submenu of the family's menu), ``category`` (one of the registry's, to join that Process
+    menu), ``summary`` (what it does, in a line) and ``host_process`` (the ``id_suffix`` of the manifest process whose
+    class runs it; the manifest's first when absent) are optional. A session started for an entry reads its
+    ``id_suffix`` from ``current_session().contributed_process``.
+
+    Returns how many entries the application kept: 0 with no application to keep them. Raises TypeError for a list
+    that is not a sequence of mappings of strings naming these fields, and RuntimeError with the application's reason
+    for one it refuses: the list is refused whole.
+    """
+    if isinstance(entries, (str, bytes)) or not isinstance(entries, (list, tuple)):
+        raise TypeError("contribute_processes expects a list of mappings")
+    stated = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise TypeError(f"contributed process {index + 1} is not a mapping")
+        for key, value in entry.items():
+            if key not in _CONTRIBUTED_PROCESS_FIELDS:
+                raise TypeError(f"contributed process {index + 1} states a field a contributed process has not: {key!r}")
+            if not isinstance(value, str):
+                raise TypeError(f"contributed process {index + 1}'s {key} is not a string")
+        stated.append({key: entry[key] for key in _CONTRIBUTED_PROCESS_FIELDS if entry.get(key)})
+    if not _host_available():
+        return 0
+    return int(_host_call("contribute_processes", stated) or 0)
 
 
 def session_paths():
@@ -787,6 +829,7 @@ __all__ = [
     "WorkflowContext",
     "WorkflowError",
     "WorkflowProgress",
+    "contribute_processes",
     "current_session",
     "emit_settings_action_update",
     "list_views",

@@ -53,6 +53,23 @@ inline constexpr std::size_t kPanelDescribeEntryLimit = 4096u;
 /// The longest reason a hosted panel's action may give for failing (`ui.patch`), in characters.
 inline constexpr std::size_t kPanelPatchErrorLimit = 2000u;
 
+/// The capability a host states in its `runtime.hello` when an extension may state, while it runs, the processes it
+/// adds to its manifest's (`processes.contribute`). The application refuses that request from a host that did not state
+/// it. Both hosts state it: the list is protocol data.
+inline constexpr std::string_view kContributedProcessesCapability = "contributed_processes";
+
+/// The most entries an extension's list of contributed processes may hold.
+inline constexpr std::size_t kContributedProcessLimit = 512u;
+
+/// The longest name a contributed process may state, in characters.
+inline constexpr std::size_t kContributedProcessNameLimit = 80u;
+
+/// The longest group a contributed process may state, in characters.
+inline constexpr std::size_t kContributedProcessGroupLimit = 40u;
+
+/// The longest summary a contributed process may state, in characters.
+inline constexpr std::size_t kContributedProcessSummaryLimit = 200u;
+
 enum class ProtocolFrameDecodeStatus
 {
     NeedMoreData,
@@ -437,6 +454,38 @@ struct PanelHideMessage
     std::string request_id;
 };
 
+/// One process an extension adds while it runs, as it states it: data, never code. Its id is the extension's id, a dot
+/// and its `id_suffix`, as a manifest process's is; it runs as the manifest process it names, in that process's host.
+struct ContributedProcessEntry
+{
+    /// A safe identifier - letters, digits, `_` and `.`, no `..` - stated once in the list.
+    std::string id_suffix;
+    /// What it is listed as: plain text of at most `kContributedProcessNameLimit` characters, not empty.
+    std::string display_name;
+    /// The submenu of its family's menu it is listed in, plain text of at most `kContributedProcessGroupLimit`
+    /// characters; empty for none.
+    std::string group;
+    /// The registry category whose Process menu it joins, a safe identifier; empty for none.
+    std::string category;
+    /// What it does, in a line: plain text of at most `kContributedProcessSummaryLimit` characters; empty for none.
+    std::string summary;
+    /// The `id_suffix` of the manifest process whose class runs it, a safe identifier; empty for the manifest's first.
+    std::string host_process;
+
+    [[nodiscard]] bool operator==(const ContributedProcessEntry&) const = default;
+};
+
+/// The processes an extension adds while it runs (`processes.contribute`, host to application, answered by
+/// `processes.contribute.result` or `processes.contribute.error`): its whole list each time, an empty one withdrawing
+/// every entry. Sent only by a host that stated `kContributedProcessesCapability`.
+struct ProcessesContributeMessage
+{
+    std::string session_id;
+    std::string request_id;
+    /// The entries, in the extension's order; at most `kContributedProcessLimit`.
+    std::vector<ContributedProcessEntry> entries;
+};
+
 /// What a person did in a hosted panel, as a host reads the `ui.event` the application sent.
 struct HostedPanelEvent
 {
@@ -550,6 +599,8 @@ toProtocolMessage(const PanelDescribeMessage& message);
 toProtocolMessage(const PanelPatchMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
 toProtocolMessage(const PanelHideMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const ProcessesContributeMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 runtimeHelloFromProtocolMessage(const ExtensionProtocolMessage& message, RuntimeHelloMessage* out_message,
                                 std::string* error = nullptr);
@@ -629,6 +680,24 @@ panelPatchFromProtocolMessage(const ExtensionProtocolMessage& message, PanelPatc
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool panelHideFromProtocolMessage(const ExtensionProtocolMessage& message,
                                                                                 PanelHideMessage* out_message,
                                                                                 std::string* error = nullptr);
+/// Reads a `processes.contribute`, refused whole at the first error and saying what was wrong: a request id, and
+/// `entries` a list `contributedProcessEntriesFromCbor` reads.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+processesContributeFromProtocolMessage(const ExtensionProtocolMessage& message, ProcessesContributeMessage* out_message,
+                                       std::string* error = nullptr);
+
+/// A list of contributed processes as CBOR: what `processes.contribute` carries, and what the application keeps. A
+/// field left empty is not written.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API QCborArray
+contributedProcessEntriesToCbor(const std::vector<ContributedProcessEntry>& entries);
+
+/// Reads a list of contributed processes, refused whole at the first error and saying which entry was wrong and how: an
+/// array of at most `kContributedProcessLimit` maps of strings, each naming only the fields `ContributedProcessEntry`
+/// has; an `id_suffix` a safe identifier, stated once in the list; a `display_name` that is not empty; the name, the
+/// group and the summary plain text within their limits; a category and a host process, when stated, safe identifiers.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+contributedProcessEntriesFromCbor(const QCborValue& value, std::vector<ContributedProcessEntry>* out_entries,
+                                  std::string* error = nullptr);
 
 /// Whether the application draws the session's panel: its acknowledgement stated `kHostedPanelCapability`.
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool servesHostedPanel(const RuntimeHelloAckMessage& ack);

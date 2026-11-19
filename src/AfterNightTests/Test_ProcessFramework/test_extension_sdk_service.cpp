@@ -23,6 +23,7 @@
 #include <QCborArray>
 #include <QCborMap>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QString>
@@ -36,6 +37,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -1418,4 +1420,283 @@ TEST(ExtensionSdkServiceTest, DispatchProtocolMessageHandlesSettingsKeysWithinAc
     ASSERT_EQ(key_array.size(), 2);
     EXPECT_EQ(key_array.at(0).toString(), QStringLiteral("gpu/enabled"));
     EXPECT_EQ(key_array.at(1).toString(), QStringLiteral("tools/executable_path"));
+}
+
+// ---- The processes an extension contributes
+
+namespace
+{
+
+constexpr const char* kContributingExtension = "an.demo.scripts";
+
+/// The manifest a contributing extension's list is checked against: a script runner and a batch, both filters.
+an::ui::extensions::ExtensionManifest contributingManifest()
+{
+    an::ui::extensions::ExtensionManifest manifest;
+    manifest.id = kContributingExtension;
+    manifest.name = "Scripts";
+    for (const auto& [suffix, class_name, display_name] :
+         {std::tuple{"runner", "Runner", "Script Runner"}, std::tuple{"batch", "Batch", "Batch Scripts"}})
+    {
+        an::ui::extensions::ExtensionProcessManifest process;
+        process.id_suffix = suffix;
+        process.id = std::string(kContributingExtension) + "." + suffix;
+        process.class_name = class_name;
+        process.display_name = display_name;
+        process.process_name = display_name;
+        process.category = "filters";
+        process.action_object_name = an::ui::extensions::default_extension_action_object_name(manifest.id, suffix);
+        manifest.processes.push_back(std::move(process));
+    }
+    return manifest;
+}
+
+/// An entry of a list as a host states it.
+QCborMap contributed(const QString& id_suffix, const QString& display_name, const QCborMap& more = {})
+{
+    QCborMap entry{{QStringLiteral("id_suffix"), id_suffix}, {QStringLiteral("display_name"), display_name}};
+    for (auto it = more.constBegin(); it != more.constEnd(); ++it)
+    {
+        entry.insert(it.key(), it.value());
+    }
+    return entry;
+}
+
+/// An SDK service over settings of its own that knows the contributing extension's manifest, and the extensions it
+/// told of a list kept.
+struct ContributingService
+{
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService service{&settings_store.repository()};
+    std::vector<std::string> told;
+
+    ContributingService()
+    {
+        service.setContributedProcessesHooks(
+            [](const std::string_view extension_id) -> std::optional<an::ui::extensions::ExtensionManifest> {
+                if (extension_id == kContributingExtension)
+                {
+                    return contributingManifest();
+                }
+                return std::nullopt;
+            },
+            [this](const std::string_view extension_id) { told.emplace_back(extension_id); });
+    }
+
+    /// What the service answers a host that states the capabilities `capabilities` contributing `entries`.
+    an::ui::extensions::ExtensionProtocolMessage
+    contribute(const QCborValue& entries, const std::vector<std::string>& capabilities = {
+                                              std::string(an::ui::extensions::kContributedProcessesCapability)})
+    {
+        an::ui::extensions::ExtensionProtocolMessage request;
+        request.type = "processes.contribute";
+        request.session_id = "session-1";
+        request.request_id = "request-contribute";
+        request.fields = QCborMap{{QStringLiteral("entries"), entries}};
+        an::ui::extensions::ExtensionProtocolMessage response;
+        std::string error;
+        EXPECT_TRUE(service.dispatchProtocolMessage(request, kContributingExtension,
+                                                    an::ui::extensions::ExtensionLaunchMode::SingleImage, capabilities,
+                                                    &response, &error))
+            << error;
+        return response;
+    }
+
+    std::vector<an::ui::extensions::ContributedProcessEntry> kept()
+    {
+        std::vector<an::ui::extensions::ContributedProcessEntry> entries;
+        std::string error;
+        EXPECT_TRUE(service.keptContributedProcesses(kContributingExtension, &entries, &error)) << error;
+        return entries;
+    }
+};
+
+} // namespace
+
+// A list a host states is read, checked against the extension's manifest and kept whole in the application's settings,
+// under a key of the application's own; the application is told, and the host is answered how many it kept.
+TEST(ContributedProcesses, AListIsValidatedAndKept)
+{
+    ContributingService contributing;
+    const QCborArray entries{
+        contributed(QStringLiteral("m42_tone"), QStringLiteral("M42 Tone"),
+                    QCborMap{{QStringLiteral("group"), QStringLiteral("Nebulae")},
+                             {QStringLiteral("category"), QStringLiteral("color")},
+                             {QStringLiteral("summary"), QStringLiteral("Brings out the faint arms")}}),
+        contributed(QStringLiteral("star_fix"), QStringLiteral("Star Fix"),
+                    QCborMap{{QStringLiteral("host_process"), QStringLiteral("batch")}})};
+
+    const auto response = contributing.contribute(entries);
+    ASSERT_EQ(response.type, "processes.contribute.result") << decodeProtocolError(response).details;
+    EXPECT_EQ(response.request_id, "request-contribute");
+    EXPECT_TRUE(response.fields.value(QStringLiteral("accepted")).toBool());
+    EXPECT_EQ(response.fields.value(QStringLiteral("count")).toInteger(), 2);
+
+    const auto kept = contributing.kept();
+    ASSERT_EQ(kept.size(), 2u);
+    EXPECT_EQ(kept[0].id_suffix, "m42_tone");
+    EXPECT_EQ(kept[0].display_name, "M42 Tone");
+    EXPECT_EQ(kept[0].group, "Nebulae");
+    EXPECT_EQ(kept[0].category, "color");
+    EXPECT_EQ(kept[0].summary, "Brings out the faint arms");
+    EXPECT_TRUE(kept[0].host_process.empty()) << "an entry naming no host process is kept as it was stated";
+    EXPECT_EQ(kept[1].host_process, "batch");
+    EXPECT_EQ(contributing.told, std::vector<std::string>{kContributingExtension});
+
+    // Kept as the JSON array of the list, under the application's key, beside no setting of the extension's.
+    const QString key = an::ui::extensions::ExtensionSdkService::contributedProcessesStorageKey(kContributingExtension);
+    EXPECT_EQ(key, QStringLiteral("extensions/contributedProcesses/an.demo.scripts"));
+    const QJsonDocument stored = QJsonDocument::fromJson(contributing.settings_store.repository().select(key).toUtf8());
+    ASSERT_TRUE(stored.isArray());
+    EXPECT_EQ(stored.array().size(), 2);
+    EXPECT_EQ(stored.array().at(1).toObject().value(QStringLiteral("id_suffix")).toString(),
+              QStringLiteral("star_fix"));
+    QStringList extension_keys;
+    std::string error;
+    ASSERT_TRUE(contributing.service.selectExtensionSettingKeys(kContributingExtension, &extension_keys, &error))
+        << error;
+    EXPECT_TRUE(extension_keys.isEmpty()) << "the kept list is no setting of the extension's";
+}
+
+// Every limit refuses the whole list, saying which entry was wrong and how; the list kept before stays, and nobody is
+// told of a change.
+TEST(ContributedProcesses, EachLimitRefusesTheWholeListAndNamesWhatWasWrong)
+{
+    ContributingService contributing;
+    const QCborArray earlier{contributed(QStringLiteral("kept"), QStringLiteral("Kept Before"))};
+    ASSERT_EQ(contributing.contribute(earlier).type, "processes.contribute.result");
+    contributing.told.clear();
+
+    QCborArray too_many;
+    for (int index = 0; index < 513; ++index)
+    {
+        too_many.push_back(contributed(QStringLiteral("script_%1").arg(index), QStringLiteral("Script %1").arg(index)));
+    }
+    const QCborMap good = contributed(QStringLiteral("good"), QStringLiteral("Good"));
+    const QString eighty_one(81, QLatin1Char('n'));
+    struct Refusal
+    {
+        const char* what;
+        QCborValue entries;
+        const char* said;
+    };
+    const Refusal refusals[] = {
+        {"not a list", QCborValue(QStringLiteral("scripts")), "must be an array"},
+        {"too many entries", too_many, "more than its limit of 512"},
+        {"a name too long", QCborArray{good, contributed(QStringLiteral("long"), eighty_one)},
+         "entry 2 ('long')'s display_name is 81 characters long"},
+        {"a group too long",
+         QCborArray{good, contributed(QStringLiteral("grouped"), QStringLiteral("Grouped"),
+                                      QCborMap{{QStringLiteral("group"), QString(41, QLatin1Char('g'))}})},
+         "group is 41 characters long"},
+        {"a summary too long",
+         QCborArray{good, contributed(QStringLiteral("told"), QStringLiteral("Told"),
+                                      QCborMap{{QStringLiteral("summary"), QString(201, QLatin1Char('s'))}})},
+         "summary is 201 characters long"},
+        {"a name that is not plain text",
+         QCborArray{good, contributed(QStringLiteral("broken"), QStringLiteral("Two\nLines"))},
+         "display_name is not plain text"},
+        {"no name", QCborArray{good, contributed(QStringLiteral("nameless"), QString())}, "states no display_name"},
+        {"an unsafe id_suffix", QCborArray{good, contributed(QStringLiteral("../escape"), QStringLiteral("Escape"))},
+         "id_suffix '../escape' is not a safe identifier"},
+        {"an id_suffix stated twice", QCborArray{good, contributed(QStringLiteral("good"), QStringLiteral("Again"))},
+         "entry 2 ('good') states an id_suffix an earlier entry stated"},
+        {"a manifest process's id_suffix",
+         QCborArray{good, contributed(QStringLiteral("runner"), QStringLiteral("Runner Again"))},
+         "the id_suffix of the manifest's process 'Script Runner'"},
+        {"a category the registry has not",
+         QCborArray{good, contributed(QStringLiteral("lost"), QStringLiteral("Lost"),
+                                      QCborMap{{QStringLiteral("category"), QStringLiteral("nowhere")}})},
+         "the category 'nowhere', which the registry has not"},
+        {"a host process the manifest has not",
+         QCborArray{good, contributed(QStringLiteral("orphan"), QStringLiteral("Orphan"),
+                                      QCborMap{{QStringLiteral("host_process"), QStringLiteral("missing")}})},
+         "names the host process 'missing', which the manifest has not"},
+        {"a field an entry has not",
+         QCborArray{good, contributed(QStringLiteral("extra"), QStringLiteral("Extra"),
+                                      QCborMap{{QStringLiteral("command"), QStringLiteral("rm")}})},
+         "states a field a contributed process has not: command"},
+        {"a value that is not text",
+         QCborArray{good, contributed(QStringLiteral("typed"), QStringLiteral("Typed"),
+                                      QCborMap{{QStringLiteral("group"), 7}})},
+         "entry 2's group is not a string"},
+    };
+    for (const Refusal& refusal : refusals)
+    {
+        SCOPED_TRACE(refusal.what);
+        const auto response = contributing.contribute(refusal.entries);
+        ASSERT_EQ(response.type, "processes.contribute.error");
+        const auto error = decodeProtocolError(response);
+        EXPECT_EQ(error.message, "Invalid processes.contribute request");
+        EXPECT_NE(error.details.find(refusal.said), std::string::npos) << error.details;
+        const auto kept = contributing.kept();
+        ASSERT_EQ(kept.size(), 1u) << "a list refused leaves the one kept before";
+        EXPECT_EQ(kept.front().id_suffix, "kept");
+    }
+    EXPECT_TRUE(contributing.told.empty());
+
+    // The largest list the protocol takes is kept.
+    too_many.removeLast();
+    EXPECT_EQ(contributing.contribute(too_many).type, "processes.contribute.result");
+    EXPECT_EQ(contributing.kept().size(), 512u);
+}
+
+// An empty list withdraws every entry: nothing is kept under the extension's key any more.
+TEST(ContributedProcesses, AnEmptyListWithdrawsEveryEntry)
+{
+    ContributingService contributing;
+    ASSERT_EQ(contributing
+                  .contribute(QCborArray{contributed(QStringLiteral("one"), QStringLiteral("One")),
+                                         contributed(QStringLiteral("two"), QStringLiteral("Two"))})
+                  .type,
+              "processes.contribute.result");
+    ASSERT_EQ(contributing.kept().size(), 2u);
+
+    const auto response = contributing.contribute(QCborArray{});
+    ASSERT_EQ(response.type, "processes.contribute.result");
+    EXPECT_EQ(response.fields.value(QStringLiteral("count")).toInteger(), 0);
+    EXPECT_TRUE(contributing.kept().empty());
+    EXPECT_FALSE(contributing.settings_store.repository()
+                     .selectOptional(an::ui::extensions::ExtensionSdkService::contributedProcessesStorageKey(
+                         kContributingExtension))
+                     .has_value());
+    EXPECT_EQ(contributing.told.size(), 2u) << "the withdrawal is told as a list kept is";
+}
+
+// A host that did not state the capability in its hello is refused, and so is an extension the application has not
+// installed; nothing is kept for either.
+TEST(ContributedProcesses, AHostThatDidNotAnnounceTheCapabilityIsRefused)
+{
+    ContributingService contributing;
+    const QCborArray entries{contributed(QStringLiteral("one"), QStringLiteral("One"))};
+
+    const auto unannounced = contributing.contribute(entries, {"execute", "preview"});
+    ASSERT_EQ(unannounced.type, "processes.contribute.error");
+    EXPECT_NE(decodeProtocolError(unannounced).details.find("contributed_processes capability"), std::string::npos);
+
+    // The overload that knows no capability answers as a host that stated none.
+    an::ui::extensions::ExtensionProtocolMessage request;
+    request.type = "processes.contribute";
+    request.session_id = "session-1";
+    request.request_id = "request-unannounced";
+    request.fields = QCborMap{{QStringLiteral("entries"), entries}};
+    an::ui::extensions::ExtensionProtocolMessage response;
+    std::string error;
+    ASSERT_TRUE(contributing.service.dispatchProtocolMessage(
+        request, kContributingExtension, an::ui::extensions::ExtensionLaunchMode::SingleImage, &response, &error))
+        << error;
+    EXPECT_EQ(response.type, "processes.contribute.error");
+    EXPECT_TRUE(contributing.kept().empty());
+
+    an::ui::extensions::ExtensionSdkService unknown_manifests(&contributing.settings_store.repository());
+    std::vector<std::string> announced{std::string(an::ui::extensions::kContributedProcessesCapability)};
+    ASSERT_TRUE(unknown_manifests.dispatchProtocolMessage(request, kContributingExtension,
+                                                          an::ui::extensions::ExtensionLaunchMode::SingleImage,
+                                                          announced, &response, &error))
+        << error;
+    ASSERT_EQ(response.type, "processes.contribute.error");
+    EXPECT_NE(decodeProtocolError(response).details.find("no installed extension 'an.demo.scripts'"),
+              std::string::npos);
+    EXPECT_TRUE(contributing.kept().empty());
+    EXPECT_TRUE(contributing.told.empty());
 }

@@ -4070,6 +4070,7 @@ void applyCompatibilityStatus(ExtensionLoadResult& result, const ExtensionDiscov
     ExtensionManifest manifest;
     std::string error;
     const QJsonObject root = document.object();
+    result.declared_id = root.value(QStringLiteral("id")).toString().toStdString();
     if (!parseTopLevelMetadata(root, manifest_path, manifest, &error) || !normalizeProcesses(root, manifest, &error) ||
         !validateDeclaredPackageArtifacts(manifest, &error))
     {
@@ -6149,6 +6150,65 @@ std::string default_extension_action_object_name(std::string_view extension_id, 
     return action_name;
 }
 
+std::string contributedProcessId(const std::string_view extension_id, const ContributedProcessEntry& entry)
+{
+    return std::string(extension_id) + "." + entry.id_suffix;
+}
+
+const ExtensionProcessManifest* hostProcessOf(const ExtensionManifest& manifest, const ContributedProcessEntry& entry)
+{
+    if (entry.host_process.empty())
+    {
+        return manifest.processes.empty() ? nullptr : &manifest.processes.front();
+    }
+    const auto host = std::find_if(
+        manifest.processes.begin(), manifest.processes.end(),
+        [&entry](const ExtensionProcessManifest& process) { return process.id_suffix == entry.host_process; });
+    return host != manifest.processes.end() ? &*host : nullptr;
+}
+
+bool validateContributedProcesses(const ExtensionManifest& manifest,
+                                  const std::vector<ContributedProcessEntry>& entries, std::string* error)
+{
+    const auto refuse = [error](std::string reason) {
+        if (error)
+        {
+            *error = std::move(reason);
+        }
+        return false;
+    };
+    for (std::size_t index = 0; index < entries.size(); ++index)
+    {
+        const ContributedProcessEntry& entry = entries[index];
+        const std::string named = "entry " + std::to_string(index + 1) + " ('" + entry.id_suffix + "')";
+        const std::string id = contributedProcessId(manifest.id, entry);
+        const std::string action = default_extension_action_object_name(manifest.id, entry.id_suffix);
+        for (const ExtensionProcessManifest& process : manifest.processes)
+        {
+            if (process.id_suffix == entry.id_suffix || process.id == id)
+            {
+                return refuse(named + " states the id_suffix of the manifest's process '" + process.display_name + "'");
+            }
+            if (process.action_object_name == action)
+            {
+                return refuse(named + " would take the action of the manifest's process '" + process.display_name +
+                              "'");
+            }
+        }
+        if (!entry.category.empty() && !isSupportedCategory(entry.category))
+        {
+            return refuse(named + " states the category '" + entry.category + "', which the registry has not");
+        }
+        if (hostProcessOf(manifest, entry) == nullptr)
+        {
+            return refuse(entry.host_process.empty() ? named + " names no host process, and the manifest has none"
+                                                     : named + " names the host process '" + entry.host_process +
+                                                           "', which the manifest has not");
+        }
+    }
+    return true;
+}
+
 ExtensionLoadResult load_extension_manifest_file(const std::filesystem::path& manifest_path,
                                                  const ExtensionPackageSource source,
                                                  const ExtensionDiscoveryContext& context,
@@ -8185,6 +8245,23 @@ void ExtensionManager::registerDiscoveredProcesses(const std::vector<ExtensionLo
         }
     }
 
+    // What every process of an extension takes from its package: how it launches, whether it can, and why not.
+    const auto describedFor = [](const ExtensionLoadResult& result, const ExtensionProcessManifest& process) {
+        ProcessDescriptor descriptor;
+        descriptor.category = process.category;
+        descriptor.launch_mode = toRegistryLaunchMode(result.manifest->launch_mode);
+        descriptor.requires_exclusive_access = result.manifest->requires_exclusive_access;
+        descriptor.source_channel_filter = process.capabilities.source_channel_filter;
+        descriptor.sort_order = 1000;
+        descriptor.availability = extensionProcessAvailability(result);
+        descriptor.availability_reason = extensionDescriptorAvailabilityReason(result);
+        descriptor.is_extension_process = true;
+        descriptor.extension_id = result.manifest->id;
+        descriptor.provides_starless_output = process.capabilities.starless_generator;
+        descriptor.provides_star_mask_output = process.capabilities.star_mask_generator;
+        return descriptor;
+    };
+
     for (const ExtensionLoadResult& result : discovered)
     {
         if (!result.manifest || result.status == ExtensionLoadStatus::Invalid)
@@ -8194,26 +8271,52 @@ void ExtensionManager::registerDiscoveredProcesses(const std::vector<ExtensionLo
 
         for (const ExtensionProcessManifest& process : result.manifest->processes)
         {
-            ProcessDescriptor descriptor;
+            ProcessDescriptor descriptor = describedFor(result, process);
             descriptor.id = process.id;
             descriptor.display_name = buildDisambiguatedDisplayName(*result.manifest, process, display_name_collisions);
-            descriptor.category = process.category;
             descriptor.action_object_name = process.action_object_name;
             descriptor.process_name = process.process_name;
-            descriptor.launch_mode = toRegistryLaunchMode(result.manifest->launch_mode);
-            descriptor.requires_exclusive_access = result.manifest->requires_exclusive_access;
-            descriptor.source_channel_filter = process.capabilities.source_channel_filter;
-            descriptor.sort_order = 1000;
-            descriptor.availability = extensionProcessAvailability(result);
-            descriptor.availability_reason = extensionDescriptorAvailabilityReason(result);
-            descriptor.is_extension_process = true;
-            descriptor.extension_id = result.manifest->id;
-            descriptor.provides_starless_output = process.capabilities.starless_generator;
-            descriptor.provides_star_mask_output = process.capabilities.star_mask_generator;
 
             if (!registry.registerProcess(std::move(descriptor)))
             {
                 LOG_WARNING("Extension process registration skipped duplicate descriptor id={}", process.id);
+            }
+        }
+    }
+
+    // The processes the extensions contributed come after every manifest's, so that none takes a manifest process's id;
+    // each runs as its host process does and has an action of its own.
+    for (const ExtensionLoadResult& result : discovered)
+    {
+        if (!result.manifest || result.status == ExtensionLoadStatus::Invalid)
+        {
+            continue;
+        }
+
+        for (const ContributedProcessEntry& entry : result.contributed_processes)
+        {
+            const ExtensionProcessManifest* const host = hostProcessOf(*result.manifest, entry);
+            if (host == nullptr)
+            {
+                continue;
+            }
+            ProcessDescriptor descriptor = describedFor(result, *host);
+            descriptor.id = contributedProcessId(result.manifest->id, entry);
+            descriptor.display_name = entry.display_name;
+            if (!entry.category.empty())
+            {
+                descriptor.category = entry.category;
+            }
+            descriptor.action_object_name = default_extension_action_object_name(result.manifest->id, entry.id_suffix);
+            descriptor.process_name = entry.display_name;
+            descriptor.is_contributed_process = true;
+            descriptor.extension_group = entry.group;
+            descriptor.summary = entry.summary;
+
+            const std::string id = descriptor.id;
+            if (!registry.registerProcess(std::move(descriptor)))
+            {
+                LOG_WARNING("Extension contributed process registration skipped duplicate descriptor id={}", id);
             }
         }
     }

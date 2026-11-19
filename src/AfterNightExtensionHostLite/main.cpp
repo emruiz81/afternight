@@ -1084,6 +1084,9 @@ struct LitePythonHostBridge
     QString session_id;
     QString launch_mode;
     QString sdk_backend;
+    /// The `id_suffix` of the process the extension contributed that the session was started for; empty for one of its
+    /// manifest's processes.
+    QString contributed_process;
     bool standalone_mode = false;
     bool cancel_requested = false;
     int timeout_ms = kDefaultIoTimeoutMs;
@@ -1218,6 +1221,7 @@ struct LitePythonHostBridge
                         {QStringLiteral("session_id"), session_id},
                         {QStringLiteral("launch_mode"), launch_mode},
                         {QStringLiteral("sdk_backend"), sdk_backend},
+                        {QStringLiteral("contributed_process"), contributed_process},
                         {QStringLiteral("is_standalone"), standalone_mode}};
     }
 
@@ -1252,9 +1256,14 @@ struct LitePythonHostBridge
             if (an::ui::extensions::protocolErrorFromCborValue(response.fields.value(QStringLiteral("error")),
                                                                &protocol_error, &parse_error))
             {
+                // What was refused and why, as the full host says it: an extension is told the application's reason.
                 if (error)
                 {
                     *error = protocol_error.message.empty() ? response.type : protocol_error.message;
+                    if (!protocol_error.details.empty())
+                    {
+                        *error += ": " + protocol_error.details;
+                    }
                 }
             }
             else if (error)
@@ -2878,6 +2887,37 @@ PyObject* liteHostProgressSetText(PyObject*, PyObject* args)
     Py_RETURN_NONE;
 }
 
+/// States the processes the extension adds while it runs, its whole list (`processes.contribute`), and answers how
+/// many the application kept; a list the application refuses raises its reason. With no application - a standalone
+/// launch - nothing keeps the list, and none is kept.
+PyObject* liteHostContributeProcesses(PyObject*, PyObject* args)
+{
+    PyObject* entries_object = nullptr;
+    if (!PyArg_ParseTuple(args, "O:contribute_processes", &entries_object))
+    {
+        return nullptr;
+    }
+    if (!g_lite_python_bridge || !g_lite_python_bridge->hasControlSocket())
+    {
+        return PyLong_FromLong(0);
+    }
+
+    QCborValue entries;
+    std::string error;
+    if (!pythonObjectToCborValue(entries_object, &entries, &error))
+    {
+        return pyRaiseRuntimeError(error);
+    }
+
+    an::ui::extensions::ExtensionProtocolMessage response;
+    if (!g_lite_python_bridge->sendProtocolRequestAwaitResponse(
+            "processes.contribute", QCborMap{{QStringLiteral("entries"), entries}}, &response, &error))
+    {
+        return pyRaiseRuntimeError(error);
+    }
+    return PyLong_FromLongLong(response.fields.value(QStringLiteral("count")).toInteger());
+}
+
 /// Hides the process window: with a panel the application draws, the application puts the panel's task away; with
 /// none, the Lite host has no window to hide.
 PyObject* liteHostProcessWindowHide(PyObject*, PyObject*)
@@ -2972,6 +3012,7 @@ PyMethodDef kLiteHostMethods[] = {
     {"progress_set_text", liteHostProgressSetText, METH_VARARGS, nullptr},
     {"progress_is_cancelled", liteHostProgressIsCancelled, METH_NOARGS, nullptr},
     {"theme_tokens", liteHostThemeTokens, METH_NOARGS, nullptr},
+    {"contribute_processes", liteHostContributeProcesses, METH_VARARGS, nullptr},
     {"process_window_hide", liteHostProcessWindowHide, METH_NOARGS, nullptr},
     {"process_window_close", liteHostProcessWindowClose, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr},
@@ -3678,6 +3719,10 @@ int main(int argc, char* argv[])
                                                 QStringLiteral("module"));
     const QCommandLineOption process_class_option(QStringLiteral("process-class"), QStringLiteral("Process class."),
                                                   QStringLiteral("class"));
+    const QCommandLineOption contributed_process_option(
+        QStringLiteral("contributed-process"),
+        QStringLiteral("The process the extension contributed that the session is started for, by its id_suffix."),
+        QStringLiteral("id_suffix"));
 #ifdef _WIN32
     const QCommandLineOption session_secret_handle_option(QStringLiteral("session-secret-handle"),
                                                           QStringLiteral("Inherited session-secret handle."),
@@ -3713,6 +3758,7 @@ int main(int argc, char* argv[])
     parser.addOption(runtime_root_option);
     parser.addOption(entry_point_option);
     parser.addOption(process_class_option);
+    parser.addOption(contributed_process_option);
 #ifdef _WIN32
     parser.addOption(session_secret_handle_option);
 #endif
@@ -3757,6 +3803,7 @@ int main(int argc, char* argv[])
     python_bridge.session_id = session_id;
     python_bridge.launch_mode = launch_mode;
     python_bridge.sdk_backend = sdk_backend;
+    python_bridge.contributed_process = parser.value(contributed_process_option).trimmed();
     python_bridge.standalone_mode = standalone_mode;
     python_bridge.preview_delay_ms = (std::max)(0, parser.value(preview_delay_option).trimmed().toInt());
     python_bridge.execute_delay_ms = (std::max)(0, parser.value(execute_delay_option).trimmed().toInt());
@@ -3884,10 +3931,10 @@ int main(int argc, char* argv[])
     hello.host_version = parser.value(host_version_option).trimmed().toStdString();
     hello.capabilities = splitCapabilities(parser.value(capabilities_option));
     // What the Lite host serves beside what it was launched with: the panel the application draws, the raise of the
-    // extension's own window, and where the run it is told of stands.
+    // extension's own window, where the run it is told of stands, and the processes the extension contributes.
     for (const std::string_view served :
          {an::ui::extensions::kHostedPanelCapability, an::ui::extensions::kWindowRaiseCapability,
-          an::ui::extensions::kSessionActivityCapability})
+          an::ui::extensions::kSessionActivityCapability, an::ui::extensions::kContributedProcessesCapability})
     {
         if (std::find(hello.capabilities.begin(), hello.capabilities.end(), served) == hello.capabilities.end())
         {

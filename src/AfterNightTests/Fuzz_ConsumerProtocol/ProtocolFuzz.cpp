@@ -16,8 +16,9 @@
 /// * **What decoded encodes, and what it encodes decodes the same.** A message read off the wire serializes, the bytes
 ///   read back as a message, and serializing that gives the same bytes again; a buffer's description written as CBOR
 ///   reads back as one. A typed message - a hello, an execute, a commit, a result, a theme state, a run's activity, a
-///   raise, a panel's description, event, answer and hiding - decoded from a message re-encodes into a message the
-///   same typed decoder accepts; a panel's event either host reads is read or refused with a reason.
+///   raise, a panel's description, event, answer and hiding, the processes an extension contributes - decoded from a
+///   message re-encodes into a message the same typed decoder accepts; a panel's event either host reads is read or
+///   refused with a reason; a list of contributed processes written as the application keeps it reads back the same.
 /// * **Framing consumes or stops.** Consuming frames out of a buffer either takes a whole frame, waits for more bytes
 ///   without taking any, or refuses the frame; it never takes more bytes than were there and never loops forever.
 
@@ -202,6 +203,27 @@ enum Mode : std::uint8_t
     protocol::PanelHideMessage hide;
     hide.session_id = "session-1";
     messages.push_back(protocol::toProtocolMessage(hide));
+
+    // The processes an extension contributes: a list in groups and categories, one of every field, and the empty list
+    // that withdraws them.
+    protocol::ProcessesContributeMessage contribute;
+    contribute.session_id = "session-1";
+    contribute.request_id = "contribute-1";
+    protocol::ContributedProcessEntry tone;
+    tone.id_suffix = "m42_tone";
+    tone.display_name = "M42 Tone";
+    tone.group = "Nebulae";
+    tone.category = "color";
+    tone.summary = "Brings out the faint arms";
+    tone.host_process = "runner";
+    protocol::ContributedProcessEntry stars;
+    stars.id_suffix = "scripts.star_fix";
+    stars.display_name = "Star Fix";
+    contribute.entries = {tone, stars};
+    messages.push_back(protocol::toProtocolMessage(contribute));
+    contribute.request_id = "contribute-2";
+    contribute.entries.clear();
+    messages.push_back(protocol::toProtocolMessage(contribute));
     return messages;
 }
 
@@ -269,6 +291,20 @@ void checkMessage(const QByteArray& bytes)
     checkTyped<protocol::PanelPatchMessage>(message, protocol::panelPatchFromProtocolMessage, "typed-patch");
     checkTyped<protocol::PanelHideMessage>(message, protocol::panelHideFromProtocolMessage, "typed-hide");
     checkTyped<protocol::UiEventMessage>(message, protocol::uiEventFromProtocolMessage, "typed-event");
+    checkTyped<protocol::ProcessesContributeMessage>(message, protocol::processesContributeFromProtocolMessage,
+                                                     "typed-contribute");
+
+    // A list of contributed processes, as the application keeps it, reads back the same.
+    protocol::ProcessesContributeMessage contribution;
+    if (protocol::processesContributeFromProtocolMessage(message, &contribution))
+    {
+        std::vector<protocol::ContributedProcessEntry> reread;
+        std::string rereadError;
+        AN_FUZZ_CHECK(protocol::contributedProcessEntriesFromCbor(
+                          protocol::contributedProcessEntriesToCbor(contribution.entries), &reread, &rereadError),
+                      "a list of contributed processes written from one that was read cannot be read");
+        AN_FUZZ_CHECK(reread == contribution.entries, "a list of contributed processes reads back otherwise");
+    }
 
     // What a person did in a panel, as either host reads it: read, or refused with a reason.
     protocol::HostedPanelEvent event;

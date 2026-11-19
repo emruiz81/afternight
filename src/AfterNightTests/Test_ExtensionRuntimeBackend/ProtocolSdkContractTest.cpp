@@ -45,7 +45,7 @@ def hosted(bridge):
 @contextlib.contextmanager
 def session_variables(**values):
     names = ["AFTERNIGHT_" + name for name in ("EXTENSION_ID", "SESSION_ID", "LAUNCH_MODE", "SDK_BACKEND",
-                                                "IS_STANDALONE")]
+                                                "IS_STANDALONE", "CONTRIBUTED_PROCESS")]
     saved = {name: os.environ.get(name) for name in names}
     for name in names:
         os.environ.pop(name, None)
@@ -123,6 +123,13 @@ class CommonBridge:
 
     def settings_keys(self):
         return sorted(self.settings)
+
+    def contribute_processes(self, entries):
+        if any(entry.get("id_suffix") == "refused" for entry in entries):
+            raise RuntimeError("Invalid processes.contribute request: entry 1 ('refused') states the id_suffix of the "
+                               "manifest's process 'Runner'")
+        self.calls.append(("contribute", list(entries)))
+        return len(entries)
 
     def progress_set_value(self, value):
         self.calls.append(("progress_value", value))
@@ -473,6 +480,66 @@ with hosted(FullBridge()) as bridge:
 
 with hosted(LiteBridge()):
     assert protocol.emit_settings_action_update({"ok": True}) is False, "the Lite host serves no settings action"
+)PY");
+}
+
+// An extension states the processes it contributes through the protocol half of the SDK on either host: the list goes
+// to the host as it was stated, an empty field left out; the answer is how many the application kept; a refusal raises
+// its reason; and a list that is not a list of mappings of strings naming an entry's fields is refused before it is
+// sent. With no host, nothing keeps it.
+TEST(ProtocolSdkContractTest, AnExtensionContributesItsProcessesThroughEitherHost)
+{
+    expectProtocolPython(R"PY(
+entries = [{"id_suffix": "m42", "display_name": "M42 Tone", "group": "Nebulae", "category": "color",
+            "summary": "Brings out the faint arms"},
+           {"id_suffix": "stars", "display_name": "Star Fix", "host_process": "batch", "group": ""}]
+sent = [entries[0], {"id_suffix": "stars", "display_name": "Star Fix", "host_process": "batch"}]
+assert afternight.contribute_processes is protocol.contribute_processes
+for bridge in (LiteBridge(), FullBridge()):
+    with hosted(bridge):
+        assert afternight.contribute_processes(entries) == 2
+        assert bridge.calls[-1] == ("contribute", sent), bridge.calls[-1]
+        assert afternight.contribute_processes(tuple(entries[:1])) == 1
+        assert afternight.contribute_processes([]) == 0 and bridge.calls[-1] == ("contribute", [])
+        refuses(RuntimeError, lambda: afternight.contribute_processes([{"id_suffix": "refused", "display_name": "No"}]),
+                "the id_suffix of the manifest's process")
+        before = len(bridge.calls)
+        refuses(TypeError, lambda: afternight.contribute_processes({"id_suffix": "x"}), "a list of mappings")
+        refuses(TypeError, lambda: afternight.contribute_processes("m42"), "a list of mappings")
+        refuses(TypeError, lambda: afternight.contribute_processes([("id_suffix", "x")]),
+                "contributed process 1 is not a mapping")
+        refuses(TypeError, lambda: afternight.contribute_processes([entries[0], {"id_suffix": "x", "command": "rm"}]),
+                "contributed process 2 states a field a contributed process has not: 'command'")
+        refuses(TypeError, lambda: afternight.contribute_processes([{"id_suffix": "x", "display_name": 7}]),
+                "contributed process 1's display_name is not a string")
+        assert len(bridge.calls) == before, "a list refused before it is sent reaches no host"
+with session_variables():
+    assert protocol.contribute_processes(entries) == 0, "with no host nothing keeps the list"
+)PY");
+}
+
+// A session started for a process the extension contributed names it; one started for a manifest's process names none,
+// on either host and from the session's variables.
+TEST(ProtocolSdkContractTest, TheSessionNamesTheContributedProcessItWasStartedFor)
+{
+    expectProtocolPython(R"PY(
+class StartedForAnEntry(LiteBridge):
+    def session_info(self):
+        info = super().session_info()
+        info["contributed_process"] = "m42"
+        return info
+
+with hosted(StartedForAnEntry()):
+    assert afternight.current_session().contributed_process == "m42"
+    assert lite.LiteExtension(None).session_info().contributed_process == "m42"
+for bridge in (LiteBridge(), FullBridge()):
+    with hosted(bridge):
+        assert afternight.current_session().contributed_process == "", "a manifest process's session names none"
+with session_variables(CONTRIBUTED_PROCESS="stars"):
+    assert protocol.current_session().contributed_process == "stars"
+with session_variables():
+    assert protocol.current_session().contributed_process == ""
+assert protocol.SessionInfo().contributed_process == ""
 )PY");
 }
 

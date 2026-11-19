@@ -1707,6 +1707,9 @@ sources Test_ShellCore
     unit     src/AfterNightTests/Test_ShellCore/ProjectDocumentTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProjectHistoryTest.cpp
     unit     src/AfterNightTests/Test_ShellCore/ProjectServiceTest.cpp
+    header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
     header   src/AfterNightControls/components/AnIconButton.h
     header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightControls/widgets/HistogramWidget.h
@@ -2618,6 +2621,9 @@ sources Test_ShellClassic
     unit     src/AfterNightTests/fixtures/common/FixtureExpectation.cpp
     unit     src/AfterNightTests/fixtures/common/FixtureImage.cpp
     unit     src/AfterNightTests/fixtures/common/RawPolicyCases.cpp
+    header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/ImageStatisticsFigures.h
     header   src/AfterNightControls/app/ActionLookup.h
@@ -3625,6 +3631,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/main.cpp
     unit     src/AfterNightTests/Test_Persistence/test_folder_path_tracking.cpp
     unit     src/AfterNightTests/Test_Persistence/test_in_memory_database.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_extensions_contributed_processes_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_density_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_palette_recent_commands_setting.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_readout_settings.cpp

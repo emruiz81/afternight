@@ -121,6 +121,13 @@ inline constexpr auto HISTORY_COMPRESSION = "history/compression";
 inline constexpr auto PROJECTS_COMPACT_ASK_THRESHOLD_GB = "projects/compactAskThresholdGb";
 
 // ═══════════════════════════════════════════════════════════════
+// Extensions
+// ═══════════════════════════════════════════════════════════════
+// The processes an extension contributed while it ran, under this prefix and the extension's id: the JSON array of its
+// list as the application validated it, written by the application alone; absent when it contributed none.
+inline constexpr auto EXTENSIONS_CONTRIBUTED_PROCESSES_PREFIX = "extensions/contributedProcesses/";
+
+// ═══════════════════════════════════════════════════════════════
 // Export Settings
 // ═══════════════════════════════════════════════════════════════
 inline constexpr auto EXPORT_TIFF_COMPRESSION = "export/tiffCompression";

@@ -2367,6 +2367,230 @@ bool panelHideFromProtocolMessage(const ExtensionProtocolMessage& message, Panel
     return true;
 }
 
+namespace
+{
+
+/// The fields an entry of a list of contributed processes may state, and where each is held.
+struct ContributedProcessField
+{
+    const char* name;
+    std::string ContributedProcessEntry::* member;
+};
+
+constexpr std::array<ContributedProcessField, 6> kContributedProcessFields = {{
+    {"id_suffix", &ContributedProcessEntry::id_suffix},
+    {"display_name", &ContributedProcessEntry::display_name},
+    {"group", &ContributedProcessEntry::group},
+    {"category", &ContributedProcessEntry::category},
+    {"summary", &ContributedProcessEntry::summary},
+    {"host_process", &ContributedProcessEntry::host_process},
+}};
+
+/// A name a manifest's process may have: letters, digits, `_` and `.`, and no `..`.
+[[nodiscard]] bool isSafeIdentifier(const std::string& value)
+{
+    return !value.empty() && value.find("..") == std::string::npos &&
+           std::all_of(value.begin(), value.end(), [](const char character) {
+               return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+                      (character >= '0' && character <= '9') || character == '_' || character == '.';
+           });
+}
+
+/// Text a person reads as it is: no control character, not even a line break.
+[[nodiscard]] bool isPlainText(const QString& value)
+{
+    return std::none_of(value.cbegin(), value.cend(),
+                        [](const QChar character) { return character.category() == QChar::Other_Control; });
+}
+
+/// What a refusal quotes of a value an entry stated: no more than a name's length of it.
+[[nodiscard]] std::string quotedValue(const std::string& value)
+{
+    return "'" +
+           QString::fromStdString(value).left(static_cast<qsizetype>(kContributedProcessNameLimit)).toStdString() + "'";
+}
+
+} // namespace
+
+ExtensionProtocolMessage toProtocolMessage(const ProcessesContributeMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "processes.contribute";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("entries")] = contributedProcessEntriesToCbor(message.entries);
+    return protocol;
+}
+
+bool processesContributeFromProtocolMessage(const ExtensionProtocolMessage& message,
+                                            ProcessesContributeMessage* out_message, std::string* error)
+{
+    if (!parseRuntimeMessageType(message, "processes.contribute", error))
+    {
+        return false;
+    }
+    if (message.request_id.empty())
+    {
+        if (error)
+        {
+            *error = "processes.contribute requires a request_id";
+        }
+        return false;
+    }
+    const auto entries = message.fields.find(QStringLiteral("entries"));
+    if (entries == message.fields.end())
+    {
+        if (error)
+        {
+            *error = "processes.contribute requires an array field: entries";
+        }
+        return false;
+    }
+    ProcessesContributeMessage parsed;
+    if (!contributedProcessEntriesFromCbor(entries.value(), &parsed.entries, error))
+    {
+        return false;
+    }
+    if (out_message)
+    {
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+QCborArray contributedProcessEntriesToCbor(const std::vector<ContributedProcessEntry>& entries)
+{
+    QCborArray array;
+    for (const ContributedProcessEntry& entry : entries)
+    {
+        QCborMap map;
+        for (const ContributedProcessField& field : kContributedProcessFields)
+        {
+            const std::string& value = entry.*field.member;
+            if (!value.empty())
+            {
+                map[QString::fromLatin1(field.name)] = QString::fromStdString(value);
+            }
+        }
+        array.push_back(map);
+    }
+    return array;
+}
+
+bool contributedProcessEntriesFromCbor(const QCborValue& value, std::vector<ContributedProcessEntry>* out_entries,
+                                       std::string* error)
+{
+    const auto refuse = [error](std::string reason) {
+        if (error)
+        {
+            *error = std::move(reason);
+        }
+        return false;
+    };
+    if (!value.isArray())
+    {
+        return refuse("the contributed processes must be an array");
+    }
+    const QCborArray array = value.toArray();
+    if (static_cast<std::size_t>(array.size()) > kContributedProcessLimit)
+    {
+        return refuse(fmt::format("the list holds {} entries, more than its limit of {}", array.size(),
+                                  kContributedProcessLimit));
+    }
+
+    std::vector<ContributedProcessEntry> entries;
+    entries.reserve(static_cast<std::size_t>(array.size()));
+    for (qsizetype index = 0; index < array.size(); ++index)
+    {
+        const std::string where = fmt::format("entry {}", index + 1);
+        const QCborValue item = array.at(index);
+        if (!item.isMap())
+        {
+            return refuse(where + " is not a map");
+        }
+        const QCborMap map = item.toMap();
+        for (auto it = map.constBegin(); it != map.constEnd(); ++it)
+        {
+            const QString key = it.key().isString() ? it.key().toString() : QString();
+            const bool known =
+                std::any_of(kContributedProcessFields.begin(), kContributedProcessFields.end(),
+                            [&key](const ContributedProcessField& field) { return key == QLatin1String(field.name); });
+            if (!known)
+            {
+                return refuse(where + " states a field a contributed process has not: " +
+                              (key.isEmpty() ? std::string("(not a name)") : key.toStdString()));
+            }
+            if (!it.value().isString())
+            {
+                return refuse(where + "'s " + key.toStdString() + " is not a string");
+            }
+        }
+
+        const auto text = [&map](const char* name) { return map.value(QLatin1String(name)).toString(); };
+        ContributedProcessEntry entry;
+        entry.id_suffix = text("id_suffix").toStdString();
+        if (!isSafeIdentifier(entry.id_suffix))
+        {
+            return refuse(where + "'s id_suffix " + quotedValue(entry.id_suffix) + " is not a safe identifier");
+        }
+        const std::string named = where + " (" + quotedValue(entry.id_suffix) + ")";
+        if (std::any_of(entries.begin(), entries.end(), [&entry](const ContributedProcessEntry& earlier) {
+                return earlier.id_suffix == entry.id_suffix;
+            }))
+        {
+            return refuse(named + " states an id_suffix an earlier entry stated");
+        }
+
+        struct Bounded
+        {
+            const char* name;
+            std::size_t limit;
+            std::string ContributedProcessEntry::* member;
+        };
+        for (const Bounded& bounded :
+             {Bounded{"display_name", kContributedProcessNameLimit, &ContributedProcessEntry::display_name},
+              Bounded{"group", kContributedProcessGroupLimit, &ContributedProcessEntry::group},
+              Bounded{"summary", kContributedProcessSummaryLimit, &ContributedProcessEntry::summary}})
+        {
+            const QString stated = text(bounded.name);
+            if (static_cast<std::size_t>(stated.size()) > bounded.limit)
+            {
+                return refuse(fmt::format("{}'s {} is {} characters long, longer than its limit of {}", named,
+                                          bounded.name, stated.size(), bounded.limit));
+            }
+            if (!isPlainText(stated))
+            {
+                return refuse(named + "'s " + bounded.name + " is not plain text");
+            }
+            entry.*bounded.member = stated.toStdString();
+        }
+        if (entry.display_name.empty())
+        {
+            return refuse(named + " states no display_name");
+        }
+
+        for (const char* identifier : {"category", "host_process"})
+        {
+            const std::string stated = text(identifier).toStdString();
+            if (map.contains(QLatin1String(identifier)) && !isSafeIdentifier(stated))
+            {
+                return refuse(named + "'s " + identifier + " " + quotedValue(stated) + " is not a safe identifier");
+            }
+        }
+        entry.category = text("category").toStdString();
+        entry.host_process = text("host_process").toStdString();
+        entries.push_back(std::move(entry));
+    }
+
+    if (out_entries)
+    {
+        *out_entries = std::move(entries);
+    }
+    return true;
+}
+
 bool servesHostedPanel(const RuntimeHelloAckMessage& ack)
 {
     return std::find(ack.capabilities.begin(), ack.capabilities.end(), kHostedPanelCapability) !=

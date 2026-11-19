@@ -60,6 +60,12 @@ struct ProcessDescriptor
     std::string availability_reason;
     bool is_extension_process = false;
     std::string extension_id;
+    /// Whether an extension added the process while it ran rather than in its manifest: one it contributed.
+    bool is_contributed_process = false;
+    /// For a contributed process: the group of its family's menu it is listed in, and what it does in a line; empty for
+    /// none.
+    std::string extension_group;
+    std::string summary;
     bool provides_starless_output = false;
     bool provides_star_mask_output = false;
 

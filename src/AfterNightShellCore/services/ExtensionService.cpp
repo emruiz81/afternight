@@ -171,7 +171,8 @@ std::string maskRenderingModeName(const MaskRenderingMode mode)
 }
 
 /// Binds every process of the ready packages `discovered` to the extension host that runs it: the full host for a
-/// package of the runtime backend, the Lite host for one of the protocol backend.
+/// package of the runtime backend, the Lite host for one of the protocol backend; a process the extension contributed
+/// as its host process is, with the entry named (`contributedProcessBinding`).
 void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoordinator& coordinator,
                                      const std::filesystem::path& appDir,
                                      const std::vector<ExtensionLoadResult>& discovered)
@@ -202,18 +203,13 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
             continue;
         }
 
-        for (const auto& process : result.manifest->processes)
-        {
-            auto* descriptor = registry.findMutable(process.id);
-            if (!descriptor)
-            {
-                continue;
-            }
-
+        const bool workflowLaunch = result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::Workflow;
+        const auto bindingOf = [&](const an::ui::extensions::ExtensionProcessManifest& process,
+                                   const an::ui::process_registry::ProcessDescriptor& descriptor) {
             an::ui::extensions::ExtensionHostLaunchBinding binding;
             binding.descriptor_id = process.id;
             binding.extension_id = result.manifest->id;
-            binding.display_name = descriptor->display_name;
+            binding.display_name = descriptor.display_name;
             binding.sdk_backend = protocolBackend ? "protocol" : "runtime";
             binding.launch_mode = result.manifest->launch_mode;
             binding.host_version = QCoreApplication::applicationVersion().isEmpty()
@@ -229,8 +225,6 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
             binding.host_arguments.push_back(result.environment->environment_path.string());
             binding.host_arguments.push_back("--runtime-root");
             binding.host_arguments.push_back((appDir / "PythonLib").string());
-            const bool workflowLaunch =
-                result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::Workflow;
             if (process.capabilities.execute || workflowLaunch)
             {
                 binding.capabilities.push_back("execute");
@@ -262,6 +256,10 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
                     binding.cached_native_param_schema = paramsSchema->second;
                 }
             }
+            return binding;
+        };
+        const auto bind = [&](an::ui::process_registry::ProcessDescriptor* descriptor,
+                              const an::ui::extensions::ExtensionHostLaunchBinding& binding) {
             if (workflowLaunch)
             {
                 coordinator.bindWorkflowDescriptor(descriptor, binding);
@@ -269,6 +267,25 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
             else
             {
                 coordinator.bindSingleImageDescriptor(descriptor, binding);
+            }
+        };
+
+        for (const auto& process : result.manifest->processes)
+        {
+            if (auto* descriptor = registry.findMutable(process.id))
+            {
+                bind(descriptor, bindingOf(process, *descriptor));
+            }
+        }
+        for (const auto& entry : result.contributed_processes)
+        {
+            const auto* const host = an::ui::extensions::hostProcessOf(*result.manifest, entry);
+            auto* const descriptor =
+                registry.findMutable(an::ui::extensions::contributedProcessId(result.manifest->id, entry));
+            if (host != nullptr && descriptor != nullptr)
+            {
+                bind(descriptor, an::ui::extensions::contributedProcessBinding(bindingOf(*host, *descriptor),
+                                                                               result.manifest->id, entry));
             }
         }
     }
@@ -407,6 +424,11 @@ struct ExtensionService::Impl
     std::unique_ptr<QTimer> installRefreshTimer;
     an::ui::extensions::ExtensionOperationCancellationToken cancellation;
     bool started = false;
+    /// The packages registered last, with the processes their extensions contributed: what a list an extension
+    /// contributes is checked against, and what is registered again once it is kept.
+    std::vector<ExtensionLoadResult> registered;
+    /// Whether registering them again is posted already.
+    bool reregisterPending = false;
 
     [[nodiscard]] QWidget* window() const
     {
@@ -434,35 +456,77 @@ struct ExtensionService::Impl
             const auto backend = result.manifest->sdk_backend;
             const bool hostable = backend != an::ui::extensions::ExtensionSdkBackend::Rpc &&
                                   result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::SingleImage;
-            for (const auto& process : result.manifest->processes)
-            {
+            const auto remember = [&](const std::string& processId,
+                                      const an::ui::extensions::ExtensionProcessManifest& process) {
                 if (hostable)
                 {
                     startingFacts.insert_or_assign(
-                        process.id, StartingFacts{.capabilities = process.capabilities,
-                                                  .sdkBackend = an::ui::extensions::extension_sdk_backend_id(backend)});
+                        processId, StartingFacts{.capabilities = process.capabilities,
+                                                 .sdkBackend = an::ui::extensions::extension_sdk_backend_id(backend)});
                 }
                 else
                 {
-                    startingFacts.erase(process.id);
+                    startingFacts.erase(processId);
+                }
+            };
+            for (const auto& process : result.manifest->processes)
+            {
+                remember(process.id, process);
+            }
+            for (const auto& entry : result.contributed_processes)
+            {
+                if (const auto* const host = an::ui::extensions::hostProcessOf(*result.manifest, entry))
+                {
+                    remember(an::ui::extensions::contributedProcessId(result.manifest->id, entry), *host);
                 }
             }
         }
     }
 
-    /// The installed packages are as `discovered` says: registered, bound to their hosts and put in the menus.
-    void registerAndShow(const std::filesystem::path& appDir, const std::vector<ExtensionLoadResult>& discovered,
-                         const bool bindLaunches)
+    /// The packages `discovered`, each given the list its extension contributed and the application kept.
+    [[nodiscard]] std::vector<ExtensionLoadResult> withContributions(std::vector<ExtensionLoadResult> discovered)
     {
-        rememberStartingFacts(discovered);
+        launches->sdkService().attachContributedProcesses(&discovered);
+        return discovered;
+    }
+
+    /// The installed packages are as `discovered` says: registered with the processes their extensions contributed,
+    /// bound to their hosts and put in the menus. A whole discovery - every installed package, not the start-up
+    /// catalogue's - first forgets the lists of the extensions it no longer finds: the ones removed.
+    void registerAndShow(const std::filesystem::path& appDir, const std::vector<ExtensionLoadResult>& discovered,
+                         const bool bindLaunches, const bool wholeDiscovery = true)
+    {
+        if (wholeDiscovery)
+        {
+            launches->sdkService().forgetContributedProcessesOfRemovedExtensions(discovered);
+        }
+        registered = withContributions(discovered);
+        rememberStartingFacts(registered);
         an::ui::extensions::ExtensionManager extensionManager;
-        extensionManager.registerDiscoveredProcesses(discovered, an::ui::process_registry::ProcessRegistry::instance());
+        extensionManager.registerDiscoveredProcesses(registered, an::ui::process_registry::ProcessRegistry::instance());
         if (bindLaunches)
         {
-            bindDiscoveredExtensionLaunches(*launches, appDir, discovered);
+            bindDiscoveredExtensionLaunches(*launches, appDir, registered);
         }
-        core.processMenus().setExtensions(discovered);
+        core.processMenus().setExtensions(registered);
         listsChanged();
+    }
+
+    /// An extension kept a new list of the processes it contributes: the packages registered last are registered,
+    /// bound and listed again with it, once the session's message is answered.
+    void contributionsChanged()
+    {
+        if (reregisterPending)
+        {
+            return;
+        }
+        reregisterPending = true;
+        QTimer::singleShot(0, guard.get(), [this]() {
+            reregisterPending = false;
+            const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
+            const std::vector<ExtensionLoadResult> packages = registered;
+            registerAndShow(appDir, packages, true, false);
+        });
     }
 
     /// The stored process lists drop what the registry no longer holds, and the actions follow the registry.
@@ -820,7 +884,7 @@ void ExtensionService::Impl::discoverInstalled()
     const auto startupCatalog = an::ui::extensions::load_ready_extension_startup_catalog(discoveryOptions);
     if (!startupCatalog.empty())
     {
-        registerAndShow(appDir, startupCatalog, true);
+        registerAndShow(appDir, startupCatalog, true, false);
     }
 
     QPointer<QObject> alive(guard.get());
@@ -940,7 +1004,8 @@ void ExtensionService::Impl::discoverInstalled()
                     [this, alive, appDir, refreshedDiscovered = std::move(refreshedDiscovered)]() mutable {
                         if (alive)
                         {
-                            bindDiscoveredExtensionLaunches(*launches, appDir, refreshedDiscovered);
+                            bindDiscoveredExtensionLaunches(*launches, appDir,
+                                                            withContributions(std::move(refreshedDiscovered)));
                         }
                     },
                     Qt::QueuedConnection);
@@ -1024,9 +1089,10 @@ void ExtensionService::Impl::discoverInstalled()
                     return;
                 }
 
-                ProcessLaunchService::refreshRegisteredExtensionDescriptors(refreshedDiscovered);
-                bindDiscoveredExtensionLaunches(*launches, appDir, refreshedDiscovered);
-                core.processMenus().rebindExtensions(refreshedDiscovered);
+                registered = withContributions(std::move(refreshedDiscovered));
+                ProcessLaunchService::refreshRegisteredExtensionDescriptors(registered);
+                bindDiscoveredExtensionLaunches(*launches, appDir, registered);
+                core.processMenus().rebindExtensions(registered);
                 listsChanged();
             },
             Qt::QueuedConnection);
@@ -1385,6 +1451,20 @@ void ExtensionService::configureSdk()
 
             return true;
         });
+    // A list of processes an extension contributes is checked against the manifest of the package registered for it,
+    // and once it is kept the packages are registered and listed again with it.
+    impl.launches->sdkService().setContributedProcessesHooks(
+        [&impl](const std::string_view extensionId) -> std::optional<an::ui::extensions::ExtensionManifest> {
+            for (const ExtensionLoadResult& result : impl.registered)
+            {
+                if (result.manifest && result.manifest->id == extensionId)
+                {
+                    return result.manifest;
+                }
+            }
+            return std::nullopt;
+        },
+        [&impl](const std::string_view) { impl.contributionsChanged(); });
     // The settings store is open: the rate a native extension window previews at is read now, off the GUI thread, so
     // the first launch passes the stored one.
     impl.launches->refreshPreviewFrameRate();
@@ -1455,8 +1535,10 @@ void ExtensionService::viewDestroyed(const ImageViewControl* view)
     }
 }
 
-void ExtensionService::extensionsPrepared(const std::vector<ExtensionLoadResult>& discovered)
+void ExtensionService::extensionsPrepared(const std::vector<ExtensionLoadResult>& prepared)
 {
+    m_impl->registered = m_impl->withContributions(prepared);
+    const std::vector<ExtensionLoadResult>& discovered = m_impl->registered;
     const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
     m_impl->rememberStartingFacts(discovered);
     bindDiscoveredExtensionLaunches(*m_impl->launches, appDir, discovered);

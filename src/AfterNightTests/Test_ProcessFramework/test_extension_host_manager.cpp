@@ -13516,3 +13516,184 @@ TEST(ExtensionHostManagerTest, MarkPreviewResultConsumedPreservesPendingRefreshM
     ASSERT_TRUE(controller.current_process_message.has_value());
     EXPECT_EQ(controller.current_process_message->message, QStringLiteral("Preview refresh is pending."));
 }
+
+// A process an extension contributed is launched as its host process is - the same host, class, environment, launch
+// mode, capabilities and kept parameters - under the entry's id and name, the host told which entry it is for.
+TEST(ContributedProcesses, ALaunchIsBoundAsItsHostProcessIsWithTheEntryNamed)
+{
+    an::ui::extensions::ExtensionHostLaunchBinding host;
+    host.descriptor_id = "an.demo.scripts.runner";
+    host.extension_id = "an.demo.scripts";
+    host.display_name = "Script Runner";
+    host.sdk_backend = "protocol";
+    host.host_executable = "AfterNightExtensionHostLite";
+    host.capabilities = {"execute", "preview"};
+    host.process_capabilities.preview = true;
+    host.host_arguments = {"--extension-package-root", "/packages/scripts", "--process-class", "Runner"};
+    host.has_cached_native_param_schema = true;
+    host.cached_native_param_schema = QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("strength")}}};
+
+    an::ui::extensions::ContributedProcessEntry entry;
+    entry.id_suffix = "m42_tone";
+    entry.display_name = "M42 Tone";
+    entry.group = "Nebulae";
+
+    const auto bound = an::ui::extensions::contributedProcessBinding(host, "an.demo.scripts", entry);
+    EXPECT_EQ(bound.descriptor_id, "an.demo.scripts.m42_tone");
+    EXPECT_EQ(bound.display_name, "M42 Tone") << "its task and the recent processes are named for the entry";
+    EXPECT_EQ(bound.extension_id, host.extension_id);
+    EXPECT_EQ(bound.sdk_backend, host.sdk_backend);
+    EXPECT_EQ(bound.host_executable, host.host_executable);
+    EXPECT_EQ(bound.capabilities, host.capabilities);
+    EXPECT_TRUE(bound.process_capabilities.preview);
+    EXPECT_TRUE(bound.has_cached_native_param_schema);
+    EXPECT_EQ(bound.cached_native_param_schema, host.cached_native_param_schema);
+    const std::vector<std::string> arguments{"--extension-package-root", "/packages/scripts",
+                                             "--process-class",          "Runner",
+                                             "--contributed-process",    "m42_tone"};
+    EXPECT_EQ(bound.host_arguments, arguments);
+}
+
+// On either host an extension states the processes it contributes, through the protocol half of the SDK, and is
+// answered how many were kept; a list the application refuses raises its reason; a session started for an entry
+// reads which one from its session.
+TEST(ContributedProcesses, AnExtensionContributesAndIsToldWhichEntryItWasStartedForOnEitherHost)
+{
+    const std::filesystem::path runtime_root = runtimeRootForCurrentAppDir();
+    const std::filesystem::path bundled_python = repositoryBundledPythonPath();
+    ASSERT_TRUE(std::filesystem::exists(runtime_root)) << runtime_root;
+    ASSERT_FALSE(bundled_python.empty()) << "Repository bundled Python runtime must be available";
+    struct Backend
+    {
+        const char* name;
+        std::filesystem::path host;
+        const char* module;
+    };
+    const Backend backends[] = {{"protocol", extensionHostLitePathForCurrentAppDir(),
+                                 "import afternight.ui_protocol as ui\n"
+                                 "from afternight.lite import LiteProcessExtension as Base\n"},
+                                {"runtime", extensionHostPathForCurrentAppDir(),
+                                 "import afternight.ui as ui\n"
+                                 "Base = ui.ProcessWindow\n"}};
+    for (const Backend& backend : backends)
+    {
+        SCOPED_TRACE(backend.name);
+        if (std::string_view(backend.name) == "runtime")
+        {
+            AN_REQUIRE_FULL_EXTENSION_HOST(backend.host);
+        }
+        ASSERT_TRUE(std::filesystem::exists(backend.host)) << backend.host;
+        const auto temp_root = uniqueExtensionRuntimeRootForTest(std::string("contributing-") + backend.name);
+        removeAllNoThrow(temp_root);
+        const RemovePathOnExit remove_temp_root{temp_root};
+        const auto env_root = temp_root / "env";
+        const auto package_root = temp_root / "contributing_ext";
+        std::filesystem::create_directories(package_root);
+        createVirtualEnvironment(bundled_python, env_root);
+        if (!provisionBundledRuntimePackageIntoEnvironment(runtime_root, env_root, "numpy"))
+        {
+            GTEST_SKIP() << "numpy not available in bundled runtime";
+        }
+        {
+            std::ofstream out(package_root / "contributing_ext.py", std::ios::binary);
+            ASSERT_TRUE(out.is_open());
+            out << "import afternight\n"
+                << backend.module << "class ContributingExtension(Base):\n"
+                << "    def get_params(self):\n"
+                << "        return [ui.process_window_meta()]\n\n"
+                << "    def _contribute(self):\n"
+                << "        settings = afternight.Settings()\n"
+                << "        settings.set('started_for', afternight.current_session().contributed_process)\n"
+                << "        try:\n"
+                << "            afternight.contribute_processes([{'id_suffix': 'runner', 'display_name': 'Clash'}])\n"
+                << "        except RuntimeError as error:\n"
+                << "            settings.set('refused', str(error))\n"
+                << "        kept = afternight.contribute_processes([\n"
+                << "            {'id_suffix': 'one', 'display_name': 'One', 'group': 'Firsts'},\n"
+                << "            {'id_suffix': 'two', 'display_name': 'Two', 'host_process': 'runner'}])\n"
+                << "        settings.set('kept', kept)\n\n"
+                << "    def on_launch(self):\n"
+                << "        self._contribute()\n\n"
+                << "    def on_process_launch(self):\n"
+                << "        self._contribute()\n";
+        }
+
+        const std::string extension_id = std::string("an.test.contributing.") + backend.name;
+        an::ui::extensions::ExtensionManifest manifest;
+        manifest.id = extension_id;
+        an::ui::extensions::ExtensionProcessManifest runner;
+        runner.id_suffix = "runner";
+        runner.id = extension_id + ".runner";
+        runner.class_name = "ContributingExtension";
+        runner.display_name = "Runner";
+        runner.category = "filters";
+        runner.action_object_name = an::ui::extensions::default_extension_action_object_name(extension_id, "runner");
+        manifest.processes.push_back(runner);
+
+        InMemorySettings settings_store;
+        an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+        std::vector<std::string> told;
+        sdk_service.setContributedProcessesHooks(
+            [&manifest](const std::string_view id) -> std::optional<an::ui::extensions::ExtensionManifest> {
+                return id == manifest.id ? std::optional(manifest) : std::nullopt;
+            },
+            [&told](const std::string_view id) { told.emplace_back(id); });
+        an::ui::extensions::ExtensionHostManager manager;
+        manager.setSdkService(&sdk_service);
+        an::ui::extensions::ExtensionHostLaunchRequest request;
+        request.extension_id = extension_id;
+        request.sdk_backend = backend.name;
+        request.host_executable = backend.host;
+        request.capabilities = {"execute"};
+        request.hosted_panel = true;
+        request.host_arguments = {"--extension-package-root",
+                                  package_root.string(),
+                                  "--entry-point",
+                                  "contributing_ext",
+                                  "--process-class",
+                                  "ContributingExtension",
+                                  "--environment-root",
+                                  env_root.string(),
+                                  "--runtime-root",
+                                  runtime_root.string(),
+                                  "--stay-alive-ms",
+                                  std::to_string(8000 * kIpcTimingMultiplier),
+                                  "--contributed-process",
+                                  "two"};
+        auto prepared = manager.prepareSession(request);
+        an::ui::extensions::ExtensionHostRunningSession running;
+        std::string error;
+        ASSERT_TRUE(manager.launchSession(prepared, &running, &error)) << error;
+        SessionGuard guard{manager, running};
+        const auto& stated = running.handshake.hello.capabilities;
+        EXPECT_NE(std::find(stated.begin(), stated.end(), an::ui::extensions::kContributedProcessesCapability),
+                  stated.end());
+
+        const auto setting = [&](const char* key) {
+            QCborValue value;
+            static_cast<void>(sdk_service.selectExtensionSetting(extension_id, key, &value, QCborValue(), nullptr));
+            return value;
+        };
+        QElapsedTimer clock;
+        clock.start();
+        while (clock.elapsed() < 8000 * kIpcTimingMultiplier && setting("kept").isUndefined())
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            static_cast<void>(manager.pumpSession(&running, 20, &error));
+        }
+        ASSERT_FALSE(setting("kept").isUndefined()) << error;
+        EXPECT_EQ(setting("kept").toInteger(), 2);
+        EXPECT_EQ(setting("started_for").toString(), QStringLiteral("two"));
+        EXPECT_TRUE(setting("refused").toString().contains(QStringLiteral("the id_suffix of the manifest's process")))
+            << setting("refused").toString().toStdString();
+
+        std::vector<an::ui::extensions::ContributedProcessEntry> kept;
+        ASSERT_TRUE(sdk_service.keptContributedProcesses(extension_id, &kept, &error)) << error;
+        ASSERT_EQ(kept.size(), 2u);
+        EXPECT_EQ(kept[0].id_suffix, "one");
+        EXPECT_EQ(kept[0].group, "Firsts");
+        EXPECT_EQ(kept[1].id_suffix, "two");
+        EXPECT_EQ(kept[1].host_process, "runner");
+        EXPECT_EQ(told, std::vector<std::string>{extension_id});
+    }
+}

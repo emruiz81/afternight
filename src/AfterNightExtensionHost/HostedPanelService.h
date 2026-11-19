@@ -24,7 +24,8 @@ namespace an::ui::extensions
 {
 
 /// The capabilities the full host states in its hello beside the ones it was launched with: it tells where its window's
-/// run stands, raises its window when asked, and can serve a panel the application draws.
+/// run stands, raises its window when asked, can serve a panel the application draws, and carries the processes the
+/// extension contributes.
 [[nodiscard]] std::vector<std::string_view> fullHostCapabilities();
 
 /// Whether the host shows its native process window: the application acknowledged the window model, the platform can

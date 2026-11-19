@@ -5,6 +5,7 @@
 
 #include "AfterNightControlsExport.h"
 
+#include "app/AfterNightExtensionProtocol.h"
 #include "app/ProcessRegistry.h"
 
 #include <QCborMap>
@@ -478,7 +479,14 @@ struct ExtensionLoadResult
     ExtensionPackageSource source = ExtensionPackageSource::User;
     ExtensionLoadStatus status = ExtensionLoadStatus::Invalid;
     std::string diagnostic;
+    /// The id the package's manifest states, read even when the manifest is refused; empty when the file states none or
+    /// cannot be read. What tells which extension a package is when it has no manifest.
+    std::string declared_id;
     std::optional<ExtensionManifest> manifest;
+    /// The processes the extension contributed while it ran and the application kept, as they hold against `manifest`:
+    /// registered and listed after the manifest's own (`ExtensionSdkService::attachContributedProcesses`). Empty when
+    /// it contributed none.
+    std::vector<ContributedProcessEntry> contributed_processes;
     std::optional<ExtensionEnvironmentSnapshot> environment;
     std::optional<ExtensionSettingsSchemaSnapshot> settings_schema;
     std::optional<ExtensionRuntimeStatusSnapshot> runtime_status;
@@ -931,6 +939,24 @@ extension_package_source_from_id(std::string_view source_id);
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::string default_extension_action_object_name(std::string_view extension_id,
                                                                                       std::string_view id_suffix = {});
 
+/// The id of a process an extension contributed: the extension's id, a dot and the entry's `id_suffix`, as a manifest
+/// process's is.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::string contributedProcessId(std::string_view extension_id,
+                                                                      const ContributedProcessEntry& entry);
+
+/// The manifest process a contributed one runs as: the one its `host_process` names, the manifest's first when it names
+/// none; null when the manifest has no such process.
+[[nodiscard]] AFTERNIGHTCONTROLS_API const ExtensionProcessManifest*
+hostProcessOf(const ExtensionManifest& manifest, const ContributedProcessEntry& entry);
+
+/// Checks a list of contributed processes an extension stated against its manifest, refused whole at the first error
+/// and saying which entry was wrong and how: no entry's `id_suffix` is one of the manifest's processes', and none's
+/// action is one a manifest process names; each `category` is one the registry has; each `host_process` names one of
+/// the manifest's processes. What the protocol itself refuses (`contributedProcessEntriesFromCbor`) is read before.
+[[nodiscard]] AFTERNIGHTCONTROLS_API bool
+validateContributedProcesses(const ExtensionManifest& manifest, const std::vector<ContributedProcessEntry>& entries,
+                             std::string* error = nullptr);
+
 [[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionLoadResult load_extension_manifest_file(
     const std::filesystem::path& manifest_path, ExtensionPackageSource source, const ExtensionDiscoveryContext& context,
     ExtensionOperationCancellationToken cancellation_token = {});
@@ -1002,6 +1028,10 @@ class AFTERNIGHTCONTROLS_API ExtensionManager
 public:
     [[nodiscard]] std::vector<ExtensionLoadResult> discoverExtensions(const ExtensionDiscoveryOptions& options) const;
 
+    /// Registers the processes of the packages `discovered` that are not invalid, in place of the extensions' processes
+    /// registered before: every manifest's processes first, then each package's contributed processes
+    /// (`ExtensionLoadResult::contributed_processes`), each a descriptor of its own with its extension's availability
+    /// and its host process's capabilities, and an action of its own (`default_extension_action_object_name`).
     void registerDiscoveredProcesses(const std::vector<ExtensionLoadResult>& discovered,
                                      process_registry::ProcessRegistry& registry) const;
 };

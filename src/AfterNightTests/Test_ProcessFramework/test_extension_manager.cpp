@@ -10654,3 +10654,291 @@ TEST(ExtensionManagerTest, DeployedBundledExtensionRootDiscoversReferenceDemoExt
     EXPECT_TRUE(standalone_preview_it->manifest->processes.front().capabilities.weights_input);
     EXPECT_EQ(standalone_preview_it->manifest->processes.front().capabilities.ui, "auto");
 }
+
+// ---- The processes an extension contributed, kept and registered
+
+namespace
+{
+
+using an::tests::processes::framework::InMemorySettings;
+
+/// A package of two processes, the runner a filter and the batch a colour process, under a version and a backend.
+std::string scriptsManifest(const std::string& version = "1.0.0", const std::string& backend = "protocol",
+                            const std::string& batch_action = {})
+{
+    const std::string batch_action_field =
+        batch_action.empty() ? std::string() : ", \"action_object_name\": \"" + batch_action + "\"";
+    return R"json({
+      "id": "an.test.scripts",
+      "name": "Script Runner",
+      "version": ")json" +
+           version + R"json(",
+      "type": "python",
+      "entry_point": "scripts.entry",
+      "category": "filters",
+      "launch_mode": "single_image",
+      "package_format_version": 1,
+      "protocol_version": 1,
+      "sdk_version": 1,
+      "sdk_backend": ")json" +
+           backend + R"json(",
+      "processes": [
+        {"id_suffix": "runner", "class": "Runner", "display_name": "Run Script"},
+        {"id_suffix": "batch", "class": "Batch", "display_name": "Batch Scripts", "category": "color")json" +
+           batch_action_field + R"json(}
+      ]
+    })json";
+}
+
+an::ui::extensions::ContributedProcessEntry contributedEntry(std::string id_suffix, std::string display_name,
+                                                             std::string group = {}, std::string category = {},
+                                                             std::string host_process = {})
+{
+    an::ui::extensions::ContributedProcessEntry entry;
+    entry.id_suffix = std::move(id_suffix);
+    entry.display_name = std::move(display_name);
+    entry.group = std::move(group);
+    entry.category = std::move(category);
+    entry.host_process = std::move(host_process);
+    return entry;
+}
+
+/// The two entries the cases keep: one in a group and a category of its own, one run by the batch.
+std::vector<an::ui::extensions::ContributedProcessEntry> twoEntries()
+{
+    auto tone = contributedEntry("m42", "M42 Tone", "Nebulae", "tone_brightness");
+    tone.summary = "Brings out the faint arms";
+    return {tone, contributedEntry("stars", "Star Fix", {}, {}, "batch")};
+}
+
+an::ui::extensions::ExtensionLoadResult loadScripts(const std::filesystem::path& package_root)
+{
+    return an::ui::extensions::load_extension_manifest_file(package_root / "extension.json",
+                                                            ExtensionPackageSource::User, defaultContext());
+}
+
+std::vector<an::ui::extensions::ContributedProcessEntry> keptOf(an::ui::extensions::ExtensionSdkService& sdk,
+                                                                const std::string& extension_id)
+{
+    std::vector<an::ui::extensions::ContributedProcessEntry> entries;
+    std::string error;
+    EXPECT_TRUE(sdk.keptContributedProcesses(extension_id, &entries, &error)) << error;
+    return entries;
+}
+
+} // namespace
+
+// A list the application kept is registered as the packages are found at start, with no host started: each entry a
+// descriptor of its own after every manifest's processes, named, grouped and summarized as it was stated, in its
+// category or its host process's.
+TEST(ContributedProcesses, AKeptListIsRegisteredAtDiscoveryWithNoHostStarted)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = createExtensionPackage(temp_dir.path(), "scripts", scriptsManifest());
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk(&settings_store.repository());
+    std::string error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts", twoEntries(), &error)) << error;
+
+    std::vector<an::ui::extensions::ExtensionLoadResult> discovered{loadScripts(package_root)};
+    ASSERT_TRUE(discovered.front().manifest.has_value()) << discovered.front().diagnostic;
+    EXPECT_EQ(discovered.front().declared_id, "an.test.scripts");
+    sdk.attachContributedProcesses(&discovered);
+    ASSERT_EQ(discovered.front().contributed_processes, twoEntries());
+
+    const an::tests::processes::shared::RegistrySnapshot registrySnapshot;
+    ProcessRegistry& registry = ProcessRegistry::instance();
+    registry.clear();
+    ExtensionManager().registerDiscoveredProcesses(discovered, registry);
+
+    const auto* const tone = registry.find("an.test.scripts.m42");
+    ASSERT_NE(tone, nullptr);
+    EXPECT_EQ(tone->display_name, "M42 Tone");
+    EXPECT_EQ(tone->process_name, "M42 Tone");
+    EXPECT_EQ(tone->category, "tone_brightness");
+    EXPECT_EQ(tone->extension_group, "Nebulae");
+    EXPECT_EQ(tone->summary, "Brings out the faint arms");
+    EXPECT_TRUE(tone->is_extension_process);
+    EXPECT_TRUE(tone->is_contributed_process);
+    EXPECT_EQ(tone->extension_id, "an.test.scripts");
+
+    const auto* const stars = registry.find("an.test.scripts.stars");
+    ASSERT_NE(stars, nullptr);
+    EXPECT_EQ(stars->category, "color") << "an entry stating no category is in its host process's";
+    EXPECT_TRUE(stars->extension_group.empty());
+
+    const auto* const runner = registry.find("an.test.scripts.runner");
+    ASSERT_NE(runner, nullptr);
+    EXPECT_FALSE(runner->is_contributed_process);
+    const auto& all = registry.all();
+    const auto indexOf = [&all](const std::string& id) {
+        return std::find_if(all.begin(), all.end(), [&id](const auto& descriptor) { return descriptor.id == id; }) -
+               all.begin();
+    };
+    EXPECT_LT(indexOf("an.test.scripts.batch"), indexOf("an.test.scripts.m42"));
+    EXPECT_LT(indexOf("an.test.scripts.m42"), indexOf("an.test.scripts.stars"));
+
+    // A package found with no list kept registers its manifest's processes alone.
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts", {}, &error)) << error;
+    sdk.attachContributedProcesses(&discovered);
+    ExtensionManager().registerDiscoveredProcesses(discovered, registry);
+    EXPECT_EQ(registry.find("an.test.scripts.m42"), nullptr);
+    EXPECT_NE(registry.find("an.test.scripts.runner"), nullptr);
+    registry.clear();
+}
+
+// An entry stands as its extension does: one that cannot run is registered disabled, saying why, as its manifest's
+// processes are.
+TEST(ContributedProcesses, AnEntrysDescriptorCarriesItsExtensionsAvailabilityAndReason)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = createExtensionPackage(temp_dir.path(), "scripts", scriptsManifest("1.0.0", "rpc"));
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk(&settings_store.repository());
+    std::string error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts", twoEntries(), &error)) << error;
+    std::vector<an::ui::extensions::ExtensionLoadResult> discovered{loadScripts(package_root)};
+    sdk.attachContributedProcesses(&discovered);
+
+    const an::tests::processes::shared::RegistrySnapshot registrySnapshot;
+    ProcessRegistry& registry = ProcessRegistry::instance();
+    registry.clear();
+    ExtensionManager().registerDiscoveredProcesses(discovered, registry);
+
+    const auto* const runner = registry.find("an.test.scripts.runner");
+    const auto* const tone = registry.find("an.test.scripts.m42");
+    ASSERT_NE(runner, nullptr);
+    ASSERT_NE(tone, nullptr);
+    EXPECT_EQ(runner->availability, ProcessAvailability::Incompatible);
+    EXPECT_EQ(tone->availability, runner->availability);
+    EXPECT_EQ(tone->availability_reason, runner->availability_reason);
+    EXPECT_NE(tone->availability_reason.find("rpc SDK backend"), std::string::npos);
+    registry.clear();
+}
+
+// An entry's action is its own, named for the entry, never a catalogue action a manifest process took; an entry whose
+// action a manifest process names is refused.
+TEST(ContributedProcesses, AnEntryNeverTakesACatalogueActionsPlace)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = createExtensionPackage(temp_dir.path(), "scripts",
+                                                     scriptsManifest("1.0.0", "protocol", "actionHistogramTransform"));
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk(&settings_store.repository());
+    std::string error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts",
+                                             {contributedEntry("histogram", "Histogram", {}, {}, "batch")}, &error))
+        << error;
+    std::vector<an::ui::extensions::ExtensionLoadResult> discovered{loadScripts(package_root)};
+    sdk.attachContributedProcesses(&discovered);
+
+    const an::tests::processes::shared::RegistrySnapshot registrySnapshot;
+    ProcessRegistry& registry = ProcessRegistry::instance();
+    registry.clear();
+    ExtensionManager().registerDiscoveredProcesses(discovered, registry);
+    const auto* const batch = registry.find("an.test.scripts.batch");
+    const auto* const entry = registry.find("an.test.scripts.histogram");
+    ASSERT_NE(batch, nullptr);
+    ASSERT_NE(entry, nullptr);
+    EXPECT_EQ(batch->action_object_name, "actionHistogramTransform") << "a manifest process may take one";
+    EXPECT_EQ(entry->action_object_name,
+              an::ui::extensions::default_extension_action_object_name("an.test.scripts", "histogram"));
+    registry.clear();
+
+    // A manifest process naming the action an entry would have leaves the entry none to take.
+    const auto taken = createExtensionPackage(
+        temp_dir.path(), "taken",
+        scriptsManifest("1.0.0", "protocol",
+                        an::ui::extensions::default_extension_action_object_name("an.test.scripts", "mine")));
+    const auto takenResult = loadScripts(taken);
+    ASSERT_TRUE(takenResult.manifest.has_value()) << takenResult.diagnostic;
+    EXPECT_FALSE(an::ui::extensions::validateContributedProcesses(*takenResult.manifest,
+                                                                  {contributedEntry("mine", "Mine")}, &error));
+    EXPECT_NE(error.find("would take the action of the manifest's process 'Batch Scripts'"), std::string::npos)
+        << error;
+}
+
+// The list goes with its extension: a whole discovery that no longer finds the extension forgets it, one that finds it
+// at a new version keeps it, and one with a package whose manifest names no extension forgets nothing.
+TEST(ContributedProcesses, RemovingTheExtensionRemovesItsListAndAnUpdateKeepsIt)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = createExtensionPackage(temp_dir.path(), "scripts", scriptsManifest());
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk(&settings_store.repository());
+    std::string error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts", twoEntries(), &error)) << error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.removed", {contributedEntry("gone", "Gone")}, &error)) << error;
+
+    sdk.forgetContributedProcessesOfRemovedExtensions({loadScripts(package_root)});
+    EXPECT_EQ(keptOf(sdk, "an.test.scripts").size(), 2u);
+    EXPECT_TRUE(keptOf(sdk, "an.test.removed").empty()) << "no package is that extension any more";
+
+    // Updated: the same extension at a new version keeps its list, which is given to it again.
+    writeTextFile(package_root / "extension.json", scriptsManifest("1.1.0"));
+    std::vector<an::ui::extensions::ExtensionLoadResult> updated{loadScripts(package_root)};
+    ASSERT_EQ(updated.front().manifest->version, "1.1.0");
+    sdk.forgetContributedProcessesOfRemovedExtensions(updated);
+    sdk.attachContributedProcesses(&updated);
+    EXPECT_EQ(updated.front().contributed_processes, twoEntries());
+
+    // A package whose manifest cannot be read could be any extension: nothing is forgotten.
+    an::ui::extensions::ExtensionLoadResult unreadable;
+    unreadable.status = ExtensionLoadStatus::Invalid;
+    unreadable.diagnostic = "Failed to read extension.json";
+    sdk.forgetContributedProcessesOfRemovedExtensions({unreadable});
+    EXPECT_EQ(keptOf(sdk, "an.test.scripts").size(), 2u);
+
+    // One refused with its id still stated is that extension, kept.
+    an::ui::extensions::ExtensionLoadResult refused = unreadable;
+    refused.declared_id = "an.test.scripts";
+    sdk.forgetContributedProcessesOfRemovedExtensions({refused});
+    EXPECT_EQ(keptOf(sdk, "an.test.scripts").size(), 2u);
+
+    // Removed: no package names it.
+    sdk.forgetContributedProcessesOfRemovedExtensions({});
+    EXPECT_TRUE(keptOf(sdk, "an.test.scripts").empty());
+    EXPECT_FALSE(
+        settings_store.repository()
+            .selectOptional(an::ui::extensions::ExtensionSdkService::contributedProcessesStorageKey("an.test.scripts"))
+            .has_value());
+}
+
+// The list of an extension that is invalid is kept and not registered; a list the manifest no longer holds after an
+// update - its host process gone - is kept and not given to the package.
+TEST(ContributedProcesses, AListIsKeptButNotRegisteredWhileItsExtensionCannotHoldIt)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = createExtensionPackage(temp_dir.path(), "scripts", scriptsManifest());
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk(&settings_store.repository());
+    std::string error;
+    ASSERT_TRUE(sdk.keepContributedProcesses("an.test.scripts", twoEntries(), &error)) << error;
+
+    std::vector<an::ui::extensions::ExtensionLoadResult> invalid{loadScripts(package_root)};
+    sdk.attachContributedProcesses(&invalid);
+    invalid.front().status = ExtensionLoadStatus::Invalid;
+    const an::tests::processes::shared::RegistrySnapshot registrySnapshot;
+    ProcessRegistry& registry = ProcessRegistry::instance();
+    registry.clear();
+    ExtensionManager().registerDiscoveredProcesses(invalid, registry);
+    EXPECT_EQ(registry.find("an.test.scripts.m42"), nullptr);
+    EXPECT_EQ(keptOf(sdk, "an.test.scripts").size(), 2u);
+
+    // The batch is gone from the manifest: the entry it ran cannot run, and the list is not given.
+    writeTextFile(package_root / "extension.json", R"json({
+      "id": "an.test.scripts", "name": "Script Runner", "version": "2.0.0", "type": "python",
+      "entry_point": "scripts.entry", "category": "filters", "launch_mode": "single_image",
+      "package_format_version": 1, "protocol_version": 1, "sdk_version": 1, "sdk_backend": "protocol",
+      "processes": [{"id_suffix": "runner", "class": "Runner", "display_name": "Run Script"}]
+    })json");
+    std::vector<an::ui::extensions::ExtensionLoadResult> narrowed{loadScripts(package_root)};
+    ASSERT_TRUE(narrowed.front().manifest.has_value()) << narrowed.front().diagnostic;
+    sdk.attachContributedProcesses(&narrowed);
+    EXPECT_TRUE(narrowed.front().contributed_processes.empty());
+    ExtensionManager().registerDiscoveredProcesses(narrowed, registry);
+    EXPECT_EQ(registry.find("an.test.scripts.m42"), nullptr);
+    EXPECT_NE(registry.find("an.test.scripts.runner"), nullptr);
+    EXPECT_EQ(keptOf(sdk, "an.test.scripts").size(), 2u) << "the list stays for the extension to state again";
+    registry.clear();
+}

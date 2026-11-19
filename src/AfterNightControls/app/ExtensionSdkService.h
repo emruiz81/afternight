@@ -166,6 +166,14 @@ struct ExtensionWorkflowOutput
 using ExtensionWorkflowOutputHandler = std::function<bool(
     std::string_view session_id, const std::vector<ExtensionWorkflowOutput>& outputs, std::string* error)>;
 
+/// The manifest of an installed extension, by its id: what the processes it contributes are checked against. Nothing
+/// for an extension the application does not know.
+using ExtensionSdkManifestProvider = std::function<std::optional<ExtensionManifest>(std::string_view extension_id)>;
+
+/// Told on the GUI thread once the list of processes an extension contributed was kept, or withdrawn: the processes are
+/// registered and listed again.
+using ExtensionSdkContributedProcessesKept = std::function<void(std::string_view extension_id)>;
+
 class AFTERNIGHTCONTROLS_API ExtensionSdkService
 {
 public:
@@ -179,6 +187,11 @@ public:
     void setUiInteractionHandler(ExtensionSdkUiInteractionHandler ui_interaction_handler);
     void setUiOpenImageHandler(ExtensionSdkUiOpenImageHandler ui_open_image_handler);
     void setWorkflowOutputHandler(ExtensionWorkflowOutputHandler workflow_output_handler);
+
+    /// What `processes.contribute` is checked against and who is told once a list is kept; with no manifest provider
+    /// every list is refused.
+    void setContributedProcessesHooks(ExtensionSdkManifestProvider manifest_provider,
+                                      ExtensionSdkContributedProcessesKept kept = {});
 
     [[nodiscard]] bool buildThemeChangedMessage(std::string_view session_id, ThemeChangedMessage* out_message,
                                                 bool* out_has_message, std::string* error = nullptr) const;
@@ -218,6 +231,42 @@ public:
     [[nodiscard]] bool dispatchProtocolMessage(const ExtensionProtocolMessage& request, std::string_view extension_id,
                                                ExtensionLaunchMode launch_mode, ExtensionProtocolMessage* response,
                                                std::string* error = nullptr);
+
+    /// Answers a host's request as the overload above does, knowing the capabilities the host stated in its hello: a
+    /// request a capability announces (`processes.contribute`) is refused from a host that did not state it.
+    [[nodiscard]] bool dispatchProtocolMessage(const ExtensionProtocolMessage& request, std::string_view extension_id,
+                                               ExtensionLaunchMode launch_mode,
+                                               const std::vector<std::string>& host_capabilities,
+                                               ExtensionProtocolMessage* response, std::string* error = nullptr);
+
+    // ---- The processes extensions contribute, kept in the global settings store
+    //
+    // One entry an extension, `extensions/contributedProcesses/<extension id>`, the JSON array of its list as it was
+    // validated; absent when it contributed none. Written by the application alone: an extension's own settings live
+    // under `extension/<extension id>/`, which no setting key it states can leave.
+
+    /// The key an extension's list is kept under.
+    [[nodiscard]] static QString contributedProcessesStorageKey(std::string_view extension_id);
+
+    /// Keeps an extension's whole list in place of the one kept before; an empty list removes it.
+    [[nodiscard]] bool keepContributedProcesses(std::string_view extension_id,
+                                                const std::vector<ContributedProcessEntry>& entries,
+                                                std::string* error = nullptr);
+
+    /// The list kept for an extension, read as the protocol reads one; empty when none is kept.
+    [[nodiscard]] bool keptContributedProcesses(std::string_view extension_id,
+                                                std::vector<ContributedProcessEntry>* out_entries,
+                                                std::string* error = nullptr);
+
+    /// Gives each package of `discovered` the list its extension contributed, when it still holds against the
+    /// package's manifest (`validateContributedProcesses`); a list that does not - the manifest changed in an update -
+    /// stays kept and is not given, and is logged.
+    void attachContributedProcesses(std::vector<ExtensionLoadResult>* discovered);
+
+    /// Forgets the lists of the extensions no package of a whole discovery `discovered` is: the ones removed. An
+    /// update keeps its list, and nothing is forgotten when a package's manifest states no id, since which extension
+    /// that is cannot be told.
+    void forgetContributedProcessesOfRemovedExtensions(const std::vector<ExtensionLoadResult>& discovered);
     // Must be called from the main thread (pump timer context).
     [[nodiscard]] std::vector<ExtensionProtocolMessage> takeDeferredProtocolResponses(std::string_view session_id);
     [[nodiscard]] const std::vector<ExtensionLogEvent>& recentLogEvents() const noexcept;
@@ -270,6 +319,8 @@ private:
     ExtensionSdkUiInteractionHandler ui_interaction_handler_;
     ExtensionSdkUiOpenImageHandler ui_open_image_handler_;
     ExtensionWorkflowOutputHandler workflow_output_handler_;
+    ExtensionSdkManifestProvider manifest_provider_;
+    ExtensionSdkContributedProcessesKept contributed_processes_kept_;
     std::vector<ExtensionLogEvent> recent_log_events_;
     std::vector<ExtensionDiagnosticCheckpoint> diagnostic_checkpoints_;
     std::vector<ExtensionWorkflowOutput> workflow_outputs_;

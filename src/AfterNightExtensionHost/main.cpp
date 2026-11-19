@@ -1449,6 +1449,18 @@ public:
         standalone_ = standalone;
     }
 
+    /// The process the extension contributed that the session was started for, by its `id_suffix`; empty for one of
+    /// its manifest's processes.
+    void setContributedProcess(std::string contributed_process) noexcept
+    {
+        contributed_process_ = std::move(contributed_process);
+    }
+
+    [[nodiscard]] const std::string& contributedProcess() const noexcept
+    {
+        return contributed_process_;
+    }
+
     [[nodiscard]] bool isStandalone() const noexcept
     {
         return standalone_;
@@ -1965,6 +1977,31 @@ public:
         {
             throw std::runtime_error(error);
         }
+    }
+
+    /// States the processes the extension adds while it runs, its whole list (`processes.contribute`), and answers how
+    /// many the application kept; a list the application refuses raises its reason. With no application - a standalone
+    /// launch - nothing keeps the list, and none is kept.
+    long long contributeProcesses(const py::object& entries)
+    {
+        if (!socket_)
+        {
+            return 0;
+        }
+
+        an::ui::extensions::ExtensionProtocolMessage request;
+        request.type = "processes.contribute";
+        request.session_id = session_id_;
+        request.request_id = an::ui::extensions::generateOpaqueToken();
+        request.fields = QCborMap{{QStringLiteral("entries"), pythonObjectToCborValue(entries)}};
+
+        an::ui::extensions::ExtensionProtocolMessage response;
+        std::string error;
+        if (!sendProtocolRequestAwaitResponse(request, &response, &error))
+        {
+            throw std::runtime_error(error);
+        }
+        return response.fields.value(QStringLiteral("count")).toInteger();
     }
 
     bool settingValue(const QString& key, const QCborValue& default_value, QCborValue* out_value, std::string* error)
@@ -4606,6 +4643,7 @@ private:
     QCborMap current_request_params_;
     std::string current_view_name_ = "Extension";
     std::string launch_mode_ = "single_image";
+    std::string contributed_process_;
     std::string theme_name_;
     std::atomic_bool cancelled_{false};
     bool ignore_cancel_ = false;
@@ -4735,6 +4773,9 @@ PYBIND11_EMBEDDED_MODULE(_afternight_host, m)
     });
     m.def("settings_keys",
           []() { return currentPythonHostBridge() ? currentPythonHostBridge()->settingsKeys() : py::list(); });
+    m.def("contribute_processes", [](const py::object& entries) -> long long {
+        return currentPythonHostBridge() ? currentPythonHostBridge()->contributeProcesses(entries) : 0;
+    });
     m.def("log_event", [](const std::string& severity, const std::string& component, const std::string& message) {
         if (currentPythonHostBridge())
         {
@@ -4815,6 +4856,7 @@ PYBIND11_EMBEDDED_MODULE(_afternight_host, m)
         info[py::str("request_id")] = py::str(currentPythonHostBridge()->currentRequestId());
         info[py::str("launch_mode")] = py::str(currentPythonHostBridge()->launchMode());
         info[py::str("view_name")] = py::str(currentPythonHostBridge()->currentViewName());
+        info[py::str("contributed_process")] = py::str(currentPythonHostBridge()->contributedProcess());
         info[py::str("is_standalone")] = currentPythonHostBridge()->isStandalone();
         return info;
     });
@@ -7407,6 +7449,10 @@ int main(int argc, char* argv[])
     const QCommandLineOption process_class_option(QStringLiteral("process-class"),
                                                   QStringLiteral("Extension process class to resolve."),
                                                   QStringLiteral("class"));
+    const QCommandLineOption contributed_process_option(
+        QStringLiteral("contributed-process"),
+        QStringLiteral("The process the extension contributed that the session is started for, by its id_suffix."),
+        QStringLiteral("id_suffix"));
     const QCommandLineOption environment_root_option(QStringLiteral("environment-root"),
                                                      QStringLiteral("Resolved extension environment root."),
                                                      QStringLiteral("path"));
@@ -7539,6 +7585,7 @@ int main(int argc, char* argv[])
     parser.addOption(extension_package_root_option);
     parser.addOption(entry_point_option);
     parser.addOption(process_class_option);
+    parser.addOption(contributed_process_option);
     parser.addOption(environment_root_option);
     parser.addOption(runtime_root_option);
     parser.addOption(inspect_option);
@@ -7795,6 +7842,7 @@ int main(int argc, char* argv[])
     extension_runtime.setInspectSettingsSnapshot(inspect_settings_snapshot);
     extension_runtime.bridge()->setLaunchMode(launch_mode);
     extension_runtime.bridge()->setStandalone(standalone_mode);
+    extension_runtime.bridge()->setContributedProcess(parser.value(contributed_process_option).trimmed().toStdString());
     std::string extension_runtime_initialization_error;
     const auto initialize_extension_runtime = [&]() {
         if (environment_root.empty() && entry_point.empty() && !inspect_only)

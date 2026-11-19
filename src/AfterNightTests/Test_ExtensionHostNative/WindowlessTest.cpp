@@ -145,6 +145,12 @@ TEST(Windowless, TheHostStatesItCanServeAPanel)
     }
 }
 
+TEST(Windowless, TheHostStatesItCarriesTheProcessesAnExtensionContributes)
+{
+    const std::vector<std::string_view> stated = fullHostCapabilities();
+    EXPECT_NE(std::find(stated.begin(), stated.end(), kContributedProcessesCapability), stated.end());
+}
+
 TEST(Windowless, TheCapabilityKeepsTheWindowAway)
 {
     const RuntimeHelloAckMessage hosted = acknowledgement(true, true);

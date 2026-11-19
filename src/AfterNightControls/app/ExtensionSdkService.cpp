@@ -7,6 +7,7 @@
 #include "app/ExtensionCommon.h"
 
 #include "controls/GlobalSettingsPersistence.h"
+#include "controls/settings/SettingsKeys.h"
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -1077,6 +1078,13 @@ void ExtensionSdkService::setWorkflowOutputHandler(ExtensionWorkflowOutputHandle
     workflow_output_handler_ = std::move(workflow_output_handler);
 }
 
+void ExtensionSdkService::setContributedProcessesHooks(ExtensionSdkManifestProvider manifest_provider,
+                                                       ExtensionSdkContributedProcessesKept kept)
+{
+    manifest_provider_ = std::move(manifest_provider);
+    contributed_processes_kept_ = std::move(kept);
+}
+
 bool ExtensionSdkService::buildThemeChangedMessage(const std::string_view session_id, ThemeChangedMessage* out_message,
                                                    bool* out_has_message, std::string* error) const
 {
@@ -1632,6 +1640,15 @@ bool ExtensionSdkService::dispatchProtocolMessage(const ExtensionProtocolMessage
                                                   const ExtensionLaunchMode launch_mode,
                                                   ExtensionProtocolMessage* response, std::string* error)
 {
+    return dispatchProtocolMessage(request, extension_id, launch_mode, {}, response, error);
+}
+
+bool ExtensionSdkService::dispatchProtocolMessage(const ExtensionProtocolMessage& request,
+                                                  const std::string_view extension_id,
+                                                  const ExtensionLaunchMode launch_mode,
+                                                  const std::vector<std::string>& host_capabilities,
+                                                  ExtensionProtocolMessage* response, std::string* error)
+{
     if (!response)
     {
         if (error)
@@ -1717,6 +1734,63 @@ bool ExtensionSdkService::dispatchProtocolMessage(const ExtensionProtocolMessage
             response->fields = QCborMap{{QStringLiteral("accepted"), true}, {QStringLiteral("title"), title}};
             return true;
         };
+
+        if (request.type == "processes.contribute")
+        {
+            // A list refused is refused whole, with its reason answered to the host and written to the log the session
+            // console shows; the list kept before stays.
+            const auto refuse = [&](const int local_code, const std::string& message, const std::string& details) {
+                if (an::platform::isLoggingInitialized())
+                {
+                    LOG_WARNING("The processes extension '{}' contributed were refused: {}: {}", extension_id, message,
+                                details);
+                }
+                make_error_response(ExtensionProtocolErrorDomain::Host, local_code, message, details);
+                return true;
+            };
+            if (std::find(host_capabilities.begin(), host_capabilities.end(), kContributedProcessesCapability) ==
+                host_capabilities.end())
+            {
+                return refuse(100, "processes.contribute is refused",
+                              "the host did not state the contributed_processes capability");
+            }
+            ProcessesContributeMessage contribution;
+            std::string local_error;
+            if (!processesContributeFromProtocolMessage(request, &contribution, &local_error))
+            {
+                return refuse(101, "Invalid processes.contribute request", local_error);
+            }
+            const std::optional<ExtensionManifest> manifest =
+                manifest_provider_ ? manifest_provider_(extension_id) : std::optional<ExtensionManifest>();
+            if (!manifest.has_value())
+            {
+                return refuse(102, "processes.contribute is refused",
+                              "the application has no installed extension '" + std::string(extension_id) + "'");
+            }
+            if (!validateContributedProcesses(*manifest, contribution.entries, &local_error))
+            {
+                return refuse(101, "Invalid processes.contribute request", local_error);
+            }
+            if (!keepContributedProcesses(extension_id, contribution.entries, &local_error))
+            {
+                return refuse(103, "Failed to keep the contributed processes", local_error);
+            }
+            if (an::platform::isLoggingInitialized())
+            {
+                LOG_INFO("Extension '{}' contributes {} process(es)", extension_id, contribution.entries.size());
+            }
+            if (contributed_processes_kept_)
+            {
+                contributed_processes_kept_(extension_id);
+            }
+
+            response->type = "processes.contribute.result";
+            response->session_id = request.session_id;
+            response->request_id = request.request_id;
+            response->fields = QCborMap{{QStringLiteral("accepted"), true},
+                                        {QStringLiteral("count"), static_cast<qint64>(contribution.entries.size())}};
+            return true;
+        }
 
         if (request.type == "logging.event")
         {
@@ -2756,8 +2830,8 @@ ExtensionSdkService::resolveNamespaceAvailability(const std::string_view message
     ExtensionSdkNamespaceAvailability availability;
     availability.namespace_name = std::string(service_namespace);
 
-    constexpr std::array<std::string_view, 5> kAlwaysAvailableNamespaces = {"settings", "views", "ui", "logging",
-                                                                            "diagnostics"};
+    constexpr std::array<std::string_view, 6> kAlwaysAvailableNamespaces = {"settings", "views",       "ui",
+                                                                            "logging",  "diagnostics", "processes"};
     if (std::find(kAlwaysAvailableNamespaces.begin(), kAlwaysAvailableNamespaces.end(), service_namespace) !=
         kAlwaysAvailableNamespaces.end())
     {
@@ -2824,6 +2898,159 @@ bool ExtensionSdkService::buildExtensionSettingStorageKey(const std::string_view
         QStringLiteral("extension/%1/%2")
             .arg(QString::fromStdString(std::string(extension_id)), QString::fromStdString(std::string(setting_key)));
     return true;
+}
+
+QString ExtensionSdkService::contributedProcessesStorageKey(const std::string_view extension_id)
+{
+    return QString::fromLatin1(SettingsKeys::EXTENSIONS_CONTRIBUTED_PROCESSES_PREFIX) +
+           QString::fromUtf8(extension_id.data(), static_cast<qsizetype>(extension_id.size()));
+}
+
+bool ExtensionSdkService::keepContributedProcesses(const std::string_view extension_id,
+                                                   const std::vector<ContributedProcessEntry>& entries,
+                                                   std::string* error)
+{
+    if (!isSafeExtensionId(extension_id))
+    {
+        if (error)
+        {
+            *error = "The contributed processes name an invalid extension id";
+        }
+        return false;
+    }
+    if (!ensurePersistenceReady(error))
+    {
+        return false;
+    }
+    const QString key = contributedProcessesStorageKey(extension_id);
+    if (entries.empty())
+    {
+        if (!global_settings_persistence_->remove(key))
+        {
+            if (error)
+            {
+                *error = "Failed to withdraw the contributed processes";
+            }
+            return false;
+        }
+        return true;
+    }
+    const QString list = QString::fromUtf8(
+        QJsonDocument(contributedProcessEntriesToCbor(entries).toJsonArray()).toJson(QJsonDocument::Compact));
+    if (!global_settings_persistence_->upsert(key, list))
+    {
+        if (error)
+        {
+            *error = "Failed to keep the contributed processes";
+        }
+        return false;
+    }
+    return true;
+}
+
+bool ExtensionSdkService::keptContributedProcesses(const std::string_view extension_id,
+                                                   std::vector<ContributedProcessEntry>* out_entries,
+                                                   std::string* error)
+{
+    if (!out_entries)
+    {
+        if (error)
+        {
+            *error = "Contributed processes output is null";
+        }
+        return false;
+    }
+    out_entries->clear();
+    if (!isSafeExtensionId(extension_id))
+    {
+        if (error)
+        {
+            *error = "The contributed processes name an invalid extension id";
+        }
+        return false;
+    }
+    if (!ensurePersistenceReady(error))
+    {
+        return false;
+    }
+    const std::optional<QString> list =
+        global_settings_persistence_->selectOptional(contributedProcessesStorageKey(extension_id));
+    if (!list.has_value())
+    {
+        return true;
+    }
+    QJsonParseError parse_error;
+    const QJsonDocument document = QJsonDocument::fromJson(list->toUtf8(), &parse_error);
+    if (parse_error.error != QJsonParseError::NoError || !document.isArray())
+    {
+        if (error)
+        {
+            *error = "The kept contributed processes are not a JSON array";
+        }
+        return false;
+    }
+    return contributedProcessEntriesFromCbor(QCborArray::fromJsonArray(document.array()), out_entries, error);
+}
+
+void ExtensionSdkService::attachContributedProcesses(std::vector<ExtensionLoadResult>* discovered)
+{
+    if (!discovered || !global_settings_persistence_)
+    {
+        return;
+    }
+    for (ExtensionLoadResult& result : *discovered)
+    {
+        result.contributed_processes.clear();
+        if (!result.manifest)
+        {
+            continue;
+        }
+        std::vector<ContributedProcessEntry> entries;
+        std::string attach_error;
+        if (!keptContributedProcesses(result.manifest->id, &entries, &attach_error) ||
+            !validateContributedProcesses(*result.manifest, entries, &attach_error))
+        {
+            if (an::platform::isLoggingInitialized())
+            {
+                LOG_WARNING("The processes extension '{}' contributed are not listed: {}", result.manifest->id,
+                            attach_error);
+            }
+            continue;
+        }
+        result.contributed_processes = std::move(entries);
+    }
+}
+
+void ExtensionSdkService::forgetContributedProcessesOfRemovedExtensions(
+    const std::vector<ExtensionLoadResult>& discovered)
+{
+    if (!global_settings_persistence_ || !ensurePersistenceReady(nullptr))
+    {
+        return;
+    }
+    std::set<std::string, std::less<>> installed;
+    for (const ExtensionLoadResult& result : discovered)
+    {
+        const std::string id = result.manifest ? result.manifest->id : result.declared_id;
+        if (id.empty())
+        {
+            return;
+        }
+        installed.insert(id);
+    }
+    const QString prefix = QString::fromLatin1(SettingsKeys::EXTENSIONS_CONTRIBUTED_PROCESSES_PREFIX);
+    for (const QString& key : global_settings_persistence_->selectKeysWithPrefix(prefix))
+    {
+        const std::string extension_id = key.mid(prefix.size()).toStdString();
+        if (key.startsWith(prefix) && !installed.contains(extension_id))
+        {
+            static_cast<void>(global_settings_persistence_->remove(key));
+            if (an::platform::isLoggingInitialized())
+            {
+                LOG_INFO("Forgot the processes removed extension '{}' contributed", extension_id);
+            }
+        }
+    }
 }
 
 void ExtensionSdkService::enqueueDeferredProtocolResponse(const std::string_view session_id,
