@@ -463,13 +463,17 @@ int AnCollapsibleSection::contentHeightHint() const
     {
         layout->activate();
 
-        int hint = layout->sizeHint().height();
-        hint = (std::max)(hint, layout->minimumSize().height());
-
+        int hint = layout->minimumSize().height();
+        // Content whose height follows its width - wrapped text - takes the height it needs at the width it has. Its
+        // size hint is laid out at a narrow width of Qt's choosing and can be far taller than that.
         const int width = contentWidthHint();
         if (width > 0 && layout->hasHeightForWidth())
         {
             hint = (std::max)(hint, layout->heightForWidth(width));
+        }
+        else
+        {
+            hint = (std::max)(hint, layout->sizeHint().height());
         }
 
         return (std::max)(0, hint);

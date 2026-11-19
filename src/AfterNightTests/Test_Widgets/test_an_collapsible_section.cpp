@@ -174,3 +174,42 @@ TEST(WidgetsComponentsAnCollapsibleSection, AnCollapsibleSection_ExpandedHeightT
     EXPECT_GT(section.contentWidget()->minimumHeight(), initialHeight);
     EXPECT_GE(section.contentWidget()->minimumHeight(), expectedHeight);
 }
+
+// An expanded section asks for the height its content needs at the width it has, and no more. A word-wrapped label's
+// own size hint is laid out at a narrow width of Qt's choosing and is far taller than the label at its width; a
+// section that kept that height spread its rows apart and made a page's body scroll for room nobody needed.
+TEST(WidgetsComponentsAnCollapsibleSection, AnCollapsibleSection_ExpandedHeightIsWhatItsWidthNeedsAndNoMore)
+{
+    an::ui::AnCollapsibleSection section(QStringLiteral("Film Fade Studio"));
+    section.resize(1000, 240);
+
+    auto* contentLayout = new QVBoxLayout();
+    auto* label = new QLabel(QStringLiteral(
+        "This demo intentionally leans into a more editorial, studio style layout. It is execute-only, uses the same "
+        "native AfterNight controls under the hood, and should feel clearly different from the standard process "
+        "panels."));
+    label->setWordWrap(true);
+    contentLayout->addWidget(label);
+    for (int row = 0; row < 3; ++row)
+    {
+        auto* button = new QToolButton();
+        button->setText(QStringLiteral("Row %1").arg(row));
+        contentLayout->addWidget(button);
+    }
+
+    section.setContentLayout(contentLayout);
+    // Wide, so the label's text takes fewer lines than its own hint gives it, whatever the font.
+    section.contentWidget()->resize(900, 1);
+    section.setAnimationDuration(0);
+    section.setExpanded(true);
+    QCoreApplication::processEvents();
+
+    const int width = section.contentWidget()->width();
+    ASSERT_GT(width, 0);
+    ASSERT_TRUE(section.contentLayout()->hasHeightForWidth());
+    const int needed = section.contentLayout()->heightForWidth(width);
+    // The case means something only where the label's own hint is taller than the label at its width.
+    ASSERT_GT(section.contentLayout()->sizeHint().height(), needed);
+
+    EXPECT_EQ(section.contentWidget()->minimumHeight(), needed);
+}
