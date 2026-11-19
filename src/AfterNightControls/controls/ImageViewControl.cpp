@@ -9,6 +9,7 @@
 #include "ImageZoomAndPanController.h"
 #include "ToolbarOverflowLayout.h"
 #include "controls/ImageViewCompanions.h"
+#include "controls/ViewShapes.h"
 #include "controls/ImageViewFiles.h"
 #include "widgets/ImageViewWidget.h"
 #include "widgets/ImagePreviewWidget.h"
@@ -1073,6 +1074,14 @@ struct ImageViewControl::Impl
     std::unique_ptr<ImageViewWidgetDisplayModule> m_DistortionMapDisplayModule;
     /// The catalogue annotations: the deep-sky objects and the bright stars, each a layer of the one overlay.
     std::unique_ptr<ImageViewWidgetDisplayModule> m_CatalogAnnotationDisplayModule;
+
+    /// The shapes an owner draws over the view, and the overlay that draws them.
+    struct OwnedShapes
+    {
+        std::shared_ptr<const an::ui::ViewShapes> shapes;
+        std::unique_ptr<ImageViewWidgetDisplayModule> overlay;
+    };
+    std::map<std::string, OwnedShapes> m_OwnedShapes;
 
     /// Draws the catalogue annotations' layers the menu checks while the astrometry overlays are shown, and nothing
     /// when neither is checked.
@@ -3008,6 +3017,41 @@ std::string ImageViewControl::getFileName() const
 std::shared_ptr<const an::ui::ViewOverlayStars> ImageViewControl::overlayStars() const
 {
     return m_impl->m_OverlayStars;
+}
+
+void ImageViewControl::setOwnedShapes(const std::string& owner, std::shared_ptr<const an::ui::ViewShapes> shapes)
+{
+    if (!shapes || shapes->shapes.empty())
+    {
+        if (m_impl->m_OwnedShapes.erase(owner) > 0u && m_impl->m_ImageViewWidget != nullptr)
+        {
+            m_impl->m_ImageViewWidget->update();
+        }
+        return;
+    }
+    Impl::OwnedShapes& owned = m_impl->m_OwnedShapes[owner];
+    if (!owned.overlay)
+    {
+        owned.overlay = an::ui::createShapeOverlay(*this);
+        if (!owned.overlay)
+        {
+            m_impl->m_OwnedShapes.erase(owner);
+            return;
+        }
+        owned.overlay->attachToViewWidget(m_impl->m_ImageViewWidget);
+    }
+    owned.shapes = shapes;
+    an::ui::setShapeOverlayShapes(*owned.overlay, std::move(shapes));
+    if (m_impl->m_ImageViewWidget != nullptr)
+    {
+        m_impl->m_ImageViewWidget->update();
+    }
+}
+
+std::shared_ptr<const an::ui::ViewShapes> ImageViewControl::ownedShapes(const std::string& owner) const
+{
+    const auto found = m_impl->m_OwnedShapes.find(owner);
+    return found != m_impl->m_OwnedShapes.end() ? found->second.shapes : nullptr;
 }
 
 const std::optional<an::WcsSolution>& ImageViewControl::imageSolution() const
@@ -5702,6 +5746,7 @@ ImageViewControl::~ImageViewControl()
     m_impl->m_CoordinateGridDisplayModule.reset();
     m_impl->m_DistortionMapDisplayModule.reset();
     m_impl->m_CatalogAnnotationDisplayModule.reset();
+    m_impl->m_OwnedShapes.clear();
     m_impl->m_History.reset();
     if (m_impl->m_SequencePlayer)
     {

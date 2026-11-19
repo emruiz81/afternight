@@ -14,7 +14,9 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -2589,6 +2591,567 @@ bool contributedProcessEntriesFromCbor(const QCborValue& value, std::vector<Cont
         *out_entries = std::move(entries);
     }
     return true;
+}
+
+namespace
+{
+
+/// A refusal of a request, saying what was wrong.
+[[nodiscard]] bool refuseRequest(std::string* error, std::string reason)
+{
+    if (error)
+    {
+        *error = std::move(reason);
+    }
+    return false;
+}
+
+/// Whether a request names only the fields it may: the first it names that it may not, or none.
+[[nodiscard]] std::optional<std::string> fieldNotStated(const QCborMap& fields,
+                                                        const std::initializer_list<const char*> allowed)
+{
+    for (auto it = fields.constBegin(); it != fields.constEnd(); ++it)
+    {
+        const QString key = it.key().isString() ? it.key().toString() : QString();
+        const bool known = std::any_of(allowed.begin(), allowed.end(),
+                                       [&key](const char* name) { return key == QLatin1String(name); });
+        if (!known)
+        {
+            return key.isEmpty() ? std::string("(not a name)") : key.toStdString();
+        }
+    }
+    return std::nullopt;
+}
+
+/// A finite number of a CBOR value: an integer or a floating-point number.
+[[nodiscard]] std::optional<double> finiteNumber(const QCborValue& value)
+{
+    if (value.isInteger())
+    {
+        return static_cast<double>(value.toInteger());
+    }
+    if (value.isDouble() && std::isfinite(value.toDouble()))
+    {
+        return value.toDouble();
+    }
+    return std::nullopt;
+}
+
+/// A colour written `#rrggbb` (opaque) or `#rrggbbaa`, as 0xAARRGGBB.
+[[nodiscard]] std::optional<std::uint32_t> colorFromText(const QString& text)
+{
+    if (!text.startsWith(QLatin1Char('#')) || (text.size() != 7 && text.size() != 9) ||
+        !std::all_of(text.cbegin() + 1, text.cend(), [](const QChar character) {
+            const char16_t code = character.unicode();
+            return (code >= u'0' && code <= u'9') || (code >= u'a' && code <= u'f') || (code >= u'A' && code <= u'F');
+        }))
+    {
+        return std::nullopt;
+    }
+    bool parsed = false;
+    const std::uint32_t value = text.mid(1).toUInt(&parsed, 16);
+    if (!parsed)
+    {
+        return std::nullopt;
+    }
+    return text.size() == 7 ? (0xFF000000u | value) : (((value & 0xFFu) << 24u) | (value >> 8u));
+}
+
+/// A colour as 0xAARRGGBB, written `#rrggbbaa`.
+[[nodiscard]] QString colorToText(const std::uint32_t color)
+{
+    return QString::fromStdString(fmt::format("#{:06x}{:02x}", color & 0x00FFFFFFu, color >> 24u));
+}
+
+/// A name a display mode is reported under: letters, digits and `_`.
+[[nodiscard]] bool isModeName(const std::string& value)
+{
+    return !value.empty() && value.size() <= 64u && std::all_of(value.begin(), value.end(), [](const char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+               (character >= '0' && character <= '9') || character == '_';
+    });
+}
+
+/// Reads one shape of a `view.overlay`'s `add`, refused at its first error; `where` names it in the refusal.
+[[nodiscard]] bool viewOverlayShapeFromCbor(const QCborValue& value, const std::string& where,
+                                            ViewOverlayShape* out_shape, std::string* error)
+{
+    if (!value.isMap())
+    {
+        return refuseRequest(error, where + " is not a map");
+    }
+    const QCborMap map = value.toMap();
+    if (const auto stray = fieldNotStated(map, {"kind", "points", "color", "filled", "label"}))
+    {
+        return refuseRequest(error, where + " states a field a shape has not: " + *stray);
+    }
+
+    ViewOverlayShape shape;
+    const QCborValue kind = map.value(QStringLiteral("kind"));
+    if (!kind.isString() || (kind.toString() != QLatin1String("polygon") && kind.toString() != QLatin1String("line")))
+    {
+        return refuseRequest(error, where + "'s kind is neither 'polygon' nor 'line'");
+    }
+    shape.closed = kind.toString() == QLatin1String("polygon");
+
+    const QCborValue points = map.value(QStringLiteral("points"));
+    if (!points.isArray())
+    {
+        return refuseRequest(error, where + "'s points are not an array");
+    }
+    const QCborArray coordinates = points.toArray();
+    if (coordinates.isEmpty() || coordinates.size() % 2 != 0)
+    {
+        return refuseRequest(error, where + "'s points are not pairs of an x and a y, at least one");
+    }
+    shape.points.reserve(static_cast<std::size_t>(coordinates.size() / 2));
+    for (qsizetype index = 0; index < coordinates.size(); index += 2)
+    {
+        const std::optional<double> x = finiteNumber(coordinates.at(index));
+        const std::optional<double> y = finiteNumber(coordinates.at(index + 1));
+        if (!x.has_value() || !y.has_value())
+        {
+            return refuseRequest(error, fmt::format("{}'s point {} is not finite", where, index / 2 + 1));
+        }
+        shape.points.push_back(ViewOverlayPoint{*x, *y});
+    }
+
+    const QCborValue color = map.value(QStringLiteral("color"));
+    const std::optional<std::uint32_t> parsed_color =
+        color.isString() ? colorFromText(color.toString()) : std::optional<std::uint32_t>();
+    if (!parsed_color.has_value())
+    {
+        return refuseRequest(error, where + "'s color is not written '#rrggbb' or '#rrggbbaa'");
+    }
+    shape.color = *parsed_color;
+
+    if (map.contains(QStringLiteral("filled")))
+    {
+        const QCborValue filled = map.value(QStringLiteral("filled"));
+        if (!filled.isBool())
+        {
+            return refuseRequest(error, where + "'s filled is not a bool");
+        }
+        if (filled.toBool() && !shape.closed)
+        {
+            return refuseRequest(error, where + " is a line, which is never filled");
+        }
+        shape.filled = filled.toBool();
+    }
+
+    if (map.contains(QStringLiteral("label")))
+    {
+        const QCborValue label = map.value(QStringLiteral("label"));
+        if (!label.isString())
+        {
+            return refuseRequest(error, where + "'s label is not a string");
+        }
+        const QString text = label.toString();
+        if (static_cast<std::size_t>(text.size()) > kViewOverlayLabelLimit)
+        {
+            return refuseRequest(error, fmt::format("{}'s label is {} characters long, longer than its limit of {}",
+                                                    where, text.size(), kViewOverlayLabelLimit));
+        }
+        if (!isPlainText(text))
+        {
+            return refuseRequest(error, where + "'s label is not plain text");
+        }
+        shape.label = text.toStdString();
+    }
+
+    if (out_shape)
+    {
+        *out_shape = std::move(shape);
+    }
+    return true;
+}
+
+/// Reads what every request of a view checks first: its type and session, and a request id.
+[[nodiscard]] bool viewRequestHead(const ExtensionProtocolMessage& message, const std::string_view type,
+                                   std::string* error)
+{
+    if (!parseRuntimeMessageType(message, type, error))
+    {
+        return false;
+    }
+    if (message.request_id.empty())
+    {
+        return refuseRequest(error, std::string(type) + " requires a request_id");
+    }
+    return true;
+}
+
+} // namespace
+
+ExtensionProtocolMessage toProtocolMessage(const ViewOverlayMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "view.overlay";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    if (message.clear)
+    {
+        protocol.fields[QStringLiteral("clear")] = true;
+    }
+    if (!message.remove.empty())
+    {
+        QCborArray remove;
+        for (const std::int64_t id : message.remove)
+        {
+            remove.push_back(static_cast<qint64>(id));
+        }
+        protocol.fields[QStringLiteral("remove")] = remove;
+    }
+    if (!message.add.empty())
+    {
+        QCborArray add;
+        for (const ViewOverlayShape& shape : message.add)
+        {
+            QCborArray points;
+            for (const ViewOverlayPoint& point : shape.points)
+            {
+                points.push_back(point.x);
+                points.push_back(point.y);
+            }
+            QCborMap map{{QStringLiteral("kind"), shape.closed ? QStringLiteral("polygon") : QStringLiteral("line")},
+                         {QStringLiteral("points"), points},
+                         {QStringLiteral("color"), colorToText(shape.color)}};
+            if (shape.filled)
+            {
+                map[QStringLiteral("filled")] = true;
+            }
+            if (!shape.label.empty())
+            {
+                map[QStringLiteral("label")] = QString::fromStdString(shape.label);
+            }
+            add.push_back(map);
+        }
+        protocol.fields[QStringLiteral("add")] = add;
+    }
+    return protocol;
+}
+
+bool viewOverlayFromProtocolMessage(const ExtensionProtocolMessage& message, ViewOverlayMessage* out_message,
+                                    std::string* error)
+{
+    if (!viewRequestHead(message, "view.overlay", error))
+    {
+        return false;
+    }
+    if (const auto stray = fieldNotStated(message.fields, {"clear", "remove", "add"}))
+    {
+        return refuseRequest(error, "view.overlay states a field it has not: " + *stray);
+    }
+
+    ViewOverlayMessage parsed;
+    if (message.fields.contains(QStringLiteral("clear")))
+    {
+        const QCborValue clear = message.fields.value(QStringLiteral("clear"));
+        if (!clear.isBool())
+        {
+            return refuseRequest(error, "view.overlay's clear is not a bool");
+        }
+        parsed.clear = clear.toBool();
+    }
+
+    if (message.fields.contains(QStringLiteral("remove")))
+    {
+        const QCborValue remove = message.fields.value(QStringLiteral("remove"));
+        if (!remove.isArray())
+        {
+            return refuseRequest(error, "view.overlay's remove is not an array");
+        }
+        const QCborArray ids = remove.toArray();
+        if (static_cast<std::size_t>(ids.size()) > kViewOverlayShapeLimit)
+        {
+            return refuseRequest(error, fmt::format("view.overlay removes {} shapes, more than a session may keep ({})",
+                                                    ids.size(), kViewOverlayShapeLimit));
+        }
+        for (qsizetype index = 0; index < ids.size(); ++index)
+        {
+            const QCborValue id = ids.at(index);
+            if (!id.isInteger() || id.toInteger() <= 0)
+            {
+                return refuseRequest(error, fmt::format("view.overlay's remove {} is not a shape's id", index + 1));
+            }
+            if (std::find(parsed.remove.begin(), parsed.remove.end(), id.toInteger()) != parsed.remove.end())
+            {
+                return refuseRequest(error, fmt::format("view.overlay removes shape {} twice", id.toInteger()));
+            }
+            parsed.remove.push_back(id.toInteger());
+        }
+        if (parsed.clear && !parsed.remove.empty())
+        {
+            return refuseRequest(error, "view.overlay clears every shape and names shapes to remove");
+        }
+    }
+
+    if (message.fields.contains(QStringLiteral("add")))
+    {
+        const QCborValue add = message.fields.value(QStringLiteral("add"));
+        if (!add.isArray())
+        {
+            return refuseRequest(error, "view.overlay's add is not an array");
+        }
+        const QCborArray shapes = add.toArray();
+        if (static_cast<std::size_t>(shapes.size()) > kViewOverlayShapeLimit)
+        {
+            return refuseRequest(error, fmt::format("view.overlay adds {} shapes, more than a session may keep ({})",
+                                                    shapes.size(), kViewOverlayShapeLimit));
+        }
+        std::size_t points = 0u;
+        parsed.add.reserve(static_cast<std::size_t>(shapes.size()));
+        for (qsizetype index = 0; index < shapes.size(); ++index)
+        {
+            // The points are counted before a shape is read, so a request far over the limit is refused unread.
+            const QCborValue stated = shapes.at(index).toMap().value(QStringLiteral("points"));
+            points += stated.isArray() ? static_cast<std::size_t>(stated.toArray().size() / 2) : 0u;
+            if (points > kViewOverlayPointLimit)
+            {
+                return refuseRequest(error, fmt::format("view.overlay adds more than {} points, the most a session's "
+                                                        "shapes may hold together",
+                                                        kViewOverlayPointLimit));
+            }
+            ViewOverlayShape shape;
+            if (!viewOverlayShapeFromCbor(shapes.at(index), fmt::format("shape {}", index + 1), &shape, error))
+            {
+                return false;
+            }
+            parsed.add.push_back(std::move(shape));
+        }
+    }
+
+    if (out_message)
+    {
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const ViewSelectionMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "view.selection";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("enabled")] = message.enabled;
+    if (message.rect.has_value())
+    {
+        protocol.fields[QStringLiteral("rect")] =
+            QCborArray{message.rect->x, message.rect->y, message.rect->width, message.rect->height};
+    }
+    return protocol;
+}
+
+bool viewSelectionFromProtocolMessage(const ExtensionProtocolMessage& message, ViewSelectionMessage* out_message,
+                                      std::string* error)
+{
+    if (!viewRequestHead(message, "view.selection", error))
+    {
+        return false;
+    }
+    if (const auto stray = fieldNotStated(message.fields, {"enabled", "rect"}))
+    {
+        return refuseRequest(error, "view.selection states a field it has not: " + *stray);
+    }
+    const QCborValue enabled = message.fields.value(QStringLiteral("enabled"));
+    if (!enabled.isBool())
+    {
+        return refuseRequest(error, "view.selection's enabled is not a bool");
+    }
+
+    ViewSelectionMessage parsed;
+    parsed.enabled = enabled.toBool();
+    if (message.fields.contains(QStringLiteral("rect")))
+    {
+        if (!parsed.enabled)
+        {
+            return refuseRequest(error, "view.selection states a rectangle for an area it turns off");
+        }
+        const QCborValue rect = message.fields.value(QStringLiteral("rect"));
+        const QCborArray sides = rect.isArray() ? rect.toArray() : QCborArray();
+        const bool integers = sides.size() == 4 && std::all_of(sides.begin(), sides.end(), [](const QCborValue& side) {
+                                  return side.isInteger() && side.toInteger() >= std::numeric_limits<int>::min() &&
+                                         side.toInteger() <= std::numeric_limits<int>::max();
+                              });
+        if (!integers)
+        {
+            return refuseRequest(error, "view.selection's rect is not four integers: x, y, width, height");
+        }
+        ViewSelectionRect read{static_cast<int>(sides.at(0).toInteger()), static_cast<int>(sides.at(1).toInteger()),
+                               static_cast<int>(sides.at(2).toInteger()), static_cast<int>(sides.at(3).toInteger())};
+        if (read.width <= 0 || read.height <= 0)
+        {
+            return refuseRequest(error, "view.selection's rect has a side that is not positive");
+        }
+        parsed.rect = read;
+    }
+
+    if (out_message)
+    {
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const ViewDisplayMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "view.display";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    if (message.zoom_percent.has_value())
+    {
+        protocol.fields[QStringLiteral("zoom")] = *message.zoom_percent;
+    }
+    if (message.center.has_value())
+    {
+        protocol.fields[QStringLiteral("center")] = QCborArray{message.center->x, message.center->y};
+    }
+    if (message.fit)
+    {
+        protocol.fields[QStringLiteral("fit")] = true;
+    }
+    if (!message.mode.empty())
+    {
+        protocol.fields[QStringLiteral("mode")] = QString::fromStdString(message.mode);
+    }
+    return protocol;
+}
+
+bool viewDisplayFromProtocolMessage(const ExtensionProtocolMessage& message, ViewDisplayMessage* out_message,
+                                    std::string* error)
+{
+    if (!viewRequestHead(message, "view.display", error))
+    {
+        return false;
+    }
+    if (const auto stray = fieldNotStated(message.fields, {"zoom", "center", "fit", "mode"}))
+    {
+        return refuseRequest(error, "view.display states a field it has not: " + *stray);
+    }
+
+    ViewDisplayMessage parsed;
+    if (message.fields.contains(QStringLiteral("zoom")))
+    {
+        const std::optional<double> zoom = finiteNumber(message.fields.value(QStringLiteral("zoom")));
+        if (!zoom.has_value() || *zoom <= 0.0)
+        {
+            return refuseRequest(error, "view.display's zoom is not a finite positive number");
+        }
+        parsed.zoom_percent = *zoom;
+    }
+    if (message.fields.contains(QStringLiteral("center")))
+    {
+        const QCborValue center = message.fields.value(QStringLiteral("center"));
+        const QCborArray coordinates = center.isArray() ? center.toArray() : QCborArray();
+        const std::optional<double> x = coordinates.size() == 2 ? finiteNumber(coordinates.at(0)) : std::nullopt;
+        const std::optional<double> y = coordinates.size() == 2 ? finiteNumber(coordinates.at(1)) : std::nullopt;
+        if (!x.has_value() || !y.has_value())
+        {
+            return refuseRequest(error, "view.display's center is not two finite numbers");
+        }
+        parsed.center = ViewOverlayPoint{*x, *y};
+    }
+    if (message.fields.contains(QStringLiteral("fit")))
+    {
+        const QCborValue fit = message.fields.value(QStringLiteral("fit"));
+        if (!fit.isBool())
+        {
+            return refuseRequest(error, "view.display's fit is not a bool");
+        }
+        parsed.fit = fit.toBool();
+    }
+    if (parsed.fit && (parsed.zoom_percent.has_value() || parsed.center.has_value()))
+    {
+        return refuseRequest(error, "view.display states fit to window with a zoom or a centre, which it sets itself");
+    }
+    if (message.fields.contains(QStringLiteral("mode")))
+    {
+        const QCborValue mode = message.fields.value(QStringLiteral("mode"));
+        if (!mode.isString() || !isModeName(mode.toString().toStdString()))
+        {
+            return refuseRequest(error, "view.display's mode is not a display mode's name");
+        }
+        parsed.mode = mode.toString().toStdString();
+    }
+    if (!parsed.zoom_percent.has_value() && !parsed.center.has_value() && !parsed.fit && parsed.mode.empty())
+    {
+        return refuseRequest(error, "view.display states none of a zoom, a centre, fit to window and a mode");
+    }
+
+    if (out_message)
+    {
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const ViewHistoryMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "view.history";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("action")] =
+        message.action == ViewHistoryAction::Undo ? QStringLiteral("undo") : QStringLiteral("redo");
+    return protocol;
+}
+
+bool viewHistoryFromProtocolMessage(const ExtensionProtocolMessage& message, ViewHistoryMessage* out_message,
+                                    std::string* error)
+{
+    if (!viewRequestHead(message, "view.history", error))
+    {
+        return false;
+    }
+    if (const auto stray = fieldNotStated(message.fields, {"action"}))
+    {
+        return refuseRequest(error, "view.history states a field it has not: " + *stray);
+    }
+    const QCborValue action = message.fields.value(QStringLiteral("action"));
+    if (!action.isString() ||
+        (action.toString() != QLatin1String("undo") && action.toString() != QLatin1String("redo")))
+    {
+        return refuseRequest(error, "view.history's action is neither 'undo' nor 'redo'");
+    }
+
+    if (out_message)
+    {
+        ViewHistoryMessage parsed;
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        parsed.action = action.toString() == QLatin1String("undo") ? ViewHistoryAction::Undo : ViewHistoryAction::Redo;
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
+std::string_view viewRequestCapability(const std::string_view message_type)
+{
+    if (message_type == "view.overlay")
+    {
+        return kViewOverlayCapability;
+    }
+    if (message_type == "view.selection")
+    {
+        return kViewSelectionCapability;
+    }
+    if (message_type == "view.display")
+    {
+        return kViewDisplayCapability;
+    }
+    if (message_type == "view.history")
+    {
+        return kViewHistoryCapability;
+    }
+    return {};
 }
 
 bool servesHostedPanel(const RuntimeHelloAckMessage& ack)

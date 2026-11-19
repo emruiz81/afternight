@@ -80,6 +80,10 @@ struct CompanionRecord
     /// stars.
     std::vector<std::pair<bool, bool>> overlayLayers;
 
+    /// How many shape overlays were made, and the shapes handed to them, in order; a null entry drew none.
+    int shapeOverlaysMade = 0;
+    std::vector<std::shared_ptr<const an::ui::ViewShapes>> shapesHanded;
+
     /// The counts the lens histograms were handed.
     std::vector<an::ui::LensHistogram> lensCounts;
 };

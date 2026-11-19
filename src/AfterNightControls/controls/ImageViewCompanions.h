@@ -336,6 +336,24 @@ AFTERNIGHTCONTROLS_API void setAstrometryOverlayLayers(::ImageViewWidgetDisplayM
 AFTERNIGHTCONTROLS_API void setAstrometryOverlayStars(::ImageViewWidgetDisplayModule& overlay,
                                                       std::shared_ptr<const ViewOverlayStars> stars);
 
+struct ViewShapes;
+
+/// Makes the overlay that draws the shapes one owner - an extension's session - keeps over a view
+/// (`ImageViewControl::setOwnedShapes`). Defined beside the overlay.
+///
+/// @param view the view it draws over.
+/// @return the overlay, not yet attached to the view's widget.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::unique_ptr<::ImageViewWidgetDisplayModule>
+createShapeOverlay(::ImageViewControl& view);
+
+/// Hands an overlay `createShapeOverlay` made the shapes it draws; any other overlay ignores them. Defined beside the
+/// overlay.
+///
+/// @param overlay the overlay.
+/// @param shapes the shapes, or null to draw none.
+AFTERNIGHTCONTROLS_API void setShapeOverlayShapes(::ImageViewWidgetDisplayModule& overlay,
+                                                  std::shared_ptr<const ViewShapes> shapes);
+
 /// The histogram the lens shows under its magnified region. Made by `createLensHistogram`, which the histogram
 /// widgets define.
 class ILensHistogram

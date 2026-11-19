@@ -37,6 +37,13 @@ private:
     an::ui::AstrometryOverlay m_kind;
 };
 
+/// A shape overlay that draws nothing.
+class StandInShapeOverlay final : public ::ImageViewWidgetDisplayModule
+{
+public:
+    void onDraw(QPainter&) override {}
+};
+
 } // namespace
 
 } // namespace an::tests::viewer
@@ -69,6 +76,20 @@ void setAstrometryOverlayStars(::ImageViewWidgetDisplayModule& overlay, std::sha
     if (standIn != nullptr && standIn->kind() == AstrometryOverlay::DetectedStars)
     {
         an::tests::viewer::companionRecord().overlayStars.push_back(std::move(stars));
+    }
+}
+
+std::unique_ptr<::ImageViewWidgetDisplayModule> createShapeOverlay(::ImageViewControl&)
+{
+    ++an::tests::viewer::companionRecord().shapeOverlaysMade;
+    return std::make_unique<an::tests::viewer::StandInShapeOverlay>();
+}
+
+void setShapeOverlayShapes(::ImageViewWidgetDisplayModule& overlay, std::shared_ptr<const ViewShapes> shapes)
+{
+    if (dynamic_cast<const an::tests::viewer::StandInShapeOverlay*>(&overlay) != nullptr)
+    {
+        an::tests::viewer::companionRecord().shapesHanded.push_back(std::move(shapes));
     }
 }
 

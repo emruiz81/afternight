@@ -249,6 +249,10 @@ public:
 
     size_t getNumOfDisplayModules() const;
 
+    /// The part of the widget the paint under way paints, in the widget's coordinates, for a display module to draw
+    /// nothing outside it; empty outside a paint.
+    [[nodiscard]] QRect rectBeingPainted() const;
+
     bool isContextMenuSupported() const;
 
     /// Marks the view as one whose image changes many times a second, a real-time preview's or a playing sequence's.

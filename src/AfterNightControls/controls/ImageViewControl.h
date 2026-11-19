@@ -69,6 +69,7 @@ class IViewHistory;
 class IViewSequencePlayer;
 struct ViewImageStatistics;
 struct ViewOverlayStars;
+struct ViewShapes;
 } // namespace an::ui
 
 enum class ImageViewControlAction : uint8_t
@@ -394,6 +395,15 @@ public:
 
     /// The stars the detected-stars overlay draws, or null.
     [[nodiscard]] std::shared_ptr<const an::ui::ViewOverlayStars> overlayStars() const;
+
+    /// Draws shapes over the image for an owner - an extension's session, by its id - in place of the ones it drew
+    /// before; null, or no shape, takes them away. Each owner's shapes are drawn by an overlay of their own
+    /// (`an::ui::createShapeOverlay`), over the image and the view's other overlays and under its selection area, and
+    /// go with the view. GUI thread.
+    void setOwnedShapes(const std::string& owner, std::shared_ptr<const an::ui::ViewShapes> shapes);
+
+    /// The shapes an owner draws over the view, or null.
+    [[nodiscard]] std::shared_ptr<const an::ui::ViewShapes> ownedShapes(const std::string& owner) const;
 
     /// The world-coordinate solution the image's own cards state, read when the image was last shown or updated;
     /// nothing for an image that states none. The astrometry overlays and windows read it on the GUI thread.

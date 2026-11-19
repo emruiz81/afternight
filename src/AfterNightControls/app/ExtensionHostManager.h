@@ -11,6 +11,7 @@
 #include "app/AfterNightExtensionProtocol.h"
 #include "app/ExtensionSdkService.h"
 #include "app/ExtensionSessionFeed.h"
+#include "app/ExtensionViewRequests.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ImageCropController.h"
 
@@ -361,6 +362,9 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
     /// shares with it, bound while the session runs, and the process; null for another.
     std::shared_ptr<ExtensionHostedSession> hosted;
     QPointer<QWidget> hosted_process;
+    /// What the extension asked of its view beyond its pixels, and what that left there; let go with the session's
+    /// views.
+    ExtensionViewRequests view_requests;
 
     ExtensionSessionController() = default;
     ExtensionSessionController(const ExtensionSessionController&) = delete;
@@ -370,6 +374,14 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
     ~ExtensionSessionController();
 
     void detachUiHandles();
+
+    /// The view the extension's requests of its view are drawn and marked on: a hosted page's canvas - its preview, or
+    /// its view of the target - and otherwise the view the session is bound to; null for a session bound to none.
+    [[nodiscard]] ImageViewControl* requestView() const;
+
+    /// Takes away what the extension's requests left on its views: the view it is bound to is closing, or the session
+    /// ends.
+    void releaseViewRequests();
     void configureManagedPreviewSubArea();
     void clearManagedPreviewSubArea();
     void discardMaterializedBuffers() noexcept;

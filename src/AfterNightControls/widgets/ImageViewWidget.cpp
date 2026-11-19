@@ -33,6 +33,7 @@
 #include <QCoreApplication>
 #include <QMetaObject>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QScrollBar>
 #include <QThread>
 #include <QThreadPool>
@@ -265,6 +266,8 @@ struct ImageViewWidget::Impl
     std::deque<ImageViewWidgetDisplayModule*> m_DisplayModules;
 
     bool m_PerformanceMode = false;
+    /// The part of the widget the paint under way paints; empty outside a paint.
+    QRect m_RectBeingPainted;
 
     AutostretchParams m_AutostretchParams;
 };
@@ -902,6 +905,11 @@ void ImageViewWidget::removeDisplayModule(ImageViewWidgetDisplayModule* module)
 size_t ImageViewWidget::getNumOfDisplayModules() const
 {
     return m_impl->m_DisplayModules.size();
+}
+
+QRect ImageViewWidget::rectBeingPainted() const
+{
+    return m_impl->m_RectBeingPainted;
 }
 
 bool ImageViewWidget::isContextMenuSupported() const
@@ -1934,6 +1942,8 @@ ImageViewWidget::~ImageViewWidget()
 void ImageViewWidget::paintEvent(QPaintEvent* evt)
 {
     evt->accept();
+    m_impl->m_RectBeingPainted = evt->rect();
+    const auto paintEnded = qScopeGuard([this]() { m_impl->m_RectBeingPainted = QRect(); });
 
     QPainter painter(this);
 

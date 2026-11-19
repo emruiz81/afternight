@@ -70,6 +70,24 @@ inline constexpr std::size_t kContributedProcessGroupLimit = 40u;
 /// The longest summary a contributed process may state, in characters.
 inline constexpr std::size_t kContributedProcessSummaryLimit = 200u;
 
+/// The capabilities a host states in its `runtime.hello`, one for each request an extension may make of the view its
+/// session is bound to beyond its pixels: shapes drawn over it (`view.overlay`), its selection area
+/// (`view.selection`), how it is shown (`view.display`) and an Undo or a Redo (`view.history`). The application refuses
+/// a request from a host that did not state its capability. Both hosts state them: the requests are protocol data.
+inline constexpr std::string_view kViewOverlayCapability = "view_overlay";
+inline constexpr std::string_view kViewSelectionCapability = "view_selection";
+inline constexpr std::string_view kViewDisplayCapability = "view_display";
+inline constexpr std::string_view kViewHistoryCapability = "view_history";
+
+/// The most shapes a session may keep over its view.
+inline constexpr std::size_t kViewOverlayShapeLimit = 4096u;
+
+/// The most points the shapes a session keeps over its view may hold together.
+inline constexpr std::size_t kViewOverlayPointLimit = 262144u;
+
+/// The longest label a shape may carry, in characters.
+inline constexpr std::size_t kViewOverlayLabelLimit = 120u;
+
 enum class ProtocolFrameDecodeStatus
 {
     NeedMoreData,
@@ -486,6 +504,106 @@ struct ProcessesContributeMessage
     std::vector<ContributedProcessEntry> entries;
 };
 
+/// A point of a shape, in the pixels of the image it is drawn over: (0, 0) is the image's top-left corner, (w, h) its
+/// bottom-right one.
+struct ViewOverlayPoint
+{
+    double x = 0.0;
+    double y = 0.0;
+
+    [[nodiscard]] bool operator==(const ViewOverlayPoint&) const = default;
+};
+
+/// A shape an extension draws over the view its session is bound to: data, kept by the application for the session.
+struct ViewOverlayShape
+{
+    /// Its points, in order: at least one, each finite. On the wire a flat array, each x followed by its y.
+    std::vector<ViewOverlayPoint> points;
+    /// A closed polygon (`"polygon"` on the wire), its last point joined to its first; an open line (`"line"`)
+    /// otherwise.
+    bool closed = false;
+    /// Whether a closed polygon is filled with its colour; a line is never filled.
+    bool filled = false;
+    /// Its colour as 0xAARRGGBB; on the wire `"#rrggbb"`, opaque, or `"#rrggbbaa"`.
+    std::uint32_t color = 0xFFFFFFFFu;
+    /// Drawn beside the shape: plain text of at most `kViewOverlayLabelLimit` characters; empty for none.
+    std::string label;
+
+    [[nodiscard]] bool operator==(const ViewOverlayShape&) const = default;
+};
+
+/// What an extension asks of the shapes over its view (`view.overlay`, host to application, answered by
+/// `view.overlay.result` - each added shape's id, in order - or `view.overlay.error`), applied in this order: every
+/// shape cleared, the shapes of `remove` taken away, the shapes of `add` added. Sent only by a host that stated
+/// `kViewOverlayCapability`.
+struct ViewOverlayMessage
+{
+    std::string session_id;
+    std::string request_id;
+    bool clear = false;
+    /// The ids of shapes added earlier, as the application answered them: positive, each stated once.
+    std::vector<std::int64_t> remove;
+    /// At most `kViewOverlayShapeLimit` shapes holding at most `kViewOverlayPointLimit` points together.
+    std::vector<ViewOverlayShape> add;
+};
+
+/// A rectangle of the image's pixels: its top-left corner and its size, both sides positive.
+struct ViewSelectionRect
+{
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+
+    [[nodiscard]] bool operator==(const ViewSelectionRect&) const = default;
+};
+
+/// What an extension asks of the selection area of the view its session is bound to (`view.selection`, answered by
+/// `view.selection.result` - the area as it is now - or `view.selection.error`): on, with the rectangle it is set to or
+/// none for the next drag to draw one, or off. Sent only by a host that stated `kViewSelectionCapability`.
+struct ViewSelectionMessage
+{
+    std::string session_id;
+    std::string request_id;
+    bool enabled = false;
+    /// Stated only with `enabled`.
+    std::optional<ViewSelectionRect> rect;
+};
+
+/// How an extension asks the view its session is bound to be shown (`view.display`, answered by
+/// `view.display.result` - the zoom the view took - or `view.display.error`): any of a zoom, a point to centre, fit to
+/// window and a display mode, and at least one. Sent only by a host that stated `kViewDisplayCapability`.
+struct ViewDisplayMessage
+{
+    std::string session_id;
+    std::string request_id;
+    /// The zoom in percent, finite and positive; never stated with `fit`.
+    std::optional<double> zoom_percent;
+    /// The point of the image to centre, in its pixels; never stated with `fit`.
+    std::optional<ViewOverlayPoint> center;
+    /// The whole image fitted to the view.
+    bool fit = false;
+    /// A display mode by the name the view's state reports it under (`image_display_mode`); empty for none.
+    std::string mode;
+};
+
+/// Which step of its history an extension asks the view its session is bound to go to.
+enum class ViewHistoryAction
+{
+    Undo,
+    Redo
+};
+
+/// An Undo or a Redo an extension asks of the view its session is bound to (`view.history`, answered by
+/// `view.history.result` once it is asked for, or `view.history.error`). Sent only by a host that stated
+/// `kViewHistoryCapability`.
+struct ViewHistoryMessage
+{
+    std::string session_id;
+    std::string request_id;
+    ViewHistoryAction action = ViewHistoryAction::Undo;
+};
+
 /// What a person did in a hosted panel, as a host reads the `ui.event` the application sent.
 struct HostedPanelEvent
 {
@@ -601,6 +719,14 @@ toProtocolMessage(const PanelPatchMessage& message);
 toProtocolMessage(const PanelHideMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
 toProtocolMessage(const ProcessesContributeMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const ViewOverlayMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const ViewSelectionMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const ViewDisplayMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const ViewHistoryMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 runtimeHelloFromProtocolMessage(const ExtensionProtocolMessage& message, RuntimeHelloMessage* out_message,
                                 std::string* error = nullptr);
@@ -698,6 +824,39 @@ contributedProcessEntriesToCbor(const std::vector<ContributedProcessEntry>& entr
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 contributedProcessEntriesFromCbor(const QCborValue& value, std::vector<ContributedProcessEntry>* out_entries,
                                   std::string* error = nullptr);
+
+/// Reads a `view.overlay`, refused whole at the first error and saying what was wrong: a request id; no field but
+/// `clear` (a bool), `remove` (an array of positive ids, each stated once, at most `kViewOverlayShapeLimit`, never with
+/// `clear`) and `add` (an array of at most `kViewOverlayShapeLimit` maps holding at most `kViewOverlayPointLimit`
+/// points together); a shape's `kind` `"polygon"` or `"line"`, its `points` a flat array of an even count of finite
+/// numbers and at least one point, its `color` `"#rrggbb"` or `"#rrggbbaa"`, `filled` a bool stated only of a polygon,
+/// its `label` plain text of at most `kViewOverlayLabelLimit` characters, and no other field.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+viewOverlayFromProtocolMessage(const ExtensionProtocolMessage& message, ViewOverlayMessage* out_message,
+                               std::string* error = nullptr);
+
+/// Reads a `view.selection`, refused whole at the first error and saying what was wrong: a request id; `enabled` a
+/// bool; `rect`, stated only with `enabled`, an array of four integers, its width and height positive; no other field.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+viewSelectionFromProtocolMessage(const ExtensionProtocolMessage& message, ViewSelectionMessage* out_message,
+                                 std::string* error = nullptr);
+
+/// Reads a `view.display`, refused whole at the first error and saying what was wrong: a request id; at least one of
+/// `zoom` (a finite positive number, in percent), `center` (an array of two finite numbers), `fit` (true) and `mode` (a
+/// name of letters, digits and `_`); `fit` with neither `zoom` nor `center`; no other field.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+viewDisplayFromProtocolMessage(const ExtensionProtocolMessage& message, ViewDisplayMessage* out_message,
+                               std::string* error = nullptr);
+
+/// Reads a `view.history`, refused whole at the first error and saying what was wrong: a request id; `action`
+/// `"undo"` or `"redo"`; no other field.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+viewHistoryFromProtocolMessage(const ExtensionProtocolMessage& message, ViewHistoryMessage* out_message,
+                               std::string* error = nullptr);
+
+/// The name of the capability a host states for a request an extension makes of its view (`view.overlay`,
+/// `view.selection`, `view.display`, `view.history`); empty for any other message type.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API std::string_view viewRequestCapability(std::string_view message_type);
 
 /// Whether the application draws the session's panel: its acknowledgement stated `kHostedPanelCapability`.
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool servesHostedPanel(const RuntimeHelloAckMessage& ack);

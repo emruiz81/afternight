@@ -447,6 +447,7 @@ sources Test_ControlsViewer
     unit     src/AfterNightTests/Test_ControlsViewer/ImageViewControlTest.cpp
     unit     src/AfterNightTests/Test_ControlsViewer/ImageViewFilesTest.cpp
     unit     src/AfterNightTests/Test_ControlsViewer/PresentationBridgeTest.cpp
+    unit     src/AfterNightTests/Test_ControlsViewer/ShapeOverlayTest.cpp
     unit     src/AfterNightTests/Test_ControlsViewer/ViewPresentationTest.cpp
     unit     src/AfterNightTests/Test_ControlsViewer/ViewerNightTest.cpp
     unit     src/AfterNightTests/Test_ControlsViewer/main.cpp
@@ -456,16 +457,24 @@ sources Test_ControlsViewer
     header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/AfterNightAppListener.h
+    header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
+    header   src/AfterNightControls/app/ExtensionManager.h
+    header   src/AfterNightControls/app/ExtensionSdkService.h
+    header   src/AfterNightControls/app/ExtensionViewRequests.h
+    header   src/AfterNightControls/app/ProcessRegistry.h
     header   src/AfterNightControls/app/ViewCreationCoordinator.h
     header   src/AfterNightControls/components/AnSectionHeader.h
     header   src/AfterNightControls/controls/CalibrationPreviewConfig.h
     header   src/AfterNightControls/controls/DockableControl.h
     header   src/AfterNightControls/controls/GlobalViewControlActions.h
     header   src/AfterNightControls/controls/IAppContext.h
+    header   src/AfterNightControls/controls/ImageCropController.h
     header   src/AfterNightControls/controls/ImageMaskSelectorControl.h
     header   src/AfterNightControls/controls/ImageMaskSelectorControlUiBuilder.h
     header   src/AfterNightControls/controls/ImageViewCompanions.h
+    header   src/AfterNightControls/controls/ProcessPresentation.h
+    header   src/AfterNightControls/controls/ShapeOverlayDisplayModule.h
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ImageViewControl.h
     header   src/AfterNightControls/controls/ImageViewControlListener.h
@@ -475,6 +484,7 @@ sources Test_ControlsViewer
     header   src/AfterNightControls/controls/ImageViewThemeColors.h
     header   src/AfterNightControls/controls/SequenceContainers.h
     header   src/AfterNightControls/controls/ViewControlMode.h
+    header   src/AfterNightControls/controls/ViewShapes.h
     header   src/AfterNightControls/session/CommitTicket.h
     header   src/AfterNightControls/session/DerivedResultKey.h
     header   src/AfterNightControls/session/DisplayProxy.h
@@ -507,6 +517,8 @@ sources Test_ControlsViewer
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -2077,6 +2089,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewControlMode.h
     header   src/AfterNightControls/controls/ViewProcessingNotice.h
+    header   src/AfterNightControls/controls/ViewShapes.h
     header   src/AfterNightControls/controls/annotation/AnnotationSettings.h
     header   src/AfterNightControls/controls/drawing/BrushEngine.h
     header   src/AfterNightControls/controls/drawing/CoveragePlane.h
@@ -2848,6 +2861,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ExtensionManagerTest.cpp
     header   src/AfterNightShellCore/services/ExtensionService.h
     header   src/AfterNightShellCore/services/RecentProcessesModel.h
+    header   src/AfterNightControls/app/ExtensionViewRequests.h
     header   src/AfterNightControls/app/ShowInFileBrowser.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/HomeContinueRow.h
@@ -3714,6 +3728,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightTests/Test_ControlsExtensionSeam/HostedProcessContext.h
     header   src/AfterNightControls/app/ExtensionHostedSession.h
     header   src/AfterNightControls/app/ExtensionPreviewFrames.h
+    header   src/AfterNightControls/app/ExtensionViewRequests.h
     header   src/AfterNightControls/controls/ExtensionHostedProcess.h
     header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
@@ -6308,6 +6323,7 @@ sources Test_ProcessFramework
     unit     src/AfterNightTests/Test_ProcessFramework/test_extension_sdk_service_ui_protocol.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_extension_settings_section.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_extension_ui_widget_host.cpp
+    unit     src/AfterNightTests/Test_ProcessFramework/test_extension_view_requests.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_external_tool_and_pixelmath_programmatic_ui.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_extract_sequence_programmatic_ui.cpp
     unit     src/AfterNightTests/Test_ProcessFramework/test_gamma_correction_programmatic_ui.cpp
@@ -6384,6 +6400,7 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/app/ExtensionLaunchPreparations.h
     header   src/AfterNightControls/app/ExtensionManager.h
     header   src/AfterNightControls/app/ExtensionSdkService.h
+    header   src/AfterNightControls/app/ExtensionViewRequests.h
     header   src/AfterNightControls/app/FileDialogUtils.h
     header   src/AfterNightControls/app/IconManager.h
     header   src/AfterNightControls/app/ImageOperationsCoordinator.h

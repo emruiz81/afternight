@@ -18,6 +18,8 @@
 #include "controls/ImageViewControl.h"
 #include "widgets/ImageViewWidget.h"
 #include "controls/ProcessExecution.h"
+#include "controls/ProcessPageLayout.h"
+#include "controls/TopLevelProcessBaseControl.h"
 #include "controls/settings/ProcessingLimits.h"
 #include "session/IEngineSessionProvider.h"
 #include "session/ImageDocument.h"
@@ -2963,6 +2965,20 @@ struct ExtensionHostLaunchCoordinator::PreviewFrameRateRead
 ExtensionHostLaunchCoordinator::ExtensionHostLaunchCoordinator()
     : preview_frame_rate_(std::make_shared<PreviewFrameRateRead>()), schema_reads_(std::make_unique<SchemaReads>())
 {
+    // What an extension asks of its view is answered for its session, on the GUI thread, when its messages are pumped.
+    sdk_service_.setViewRequestHandler([this](const std::string_view session_id, const ExtensionViewRequest& request,
+                                              QCborMap* answer, std::string* reason) {
+        ExtensionSessionController* const session = findSessionControllerBySessionId(sessions_, session_id);
+        if (session == nullptr)
+        {
+            if (reason)
+            {
+                *reason = "the session is not one the application runs";
+            }
+            return false;
+        }
+        return answerViewRequest(*session, request, answer, reason);
+    });
 }
 
 ExtensionHostLaunchCoordinator::~ExtensionHostLaunchCoordinator()
@@ -3186,6 +3202,7 @@ void ExtensionHostLaunchCoordinator::reportSessions()
 
 void ExtensionSessionController::detachUiHandles()
 {
+    releaseViewRequests();
     clearManagedPreviewSubArea();
     preview_request_pending = false;
     execute_request_pending = false;
@@ -3206,6 +3223,28 @@ void ExtensionSessionController::detachUiHandles()
             preview_control_ref->deepClose();
         }
     }
+}
+
+ImageViewControl* ExtensionSessionController::requestView() const
+{
+    if (target_control == nullptr)
+    {
+        return nullptr;
+    }
+    if (const auto* process = dynamic_cast<const TopLevelProcessBaseControl*>(hosted_process.data()))
+    {
+        if (const an::ui::ProcessPageLayout* layout = process->pageLayout();
+            layout != nullptr && layout->previewView() != nullptr)
+        {
+            return layout->previewView();
+        }
+    }
+    return target_control;
+}
+
+void ExtensionSessionController::releaseViewRequests()
+{
+    view_requests.release();
 }
 
 void ExtensionSessionController::configureManagedPreviewSubArea()
@@ -5513,7 +5552,8 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
 
             if ((message.type.rfind("logging.", 0) == 0) || (message.type.rfind("settings.", 0) == 0) ||
                 (message.type.rfind("ui.", 0) == 0) || (message.type.rfind("views.", 0) == 0) ||
-                (message.type.rfind("diagnostics.", 0) == 0) || (message.type.rfind("processes.", 0) == 0))
+                (message.type.rfind("diagnostics.", 0) == 0) || (message.type.rfind("processes.", 0) == 0) ||
+                !viewRequestCapability(message.type).empty())
             {
                 if (!writeSdkServiceFallbackResponse(running_session, message, &local_error))
                 {
@@ -7100,6 +7140,11 @@ void ExtensionHostLaunchCoordinator::pumpSessions()
         {
             session->hosted->route();
         }
+        // The shapes the extension drew follow its view: a hosted page's canvas is made when its preview is.
+        if (session->isActive() && session->view_requests.shapeCount() > 0u)
+        {
+            session->view_requests.drawOn(session->sessionId(), session->requestView());
+        }
 
         if (!session->launch_outcome_recorded && !session->isActive())
         {
@@ -7417,6 +7462,7 @@ void ExtensionHostLaunchCoordinator::handleViewControlDestroyed(const ImageViewC
         {
             if (destroys_bound_target)
             {
+                session->releaseViewRequests();
                 session->clearManagedPreviewSubArea();
                 session->target_control = nullptr;
             }
@@ -7432,6 +7478,7 @@ void ExtensionHostLaunchCoordinator::handleViewControlDestroyed(const ImageViewC
         {
             if (destroys_bound_target)
             {
+                session->releaseViewRequests();
                 session->clearManagedPreviewSubArea();
                 session->target_control = nullptr;
             }
@@ -7446,6 +7493,7 @@ void ExtensionHostLaunchCoordinator::handleViewControlDestroyed(const ImageViewC
         }
         if (destroys_bound_target)
         {
+            session->releaseViewRequests();
             session->clearManagedPreviewSubArea();
             session->target_control = nullptr;
         }

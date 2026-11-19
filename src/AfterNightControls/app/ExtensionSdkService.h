@@ -17,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 class GlobalSettingsPersistence;
@@ -174,6 +175,16 @@ using ExtensionSdkManifestProvider = std::function<std::optional<ExtensionManife
 /// registered and listed again.
 using ExtensionSdkContributedProcessesKept = std::function<void(std::string_view extension_id)>;
 
+/// What an extension asks of the view its session is bound to beyond its pixels, read and held to the protocol's
+/// limits.
+using ExtensionViewRequest =
+    std::variant<ViewOverlayMessage, ViewSelectionMessage, ViewDisplayMessage, ViewHistoryMessage>;
+
+/// Answers a request of a session's view on the GUI thread, waiting for nothing: true with the answer's fields, or
+/// false with why it was refused, the view left as it was.
+using ExtensionSdkViewRequestHandler = std::function<bool(
+    std::string_view session_id, const ExtensionViewRequest& request, QCborMap* answer, std::string* reason)>;
+
 class AFTERNIGHTCONTROLS_API ExtensionSdkService
 {
 public:
@@ -192,6 +203,11 @@ public:
     /// every list is refused.
     void setContributedProcessesHooks(ExtensionSdkManifestProvider manifest_provider,
                                       ExtensionSdkContributedProcessesKept kept = {});
+
+    /// Who answers what an extension asks of its view (`view.overlay`, `view.selection`, `view.display`,
+    /// `view.history`), each request read and held to the protocol's limits first, and refused from a host that did not
+    /// state its capability; with none every such request is refused.
+    void setViewRequestHandler(ExtensionSdkViewRequestHandler view_request_handler);
 
     [[nodiscard]] bool buildThemeChangedMessage(std::string_view session_id, ThemeChangedMessage* out_message,
                                                 bool* out_has_message, std::string* error = nullptr) const;
@@ -321,6 +337,7 @@ private:
     ExtensionWorkflowOutputHandler workflow_output_handler_;
     ExtensionSdkManifestProvider manifest_provider_;
     ExtensionSdkContributedProcessesKept contributed_processes_kept_;
+    ExtensionSdkViewRequestHandler view_request_handler_;
     std::vector<ExtensionLogEvent> recent_log_events_;
     std::vector<ExtensionDiagnosticCheckpoint> diagnostic_checkpoints_;
     std::vector<ExtensionWorkflowOutput> workflow_outputs_;

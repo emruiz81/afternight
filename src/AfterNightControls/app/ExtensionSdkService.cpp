@@ -1085,6 +1085,11 @@ void ExtensionSdkService::setContributedProcessesHooks(ExtensionSdkManifestProvi
     contributed_processes_kept_ = std::move(kept);
 }
 
+void ExtensionSdkService::setViewRequestHandler(ExtensionSdkViewRequestHandler view_request_handler)
+{
+    view_request_handler_ = std::move(view_request_handler);
+}
+
 bool ExtensionSdkService::buildThemeChangedMessage(const std::string_view session_id, ThemeChangedMessage* out_message,
                                                    bool* out_has_message, std::string* error) const
 {
@@ -1734,6 +1739,74 @@ bool ExtensionSdkService::dispatchProtocolMessage(const ExtensionProtocolMessage
             response->fields = QCborMap{{QStringLiteral("accepted"), true}, {QStringLiteral("title"), title}};
             return true;
         };
+
+        if (const std::string_view capability = viewRequestCapability(request.type); !capability.empty())
+        {
+            // A request of the view is refused whole with its reason, answered to the host and written to the log the
+            // session console shows; the view is left as it was.
+            const auto refuse = [&](const int local_code, const std::string& message, const std::string& details) {
+                if (an::platform::isLoggingInitialized())
+                {
+                    LOG_WARNING("A {} of extension '{}' was refused: {}: {}", request.type, extension_id, message,
+                                details);
+                }
+                make_error_response(ExtensionProtocolErrorDomain::Host, local_code, message, details);
+                return true;
+            };
+            if (std::find(host_capabilities.begin(), host_capabilities.end(), capability) == host_capabilities.end())
+            {
+                return refuse(110, request.type + " is refused",
+                              "the host did not state the " + std::string(capability) + " capability");
+            }
+            std::string local_error;
+            const std::optional<ExtensionViewRequest> read = [&]() -> std::optional<ExtensionViewRequest> {
+                if (request.type == "view.overlay")
+                {
+                    ViewOverlayMessage message;
+                    return viewOverlayFromProtocolMessage(request, &message, &local_error)
+                               ? std::optional<ExtensionViewRequest>(std::move(message))
+                               : std::nullopt;
+                }
+                if (request.type == "view.selection")
+                {
+                    ViewSelectionMessage message;
+                    return viewSelectionFromProtocolMessage(request, &message, &local_error)
+                               ? std::optional<ExtensionViewRequest>(std::move(message))
+                               : std::nullopt;
+                }
+                if (request.type == "view.display")
+                {
+                    ViewDisplayMessage message;
+                    return viewDisplayFromProtocolMessage(request, &message, &local_error)
+                               ? std::optional<ExtensionViewRequest>(std::move(message))
+                               : std::nullopt;
+                }
+                ViewHistoryMessage message;
+                return viewHistoryFromProtocolMessage(request, &message, &local_error)
+                           ? std::optional<ExtensionViewRequest>(std::move(message))
+                           : std::nullopt;
+            }();
+            if (!read.has_value())
+            {
+                return refuse(111, "Invalid " + request.type + " request", local_error);
+            }
+            if (!view_request_handler_)
+            {
+                return refuse(112, request.type + " is refused",
+                              "the application answers no request of a view in this session");
+            }
+            QCborMap answer;
+            if (!view_request_handler_(request.session_id, *read, &answer, &local_error))
+            {
+                return refuse(113, request.type + " is refused", local_error);
+            }
+            answer[QStringLiteral("accepted")] = true;
+            response->type = request.type + ".result";
+            response->session_id = request.session_id;
+            response->request_id = request.request_id;
+            response->fields = std::move(answer);
+            return true;
+        }
 
         if (request.type == "processes.contribute")
         {
@@ -2830,7 +2903,7 @@ ExtensionSdkService::resolveNamespaceAvailability(const std::string_view message
     ExtensionSdkNamespaceAvailability availability;
     availability.namespace_name = std::string(service_namespace);
 
-    constexpr std::array<std::string_view, 6> kAlwaysAvailableNamespaces = {"settings", "views",       "ui",
+    constexpr std::array<std::string_view, 7> kAlwaysAvailableNamespaces = {"settings", "views",       "view",     "ui",
                                                                             "logging",  "diagnostics", "processes"};
     if (std::find(kAlwaysAvailableNamespaces.begin(), kAlwaysAvailableNamespaces.end(), service_namespace) !=
         kAlwaysAvailableNamespaces.end())

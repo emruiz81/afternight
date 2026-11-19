@@ -12,6 +12,7 @@
 #include "Test_ControlsSeams/ViewCompanionsStub.h"
 #include "Test_ControlsViewer/ViewerTestContext.h"
 
+#include "controls/ViewShapes.h"
 #include "controls/annotation/AnnotationSettings.h"
 #include "controls/settings/SettingsKeys.h"
 
@@ -120,6 +121,51 @@ TEST_F(ViewCompanionWiringTest, ToolsOverlaysAndTheHistoryAreTheCompanionsOwn)
     EXPECT_EQ(view->overlayStars(), nullptr);
     ASSERT_FALSE(companionRecord().overlayStars.empty());
     EXPECT_EQ(companionRecord().overlayStars.back(), nullptr);
+}
+
+// The shapes an owner draws over a view are drawn by an overlay of the owner's own, made through the seam the first
+// time the owner hands shapes and handed each list after; another owner's shapes are drawn by another overlay; an owner
+// that takes its shapes away lets its overlay go, and the view draws nothing of it.
+TEST_F(ViewCompanionWiringTest, AViewDrawsEachOwnersShapesThroughAShapeOverlayOfItsOwn)
+{
+    ViewHandle view = makeView("shapes");
+    std::optional<an::ui::ImageDocument> document =
+        makeDocument<float>(m_context->engineSession(), 4u, 4u, Channels::Grey,
+                            [](std::uint32_t, std::uint32_t, std::uint32_t) { return 0.5f; });
+    ASSERT_TRUE(document.has_value());
+    view->setDocument(std::move(*document));
+    ASSERT_TRUE(settle(*view));
+    const std::size_t modulesBefore = view->getViewWidget()->getNumOfDisplayModules();
+
+    auto shapes = std::make_shared<an::ui::ViewShapes>();
+    an::ui::ViewShape line;
+    line.points = {QPointF(0.0, 0.0), QPointF(3.0, 3.0)};
+    line.bounds = an::ui::boundsOfPoints(line.points);
+    shapes->shapes.push_back(line);
+    view->setOwnedShapes("session-a", shapes);
+    EXPECT_EQ(companionRecord().shapeOverlaysMade, 1);
+    ASSERT_EQ(companionRecord().shapesHanded.size(), 1u);
+    EXPECT_EQ(companionRecord().shapesHanded.back(), shapes);
+    EXPECT_EQ(view->ownedShapes("session-a"), shapes);
+    EXPECT_EQ(view->getViewWidget()->getNumOfDisplayModules(), modulesBefore + 1u);
+
+    // The same owner's next list goes to the same overlay; another owner's to another.
+    auto more = std::make_shared<an::ui::ViewShapes>(*shapes);
+    more->shapes.push_back(line);
+    view->setOwnedShapes("session-a", more);
+    view->setOwnedShapes("session-b", shapes);
+    EXPECT_EQ(companionRecord().shapeOverlaysMade, 2);
+    ASSERT_EQ(companionRecord().shapesHanded.size(), 3u);
+    EXPECT_EQ(companionRecord().shapesHanded[1], more);
+    EXPECT_EQ(view->getViewWidget()->getNumOfDisplayModules(), modulesBefore + 2u);
+
+    // Taking them away - by no list, or an empty one - lets the overlay go.
+    view->setOwnedShapes("session-a", nullptr);
+    EXPECT_EQ(view->ownedShapes("session-a"), nullptr);
+    view->setOwnedShapes("session-b", std::make_shared<an::ui::ViewShapes>());
+    EXPECT_EQ(view->ownedShapes("session-b"), nullptr);
+    EXPECT_EQ(view->getViewWidget()->getNumOfDisplayModules(), modulesBefore);
+    EXPECT_EQ(companionRecord().shapeOverlaysMade, 2) << "taking shapes away makes no overlay";
 }
 
 // The menu offers an annotated picture's levels of detail, label texts and palettes, and the view's text sizes,
