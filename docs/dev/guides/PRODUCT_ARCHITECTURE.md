@@ -2710,7 +2710,25 @@ manual mask is a `DrawingDocument` of the session. `main.cpp` exports an Apply's
 `SharedBufferManager::exportImage` and imports results with `importImage`, removing the files it lent; every sample
 type it sends Python is the protocol's name (`HostImageDescription.h`). The context publishes no RAW policy and builds output intents from the export settings it
 was handed. The host is heartbeat-supervised by the application, so nothing may block its event loop.
-`Test_ExtensionHostNative`, an isolated suite linking the interpreter, borrows one session the run owns through a
+
+The host states `kHostedPanelCapability` in its hello, and an acknowledgement that states it too
+(`HostedPanelService.h`: `servesHostedPanel`, `showsNativeWindow`) makes it serve a panel the application draws (see
+"A hosted extension process" below) instead of showing its window. It then sends `ui.describe` with the parameter list
+its window would read (`inspectedParamsSchema`) once its runtime is ready, and serves the panel's `ui.event` between
+requests: `parameters_changed` reaches the extension's `on_parameters_changed`; `clicked` runs the action over the image
+the session is bound to - the view's source buffer the application lent, imported (`hostedViewSource`) - and answers
+with `ui.patch`, the values it set or why it failed; `tool_record` is what the extension's settings reads answer first,
+as the window's tool configuration answered them. An event that comes while a request is in flight waits for it to end,
+and one the extension's run reads is kept for the session loop (`takeKeptPanelEvents`), as a request's await keeps any
+other message. A request that lends a writable output of its kind's role (`lentOutputOf`) is written into that output
+- nothing of the source copied into it - and answered with it as lent; any other is answered from an output the host
+makes, as before. An Apply's progress and its end reach the application as `session.activity`, a validation's refusal
+says why in the result's detail, and `on_input_changed` and `on_process_close` are called as they are with a window.
+With no window the session ends through the windowless close handler when the extension closes its process window, as
+a headless host's does, and the host tears down in the same order.
+`Windowless.*` (`Test_ExtensionHostNative`) holds the hosted mode's decisions and messages, and
+`ExtensionHostManagerTest.AHostServingAHostedPanelWritesIntoTheOutputsItIsLent` (`Test_ProcessFramework`) the real host
+serving one. `Test_ExtensionHostNative`, an isolated suite linking the interpreter, borrows one session the run owns through a
 capsule record and runs the host's startup and teardown scenarios against the real backend and interpreter, each in its
 own process, and holds the window's frames and the seam they cross (`NativeWindowPreviewFrames`, `HostPreviewFramesTest`); its
 opt-in `NativeWindowPreviewBenchmark` drags the window over a frame through the seam ([BENCHMARKS.md](BENCHMARKS.md)). The Lite host links only the protocol library; `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` is the

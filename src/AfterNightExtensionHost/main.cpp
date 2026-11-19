@@ -73,6 +73,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #ifdef slots
@@ -96,6 +97,7 @@
 #include "controls/ExtensionNativeProcessWindow.h"
 #include "HostImageDescription.h"
 #include "HostInFlightExecution.h"
+#include "HostedPanelService.h"
 #include "app/ExtensionPreviewFrames.h"
 #include "HostRuntimeSession.h"
 #include "HostThemeSync.h"
@@ -1985,6 +1987,12 @@ public:
                 return true;
             }
         }
+        // What the application's panel resolved answers first, as the window's own configuration always did.
+        if (const auto told = hosted_tool_record_.constFind(key); told != hosted_tool_record_.constEnd())
+        {
+            *out_value = told.value();
+            return true;
+        }
         if (!socket_)
         {
             const auto it = inspect_settings_snapshot_.constFind(key);
@@ -2957,6 +2965,11 @@ public:
     {
         if (!native_process_window_)
         {
+            // With no window, a run the application asked for is told to it, when it listens.
+            if (progress_listener_ && isGuiThread())
+            {
+                progress_listener_();
+            }
             return;
         }
         if (!isGuiThread())
@@ -4478,11 +4491,87 @@ private:
                 continue;
             }
 
+            // What a person did in a hosted panel while the extension ran is the session loop's, in the order it came.
+            if (inbound.type == "ui.event")
+            {
+                std::string frame_error;
+                const QByteArray kept = an::ui::extensions::frameProtocolMessage(inbound, &frame_error);
+                if (!kept.isEmpty())
+                {
+                    kept_panel_events_.append(kept);
+                }
+                continue;
+            }
+
             // Ignore any unrelated control traffic here. Cooperative cancel only
             // requires ping/cancel servicing while Python execution is active.
         }
     }
 
+public:
+    /// The panel's events read while the extension ran, framed, for the session loop to read first.
+    [[nodiscard]] QByteArray takeKeptPanelEvents()
+    {
+        return std::exchange(kept_panel_events_, QByteArray());
+    }
+
+    /// What a hosted panel's tool configuration resolved, which answers the extension's settings first.
+    void setHostedToolRecord(QCborMap record)
+    {
+        hosted_tool_record_ = std::move(record);
+    }
+
+    /// Told of the progress of a run when no window shows it.
+    void setProgressListener(std::function<void()> listener)
+    {
+        progress_listener_ = std::move(listener);
+    }
+
+    /// The image the session is bound to, as the application lent it: what a hosted panel's action runs over.
+    [[nodiscard]] NativeSource hostedViewSource(std::string* error)
+    {
+        NativeSource source;
+        const an::consumer::EngineSession* session = hostEngineSession();
+        if (!current_view_source_buffer_.has_value() || !current_view_source_buffer_->valid() || session == nullptr)
+        {
+            if (error)
+            {
+                *error = "The application has lent no image of the view the session is bound to";
+            }
+            return source;
+        }
+        // The buffer lies in its session's directory under the managed root, as every buffer the application lends.
+        const std::filesystem::path root =
+            std::filesystem::path(current_view_source_buffer_->descriptor().mapped_file_path)
+                .lexically_normal()
+                .parent_path()
+                .parent_path();
+        if (root.empty())
+        {
+            if (error)
+            {
+                *error = "The view's image lies outside a managed root";
+            }
+            return source;
+        }
+        const an::ui::extensions::SharedBufferManager manager(root);
+        an::Result<an::ui::extensions::ImportedImage> imported =
+            manager.importMapped(*session, *current_view_source_buffer_);
+        if (!imported.hasValue())
+        {
+            if (error)
+            {
+                *error = imported.status().message();
+            }
+            return source;
+        }
+        source.image = std::make_shared<an::consumer::ImageAsset>(std::move(imported->asset));
+        source.name = current_view_name_;
+        source.file_name = current_file_name_;
+        return source;
+    }
+
+private:
     QLocalSocket* socket_ = nullptr;
     QByteArray* buffered_input_ = nullptr;
     std::string session_id_;
@@ -4509,6 +4598,9 @@ private:
     an::ui::extensions::ExtensionNativeProcessWindow* native_process_window_ = nullptr;
     bool native_process_window_hidden_by_extension_ = false;
     std::function<void()> windowless_close_;
+    QByteArray kept_panel_events_;
+    QCborMap hosted_tool_record_;
+    std::function<void()> progress_listener_;
     std::unordered_map<std::string, RuntimeImageBinding> images_;
     std::unordered_map<std::string, an::ui::extensions::SharedImageBuffer> snapshot_image_buffers_;
     std::unordered_map<std::string, RuntimeImageBinding> current_view_images_;
@@ -7047,6 +7139,8 @@ struct PreparedExecutionBuffers
     an::ui::extensions::SharedImageBuffer source_buffer;
     an::ui::extensions::SharedImageBuffer output_buffer;
     std::vector<an::ui::extensions::SharedImageBuffer> auxiliary_buffers;
+    /// The output the application lent the request, answered as it was lent; none when the host made the output.
+    std::optional<an::ui::extensions::SharedBufferDescriptor> lent_output;
 };
 
 bool prepareExecutionBuffersForRequest(const std::string& session_id, const std::string& request_kind,
@@ -7088,6 +7182,58 @@ bool prepareExecutionBuffersForRequest(const std::string& session_id, const std:
     if (!openSharedBuffer(manager, *source_it, &source_buffer, error))
     {
         return false;
+    }
+
+    // An output the application lent - a hosted panel's frame or Apply, a buffer of its own pool - is written in place:
+    // it starts as the application made it, and nothing of the source is copied into it.
+    if (const auto* lent = an::ui::extensions::lentOutputOf(request_kind, input_buffers); lent != nullptr)
+    {
+        an::ui::extensions::SharedImageBuffer output_buffer;
+        if (!openSharedBuffer(manager, *lent, &output_buffer, error))
+        {
+            return false;
+        }
+        if (!output_buffer.valid() || output_buffer.mappedSize() != source_buffer.mappedSize())
+        {
+            if (error)
+            {
+                *error = "The output the application lent is not of the source's shape";
+            }
+            return false;
+        }
+        std::vector<an::ui::extensions::SharedImageBuffer> auxiliary_buffers;
+        for (const auto& descriptor : input_buffers)
+        {
+            if ((descriptor.buffer_role != an::ui::extensions::SharedBufferRole::Mask &&
+                 descriptor.buffer_role != an::ui::extensions::SharedBufferRole::Weight) ||
+                descriptor.symbolic_name.empty())
+            {
+                continue;
+            }
+            if (descriptor.access_mode == an::ui::extensions::SharedBufferAccessMode::ReadWrite &&
+                request_kind != "execute")
+            {
+                if (error)
+                {
+                    *error = "Preview requests do not support writable output mask buffers";
+                }
+                return false;
+            }
+            an::ui::extensions::SharedImageBuffer auxiliary_buffer;
+            if (!openSharedBuffer(manager, descriptor, &auxiliary_buffer, error))
+            {
+                return false;
+            }
+            auxiliary_buffers.push_back(std::move(auxiliary_buffer));
+        }
+        if (prepared_buffers)
+        {
+            prepared_buffers->source_buffer = std::move(source_buffer);
+            prepared_buffers->output_buffer = std::move(output_buffer);
+            prepared_buffers->auxiliary_buffers = std::move(auxiliary_buffers);
+            prepared_buffers->lent_output = *lent;
+        }
+        return true;
     }
 
     an::ui::extensions::SharedImageBufferSpec output_spec;
@@ -7754,9 +7900,9 @@ int main(int argc, char* argv[])
     // test environments.
     hello.native_process_window = true;
     hello.bootstrap_status_messages = deferred_managed_bootstrap;
-    // The host tells the application where its window's run stands, and raises its window when asked.
-    for (const std::string_view capability :
-         {an::ui::extensions::kSessionActivityCapability, an::ui::extensions::kWindowRaiseCapability})
+    // The host tells the application where its window's run stands, raises its window when asked, and can serve a panel
+    // the application draws.
+    for (const std::string_view capability : an::ui::extensions::fullHostCapabilities())
     {
         if (std::find(hello.capabilities.begin(), hello.capabilities.end(), capability) == hello.capabilities.end())
         {
@@ -7845,8 +7991,11 @@ int main(int argc, char* argv[])
         return 3;
     }
 
+    // The application draws the session's panel itself: the host shows no window, and serves the panel instead.
+    const bool hosted_panel = an::ui::extensions::servesHostedPanel(ack);
+
     // Complete the native process window binding when the host confirms the mode.
-    if (ack.native_process_window && !headless_qt_platform)
+    if (an::ui::extensions::showsNativeWindow(ack, headless_qt_platform))
     {
         if (!native_process_window)
         {
@@ -8233,12 +8382,17 @@ int main(int argc, char* argv[])
                                                           TopLevelProcessBaseControl::ProcessMessageTone::Info);
             }
         };
-        const auto validate_native_process = [&](const QCborMap& params, const QString& title) -> bool {
+        const auto validate_native_process = [&](const QCborMap& params, const QString& title,
+                                                 std::string* why = nullptr) -> bool {
             QCborValue diagnostics;
             std::string validation_error;
             if (!extension_runtime.validateProcess(params, &diagnostics, &validation_error))
             {
                 LOG_WARNING("Extension validate_process() failed: {}", validation_error);
+                if (why)
+                {
+                    *why = validation_error;
+                }
                 if (native_process_window)
                 {
                     native_process_window->showProcessMessage(title, QString::fromStdString(validation_error),
@@ -8251,6 +8405,10 @@ int main(int argc, char* argv[])
                 blocking_message.has_value())
             {
                 LOG_WARNING("Native process validation blocked execution: {}", blocking_message->toStdString());
+                if (why)
+                {
+                    *why = blocking_message->toStdString();
+                }
                 if (native_process_window)
                 {
                     native_process_window->showProcessMessage(title, *blocking_message,
@@ -8814,6 +8972,92 @@ int main(int argc, char* argv[])
             return 13;
         }
 
+        // A hosted panel is told the extension's parameters once the runtime is ready, the list its window would read.
+        if (hosted_panel && extension_runtime.hasExecutableExtension())
+        {
+            if (!writeProtocolEnvelope(socket,
+                                       an::ui::extensions::hostedPanelDescription(
+                                           hello.session_id, extension_runtime.inspectedParamsSchema()),
+                                       &error))
+            {
+                printError(error);
+                return 31;
+            }
+            // The run of an Apply the application asked for is told to it as the extension reports it.
+            extension_runtime.bridge()->setProgressListener([&]() {
+                if (in_flight.active() && in_flight.kind() == "execute")
+                {
+                    report_run_progress();
+                }
+            });
+        }
+
+        // What a person did in a hosted panel, answered on this thread between requests: the parameters' change and the
+        // tool's record told to the extension, an action run over the image the session is bound to and its answer
+        // sent back. One that came while a request was in flight waits for it to end.
+        std::vector<an::ui::extensions::ExtensionProtocolMessage> waiting_panel_events;
+        const auto serve_panel_event = [&](const an::ui::extensions::ExtensionProtocolMessage& message) {
+            an::ui::extensions::HostedPanelEvent event;
+            std::string event_error;
+            if (!an::ui::extensions::hostedPanelEventFrom(message, &event, &event_error))
+            {
+                LOG_WARNING("A hosted panel's event was refused: {}", event_error);
+                return true;
+            }
+            switch (event.kind)
+            {
+            case an::ui::extensions::HostedPanelEvent::Kind::ParametersChanged:
+                if (!extension_runtime.notifyParametersChanged(event.params, event.changedKeys, event.reason,
+                                                               &event_error))
+                {
+                    LOG_WARNING("Extension on_parameters_changed() failed: {}", event_error);
+                }
+                return true;
+            case an::ui::extensions::HostedPanelEvent::Kind::ToolRecord:
+                extension_runtime.bridge()->setHostedToolRecord(event.toolRecord);
+                return true;
+            case an::ui::extensions::HostedPanelEvent::Kind::Action:
+                break;
+            }
+            QCborMap updates;
+            std::string action_error;
+            const NativeSource action_source = extension_runtime.bridge()->hostedViewSource(&action_error);
+            const bool acted =
+                action_source.image != nullptr &&
+                extension_runtime.runNativeParamAction(hello.session_id, generateOpaqueToken(), event.actionId,
+                                                       event.params, &updates, &action_error, action_source);
+            if (acted && QString::fromStdString(event.actionId).contains(QStringLiteral("preset"), Qt::CaseInsensitive))
+            {
+                QCborMap loaded_params = event.params;
+                for (auto it = updates.begin(); it != updates.end(); ++it)
+                {
+                    loaded_params.insert(it.key(), it.value());
+                }
+                QCborMap preset_metadata;
+                preset_metadata.insert(QStringLiteral("action_id"), QString::fromStdString(event.actionId));
+                preset_metadata.insert(QStringLiteral("source"), QStringLiteral("param_action"));
+                std::string preset_error;
+                if (!extension_runtime.notifyPresetLoaded(loaded_params, preset_metadata, &preset_error))
+                {
+                    LOG_WARNING("Extension on_preset_loaded() failed: {}", preset_error);
+                }
+            }
+            if (!acted)
+            {
+                LOG_WARNING("A hosted panel's action '{}' failed: {}", event.actionId, action_error);
+            }
+            extension_runtime.bridge()->resetProgressFeedback();
+            if (!writeProtocolEnvelope(socket,
+                                       an::ui::extensions::hostedActionAnswer(hello.session_id, event.actionId, updates,
+                                                                              acted ? std::string() : action_error),
+                                       &error))
+            {
+                printError(error);
+                return false;
+            }
+            return true;
+        };
+
         // Ends the request in flight, however it ended - its result written, a cancel, a refusal: the frames held for
         // its run are let go, and the target chosen while a run of the GUI thread's own held them is bound.
         const auto end_in_flight = [&]() {
@@ -8888,6 +9132,20 @@ int main(int argc, char* argv[])
                 {
                     socket.waitForReadyRead(1);
                     buffered.append(socket.readAll());
+                }
+            }
+            // The panel's events the extension's run read are read first, in the order they came.
+            buffered.prepend(extension_runtime.bridge()->takeKeptPanelEvents());
+            if (hosted_panel && !in_flight.active() && !waiting_panel_events.empty())
+            {
+                std::vector<an::ui::extensions::ExtensionProtocolMessage> ready = std::move(waiting_panel_events);
+                waiting_panel_events.clear();
+                for (const auto& message : ready)
+                {
+                    if (!serve_panel_event(message))
+                    {
+                        return 32;
+                    }
                 }
             }
 
@@ -9009,6 +9267,19 @@ int main(int argc, char* argv[])
                     continue;
                 }
 
+                if (hosted_panel && inbound.type == "ui.event")
+                {
+                    if (in_flight.active())
+                    {
+                        waiting_panel_events.push_back(std::move(inbound));
+                    }
+                    else if (!serve_panel_event(inbound))
+                    {
+                        return 32;
+                    }
+                    continue;
+                }
+
                 bool handled_host_notification = false;
                 if (!extension_runtime.handleInboundHostNotification(inbound, &handled_host_notification, &error))
                 {
@@ -9017,8 +9288,9 @@ int main(int argc, char* argv[])
                 }
                 if (handled_host_notification)
                 {
-                    if (native_process_window && (inbound.type == "view.bound" || inbound.type == "view.updated" ||
-                                                  inbound.type == "view.renamed" || inbound.type == "view.destroyed"))
+                    if ((native_process_window || hosted_panel) &&
+                        (inbound.type == "view.bound" || inbound.type == "view.updated" ||
+                         inbound.type == "view.renamed" || inbound.type == "view.destroyed"))
                     {
                         std::string input_error;
                         if (!extension_runtime.notifyInputChanged(&input_error))
@@ -9059,11 +9331,14 @@ int main(int argc, char* argv[])
                 const QString validation_title = in_flight.kind() == "preview" ? QStringLiteral("Preview unavailable")
                                                                                : QStringLiteral("Validation failed");
                 // Asked with no frame of a native window in the extension, as an Apply's is.
-                const bool valid = validate_native_process(in_flight.params(), validation_title);
+                std::string validation_message;
+                const bool valid = validate_native_process(in_flight.params(), validation_title, &validation_message);
                 if (!valid)
                 {
                     result.status = "failed";
-                    result.detail = "Validation failed";
+                    // A hosted panel shows why in its banner, as the window shows it in its own.
+                    result.detail = hosted_panel && !validation_message.empty() ? validation_message
+                                                                                : std::string("Validation failed");
                     if (!writeExecutionResult(socket, result, &error))
                     {
                         printError(error);
@@ -9171,7 +9446,9 @@ int main(int argc, char* argv[])
                         }
                         else
                         {
-                            result.output_buffers.push_back(prepared_buffers.output_buffer.descriptor());
+                            result.output_buffers.push_back(prepared_buffers.lent_output.has_value()
+                                                                ? *prepared_buffers.lent_output
+                                                                : prepared_buffers.output_buffer.descriptor());
                             for (const auto& auxiliary_buffer : prepared_buffers.auxiliary_buffers)
                             {
                                 const auto& descriptor = auxiliary_buffer.descriptor();
@@ -9185,11 +9462,20 @@ int main(int argc, char* argv[])
                     }
                     else
                     {
-                        result.output_buffers.push_back(prepared_buffers.output_buffer.descriptor());
+                        result.output_buffers.push_back(prepared_buffers.lent_output.has_value()
+                                                            ? *prepared_buffers.lent_output
+                                                            : prepared_buffers.output_buffer.descriptor());
                     }
                 }
                 // The run is over: the frames are let go before the commit, which may close the window and its buffers.
                 in_flight.releaseFrames();
+                if (hosted_panel && in_flight.kind() == "execute")
+                {
+                    send_session_activity(false, std::nullopt,
+                                          result.status == "failed" ? result.detail : std::string(), result.status);
+                    told_percent.reset();
+                    told_text.clear();
+                }
                 const bool manual_view_commit_emitted = extension_runtime.bridge()->manualViewCommitEmitted();
                 bool emitted_view_commit =
                     manual_view_commit_emitted && result.status == "succeeded" && in_flight.kind() == "execute";
@@ -9248,7 +9534,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (native_process_window && !native_process_close_notified)
+        if ((native_process_window || hosted_panel) && !native_process_close_notified)
         {
             native_process_close_notified = true;
             std::string close_hook_error;

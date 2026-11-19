@@ -3275,6 +3275,8 @@ sources Test_ExtensionHostNative
     unit     src/AfterNightTests/Test_ExtensionHostNative/test_veralux_native_process_params.cpp
     unit     src/AfterNightExtensionHost/ExtensionAppContext.cpp
     unit     src/AfterNightExtensionHost/HostRuntimeSession.cpp
+    unit     src/AfterNightExtensionHost/HostedPanelService.cpp
+    unit     src/AfterNightTests/Test_ExtensionHostNative/WindowlessTest.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/HostLookTest.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/NativeWindowInventoryTest.cpp
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/ConsumerMemory.h
@@ -3359,6 +3361,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightControls/app/ExtensionPreviewFrames.h
     header   src/AfterNightExtensionHost/HostRuntimeSession.h
     header   src/AfterNightExtensionHost/HostThemeSync.h
+    header   src/AfterNightExtensionHost/HostedPanelService.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
     header   src/AfterNightExtensionRuntimeBackend/RuntimePython.h

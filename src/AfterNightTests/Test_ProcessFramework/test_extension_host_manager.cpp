@@ -6367,6 +6367,131 @@ TEST(ExtensionHostManagerTest, SendPreviewRequestPreservesSubAreaDescriptorField
     removeAllNoThrow(shared_buffer_root);
 }
 
+/// A buffer of the source's shape the application lends a request as its output: writable, of a role, its own sidecar.
+an::ui::extensions::SharedImageBuffer
+makeLentOutput(const std::filesystem::path& root_path, const an::ui::extensions::SharedBufferDescriptor& source,
+               const std::string& id, const an::ui::extensions::SharedBufferRole role, std::string* error)
+{
+    an::ui::extensions::SharedBufferManager manager(root_path);
+    an::ui::extensions::SharedImageBufferSpec spec;
+    spec.sessionId = std::filesystem::path(source.mapped_file_path).parent_path().filename().string();
+    spec.bufferId = id;
+    spec.symbolicName = role == an::ui::extensions::SharedBufferRole::Preview ? "preview" : "destination";
+    spec.width = source.width;
+    spec.height = source.height;
+    spec.channels = source.channels;
+    spec.pixelType = source.pixel_type;
+    spec.pixelFormat = source.pixel_format;
+    spec.colorSpace = source.color_space;
+    spec.accessMode = an::ui::extensions::SharedBufferAccessMode::ReadWrite;
+    spec.bufferRole = role;
+    an::ui::extensions::SharedImageBuffer buffer;
+    if (!allocateBufferOrReport(manager, spec, &buffer, error))
+    {
+        return {};
+    }
+    return buffer;
+}
+
+// A host the application asks to serve a hosted panel states it can and is acknowledged so; it writes a frame and an
+// Apply into the outputs it was lent and answers each as it was lent; a cancelled frame ends nothing, and a panel's
+// event is heard, not refused. A host asked nothing of the kind is acknowledged as before.
+TEST(ExtensionHostManagerTest, AHostServingAHostedPanelWritesIntoTheOutputsItIsLent)
+{
+    const std::filesystem::path host_path = extensionHostPathForCurrentAppDir();
+    AN_REQUIRE_FULL_EXTENSION_HOST(host_path);
+
+    const auto shared_buffer_root = uniqueSharedBufferRootForTest("hosted-panel");
+    removeAllNoThrow(shared_buffer_root);
+    const RemovePathOnExit remove_shared_buffer_root{shared_buffer_root};
+
+    an::ui::extensions::ExtensionHostManager manager;
+    auto request = makeLaunchRequest(
+        host_path, {"--stay-alive-ms", std::to_string(3000 * kIpcTimingMultiplier), "--preview-delay-ms", "30"});
+    request.heartbeat_interval_ms = 200 * kIpcTimingMultiplier;
+    request.hosted_panel = true;
+    const auto session = manager.prepareSession(request);
+
+    std::string error;
+    auto source_buffer = makeSourceBuffer(shared_buffer_root, session.session_id, &error);
+    ASSERT_TRUE(source_buffer.valid()) << error;
+    auto preview_buffer = makeLentOutput(shared_buffer_root, source_buffer.descriptor(), "lent-preview",
+                                         an::ui::extensions::SharedBufferRole::Preview, &error);
+    ASSERT_TRUE(preview_buffer.valid()) << error;
+    auto destination_buffer = makeLentOutput(shared_buffer_root, source_buffer.descriptor(), "lent-destination",
+                                             an::ui::extensions::SharedBufferRole::Destination, &error);
+    ASSERT_TRUE(destination_buffer.valid()) << error;
+
+    an::ui::extensions::ExtensionHostRunningSession running_session;
+    ASSERT_TRUE(manager.launchSession(session, &running_session, &error)) << error;
+    SessionGuard guard{manager, running_session};
+    EXPECT_TRUE(running_session.hosted_panel);
+    const auto& stated = running_session.handshake.hello.capabilities;
+    EXPECT_NE(std::find(stated.begin(), stated.end(), an::ui::extensions::kHostedPanelCapability), stated.end());
+    const auto& acknowledged = running_session.handshake.ack.capabilities;
+    EXPECT_NE(std::find(acknowledged.begin(), acknowledged.end(), an::ui::extensions::kHostedPanelCapability),
+              acknowledged.end());
+
+    // A panel's change is heard: the host goes on.
+    an::ui::extensions::UiEventMessage changed;
+    changed.widget_id = "panel";
+    changed.event_name = "parameters_changed";
+    changed.value = QCborMap{{QStringLiteral("params"), QCborMap{{QStringLiteral("strength"), 0.5}}},
+                             {QStringLiteral("changed"), QCborArray{QStringLiteral("strength")}},
+                             {QStringLiteral("reason"), QStringLiteral("user")}};
+    ASSERT_TRUE(manager.sendPanelEvent(&running_session, changed, &error)) << error;
+
+    // A frame into the output it was lent, answered as lent.
+    ASSERT_TRUE(manager.sendPreviewRequest(&running_session, "params-preview", QCborMap(),
+                                           {source_buffer.descriptor(), preview_buffer.descriptor()}, nullptr, &error))
+        << error;
+    ASSERT_TRUE(pumpUntilRequestCompletes(manager, &running_session, 2000 * kIpcTimingMultiplier, &error)) << error;
+    ASSERT_TRUE(running_session.last_preview_result.has_value());
+    EXPECT_EQ(running_session.last_preview_result->status, "succeeded");
+    ASSERT_EQ(running_session.last_preview_result->output_buffers.size(), 1u);
+    EXPECT_EQ(running_session.last_preview_result->output_buffers.front().buffer_id, "lent-preview");
+    EXPECT_EQ(running_session.last_preview_result->output_buffers.front().metadata_sidecar,
+              preview_buffer.descriptor().metadata_sidecar);
+
+    // A frame cancelled before it ran: answered cancelled, and the session goes on.
+    std::string cancelled_id;
+    ASSERT_TRUE(manager.sendPreviewRequest(&running_session, "params-preview", QCborMap(),
+                                           {source_buffer.descriptor(), preview_buffer.descriptor()}, &cancelled_id,
+                                           &error))
+        << error;
+    ASSERT_TRUE(manager.sendCancelRequest(&running_session, nullptr, &error)) << error;
+    ASSERT_TRUE(pumpUntilRequestCompletes(manager, &running_session, 2000 * kIpcTimingMultiplier, &error)) << error;
+    ASSERT_TRUE(running_session.last_preview_result.has_value());
+    EXPECT_EQ(running_session.last_preview_result->target_request_id, cancelled_id);
+    EXPECT_EQ(running_session.last_preview_result->status, "cancelled");
+    EXPECT_EQ(running_session.state, an::ui::extensions::ExtensionHostSessionState::Active);
+
+    // An Apply into the destination it was lent, committed as lent.
+    ASSERT_TRUE(manager.sendExecuteRequest(&running_session, "params-execute", QCborMap(),
+                                           {source_buffer.descriptor(), destination_buffer.descriptor()}, nullptr,
+                                           &error))
+        << error;
+    ASSERT_TRUE(pumpUntilRequestCompletes(manager, &running_session, 2000 * kIpcTimingMultiplier, &error)) << error;
+    ASSERT_TRUE(running_session.last_view_commit.has_value());
+    ASSERT_EQ(running_session.last_view_commit->result_buffers.size(), 1u);
+    EXPECT_EQ(running_session.last_view_commit->result_buffers.front().buffer_id, "lent-destination");
+    EXPECT_EQ(running_session.state, an::ui::extensions::ExtensionHostSessionState::Active);
+
+    // A host whose application draws no panel is acknowledged as before and hears no panel's event.
+    an::ui::extensions::ExtensionHostManager windowed_manager;
+    auto windowed_request =
+        makeLaunchRequest(host_path, {"--stay-alive-ms", std::to_string(2000 * kIpcTimingMultiplier)});
+    const auto windowed = windowed_manager.prepareSession(windowed_request);
+    an::ui::extensions::ExtensionHostRunningSession windowed_session;
+    ASSERT_TRUE(windowed_manager.launchSession(windowed, &windowed_session, &error)) << error;
+    SessionGuard windowed_guard{windowed_manager, windowed_session};
+    EXPECT_FALSE(windowed_session.hosted_panel);
+    const auto& windowed_ack = windowed_session.handshake.ack.capabilities;
+    EXPECT_EQ(std::find(windowed_ack.begin(), windowed_ack.end(), an::ui::extensions::kHostedPanelCapability),
+              windowed_ack.end());
+    EXPECT_FALSE(windowed_manager.sendPanelEvent(&windowed_session, changed, &error));
+}
+
 // An execute answers a destination buffer holding the source's bytes, which imports as the source's samples.
 TEST(ExtensionHostManagerTest, SendExecuteRequestRoundTripsSharedBufferDescriptorsFromRealExtensionHost)
 {
