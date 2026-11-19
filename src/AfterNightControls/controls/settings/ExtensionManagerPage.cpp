@@ -1692,7 +1692,7 @@ void addMetadataSectionRow(QGridLayout* layout, const int row, const QString& ti
 
 void addMetadataRow(QGridLayout* layout, const int row, const int col, const QString& label_text,
                     const QString& value_text, const QString& object_name, const bool selectable = false,
-                    const bool link_urls = false)
+                    const bool link_urls = false, const int value_columns = 1)
 {
     if (!layout)
     {
@@ -1723,7 +1723,7 @@ void addMetadataRow(QGridLayout* layout, const int row, const int col, const QSt
         value->setTextInteractionFlags(value->textFormat() == Qt::RichText ? Qt::TextBrowserInteraction
                                                                            : Qt::TextSelectableByMouse);
     }
-    layout->addWidget(value, row, col * 2 + 1);
+    layout->addWidget(value, row, col * 2 + 1, 1, value_columns);
 }
 
 void addMetadataBadgeRow(QGridLayout* layout, const int row, const int col, const QString& label_text,
@@ -4832,9 +4832,10 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
                         fieldObjectName(entry.id, "signature"));
     addMetadataRow(grid, row++, 1, tr("Signature Key:"), metadataText(entry.selected_asset_signature_key_id),
                    fieldObjectName(entry.id, "signatureKey"), true);
-    addMetadataRow(grid, row, 0, tr("Package Hash:"), metadataText(entry.selected_asset_package_hash_sha256),
-                   fieldObjectName(entry.id, "hash"), true);
-    addMetadataRow(grid, row++, 1, tr("Compatibility:"), compatibilityText(entry),
+    // A hash never wraps: it takes the row's whole width of values, so no font makes it widen the card.
+    addMetadataRow(grid, row++, 0, tr("Package Hash:"), metadataText(entry.selected_asset_package_hash_sha256),
+                   fieldObjectName(entry.id, "hash"), true, false, 3);
+    addMetadataRow(grid, row++, 0, tr("Compatibility:"), compatibilityText(entry),
                    fieldObjectName(entry.id, "compatibility"));
 
     if (!entry.compatibility_diagnostic.empty() || !entry.selected_asset_signature_detail.empty())

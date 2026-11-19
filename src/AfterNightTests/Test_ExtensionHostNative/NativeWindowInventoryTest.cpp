@@ -17,6 +17,7 @@
 
 #include "controls/ExtensionNativeProcessWindow.h"
 #include "fixtures/BaselineRecord.h"
+#include "theme/AnDesignTokens.h"
 
 #include "components/AnCardWidget.h"
 #include "components/AnCollapsibleSection.h"
@@ -51,6 +52,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <memory>
 
 namespace
 {
@@ -493,6 +495,12 @@ TEST(NativeWindow, ControlInventoryIsUnchanged)
 {
     const QJsonObject schemas = readSchemas();
     ASSERT_FALSE(schemas.isEmpty()) << "there is no " << kSchemasPath << " above the working directory";
+
+    // The record's colours are the light theme's: the case states it, so a host whose desktop prefers dark - which a
+    // native platform reports and the default preference follows - builds the panel the record holds.
+    const an::ui::ThemePreference before = an::ui::themePreference();
+    an::ui::setThemePreference(an::ui::ThemePreference::Light);
+    const std::shared_ptr<void> restore(nullptr, [before](void*) { an::ui::setThemePreference(before); });
 
     BaselineRecord record(QString::fromLatin1(kInventoryPath), inventoryPreamble());
     for (auto it = schemas.begin(); it != schemas.end(); ++it)

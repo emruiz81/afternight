@@ -302,6 +302,8 @@ TEST(ChannelCompositionWindowTest, OkIsOfferedOnlyOnceTheFirstComponentIsChosen)
 
     redSelector->setCurrentText(NO_IMAGE_STR);
     EXPECT_FALSE(ok->isEnabled());
+    // The preview the first component started runs its body through the window: the window goes once it is idle.
+    ASSERT_TRUE(pumpUntil([window]() { return window->isProcessIdle(); }));
 }
 
 // The crop's and the rotation's origin boxes stop at the target's width and height, and the size boxes at what is left

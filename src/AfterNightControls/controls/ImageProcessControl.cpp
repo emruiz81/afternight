@@ -1122,6 +1122,8 @@ void ImageProcessControl::endRun()
     if (m_impl->m_RunsInFlight == 0 && m_impl->m_CloseDeferred)
     {
         m_impl->m_CloseDeferred = false;
+        // The close ends as one with nothing on its way does: a window kept past it is not left disabled.
+        setEnabled(true);
         close();
     }
 }

@@ -232,6 +232,29 @@ def binary_path(directory, name, config):
     return directory / (name + suffix + ('.exe' if os.name == 'nt' else ''))
 
 
+def target_environment(executable, own_storage, inherited=None, platform_name=os.name):
+    """What a target is started with: what this runner was, its own storage, and on Linux the deployment first on the
+    library path, as the suites' runner puts it. A target's run path names lib/ beside it, where the deployment keeps a
+    copy of each product library; that copy's own run path names a lib/ under itself, so what it needs - the protocol
+    library's Qt Network - resolves from the library path or, failing that, from the system's other Qt.
+
+    @param executable the target's executable.
+    @param own_storage the test-owned storage it may write in.
+    @param inherited the environment it inherits; this runner's when None.
+    @param platform_name `os.name` of the host the target runs on.
+    @return the environment.
+    """
+    environment = dict(os.environ if inherited is None else inherited)
+    environment['AFTERNIGHT_TEST_STORAGE_ROOT'] = str(own_storage)
+    if platform_name != 'nt':
+        directory = Path(executable).parent
+        entries = [str(directory), str(directory / 'lib')]
+        if environment.get('LD_LIBRARY_PATH'):
+            entries.append(environment['LD_LIBRARY_PATH'])
+        environment['LD_LIBRARY_PATH'] = ':'.join(entries)
+    return environment
+
+
 def run_target(target, directory, config, seed, storage_root, artifacts, extra=(), stream=sys.stdout):
     """Runs one target to its budget.
 
@@ -258,8 +281,7 @@ def run_target(target, directory, config, seed, storage_root, artifacts, extra=(
     command = [str(executable), '--seed', str(seed), '--iterations', str(target.iterations),
                '--max-seconds', str(target.seconds), '--artifacts', str(own_artifacts)]
     command.extend(extra)
-    environment = dict(os.environ)
-    environment['AFTERNIGHT_TEST_STORAGE_ROOT'] = str(own_storage)
+    environment = target_environment(executable, own_storage)
 
     started = time.monotonic()
     completed = subprocess.run(command, cwd=str(executable.parent), env=environment,
@@ -343,8 +365,7 @@ def run_libfuzzer_target(target, seconds, directory, config, seed, corpus, stora
 
     command = [str(executable), str(Path(corpus) / target.name), '-max_total_time=%d' % seconds,
                '-seed=%d' % seed, '-print_final_stats=1', '-artifact_prefix=%s%s' % (own_artifacts, os.sep)]
-    environment = dict(os.environ)
-    environment['AFTERNIGHT_TEST_STORAGE_ROOT'] = str(own_storage)
+    environment = target_environment(executable, own_storage)
     log_path = own_artifacts / 'libfuzzer.log'
     print('%-22s %s' % (target.name, ' '.join(command)), file=stream)
 

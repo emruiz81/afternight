@@ -445,6 +445,35 @@ class BinaryPathTests(unittest.TestCase):
         self.assertEqual(directory.parts[-2:], ('msvc' if os.name == 'nt' else 'clang', 'release'))
 
 
+class TargetEnvironmentTests(unittest.TestCase):
+    """What a target is started with: its own storage and, on Linux, the deployment on the library path, as the suites'
+    runner puts it - a library a target loads from lib/ finds what it needs beside it only through that path."""
+
+    def test_the_target_writes_in_its_own_storage(self):
+        environment = campaign.target_environment(pathlib.Path('bin') / 'Fuzz_ConsumerProtocol',
+                                                  pathlib.Path('storage'), {}, 'posix')
+        self.assertEqual(environment['AFTERNIGHT_TEST_STORAGE_ROOT'], 'storage')
+
+    def test_on_linux_the_deployment_comes_first_on_the_library_path(self):
+        directory = pathlib.Path('bin') / 'clang' / 'release'
+        environment = campaign.target_environment(directory / 'Fuzz_ConsumerProtocol', pathlib.Path('storage'),
+                                                  {'LD_LIBRARY_PATH': '/elsewhere'}, 'posix')
+        self.assertEqual(environment['LD_LIBRARY_PATH'].split(':'),
+                         [str(directory), str(directory / 'lib'), '/elsewhere'])
+
+    def test_on_linux_an_empty_library_path_gains_nothing_but_the_deployment(self):
+        directory = pathlib.Path('bin') / 'clang' / 'release'
+        environment = campaign.target_environment(directory / 'Fuzz_ConsumerPanel', pathlib.Path('storage'), {},
+                                                  'posix')
+        self.assertEqual(environment['LD_LIBRARY_PATH'].split(':'), [str(directory), str(directory / 'lib')])
+
+    def test_on_windows_the_library_path_is_left_alone(self):
+        environment = campaign.target_environment(pathlib.Path('bin') / 'Fuzz_ConsumerPanel.exe',
+                                                  pathlib.Path('storage'), {'PATH': 'C:\\tools'}, 'nt')
+        self.assertNotIn('LD_LIBRARY_PATH', environment)
+        self.assertEqual(environment['PATH'], 'C:\\tools')
+
+
 class RepositoryTests(unittest.TestCase):
     """The repository's own registry, because a runner that only passes on synthetic input proves nothing."""
 

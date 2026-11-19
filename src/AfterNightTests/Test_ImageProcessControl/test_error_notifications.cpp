@@ -367,6 +367,32 @@ TEST(ImageProcessControlCloseTest, AWindowClosedWhileItsApplyRunsCancelsItsProgr
     EXPECT_EQ(context->errorCount(), 0);
 }
 
+// A close that waited for a run ends as a close with nothing on its way does: a window kept past it is not left
+// disabled, whatever was in flight when it was closed.
+TEST(ImageProcessControlCloseTest, AKeptWindowWhoseCloseWaitedForItsRunIsEnabledOnceItCloses)
+{
+    std::unique_ptr<ProcessTestContext> context = openProcessContext();
+    ASSERT_NE(context, nullptr);
+    const InstalledContext installed(*context);
+    ViewHandle target = flatTarget(context->engineSession(), 0.25f);
+    LaunchedProcess process(*target, TestProcessOptions{.progressDialog = true});
+    process->setAttribute(Qt::WA_DeleteOnClose, false);
+    process->setParams(TestParams{.body = TestBody::WaitForStop});
+    process->show();
+
+    process->applyProcess();
+    ASSERT_TRUE(pumpUntil([&process]() { return process->runsOf(an::ui::ProcessRunKind::Apply) == 1; }));
+    EXPECT_FALSE(process->close()) << "the window waits for its run; the GUI thread does not";
+    EXPECT_TRUE(process->isHidden());
+    EXPECT_FALSE(process->isEnabled()) << "nothing reaches the window while its close waits";
+
+    ASSERT_TRUE(pumpUntil([&process]() { return process->isRunIdle(); })) << "the stopped run lands";
+    EXPECT_TRUE(process->isHidden());
+    EXPECT_TRUE(process->isEnabled()) << "the close that waited left the window disabled";
+    process->show();
+    EXPECT_TRUE(process->isEnabled());
+}
+
 // A window's title is its process's name and, in angle brackets, its target's, and it follows the target's name.
 TEST(ImageProcessControlTitleTest, TheTitleNamesTheProcessAndItsTargetInAngleBrackets)
 {

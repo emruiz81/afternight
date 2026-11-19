@@ -4022,6 +4022,41 @@ TEST_F(ExtensionManagerPageTest, UsesThemeTokensAndDynamicButtonRoles)
     }
 }
 
+// A package's hash is 64 characters that never wrap: it takes the whole width of its row's values, so it never sets
+// how wide a card must be, whatever font draws it. The details beside it in half a row are on the next.
+TEST_F(ExtensionManagerPageTest, ThePackageHashTakesTheWholeWidthOfItsRowsValues)
+{
+    an::ui::ExtensionManagerPage page(nullptr);
+    page.setRepositoryProvider([] {
+        ExtensionManagerPageRepositorySnapshot snapshot;
+        snapshot.success = true;
+        snapshot.indexUrl = QUrl(QStringLiteral("https://extensions.example.invalid/index.json"));
+        snapshot.entries = {makeEntry("install_ext", "Install Ext", "Installable package", "1.0.0",
+                                      ExtensionRepositoryInstallState::NotInstalled)};
+        return snapshot;
+    });
+    page.loadSettings();
+
+    auto* grid = page.findChild<QGridLayout*>(fieldObjectName("install_ext", "metadataLayout"));
+    auto* hash = page.findChild<QLabel*>(fieldObjectName("install_ext", "hash"));
+    auto* compatibility = page.findChild<QLabel*>(fieldObjectName("install_ext", "compatibility"));
+    ASSERT_NE(grid, nullptr);
+    ASSERT_NE(hash, nullptr);
+    ASSERT_NE(compatibility, nullptr);
+    const auto positionOf = [grid](QWidget* widget) {
+        int row = -1;
+        int column = -1;
+        int rows = 0;
+        int columns = 0;
+        grid->getItemPosition(grid->indexOf(widget), &row, &column, &rows, &columns);
+        return std::array<int, 4>{row, column, rows, columns};
+    };
+    const std::array<int, 4> hashAt = positionOf(hash);
+    EXPECT_EQ(hashAt[1], 1) << "the hash is a value, beside its label";
+    EXPECT_EQ(hashAt[3], grid->columnCount() - 1) << "the hash spans every column of values";
+    EXPECT_GT(positionOf(compatibility)[0], hashAt[0]) << "what was beside the hash is on a row of its own";
+}
+
 TEST_F(ExtensionManagerPageTest, ExtensionsDialogTabsUseTopAccentLineThemeProperties)
 {
     const bool shown = inspectExtensionsDialog([](QDialog& dialog) {
