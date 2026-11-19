@@ -147,6 +147,14 @@ public:
     /// The process targets another image, or none: the view it targets is closing, or it targets no single image.
     /// Told while the process is made too, once its target is known, before its window is shown.
     virtual void targetChanged(TopLevelProcessBaseControl& process, ImageViewControl* target) = 0;
+
+    /// The process asks to be put away, as an extension hiding its process window does: its task stays - its run, its
+    /// state and its place among the tasks - and leaves the screen until it is shown again as any task is. Only for a
+    /// process the presenter took; nothing by default.
+    virtual void hideTask(TopLevelProcessBaseControl& process)
+    {
+        static_cast<void>(process);
+    }
 };
 
 } // namespace an::ui

@@ -1,0 +1,34 @@
+{
+  "id": "example.protocol_batch_process",
+  "name": "Example Protocol Batch Process",
+  "version": "1.0.0",
+  "summary": "Template for a protocol extension with no interface.",
+  "description": "A repository-ready AfterNight extension package for the Lite host that shows nothing: started on an image, its own run processes the image, commits the result as one step of its history and closes, its progress shown with its task.",
+  "author": "Example Author",
+  "license": "MIT",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "protocol_batch_process",
+  "process_class": "ExampleProtocolBatchProcess",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "protocol",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "protocol",
+    "batch"
+  ],
+  "dependencies": {
+    "bundled_runtime_packages": [
+      "numpy"
+    ]
+  },
+  "capabilities": {
+    "interface": "none",
+    "execute": true
+  }
+}

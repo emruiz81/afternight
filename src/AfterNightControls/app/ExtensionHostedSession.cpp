@@ -406,6 +406,17 @@ void ExtensionHostedSession::route()
                                     QString::fromStdString(whole ? patch.error : refusal));
             }
         }
+        else if (message.type == "ui.hide")
+        {
+            if (!panelHideFromProtocolMessage(message, nullptr, &refusal))
+            {
+                LOG_WARNING("The extension's request to hide its process was refused: {}", refusal);
+            }
+            else if (m_listener.hidden)
+            {
+                m_listener.hidden();
+            }
+        }
     }
 
     // How far an Apply has come, as the host tells it while it runs one.

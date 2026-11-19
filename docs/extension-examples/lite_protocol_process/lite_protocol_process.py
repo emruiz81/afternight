@@ -6,6 +6,12 @@ from afternight.lite import LiteProcessExtension
 
 
 class ExampleLiteProtocolProcess(LiteProcessExtension):
+    """A protocol extension that owns its interface (``capabilities.interface = "window"``).
+
+    AfterNight lists its session as a task and draws nothing of it: the extension shows what it shows itself - a window
+    of its own toolkit, or another program's it starts - and raises it in on_raise_window() when a person asks to see it.
+    """
+
     def get_params(self):
         return [
             {
@@ -37,3 +43,10 @@ class ExampleLiteProtocolProcess(LiteProcessExtension):
                 f"Active view: {active.view_name}",
                 component="example.lite_protocol_process",
             )
+
+    def on_raise_window(self):
+        # A Lite extension raises the window it owns here, when a person asks to see it (Show on its task). This
+        # template owns none: it records that it was asked.
+        raised = int(self.settings.get("raise_requests", 0) or 0) + 1
+        self.settings.set("raise_requests", raised)
+        self.log_info(f"Asked to raise the extension's window ({raised})", component="example.lite_protocol_process")

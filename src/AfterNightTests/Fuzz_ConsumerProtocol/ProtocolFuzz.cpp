@@ -16,7 +16,8 @@
 /// * **What decoded encodes, and what it encodes decodes the same.** A message read off the wire serializes, the bytes
 ///   read back as a message, and serializing that gives the same bytes again; a buffer's description written as CBOR
 ///   reads back as one. A typed message - a hello, an execute, a commit, a result, a theme state, a run's activity, a
-///   raise - decoded from a message re-encodes into a message the same typed decoder accepts.
+///   raise, a panel's description, event, answer and hiding - decoded from a message re-encodes into a message the
+///   same typed decoder accepts; a panel's event either host reads is read or refused with a reason.
 /// * **Framing consumes or stops.** Consuming frames out of a buffer either takes a whole frame, waits for more bytes
 ///   without taking any, or refuses the frame; it never takes more bytes than were there and never loops forever.
 
@@ -25,8 +26,11 @@
 #include "AfterNightExtensionProtocol.h"
 
 #include <QByteArray>
+#include <QCborArray>
 #include <QCborMap>
 #include <QCborValue>
+#include <QJsonArray>
+#include <QJsonObject>
 
 #include <cstdint>
 #include <string>
@@ -168,6 +172,36 @@ enum Mode : std::uint8_t
     raise.session_id = "session-1";
     raise.request_id = "raise-1";
     messages.push_back(protocol::toProtocolMessage(raise));
+
+    // The panel calls either host serves: the parameters it tells, what a person did and an action's answer, and the
+    // task put away.
+    messages.push_back(protocol::hostedPanelDescription(
+        "session-1", QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("window_meta")},
+                                            {QStringLiteral("type"), QStringLiteral("meta")}},
+                                QJsonObject{{QStringLiteral("id"), QStringLiteral("gain")},
+                                            {QStringLiteral("type"), QStringLiteral("float")},
+                                            {QStringLiteral("default"), 1.25},
+                                            {QStringLiteral("min"), 0.0},
+                                            {QStringLiteral("max"), 4.0}}}));
+    protocol::UiEventMessage parameters;
+    parameters.session_id = "session-1";
+    parameters.widget_id = "panel";
+    parameters.event_name = "parameters_changed";
+    parameters.value = QCborMap{{QStringLiteral("params"), QCborMap{{QStringLiteral("gain"), 1.5}}},
+                                {QStringLiteral("changed"), QCborArray{QStringLiteral("gain")}},
+                                {QStringLiteral("reason"), QStringLiteral("user")}};
+    messages.push_back(protocol::toProtocolMessage(parameters));
+    protocol::UiEventMessage clicked;
+    clicked.session_id = "session-1";
+    clicked.widget_id = "auto";
+    clicked.event_name = "clicked";
+    clicked.value = QCborMap{{QStringLiteral("params"), QCborMap{{QStringLiteral("gain"), 1.5}}}};
+    messages.push_back(protocol::toProtocolMessage(clicked));
+    messages.push_back(protocol::hostedActionAnswer("session-1", "auto", QCborMap{{QStringLiteral("gain"), 2.0}}));
+    messages.push_back(protocol::hostedActionAnswer("session-1", "auto", {}, "The action failed\nfor a reason"));
+    protocol::PanelHideMessage hide;
+    hide.session_id = "session-1";
+    messages.push_back(protocol::toProtocolMessage(hide));
     return messages;
 }
 
@@ -231,6 +265,24 @@ void checkMessage(const QByteArray& bytes)
     checkTyped<protocol::SessionActivityMessage>(message, protocol::sessionActivityFromProtocolMessage,
                                                  "typed-activity");
     checkTyped<protocol::WindowRaiseMessage>(message, protocol::windowRaiseFromProtocolMessage, "typed-raise");
+    checkTyped<protocol::PanelDescribeMessage>(message, protocol::panelDescribeFromProtocolMessage, "typed-describe");
+    checkTyped<protocol::PanelPatchMessage>(message, protocol::panelPatchFromProtocolMessage, "typed-patch");
+    checkTyped<protocol::PanelHideMessage>(message, protocol::panelHideFromProtocolMessage, "typed-hide");
+    checkTyped<protocol::UiEventMessage>(message, protocol::uiEventFromProtocolMessage, "typed-event");
+
+    // What a person did in a panel, as either host reads it: read, or refused with a reason.
+    protocol::HostedPanelEvent event;
+    std::string eventError;
+    if (protocol::hostedPanelEventFrom(message, &event, &eventError))
+    {
+        countReached("panel-events-read");
+        AN_FUZZ_CHECK(event.kind != protocol::HostedPanelEvent::Kind::Action || !event.actionId.empty(),
+                      "an action read without its name");
+    }
+    else
+    {
+        AN_FUZZ_CHECK(!eventError.empty(), "a panel's event refused without a reason");
+    }
 }
 
 void checkFrames(const QByteArray& bytes)

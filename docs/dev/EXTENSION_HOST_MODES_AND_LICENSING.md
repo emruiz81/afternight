@@ -9,7 +9,7 @@ AfterNight uses `sdk_backend` in `extension.json` to choose both the SDK surface
 | Manifest `sdk_backend` | Host process | Engine access | Native AfterNight controls | Package license posture |
 |---|---|---|---|---|
 | `runtime` | `AfterNightExtensionHost` | Direct `_afternight_runtime` bindings to `AfterNightEngine` | Allowed | GPL-compatible only |
-| `protocol` | `AfterNightExtensionHostLite` | None | Not allowed | Non-GPL-capable, subject to package and dependency licenses |
+| `protocol` | `AfterNightExtensionHostLite` | None | Not linked; a panel AfterNight draws from the extension's description | Non-GPL-capable, subject to package and dependency licenses |
 | `rpc` | `AfterNightExtensionHostLite` plus `AfterNightSdkHost` | Through protocol calls executed in GPL `AfterNightSdkHost` | Not allowed for non-GPL packages | Non-GPL-capable subject to legal review when the RPC backend ships |
 
 `runtime` extensions are full hosted extensions. `protocol` and `rpc` extensions are lite hosted extensions.
@@ -118,22 +118,64 @@ Until `runtime.ready` the session sends no execute, preview, view notification o
 
 A host started without the variable - a caller of `ExtensionHostManager::launchSession` that leaves `defer_runtime_bootstrap` off, as the suites' direct sessions do - starts the runtime first and connects after. The launch then waits for the connection while the host process runs, up to the same 60-second start bound, and fails at once, with what the host printed, when the host exits first. Either way the messages and fields are protocol 1's own: package format, protocol and SDK stay at version 1, and an extension sees its import, its launch hook and its requests in the same order whichever way its host starts.
 
+## Who Draws What
+
+An extension's manifest says who draws its process, in `capabilities.interface`:
+
+| `interface` | `runtime` extension (full host) | `protocol` extension (Lite host) |
+|---|---|---|
+| `panel` | The application draws a panel from the parameters the extension describes, in a task page, where a shell takes processes into pages; elsewhere the full host draws the same panel in its native window | The application draws the panel in every shell, since the Lite host has no window of its own |
+| `window` | The full host shows its native process window - which the extension may hide to show a window of its own toolkit - and the application lists it as a task that raises it | The extension shows a window of its own - its own toolkit's, or another program's it starts - and raises it in `on_raise_window()` when a person asks |
+| `none` | Nothing is drawn: the full host is launched with `--no-process-window` and the extension does its work in its session | Nothing is drawn: the extension's own run at its start (`run()`) does its work, its progress shown with its task |
+
+A manifest that states no interface leaves it to the parameters read when the package is found: a `runtime`
+extension's list is a panel, since every one is written for the native process window; a `protocol` extension's is a
+panel when it states the window's look (the `meta` entry `afternight.ui_protocol.process_window_meta()` makes); with no
+such list the extension shows a window of its own. Any other word is refused by name.
+
+**A panel the application draws.** The extension describes its parameters as data - the list `get_params()` returns,
+its look stated by `process_window_meta()` - and the application builds the controls. Both hosts serve it the same way,
+announced by the capability `hosted_panel` in both the hello and the acknowledgement: the host shows no window; it tells
+the application the parameters once its runtime is ready (`ui.describe`), hears what a person does in the panel
+(`ui.event`) and answers an action (`ui.patch`), and runs each frame of the preview and each Apply over the shared
+buffers the application lends, writing the output it was lent. An extension that hides its process window
+(`hide_process_window()`) has the application put its task away (`ui.hide`); one that closes it
+(`close_process_window()`) ends its session as a closed window does (`runtime.closed`). The calls that describe a
+process window are `afternight.ui_protocol`'s, which `afternight.ui` hands out unchanged, so a `runtime` extension's code
+runs hosted with no change and a `protocol` extension describes its panel without the native interface module. The Lite
+host reads the panel's events with the protocol library's own helpers (`hostedPanelEventFrom`, `hostedPanelDescription`,
+`hostedActionAnswer`, `lentOutputOf`) and runs a `protocol` extension's `execute_preview()` and `execute()` over
+`afternight.protocol.ImageHandle` tokens bound to the lent buffers.
+
+> **For review by counsel, with this guide's other licensing statements.** A `protocol` extension whose panel
+> AfterNight draws is a lite hosted extension for licensing as any other is. What it sends the application is a
+> description - a list of parameters as data, over `AfterNightExtensionProtocol` - and what it receives back is the
+> parameters' values, events and shared buffers. It imports no GPL module (`afternight.ui_protocol` and `afternight.lite`
+> are Apache-2.0), and the Lite host that carries the panel links nothing it did not link before:
+> `AfterNightExtensionProtocol` alone, which `check_build_graph.py` holds. The GPL code that draws the panel runs in the
+> application's process, never in the extension's. Until this paragraph has been reviewed, the panel is offered to
+> `protocol` packages under the same caution as the rest of this policy: it is an engineering position, not legal
+> advice.
+
 ## The Host's Window In The Application
 
 A session whose host shows a window of its own - every `runtime` session's native process window, and a `protocol`
 extension's own toolkit - is a task of the application's shell, its window staying in the host's process. Two messages,
 additive to protocol 1, let the shell follow and show it; each is announced by a capability the host states in its
-`runtime.hello`, and the full host states both:
+`runtime.hello`, and both hosts state both. An extension that states no interface has no window to raise: its task has
+no Show.
 
 - `session.activity` (host to application, capability `session_activity`): where the window's run stands - `running`,
   a `progress` from 0 to 1 while it runs, a plain `text` of at most 200 characters, and once it ends an `outcome`,
   `succeeded`, `failed` or `cancelled`. The full host sends it as its window's Apply starts, at each whole percent or
-  new text, and as it ends. The application refuses it, ending the session, from a host that did not state the
-  capability and when it is not whole.
-- `window.raise` (application to host, capability `window_raise`): the person asked to see the window. The host shows
-  it in front - brought back when minimized, never a window the extension hid. The application never sends it to a
-  host that did not state the capability, since a host refuses a message it does not know; on Windows it first lets the
-  host take the foreground (`AllowSetForegroundWindow`).
+  new text, and as it ends; the Lite host as an Apply of its panel runs, and as the extension's own run at its start
+  reports its progress. The application refuses it, ending the session, from a host that did not state the capability
+  and when it is not whole.
+- `window.raise` (application to host, capability `window_raise`): the person asked to see the window. The full host
+  shows it in front - brought back when minimized, never a window the extension hid; the Lite host calls the
+  extension's `on_raise_window()`, in which an extension that owns a window raises it. The application never sends it
+  to a host that did not state the capability, since a host refuses a message it does not know; on Windows it first
+  lets the host take the foreground (`AllowSetForegroundWindow`).
 
 A host follows the application's look. The full host is started under the application's style profile
 (`--style-profile` and the profile's name, `hostLookArguments`), put in force before its first widget, and both hosts are
@@ -153,7 +195,8 @@ Use `sdk_backend = protocol` when the extension:
 
 - implements its own processing with its own code and dependencies
 - only needs to list open views, read metadata, subscribe to callbacks, exchange snapshots/buffers, present results, update history, use settings, report progress, and log diagnostics
-- owns its UI using PySide6, another Python UI toolkit, a web/helper process, or no UI
+- has AfterNight draw a panel from the parameters it describes (`capabilities.interface: "panel"`), or owns its UI
+  using PySide6, another Python UI toolkit, a web/helper process, or no UI
 - does not need AfterNight Engine operations
 
 Manifest example:
@@ -241,7 +284,7 @@ Until the RPC backend ships, `rpc` packages are parsed but not launchable. They 
 |---|---:|---:|---:|
 | `afternight`, settings, logging, session metadata | Yes | Yes | Yes |
 | `afternight.lite` base classes | Not recommended | Yes | Yes |
-| `afternight.ui_protocol` result presentation/dialog/theme helpers | Yes | Yes | Yes |
+| `afternight.ui_protocol` result presentation/dialog/theme helpers and process-window description calls | Yes | Yes | Yes |
 | `afternight.ui` native process-window helpers | Yes | No | No for non-GPL packages |
 | `_afternight_runtime` | Yes | No | No |
 | Engine-backed modules: `core`, `io`, `calibration`, `registration`, `stacking` | Yes | No | Through RPC only after the RPC backend ships |
@@ -276,10 +319,13 @@ AfterNight Engine and native-control APIs:
 4. Remove imports of `_afternight_runtime`, `afternight.core`,
    `afternight.io`, `afternight.registration`, `afternight.calibration`, and
    `afternight.stacking`.
-5. Replace native `ParamDef`/`afternight.ui` controls with extension-owned UI
-   such as PySide6, another toolkit, a helper process, or no UI. Use
-   `afternight.ui_protocol` for result presentation, theme tokens, and
-   host dialogs in lite packages.
+5. Keep the parameter list and let AfterNight draw it: describe it with
+   `afternight.ui_protocol.process_window_meta()` and the same entries, state
+   `capabilities.interface: "panel"`, and write `execute_preview()` and
+   `execute()` over `ImageHandle.to_numpy()` and `from_numpy()`. Or replace it
+   with extension-owned UI such as PySide6, another toolkit, a helper process,
+   or no UI. Use `afternight.ui_protocol` for result presentation, theme
+   tokens, and host dialogs in lite packages.
 6. Use protocol-safe app/view services for view metadata, snapshots, shared
    buffers, settings, progress, logging, and result presentation.
 7. Test with `AfterNightExtensionHostLite --standalone` and then through the
@@ -310,7 +356,11 @@ Package validation should enforce:
 - Non-GPL `protocol` packages should import `afternight.ui_protocol` for
   protocol-safe UI/app helpers; importing `afternight.ui` is treated as the
   native/full-host surface and is not suitable for non-GPL packages.
-- `protocol` packages are rejected if they declare native-control-only capabilities.
+- `protocol` packages are rejected if they declare native-control-only capabilities (the deprecated
+  `capabilities.ui: "native"`); a panel AfterNight draws is `capabilities.interface: "panel"`, which either backend may
+  state.
+- `capabilities.interface` is `panel`, `window` or `none`; any other word, or a value that is no word, is refused by
+  name.
 - `rpc` packages are rejected until `AfterNightSdkHost` support is available in the current build.
 - The host manager maps `sdk_backend` to the executable. Packages do not choose executable paths directly.
 
@@ -318,7 +368,7 @@ Build validation should enforce:
 
 - `AfterNightExtensionHostLite` links no AfterNight library but `AfterNightExtensionProtocol`: not `AfterNightEngine`, `AfterNightConsumerRuntime`, `AfterNightPlatform`, `AfterNightExtensionRuntimeBackend`, `libAfterNightControls` or `libAfterNightProcesses`, and not KDDockWidgets.
 - `AfterNightExtensionProtocol` links no AfterNight library and does not include Engine headers or native-control headers.
-- Both are class `none` in `build/scripts/tools/consumer_targets.txt`: the Lite host depends on the protocol library alone and the protocol library on nothing. `build/scripts/tools/check_build_graph.py` holds the generated projects to those records - it fails a link to an AfterNight library the record does not name, an include directory, source or library of the engine, and a source that reaches an engine header - and fails either target reaching `AfterNightPlatform` or `AfterNightConsumerRuntime`.
+- Both are class `none` in `build/scripts/tools/consumer_targets.txt`: the Lite host depends on the protocol library alone and the protocol library on nothing. `build/scripts/tools/check_build_graph.py` holds the generated projects to those records - it fails a link to an AfterNight library the record does not name, an include directory, source or library of the engine, and a source that reaches an engine header - and fails either target reaching `AfterNightPlatform` or `AfterNightConsumerRuntime`. Its licensing-boundary rule fails the Lite host reaching anything of AfterNight's but `AfterNightExtensionProtocol`, and the protocol library reaching anything of AfterNight's at all, by link, include, source or build order: serving a panel the application draws links nothing new.
 - Apache-2.0-targeted lite/protocol source files do not include GPL-only Engine/native-control headers or import `_afternight_runtime`.
 - Full host and lite host protocol tests run against the same fixtures.
 

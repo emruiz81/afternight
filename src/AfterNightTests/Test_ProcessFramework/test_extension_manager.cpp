@@ -1312,6 +1312,236 @@ TEST(ExtensionManagerTest, ProtocolBackendPackageValidatorRejectsNativeUiModuleI
         << describeValidationIssues(validation.issues);
 }
 
+namespace
+{
+
+/// A protocol package under another licence whose process states `interface` and whose module's text is `source`.
+std::filesystem::path protocolPanelPackage(const std::filesystem::path& root, const std::string& name,
+                                           const std::string& interface_word, const std::string& source)
+{
+    const std::filesystem::path package_root = createExtensionPackage(root, name,
+                                                                      R"json({
+          "id": ")json" + name + R"json(",
+          "name": "Protocol Panel",
+          "version": "1.0.0",
+          "type": "python",
+          "entry_point": "panel_ext",
+          "process_class": "PanelExtension",
+          "category": "filters",
+          "license": "MIT",
+          "launch_mode": "single_image",
+          "sdk_backend": "protocol",
+          "capabilities": {
+            "interface": ")json" + interface_word + R"json(",
+            "preview": true
+          },
+          "package_format_version": 1,
+          "protocol_version": 1,
+          "sdk_version": 1
+        })json");
+    writeTextFile(package_root / "panel_ext.py", source);
+    return package_root;
+}
+
+} // namespace
+
+// A protocol package describes its panel with the protocol side of the SDK alone and is accepted under any licence.
+TEST(ExtensionManagerTest, AProtocolPackageWhosePanelTheApplicationDrawsIsAcceptedUnderAnyLicence)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root = protocolPanelPackage(
+        temp_dir.path(), "mit_protocol_panel", "panel",
+        "import afternight.ui_protocol as ui\n"
+        "from afternight.lite import LiteProcessExtension\n"
+        "class PanelExtension(LiteProcessExtension):\n"
+        "    def get_params(self):\n"
+        "        return [ui.process_window_meta(), {'id': 'gain', 'type': 'float', 'default': 1.0}]\n");
+
+    an::ui::extensions::ExtensionPackageValidationOptions options;
+    options.source = ExtensionPackageSource::User;
+    options.context = defaultContext();
+    const auto validation = an::ui::extensions::validate_extension_package_root(package_root, options);
+
+    EXPECT_TRUE(validation.valid) << describeValidationIssues(validation.issues);
+}
+
+// A protocol package with a panel that imports the native interface module is still refused: the panel's calls are the
+// protocol side's.
+TEST(ExtensionManagerTest, AProtocolPanelPackageThatImportsTheNativeInterfaceModuleIsStillRefused)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root =
+        protocolPanelPackage(temp_dir.path(), "native_import_protocol_panel", "panel",
+                             "from afternight.ui import process_window_meta\nclass PanelExtension: pass\n");
+
+    an::ui::extensions::ExtensionPackageValidationOptions options;
+    options.source = ExtensionPackageSource::User;
+    options.context = defaultContext();
+    const auto validation = an::ui::extensions::validate_extension_package_root(package_root, options);
+
+    EXPECT_FALSE(validation.valid);
+    EXPECT_TRUE(
+        hasValidationIssue(validation, "protocol_backend_native_ui_import", ExtensionPackageValidationSeverity::Error))
+        << describeValidationIssues(validation.issues);
+}
+
+// `capabilities.interface` is read: `panel`, `window` and `none`, each by its word; a manifest that states none leaves
+// it to the parameters read when the package is found.
+TEST(ExtensionManagerTest, CapabilitiesInterfaceIsReadAsPanelWindowOrNone)
+{
+    using an::ui::extensions::ExtensionInterface;
+    ScopedTempDirectory temp_dir;
+    for (const auto& [word, expected] : {std::pair{std::string("panel"), ExtensionInterface::Panel},
+                                         std::pair{std::string("window"), ExtensionInterface::Window},
+                                         std::pair{std::string("none"), ExtensionInterface::None}})
+    {
+        SCOPED_TRACE(word);
+        const auto package_root =
+            protocolPanelPackage(temp_dir.path(), "interface_" + word, word, "class PanelExtension: pass\n");
+        const auto result = an::ui::extensions::load_extension_manifest_file(
+            package_root / "extension.json", ExtensionPackageSource::User, defaultContext());
+        ASSERT_EQ(result.status, ExtensionLoadStatus::Ready) << result.diagnostic;
+        ASSERT_TRUE(result.manifest.has_value());
+        ASSERT_EQ(result.manifest->processes.size(), 1u);
+        EXPECT_EQ(result.manifest->processes.front().capabilities.interface_kind, expected);
+        EXPECT_EQ(an::ui::extensions::extensionInterfaceName(expected), word);
+        EXPECT_EQ(an::ui::extensions::extensionInterfaceFromName(word), expected);
+    }
+
+    const auto absent = createExtensionPackage(temp_dir.path(), "interface_absent", R"json({
+          "id": "interface_absent",
+          "name": "Interface Absent",
+          "version": "1.0.0",
+          "type": "python",
+          "entry_point": "absent_ext",
+          "process_class": "AbsentExtension",
+          "category": "filters",
+          "launch_mode": "single_image",
+          "sdk_backend": "runtime",
+          "package_format_version": 1,
+          "protocol_version": 1,
+          "sdk_version": 1
+        })json");
+    writeTextFile(absent / "absent_ext.py", "class AbsentExtension: pass\n");
+    const auto read = an::ui::extensions::load_extension_manifest_file(absent / "extension.json",
+                                                                       ExtensionPackageSource::User, defaultContext());
+    ASSERT_EQ(read.status, ExtensionLoadStatus::Ready) << read.diagnostic;
+    EXPECT_FALSE(read.manifest->processes.front().capabilities.interface_kind.has_value());
+}
+
+// A word `capabilities.interface` does not know is refused by name, and so is a value that is no word at all.
+TEST(ExtensionManagerTest, ACapabilitiesInterfaceOfAnotherWordIsRefusedByName)
+{
+    ScopedTempDirectory temp_dir;
+    const auto package_root =
+        protocolPanelPackage(temp_dir.path(), "interface_dialog", "dialog", "class PanelExtension: pass\n");
+    const auto result = an::ui::extensions::load_extension_manifest_file(
+        package_root / "extension.json", ExtensionPackageSource::User, defaultContext());
+    EXPECT_EQ(result.status, ExtensionLoadStatus::Invalid);
+    EXPECT_NE(result.diagnostic.find("capabilities.interface must be one of panel, window and none"), std::string::npos)
+        << result.diagnostic;
+    EXPECT_NE(result.diagnostic.find("'dialog'"), std::string::npos) << result.diagnostic;
+    EXPECT_FALSE(an::ui::extensions::extensionInterfaceFromName("Panel").has_value()) << "the words are exact";
+
+    const auto numeric = createExtensionPackage(temp_dir.path(), "interface_numeric", R"json({
+          "id": "interface_numeric",
+          "name": "Interface Numeric",
+          "version": "1.0.0",
+          "type": "python",
+          "entry_point": "numeric_ext",
+          "process_class": "NumericExtension",
+          "category": "filters",
+          "launch_mode": "single_image",
+          "sdk_backend": "protocol",
+          "capabilities": {"interface": 1},
+          "package_format_version": 1,
+          "protocol_version": 1,
+          "sdk_version": 1
+        })json");
+    writeTextFile(numeric / "numeric_ext.py", "class NumericExtension: pass\n");
+    const auto refused = an::ui::extensions::load_extension_manifest_file(
+        numeric / "extension.json", ExtensionPackageSource::User, defaultContext());
+    EXPECT_EQ(refused.status, ExtensionLoadStatus::Invalid);
+    EXPECT_NE(refused.diagnostic.find("capabilities.interface must be one of panel, window and none"),
+              std::string::npos)
+        << refused.diagnostic;
+}
+
+// Absent from the manifest, the interface is what the parameters read when the package was found say: a runtime
+// extension's list - every one is written for the native process window - and a protocol one's that states the
+// window's look mean a panel; a protocol list without it, or no list at all, means a window of its own. What the
+// manifest states wins.
+TEST(ExtensionManagerTest, AnAbsentInterfaceIsInferredFromTheParametersKept)
+{
+    using an::ui::extensions::ExtensionInterface;
+    using an::ui::extensions::ExtensionSdkBackend;
+    using an::ui::extensions::resolvedExtensionInterface;
+    const QJsonArray plain{
+        QJsonObject{{QStringLiteral("id"), QStringLiteral("note")}, {QStringLiteral("type"), QStringLiteral("info")}}};
+    QJsonArray native = plain;
+    native.prepend(QJsonObject{{QStringLiteral("id"), QStringLiteral("window_meta")},
+                               {QStringLiteral("type"), QStringLiteral("meta")},
+                               {QStringLiteral("panel_variant"), QStringLiteral("native")}});
+    const an::ui::extensions::ExtensionCapabilities absent;
+
+    EXPECT_EQ(resolvedExtensionInterface(absent, ExtensionSdkBackend::Runtime, &plain), ExtensionInterface::Panel);
+    EXPECT_EQ(resolvedExtensionInterface(absent, ExtensionSdkBackend::Runtime, nullptr), ExtensionInterface::Window);
+    EXPECT_EQ(resolvedExtensionInterface(absent, ExtensionSdkBackend::Protocol, &plain), ExtensionInterface::Window);
+    EXPECT_EQ(resolvedExtensionInterface(absent, ExtensionSdkBackend::Protocol, &native), ExtensionInterface::Panel);
+    EXPECT_EQ(resolvedExtensionInterface(absent, ExtensionSdkBackend::Protocol, nullptr), ExtensionInterface::Window);
+
+    an::ui::extensions::ExtensionCapabilities stated;
+    stated.interface_kind = ExtensionInterface::None;
+    EXPECT_EQ(resolvedExtensionInterface(stated, ExtensionSdkBackend::Runtime, &native), ExtensionInterface::None);
+    stated.interface_kind = ExtensionInterface::Panel;
+    EXPECT_EQ(resolvedExtensionInterface(stated, ExtensionSdkBackend::Protocol, &plain), ExtensionInterface::Panel);
+}
+
+// Whether the application draws a bound process follows its interface: a runtime extension's panel where the shell
+// takes processes into pages, as before; one that states a window of its own or no interface never; a protocol
+// extension's panel in every shell, since its host has no window to draw it in; never a process whose parameters were
+// not kept, nor a workflow's.
+TEST(ExtensionManagerTest, TheApplicationDrawsAProcessWhoseInterfaceIsAPanel)
+{
+    using an::ui::extensions::ExtensionInterface;
+    an::ui::extensions::ExtensionHostLaunchCoordinator coordinator;
+    bool pages = true;
+    coordinator.setHostsPanels([&pages]() { return pages; });
+
+    an::ui::extensions::ExtensionHostLaunchBinding runtime;
+    runtime.sdk_backend = "runtime";
+    runtime.extension_host_owns_process_window = true;
+    runtime.has_cached_native_param_schema = true;
+    runtime.cached_native_param_schema =
+        QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("gain")}, {QStringLiteral("type"), "float"}}};
+    EXPECT_EQ(an::ui::extensions::interfaceOf(runtime), ExtensionInterface::Panel);
+    EXPECT_TRUE(coordinator.hostsPanels(runtime));
+    pages = false;
+    EXPECT_FALSE(coordinator.hostsPanels(runtime)) << "a shell with no pages keeps the host's window";
+    pages = true;
+    runtime.process_capabilities.interface_kind = ExtensionInterface::Window;
+    EXPECT_FALSE(coordinator.hostsPanels(runtime)) << "an extension with a window of its own keeps it";
+    runtime.process_capabilities.interface_kind = ExtensionInterface::None;
+    EXPECT_FALSE(coordinator.hostsPanels(runtime));
+
+    an::ui::extensions::ExtensionHostLaunchBinding protocol = runtime;
+    protocol.sdk_backend = "protocol";
+    protocol.extension_host_owns_process_window = false;
+    protocol.process_capabilities.interface_kind.reset();
+    EXPECT_EQ(an::ui::extensions::interfaceOf(protocol), ExtensionInterface::Window)
+        << "a Lite extension's list without the window's look is no panel";
+    EXPECT_FALSE(coordinator.hostsPanels(protocol));
+    protocol.process_capabilities.interface_kind = ExtensionInterface::Panel;
+    EXPECT_TRUE(coordinator.hostsPanels(protocol));
+    pages = false;
+    EXPECT_TRUE(coordinator.hostsPanels(protocol)) << "a protocol extension's panel is drawn in every shell";
+    protocol.has_cached_native_param_schema = false;
+    EXPECT_FALSE(coordinator.hostsPanels(protocol)) << "its parameters were not read when its package was found";
+    protocol.has_cached_native_param_schema = true;
+    protocol.launch_mode = an::ui::extensions::ExtensionLaunchMode::Workflow;
+    EXPECT_FALSE(coordinator.hostsPanels(protocol));
+}
+
 // A manifest that does not mark itself for development only is not.
 TEST(ExtensionManagerTest, DevelopmentOnlyManifestMarkerDefaultsToFalse)
 {

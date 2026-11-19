@@ -111,6 +111,11 @@ class VisualStudioTreeCase(unittest.TestCase):
             built_after = PRODUCT_ENGINE
             if name == graph.STYLE_PLUGIN_PROJECT:
                 links, built_after = graph.STYLE_PLUGIN_THROUGH + '.lib', graph.STYLE_PLUGIN_THROUGH
+            # The engine-free extension boundary: the Lite host links the protocol library alone, which links nothing.
+            for boundary, allowed in graph.EXTENSION_BOUNDARY:
+                if name == boundary:
+                    links = ';'.join(project + '.lib' for project in allowed)
+                    built_after = allowed[0] if allowed else built_after
             kwargs = dict({'links': links}, **main_overrides.get(name, {}))
             links = kwargs['links']
             write_vcxproj(self.main, name, **kwargs)
@@ -659,6 +664,49 @@ class PlatformIsolationTests(VisualStudioTreeCase):
         code, output = self.run_check()
         self.assertEqual(code, 1)
         self.assertIn('AfterNightExtensionProtocol includes', output)
+
+
+class ExtensionBoundaryTests(VisualStudioTreeCase):
+    """The licensing boundary: the Lite host reaches the protocol library alone, and the protocol library nothing."""
+
+    def test_the_boundary_linking_what_it_always_linked_passes(self):
+        self.build_tree()
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+
+    def test_the_lite_host_linking_controls_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHostLite': {
+                            'links': 'AfterNightExtensionProtocol.lib;AfterNightControls.lib'}},
+                        main_dependencies={'AfterNightExtensionHostLite.vcxproj': [
+                            'AfterNightExtensionProtocol.vcxproj', 'AfterNightControls.vcxproj']})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHostLite links AfterNightControls; the engine-free extension boundary '
+                      "reaches AfterNightExtensionProtocol of AfterNight's", output)
+        self.assertIn('AfterNightExtensionHostLite builds after AfterNightControls', output)
+
+    def test_the_lite_host_linking_the_engine_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionHostLite': {
+            'links': 'AfterNightExtensionProtocol.lib;' + PRODUCT_ENGINE + '.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHostLite links %s; the engine-free extension boundary reaches '
+                      "AfterNightExtensionProtocol of AfterNight's" % PRODUCT_ENGINE, output)
+
+    def test_the_lite_host_including_the_controls_tree_fails(self):
+        controls_include = os.path.join('..', '..', 'src', 'AfterNightControls')
+        self.build_tree(main_overrides={'AfterNightExtensionHostLite': {'includes': controls_include}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionHostLite includes %s from the AfterNightControls tree' % controls_include,
+                      output)
+
+    def test_the_protocol_library_linking_controls_fails(self):
+        self.build_tree(main_overrides={'AfterNightExtensionProtocol': {'links': 'AfterNightControls.lib'}})
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('AfterNightExtensionProtocol links AfterNightControls; the engine-free extension boundary '
+                      "reaches nothing of AfterNight's", output)
 
 
 class StylePluginIsolationTests(VisualStudioTreeCase):
@@ -1371,6 +1419,10 @@ class MakefileTreeCase(unittest.TestCase):
             if name == graph.STYLE_PLUGIN_PROJECT:
                 # The style plugin links the Controls library whose theme it draws, as the generator emits it.
                 libs = '-l' + graph.STYLE_PLUGIN_THROUGH
+            # The engine-free extension boundary: the Lite host links the protocol library alone, which links nothing.
+            for boundary, allowed in graph.EXTENSION_BOUNDARY:
+                if name == boundary:
+                    libs = ' '.join('-l' + project for project in allowed)
             kwargs = dict({'target': 'lib%s.so' % name, 'libs': libs}, **main_overrides.get(name, {}))
             self.write_project(self.make, name, **kwargs)
         self.write_project(self.make, graph.ENGINE_PROJECT, includes=engine_includes,
@@ -1390,6 +1442,8 @@ class MakefileTreeCase(unittest.TestCase):
         for adapter in adapters:
             prerequisites[adapter] = [graph.ENGINE_PROJECT]
         prerequisites[graph.STYLE_PLUGIN_PROJECT] = [graph.STYLE_PLUGIN_THROUGH]
+        for boundary, allowed in graph.EXTENSION_BOUNDARY:
+            prerequisites[boundary] = list(allowed)
         self.write_workspace(self.make, main_names, prerequisites)
         test_libs = test_libs or {}
         test_lddeps = test_lddeps or {}

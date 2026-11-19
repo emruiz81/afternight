@@ -328,6 +328,36 @@ TEST(ExternalTasks, ShowSendsTheRaiseOnlyToAHostThatRaisesItsWindow)
     session->running_session.socket->disconnectFromServer();
 }
 
+// An extension that states it has no interface (`capabilities.interface` `none`) shows nothing to raise: its session
+// raises no window whatever its host states, and the full host is launched to show none, where the Lite host, which
+// never shows one of its own, is launched as it was.
+TEST(ExternalTasks, AnExtensionWithNoInterfaceRaisesNoWindowAndItsFullHostShowsNone)
+{
+    std::unique_ptr<ExtensionSessionController> session = startedSession({std::string(kWindowRaiseCapability)});
+    session->running_session.runtime_ready = true;
+    EXPECT_TRUE(standingOf(*session).raisesItsWindow);
+    session->running_session.prepared_session.no_interface = true;
+    EXPECT_FALSE(standingOf(*session).raisesItsWindow);
+
+    const ExtensionHostManager manager;
+    an::ui::extensions::ExtensionHostLaunchRequest request;
+    request.extension_id = "seam.extension";
+    request.sdk_backend = "runtime";
+    request.host_executable = "host";
+    request.no_interface = true;
+    const auto has = [](const std::vector<std::string>& arguments) {
+        return std::find(arguments.begin(), arguments.end(), "--no-process-window") != arguments.end();
+    };
+    const an::ui::extensions::ExtensionHostPreparedSession full = manager.prepareSession(request);
+    EXPECT_TRUE(full.no_interface);
+    EXPECT_TRUE(has(full.host_arguments));
+    request.sdk_backend = "protocol";
+    EXPECT_FALSE(has(manager.prepareSession(request).host_arguments)) << "the Lite host refuses what it does not know";
+    request.sdk_backend = "runtime";
+    request.no_interface = false;
+    EXPECT_FALSE(has(manager.prepareSession(request).host_arguments));
+}
+
 // Both messages go over the wire and come back as they went.
 TEST(ExternalTasks, TheProtocolCarriesARunsActivityAndARaise)
 {

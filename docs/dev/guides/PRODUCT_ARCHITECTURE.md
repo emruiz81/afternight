@@ -2736,13 +2736,36 @@ boundary.
 
 ### A hosted extension process (`controls/ExtensionHostedProcess.h`, `app/ExtensionHostedSession.h`)
 
-The application draws the process of a `runtime` extension that describes its parameters - every extension written for
-the native process window - while the extension's code stays in its host: a **hosted panel**. Both sides state
+The application draws the process of an extension that describes its parameters while the extension's code stays in
+its host: a **hosted panel**. Who draws a process is its manifest's `capabilities.interface` - `panel`, `window` or
+`none` (`ExtensionInterface`) - and where the manifest is silent, what the parameters read when the package was found
+say (`resolvedExtensionInterface`, `interfaceOf` for a bound process): a `runtime` extension's list is a panel, since
+every one is written for the native process window, and a `protocol` extension's is one when it states the window's
+look (`process_window_meta`'s `meta` entry), since a Lite extension's `get_params()` meant nothing to the application
+before it could draw one; with no such list the extension shows a window of its own. Both sides state
 `kHostedPanelCapability` in the handshake (the host in its hello, the application in its acknowledgement), and the
-application asks for it (`ExtensionHostLaunchRequest::hosted_panel`) only when a shell takes processes into pages - an
-`IAppContext` with a process presenter, the Observatory shell - so the classic shell keeps the host's window
-(`ExtensionHostLaunchCoordinator::setHostsPanels` states another policy). A host that does not state the capability is
-acknowledged without it and shows its window as before. `ExtensionHostedProcess` is the native window's class in a
+application asks for it (`ExtensionHostLaunchRequest::hosted_panel`, `ExtensionHostLaunchCoordinator::hostsPanels`) for
+a process of one image whose interface is a panel and whose parameters were kept: a `runtime` extension's only when a
+shell takes processes into pages - an `IAppContext` with a process presenter, the Observatory shell - so the classic
+shell keeps the host's window (`setHostsPanels` states another policy); a `protocol` extension's in every shell, since
+the Lite host has no window to draw it in, the process then a window of its own where no presenter takes it. A host that
+does not state the capability is acknowledged without it and shows its window as before. An extension with no interface
+(`none`) is launched to show none - the full host with `--no-process-window` - and its session raises no window.
+
+Both hosts serve a panel the same way, and the protocol library holds what the two share: reading a panel's event
+(`hostedPanelEventFrom`), the description and an action's answer (`hostedPanelDescription`, `hostedActionAnswer`) and the
+output a request lent (`lentOutputOf`). The Lite host binds the buffers a frame or an Apply lends to image tokens, runs
+`afternight.lite`'s `_serve_panel_request` over them - the extension's `execute_preview()` or `execute()` - and answers
+as the full host does; a request is held as the one on its way and run on the host's thread between turns of its event
+loop, a cancel that comes first answering it unrun and one that comes while it runs read when the extension next
+reports its progress or asks whether it was cancelled (`LitePythonHostBridge::pumpWhileRunning`), which answers the
+heartbeat too. So a `protocol` extension gets the panel linking nothing new - the description is protocol data - and
+`check_build_graph.py` holds the Lite host to the protocol library alone. The calls that describe a process window are
+`afternight.ui_protocol`'s (`process_window_meta`, `hide_process_window`, `close_process_window`), which `afternight.ui`
+hands out unchanged. An extension that hides its process window has the application put its task away (`ui.hide`,
+`PanelHideMessage`, `IProcessPresenter::hideTask`: the Observatory shell leaves its page for the place shown before, or
+minimizes the window it floats in, and the task stays in the rail); one that closes it ends its session as a closed
+window does (`runtime.closed`), and the process closes with it. `ExtensionHostedProcess` is the native window's class in a
 page's shape (`ExtensionNativeProcessWindow::PageShape`): the same panel, target selector, view selectors, manual mask,
 tool configuration and histograms, laid out as a framework process - a splitter of its controls and its preview, or the
 controls alone for an extension that does not preview, and a box of Reset, Close and Apply the framework presses - so a
@@ -2809,11 +2832,14 @@ after a run that ended while its host starts or after it failed is shown as its 
 `HostedProcess.*` (`Test_ControlsExtensionSeam`) holds it over a stand-in host - a local socket's far end and an idle
 process of the suite standing for the host's (`Test_ControlsExtensionSeam/HostedPanelStandIn.h`) - among them
 `HostDiesLeavesThePageAndReleasesTheLock`, `RestartBringsThePanelBack` and `NeverWaitsOnTheGuiThread`; `HostedTasks.*`
-(`Test_ShellObservatory`) holds the page, its starting row and its failure. The extension regression
+(`Test_ShellObservatory`) holds the page, its starting row, its failure, and a task put away and closed by its
+extension. The extension regression
 (`ExtensionRegression.*`, `Test_ProcessFramework`) runs every subject of the full host that works on one image on both
 paths, its window's and the hosted one's - each request lending the output the host writes - and expects the same
 answers of both; a hosted subject tells the parameter list the application kept for its window; and the real-time
 preview demo is launched hosted through the coordinator over a view, previewed, its host killed, restarted and applied.
+The protocol templates run on the Lite host: the panel template is described, previewed, applied and cancelled hosted;
+the window template is asked to raise its window; the template with no interface runs, commits and closes.
 The hosted drag is measured beside the window's (`HostedProcessPreviewBenchmark`, [BENCHMARKS.md](BENCHMARKS.md)).
 
 **The frames' files stay mapped in the host.** The application's frame pool lends the same files frame after frame, and

@@ -1,12 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
-"""Protocol-safe authoring helpers for lite hosted AfterNight extensions."""
+"""Protocol-safe authoring helpers for lite hosted AfterNight extensions.
+
+A Lite extension shows itself one of three ways, as its manifest's ``capabilities.interface`` says: a panel the
+application draws from the parameters it describes (``panel``), a window of its own (``window``), or nothing at all
+(``none``). The panel is protocol data - the same description a ``runtime`` extension's process window reads - so a
+Lite extension gets it without linking anything of the application.
+"""
 
 from .protocol import (
     ExtensionContext,
+    ImageHandle,
     Progress,
     Settings,
     UnsupportedBackendError,
+    ViewRef,
     _coerce_extension_context,
     _host_available,
     _host_has_control_socket,
@@ -134,16 +142,86 @@ class LiteExtension:
     def on_active_view_changed(self, view):
         """Optional hook called when the host active image view changes."""
 
+    def on_raise_window(self):
+        """Optional hook called when a person asks to see the extension's window - Show on its task. An extension that
+        owns a window raises it here; the Lite host has no window of its own to raise."""
+
     def run(self, params=None, progress=None):
         raise NotImplementedError
 
 
 class LiteProcessExtension(LiteExtension):
-    """Base class for protocol-only single-image/app-view extensions."""
+    """Base class for protocol-only single-image/app-view extensions.
+
+    A process extension may have its process window drawn by the application: it describes its parameters as a
+    ``runtime`` extension does - ``get_params()``, its look stated by ``afternight.ui_protocol.process_window_meta()``
+    - and the application draws them as a panel in a task page (``capabilities.interface = "panel"``). The Lite host
+    then runs ``execute_preview()`` for each frame of the preview and ``execute()`` for an Apply over the images the
+    application lends, tells ``on_parameters_changed()`` what a person changed, and asks ``handle_param_action()``,
+    when the extension has one, what an action button sets.
+    """
+
+    def on_parameters_changed(self, params, changed_keys, reason):
+        """Optional hook called when a person changes the parameters of the panel the application draws."""
+
+    def execute_preview(self, target, src_image, preview_image, params, progress, masks=None, weights=None):
+        """Write a frame of the preview, ``preview_image`` from ``src_image``, for the panel the application draws."""
+        raise NotImplementedError
+
+    def execute(self, target, src_image, dst_image, params, progress, masks=None, weights=None, output_masks=None):
+        """Write the result of an Apply, ``dst_image`` from ``src_image``, for the panel the application draws."""
+        raise NotImplementedError
 
 
 class LiteWorkflowExtension(LiteExtension):
     """Base class for protocol-only workflow extensions."""
+
+
+def _lent_images(tokens):
+    return {str(name): ImageHandle(token=str(token)) for name, token in dict(tokens or {}).items()}
+
+
+def _serve_panel_request(instance, kind, source_token, output_token, params, view_name="", masks=None,
+                         weights=None):
+    """Run one request of the panel the application draws, as the Lite host serves it: a frame of the preview
+    (``kind`` "preview") through ``execute_preview()``, an Apply through ``execute()``, over the images the request
+    lent, bound to their tokens by the host. Answers "succeeded", or "cancelled" when the request was cancelled while it
+    ran; raises what the extension raised."""
+    if instance is None:
+        raise RuntimeError("No extension is loaded")
+    progress = Progress()
+    target = ViewRef(view_name=str(view_name or ""))
+    source = ImageHandle(token=str(source_token))
+    output = ImageHandle(token=str(output_token))
+    extra = {}
+    if masks:
+        extra["masks"] = _lent_images(masks)
+    if weights:
+        extra["weights"] = _lent_images(weights)
+    if kind == "preview":
+        instance.execute_preview(target, source, output, dict(params or {}), progress, **extra)
+    elif kind == "execute":
+        instance.execute(target, source, output, dict(params or {}), progress, **extra)
+    else:
+        raise ValueError(f"A panel's request is a preview or an execute, not {kind!r}")
+    return "cancelled" if progress.is_cancelled() else "succeeded"
+
+
+def _serve_panel_action(instance, action_id, params):
+    """Answer an action pressed in the panel the application draws: the values ``handle_param_action()`` sets, over the
+    image the application shows. An extension without the hook answers that it has no actions."""
+    handler = getattr(instance, "handle_param_action", None)
+    if not callable(handler):
+        raise RuntimeError("The extension does not implement parameter actions")
+    try:
+        view = _snapshot_view()
+        source = view.source_image
+    except Exception:
+        view, source = ViewRef(), None
+    result = handler(str(action_id), view, source, dict(params or {}))
+    if not isinstance(result, dict):
+        raise TypeError("handle_param_action() must return a dict")
+    return result
 
 
 def _run_extension_startup(instance, params=None, progress=None):

@@ -250,7 +250,9 @@ void bindDiscoveredExtensionLaunches(an::ui::extensions::ExtensionHostLaunchCoor
             binding.process_capabilities = process.capabilities;
             binding.host_executable = selectedHostExecutable;
             binding.extension_host_owns_process_window = !protocolBackend;
-            if (!protocolBackend && result.settings_schema &&
+            // The parameters read when the package was found: what a panel the application draws starts from, and what
+            // says whether the extension has one when its manifest does not.
+            if (result.settings_schema &&
                 result.settings_schema->state == an::ui::extensions::ExtensionSettingsSchemaState::Ready)
             {
                 const auto paramsSchema = result.settings_schema->process_params_schemas.find(process.class_name);
@@ -412,9 +414,14 @@ struct ExtensionService::Impl
         return shell != nullptr ? shell->mainWindow() : nullptr;
     }
 
-    /// What a page of a process needs before its environment is ready: what its manifest declares of it, for each
-    /// process of a `runtime` extension that runs on one image.
-    std::map<std::string, an::ui::extensions::ExtensionCapabilities, std::less<>> startingFacts;
+    /// What a page of a process needs before its environment is ready: what its manifest declares of it and the
+    /// backend its host runs, for each process of a `runtime` or `protocol` extension that runs on one image.
+    struct StartingFacts
+    {
+        an::ui::extensions::ExtensionCapabilities capabilities;
+        std::string sdkBackend;
+    };
+    std::map<std::string, StartingFacts, std::less<>> startingFacts;
 
     void rememberStartingFacts(const std::vector<ExtensionLoadResult>& discovered)
     {
@@ -424,13 +431,16 @@ struct ExtensionService::Impl
             {
                 continue;
             }
-            const bool hostable = result.manifest->sdk_backend == an::ui::extensions::ExtensionSdkBackend::Runtime &&
+            const auto backend = result.manifest->sdk_backend;
+            const bool hostable = backend != an::ui::extensions::ExtensionSdkBackend::Rpc &&
                                   result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::SingleImage;
             for (const auto& process : result.manifest->processes)
             {
                 if (hostable)
                 {
-                    startingFacts.insert_or_assign(process.id, process.capabilities);
+                    startingFacts.insert_or_assign(
+                        process.id, StartingFacts{.capabilities = process.capabilities,
+                                                  .sdkBackend = an::ui::extensions::extension_sdk_backend_id(backend)});
                 }
                 else
                 {
@@ -1468,7 +1478,8 @@ an::ui::extensions::ExtensionHostedProcess* ExtensionService::openStartingPage(c
     {
         return nullptr;
     }
-    return m_impl->launches->openStartingPage(processId, descriptor->display_name, facts->second, target);
+    return m_impl->launches->openStartingPage(processId, descriptor->display_name, facts->second.capabilities, target,
+                                              facts->second.sdkBackend);
 }
 
 QString ExtensionService::statusPageTitle()

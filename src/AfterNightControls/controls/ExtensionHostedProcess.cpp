@@ -9,8 +9,10 @@
 #include "app/ExtensionPreviewFrames.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ExtensionParamPanel.h"
+#include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
+#include "controls/ProcessPresentation.h"
 #include "session/ExecutionScope.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnimationUtils.h"
@@ -303,6 +305,7 @@ ExtensionHostedProcess::ExtensionHostedProcess(ImageViewControl* target, Setup s
         reportRunProgress(progress, text);
     };
     listener.ended = [this](const ExtensionSessionEnd& end) { onSessionEnded(end); };
+    listener.hidden = [this]() { putAway(); };
     m_hosted->setListener(std::move(listener));
 
     // What a person does in the panel is told to the host, where the extension hears it as its window's always did.
@@ -800,6 +803,20 @@ void ExtensionHostedProcess::onSessionEnded(const ExtensionSessionEnd& end)
     m_failure = end.reason;
     stopPreviews();
     applyHostState();
+}
+
+void ExtensionHostedProcess::putAway()
+{
+    // Taken into a page, its task is put away by the shell that shows it; a window of its own hides, as the extension's
+    // own window did.
+    an::ui::IAppContext* const context = an::ui::appContext();
+    an::ui::IProcessPresenter* const presenter = context != nullptr ? context->getProcessPresenter() : nullptr;
+    if (presenter != nullptr && hasPageLayout())
+    {
+        presenter->hideTask(*this);
+        return;
+    }
+    hide();
 }
 
 void ExtensionHostedProcess::listOpenImages()

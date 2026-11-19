@@ -96,6 +96,11 @@ sources, its suite only the tool's, its own and the engine-neutral fixture layer
 the registry's class rule, which the eleventh applies: the tool is class `engine`, so the consumer runtime, the engine
 and the platform library are its whole first-party closure.
 
+A fourteenth holds the licensing boundary itself: the Lite host reaches nothing of AfterNight's but the protocol
+library, and the protocol library nothing at all - by link, include, source or build order. A `protocol` extension may
+have its panel drawn by the application, and the description it sends is protocol data, so the Lite host serves that
+panel linking what it always linked; this keeps it so.
+
 This reads the *generated* projects rather than the Premake sources, because the generated graph is
 what the compiler and linker actually obey.
 
@@ -206,6 +211,13 @@ STYLE_PLUGIN_THROUGH = 'AfterNightControls'
 # The engine-free extension boundary, which the licensing boundary keeps free of every AfterNight library but
 # the protocol - the platform library included.
 PLATFORM_FREE_PROJECTS = ('AfterNightExtensionHostLite', 'AfterNightExtensionProtocol')
+
+# What each target of the engine-free extension boundary may reach of this workspace: the Lite host the protocol
+# library, the protocol library nothing.
+EXTENSION_BOUNDARY = (
+    ('AfterNightExtensionHostLite', ('AfterNightExtensionProtocol',)),
+    ('AfterNightExtensionProtocol', ()),
+)
 
 # The consumer runtime and its suite, and what each may link of this workspace. The runtime is built on the engine's
 # published surface and logs through the platform library; its suite adds the runtime. The projects that must not
@@ -1099,6 +1111,38 @@ def check_product_layers(workspace):
     return problems
 
 
+def check_extension_boundary(workspace):
+    """The engine-free extension boundary reaches nothing of AfterNight's but what licensing lets it: the Lite host the
+    protocol library alone, and the protocol library nothing - by its link line, its include directories, its sources
+    or its build order. A protocol extension's panel the application draws is protocol data the Lite host carries, so
+    serving it links nothing new. The platform library, the consumer runtime and the shell libraries are held by their
+    own rules and not repeated here.
+    """
+    held_elsewhere = {PLATFORM_PROJECT, CONSUMER_RUNTIME_PROJECT} | set(SHELL_LIBRARIES)
+    first_party = tuple(name for name in EXPECTED_MAIN_PROJECTS + (ENGINE_PROJECT,) if name not in held_elsewhere)
+    problems = []
+    for name, allowed in EXTENSION_BOUNDARY:
+        target = workspace.targets.get(name)
+        if target is None:
+            continue
+        reach = ' and '.join(allowed) if allowed else 'nothing'
+        for project in first_party:
+            if project == name or project in allowed:
+                continue
+            if links_project(target, project):
+                problems.append('%s: %s links %s; the engine-free extension boundary reaches %s of AfterNight\'s'
+                                % (workspace.label, name, project, reach))
+            for directory in target.include_dirs:
+                if references_directory(directory, ('src', project.lower())):
+                    problems.append('%s: %s includes %s from the %s tree' % (workspace.label, name, directory, project))
+            for source in target.sources:
+                if references_directory(source, ('src', project.lower())):
+                    problems.append('%s: %s compiles %s from the %s tree' % (workspace.label, name, source, project))
+            if project in target.build_dependencies:
+                problems.append('%s: %s builds after %s' % (workspace.label, name, project))
+    return problems
+
+
 def check_shell_free_hosts(workspace):
     """No extension host reaches a shell library: by its link line, its include directories or its sources."""
     problems = []
@@ -1593,6 +1637,7 @@ def check_tree(label, workspaces):
         problems.extend(check_command_line_tool_isolation(workspace))
         problems.extend(check_runtime_backend_isolation(workspace))
         problems.extend(check_product_layers(workspace))
+        problems.extend(check_extension_boundary(workspace))
         problems.extend(check_shell_free_hosts(workspace))
         problems.extend(check_precompiled_headers(workspace))
         problems.extend(check_optional_adapters(workspace))

@@ -107,11 +107,38 @@ extensionPreviewScalingFromName(std::string_view name) noexcept;
 /// The farthest reach around a pixel a manifest may state for a `native_region` preview.
 inline constexpr std::uint32_t kMaxExtensionPreviewRegionMargin = 4096u;
 
+/// Who draws an extension's process, as its manifest's `capabilities.interface` states it.
+enum class ExtensionInterface
+{
+    /// `panel`: the application draws a panel from the parameters the extension describes, in a task page; the
+    /// extension's code runs in its host.
+    Panel,
+
+    /// `window`: the extension shows a window of its own - its host's process window, or its own toolkit's - which the
+    /// application lists as a task that raises it.
+    Window,
+
+    /// `none`: nothing is drawn; the extension does its work in its session, which the application lists as a task with
+    /// its progress.
+    None
+};
+
+/// The manifest's word for an interface: `panel`, `window` or `none`.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::string_view extensionInterfaceName(ExtensionInterface value) noexcept;
+
+/// The interface a manifest's word names, or nothing for another word.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<ExtensionInterface>
+extensionInterfaceFromName(std::string_view name) noexcept;
+
 struct ExtensionCapabilities
 {
     bool execute = true;
     bool preview = false;
     bool keep_open = false;
+    /// Who draws the process, when the manifest states it (`capabilities.interface`); absent, it is inferred from the
+    /// parameters read when the package was found (`resolvedExtensionInterface`). Not named `interface`, which the
+    /// Windows headers define as a macro.
+    std::optional<ExtensionInterface> interface_kind;
     /// What an interactive preview frame may run the extension over, and the reach a `native_region` body states.
     ExtensionPreviewScaling preview_scaling = ExtensionPreviewScaling::FullOnly;
     std::uint32_t preview_region_margin = 0u;
@@ -871,6 +898,16 @@ load_ready_extension_startup_catalog(const ExtensionDiscoveryOptions& options);
 extension_package_source_from_id(std::string_view source_id);
 
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::string extension_sdk_backend_id(ExtensionSdkBackend backend);
+
+/// Who draws a process: what its manifest states (`capabilities.interface`), else what the parameters read when its
+/// package was found say. A list the native process window reads is a panel the application draws: a `runtime`
+/// extension's list, since every one is written for that window, and a `protocol` one's that states the window's look
+/// (the `meta` entry `process_window_meta()` makes), since a Lite extension's `get_params()` meant nothing to the
+/// application before it could draw one. With no such list the extension shows a window of its own.
+///
+/// @param keptParams the parameters read when the package was found; null when none were.
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionInterface resolvedExtensionInterface(
+    const ExtensionCapabilities& capabilities, ExtensionSdkBackend backend, const QJsonArray* keptParams);
 
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::string extension_host_mode_label(ExtensionSdkBackend backend);
 

@@ -164,16 +164,26 @@ class CommonBridge:
 
 
 class LiteBridge(CommonBridge):
-    """The Lite host's bridge: it clones an image, says whether a control socket is connected, and answers the theme
-    state the application sent it last - none before it sends one."""
+    """The Lite host's bridge: it clones an image, says whether a control socket is connected, answers the theme state
+    the application sent it last - none before it sends one - and hides or closes the panel the application draws: it
+    hides only while it serves one, and closing ends the session."""
 
-    def __init__(self, backend="protocol", control_socket=True):
+    def __init__(self, backend="protocol", control_socket=True, serves_panel=False):
         super().__init__(backend)
         self.control_socket = control_socket
         self.theme = {}
+        self.serves_panel = serves_panel
 
     def has_control_socket(self):
         return self.control_socket
+
+    def process_window_hide(self):
+        self.calls.append(("hide",))
+        return self.serves_panel
+
+    def process_window_close(self):
+        self.calls.append(("close",))
+        return True
 
     def theme_tokens(self):
         return dict(self.theme)
@@ -792,9 +802,128 @@ assert ui.hide_process_window() is False and ui.close_process_window() is False
 with hosted(FullBridge()) as bridge:
     assert ui.hide_process_window() is True and ui.close_process_window() is False
     assert bridge.calls == [("hide",), ("close",)]
+)PY");
+}
+
+// The calls that describe a process window are the protocol side's: `afternight.ui` hands out the very functions
+// `afternight.ui_protocol` defines, so a `protocol` extension describes its parameters as a `runtime` one does without
+// importing the native interface module. On the Lite host, hiding answers whether a panel the application draws was put
+// away - none without one - and closing ends the session.
+TEST(ProtocolSdkContractTest, TheProcessWindowCallsAreTheProtocolSidesOnEitherHost)
+{
+    expectProtocolPython(R"PY(
+for name in ("process_window_meta", "hide_process_window", "close_process_window"):
+    assert getattr(ui, name) is getattr(ui_protocol, name), name
+    assert getattr(ui_protocol, name).__module__ == "afternight.ui_protocol", name
+    assert name in ui_protocol.__all__ and name in ui.__all__, name
+assert ui_protocol.process_window_meta(sub_area=True, controls_panel_width=500) == {
+    "id": "window_meta", "type": "meta", "panel_variant": "native", "sub_area": True, "controls_panel_width": 500}
+refuses(ValueError, lambda: ui_protocol.process_window_meta(controls_panel_width=-1), "must be positive")
+assert ui_protocol.hide_process_window() is False and ui_protocol.close_process_window() is False
+
+with hosted(LiteBridge()) as bridge:
+    assert ui_protocol.hide_process_window() is False, "a Lite host that draws no panel has nothing to hide"
+    assert ui_protocol.close_process_window() is True
+    assert bridge.calls == [("hide",), ("close",)]
+with hosted(LiteBridge(serves_panel=True)) as bridge:
+    assert ui_protocol.hide_process_window() is True, "the panel's task is put away"
+    assert bridge.calls == [("hide",)]
+)PY");
+}
+
+// A Lite process extension serves the panel the application draws: a frame of its preview through execute_preview(),
+// an Apply through execute(), each over the images the request lent by their tokens, a mask and a weight map only when
+// lent, its target the image the session shows; a request cancelled while it ran says so. What the extension does not
+// implement, a request of another kind and a session with no extension are refused.
+TEST(ProtocolSdkContractTest, ALiteProcessServesThePanelTheApplicationDraws)
+{
+    expectProtocolPython(R"PY(
+class Scaler(lite.LiteProcessExtension):
+    def __init__(self, context=None):
+        super().__init__(context)
+        self.seen = []
+
+    def execute_preview(self, target, src_image, preview_image, params, progress, masks=None, weights=None):
+        self.seen.append(("preview", target.view_name, sorted(masks or {}), sorted(weights or {})))
+        preview_image.from_numpy(src_image.to_numpy() * float(params["strength"]))
+
+    def execute(self, target, src_image, dst_image, params, progress):
+        self.seen.append(("execute", target.view_name))
+        progress.set_value(0.5)
+        dst_image.from_numpy(src_image.to_numpy() + float(params["strength"]))
+        dst_image.set_metadata("example.strength", params["strength"])
+
+with hosted(LiteBridge()) as bridge:
+    bridge.images["out-1"] = np.zeros((3, 4), np.float32)
+    bridge.images["mask-1"] = np.ones((3, 4), np.float32)
+    extension = Scaler()
+    assert lite._serve_panel_request(extension, "preview", "src-1", "out-1", {"strength": 2.0}, "M42",
+                                     masks={"selection": "mask-1"}) == "succeeded"
+    assert extension.seen[-1] == ("preview", "M42", ["selection"], [])
+    assert float(bridge.images["out-1"][2, 3]) == 22.0
+
+    assert lite._serve_panel_request(extension, "execute", "src-1", "out-1", {"strength": 0.5}) == "succeeded"
+    assert extension.seen[-1] == ("execute", ""), "no mask is handed to an execute that was lent none"
+    assert float(bridge.images["out-1"][0, 1]) == 1.5
+    assert bridge.metadata["out-1"]["example.strength"] == "0.5"
+    assert ("progress_value", 0.5) in bridge.calls
+
+    bridge.cancelled = True
+    assert lite._serve_panel_request(extension, "preview", "src-1", "out-1", {"strength": 1.0}) == "cancelled"
+    bridge.cancelled = False
+
+    refuses(ValueError, lambda: lite._serve_panel_request(extension, "workflow", "src-1", "out-1", {}), "workflow")
+    refuses(RuntimeError, lambda: lite._serve_panel_request(None, "preview", "src-1", "out-1", {}), "No extension")
+    bare = lite.LiteProcessExtension()
+    refuses(NotImplementedError, lambda: lite._serve_panel_request(bare, "preview", "src-1", "out-1", {}))
+    refuses(NotImplementedError, lambda: lite._serve_panel_request(bare, "execute", "src-1", "out-1", {}))
+    refuses(TypeError, lambda: lite._serve_panel_request(extension, "execute", "src-1", "out-1", {"strength": 1},
+                                                         masks={"selection": "mask-1"}))
+    assert bare.on_parameters_changed({"strength": 1}, ["strength"], "user") is None
+)PY");
+}
+
+// An action pressed in a Lite extension's panel is answered with what its handle_param_action() sets, over the image
+// the application shows; an extension without one, or one that answers something other than a map, is refused.
+TEST(ProtocolSdkContractTest, ALitePanelsActionAnswersWhatItSets)
+{
+    expectProtocolPython(R"PY(
+class Acting(lite.LiteProcessExtension):
+    def handle_param_action(self, action_id, view, source, params):
+        return {"strength": float(params["strength"]) * 2, "seen": [action_id, view.view_name, source._token]}
+
+class Wrong(lite.LiteProcessExtension):
+    def handle_param_action(self, action_id, view, source, params):
+        return ["strength"]
+
+with hosted(LiteBridge()) as bridge:
+    answer = lite._serve_panel_action(Acting(), "auto", {"strength": 0.25})
+    assert answer == {"strength": 0.5, "seen": ["auto", "M42", "src-1"]}, answer
+    assert ("snapshot", "") in bridge.calls
+    refuses(RuntimeError, lambda: lite._serve_panel_action(lite.LiteProcessExtension(), "auto", {}),
+            "does not implement parameter actions")
+    refuses(TypeError, lambda: lite._serve_panel_action(Wrong(), "auto", {}), "must return a dict")
+)PY");
+}
+
+// A Lite extension that owns a window raises it when a person asks to see it - Show on its task: the Lite host calls
+// on_raise_window(), which every Lite extension has and which does nothing unless the extension says what.
+TEST(ProtocolSdkContractTest, ALiteExtensionIsAskedToRaiseItsOwnWindow)
+{
+    expectProtocolPython(R"PY(
+class Windowed(lite.LiteExtension):
+    raised = 0
+
+    def on_raise_window(self):
+        Windowed.raised += 1
+
 with hosted(LiteBridge()):
-    refuses(AttributeError, ui.hide_process_window)
-    refuses(AttributeError, ui.close_process_window)
+    assert lite.LiteExtension().on_raise_window() is None
+    windowed = Windowed()
+    windowed.on_raise_window()
+    assert Windowed.raised == 1
+    import inspect
+    assert str(inspect.signature(lite.LiteExtension.on_raise_window)) == "(self)"
 )PY");
 }
 

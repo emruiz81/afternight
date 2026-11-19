@@ -59,6 +59,8 @@ using an::ui::extensions::ExtensionDependencySpec;
 using an::ui::extensions::ExtensionDiscoveryContext;
 using an::ui::extensions::ExtensionEnvironmentManager;
 using an::ui::extensions::ExtensionEnvironmentState;
+using an::ui::extensions::ExtensionInterface;
+using an::ui::extensions::extensionInterfaceFromName;
 using an::ui::extensions::ExtensionLaunchMode;
 using an::ui::extensions::ExtensionLoadResult;
 using an::ui::extensions::ExtensionLoadStatus;
@@ -1287,6 +1289,28 @@ bool parseCapabilitiesObject(const QJsonObject& object, ExtensionCapabilities* o
             return false;
         }
         capabilities.preview_region_margin = static_cast<std::uint32_t>(margin);
+    }
+
+    // Who draws the process, when the extension states it: inferred from its parameters otherwise.
+    const QJsonValue interface_value = object.value(QStringLiteral("interface"));
+    if (!interface_value.isUndefined())
+    {
+        const std::optional<ExtensionInterface> interface_kind =
+            interface_value.isString() ? extensionInterfaceFromName(interface_value.toString().toStdString())
+                                       : std::nullopt;
+        if (!interface_kind.has_value())
+        {
+            if (error)
+            {
+                *error = "capabilities.interface must be one of panel, window and none";
+                if (interface_value.isString())
+                {
+                    *error += ", not '" + interface_value.toString().left(64).toStdString() + "'";
+                }
+            }
+            return false;
+        }
+        capabilities.interface_kind = *interface_kind;
     }
 
     const QJsonValue ui = object.value(QStringLiteral("ui"));
@@ -5678,6 +5702,55 @@ std::optional<ExtensionPreviewScaling> extensionPreviewScalingFromName(const std
         }
     }
     return std::nullopt;
+}
+
+std::string_view extensionInterfaceName(const ExtensionInterface value) noexcept
+{
+    switch (value)
+    {
+    case ExtensionInterface::Panel:
+        return "panel";
+    case ExtensionInterface::Window:
+        return "window";
+    case ExtensionInterface::None:
+        break;
+    }
+    return "none";
+}
+
+std::optional<ExtensionInterface> extensionInterfaceFromName(const std::string_view name) noexcept
+{
+    for (const ExtensionInterface value :
+         {ExtensionInterface::Panel, ExtensionInterface::Window, ExtensionInterface::None})
+    {
+        if (name == extensionInterfaceName(value))
+        {
+            return value;
+        }
+    }
+    return std::nullopt;
+}
+
+ExtensionInterface resolvedExtensionInterface(const ExtensionCapabilities& capabilities,
+                                              const ExtensionSdkBackend backend, const QJsonArray* keptParams)
+{
+    if (capabilities.interface_kind.has_value())
+    {
+        return *capabilities.interface_kind;
+    }
+    if (keptParams == nullptr)
+    {
+        return ExtensionInterface::Window;
+    }
+    if (backend == ExtensionSdkBackend::Runtime)
+    {
+        return ExtensionInterface::Panel;
+    }
+    // A Lite extension's list is the native window's when it states the window's look.
+    const bool statesTheWindow = std::any_of(keptParams->begin(), keptParams->end(), [](const QJsonValue& entry) {
+        return entry.toObject().value(QStringLiteral("type")).toString() == QLatin1String("meta");
+    });
+    return statesTheWindow ? ExtensionInterface::Panel : ExtensionInterface::Window;
 }
 
 std::filesystem::path bundled_extensions_root(const std::filesystem::path& app_dir)

@@ -861,6 +861,17 @@ bool connectsBeforeRuntimeStart(const an::ui::extensions::ExtensionHostLaunchBin
     return binding.extension_host_owns_process_window || binding.sdk_backend != "runtime";
 }
 
+// The backend a binding's host runs, by the name the binding carries.
+an::ui::extensions::ExtensionSdkBackend backendOf(const an::ui::extensions::ExtensionHostLaunchBinding& binding)
+{
+    if (binding.sdk_backend == "protocol")
+    {
+        return an::ui::extensions::ExtensionSdkBackend::Protocol;
+    }
+    return binding.sdk_backend == "rpc" ? an::ui::extensions::ExtensionSdkBackend::Rpc
+                                        : an::ui::extensions::ExtensionSdkBackend::Runtime;
+}
+
 std::string defaultExecuteParamsToken(const std::string_view descriptor_id)
 {
     return descriptor_id.empty() ? "extension.execute" : std::string(descriptor_id) + ".execute";
@@ -3039,11 +3050,19 @@ ExtensionSessionStanding standingOf(const ExtensionSessionController& session)
         }
     }
     // A host is asked nothing before its runtime is ready: it reads no such message while it starts. A host serving a
-    // hosted panel shows no window to raise.
+    // hosted panel shows no window to raise, nor does one whose extension states it has no interface.
     standing.hostedPanel = running.hosted_panel;
     standing.raisesItsWindow = session.isActive() && running.runtime_ready && !running.hosted_panel &&
+                               !running.prepared_session.no_interface &&
                                hasCapability(running.handshake.hello.capabilities, kWindowRaiseCapability);
     return standing;
+}
+
+ExtensionInterface interfaceOf(const ExtensionHostLaunchBinding& binding)
+{
+    return resolvedExtensionInterface(binding.process_capabilities, backendOf(binding),
+                                      binding.has_cached_native_param_schema ? &binding.cached_native_param_schema
+                                                                             : nullptr);
 }
 
 ExtensionSessionEnd endOf(const ExtensionSessionController& session)
@@ -4188,10 +4207,20 @@ std::vector<ExtensionHostedProcess*> ExtensionHostLaunchCoordinator::hostedProce
 
 bool ExtensionHostLaunchCoordinator::hostsPanels(const ExtensionHostLaunchBinding& binding) const
 {
-    // Only an extension of the native process window - a runtime one, of one image, whose parameters the application
-    // read when it found the package - can be drawn by the application.
-    if (binding.sdk_backend != "runtime" || binding.launch_mode != ExtensionLaunchMode::SingleImage ||
-        !binding.extension_host_owns_process_window || !binding.has_cached_native_param_schema)
+    // Only a process of one image whose parameters the application read when it found the package, and whose
+    // interface is a panel - stated, or inferred from those parameters - can be drawn by the application.
+    if (binding.launch_mode != ExtensionLaunchMode::SingleImage || !binding.has_cached_native_param_schema ||
+        interfaceOf(binding) != ExtensionInterface::Panel)
+    {
+        return false;
+    }
+    // A protocol extension's host has no window to draw its panel in: the application draws it in every shell, as a
+    // page where a shell takes processes into pages and as a window of its own elsewhere.
+    if (binding.sdk_backend == "protocol")
+    {
+        return true;
+    }
+    if (binding.sdk_backend != "runtime" || !binding.extension_host_owns_process_window)
     {
         return false;
     }
@@ -4292,21 +4321,27 @@ ExtensionHostedProcess* ExtensionHostLaunchCoordinator::makeHostedProcess(const 
 ExtensionHostedProcess* ExtensionHostLaunchCoordinator::openStartingPage(const std::string& descriptor_id,
                                                                          const std::string& display_name,
                                                                          const ExtensionCapabilities& capabilities,
-                                                                         ImageViewControl* control)
+                                                                         ImageViewControl* control,
+                                                                         const std::string& sdk_backend)
 {
     if (control == nullptr)
     {
         return nullptr;
     }
-    // Drawn by the application as its launch will be once the preparation has read the extension's parameters.
+    // Drawn by the application as its launch will be once the preparation has read the extension's parameters: a
+    // runtime extension's are a panel unless its manifest says otherwise, and a protocol one's only when it says so.
     ExtensionHostLaunchBinding binding;
     binding.descriptor_id = descriptor_id;
     binding.display_name = display_name;
-    binding.sdk_backend = "runtime";
+    binding.sdk_backend = sdk_backend;
     binding.launch_mode = ExtensionLaunchMode::SingleImage;
-    binding.extension_host_owns_process_window = true;
+    binding.extension_host_owns_process_window = sdk_backend == "runtime";
     binding.has_cached_native_param_schema = true;
     binding.process_capabilities = capabilities;
+    if (sdk_backend != "runtime" && capabilities.interface_kind != ExtensionInterface::Panel)
+    {
+        return nullptr;
+    }
     if (!hostsPanels(binding))
     {
         return nullptr;
@@ -4677,6 +4712,13 @@ ExtensionHostPreparedSession ExtensionHostManager::prepareSession(const Extensio
     session.handshake_timeout_ms = request.handshake_timeout_ms;
     session.defer_runtime_bootstrap = request.defer_runtime_bootstrap;
     session.hosted_panel = request.hosted_panel;
+    session.no_interface = request.no_interface;
+    // An extension with no interface: the full host shows no window. The Lite host never shows one of its own.
+    if (session.no_interface && session.sdk_backend == "runtime" &&
+        !hasHostArgument(session.host_arguments, "--no-process-window"))
+    {
+        session.host_arguments.push_back("--no-process-window");
+    }
 
     std::filesystem::path resolved_app_dir = app_dir;
     if (resolved_app_dir.empty() && QCoreApplication::instance())
@@ -5422,7 +5464,7 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
 
         // What a host serving a hosted panel tells of it waits for the panel, which refuses what is not whole.
         if (running_session->hosted_panel && message.request_id.empty() &&
-            (message.type == "ui.describe" || message.type == "ui.patch"))
+            (message.type == "ui.describe" || message.type == "ui.patch" || message.type == "ui.hide"))
         {
             running_session->panel_inbox.push_back(std::move(message));
             continue;
@@ -6368,7 +6410,10 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
                                                      ? takeStartingPage(binding.descriptor_id, control)
                                                      : nullptr;
     request.hosted_panel = options.hosted_process != nullptr || hostsPanels(binding);
-    if (const auto cached_schema = cachedNativeParamSchemaArgument(binding))
+    request.no_interface = interfaceOf(binding) == ExtensionInterface::None;
+    // The full host starts from the parameters kept; the Lite host reads its extension's own.
+    if (const auto cached_schema =
+            binding.sdk_backend == "runtime" ? cachedNativeParamSchemaArgument(binding) : std::nullopt)
     {
         request.host_arguments.push_back("--cached-param-schema");
         request.host_arguments.push_back(*cached_schema);
@@ -6677,7 +6722,9 @@ bool ExtensionHostLaunchCoordinator::launchWorkflowDescriptor(const ExtensionHos
     request.host_executable = binding.host_executable;
     request.host_arguments = binding.host_arguments;
     request.defer_runtime_bootstrap = connectsBeforeRuntimeStart(binding);
-    if (const auto cached_schema = cachedNativeParamSchemaArgument(binding))
+    request.no_interface = interfaceOf(binding) == ExtensionInterface::None;
+    if (const auto cached_schema =
+            binding.sdk_backend == "runtime" ? cachedNativeParamSchemaArgument(binding) : std::nullopt)
     {
         request.host_arguments.push_back("--cached-param-schema");
         request.host_arguments.push_back(*cached_schema);

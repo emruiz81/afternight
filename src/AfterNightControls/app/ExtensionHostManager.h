@@ -72,6 +72,9 @@ struct ExtensionHostLaunchRequest
     /// The application draws the session's panel itself (`kHostedPanelCapability`): the acknowledgement states it when
     /// the host's hello does, and the host then shows no window of its own.
     bool hosted_panel = false;
+    /// The extension states it has no interface (`capabilities.interface` is `none`): the full host is launched to show
+    /// no window (`--no-process-window`), and the session raises none when a person asks to see it.
+    bool no_interface = false;
 };
 
 struct ExtensionHostPreparedSession
@@ -91,6 +94,7 @@ struct ExtensionHostPreparedSession
     int handshake_timeout_ms = 5000;
     bool defer_runtime_bootstrap = false;
     bool hosted_panel = false;
+    bool no_interface = false;
     RuntimeHelloAckMessage ack_template;
 };
 
@@ -631,6 +635,10 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
 /// was sent or failed to start - with why - and as it should otherwise.
 [[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionSessionEnd endOf(const ExtensionSessionController& session);
 
+/// Who draws a bound process: its manifest's `capabilities.interface`, else what the parameters kept of it when its
+/// package was found say (`resolvedExtensionInterface`).
+[[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionInterface interfaceOf(const ExtensionHostLaunchBinding& binding);
+
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<QRect>
 normalizeManagedPreviewSubArea(bool selection_enabled, const QSize& source_image_size, const QRect& selection_area);
 
@@ -788,6 +796,12 @@ public:
     /// presenter), and the host draws it otherwise, as it always did. Null states the default again.
     void setHostsPanels(std::function<bool()> policy);
 
+    /// Whether a launch of a binding is a hosted panel's: a process of one image whose parameters were kept when its
+    /// package was found and whose interface is a panel (`interfaceOf`). A `protocol` extension's is drawn by the
+    /// application in every shell, since its host has no window to draw it in; a `runtime` extension's as the policy
+    /// above says.
+    [[nodiscard]] bool hostsPanels(const ExtensionHostLaunchBinding& binding) const;
+
     /// The hosted processes of the sessions running now, in the order they started.
     [[nodiscard]] std::vector<ExtensionHostedProcess*> hostedProcesses() const;
 
@@ -799,8 +813,11 @@ public:
     /// @param display_name its name.
     /// @param capabilities what its manifest declares of it.
     /// @param control the image it runs on.
+    /// @param sdk_backend the backend its host runs: a runtime extension's page is made unless its manifest states
+    /// another interface than a panel, a protocol one's only when its manifest states a panel.
     ExtensionHostedProcess* openStartingPage(const std::string& descriptor_id, const std::string& display_name,
-                                             const ExtensionCapabilities& capabilities, ImageViewControl* control);
+                                             const ExtensionCapabilities& capabilities, ImageViewControl* control,
+                                             const std::string& sdk_backend = "runtime");
 
     /// How long a launch's parameter schema read may run before the launch is refused, unless a caller states another:
     /// the bound on a host runtime's start, since the read starts one and ends when its host exits.
@@ -875,9 +892,6 @@ private:
     void armSessionPumpWake(ExtensionSessionController* session);
     /// Tells the observers where every session stands now.
     void reportSessions();
-
-    /// Whether a launch of a binding is a hosted panel's.
-    [[nodiscard]] bool hostsPanels(const ExtensionHostLaunchBinding& binding) const;
 
     /// Binds a session whose panel the application draws to its process - one made now, the one started again, or a
     /// page made while its environment was prepared (`adopted`), which is given the session's hooks - and shows a

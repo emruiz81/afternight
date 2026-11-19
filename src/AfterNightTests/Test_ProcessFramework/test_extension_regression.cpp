@@ -39,6 +39,7 @@
 #include <AfterNightEngine/IO/FitsHeaderCards.h>
 
 #include <QCborMap>
+#include <QCoreApplication>
 #include <QCborValue>
 #include <QFile>
 #include <QJsonArray>
@@ -55,6 +56,7 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -456,7 +458,7 @@ TEST(ExtensionRegression, EveryBundledExtensionAndTemplateStatesTheVersionsThePr
     EXPECT_EQ(an::ui::extensions::kExtensionProtocolVersion, 1);
     EXPECT_EQ(an::ui::extensions::kExtensionSdkVersion, 1);
     const auto manifests = subjectManifests();
-    ASSERT_EQ(manifests.size(), 12u) << "five bundled extensions and seven author templates";
+    ASSERT_EQ(manifests.size(), 14u) << "five bundled extensions and nine author templates";
     for (const auto& [directory, manifest] : manifests)
     {
         EXPECT_EQ(manifest.value(QStringLiteral("package_format_version")).toInt(), 1) << directory;
@@ -835,6 +837,262 @@ TEST(ExtensionRegression, TheRealTimePreviewTemplatePreviewsAndCommitsItsTransfo
         EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.scale")).toString().toDouble(), scale, 1e-12);
         EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.offset")).toString().toDouble(), offset, 1e-12);
     }
+}
+
+// ---- Protocol extensions on the Lite host: a panel the application draws, a window of their own, no interface.
+
+namespace
+{
+
+/// Pumps a session until a condition holds; false, with why in `error`, when the bound passes first.
+[[nodiscard]] bool pumpUntilHolds(ExtensionHostManager& manager, ExtensionHostRunningSession& session,
+                                  const std::function<bool()>& condition, std::string* error,
+                                  const int bound_ms = 8000 * kIpcTimingMultiplier)
+{
+    QElapsedTimer clock;
+    clock.start();
+    while (clock.elapsed() < bound_ms)
+    {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+        static_cast<void>(manager.pumpSession(&session, 20, error));
+        if (condition())
+        {
+            return true;
+        }
+    }
+    if (error != nullptr && error->empty())
+    {
+        *error = "the condition did not hold in time";
+    }
+    return condition();
+}
+
+} // namespace
+
+// The protocol panel template describes its parameters as a runtime extension does, with the protocol side of the SDK
+// alone: the Lite host tells the application the list it kept of the template when it found it, the window's look among
+// it, so the application draws its panel.
+TEST(ExtensionRegression, TheProtocolPanelTemplateTellsTheParametersItsPanelDrawsOnTheLiteHost)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "protocol_panel_process");
+    ASSERT_NE(subject, nullptr);
+    const an::ui::extensions::ExtensionProcessManifest& process = subject->manifest->processes.front();
+    EXPECT_EQ(process.capabilities.interface_kind, an::ui::extensions::ExtensionInterface::Panel);
+    ASSERT_TRUE(subject->settings_schema.has_value());
+    const auto kept = subject->settings_schema->process_params_schemas.find(process.class_name);
+    ASSERT_NE(kept, subject->settings_schema->process_params_schemas.end());
+
+    SubjectSession session(*subject, {}, nullptr, Path::Hosted);
+    ASSERT_TRUE(session.launched()) << session.error();
+    EXPECT_TRUE(session.session().hosted_panel) << "the Lite host serves the panel the application draws";
+    ASSERT_TRUE(pumpUntilHolds(
+        session.manager(), session.session(), [&]() { return !session.session().panel_inbox.empty(); },
+        &session.error()))
+        << session.error();
+    an::ui::extensions::PanelDescribeMessage described;
+    ASSERT_TRUE(an::ui::extensions::panelDescribeFromProtocolMessage(session.session().panel_inbox.front(), &described,
+                                                                     &session.error()))
+        << session.error();
+    EXPECT_EQ(described.params.toJsonArray(), kept->second) << "the list the application kept when it found it";
+    ASSERT_EQ(described.params.size(), 4);
+    EXPECT_EQ(described.params.at(0).toMap().value(QStringLiteral("type")).toString(), QStringLiteral("meta"));
+    EXPECT_EQ(described.params.at(2).toMap().value(QStringLiteral("id")).toString(), QStringLiteral("gain"));
+    EXPECT_EQ(an::ui::extensions::resolvedExtensionInterface(
+                  process.capabilities, an::ui::extensions::ExtensionSdkBackend::Protocol, &kept->second),
+              an::ui::extensions::ExtensionInterface::Panel);
+}
+
+// The protocol panel template is previewed, executed and cancelled on the Lite host as the application drives a hosted
+// panel: each frame and each Apply lend the output the host writes, a frame answers with what the template's
+// execute_preview() wrote, an Apply commits what its execute() wrote with its cards, and a request cancelled in flight
+// answers that it was, shows and commits nothing, and lets the next one land.
+TEST(ExtensionRegression, TheProtocolPanelTemplateIsPreviewedExecutedAndCancelledOnTheLiteHost)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "protocol_panel_process");
+    ASSERT_NE(subject, nullptr);
+    const std::string delay = std::to_string(600 * kIpcTimingMultiplier);
+    SubjectSession session(*subject, {"--preview-delay-ms", delay, "--execute-delay-ms", delay}, nullptr, Path::Hosted);
+    ASSERT_TRUE(session.launched()) << session.error();
+    const auto source = makeRgbGradientImage(5, 4);
+    ASSERT_TRUE(source);
+    const QCborMap params{{QStringLiteral("gain"), 1.5}, {QStringLiteral("offset"), -0.1}};
+    const auto expected = [](double value, auto, auto, auto) { return 1.5 * value - 0.1; };
+
+    // A frame of the preview.
+    const SharedBufferDescriptor frame_source =
+        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source");
+    ASSERT_TRUE(session.preview(params, {frame_source})) << session.error();
+    ASSERT_TRUE(session.session().last_preview_result.has_value());
+    EXPECT_EQ(session.session().last_preview_result->status, "succeeded");
+    ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
+    session.expectAnsweredAsLent(session.session().last_preview_result->output_buffers.front());
+    const std::optional<an::consumer::ImageAsset> preview =
+        importResult(session.root(), session.session().last_preview_result->output_buffers.front());
+    ASSERT_TRUE(preview);
+    expectSamples(*preview, *source, expected);
+
+    // An Apply.
+    const SharedBufferDescriptor apply_source =
+        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+    ASSERT_TRUE(session.execute(params, {apply_source})) << session.error();
+    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+    ASSERT_NE(destination, nullptr);
+    session.expectAnsweredAsLent(*destination);
+    const std::optional<an::consumer::ImageAsset> committed = importResult(session.root(), *destination);
+    ASSERT_TRUE(committed);
+    expectSamples(*committed, *source, expected);
+    const QJsonObject sidecar = sidecarOf(*destination);
+    EXPECT_EQ(sidecar.value(QStringLiteral("example.protocol_panel.gain")).toString(), QStringLiteral("1.5"));
+    EXPECT_EQ(sidecar.value(QStringLiteral("example.protocol_panel.offset")).toString(), QStringLiteral("-0.1"));
+    ASSERT_TRUE(session.session().run_activity.has_value()) << "an Apply's run is told to the application";
+    EXPECT_FALSE(session.session().run_activity->running);
+    EXPECT_EQ(session.session().run_activity->outcome, "succeeded");
+
+    // A frame cancelled in flight shows nothing, and the next one lands.
+    std::string request_id;
+    ASSERT_TRUE(session.manager().sendPreviewRequest(&session.session(), "superseded", params,
+                                                     session.sent({frame_source}, SharedBufferRole::Preview),
+                                                     &request_id, &session.error()))
+        << session.error();
+    ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error())) << session.error();
+    ASSERT_TRUE(
+        pumpUntilRequestCompletes(session.manager(), &session.session(), 5000 * kIpcTimingMultiplier, &session.error()))
+        << session.error();
+    ASSERT_TRUE(session.session().last_preview_result.has_value());
+    EXPECT_EQ(session.session().last_preview_result->result_kind, "preview");
+    EXPECT_EQ(session.session().last_preview_result->status, "cancelled");
+    EXPECT_TRUE(session.session().last_preview_result->output_buffers.empty());
+    ASSERT_TRUE(session.preview(params, {frame_source})) << session.error();
+    EXPECT_EQ(session.session().last_preview_result->status, "succeeded");
+
+    // An Apply cancelled in flight commits nothing and leaves its source as it was; the session goes on, and its next
+    // Apply commits.
+    session.session().last_view_commit.reset();
+    const auto ramp = unitRamp(4, 3);
+    ASSERT_TRUE(ramp);
+    const SharedBufferDescriptor lent =
+        session.lend(ramp, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "cancelled-source");
+    ASSERT_TRUE(session.manager().sendExecuteRequest(&session.session(), "cancelled", params,
+                                                     session.sent({lent}, SharedBufferRole::Destination), &request_id,
+                                                     &session.error()))
+        << session.error();
+    ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error())) << session.error();
+    EXPECT_FALSE(
+        pumpUntilRequestCompletes(session.manager(), &session.session(), 5000 * kIpcTimingMultiplier, &session.error()))
+        << "an execute lands only with a commit";
+    EXPECT_FALSE(session.session().last_view_commit.has_value());
+    EXPECT_TRUE(session.session().in_flight_request_id.empty()) << session.error();
+    ASSERT_TRUE(session.session().last_preview_result.has_value());
+    EXPECT_EQ(session.session().last_preview_result->result_kind, "execute");
+    EXPECT_EQ(session.session().last_preview_result->status, "cancelled");
+    EXPECT_EQ(session.session().state, an::ui::extensions::ExtensionHostSessionState::Active);
+    const std::optional<an::consumer::ImageAsset> after = importResult(session.root(), lent);
+    ASSERT_TRUE(after);
+    expectSamples(*after, *ramp, [](double value, auto, auto, auto) { return value; }, 0.0);
+    ASSERT_TRUE(session.execute(params, {lent})) << session.error();
+    ASSERT_NE(resultOfRole(session.session(), SharedBufferRole::Destination), nullptr);
+}
+
+// The Lite template owns its interface - a window of its own - and the application draws nothing of it: its session
+// raises its window when a person asks to see it, the Lite host calling the template's on_raise_window().
+TEST(ExtensionRegression, TheLiteTemplateOwnsItsWindowAndIsAskedToRaiseIt)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "lite_protocol_process");
+    ASSERT_NE(subject, nullptr);
+    EXPECT_EQ(subject->manifest->processes.front().capabilities.interface_kind,
+              an::ui::extensions::ExtensionInterface::Window);
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+    // The template lists the open images as it launches: none are open.
+    sdk_service.setViewStateProvider([]() { return std::vector<an::ui::extensions::ExtensionViewState>{}; });
+    SubjectSession session(*subject, {}, &sdk_service);
+    ASSERT_TRUE(session.launched()) << session.error();
+    EXPECT_FALSE(session.session().hosted_panel);
+    const std::vector<std::string>& stated = session.session().handshake.hello.capabilities;
+    EXPECT_NE(std::find(stated.begin(), stated.end(), an::ui::extensions::kWindowRaiseCapability), stated.end())
+        << "the Lite host raises the window its extension owns";
+
+    ASSERT_TRUE(session.manager().sendWindowRaise(&session.session(), &session.error())) << session.error();
+    const auto raised = [&]() {
+        QCborValue requests;
+        return sdk_service.selectExtensionSetting(subject->manifest->id, "raise_requests", &requests, QCborValue(0),
+                                                  nullptr) &&
+               requests.toVariant().toLongLong() == 1;
+    };
+    EXPECT_TRUE(pumpUntilHolds(session.manager(), session.session(), raised, &session.error()))
+        << session.error() << "; host output: "
+        << (session.session().process ? QString::fromUtf8(session.session().process->readAllStandardError() +
+                                                          session.session().process->readAllStandardOutput())
+                                            .toStdString()
+                                      : std::string());
+}
+
+// The protocol batch template has no interface: the application draws nothing and the Lite host shows nothing, and its
+// own run - started with the session - reads the image it was started on, commits the result as one step, tells the
+// application how far it has come and that it ended, and closes its task, its session ending as one closed should.
+TEST(ExtensionRegression, TheProtocolBatchTemplateRunsWithNoInterfaceCommitsAndCloses)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "protocol_batch_process");
+    ASSERT_NE(subject, nullptr);
+    EXPECT_EQ(subject->manifest->processes.front().capabilities.interface_kind,
+              an::ui::extensions::ExtensionInterface::None);
+    const auto ramp = unitRamp(4, 3);
+    ASSERT_TRUE(ramp);
+
+    InMemorySettings settings_store;
+    an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+    an::ui::extensions::ExtensionViewState shown;
+    shown.view_name = "regression-batch-view";
+    shown.file_name = "regression-batch-view.fits";
+    shown.width = 4;
+    shown.height = 3;
+    shown.channels = 1;
+    shown.is_active = true;
+    shown.has_image = true;
+    sdk_service.setViewStateProvider([shown]() { return std::vector<an::ui::extensions::ExtensionViewState>{shown}; });
+    // The image is lent as the application lends a view's snapshot - a buffer of the session's under a root of its own
+    // - from the launch on, which sends the session the image it is bound to.
+    const std::filesystem::path snapshots = uniqueSharedBufferRootForTest("regression-batch-snapshots");
+    removeAllNoThrow(snapshots);
+    const RemovePathOnExit remove_snapshots{snapshots};
+    std::vector<an::ui::extensions::SharedImageBuffer> lent;
+    sdk_service.setViewSnapshotProvider(
+        [&lent, &snapshots, ramp](const std::string_view session_id, const std::string_view, const std::string_view,
+                                  an::ui::extensions::ExtensionViewSnapshot* snapshot, std::string* error) {
+            lent.push_back(makeImageBuffer(snapshots, std::string(session_id), ramp, SharedBufferRole::Source,
+                                           SharedBufferAccessMode::ReadOnly, "batch-source", error));
+            if (snapshot == nullptr || !lent.back().valid())
+            {
+                return false;
+            }
+            *snapshot = an::ui::extensions::ExtensionViewSnapshot{};
+            snapshot->source_buffer = lent.back().descriptor();
+            return true;
+        });
+
+    SubjectSession session(*subject, {}, &sdk_service);
+    ASSERT_TRUE(session.launched()) << session.error();
+    EXPECT_FALSE(session.session().hosted_panel);
+    static_cast<void>(pumpUntilHolds(
+        session.manager(), session.session(),
+        [&]() { return session.session().state != an::ui::extensions::ExtensionHostSessionState::Active; },
+        &session.error()));
+
+    ASSERT_TRUE(session.session().last_view_commit.has_value()) << session.error();
+    const auto& commit = *session.session().last_view_commit;
+    EXPECT_EQ(commit.history_step_name, "Example Protocol Batch");
+    ASSERT_EQ(commit.result_buffers.size(), 1u);
+    const std::filesystem::path written =
+        std::filesystem::path(commit.result_buffers.front().mapped_file_path).lexically_normal();
+    const std::optional<an::consumer::ImageAsset> result =
+        importResult(written.parent_path().parent_path(), commit.result_buffers.front());
+    ASSERT_TRUE(result);
+    expectSamples(*result, *ramp, [](double value, auto, auto, auto) { return 1.0 - value; });
+
+    ASSERT_TRUE(session.session().run_activity.has_value()) << "its run is told to the application";
+    EXPECT_FALSE(session.session().run_activity->running);
+    EXPECT_EQ(session.session().run_activity->outcome, "succeeded");
+    EXPECT_TRUE(session.session().native_window_close_requested) << "it closed its task: " << session.error();
 }
 
 // ---- Cancellation, as the application cancels each kind of subject.

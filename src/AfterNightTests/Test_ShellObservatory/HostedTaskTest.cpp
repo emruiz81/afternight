@@ -192,6 +192,69 @@ TEST_F(HostedTasks, AHostedTaskFloatsAndAttachesLikeAnyOther)
     settle();
 }
 
+// An extension that hides its process window puts its task away: its page leaves the centre for the place shown before,
+// or the window it floats in is minimized, and the task stays in the rail, shown again from there. One that closes its
+// process window ends its session as one closed should, and its task closes.
+TEST_F(HostedTasks, AnExtensionHidingItsWindowPutsItsTaskAwayAndClosingItClosesIt)
+{
+    ImageViewControl* const view = openView(QStringLiteral("hosted-hidden"));
+    ASSERT_NE(view, nullptr);
+    QPointer<ExtensionHostedProcess> process = openHosted(view, true);
+    ASSERT_NE(process, nullptr);
+    const Task* task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    const an::ui::shell::TaskId id = task->id;
+    ASSERT_TRUE(tasks().show(id));
+    settle();
+    ASSERT_TRUE(window().isTaskPageShown());
+    ASSERT_EQ(window().shownTask(), id);
+
+    an::ui::extensions::ExtensionHostManager manager;
+    an::ui::extensions::ExtensionSessionController controller;
+    controller.running_session.prepared_session.session_id = "observatory-hosted-hide";
+    controller.running_session.hosted_panel = true;
+    process->hostedSession()->bind(manager, controller);
+    const auto hide = [&]() {
+        an::ui::extensions::PanelHideMessage hidden;
+        hidden.session_id = "observatory-hosted-hide";
+        controller.running_session.panel_inbox.push_back(an::ui::extensions::toProtocolMessage(hidden));
+        process->hostedSession()->route();
+        settle();
+    };
+
+    // Its page leaves the centre; the task stays, and the rail shows it again.
+    hide();
+    EXPECT_FALSE(window().isTaskPageShown());
+    ASSERT_FALSE(process.isNull());
+    ASSERT_NE(tasks().model().task(id), nullptr) << "the task stays";
+    ASSERT_TRUE(tasks().show(id));
+    settle();
+    EXPECT_TRUE(window().isTaskPageShown());
+    EXPECT_EQ(window().shownTask(), id);
+
+    // Floating, its window is minimized, and showing the task brings it back.
+    ASSERT_TRUE(window().floatTask(id));
+    settle();
+    an::ui::observatory::TaskWindow* const floating = window().taskWindow(id);
+    ASSERT_NE(floating, nullptr);
+    ASSERT_NE(floating->window(), nullptr);
+    hide();
+    EXPECT_TRUE(floating->window()->isMinimized());
+    ASSERT_NE(tasks().model().task(id), nullptr);
+    ASSERT_TRUE(tasks().show(id));
+    settle();
+    EXPECT_FALSE(floating->window()->isMinimized());
+    ASSERT_TRUE(window().attachTask(id));
+    settle();
+
+    // Closing its window ends its session, not failed, and the task closes.
+    process->hostedSession()->unbind(
+        an::ui::extensions::ExtensionSessionEnd{.sessionId = "observatory-hosted-hide", .failed = false, .reason = {}});
+    settle();
+    EXPECT_TRUE(process.isNull());
+    EXPECT_EQ(tasks().model().task(id), nullptr);
+}
+
 TEST_F(HostedTasks, AHostThatFailedLeavesItsTaskFailedWithRestartAndClose)
 {
     ImageViewControl* const view = openView(QStringLiteral("hosted-failing"));

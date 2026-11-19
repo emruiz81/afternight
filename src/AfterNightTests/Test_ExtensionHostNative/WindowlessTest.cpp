@@ -162,6 +162,16 @@ TEST(Windowless, WithoutItTheNativeWindowAppearsAsToday)
     EXPECT_FALSE(showsNativeWindow(acknowledgement(false, false), false)) << "nor a session the application drew";
 }
 
+// An extension that states it has no interface is launched to show no window (`--no-process-window`): the host makes
+// none, as on a headless platform, whatever the window model the application acknowledged.
+TEST(Windowless, AnExtensionWithNoInterfaceShowsNoWindow)
+{
+    const RuntimeHelloAckMessage windowed = acknowledgement(true, false);
+    EXPECT_TRUE(showsNativeWindow(windowed, false, false));
+    EXPECT_FALSE(showsNativeWindow(windowed, false, true));
+    EXPECT_FALSE(showsNativeWindow(acknowledgement(true, true), false, true));
+}
+
 TEST(Windowless, TellsTheParameterListTheApplicationReadsBackWhole)
 {
     QJsonArray params;

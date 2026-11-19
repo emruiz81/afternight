@@ -171,6 +171,10 @@ private:
     void onSessionEnded(const ExtensionSessionEnd& end);
     void listOpenImages();
 
+    /// The extension hid its process window: the process's task is put away by the shell that took it into a page, and
+    /// a process shown as a window of its own hides.
+    void putAway();
+
     /// The Apply: the target exported once, the host's execute run over it, its result the destination.
     [[nodiscard]] an::Status applyThroughHost(const an::ui::ProcessSource& source,
                                               an::ui::ProcessDestination& destination,

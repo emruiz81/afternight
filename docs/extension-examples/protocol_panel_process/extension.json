@@ -1,0 +1,38 @@
+{
+  "id": "example.protocol_panel_process",
+  "name": "Example Protocol Panel Process",
+  "version": "1.0.0",
+  "summary": "Template for a protocol extension whose panel AfterNight draws.",
+  "description": "A repository-ready AfterNight extension package for the Lite host that describes its parameters as data: AfterNight draws its panel in a task page, previews it and applies it, while its code runs in its own process and links nothing of AfterNight's.",
+  "author": "Example Author",
+  "license": "MIT",
+  "publisher_id": "example.author",
+  "type": "python",
+  "entry_point": "protocol_panel_process",
+  "process_class": "ExampleProtocolPanelProcess",
+  "category": "filters",
+  "launch_mode": "single_image",
+  "sdk_backend": "protocol",
+  "package_format_version": 1,
+  "protocol_version": 1,
+  "sdk_version": 1,
+  "python_compat": ">=3.14,<4",
+  "tags": [
+    "template",
+    "protocol",
+    "panel",
+    "preview"
+  ],
+  "dependencies": {
+    "bundled_runtime_packages": [
+      "numpy"
+    ]
+  },
+  "capabilities": {
+    "interface": "panel",
+    "execute": true,
+    "preview": true,
+    "preview_scaling": "decimated",
+    "keep_open": true
+  }
+}

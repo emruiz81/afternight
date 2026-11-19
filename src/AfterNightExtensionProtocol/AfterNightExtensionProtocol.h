@@ -9,6 +9,9 @@
 #include <QCborArray>
 #include <QCborMap>
 #include <QCborValue>
+#include <QJsonArray>
+#include <QString>
+#include <QStringList>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,8 +41,10 @@ inline constexpr std::size_t kSessionActivityTextLimit = 200u;
 /// The capability a host states in its `runtime.hello` when it can serve a panel the application draws, and the
 /// application states in its acknowledgement when it draws the session's panel itself. With it in both, the host shows
 /// no window of its own: it tells the application the extension's parameters (`ui.describe`) and what its actions
-/// answer (`ui.patch`), hears what a person does in the panel (`ui.event`), and runs the previews and the executes the
-/// application sends. Without it in both, none of those messages is sent either way.
+/// answer (`ui.patch`), hears what a person does in the panel (`ui.event`), runs the previews and the executes the
+/// application sends, and asks for the panel's task to be put away when the extension hides its process window
+/// (`ui.hide`). Without it in both, none of those messages is sent either way. Both hosts
+/// state it: the description is protocol data, so the Lite host serves a panel linking nothing it did not link.
 inline constexpr std::string_view kHostedPanelCapability = "hosted_panel";
 
 /// The most entries a hosted panel's parameter list (`ui.describe`) may hold.
@@ -422,6 +427,37 @@ struct PanelPatchMessage
     std::string error;
 };
 
+/// The extension hid the process window a hosted panel stands for (`ui.hide`, host to application, answered by
+/// nothing): the application puts the panel's task away - its page leaves the screen, the task stays and is shown again
+/// as any task is. Sent only where both sides stated `kHostedPanelCapability`. An extension that closes its process
+/// window ends its session as one with a window does (`runtime.closed`), and the task closes with it.
+struct PanelHideMessage
+{
+    std::string session_id;
+    std::string request_id;
+};
+
+/// What a person did in a hosted panel, as a host reads the `ui.event` the application sent.
+struct HostedPanelEvent
+{
+    enum class Kind
+    {
+        /// The parameters changed (`parameters_changed`): the whole set, the keys that changed and why.
+        ParametersChanged,
+        /// An action was pressed (`clicked`) with the parameters as they stand.
+        Action,
+        /// The panel's tool configuration resolved a record (`tool_record`).
+        ToolRecord
+    };
+
+    Kind kind = Kind::ParametersChanged;
+    QCborMap params;
+    QStringList changedKeys;
+    QString reason;
+    std::string actionId;
+    QCborMap toolRecord;
+};
+
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ProtocolCompatibilityResult
 negotiateProtocolVersion(int supported_version, int peer_version);
 
@@ -512,6 +548,8 @@ toProtocolMessage(const WindowRaiseMessage& message);
 toProtocolMessage(const PanelDescribeMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
 toProtocolMessage(const PanelPatchMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const PanelHideMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 runtimeHelloFromProtocolMessage(const ExtensionProtocolMessage& message, RuntimeHelloMessage* out_message,
                                 std::string* error = nullptr);
@@ -588,6 +626,31 @@ panelDescribeFromProtocolMessage(const ExtensionProtocolMessage& message, PanelD
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 panelPatchFromProtocolMessage(const ExtensionProtocolMessage& message, PanelPatchMessage* out_message,
                               std::string* error = nullptr);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool panelHideFromProtocolMessage(const ExtensionProtocolMessage& message,
+                                                                                PanelHideMessage* out_message,
+                                                                                std::string* error = nullptr);
+
+/// Whether the application draws the session's panel: its acknowledgement stated `kHostedPanelCapability`.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool servesHostedPanel(const RuntimeHelloAckMessage& ack);
+
+/// Reads a `ui.event` of a hosted panel as either host serves it, refused whole at the first error: an event a host
+/// serves - `parameters_changed`, `clicked` or `tool_record` - its value a map of the fields the event states.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+hostedPanelEventFrom(const ExtensionProtocolMessage& message, HostedPanelEvent* event, std::string* error = nullptr);
+
+/// The `ui.describe` telling the application the extension's parameter list.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+hostedPanelDescription(const std::string& sessionId, const QJsonArray& params);
+
+/// The `ui.patch` answering an action: the values it set, or why it failed - plain text, cut to the protocol's bound.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage hostedActionAnswer(
+    const std::string& sessionId, const std::string& actionId, const QCborMap& values, const std::string& error = {});
+
+/// The output the application lent a request of a hosted panel - a writable buffer of the role the request's kind
+/// writes, `Preview` for a frame and `Destination` for an Apply - or null when it lent none and the host allocates one,
+/// as it does for any other request.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API const SharedBufferDescriptor*
+lentOutputOf(std::string_view requestKind, const std::vector<SharedBufferDescriptor>& buffers);
 
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API QCborMap
 sharedBufferDescriptorToCborMap(const SharedBufferDescriptor& descriptor);

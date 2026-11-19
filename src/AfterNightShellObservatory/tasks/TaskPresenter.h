@@ -64,6 +64,8 @@ public:
         std::function<void(an::ui::shell::TaskId id)> showPage;
         /// Raises and activates the window of a task whose page floats in a window of its own.
         std::function<void(an::ui::shell::TaskId id)> showWindow;
+        /// Puts a task away: its page leaves the centre, or the window its page floats in is minimized.
+        std::function<void(an::ui::shell::TaskId id)> hideTask;
         /// A task's run moved on, from where it stood.
         std::function<void(an::ui::shell::TaskId id, const an::ui::ProcessRunState& before)> runChanged;
     };
@@ -85,6 +87,9 @@ public:
     bool adopt(TopLevelProcessBaseControl& process) override;
     void runStateChanged(TopLevelProcessBaseControl& process, const an::ui::ProcessRunState& state) override;
     void targetChanged(TopLevelProcessBaseControl& process, ImageViewControl* target) override;
+
+    /// Puts a process's task away (`Hooks::hideTask`): the task stays in the rail and is shown again from it.
+    void hideTask(TopLevelProcessBaseControl& process) override;
 
     // ---- The tasks
 

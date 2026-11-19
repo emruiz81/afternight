@@ -92,6 +92,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -2395,6 +2396,121 @@ TEST(ExtensionHostManagerTest, ExtensionHostLiteManagedSessionWritesClonedImageH
     EXPECT_EQ(heightOf(*committed_image), 2u);
     EXPECT_NEAR(sampleAt(*committed_image, 0, 0, 0), 11.0, 1e-6);
     EXPECT_NEAR(sampleAt(*committed_image, 2, 1, 0), 16.0, 1e-6);
+}
+
+// On either host, an extension whose panel the application draws hides it and closes it as it would its window:
+// hiding asks the application to put the panel's task away (`ui.hide`) and the session goes on; closing ends the
+// session as a closed window does (`runtime.closed`).
+TEST(ExtensionHostManagerTest, AHostedPanelsExtensionHidesAndClosesItsTaskOnEitherHost)
+{
+    const std::filesystem::path runtime_root = runtimeRootForCurrentAppDir();
+    const std::filesystem::path bundled_python = repositoryBundledPythonPath();
+    ASSERT_TRUE(std::filesystem::exists(runtime_root)) << runtime_root;
+    ASSERT_FALSE(bundled_python.empty()) << "Repository bundled Python runtime must be available";
+    struct Backend
+    {
+        const char* name;
+        std::filesystem::path host;
+        const char* module;
+    };
+    const Backend backends[] = {{"protocol", extensionHostLitePathForCurrentAppDir(),
+                                 "import afternight.ui_protocol as ui\n"
+                                 "from afternight.lite import LiteProcessExtension as Base\n"},
+                                {"runtime", extensionHostPathForCurrentAppDir(),
+                                 "import afternight.ui as ui\n"
+                                 "Base = ui.ProcessWindow\n"}};
+    for (const Backend& backend : backends)
+    {
+        SCOPED_TRACE(backend.name);
+        if (std::string_view(backend.name) == "runtime")
+        {
+            AN_REQUIRE_FULL_EXTENSION_HOST(backend.host);
+        }
+        ASSERT_TRUE(std::filesystem::exists(backend.host)) << backend.host;
+        const auto temp_root = uniqueExtensionRuntimeRootForTest(std::string("hosted-hide-close-") + backend.name);
+        removeAllNoThrow(temp_root);
+        const RemovePathOnExit remove_temp_root{temp_root};
+        const auto env_root = temp_root / "env";
+        const auto package_root = temp_root / "hosted_hide_close_ext";
+        std::filesystem::create_directories(package_root);
+        createVirtualEnvironment(bundled_python, env_root);
+        if (!provisionBundledRuntimePackageIntoEnvironment(runtime_root, env_root, "numpy"))
+        {
+            GTEST_SKIP() << "numpy not available in bundled runtime";
+        }
+        {
+            std::ofstream out(package_root / "hosted_hide_close_ext.py", std::ios::binary);
+            ASSERT_TRUE(out.is_open());
+            out << backend.module << "class HostedHideCloseExtension(Base):\n"
+                << "    def get_params(self):\n"
+                << "        return [ui.process_window_meta(), {'id': 'step', 'type': 'string', 'default': ''}]\n\n"
+                << "    def on_parameters_changed(self, params, changed_keys, reason):\n"
+                << "        if params.get('step') == 'hide':\n"
+                << "            assert ui.hide_process_window() is True\n"
+                << "        elif params.get('step') == 'close':\n"
+                << "            assert ui.close_process_window() is True\n";
+        }
+
+        InMemorySettings settings_store;
+        an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+        an::ui::extensions::ExtensionHostManager manager;
+        manager.setSdkService(&sdk_service);
+        an::ui::extensions::ExtensionHostLaunchRequest request;
+        request.extension_id = std::string("an.test.hosted_hide_close.") + backend.name;
+        request.sdk_backend = backend.name;
+        request.host_executable = backend.host;
+        request.capabilities = {"execute"};
+        request.hosted_panel = true;
+        request.host_arguments = {
+            "--extension-package-root", package_root.string(), "--entry-point",
+            "hosted_hide_close_ext",    "--process-class",     "HostedHideCloseExtension",
+            "--environment-root",       env_root.string(),     "--runtime-root",
+            runtime_root.string(),      "--stay-alive-ms",     std::to_string(8000 * kIpcTimingMultiplier)};
+        auto prepared = manager.prepareSession(request);
+        an::ui::extensions::ExtensionHostRunningSession running;
+        std::string error;
+        ASSERT_TRUE(manager.launchSession(prepared, &running, &error)) << error;
+        SessionGuard guard{manager, running};
+        ASSERT_TRUE(running.hosted_panel) << "the host serves the panel the application draws";
+
+        const auto pumpFor = [&](const std::function<bool()>& condition) {
+            QElapsedTimer clock;
+            clock.start();
+            while (clock.elapsed() < 8000 * kIpcTimingMultiplier)
+            {
+                QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+                static_cast<void>(manager.pumpSession(&running, 20, &error));
+                if (condition())
+                {
+                    return true;
+                }
+            }
+            return condition();
+        };
+        const auto told = [&](const std::string& type) {
+            return std::any_of(running.panel_inbox.begin(), running.panel_inbox.end(),
+                               [&type](const auto& message) { return message.type == type; });
+        };
+        ASSERT_TRUE(pumpFor([&]() { return running.runtime_ready && told("ui.describe"); })) << error;
+        const auto step = [&](const char* value) {
+            an::ui::extensions::UiEventMessage event;
+            event.widget_id = "panel";
+            event.event_name = "parameters_changed";
+            event.value = QCborMap{{QStringLiteral("params"), QCborMap{{QStringLiteral("step"), value}}},
+                                   {QStringLiteral("changed"), QCborArray{QStringLiteral("step")}},
+                                   {QStringLiteral("reason"), QStringLiteral("user")}};
+            return manager.sendPanelEvent(&running, event, &error);
+        };
+
+        ASSERT_TRUE(step("hide")) << error;
+        ASSERT_TRUE(pumpFor([&]() { return told("ui.hide"); })) << error;
+        EXPECT_EQ(running.state, an::ui::extensions::ExtensionHostSessionState::Active) << "the session goes on";
+
+        ASSERT_TRUE(step("close")) << error;
+        ASSERT_TRUE(pumpFor([&]() { return running.state != an::ui::extensions::ExtensionHostSessionState::Active; }))
+            << error;
+        EXPECT_TRUE(running.native_window_close_requested) << error;
+    }
 }
 
 // An image a Lite extension generates is handed to the application to open, with its title and samples.

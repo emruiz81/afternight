@@ -651,6 +651,43 @@ TEST_F(HostedProcess, HostDiesLeavesThePageAndReleasesTheLock)
     ASSERT_TRUE(pumpFor([&]() { return m_process.isNull() || !m_process->isVisible(); }));
 }
 
+// An extension that hides its process window puts its process away (`ui.hide`): shown as a window of its own, it hides,
+// and its session goes on - a change in the panel still reaches the host, and it is shown again as it was.
+TEST_F(HostedProcess, AHostThatHidesItsProcessPutsItAwayAndKeepsItsSession)
+{
+    open(false, QCborArray{strengthParam()});
+    describe(QCborArray{strengthParam()});
+    ASSERT_TRUE(m_process->isVisible());
+
+    m_host->send(an::ui::extensions::toProtocolMessage(an::ui::extensions::PanelHideMessage{}));
+    ASSERT_TRUE(pumpFor([&]() { return !m_process.isNull() && !m_process->isVisible(); }));
+    EXPECT_TRUE(m_hosted->bound()) << "the session goes on";
+    EXPECT_TRUE(m_process->hostReady());
+
+    m_process->show();
+    auto* slider = m_process->findChild<QSlider*>(QStringLiteral("anNativeParamDoubleSlider"));
+    ASSERT_NE(slider, nullptr);
+    slider->setValue(slider->maximum());
+    EXPECT_TRUE(m_host->next("ui.event", pumper()).has_value()) << "the panel still speaks to its host";
+}
+
+// An extension that closes its process window ends its session as a window's extension does (`runtime.closed`), and
+// the process closes with it - no failure, no banner.
+TEST_F(HostedProcess, AHostThatClosesItsProcessClosesItsTask)
+{
+    open(false, QCborArray{strengthParam()});
+    describe(QCborArray{strengthParam()});
+
+    ExtensionProtocolMessage closed;
+    closed.type = "runtime.closed";
+    closed.request_id = an::ui::extensions::generateOpaqueToken();
+    closed.fields.insert(QStringLiteral("active_work"), false);
+    m_host->send(closed);
+    ASSERT_TRUE(pumpFor([&]() { return m_process.isNull() || !m_process->isVisible(); }));
+    EXPECT_FALSE(m_hosted->bound());
+    EXPECT_TRUE(m_process.isNull() || !m_process->hostFailed()) << "a process its extension closed did not fail";
+}
+
 TEST_F(HostedProcess, RestartBringsThePanelBack)
 {
     open(true, QCborArray{strengthParam()});

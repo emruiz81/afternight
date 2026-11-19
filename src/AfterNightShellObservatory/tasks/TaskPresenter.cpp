@@ -364,6 +364,15 @@ void TaskPresenter::targetChanged(TopLevelProcessBaseControl& process, ImageView
     m_impl->model.setTarget(process, target);
 }
 
+void TaskPresenter::hideTask(TopLevelProcessBaseControl& process)
+{
+    const an::ui::shell::Task* const task = m_impl->model.taskFor(&process);
+    if (task != nullptr && m_impl->hooks.hideTask)
+    {
+        m_impl->hooks.hideTask(task->id);
+    }
+}
+
 an::ui::shell::TaskModel& TaskPresenter::model() noexcept
 {
     return m_impl->model;

@@ -27,6 +27,7 @@
     "shared_host_profile": "scientific_core"
   },
   "capabilities": {
+    "interface": "window",
     "execute": true,
     "preview": false,
     "keep_open": true

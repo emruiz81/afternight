@@ -25,8 +25,10 @@ The checked-in examples are package roots that should stay validator-clean:
 - `rt_preview_process/` - native RT preview process with sub-area preview metadata.
 - `settings_diagnostics_process/` - settings schema, persisted settings, logs, session metadata, and artifacts.
 - `auxiliary_buffers_process/` - mask input, weight input, and output mask buffers.
-- `standalone_preview_process/` - non-blocking PySide6 dialog that commits with `ui.commit_image()`.
-- `lite_protocol_process/` - protocol-only lite hosted package that avoids Engine/native-control imports, uses `afternight.ui_protocol` for host result/dialog helpers, and may use a non-GPL license.
+- `standalone_preview_process/` - a window of its own (`interface: "window"`): non-blocking PySide6 dialog that commits with `ui.commit_image()`.
+- `lite_protocol_process/` - a protocol-only lite hosted package that owns its interface (`interface: "window"`), raises its window in `on_raise_window()`, avoids Engine/native-control imports, uses `afternight.ui_protocol` for host result/dialog helpers, and may use a non-GPL license.
+- `protocol_panel_process/` - a protocol package whose panel AfterNight draws (`interface: "panel"`): its parameters described with `afternight.ui_protocol`, previewed and applied through `execute_preview()` and `execute()` on the Lite host, under a non-GPL license.
+- `protocol_batch_process/` - a protocol package with no interface (`interface: "none"`): its own run processes the image it was started on, reports its progress, commits and closes.
 - `locked_wheelhouse_process/` - hash-locked dependency declarations plus the exceptional custom/private wheelhouse path.
 
 ## Parameters And Settings
@@ -35,6 +37,52 @@ A process's parameters (`get_params()`) and its settings (`get_settings_params()
 [The kinds of an extension's panel](../dev/EXTENSION_PANEL_KINDS.md) lists every kind, each field, what it holds,
 what its absence means and how long it may be. A list that breaks any of it is refused whole, with the reason, and its
 panel is drawn empty.
+
+## Who Draws The Process
+
+`capabilities.interface` in a process's manifest says who draws it:
+
+- `"panel"` - AfterNight draws a panel from the parameters the process describes, in a task page of the main window,
+  with the preview, the target, Reset and Apply of a built-in process. The extension's code still runs in its own
+  process: its host runs `execute_preview()` for each frame and `execute()` for an Apply over the images AfterNight
+  lends, and hears `on_parameters_changed()` and, when the extension has one, `handle_param_action()` for an action
+  button. A `runtime` extension is drawn so where the shell takes processes into pages, and in its host's native window
+  elsewhere; a `protocol` extension is drawn so in every shell.
+- `"window"` - the extension shows a window of its own. A `runtime` extension's host shows its native process window,
+  which the extension may hide to show its own toolkit's; a `protocol` extension shows whatever it owns and raises it in
+  `on_raise_window()` when a person asks to see it. AfterNight lists the session as a task with Show.
+- `"none"` - nothing is drawn. A `protocol` extension's own run at its start (`run()`) does its work, its
+  `set_progress()` shown with its task; a `runtime` extension's host shows no window.
+
+Leave it out and AfterNight infers it from the parameters it reads when it finds the package: a `runtime` extension's
+list is a panel; a `protocol` extension's is a panel when it states the window's look with `process_window_meta()`, and
+a window of its own otherwise. Any other word is refused by name.
+
+The calls that describe a process window are protocol-safe and live in `afternight.ui_protocol`:
+`process_window_meta()` states the window's look, `hide_process_window()` puts the process away - its task stays and is
+shown again from the rail - and `close_process_window()` closes it, ending the session. `afternight.ui` hands out the
+very same functions, so a `runtime` extension imports them as it always did; a `protocol` extension imports
+`afternight.ui_protocol` and subclasses `afternight.lite.LiteProcessExtension`:
+
+```python
+import afternight.ui_protocol as ui
+from afternight.lite import LiteProcessExtension
+
+
+class Gain(LiteProcessExtension):
+    def get_params(self):
+        return [ui.process_window_meta(), {"id": "gain", "type": "float", "default": 1.0, "min": 0.0, "max": 4.0}]
+
+    def execute_preview(self, target, src_image, preview_image, params, progress, masks=None, weights=None):
+        preview_image.from_numpy(src_image.to_numpy() * float(params["gain"]))
+
+    def execute(self, target, src_image, dst_image, params, progress, masks=None, weights=None, output_masks=None):
+        dst_image.from_numpy(src_image.to_numpy() * float(params["gain"]))
+```
+
+`protocol_panel_process/` is that package whole. Under the Lite host, `to_numpy()` returns a view of the lent buffer,
+valid for the call alone, and `from_numpy()` writes the output AfterNight lent; check `progress.is_cancelled()` in a long
+loop, since a cancel reaches the extension when it next reports its progress or asks.
 
 ## Manifest Rules
 
@@ -65,8 +113,9 @@ Choose host mode deliberately:
 - `sdk_backend: "protocol"` launches `AfterNightExtensionHostLite`, can use
   only protocol-safe app/view services, must not import `_afternight_runtime`
   or Engine-backed/native `afternight` modules, should import
-  `afternight.ui_protocol` instead of `afternight.ui`, and may use non-GPL
-  licenses if the package and dependency terms allow it.
+  `afternight.ui_protocol` instead of `afternight.ui` - which holds the calls
+  that describe a panel AfterNight draws - and may use non-GPL licenses if the
+  package and dependency terms allow it.
 - `sdk_backend: "rpc"` is reserved until the AfterNight RPC backend ships.
 
 See `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` for the full host-mode
@@ -100,7 +149,8 @@ With `sdk_backend: "runtime"`, `image.to_numpy()` returns the image's own sample
 
 ## Real-Time Preview Scaling
 
-A Full hosted process with `"preview": true` previews in a native process window as the built-in process windows do:
+A process with `"preview": true` whose panel AfterNight draws - or a Full hosted one in its native process window -
+previews as the built-in processes do:
 while a person drags a slider or a curve, frames are shown at the rate the application's Processing page sets, and
 letting go runs one settled frame over the whole image. What a frame of the drag hands `execute_preview` is the
 process's to state in `capabilities`:

@@ -23,6 +23,7 @@
     "protocol"
   ],
   "capabilities": {
+    "interface": "window",
     "execute": true,
     "custom_ui": true
   }

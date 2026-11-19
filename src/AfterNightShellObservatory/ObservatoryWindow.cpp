@@ -539,6 +539,7 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
             floating->raiseAndActivate();
         }
     };
+    taskHooks.hideTask = [this](const an::ui::shell::TaskId id) { hideTask(id); };
     taskHooks.runChanged = [this](const an::ui::shell::TaskId id, const an::ui::ProcessRunState& before) {
         taskRunChanged(id, before);
     };
@@ -4948,6 +4949,27 @@ void ObservatoryWindow::showAttachZone(const int zone, const an::ui::shell::Task
         impl.attachZone->raise();
     }
     impl.rail->setInsertionMark(id != 0u && over != nullptr ? railTaskId(id) : QString());
+}
+
+void ObservatoryWindow::hideTask(const an::ui::shell::TaskId id)
+{
+    Impl& impl = *m_impl;
+    // A page the centre shows leaves it for the place shown before; a page floating in a window of its own has its
+    // window minimized. The task stays in the rail either way, and a click there shows it again.
+    if (impl.shownTask == id && isTaskPageShown())
+    {
+        leaveTaskPage();
+        showPlaceBeforeTask();
+    }
+    else if (TaskWindow* const floating = taskWindow(id))
+    {
+        if (QWidget* const frame = floating->window())
+        {
+            frame->showMinimized();
+        }
+    }
+    updateRail();
+    updateTaskActions();
 }
 
 void ObservatoryWindow::showPlaceBeforeTask()

@@ -2277,7 +2277,8 @@ public:
     {
         if (!native_process_window_)
         {
-            return false;
+            // A host serving a panel the application draws has no window: the application puts the panel's task away.
+            return hideWithoutWindow();
         }
         if (!isGuiThread())
         {
@@ -2656,6 +2657,29 @@ public:
     void setWindowlessCloseHandler(std::function<void()> handler)
     {
         windowless_close_ = std::move(handler);
+    }
+
+    /// What hiding the process window does in a host serving a panel the application draws.
+    void setWindowlessHideHandler(std::function<void()> handler)
+    {
+        windowless_hide_ = std::move(handler);
+    }
+
+    bool hideWithoutWindow() noexcept
+    {
+        if (!windowless_hide_)
+        {
+            return false;
+        }
+        if (!isGuiThread())
+        {
+            bool hidden = false;
+            const bool invoked = QMetaObject::invokeMethod(
+                qApp, [this, &hidden]() { hidden = hideWithoutWindow(); }, Qt::BlockingQueuedConnection);
+            return invoked && hidden;
+        }
+        windowless_hide_();
+        return true;
     }
 
     bool closeWithoutWindow() noexcept
@@ -4598,6 +4622,7 @@ private:
     an::ui::extensions::ExtensionNativeProcessWindow* native_process_window_ = nullptr;
     bool native_process_window_hidden_by_extension_ = false;
     std::function<void()> windowless_close_;
+    std::function<void()> windowless_hide_;
     QByteArray kept_panel_events_;
     QCborMap hosted_tool_record_;
     std::function<void()> progress_listener_;
@@ -5075,6 +5100,11 @@ public:
     void setWindowlessCloseHandler(std::function<void()> handler)
     {
         bridge_.setWindowlessCloseHandler(std::move(handler));
+    }
+
+    void setWindowlessHideHandler(std::function<void()> handler)
+    {
+        bridge_.setWindowlessHideHandler(std::move(handler));
     }
 
     void setIgnoreCancel(const bool ignore_cancel) noexcept
@@ -7439,6 +7469,9 @@ int main(int argc, char* argv[])
     const QCommandLineOption stay_alive_option(QStringLiteral("stay-alive-ms"),
                                                QStringLiteral("Keep the control channel alive after handshake."),
                                                QStringLiteral("ms"), QStringLiteral("0"));
+    const QCommandLineOption no_process_window_option(
+        QStringLiteral("no-process-window"),
+        QStringLiteral("Show no process window: the extension states it has no interface."));
     const QCommandLineOption ignore_pings_option(QStringLiteral("ignore-pings"),
                                                  QStringLiteral("Ignore runtime.ping heartbeats instead of replying."));
     const QCommandLineOption disconnect_after_ack_option(
@@ -7529,6 +7562,7 @@ int main(int argc, char* argv[])
 #endif
     parser.addOption(duplicate_connect_option);
     parser.addOption(stay_alive_option);
+    parser.addOption(no_process_window_option);
     parser.addOption(ignore_pings_option);
     parser.addOption(disconnect_after_ack_option);
     parser.addOption(crash_after_ack_option);
@@ -8011,8 +8045,8 @@ int main(int argc, char* argv[])
     // The files a hosted panel's frames are lent, kept mapped from one request to the next.
     an::ui::extensions::KeptFrameMappings kept_frames;
 
-    // Complete the native process window binding when the host confirms the mode.
-    if (an::ui::extensions::showsNativeWindow(ack, headless_qt_platform))
+    // Complete the native process window binding when the host confirms the mode - and the extension has an interface.
+    if (an::ui::extensions::showsNativeWindow(ack, headless_qt_platform, parser.isSet(no_process_window_option)))
     {
         if (!native_process_window)
         {
@@ -8967,6 +9001,20 @@ int main(int argc, char* argv[])
         if (ack.native_process_window && !native_process_window)
         {
             extension_runtime.setWindowlessCloseHandler([&]() { request_native_window_shutdown(true); });
+        }
+        // Serving a panel the application draws, an extension hiding its process window has the application put the
+        // panel's task away.
+        if (hosted_panel)
+        {
+            extension_runtime.setWindowlessHideHandler([&]() {
+                an::ui::extensions::PanelHideMessage hide;
+                hide.session_id = hello.session_id;
+                std::string hide_error;
+                if (!writeProtocolEnvelope(socket, an::ui::extensions::toProtocolMessage(hide), &hide_error))
+                {
+                    LOG_WARNING("The panel's task could not be put away: {}", hide_error);
+                }
+            });
         }
 
         // Wire the close callback so that closing the native window exits the

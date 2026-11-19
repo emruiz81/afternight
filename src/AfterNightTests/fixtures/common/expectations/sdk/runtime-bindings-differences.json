@@ -112,7 +112,7 @@
    "path": "contract.package_signatures",
    "exact": true,
    "class": "representation change",
-   "reason": "The record also states the signatures of the sequence helpers, of the extension base classes' public methods and of the protocol-side modules every host serves - afternight.lite, afternight.protocol, afternight.ui and afternight.ui_protocol, their properties read through their getters - which the behaviour matrix holds their keywords to; the signatures both records state are unchanged."
+   "reason": "The record also states the signatures of the sequence helpers, of the extension base classes' public methods and of the protocol-side modules every host serves - afternight.lite, afternight.protocol, afternight.ui and afternight.ui_protocol, their properties read through their getters - which the behaviour matrix holds their keywords to; the signatures both records state are unchanged. The calls that describe a process window - process_window_meta, hide_process_window and close_process_window - are afternight.ui_protocol's, which afternight.ui hands out, so a protocol extension describes its panel without the native interface module; and afternight.lite's process base class states the hooks the Lite host serves that panel through, beside the raise of an extension's own window."
   }
  ]
 }

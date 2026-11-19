@@ -415,6 +415,9 @@ private:
     void showTaskPage(an::ui::shell::TaskId id);
     /// The centre shows no task's page any more: the actions and the readout follow the active view again.
     void leaveTaskPage();
+    /// Puts a task away, as its process asked: its page leaves the centre for the place shown before, or the window it
+    /// floats in is minimized; the task stays in the rail.
+    void hideTask(an::ui::shell::TaskId id);
     /// A task's run moved on: its header's state, and the snackbar of a run that succeeded.
     void taskRunChanged(an::ui::shell::TaskId id, const an::ui::ProcessRunState& before);
     /// The pages of the tasks the model holds: a page whose task is gone goes, and the place shown before comes back.

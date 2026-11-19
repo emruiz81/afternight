@@ -169,6 +169,9 @@ public:
         /// The host told how far the run of an Apply has come.
         std::function<void(std::optional<double> progress, const QString& text)> progressed;
 
+        /// The extension hid its process window (`ui.hide`): the process is put away, as a person leaves a task.
+        std::function<void()> hidden;
+
         /// The session ended: every request on its way has been answered with why.
         std::function<void(const ExtensionSessionEnd& end)> ended;
     };

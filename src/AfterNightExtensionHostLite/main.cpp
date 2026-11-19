@@ -32,6 +32,7 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QLocalSocket>
+#include <QString>
 #include <QTimer>
 #include <QUuid>
 
@@ -1030,6 +1031,34 @@ struct LiteImageBinding
     bool writable = false;
 };
 
+/// A request of the panel the application draws - a frame of its preview, or an Apply - from the time it was read to
+/// its answer.
+struct LitePanelRequest
+{
+    /// Which request it is, so a run scheduled for one never runs another.
+    std::uint64_t number = 0;
+    std::string request_id;
+    /// "preview" or "execute".
+    std::string kind;
+    QCborMap params;
+    std::vector<an::ui::extensions::SharedBufferDescriptor> buffers;
+};
+
+/// Text the application reads as plain: a line break stays where `keepLineBreaks` says, any other control goes; cut to
+/// a bound.
+[[nodiscard]] std::string plainProtocolText(const std::string& text, const std::size_t limit,
+                                            const bool keepLineBreaks = false)
+{
+    QString plain = QString::fromStdString(text);
+    plain.erase(std::remove_if(plain.begin(), plain.end(),
+                               [keepLineBreaks](const QChar character) {
+                                   return character.category() == QChar::Other_Control &&
+                                          !(keepLineBreaks && character == QLatin1Char('\n'));
+                               }),
+                plain.end());
+    return plain.left(static_cast<qsizetype>(limit)).trimmed().toStdString();
+}
+
 bool dispatchLiteViewNotification(const an::ui::extensions::ExtensionProtocolMessage& inbound, std::string* error);
 
 [[nodiscard]] bool isLiteViewNotification(const std::string_view type) noexcept
@@ -1063,6 +1092,98 @@ struct LitePythonHostBridge
     /// The theme state the application sent last (`theme.describe`, `theme.changed`): what `theme_tokens` answers an
     /// extension that paints itself. Empty until one is sent.
     QCborMap theme_tokens;
+
+    // ---- The panel the application draws
+
+    /// Whether the application draws the session's panel: its acknowledgement stated `kHostedPanelCapability`.
+    bool hosted_panel = false;
+    /// What the panel's tool configuration resolved, which answers the extension's settings reads first.
+    QCborMap hosted_tool_record;
+    /// The image the session is bound to, as the application last named it: a request's target.
+    QString bound_view_name;
+    /// The request of the panel on its way; none between requests.
+    std::optional<LitePanelRequest> panel_request;
+    std::uint64_t panel_requests_read = 0;
+    /// How long the next frame or Apply is held before it runs, as a case states it.
+    int preview_delay_ms = 0;
+    int execute_delay_ms = 0;
+    /// What arrived while the extension ran - a request of the panel, or its own run - other than a heartbeat, a cancel
+    /// or the theme: handled once the run ends, in the order it came.
+    std::deque<an::ui::extensions::ExtensionProtocolMessage> kept_inbound;
+    QElapsedTimer pump_clock;
+
+    // ---- What the application is told of a run (`session.activity`)
+
+    /// Whether the run under way is one the application is told of: an Apply of the panel, or the extension's own run
+    /// at its start.
+    bool reports_run = false;
+    bool told_run = false;
+    std::optional<int> told_percent;
+    std::string told_text;
+
+    /// The extension closed its process window: the session ends.
+    bool close_requested = false;
+
+    /// Writes a message the application is not asked to answer; false, and why, when the socket refuses it.
+    bool tell(const an::ui::extensions::ExtensionProtocolMessage& message, std::string* error = nullptr);
+
+    /// What the application is told of the run under way: that it runs, how far it has come - each whole percent, or a
+    /// new text - and nothing for a run it is not told of.
+    void tellRunProgress(std::optional<double> progress, const std::optional<std::string>& text)
+    {
+        if (!reports_run || !hasControlSocket())
+        {
+            return;
+        }
+        std::optional<int> percent;
+        if (progress.has_value() && std::isfinite(*progress))
+        {
+            percent = static_cast<int>(std::clamp(*progress, 0.0, 1.0) * 100.0);
+        }
+        const std::string plain =
+            text.has_value() ? plainProtocolText(*text, an::ui::extensions::kSessionActivityTextLimit) : told_text;
+        if (told_run && percent == told_percent && plain == told_text)
+        {
+            return;
+        }
+        told_run = true;
+        if (percent.has_value())
+        {
+            told_percent = percent;
+        }
+        told_text = plain;
+        an::ui::extensions::SessionActivityMessage activity;
+        activity.session_id = session_id.toStdString();
+        activity.running = true;
+        if (told_percent.has_value())
+        {
+            activity.progress = static_cast<double>(*told_percent) / 100.0;
+        }
+        activity.text = told_text;
+        static_cast<void>(tell(an::ui::extensions::toProtocolMessage(activity)));
+    }
+
+    /// The run the application is told of ended - "succeeded", "failed" or "cancelled", and why it failed.
+    void tellRunEnded(const std::string& outcome, const std::string& detail = {})
+    {
+        if (reports_run && hasControlSocket())
+        {
+            an::ui::extensions::SessionActivityMessage activity;
+            activity.session_id = session_id.toStdString();
+            activity.running = false;
+            activity.outcome = outcome;
+            activity.text = plainProtocolText(detail, an::ui::extensions::kSessionActivityTextLimit);
+            static_cast<void>(tell(an::ui::extensions::toProtocolMessage(activity)));
+        }
+        reports_run = false;
+        told_run = false;
+        told_percent.reset();
+        told_text.clear();
+    }
+
+    /// While the extension runs, what the application sends meanwhile is read - at most every 20 ms, never waiting: a
+    /// heartbeat is answered, a cancel taken and the theme kept; anything else is kept for when the run ends.
+    void pumpWhileRunning();
 
     /// Keeps the theme state a theme message carries; a message that is not one changes nothing.
     void takeTheme(const an::ui::extensions::ExtensionProtocolMessage& inbound)
@@ -1203,6 +1324,12 @@ struct LitePythonHostBridge
         {
             deferred_protocol_responses.push_back(std::move(inbound));
         }
+        else
+        {
+            // A request of the panel, a person's event or a raise that came while the extension waited is handled once
+            // the session's loop turns again.
+            kept_inbound.push_back(std::move(inbound));
+        }
         return true;
     }
 
@@ -1300,6 +1427,71 @@ struct LitePythonHostBridge
 };
 
 LitePythonHostBridge* g_lite_python_bridge = nullptr;
+
+bool LitePythonHostBridge::tell(const an::ui::extensions::ExtensionProtocolMessage& message, std::string* error)
+{
+    if (!hasControlSocket())
+    {
+        if (error)
+        {
+            *error = "The lite host bridge has no active control socket";
+        }
+        return false;
+    }
+    return writeProtocolMessage(*socket, message, error);
+}
+
+void LitePythonHostBridge::pumpWhileRunning()
+{
+    if (!hasControlSocket() || (pump_clock.isValid() && pump_clock.elapsed() < 20))
+    {
+        return;
+    }
+    pump_clock.start();
+    socket->waitForReadyRead(1);
+    buffered_input->append(socket->readAll());
+    for (;;)
+    {
+        an::ui::extensions::ExtensionProtocolMessage inbound;
+        std::string error;
+        if (an::ui::extensions::tryConsumeFramedProtocolMessage(buffered_input, &inbound, &error) !=
+            an::ui::extensions::ProtocolFrameDecodeStatus::Complete)
+        {
+            return;
+        }
+        if (inbound.type == "runtime.ping")
+        {
+            an::ui::extensions::RuntimePingMessage ping;
+            if (an::ui::extensions::runtimePingFromProtocolMessage(inbound, &ping))
+            {
+                an::ui::extensions::RuntimePongMessage pong;
+                pong.session_id = ping.session_id;
+                pong.request_id = ping.request_id;
+                pong.sequence = ping.sequence;
+                static_cast<void>(writePong(*socket, pong, nullptr));
+            }
+            continue;
+        }
+        if (inbound.type == "execution.cancel")
+        {
+            // The run under way stops at the extension's next look; a cancel of a request not yet run is answered when
+            // the run ends.
+            an::ui::extensions::ExecutionCancelMessage cancel;
+            const bool parsed = an::ui::extensions::executionCancelFromProtocolMessage(inbound, &cancel);
+            if (!panel_request.has_value() || (parsed && cancel.target_request_id == panel_request->request_id))
+            {
+                cancel_requested = true;
+                continue;
+            }
+        }
+        else if (inbound.type == "theme.describe" || inbound.type == "theme.changed")
+        {
+            takeTheme(inbound);
+            continue;
+        }
+        kept_inbound.push_back(std::move(inbound));
+    }
+}
 
 PyObject* pyRaiseRuntimeError(const std::string& message)
 {
@@ -2554,6 +2746,12 @@ PyObject* liteHostSettingsGet(PyObject*, PyObject* args)
         Py_INCREF(default_object);
         return default_object;
     }
+    // What the panel's tool configuration resolved answers first, as the window's always did.
+    if (const auto told = g_lite_python_bridge->hosted_tool_record.constFind(QString::fromUtf8(key));
+        told != g_lite_python_bridge->hosted_tool_record.constEnd())
+    {
+        return cborValueToPythonObject(told.value());
+    }
 
     QCborValue default_value;
     std::string error;
@@ -2652,22 +2850,81 @@ PyObject* liteHostSettingsKeys(PyObject*, PyObject*)
 
 PyObject* liteHostProgressSetValue(PyObject*, PyObject* args)
 {
-    double unused_value = 0.0;
-    if (!PyArg_ParseTuple(args, "d:progress_set_value", &unused_value))
+    double value = 0.0;
+    if (!PyArg_ParseTuple(args, "d:progress_set_value", &value))
     {
         return nullptr;
+    }
+    if (g_lite_python_bridge)
+    {
+        g_lite_python_bridge->tellRunProgress(value, std::nullopt);
+        g_lite_python_bridge->pumpWhileRunning();
     }
     Py_RETURN_NONE;
 }
 
 PyObject* liteHostProgressSetText(PyObject*, PyObject* args)
 {
-    const char* unused_text = nullptr;
-    if (!PyArg_ParseTuple(args, "s:progress_set_text", &unused_text))
+    const char* text = nullptr;
+    if (!PyArg_ParseTuple(args, "s:progress_set_text", &text))
     {
         return nullptr;
     }
+    if (g_lite_python_bridge)
+    {
+        g_lite_python_bridge->tellRunProgress(std::nullopt, std::string(text != nullptr ? text : ""));
+        g_lite_python_bridge->pumpWhileRunning();
+    }
     Py_RETURN_NONE;
+}
+
+/// Hides the process window: with a panel the application draws, the application puts the panel's task away; with
+/// none, the Lite host has no window to hide.
+PyObject* liteHostProcessWindowHide(PyObject*, PyObject*)
+{
+    if (!g_lite_python_bridge || !g_lite_python_bridge->hosted_panel || !g_lite_python_bridge->hasControlSocket())
+    {
+        Py_RETURN_FALSE;
+    }
+    an::ui::extensions::PanelHideMessage hide;
+    hide.session_id = g_lite_python_bridge->session_id.toStdString();
+    std::string error;
+    if (!g_lite_python_bridge->tell(an::ui::extensions::toProtocolMessage(hide), &error))
+    {
+        return pyRaiseRuntimeError(error);
+    }
+    Py_RETURN_TRUE;
+}
+
+/// Closes the process window: the session ends, as it does when a window is closed - the application is told
+/// (`runtime.closed`) and the host stops once the extension's code returns.
+PyObject* liteHostProcessWindowClose(PyObject*, PyObject*)
+{
+    if (!g_lite_python_bridge)
+    {
+        Py_RETURN_FALSE;
+    }
+    if (!g_lite_python_bridge->close_requested)
+    {
+        g_lite_python_bridge->close_requested = true;
+        // The run the application was told of ends before the session does, which ends it on the application's side.
+        if (g_lite_python_bridge->told_run && !g_lite_python_bridge->panel_request.has_value())
+        {
+            g_lite_python_bridge->tellRunEnded(g_lite_python_bridge->cancel_requested ? "cancelled" : "succeeded");
+        }
+        if (g_lite_python_bridge->hasControlSocket())
+        {
+            an::ui::extensions::ExtensionProtocolMessage closed;
+            closed.type = "runtime.closed";
+            closed.session_id = g_lite_python_bridge->session_id.toStdString();
+            closed.request_id = generateLiteOpaqueToken();
+            closed.fields.insert(QStringLiteral("active_work"), g_lite_python_bridge->panel_request.has_value());
+            static_cast<void>(g_lite_python_bridge->tell(closed));
+            g_lite_python_bridge->socket->flush();
+        }
+        QTimer::singleShot(0, QCoreApplication::instance(), &QCoreApplication::quit);
+    }
+    Py_RETURN_TRUE;
 }
 
 PyObject* liteHostThemeTokens(PyObject*, PyObject*)
@@ -2681,6 +2938,10 @@ PyObject* liteHostThemeTokens(PyObject*, PyObject*)
 
 PyObject* liteHostProgressIsCancelled(PyObject*, PyObject*)
 {
+    if (g_lite_python_bridge)
+    {
+        g_lite_python_bridge->pumpWhileRunning();
+    }
     if (g_lite_python_bridge && g_lite_python_bridge->cancel_requested)
     {
         Py_RETURN_TRUE;
@@ -2711,6 +2972,8 @@ PyMethodDef kLiteHostMethods[] = {
     {"progress_set_text", liteHostProgressSetText, METH_VARARGS, nullptr},
     {"progress_is_cancelled", liteHostProgressIsCancelled, METH_NOARGS, nullptr},
     {"theme_tokens", liteHostThemeTokens, METH_NOARGS, nullptr},
+    {"process_window_hide", liteHostProcessWindowHide, METH_NOARGS, nullptr},
+    {"process_window_close", liteHostProcessWindowClose, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr},
 };
 
@@ -2910,9 +3173,431 @@ bool dispatchLiteViewNotification(const an::ui::extensions::ExtensionProtocolMes
     return true;
 }
 
+// ---- The panel the application draws
+//
+// With `kHostedPanelCapability` acknowledged, the Lite host serves the panel as the full host does: it tells the
+// application the extension's parameters once its runtime is ready (`ui.describe`), hears what a person does in the
+// panel (`ui.event`) and answers an action (`ui.patch`), and runs each frame of the preview and each Apply the
+// application sends over the buffers it lent, writing the output it lent: a frame answered by `execution.result`, an
+// Apply by `view.commit`, or by `execution.result` when it failed or was cancelled. One request at a time, run on this
+// thread between turns of the event loop; a cancel that comes before a request runs answers it, and one that comes
+// while it runs is read when the extension next reports its progress or asks whether it was cancelled.
+
+/// The extension's instance, as the host made it: borrowed, `None` when there is none.
+PyObject* liteInstance()
+{
+    PyObject* main_module = PyImport_AddModule("__main__");
+    PyObject* globals = main_module ? PyModule_GetDict(main_module) : nullptr;
+    PyObject* instance = globals ? PyDict_GetItemString(globals, "instance") : nullptr;
+    return instance != nullptr ? instance : Py_None;
+}
+
+/// Calls a function of `afternight.lite`: the new reference it returns, or null with the Python error set.
+PyObject* callLiteSdk(const char* name, PyObject* args)
+{
+    PyObjectHolder module(PyImport_ImportModule("afternight.lite"));
+    if (!module.value)
+    {
+        return nullptr;
+    }
+    PyObjectHolder function(PyObject_GetAttrString(module.value, name));
+    if (!function.value)
+    {
+        return nullptr;
+    }
+    return PyObject_CallObject(function.value, args);
+}
+
+/// The cards a buffer's sidecar holds; none when it has no sidecar, or one that cannot be read.
+QCborMap loadLiteSidecar(const std::string& path)
+{
+    if (path.empty())
+    {
+        return {};
+    }
+    QFile file(QString::fromStdString(path));
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        return {};
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    return document.isObject() ? QCborMap::fromJsonObject(document.object()) : QCborMap{};
+}
+
+/// Tells the application the extension's parameters (`ui.describe`): the list its `get_params()` returns.
+bool describeLitePanel(std::string* error)
+{
+    if (!g_lite_python_bridge || !Py_IsInitialized())
+    {
+        return true;
+    }
+    PyObject* main_module = PyImport_AddModule("__main__");
+    PyObject* globals = main_module ? PyModule_GetDict(main_module) : nullptr;
+    PyObject* result = globals ? PyRun_String("import json as __afternight_json\n"
+                                              "instance = globals().get('instance')\n"
+                                              "__afternight_panel_json = __afternight_json.dumps(\n"
+                                              "    list(instance.get_params()) if instance is not None else [])\n",
+                                              Py_file_input, globals, globals)
+                               : nullptr;
+    if (!result)
+    {
+        if (error)
+        {
+            *error = "The extension's parameters could not be read: " + pythonExceptionMessage();
+        }
+        return false;
+    }
+    Py_DECREF(result);
+    PyObject* json_value = PyDict_GetItemString(globals, "__afternight_panel_json");
+    const char* json_text = json_value != nullptr ? PyUnicode_AsUTF8(json_value) : nullptr;
+    const QJsonDocument document = QJsonDocument::fromJson(QByteArray(json_text != nullptr ? json_text : "[]"));
+    if (!document.isArray())
+    {
+        if (error)
+        {
+            *error = "The extension's parameters are not a list";
+        }
+        return false;
+    }
+    return g_lite_python_bridge->tell(
+        an::ui::extensions::hostedPanelDescription(g_lite_python_bridge->session_id.toStdString(), document.array()),
+        error);
+}
+
+/// What a person did in the panel: the parameters' change and the tool's record told to the extension, an action run
+/// and its answer sent back. A failure of the extension's is answered or written, never fatal to the session.
+bool serveLitePanelEvent(const an::ui::extensions::ExtensionProtocolMessage& message)
+{
+    an::ui::extensions::HostedPanelEvent event;
+    std::string error;
+    if (!an::ui::extensions::hostedPanelEventFrom(message, &event, &error))
+    {
+        printError("A hosted panel's event was refused: " + error);
+        return true;
+    }
+    switch (event.kind)
+    {
+    case an::ui::extensions::HostedPanelEvent::Kind::ToolRecord:
+        g_lite_python_bridge->hosted_tool_record = event.toolRecord;
+        return true;
+    case an::ui::extensions::HostedPanelEvent::Kind::ParametersChanged: {
+        PyObject* instance = liteInstance();
+        if (instance == Py_None || !PyObject_HasAttrString(instance, "on_parameters_changed"))
+        {
+            return true;
+        }
+        PyObjectHolder params(cborMapToPythonDict(event.params));
+        PyObjectHolder changed(PyList_New(0));
+        for (const QString& key : event.changedKeys)
+        {
+            PyObjectHolder name(PyUnicode_FromString(key.toUtf8().constData()));
+            if (changed.value && name.value)
+            {
+                PyList_Append(changed.value, name.value);
+            }
+        }
+        PyObjectHolder reason(PyUnicode_FromString(event.reason.toUtf8().constData()));
+        PyObjectHolder hook(PyObject_GetAttrString(instance, "on_parameters_changed"));
+        PyObjectHolder result(
+            hook.value && params.value && changed.value && reason.value
+                ? PyObject_CallFunctionObjArgs(hook.value, params.value, changed.value, reason.value, nullptr)
+                : nullptr);
+        if (!result.value)
+        {
+            printError("Extension on_parameters_changed() failed: " + pythonExceptionMessage());
+        }
+        return true;
+    }
+    case an::ui::extensions::HostedPanelEvent::Kind::Action:
+        break;
+    }
+
+    QCborMap values;
+    std::string action_error;
+    PyObjectHolder params(cborMapToPythonDict(event.params));
+    PyObjectHolder args(params.value ? Py_BuildValue("(OsO)", liteInstance(), event.actionId.c_str(), params.value)
+                                     : nullptr);
+    PyObjectHolder answer(args.value ? callLiteSdk("_serve_panel_action", args.value) : nullptr);
+    QCborValue answered;
+    if (!answer.value)
+    {
+        action_error = pythonExceptionMessage();
+    }
+    else if (!pythonObjectToCborValue(answer.value, &answered, &action_error) || !answered.isMap())
+    {
+        action_error = action_error.empty() ? std::string("handle_param_action() must return a dict") : action_error;
+    }
+    else
+    {
+        values = answered.toMap();
+    }
+    if (!action_error.empty())
+    {
+        printError("A hosted panel's action '" + event.actionId + "' failed: " + action_error);
+    }
+    return g_lite_python_bridge->tell(
+        an::ui::extensions::hostedActionAnswer(g_lite_python_bridge->session_id.toStdString(), event.actionId, values,
+                                               action_error),
+        &error);
+}
+
+/// Answers the request of the panel on its way and lets it go.
+bool answerLitePanelRequest(const std::string& status, const std::string& detail,
+                            const an::ui::extensions::SharedBufferDescriptor* output)
+{
+    const LitePanelRequest request = std::move(*g_lite_python_bridge->panel_request);
+    g_lite_python_bridge->panel_request.reset();
+    g_lite_python_bridge->cancel_requested = false;
+    const std::string session_id = g_lite_python_bridge->session_id.toStdString();
+    if (request.kind == "execute")
+    {
+        g_lite_python_bridge->tellRunEnded(status, status == "failed" ? detail : std::string());
+    }
+    std::string error;
+    if (request.kind == "execute" && status == "succeeded" && output != nullptr)
+    {
+        an::ui::extensions::ViewCommitMessage commit;
+        commit.session_id = session_id;
+        commit.request_id = request.request_id;
+        commit.view_id = g_lite_python_bridge->bound_view_name.isEmpty()
+                             ? session_id
+                             : g_lite_python_bridge->bound_view_name.toStdString();
+        commit.history_step_name = "Extension Apply";
+        commit.history_step_description = "Applied extension execution result";
+        commit.params = request.params;
+        commit.result_buffers = {*output};
+        return g_lite_python_bridge->tell(an::ui::extensions::toProtocolMessage(commit), &error);
+    }
+    an::ui::extensions::ExecutionResultMessage result;
+    result.session_id = session_id;
+    result.request_id = generateLiteOpaqueToken();
+    result.target_request_id = request.request_id;
+    result.result_kind = request.kind;
+    result.status = status;
+    result.detail = plainProtocolText(detail, an::ui::extensions::kPanelPatchErrorLimit, true);
+    if (status == "succeeded" && output != nullptr)
+    {
+        result.output_buffers = {*output};
+    }
+    return g_lite_python_bridge->tell(an::ui::extensions::toProtocolMessage(result), &error);
+}
+
+bool handleInboundMessage(QLocalSocket& socket, const an::ui::extensions::ExtensionProtocolMessage& inbound,
+                          std::string* error);
+
+/// Runs the request of the panel on its way, when it is still the one a run was scheduled for: the buffers it lent
+/// bound to the extension's images, its `execute_preview()` or `execute()` run over them, its answer sent, and what
+/// arrived meanwhile handled.
+void runLitePanelRequest(const std::uint64_t number)
+{
+    LitePythonHostBridge* const bridge = g_lite_python_bridge;
+    if (bridge == nullptr || !bridge->panel_request.has_value() || bridge->panel_request->number != number)
+    {
+        return;
+    }
+    const LitePanelRequest& request = *bridge->panel_request;
+    const auto source = std::find_if(request.buffers.begin(), request.buffers.end(), [](const auto& buffer) {
+        return buffer.buffer_role == an::ui::extensions::SharedBufferRole::Source;
+    });
+    const an::ui::extensions::SharedBufferDescriptor* lent =
+        an::ui::extensions::lentOutputOf(request.kind, request.buffers);
+    if (source == request.buffers.end() || lent == nullptr)
+    {
+        static_cast<void>(answerLitePanelRequest("failed", "The request lent no source or no output", nullptr));
+        return;
+    }
+    const an::ui::extensions::SharedBufferDescriptor output = *lent;
+
+    // The images the request lent, by tokens of their own; a mask or a weight map by its name.
+    std::vector<std::string> tokens;
+    QCborMap masks;
+    QCborMap weights;
+    std::string error;
+    const QCborMap source_cards = loadLiteSidecar(source->metadata_sidecar);
+    bool bound = bindSnapshotBuffer(*source, source_cards, "panel:source", &error) &&
+                 bindSnapshotBuffer(output, source_cards, "panel:output", &error);
+    tokens = {"panel:source", "panel:output"};
+    for (const auto& buffer : request.buffers)
+    {
+        const bool mask = buffer.buffer_role == an::ui::extensions::SharedBufferRole::Mask;
+        if (!bound || (!mask && buffer.buffer_role != an::ui::extensions::SharedBufferRole::Weight))
+        {
+            continue;
+        }
+        const std::string name = buffer.symbolic_name.empty() ? buffer.buffer_id : buffer.symbolic_name;
+        const std::string token = std::string(mask ? "panel:mask:" : "panel:weight:") + name;
+        bound = bindSnapshotBuffer(buffer, {}, token, &error);
+        tokens.push_back(token);
+        (mask ? masks : weights).insert(QString::fromStdString(name), QString::fromStdString(token));
+    }
+
+    std::string status = "failed";
+    std::string detail = error;
+    if (bound)
+    {
+        // An Apply's progress is told to the application as the extension reports it.
+        bridge->reports_run = request.kind == "execute";
+        bridge->pump_clock.invalidate();
+        PyObjectHolder params(cborMapToPythonDict(request.params));
+        PyObjectHolder mask_tokens(cborMapToPythonDict(masks));
+        PyObjectHolder weight_tokens(cborMapToPythonDict(weights));
+        const QByteArray view_name = bridge->bound_view_name.toUtf8();
+        PyObjectHolder args(params.value && mask_tokens.value && weight_tokens.value
+                                ? Py_BuildValue("(OsssOsOO)", liteInstance(), request.kind.c_str(), "panel:source",
+                                                "panel:output", params.value, view_name.constData(), mask_tokens.value,
+                                                weight_tokens.value)
+                                : nullptr);
+        PyObjectHolder answered(args.value ? callLiteSdk("_serve_panel_request", args.value) : nullptr);
+        const char* told = answered.value != nullptr ? PyUnicode_AsUTF8(answered.value) : nullptr;
+        if (told != nullptr)
+        {
+            status = told;
+            detail = status == "cancelled" ? "Cancelled by host request" : std::string();
+        }
+        else
+        {
+            detail = pythonExceptionMessage();
+            detail = detail.empty() ? std::string("The extension's run failed") : detail;
+        }
+        // An Apply's cards go into the output's sidecar before the application reads it.
+        if (status == "succeeded" && request.kind == "execute" && !output.metadata_sidecar.empty())
+        {
+            if (LiteImageBinding* written = bridge->findImageBinding("panel:output"))
+            {
+                PyObjectHolder cards(cborMapToPythonDict(written->metadata));
+                std::string sidecar_error;
+                if (!cards.value || !writeMetadataSidecarDict(output.metadata_sidecar, cards.value, &sidecar_error))
+                {
+                    status = "failed";
+                    detail =
+                        sidecar_error.empty() ? std::string("The result's cards could not be written") : sidecar_error;
+                }
+            }
+        }
+    }
+    // Every file the request lent is let go before it is answered, so the application may remove it once it has heard.
+    for (const std::string& token : tokens)
+    {
+        bridge->image_bindings.erase(token);
+    }
+    if (!answerLitePanelRequest(status, detail, &output))
+    {
+        printError("A hosted panel's answer could not be sent");
+    }
+
+    // What arrived while the extension ran is handled now, in the order it came.
+    std::deque<an::ui::extensions::ExtensionProtocolMessage> kept = std::move(bridge->kept_inbound);
+    bridge->kept_inbound.clear();
+    for (const auto& message : kept)
+    {
+        std::string kept_error;
+        if (bridge->socket != nullptr && !handleInboundMessage(*bridge->socket, message, &kept_error))
+        {
+            printError(kept_error);
+            QCoreApplication::quit();
+            return;
+        }
+    }
+}
+
+/// Reads a frame or an Apply of the panel: held as the request on its way, and run once its delay - none outside a case
+/// that states one - has passed. A second request while one is on its way breaks the protocol.
+bool takeLitePanelRequest(const an::ui::extensions::ExtensionProtocolMessage& inbound, std::string* error)
+{
+    LitePanelRequest request;
+    if (inbound.type == "execution.preview")
+    {
+        an::ui::extensions::ExecutionPreviewMessage preview;
+        if (!an::ui::extensions::executionPreviewFromProtocolMessage(inbound, &preview, error))
+        {
+            return false;
+        }
+        request.request_id = preview.request_id;
+        request.kind = "preview";
+        request.params = preview.params;
+        request.buffers = std::move(preview.buffers);
+    }
+    else
+    {
+        an::ui::extensions::ExecutionExecuteMessage execute;
+        if (!an::ui::extensions::executionExecuteFromProtocolMessage(inbound, &execute, error))
+        {
+            return false;
+        }
+        request.request_id = execute.request_id;
+        request.kind = "execute";
+        request.params = execute.params;
+        request.buffers = std::move(execute.buffers);
+    }
+    if (g_lite_python_bridge->panel_request.has_value())
+    {
+        if (error)
+        {
+            *error = "Received " + inbound.type + " while another request was still in flight";
+        }
+        return false;
+    }
+    request.number = ++g_lite_python_bridge->panel_requests_read;
+    const int delay_ms =
+        request.kind == "preview" ? g_lite_python_bridge->preview_delay_ms : g_lite_python_bridge->execute_delay_ms;
+    const std::uint64_t number = request.number;
+    g_lite_python_bridge->cancel_requested = false;
+    g_lite_python_bridge->panel_request = std::move(request);
+    QTimer::singleShot((std::max)(0, delay_ms), QCoreApplication::instance(),
+                       [number]() { runLitePanelRequest(number); });
+    return true;
+}
+
 bool handleInboundMessage(QLocalSocket& socket, const an::ui::extensions::ExtensionProtocolMessage& inbound,
                           std::string* error)
 {
+    if (g_lite_python_bridge && (inbound.type == "view.describe" || inbound.type == "view.bound"))
+    {
+        const QString named = inbound.fields.value(QStringLiteral("view_name")).toString();
+        g_lite_python_bridge->bound_view_name =
+            named.isEmpty() ? inbound.fields.value(QStringLiteral("view_id")).toString() : named;
+    }
+    if (inbound.type == "window.raise")
+    {
+        // A person asked to see the extension's window: an extension that owns one raises it.
+        std::string raise_error;
+        if (!callLiteLifecycleHook("on_raise_window", nullptr, &raise_error))
+        {
+            printError("Extension on_raise_window() failed: " + raise_error);
+        }
+        return true;
+    }
+    if (g_lite_python_bridge && g_lite_python_bridge->hosted_panel)
+    {
+        if (inbound.type == "execution.preview" || inbound.type == "execution.execute")
+        {
+            return takeLitePanelRequest(inbound, error);
+        }
+        if (inbound.type == "execution.cancel" && g_lite_python_bridge->panel_request.has_value())
+        {
+            // The request has not run yet: it is answered cancelled, never run.
+            an::ui::extensions::ExecutionCancelMessage cancel;
+            if (!an::ui::extensions::executionCancelFromProtocolMessage(inbound, &cancel, error))
+            {
+                return false;
+            }
+            if (cancel.target_request_id == g_lite_python_bridge->panel_request->request_id)
+            {
+                std::string hook_error;
+                if (!callLiteLifecycleHook("on_cancel", nullptr, &hook_error))
+                {
+                    printError("Extension on_cancel() failed: " + hook_error);
+                }
+                return answerLitePanelRequest("cancelled", "Cancelled by host request", nullptr);
+            }
+            return true;
+        }
+        if (inbound.type == "ui.event")
+        {
+            return serveLitePanelEvent(inbound);
+        }
+    }
+
     if (inbound.type != "runtime.ping")
     {
         if (inbound.type == "execution.cancel" && g_lite_python_bridge)
@@ -3004,6 +3689,12 @@ int main(int argc, char* argv[])
     const QCommandLineOption standalone_option(
         QStringLiteral("standalone"),
         QStringLiteral("Run without a host control socket using mock app/view protocol services."));
+    const QCommandLineOption preview_delay_option(
+        QStringLiteral("preview-delay-ms"), QStringLiteral("Hold each frame of a panel's preview before it runs."),
+        QStringLiteral("ms"), QStringLiteral("0"));
+    const QCommandLineOption execute_delay_option(QStringLiteral("execute-delay-ms"),
+                                                  QStringLiteral("Hold each Apply of a panel before it runs."),
+                                                  QStringLiteral("ms"), QStringLiteral("0"));
 
     parser.addOption(endpoint_option);
     parser.addOption(session_option);
@@ -3027,6 +3718,8 @@ int main(int argc, char* argv[])
 #endif
     parser.addOption(stay_alive_option);
     parser.addOption(standalone_option);
+    parser.addOption(preview_delay_option);
+    parser.addOption(execute_delay_option);
     parser.process(app);
 
     const QString display_name = parser.value(display_name_option).trimmed();
@@ -3065,6 +3758,8 @@ int main(int argc, char* argv[])
     python_bridge.launch_mode = launch_mode;
     python_bridge.sdk_backend = sdk_backend;
     python_bridge.standalone_mode = standalone_mode;
+    python_bridge.preview_delay_ms = (std::max)(0, parser.value(preview_delay_option).trimmed().toInt());
+    python_bridge.execute_delay_ms = (std::max)(0, parser.value(execute_delay_option).trimmed().toInt());
     g_lite_python_bridge = &python_bridge;
 
     if (parser.isSet(inspect_option))
@@ -3188,6 +3883,17 @@ int main(int argc, char* argv[])
     hello.sdk_backend = sdk_backend.toStdString();
     hello.host_version = parser.value(host_version_option).trimmed().toStdString();
     hello.capabilities = splitCapabilities(parser.value(capabilities_option));
+    // What the Lite host serves beside what it was launched with: the panel the application draws, the raise of the
+    // extension's own window, and where the run it is told of stands.
+    for (const std::string_view served :
+         {an::ui::extensions::kHostedPanelCapability, an::ui::extensions::kWindowRaiseCapability,
+          an::ui::extensions::kSessionActivityCapability})
+    {
+        if (std::find(hello.capabilities.begin(), hello.capabilities.end(), served) == hello.capabilities.end())
+        {
+            hello.capabilities.emplace_back(served);
+        }
+    }
     hello.session_secret_proof = session_secret;
     hello.native_process_window = false;
     hello.bootstrap_status_messages = deferred_managed_start;
@@ -3253,6 +3959,8 @@ int main(int argc, char* argv[])
     python_bridge.launch_mode = launch_mode;
     python_bridge.sdk_backend = sdk_backend;
     python_bridge.standalone_mode = false;
+    // The application draws the session's panel itself: the Lite host serves it.
+    python_bridge.hosted_panel = an::ui::extensions::servesHostedPanel(ack);
 
     // Ready once the extension is imported, as it was at the acknowledgement when it was imported first: its launch
     // hook runs with the application already answering the session's notifications and requests.
@@ -3264,13 +3972,32 @@ int main(int argc, char* argv[])
 
     if (Py_IsInitialized())
     {
+        // The extension's own run at its start - an extension with no interface does its work there - is told to the
+        // application as it reports its progress, and its end once it reported any.
+        python_bridge.reports_run = true;
         std::string launch_error;
         if (!callLiteLaunchHook(&launch_error))
         {
+            if (python_bridge.told_run)
+            {
+                python_bridge.tellRunEnded("failed", launch_error);
+            }
             printError(launch_error);
             Py_Finalize();
             g_lite_python_bridge = nullptr;
             return 12;
+        }
+        if (python_bridge.told_run)
+        {
+            python_bridge.tellRunEnded(python_bridge.cancel_requested ? "cancelled" : "succeeded");
+        }
+        python_bridge.reports_run = false;
+
+        // The panel the application draws starts from the parameters the extension describes.
+        std::string describe_error;
+        if (python_bridge.hosted_panel && !python_bridge.close_requested && !describeLitePanel(&describe_error))
+        {
+            printError(describe_error);
         }
     }
 
@@ -3288,23 +4015,33 @@ int main(int argc, char* argv[])
     }
 
     QObject::connect(&socket, &QLocalSocket::disconnected, &app, &QCoreApplication::quit);
-    QObject::connect(&socket, &QLocalSocket::readyRead, &app, [&socket, &buffered_input, &app]() {
+    // What the application sent: what was kept while the extension waited or ran first, since it came first, then what
+    // the socket holds now.
+    const auto serve_inbound = [&socket, &buffered_input, &app, &python_bridge]() {
         buffered_input.append(socket.readAll());
         while (true)
         {
             an::ui::extensions::ExtensionProtocolMessage inbound;
             std::string local_error;
-            const auto status =
-                an::ui::extensions::tryConsumeFramedProtocolMessage(&buffered_input, &inbound, &local_error);
-            if (status == an::ui::extensions::ProtocolFrameDecodeStatus::NeedMoreData)
+            if (!python_bridge.kept_inbound.empty())
             {
-                return;
+                inbound = std::move(python_bridge.kept_inbound.front());
+                python_bridge.kept_inbound.pop_front();
             }
-            if (status == an::ui::extensions::ProtocolFrameDecodeStatus::InvalidFrame)
+            else
             {
-                printError(local_error.empty() ? "Invalid protocol frame" : local_error);
-                app.quit();
-                return;
+                const auto status =
+                    an::ui::extensions::tryConsumeFramedProtocolMessage(&buffered_input, &inbound, &local_error);
+                if (status == an::ui::extensions::ProtocolFrameDecodeStatus::NeedMoreData)
+                {
+                    return;
+                }
+                if (status == an::ui::extensions::ProtocolFrameDecodeStatus::InvalidFrame)
+                {
+                    printError(local_error.empty() ? "Invalid protocol frame" : local_error);
+                    app.quit();
+                    return;
+                }
             }
             if (!handleInboundMessage(socket, inbound, &local_error))
             {
@@ -3313,7 +4050,25 @@ int main(int argc, char* argv[])
                 return;
             }
         }
-    });
+    };
+    // Served from the loop, never inside the socket's own signal: the extension's code a message runs may ask the
+    // application something and wait on this socket for the answer, which a wait nested in the socket's signal never
+    // reads on Windows' named pipes.
+    bool serving_scheduled = false;
+    const auto schedule_serving = [&app, &serving_scheduled, serve_inbound]() {
+        if (serving_scheduled)
+        {
+            return;
+        }
+        serving_scheduled = true;
+        QTimer::singleShot(0, &app, [&serving_scheduled, serve_inbound]() {
+            serving_scheduled = false;
+            serve_inbound();
+        });
+    };
+    QObject::connect(&socket, &QLocalSocket::readyRead, &app, schedule_serving);
+    // What arrived before the loop listened - while the extension started - is served as the loop starts.
+    schedule_serving();
 
     QTimer::singleShot(stay_alive_ms, &app, &QCoreApplication::quit);
     const int exit_code = app.exec();
