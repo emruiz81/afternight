@@ -30,6 +30,11 @@ inline constexpr int kTagPadding = 7;
 inline constexpr int kTagIcon = 12;
 inline constexpr int kTagGap = 4;
 
+/// The property of a menu's action that holds the quiet tag the Observatory profile paints after its text - an
+/// extension's process carries "extension" - and the room between the text and the tag.
+inline constexpr const char* kMenuTagProperty = "anMenuTag";
+inline constexpr int kMenuTagGap = 8;
+
 // A key hint: the keys of a shortcut in the monospace, in a small outlined box.
 inline constexpr int kKeyHintRadius = 4;
 inline constexpr int kKeyHintPadding = 5;

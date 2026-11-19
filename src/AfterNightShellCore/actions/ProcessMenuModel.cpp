@@ -116,11 +116,20 @@ struct ProcessMenuModel::Impl
         std::unique_ptr<QAction> action;
     };
 
+    /// The action of an extension's process - one it added or a catalogue action bound in its place - and the
+    /// extension's id: what the extension's family menu lists, in the packages' order.
+    struct ProcessAction
+    {
+        std::string extensionId;
+        QPointer<QAction> action;
+    };
+
     Dependencies deps;
     Hooks hooks;
     std::vector<ExtensionEntry> extensionEntries;
     /// The catalogue's actions an extension's process was bound to.
     std::vector<QPointer<QAction>> reboundActions;
+    std::vector<ProcessAction> processActions;
     std::vector<ExtensionFamily> families;
     std::vector<std::pair<std::size_t, std::function<void(Change)>>> listeners;
     std::size_t nextSubscription = 1u;
@@ -191,9 +200,19 @@ std::string_view ProcessMenuModel::menuOfCategory(const std::string_view categor
 
 void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered)
 {
+    // A catalogue action an extension bound is the application's again until an extension binds it anew.
+    for (const QPointer<QAction>& rebound : m_impl->reboundActions)
+    {
+        if (!rebound.isNull())
+        {
+            rebound->setProperty(kMenuTagProperty, QVariant());
+        }
+    }
     m_impl->extensionEntries.clear();
     m_impl->reboundActions.clear();
+    m_impl->processActions.clear();
     m_impl->families = ProcessLaunchService::extensionFamilies(discovered);
+    const QString tag = process_registry::extensionProcessTag();
 
     for (const auto& result : discovered)
     {
@@ -218,8 +237,10 @@ void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::Exten
                     m_impl->deps.actions ? m_impl->deps.actions(process.action_object_name) : nullptr)
             {
                 existing->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
+                existing->setProperty(kMenuTagProperty, tag);
                 m_impl->bind(existing, process.category, process.id);
                 m_impl->reboundActions.push_back(existing);
+                m_impl->processActions.push_back(Impl::ProcessAction{result.manifest->id, existing});
                 continue;
             }
 
@@ -238,7 +259,9 @@ void ProcessMenuModel::setExtensions(const std::vector<an::ui::extensions::Exten
             action->setText(QString::fromUtf8(descriptor->display_name.c_str()));
             action->setProperty("anRegistryDescriptorId", QString::fromStdString(process.id));
             action->setProperty(kExtensionProcessEntryProperty, true);
+            action->setProperty(kMenuTagProperty, tag);
             m_impl->bind(action.get(), descriptor->category, process.id);
+            m_impl->processActions.push_back(Impl::ProcessAction{result.manifest->id, action.get()});
             m_impl->extensionEntries.push_back(Impl::ExtensionEntry{std::string(menuId), std::move(action)});
         }
     }
@@ -316,6 +339,18 @@ QAction* ProcessMenuModel::extensionAction(const std::string_view objectName) co
 const std::vector<ExtensionFamily>& ProcessMenuModel::extensionFamilies() const noexcept
 {
     return m_impl->families;
+}
+
+QString ProcessMenuModel::familyOf(const std::string_view extensionId) const
+{
+    for (const ExtensionFamily& family : m_impl->families)
+    {
+        if (family.extensionId == extensionId)
+        {
+            return family.displayName;
+        }
+    }
+    return {};
 }
 
 void ProcessMenuModel::buildFavoriteProcessesMenu(QMenu& menu) const
@@ -433,7 +468,7 @@ void ProcessMenuModel::appendExtensionProcesses(QMenu& menu, const std::string_v
     }
 }
 
-void ProcessMenuModel::buildExtensionFamilyMenus(QMenu& extensionsMenu) const
+void ProcessMenuModel::buildExtensionFamilyMenus(QMenu& extensionsMenu, const FamilyEntries entries) const
 {
     removeMarkedEntries(extensionsMenu, kExtensionFamilyEntryProperty, {});
     if (m_impl->families.empty())
@@ -449,6 +484,25 @@ void ProcessMenuModel::buildExtensionFamilyMenus(QMenu& extensionsMenu) const
         auto* familyMenu = new QMenu(family.displayName, &extensionsMenu);
         QAction* const familyAction = extensionsMenu.addMenu(familyMenu);
         familyAction->setProperty(kExtensionFamilyEntryProperty, true);
+
+        if (entries == FamilyEntries::ProcessesAndLinks)
+        {
+            // The extension's processes first, the very actions its categories' menus hold; the menu that goes with
+            // the next build takes none of them with it, since a menu does not own the actions it shows.
+            bool listed = false;
+            for (const Impl::ProcessAction& process : m_impl->processActions)
+            {
+                if (process.extensionId == family.extensionId && !process.action.isNull())
+                {
+                    familyMenu->addAction(process.action.data());
+                    listed = true;
+                }
+            }
+            if (listed)
+            {
+                familyMenu->addSeparator();
+            }
+        }
 
         auto* manage = familyMenu->addAction(QCoreApplication::translate("AfterNightAppClass", "Manage..."));
         QObject::connect(manage, &QAction::triggered, manage, [manageExtensions = m_impl->deps.manageExtensions]() {

@@ -552,7 +552,7 @@ capability extensions.menu
     title        Extensions menu and a submenu per family
     shared       AfterNightAppProcessMenuSuite.BuildUiProvidesDedicatedExtensionsMenuForManagement, ActionStateTest.AnExtensionsActionThatCanBePreparedFollowsItsLaunchGuards, ActionBindingsTest.AnExtensionsActionStaysEnabledWhileItsEnvironmentCanBePrepared
     classic      ApplicationMenu.ManageExtensionsShowsTheExtensionsWindowAtTheExtensionManager
-    observatory  MenuBarOnAlt.IsHiddenAtTheStartAndHoldsTheMenuTree
+    observatory  ExtensionManagerPage.OpensFromTheMenuTree, ExtensionManagerPage.OpensFromThePalette, ExtensionManagerPage.OpensFromHomesMore, ExtensionMenus.AnExtensionsProcessCarriesItsTagInItsCategoryAndItsFamily
 
 capability extensions.catalogs
     title        Catalog download dialogs

@@ -4471,6 +4471,78 @@ TEST(ExtensionManagerTest, RepositoryBrowseEntriesSelectRuntimeAssetAndUpdateSta
     EXPECT_EQ(entries.front().installed_source, ExtensionPackageSource::Repository);
 }
 
+// A browse entry of an installed package says the backend its host runs and who draws each process, resolved as a
+// launch resolves it: what the manifest states, else a panel for a list of parameters kept when the package was found,
+// else a window of its own. One not installed says neither.
+TEST(ExtensionManagerTest, RepositoryBrowseEntriesSayHowAnInstalledPackageRunsAndWhoDrawsEachProcess)
+{
+    an::ui::extensions::ExtensionRepositoryReleaseAsset asset;
+    asset.name = "drawn-1.0.0-linux.tar.zst";
+    asset.download_url = "archives/" + asset.name;
+    asset.package_hash_sha256 = std::string(64, 'a');
+    asset.runtime_targets = {"linux-clang-x86_64"};
+    asset.signature_state = ExtensionPackageSignatureState::Unsigned;
+    an::ui::extensions::ExtensionRepositoryRelease release;
+    release.version = "1.0.0";
+    release.runtime_targets = {"linux-clang-x86_64"};
+    release.sdk_backend = "protocol";
+    release.assets = {asset};
+    an::ui::extensions::ExtensionRepositoryPackage drawn;
+    drawn.id = "drawn";
+    drawn.name = "Drawn";
+    drawn.latest_version = "1.0.0";
+    drawn.releases = {release};
+    an::ui::extensions::ExtensionRepositoryPackage absent = drawn;
+    absent.id = "absent";
+    absent.name = "Absent";
+    an::ui::extensions::ExtensionRepositoryIndex index;
+    index.packages = {drawn, absent};
+
+    an::ui::extensions::ExtensionManifest manifest;
+    manifest.id = "drawn";
+    manifest.version = "1.0.0";
+    manifest.sdk_backend = an::ui::extensions::ExtensionSdkBackend::Runtime;
+    const auto process = [](const std::string& name, const std::string& class_name) {
+        an::ui::extensions::ExtensionProcessManifest made;
+        made.display_name = name;
+        made.class_name = class_name;
+        return made;
+    };
+    manifest.processes = {process("Panel", "PanelProcess"), process("Stated", "StatedProcess"),
+                          process("Unlisted", "UnlistedProcess")};
+    manifest.processes[1].capabilities.interface_kind = an::ui::extensions::ExtensionInterface::None;
+    an::ui::extensions::ExtensionLoadResult installed;
+    installed.status = ExtensionLoadStatus::Ready;
+    installed.source = ExtensionPackageSource::Repository;
+    installed.manifest = manifest;
+    an::ui::extensions::ExtensionSettingsSchemaSnapshot kept;
+    kept.state = an::ui::extensions::ExtensionSettingsSchemaState::Ready;
+    kept.process_params_schemas["PanelProcess"] =
+        QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("int")}}};
+    kept.process_params_schemas["StatedProcess"] = QJsonArray{};
+    installed.settings_schema = kept;
+
+    an::ui::extensions::ExtensionRepositoryBrowseOptions options;
+    options.context = defaultContext();
+    options.context.runtime_target = "linux-clang-x86_64";
+    const auto entries = an::ui::extensions::build_extension_repository_browse_entries(index, {installed}, options);
+    ASSERT_EQ(entries.size(), 2u);
+
+    const auto& installed_entry = entries[0].id == "drawn" ? entries[0] : entries[1];
+    EXPECT_EQ(installed_entry.release_sdk_backend, "protocol") << "the release's, as the repository states it";
+    EXPECT_EQ(installed_entry.installed_sdk_backend, "runtime") << "the installed manifest's";
+    using an::ui::extensions::ExtensionInterface;
+    using an::ui::extensions::ExtensionProcessInterface;
+    EXPECT_EQ(installed_entry.installed_process_interfaces,
+              (std::vector<ExtensionProcessInterface>{{"Panel", ExtensionInterface::Panel},
+                                                      {"Stated", ExtensionInterface::None},
+                                                      {"Unlisted", ExtensionInterface::Window}}));
+
+    const auto& absent_entry = entries[0].id == "absent" ? entries[0] : entries[1];
+    EXPECT_TRUE(absent_entry.installed_sdk_backend.empty());
+    EXPECT_TRUE(absent_entry.installed_process_interfaces.empty());
+}
+
 // A browse entry says where an installed copy of the package came from.
 TEST(ExtensionManagerTest, RepositoryBrowseEntriesDistinguishInstalledPackageSources)
 {

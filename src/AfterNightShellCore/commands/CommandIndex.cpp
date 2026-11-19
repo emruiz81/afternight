@@ -164,6 +164,8 @@ an::ui::CommandRow rowOf(const CommandEntry& entry)
     row.enabled = entry.available;
     row.favoritable = static_cast<bool>(entry.setFavorite);
     row.favorite = entry.favorite;
+    row.tag = entry.tag;
+    row.tagToolTip = entry.tagToolTip;
     return row;
 }
 

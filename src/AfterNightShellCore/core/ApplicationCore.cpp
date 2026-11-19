@@ -299,6 +299,9 @@ void ApplicationCore::makeCommands()
         impl.processMenus->notifyChanged(ProcessMenuModel::Change::FavoriteProcesses);
     };
     processes.actions = impl.catalogue->lookup();
+    processes.extensionFamily = [&impl](const std::string& extensionId) {
+        return impl.processMenus->familyOf(extensionId);
+    };
     impl.commands->addProvider(std::make_unique<ProcessCommands>(std::move(processes)));
 
     ImageCommands::Dependencies images;

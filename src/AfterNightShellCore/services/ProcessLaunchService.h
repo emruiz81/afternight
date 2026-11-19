@@ -31,6 +31,8 @@ class ApplicationCore;
 /// An extension the packages provide, as the application lists it: once, under its name, with where to read of it.
 struct ExtensionFamily
 {
+    /// The extension's id, which its processes' descriptors name.
+    std::string extensionId;
     QString displayName;
     std::string homepageUrl;
     std::string repositoryUrl;

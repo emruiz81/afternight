@@ -66,7 +66,8 @@ private:
 /// icon and shortcut. A process the registry says is unavailable carries the reason and does not run - but one whose
 /// extension's environment its launch prepares runs, and is prepared first. A process of one image that cannot run on
 /// the image the actions act on is listed dimmed with what its guards say; with no image it runs, and its launch says
-/// there is none, as the menu's does. A process can be a favourite.
+/// there is none, as the menu's does. A process can be a favourite. An extension's process carries the quiet tag
+/// "extension" and is listed under its family - its extension's name - as its subtitle, and found by it too.
 class AFTERNIGHTSHELLCORE_API ProcessCommands final : public ICommandProvider
 {
 public:
@@ -85,6 +86,9 @@ public:
         std::function<void(const std::string& descriptorId, bool favorite)> setFavorite;
         /// The catalogue's actions, whose icon and shortcut a process takes from the action it is bound to.
         an::ui::ActionLookup actions;
+        /// The family of an extension by its id - the name its processes are listed under; empty for one not known, or
+        /// with no lookup, and an extension's process is then listed under its category.
+        std::function<QString(const std::string& extensionId)> extensionFamily;
     };
 
     explicit ProcessCommands(Dependencies dependencies);

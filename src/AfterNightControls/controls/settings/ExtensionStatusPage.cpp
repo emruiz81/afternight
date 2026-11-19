@@ -13,6 +13,7 @@
 #include "components/AnCardWidget.h"
 #include "components/AnCollapsibleSection.h"
 #include "components/AnInfoBanner.h"
+#include "components/AnLayoutUtils.h"
 #include "components/AnStatusBadge.h"
 #include "theme/AnDesignTokens.h"
 
@@ -1326,6 +1327,8 @@ void ExtensionStatusPage::setupUi()
     scroll_layout->addStretch(1);
 
     m_ContentScrollArea->setWidget(m_ScrollContent);
+    // A card's details and a long name make it taller for its width once their text is laid out.
+    an::ui::keepScrollContentSizedForItsWidth(m_ContentScrollArea);
     main_layout->addWidget(m_ContentScrollArea, 1);
 }
 
@@ -1904,7 +1907,11 @@ QWidget* ExtensionStatusPage::buildExtensionCard(const ExtensionLoadResult& resu
     title_label->setObjectName(fieldObjectName(manifest.id, "title"));
     title_label->setFont(t.typography.heading3);
     title_label->setWordWrap(true);
-    title_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    // Its height follows its width, which a policy set after the word wrap would forget: the row grows for every
+    // line of a long name.
+    QSizePolicy title_policy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    title_policy.setHeightForWidth(true);
+    title_label->setSizePolicy(title_policy);
     title_row->addWidget(title_label, 1);
 
     const QString availability = availabilityStateText(result);

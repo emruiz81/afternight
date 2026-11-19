@@ -6481,6 +6481,26 @@ build_extension_repository_browse_entries(const ExtensionRepositoryIndex& index,
             entry.installed_status_available = true;
             entry.installed_load_status = installed.status;
             entry.installed_status_diagnostic = installed.diagnostic;
+            entry.installed_sdk_backend = extension_sdk_backend_id(installed.manifest->sdk_backend);
+            // Who draws each process, as its launch would decide it: from its manifest, else from the parameters read
+            // when the package was found.
+            const bool kept_params = installed.settings_schema.has_value() &&
+                                     installed.settings_schema->state == ExtensionSettingsSchemaState::Ready;
+            for (const ExtensionProcessManifest& process : installed.manifest->processes)
+            {
+                const QJsonArray* params = nullptr;
+                if (kept_params)
+                {
+                    const auto found = installed.settings_schema->process_params_schemas.find(process.class_name);
+                    if (found != installed.settings_schema->process_params_schemas.end())
+                    {
+                        params = &found->second;
+                    }
+                }
+                entry.installed_process_interfaces.push_back(ExtensionProcessInterface{
+                    process.display_name,
+                    resolvedExtensionInterface(process.capabilities, installed.manifest->sdk_backend, params)});
+            }
             if (installed.environment.has_value())
             {
                 entry.installed_environment_available = true;

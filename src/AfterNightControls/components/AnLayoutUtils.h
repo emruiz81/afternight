@@ -5,9 +5,13 @@
 
 #include "theme/AnDesignTokens.h"
 
+#include <QCoreApplication>
+#include <QEvent>
 #include <QGridLayout>
 #include <QLayout>
 #include <QMargins>
+#include <QObject>
+#include <QScrollArea>
 #include <QWidget>
 
 namespace an::ui
@@ -171,6 +175,38 @@ inline void normalizeLayoutSpacingToTokens(QLayout* layout, const SpacingTokens&
             }
         }
     }
+}
+
+/// Keeps a scroll area's content as tall as its width needs. The area sizes its content for its width when it lays out,
+/// and a content whose height for its width grows as the text it shows is laid out - wrapped labels polished after they
+/// were placed, details shown - lays out only itself: each time it does, the area is asked to lay out again, the
+/// request posted so that it is answered once the content has. Called once, after the content is set.
+inline void keepScrollContentSizedForItsWidth(QScrollArea* area)
+{
+    if (area == nullptr || area->widget() == nullptr)
+    {
+        return;
+    }
+
+    class ContentFollower final : public QObject
+    {
+    public:
+        explicit ContentFollower(QScrollArea* followed) : QObject(followed), m_area(followed) {}
+
+        bool eventFilter(QObject* watched, QEvent* event) override
+        {
+            if (event->type() == QEvent::LayoutRequest && watched == m_area->widget())
+            {
+                QCoreApplication::postEvent(m_area, new QEvent(QEvent::LayoutRequest));
+            }
+            return QObject::eventFilter(watched, event);
+        }
+
+    private:
+        QScrollArea* m_area;
+    };
+
+    area->widget()->installEventFilter(new ContentFollower(area));
 }
 
 } // namespace an::ui

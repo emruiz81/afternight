@@ -614,6 +614,15 @@ struct ExtensionRepositoryBrowseOptions
     std::string search_query;
 };
 
+/// Who draws one process of an installed package, by the process's name.
+struct ExtensionProcessInterface
+{
+    std::string display_name;
+    ExtensionInterface interface_kind = ExtensionInterface::Panel;
+
+    [[nodiscard]] bool operator==(const ExtensionProcessInterface&) const = default;
+};
+
 struct ExtensionRepositoryBrowseEntry
 {
     std::string id;
@@ -665,6 +674,12 @@ struct ExtensionRepositoryBrowseEntry
     ExtensionEnvironmentState installed_environment_state = ExtensionEnvironmentState::Missing;
     std::string installed_status_diagnostic;
     std::string installed_environment_diagnostic;
+    /// The backend the installed package's host runs, as its manifest states it (`runtime`, `protocol`); empty when the
+    /// package is not installed.
+    std::string installed_sdk_backend;
+    /// Who draws each process of the installed package, resolved as its launch resolves it
+    /// (`resolvedExtensionInterface`), in its manifest's order; empty when the package is not installed.
+    std::vector<ExtensionProcessInterface> installed_process_interfaces;
 };
 
 struct ExtensionPackageArchiveLimits

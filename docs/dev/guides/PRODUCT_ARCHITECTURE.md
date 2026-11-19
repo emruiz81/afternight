@@ -895,7 +895,14 @@ and stores through `readExportSettings` and `writeExportSettings`, the table eve
 (`controls/settings/ProjectsSettingsPage.h`) shows and stores what a project starts from through `readProjectSettings`
 and `writeProjectSettings` (`controls/settings/ProjectSettings.h`); the Settings dialog lists it, after General, only
 for a shell that offers projects (`DialogOrchestrationCoordinator::Dependencies::offersProjects`), and the table the
-palette finds settings in (`settingsSearchPages`) holds it. The product's version is
+palette finds settings in (`settingsSearchPages`) holds it. The Extensions window (`DialogOrchestrationCoordinator`'s:
+the Extension Manager, `controls/settings/ExtensionManagerPage.h`, and the installed packages,
+`controls/settings/ExtensionStatusPage.h`) says in a package's details how it runs - with the engine's access when its
+host is the full one, without it otherwise - and where its processes open: a panel the application draws opens in the
+main window where the shell takes processes into pages (the application context lends a process presenter) and in a
+window of its own elsewhere, an extension's own window in it, and one with no interface nowhere. A browse entry knows
+the second of an installed package alone (`installed_sdk_backend`, `installed_process_interfaces`, resolved by
+`resolvedExtensionInterface` as a launch resolves it), so a package not installed says it is known once installed. The product's version is
 `productVersion()` - `QCoreApplication::applicationVersion`, which the application states - and the about and system
 information dialogs show the engine's (`engineVersionText`) and its libraries' from its own report
 (`engineLibraries`, over `engineDependencies`). A dashboard card probes its file with `probeDashboardFile`, background
@@ -1898,7 +1905,12 @@ it is still loading. `ActionStateCoordinator` sets which actions are offered and
 actions act on and the view the looking actions act on, and tells a menu its state by its id, which the shell's menu
 of that id follows. `ProcessMenuModel` holds what the process menus list beyond the catalogue - the favourite and the
 recent processes, and each extension's processes, bound to their descriptors, in the menu of their category, and
-each extension once in the Extensions menu - and says what changed; a shell makes its menus from it on demand.
+each extension once in the Extensions menu, its family's menu listing the extension's processes first where a shell asks
+for them (`FamilyEntries::ProcessesAndLinks`: the Observatory shell's menu tree; the classic window's holds the links
+alone) - and says what changed; a shell makes its menus from it on demand. Each action of an extension's process carries
+the quiet tag "extension" (`process_registry::extensionProcessTag`) in `parts::kMenuTagProperty`, which the Observatory
+profile paints after the entry's text, the entry widened for it; a catalogue action an extension bound loses it when the
+extension goes.
 `MenuTree` declares the menu bar as data, entry for entry the classic window's, and builds a menu bar or one menu of it
 over the catalogue: a shell that builds its own menus builds them from it. `ViewMenuBuilder` builds the menu a view
 shows on a right click, entry for entry the classic window's - the menus it shares with the menu bar, which the shell
@@ -1918,7 +1930,9 @@ every descriptor of the registry, dimmed with what stands in its way - the regis
 say of the image the image actions act on - but never for having no image at all: such a process runs, and its launch
 says there is no image, as the menu's does, because a palette that dims every process with no image open would hide
 the guards' own message; `ImageCommands`, the open views and the recent files; and `SettingsCommands`, the settings
-pages and their rows. The rows come from `controls/settings/SettingsSearchTable.h`, a table in Controls of each page's
+pages and their rows. An extension's process is listed under its family - its extension's name, which
+`ProcessMenuModel::familyOf` answers - and found by it, with the quiet tag "extension", which the palette draws after the
+title, its tooltip saying the process runs in its own process (`CommandRow::tag`, `AnCommandPalette::tagRect`). The rows come from `controls/settings/SettingsSearchTable.h`, a table in Controls of each page's
 title, search words and rows (each labelled field and check box, with the group it sits in) read without making a
 page; `CommandIndex.TheSettingsTableIsWhatThePagesShow` makes the pages and holds the table to them, so a page that
 gains, loses or renames a row fails there until the table says so, and a label a page shows in two groups is two rows,

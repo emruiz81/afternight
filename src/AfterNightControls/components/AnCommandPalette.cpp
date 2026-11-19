@@ -6,6 +6,7 @@
 #include "components/AnCommandPalette.h"
 
 #include "components/AnKeyHint.h"
+#include "components/AnTag.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/ComponentParts.h"
 #include "theme/Elevation.h"
@@ -16,6 +17,7 @@
 #include <QAccessible>
 #include <QAccessibleWidget>
 #include <QBoxLayout>
+#include <QHelpEvent>
 #include <QHideEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
@@ -26,6 +28,7 @@
 #include <QPaintEvent>
 #include <QScrollBar>
 #include <QStyledItemDelegate>
+#include <QToolTip>
 
 #include <algorithm>
 #include <cmath>
@@ -82,11 +85,14 @@ QString describedItem(const PaletteItem& item)
     case PaletteItem::Kind::Row:
         break;
     }
+    // The title, then its tag, as the row shows them.
+    const QString title =
+        item.row.tag.isEmpty() ? item.row.title : item.row.title + QStringLiteral(", ") + item.row.tag;
     if (!item.row.enabled)
     {
-        return item.row.title + QStringLiteral(", unavailable: ") + item.row.subtitle;
+        return title + QStringLiteral(", unavailable: ") + item.row.subtitle;
     }
-    return item.row.subtitle.isEmpty() ? item.row.title : item.row.title + QStringLiteral(", ") + item.row.subtitle;
+    return item.row.subtitle.isEmpty() ? title : title + QStringLiteral(", ") + item.row.subtitle;
 }
 
 /// The items of the body, as a list view shows them.
@@ -187,6 +193,62 @@ QRect starIn(const QRect& row)
     using namespace an::ui::parts;
     return QRect(row.right() - kPaletteRowPadding - kPaletteStar + 1, row.center().y() - kPaletteStar / 2 + 1,
                  kPaletteStar, kPaletteStar);
+}
+
+/// Where a row's parts are, in the row's rectangle: the title as it is shown - cut short, when the row is too narrow,
+/// to leave its tag whole - the tag right after it, the subtitle at the right, and the right edge of the keys.
+struct RowLayout
+{
+    QRectF title;
+    QString shownTitle;
+    QRectF tag; ///< Empty for a row with no tag.
+    QRectF subtitle;
+    qreal keysRight = 0.0;
+};
+
+/// The tag's tone: quiet, a hairline and the secondary text.
+constexpr an::ui::AnTag::Tone kRowTagTone = an::ui::AnTag::Tone::Outlined;
+
+RowLayout layOutRow(const QRect& rect, const CommandRow& row, const bool selected)
+{
+    using namespace an::ui::parts;
+    const DesignTokens& t = an::ui::tokens();
+    const QRectF area(rect);
+    RowLayout layout;
+    const qreal left = area.left() + kPaletteRowPadding + kPaletteRowIcon + kPaletteRowGap;
+    qreal right = area.right() + 1 - kPaletteRowPadding;
+    if (row.favoritable)
+    {
+        right -= kPaletteStar + kPaletteHintGap;
+    }
+    layout.keysRight = right;
+    if (!row.shortcut.isEmpty())
+    {
+        right -= an::ui::AnKeyHint::hintSize(an::ui::AnKeyHint::keysText(row.shortcut)).width() + kPaletteHintGap;
+    }
+
+    const qreal room = (std::max)(0.0, right - left);
+    const QFont subtitle = subtitleFont(t);
+    const qreal subtitleWidth = row.subtitle.isEmpty()
+                                    ? 0.0
+                                    : (std::min)(static_cast<qreal>(textWidth(subtitle, row.subtitle)),
+                                                 std::floor(room * kPaletteSubtitleShare));
+    const qreal titleWidth = room - subtitleWidth - (row.subtitle.isEmpty() ? 0.0 : kPaletteRowGap);
+
+    const QSize tag = row.tag.isEmpty() ? QSize() : an::ui::AnTag::tagSize(row.tag, kRowTagTone);
+    const qreal tagRoom = row.tag.isEmpty() ? 0.0 : tag.width() + kPaletteHintGap;
+    const QFontMetricsF title(titleFont(t, selected));
+    const qreal titleRoom = (std::max)(0.0, titleWidth - tagRoom);
+    layout.shownTitle = title.elidedText(row.title, Qt::ElideRight, titleRoom);
+    layout.title = QRectF(left, area.top(), titleRoom, area.height());
+    if (!row.tag.isEmpty())
+    {
+        const qreal after = left + (std::min)(titleRoom, std::ceil(title.horizontalAdvance(layout.shownTitle)));
+        layout.tag = QRectF(after + kPaletteHintGap, std::round(area.center().y() - tag.height() / 2.0), tag.width(),
+                            tag.height());
+    }
+    layout.subtitle = QRectF(right - subtitleWidth, area.top(), subtitleWidth, area.height());
+    return layout;
 }
 
 /// A text of the footer, in the caption's size and the secondary text.
@@ -707,59 +769,49 @@ private:
         const QColor text = selected ? t.colors.textOnAccentContainer : t.colors.textPrimary;
         const QColor secondary = selected ? t.colors.textOnAccentContainer : t.colors.textSecondary;
 
-        qreal left = area.left() + kPaletteRowPadding;
+        const RowLayout layout = layOutRow(rect, row, selected);
         const qreal middle = area.center().y();
         if (!row.iconKey.isEmpty())
         {
             paintIcon(painter, m_impl.icon(row.iconKey),
-                      QRectF(left, middle - kPaletteRowIcon / 2.0, kPaletteRowIcon, kPaletteRowIcon), secondary);
+                      QRectF(area.left() + kPaletteRowPadding, middle - kPaletteRowIcon / 2.0, kPaletteRowIcon,
+                             kPaletteRowIcon),
+                      secondary);
         }
-        left += kPaletteRowIcon + kPaletteRowGap;
 
-        qreal right = area.right() + 1 - kPaletteRowPadding;
-        if (row.favoritable)
+        if (row.favoritable && m_impl.showsStar(row))
         {
-            if (m_impl.showsStar(row))
-            {
-                const QColor star = selected ? t.colors.textOnAccentContainer
-                                             : (row.favorite ? t.colors.textAccent : t.colors.textSecondary);
-                paintIcon(painter, m_impl.icon(row.favorite ? QStringLiteral("star_filled") : QStringLiteral("star")),
-                          QRectF(starIn(rect)), star);
-            }
-            right -= kPaletteStar + kPaletteHintGap;
+            const QColor star = selected ? t.colors.textOnAccentContainer
+                                         : (row.favorite ? t.colors.textAccent : t.colors.textSecondary);
+            paintIcon(painter, m_impl.icon(row.favorite ? QStringLiteral("star_filled") : QStringLiteral("star")),
+                      QRectF(starIn(rect)), star);
         }
         if (!row.shortcut.isEmpty())
         {
             const QString keys = AnKeyHint::keysText(row.shortcut);
             const QSize hint = AnKeyHint::hintSize(keys);
-            const QRectF box(right - hint.width(), middle - hint.height() / 2.0, hint.width(), hint.height());
+            const QRectF box(layout.keysRight - hint.width(), middle - hint.height() / 2.0, hint.width(),
+                             hint.height());
             AnKeyHint::paintHint(painter, box, keys,
                                  selected ? AnKeyHint::Surface::OnColour : AnKeyHint::Surface::Raised,
                                  t.colors.textOnAccentContainer);
-            right -= hint.width() + kPaletteHintGap;
         }
 
-        const qreal room = (std::max)(0.0, right - left);
-        const QFont subtitle = subtitleFont(t);
-        const qreal subtitleWidth = row.subtitle.isEmpty()
-                                        ? 0.0
-                                        : (std::min)(static_cast<qreal>(textWidth(subtitle, row.subtitle)),
-                                                     std::floor(room * kPaletteSubtitleShare));
-        const qreal titleWidth = room - subtitleWidth - (row.subtitle.isEmpty() ? 0.0 : kPaletteRowGap);
-
-        const QFont title = titleFont(t, selected);
-        painter.setFont(title);
+        painter.setFont(titleFont(t, selected));
         painter.setPen(text);
-        const QRectF titleArea(left, area.top(), (std::max)(0.0, titleWidth), area.height());
-        painter.drawText(titleArea, Qt::AlignLeft | Qt::AlignVCenter,
-                         QFontMetricsF(title).elidedText(row.title, Qt::ElideRight, titleArea.width()));
+        painter.drawText(layout.title, Qt::AlignLeft | Qt::AlignVCenter, layout.shownTitle);
+        if (!row.tag.isEmpty())
+        {
+            AnTag::paintTag(painter, layout.tag, row.tag, kRowTagTone);
+        }
         if (!row.subtitle.isEmpty())
         {
+            const QFont subtitle = subtitleFont(t);
             painter.setFont(subtitle);
             painter.setPen(secondary);
-            const QRectF subtitleArea(right - subtitleWidth, area.top(), subtitleWidth, area.height());
-            painter.drawText(subtitleArea, Qt::AlignRight | Qt::AlignVCenter,
-                             QFontMetricsF(subtitle).elidedText(row.subtitle, Qt::ElideMiddle, subtitleArea.width()));
+            painter.drawText(
+                layout.subtitle, Qt::AlignRight | Qt::AlignVCenter,
+                QFontMetricsF(subtitle).elidedText(row.subtitle, Qt::ElideMiddle, layout.subtitle.width()));
         }
     }
 
@@ -1034,6 +1086,19 @@ QRect AnCommandPalette::starRect(const QString& id) const
     return QRect(m_impl->list->viewport()->mapTo(this, star.topLeft()), star.size());
 }
 
+QRect AnCommandPalette::tagRect(const QString& id) const
+{
+    const QModelIndex index = m_impl->indexOfRow(id);
+    const PaletteItem* const item = m_impl->itemAt(index);
+    if (item == nullptr || item->row.tag.isEmpty())
+    {
+        return {};
+    }
+    const QRect tag =
+        layOutRow(m_impl->list->visualRect(index), item->row, item->row.id == m_impl->selectedId()).tag.toAlignedRect();
+    return QRect(m_impl->list->viewport()->mapTo(this, tag.topLeft()), tag.size());
+}
+
 QSize AnCommandPalette::sizeHint() const
 {
     return size();
@@ -1126,6 +1191,24 @@ bool AnCommandPalette::eventFilter(QObject* watched, QEvent* event)
         case QEvent::MouseButtonRelease:
         case QEvent::MouseButtonDblClick:
             return true;
+        case QEvent::ToolTip: {
+            // A row's tag says what it means; nothing else of a row has a tooltip.
+            const auto* const help = static_cast<QHelpEvent*>(event);
+            const QModelIndex index = impl.list->indexAt(help->pos());
+            const PaletteItem* const item = impl.itemAt(index);
+            if (item != nullptr && item->kind == PaletteItem::Kind::Row && !item->row.tagToolTip.isEmpty())
+            {
+                const QRect tag = layOutRow(impl.list->visualRect(index), item->row, item->row.id == impl.selectedId())
+                                      .tag.toAlignedRect();
+                if (tag.contains(help->pos()))
+                {
+                    QToolTip::showText(help->globalPos(), item->row.tagToolTip, impl.list->viewport(), tag);
+                    return true;
+                }
+            }
+            QToolTip::hideText();
+            return true;
+        }
         default:
             break;
         }

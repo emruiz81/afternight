@@ -8,7 +8,9 @@
 #include "controls/IAppContext.h"
 
 #include "components/AnLayoutUtils.h"
+#include "components/AnTag.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 #include "theme/Elevation.h"
 #include "theme/NightImage.h"
 #include "theme/ObservatoryDock.h"
@@ -17,6 +19,7 @@
 #include <QAbstractButton>
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
+#include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -628,6 +631,31 @@ bool verticalTab(const QStyleOption* option)
     }
 }
 
+/// The quiet tag a menu's entry of a text shows after it: the tag of the menu's action of that text
+/// (`parts::kMenuTagProperty`). A menu measures an entry before it is placed, so the action is found by its text.
+QString menuTagOfText(const QStyleOptionMenuItem& item, const QWidget* widget)
+{
+    const auto* const menu = qobject_cast<const QMenu*>(widget);
+    if (menu == nullptr)
+    {
+        return {};
+    }
+    const qsizetype tab = item.text.indexOf(QLatin1Char('\t'));
+    const QString label = tab >= 0 ? item.text.left(tab) : item.text;
+    for (const QAction* const action : menu->actions())
+    {
+        if (action != nullptr && !action->isSeparator() && action->text() == label)
+        {
+            const QString tag = action->property(an::ui::parts::kMenuTagProperty).toString();
+            if (!tag.isEmpty())
+            {
+                return tag;
+            }
+        }
+    }
+    return {};
+}
+
 /// The size the Observatory profile gives a control of a type observatorySizes() names, from its contents and from the
 /// base style's answer for them. A control is never smaller than its contents need: a large icon or font grows it.
 QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleOption* option, const QSize& contents,
@@ -712,7 +740,13 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
                 shortcut = widerBy(item->text.mid(tab + 1), mono, item->font);
             }
         }
-        return QSize(base.width() + shortcut + kObservatoryMenuItemRoom, (std::max)(base.height(), m.rowDense));
+        // A tag after the text widens the entry by itself and the room before it.
+        const QString tag = item != nullptr ? menuTagOfText(*item, widget) : QString();
+        const int tagged = tag.isEmpty() ? 0
+                                         : an::ui::parts::kMenuTagGap +
+                                               an::ui::AnTag::tagSize(tag, an::ui::AnTag::Tone::Outlined).width();
+        return QSize(base.width() + shortcut + tagged + kObservatoryMenuItemRoom,
+                     (std::max)(base.height(), m.rowDense));
     }
     default:
         return base;

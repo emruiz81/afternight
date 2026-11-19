@@ -7,6 +7,7 @@
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionHostedSession.h"
 #include "app/ExtensionPreviewFrames.h"
+#include "app/ProcessRegistry.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ExtensionParamPanel.h"
 #include "controls/IAppContext.h"
@@ -580,7 +581,8 @@ void ExtensionHostedProcess::pageLayoutMade()
     ExtensionNativeProcessWindow::pageLayoutMade();
     if (an::ui::ProcessPageLayout* const layout = pageLayout())
     {
-        layout->setTag(tr("extension"), tr("Runs in its own process"));
+        layout->setTag(an::ui::process_registry::extensionProcessTag(),
+                       an::ui::process_registry::extensionProcessTagToolTip());
     }
 }
 

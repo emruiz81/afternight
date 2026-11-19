@@ -54,6 +54,9 @@ struct CommandEntry
     /// Makes it a favourite or a favourite no longer; empty for a command that is never one.
     std::function<void(bool favorite)> setFavorite;
     bool favorite = false;
+    /// The quiet tag its row shows after its title, and the tag's tooltip; empty for none.
+    QString tag;
+    QString tagToolTip;
 };
 
 /// What gives the index its commands. Each provider is asked again whenever the index is refreshed, so what it gives

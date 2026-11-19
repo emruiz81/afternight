@@ -425,6 +425,7 @@ std::vector<ExtensionFamily> ProcessLaunchService::extensionFamilies(const std::
         }
 
         auto& family = familiesById[manifest.id];
+        family.extensionId = manifest.id;
         family.displayName = extensionFamilyDisplayName(manifest);
         family.homepageUrl = manifest.repository_metadata.homepage_url;
         family.repositoryUrl = manifest.repository_metadata.repository_url;

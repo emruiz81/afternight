@@ -3923,7 +3923,8 @@ void ObservatoryWindow::updateExtensionMenus()
     }
     if (QMenu* const extensions = m_impl->menuBar->menu("menuExtensions"))
     {
-        menus.buildExtensionFamilyMenus(*extensions);
+        // The menu tree lists an extension's processes in its family's menu too, each with its tag.
+        menus.buildExtensionFamilyMenus(*extensions, an::ui::shell::ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
     }
 }
 

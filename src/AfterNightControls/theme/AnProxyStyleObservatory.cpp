@@ -12,13 +12,17 @@
 
 #include "theme/AnProxyStyle.h"
 
+#include "components/AnTag.h"
+
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 #include "theme/Elevation.h"
 #include "theme/ObservatoryDock.h"
 #include "theme/PainterGuard.h"
 
 #include <QAbstractItemView>
 #include <QAbstractSpinBox>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QEvent>
@@ -586,8 +590,17 @@ std::pair<qreal, qreal> rowColumnAndGap(const qreal maxIconWidth, const QComboBo
     return {comboHasIcons(*combo) ? (std::max)(maxIconWidth, kIndicator) : kIndicator, kComboRowGap};
 }
 
+/// The quiet tag a menu's entry shows after its text: its action's (`parts::kMenuTagProperty`); empty for an entry of
+/// no menu, or with none.
+QString menuTagOf(const QStyleOptionMenuItem& item, const QWidget* widget)
+{
+    const auto* const menu = qobject_cast<const QMenu*>(widget);
+    const QAction* const action = menu != nullptr ? menu->actionAt(item.rect.center()) : nullptr;
+    return action != nullptr ? action->property(an::ui::parts::kMenuTagProperty).toString() : QString();
+}
+
 void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item, const DesignTokens& t,
-                             const bool underline, const QComboBox* combo)
+                             const bool underline, const QComboBox* combo, const QString& tag)
 {
     const ColorTokens& c = t.colors;
     const PainterGuard guard(painter);
@@ -689,7 +702,17 @@ void drawObservatoryMenuItem(QPainter* painter, const QStyleOptionMenuItem* item
     painter->setFont(item->font);
     painter->setPen(text);
     const QRectF textRect(textLeft, rect.top(), right - textLeft, rect.height());
-    painter->drawText(visual(textRect), (rightToLeft ? Qt::AlignRight : Qt::AlignLeft) | alignment, label);
+    QRectF drawn;
+    painter->drawText(visual(textRect), (rightToLeft ? Qt::AlignRight : Qt::AlignLeft) | alignment, label, &drawn);
+
+    // The tag follows the text, where the entry was widened for it.
+    if (!tag.isEmpty())
+    {
+        const QSize size = an::ui::AnTag::tagSize(tag, an::ui::AnTag::Tone::Outlined);
+        const qreal after = textLeft + drawn.width() + an::ui::parts::kMenuTagGap;
+        const QRectF box(after, std::round(rect.center().y() - size.height() / 2.0), size.width(), size.height());
+        an::ui::AnTag::paintTag(*painter, visual(box), tag, an::ui::AnTag::Tone::Outlined);
+    }
 }
 
 /// How wide a combo box's list needs to be for its rows to be shown whole. Each row is painted as a menu item
@@ -1443,7 +1466,7 @@ bool AnProxyStyle::drawObservatoryControl(ControlElement element, const QStyleOp
             return false;
         }
         drawObservatoryMenuItem(painter, item, t, styleHint(SH_UnderlineShortcut, option, widget) != 0,
-                                comboOfRow(widget));
+                                comboOfRow(widget), menuTagOf(*item, widget));
         break;
     }
 

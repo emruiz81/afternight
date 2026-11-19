@@ -636,6 +636,83 @@ TEST_F(CommandIndex, ListsTheProcessesWithWhatStandsInTheirWay)
     EXPECT_EQ(launched.back(), descriptors[0].id);
 }
 
+// An extension's process is listed with its family - the extension's name - as its subtitle and the quiet tag
+// "extension", whose tooltip says it runs in its own process; it is still found by its category. A process of the
+// application carries no tag, and an extension's process whose family is not known keeps its category.
+TEST_F(CommandIndex, AnExtensionsProcessCarriesTheTagAndItsFamily)
+{
+    std::vector<ProcessDescriptor> descriptors(3);
+    descriptors[0].id = "intensity_transformations.actionHistogram_Transformation";
+    descriptors[0].display_name = "Histogram Transformation";
+    descriptors[0].category = "Intensity Transformations";
+    descriptors[1].id = "fancy.denoise";
+    descriptors[1].display_name = "Fancy Denoise";
+    descriptors[1].category = "Noise Reduction";
+    descriptors[1].is_extension_process = true;
+    descriptors[1].extension_id = "fancy";
+    descriptors[2].id = "unknown.process";
+    descriptors[2].display_name = "Unknown Family";
+    descriptors[2].category = "Noise Reduction";
+    descriptors[2].is_extension_process = true;
+    descriptors[2].extension_id = "unknown";
+
+    ProcessCommands::Dependencies dependencies;
+    dependencies.descriptors = [&descriptors]() {
+        std::vector<const ProcessDescriptor*> all;
+        for (const ProcessDescriptor& descriptor : descriptors)
+        {
+            all.push_back(&descriptor);
+        }
+        return all;
+    };
+    dependencies.extensionFamily = [](const std::string& extensionId) {
+        return extensionId == "fancy" ? QStringLiteral("Fancy Tools") : QString();
+    };
+    std::vector<CommandEntry> entries;
+    ProcessCommands(dependencies).collect(entries);
+    ASSERT_EQ(entries.size(), 3u);
+
+    EXPECT_TRUE(entries[0].tag.isEmpty()) << "a process of the application carries no tag";
+    EXPECT_TRUE(entries[0].tagToolTip.isEmpty());
+
+    const CommandEntry& fancy = entries[1];
+    EXPECT_EQ(fancy.subtitle, QStringLiteral("Fancy Tools"));
+    EXPECT_EQ(fancy.tag, QStringLiteral("extension"));
+    EXPECT_EQ(fancy.tagToolTip, QStringLiteral("Runs in its own process"));
+    EXPECT_TRUE(fancy.keywords.contains(QStringLiteral("Fancy Tools")));
+
+    EXPECT_EQ(entries[2].tag, QStringLiteral("extension"));
+    EXPECT_FALSE(entries[2].subtitle.isEmpty()) << "with no family known it keeps its category";
+    EXPECT_NE(entries[2].subtitle, QStringLiteral("Fancy Tools"));
+
+    // The index hands the tag to the palette's rows, and finds the process by its family and by its category.
+    an::ui::shell::CommandIndex index;
+    index.addProvider(std::make_unique<ProcessCommands>(dependencies));
+    index.refresh();
+    for (const QString& text : {QStringLiteral("Fancy Denoise"), QStringLiteral("Fancy Tools")})
+    {
+        bool found = false;
+        for (const CommandRowGroup& group : index.query(text))
+        {
+            for (const CommandRow& row : group.rows)
+            {
+                if (row.id == fancy.id)
+                {
+                    found = true;
+                    EXPECT_EQ(row.tag, QStringLiteral("extension"));
+                    EXPECT_EQ(row.tagToolTip, QStringLiteral("Runs in its own process"));
+                    EXPECT_EQ(row.subtitle, QStringLiteral("Fancy Tools"));
+                }
+                else if (row.id == ProcessCommands::commandId(descriptors[0].id))
+                {
+                    EXPECT_TRUE(row.tag.isEmpty());
+                }
+            }
+        }
+        EXPECT_TRUE(found) << text.toStdString();
+    }
+}
+
 // The open views and the files opened last are images' commands: a view by its name, which running activates; a file
 // by its name with its folder beside it, which running opens.
 TEST_F(CommandIndex, ListsTheOpenViewsAndTheRecentFilesAsImages)

@@ -37,13 +37,14 @@ namespace an::ui
 /// The command palette: a popup the palette's width on the third surface, with a hairline border, the cards' corners
 /// and the raised parts' elevation. At its top a query row - a search icon, the query in a field of its own, the key
 /// hint Esc - and under it the body: the groups the source answers, each under a caps header in the tertiary text, its
-/// rows the palette's row height with an icon, the title, and at the right the subtitle in the secondary text and the
-/// command's keys. A group shows the rows its limit allows until its header is clicked; the header then shows them all.
-/// The selected row is the accent's container in its text colour with the accent's bar at its left edge; a hovered one
-/// lays the state colour over itself; a command that cannot run now is drawn dimmed and does not run. A favoritable row
-/// shows a star at its right while it is hovered or selected - filled, always, for a favourite - which toggles it. The
-/// body takes at most 60 % of the window's height and scrolls past it. At its foot, on the second surface, what the
-/// keys do, the three prefixes and the button that asks for every menu.
+/// rows the palette's row height with an icon, the title and its quiet tag when it has one - its tooltip saying what
+/// the tag means - and at the right the subtitle in the secondary text and the command's keys. A group shows the rows
+/// its limit allows until its header is clicked; the header then shows them all. The selected row is the accent's
+/// container in its text colour with the accent's bar at its left edge; a hovered one lays the state colour over
+/// itself; a command that cannot run now is drawn dimmed and does not run. A favoritable row shows a star at its right
+/// while it is hovered or selected - filled, always, for a favourite - which toggles it. The body takes at most 60 % of
+/// the window's height and scrolls past it. At its foot, on the second surface, what the keys do, the three prefixes
+/// and the button that asks for every menu.
 ///
 /// The palette knows no command: it shows what its source answers (`ICommandSource`), reads the source again as it
 /// opens, asks it again at each keystroke and has it run the command chosen. Up and Down move the selection from row
@@ -102,6 +103,9 @@ public:
     [[nodiscard]] QRect rowRect(const QString& id) const;
     [[nodiscard]] QRect headerRect(const QString& groupId) const;
     [[nodiscard]] QRect starRect(const QString& id) const;
+    /// Where a row's tag is, in the palette: right after its title, whose tooltip is the row's `tagToolTip`; empty for
+    /// a row with no tag or one not shown.
+    [[nodiscard]] QRect tagRect(const QString& id) const;
 
     [[nodiscard]] QSize sizeHint() const override;
 

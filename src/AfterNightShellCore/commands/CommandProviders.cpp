@@ -213,6 +213,19 @@ void ProcessCommands::collect(std::vector<CommandEntry>& entries) const
         {
             entry.keywords.append(QString::fromStdString(descriptor->process_name));
         }
+        if (descriptor->is_extension_process)
+        {
+            // Listed under its family, which it is found by too, with the tag that says it runs in its own process.
+            const QString family =
+                m_dependencies.extensionFamily ? m_dependencies.extensionFamily(descriptor->extension_id) : QString();
+            if (!family.isEmpty())
+            {
+                entry.subtitle = family;
+                entry.keywords.append(family);
+            }
+            entry.tag = registry::extensionProcessTag();
+            entry.tagToolTip = registry::extensionProcessTagToolTip();
+        }
         entry.group = CommandGroup::Processes;
 
         const ActionSpec* const spec = ActionCatalogue::specOf(descriptor->action_object_name);

@@ -6,6 +6,8 @@
 #include "AfterNightControlsExport.h"
 #include "controls/ProcessPresentation.h"
 
+#include <QString>
+
 #include <cstddef>
 #include <functional>
 #include <map>
@@ -115,6 +117,11 @@ struct LaunchGuardResult
 AFTERNIGHTCONTROLS_API LaunchGuardResult evaluateSingleImageLaunchGuards(const ProcessDescriptor& descriptor,
                                                                          const LaunchGuardInput& input);
 AFTERNIGHTCONTROLS_API LaunchGuardResult evaluateProcessAvailability(const ProcessDescriptor& descriptor);
+
+/// The quiet tag an extension's process carries wherever it is listed - its page's header, the command palette, the
+/// menus - "extension", and what the tag's tooltip says of it: that it runs in a process of its own.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString extensionProcessTag();
+[[nodiscard]] AFTERNIGHTCONTROLS_API QString extensionProcessTagToolTip();
 
 /// Whether a launch of an unavailable descriptor prepares its process rather than refusing it: an extension's process
 /// whose environment is still to be installed, refreshed or repaired, or is being prepared, is prepared - its

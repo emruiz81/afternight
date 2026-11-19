@@ -11,6 +11,7 @@
 #include "app/FileDialogUtils.h"
 #include "components/AnCardWidget.h"
 #include "components/AnInfoBanner.h"
+#include "components/AnLayoutUtils.h"
 #include "components/AnStatusBadge.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
@@ -81,6 +82,7 @@ using an::ui::ExtensionManagerPageRemoveResult;
 using an::ui::ExtensionManagerPageRepositorySnapshot;
 using an::ui::extensions::ExtensionDiscoveryOptions;
 using an::ui::extensions::ExtensionEnvironmentManager;
+using an::ui::extensions::ExtensionInterface;
 using an::ui::extensions::ExtensionLoadResult;
 using an::ui::extensions::ExtensionManager;
 using an::ui::extensions::ExtensionOperationCancellationToken;
@@ -90,6 +92,7 @@ using an::ui::extensions::ExtensionPackageRemoveRequest;
 using an::ui::extensions::ExtensionPackageSignatureState;
 using an::ui::extensions::ExtensionPackageSource;
 using an::ui::extensions::ExtensionPackageTransactionService;
+using an::ui::extensions::ExtensionProcessInterface;
 using an::ui::extensions::ExtensionRepositoryBrowseEntry;
 using an::ui::extensions::ExtensionRepositoryBrowseOptions;
 using an::ui::extensions::ExtensionRepositoryClient;
@@ -1061,6 +1064,37 @@ std::vector<std::string> stringVectorFromJson(const QJsonValue& value)
     return values;
 }
 
+QJsonArray processInterfacesToJson(const std::vector<ExtensionProcessInterface>& interfaces)
+{
+    QJsonArray array;
+    for (const ExtensionProcessInterface& process : interfaces)
+    {
+        array.append(
+            QJsonObject{{QStringLiteral("display_name"), QString::fromStdString(process.display_name)},
+                        {QStringLiteral("interface"),
+                         QString::fromLatin1(an::ui::extensions::extensionInterfaceName(process.interface_kind))}});
+    }
+    return array;
+}
+
+std::vector<ExtensionProcessInterface> processInterfacesFromJson(const QJsonValue& value)
+{
+    std::vector<ExtensionProcessInterface> interfaces;
+    for (const QJsonValue& item : value.toArray())
+    {
+        const QJsonObject object = item.toObject();
+        const std::optional<ExtensionInterface> kind = an::ui::extensions::extensionInterfaceFromName(
+            object.value(QStringLiteral("interface")).toString().toStdString());
+        if (!kind.has_value())
+        {
+            continue;
+        }
+        interfaces.push_back(
+            ExtensionProcessInterface{object.value(QStringLiteral("display_name")).toString().toStdString(), *kind});
+    }
+    return interfaces;
+}
+
 QJsonObject repositoryEntryToCacheJson(const ExtensionRepositoryBrowseEntry& entry)
 {
     return {
@@ -1118,6 +1152,8 @@ QJsonObject repositoryEntryToCacheJson(const ExtensionRepositoryBrowseEntry& ent
         {QStringLiteral("installed_status_diagnostic"), QString::fromStdString(entry.installed_status_diagnostic)},
         {QStringLiteral("installed_environment_diagnostic"),
          QString::fromStdString(entry.installed_environment_diagnostic)},
+        {QStringLiteral("installed_sdk_backend"), QString::fromStdString(entry.installed_sdk_backend)},
+        {QStringLiteral("installed_process_interfaces"), processInterfacesToJson(entry.installed_process_interfaces)},
     };
 }
 
@@ -1201,6 +1237,9 @@ std::optional<ExtensionRepositoryBrowseEntry> repositoryEntryFromCacheJson(const
         object.value(QStringLiteral("installed_status_diagnostic")).toString().toStdString();
     entry.installed_environment_diagnostic =
         object.value(QStringLiteral("installed_environment_diagnostic")).toString().toStdString();
+    entry.installed_sdk_backend = object.value(QStringLiteral("installed_sdk_backend")).toString().toStdString();
+    entry.installed_process_interfaces =
+        processInterfacesFromJson(object.value(QStringLiteral("installed_process_interfaces")));
     return entry;
 }
 
@@ -1400,6 +1439,15 @@ QString removeActionTooltipText(const ExtensionRepositoryBrowseEntry& entry)
     return QObject::tr("Uninstall %1 from disk.").arg(extension_name);
 }
 
+/// The size policy of a label whose text wraps and that takes the width its row leaves: its height follows its width,
+/// which a policy set after the word wrap would otherwise forget, so its row grows for every line of its text.
+QSizePolicy wrappedTextPolicy()
+{
+    QSizePolicy policy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    policy.setHeightForWidth(true);
+    return policy;
+}
+
 QMargins flushMargins()
 {
     return {};
@@ -1522,6 +1570,77 @@ QString assetText(const ExtensionRepositoryBrowseEntry& entry)
     }
 
     return QString::fromStdString(entry.selected_asset_name);
+}
+
+/// How an extension runs: with the engine's access when its host is the full one (`runtime`), without it otherwise -
+/// the installed package's backend, else the release's.
+QString runsText(const ExtensionRepositoryBrowseEntry& entry)
+{
+    const std::string& backend =
+        entry.installed_sdk_backend.empty() ? entry.release_sdk_backend : entry.installed_sdk_backend;
+    if (backend == "runtime")
+    {
+        return QObject::tr("With engine access");
+    }
+    if (backend == "protocol" || backend == "rpc")
+    {
+        return QObject::tr("Without engine access");
+    }
+    return QObject::tr("Not declared");
+}
+
+/// Where a process of an interface opens: a panel the application draws in the main window when the shell takes
+/// processes into pages, and in a window of its own otherwise, as a window the extension draws does.
+QString opensText(const ExtensionInterface interface_kind, const bool processesArePages)
+{
+    switch (interface_kind)
+    {
+    case ExtensionInterface::Panel:
+        return processesArePages ? QObject::tr("In the main window") : QObject::tr("In a window of its own");
+    case ExtensionInterface::Window:
+        return QObject::tr("In a window of its own");
+    case ExtensionInterface::None:
+        return QObject::tr("Nowhere, it has no interface");
+    }
+    return {};
+}
+
+/// Where an extension's processes open: one place for all of them, or each process's where they differ. Known only
+/// once the package is installed, since its manifest says it.
+QString opensText(const ExtensionRepositoryBrowseEntry& entry, const bool processesArePages)
+{
+    if (entry.installed_version.empty() || entry.installed_process_interfaces.empty())
+    {
+        return QObject::tr("Known once it is installed");
+    }
+    QStringList places;
+    for (const ExtensionProcessInterface& process : entry.installed_process_interfaces)
+    {
+        const QString place = opensText(process.interface_kind, processesArePages);
+        if (!places.contains(place))
+        {
+            places.append(place);
+        }
+    }
+    if (places.size() == 1)
+    {
+        return places.front();
+    }
+    QStringList each;
+    for (const ExtensionProcessInterface& process : entry.installed_process_interfaces)
+    {
+        each.append(QObject::tr("%1: %2").arg(QString::fromStdString(process.display_name),
+                                              opensText(process.interface_kind, processesArePages).toLower()));
+    }
+    return each.join(QStringLiteral("; "));
+}
+
+/// Whether the shell running takes processes into pages of the main window - it has a process presenter - which is
+/// where a panel the application draws is shown then.
+bool processesOpenAsPages()
+{
+    an::ui::IAppContext* const context = an::ui::appContext();
+    return context != nullptr && context->getProcessPresenter() != nullptr;
 }
 
 QString compatibilityText(const ExtensionRepositoryBrowseEntry& entry)
@@ -2708,6 +2827,8 @@ void ExtensionManagerPage::setupUi()
     m_CardsLayout->setSpacing(t.spacing.sm);
     applyFlushMargins(m_CardsLayout);
     m_CardsScrollArea->setWidget(m_CardsContainer);
+    // A card's details and a long name make it taller for its width once their text is laid out.
+    keepScrollContentSizedForItsWidth(m_CardsScrollArea);
     main_layout->addWidget(m_CardsScrollArea, 1);
 
     m_AutomaticEnvironmentCleanupCheck = new QCheckBox(tr("Automatically remove unused extension environments"), this);
@@ -3686,6 +3807,8 @@ void ExtensionManagerPage::markEntryUninstalled(const std::string& extensionId)
     entry_iter->installed_environment_available = not_installed.installed_environment_available;
     entry_iter->installed_environment_state = not_installed.installed_environment_state;
     entry_iter->installed_environment_diagnostic.clear();
+    entry_iter->installed_sdk_backend.clear();
+    entry_iter->installed_process_interfaces.clear();
     entry_iter->install_state = installStateForCurrentInstalledVersion(*entry_iter);
     // The cache is what the page shows first the next time it loads, and all it shows while the repository is offline.
     persistCurrentRepositorySnapshotCache();
@@ -4208,7 +4331,7 @@ void ExtensionManagerPage::updatePendingOperationsView()
             QStringLiteral("anExtensionManagerPendingQueueLabel_%1").arg(sanitizeObjectToken(operation.entry.id)));
         label->setFont(t.typography.body);
         label->setWordWrap(true);
-        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        label->setSizePolicy(wrappedTextPolicy());
         row_layout->addWidget(label, 1);
 
         auto* cancel_button = new QPushButton(tr("Cancel"), row);
@@ -4510,7 +4633,7 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
     title_label->setObjectName(fieldObjectName(entry.id, "title"));
     title_label->setFont(t.typography.heading3);
     title_label->setWordWrap(true);
-    title_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    title_label->setSizePolicy(wrappedTextPolicy());
     title_row->addWidget(title_label, 1);
 
     // Badges
@@ -4644,6 +4767,9 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
     addMetadataRow(grid, row, 0, tr("Publisher:"), metadataText(entry.publisher_id),
                    fieldObjectName(entry.id, "publisher"));
     addMetadataRow(grid, row++, 1, tr("License:"), metadataText(entry.license), fieldObjectName(entry.id, "license"));
+    addMetadataRow(grid, row, 0, tr("How It Runs:"), runsText(entry), fieldObjectName(entry.id, "runs"));
+    addMetadataRow(grid, row++, 1, tr("Where It Opens:"), opensText(entry, processesOpenAsPages()),
+                   fieldObjectName(entry.id, "opens"));
 
     addMetadataSectionRow(grid, row++, tr("Provenance"), fieldObjectName(entry.id, "provenanceSection"));
     addMetadataRow(grid, row, 0, tr("Attribution:"), metadataText(entry.attribution),

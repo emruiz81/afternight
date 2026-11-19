@@ -282,6 +282,80 @@ TEST_F(ProcessMenuModelTest, AnExtensionsProcessAndFamilyAppearAndDisappear)
     EXPECT_EQ(textsOf(extensions), QStringList{QStringLiteral("Manage Extensions...")});
 }
 
+// An extension's process carries the quiet tag "extension" wherever its action is listed - the action it adds, and a
+// catalogue action bound in its place - and a catalogue action no extension binds any more carries none.
+TEST_F(ProcessMenuModelTest, AnExtensionsProcessCarriesTheExtensionTag)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    m_processes.add("extensions.histogram", "Histogram process");
+    const std::unique_ptr<ProcessMenuModel> model = this->model();
+    an::ui::extensions::ExtensionLoadResult rebinding =
+        packageOf("rebinding", "Rebinding", "extensions.histogram", "transforms");
+    rebinding.manifest->processes.front().action_object_name = "actionHistogram_Transformation";
+    model->setExtensions({packageOf("fancy", "Fancy Blur", "extensions.blur", "filters"), rebinding});
+
+    const std::vector<QAction*> inFilters = model->extensionActionsIn("menuFilters");
+    ASSERT_EQ(inFilters.size(), 1u);
+    EXPECT_EQ(inFilters.front()->property(ProcessMenuModel::kMenuTagProperty).toString(), QStringLiteral("extension"));
+
+    QAction* const histogram = m_catalogue.action("actionHistogram_Transformation");
+    ASSERT_NE(histogram, nullptr);
+    EXPECT_EQ(histogram->property(ProcessMenuModel::kMenuTagProperty).toString(), QStringLiteral("extension"))
+        << "a catalogue action an extension's process is bound to carries the tag";
+
+    QAction* const open = m_catalogue.action("actionOpen");
+    ASSERT_NE(open, nullptr);
+    EXPECT_FALSE(open->property(ProcessMenuModel::kMenuTagProperty).isValid()) << "an action of the application";
+
+    model->setExtensions({});
+    EXPECT_FALSE(histogram->property(ProcessMenuModel::kMenuTagProperty).isValid())
+        << "the extension went, and the catalogue's action is the application's again";
+}
+
+// Asked to, a family's menu lists the extension's processes first - the very actions its category's menu holds, so
+// they are bound and tagged as there - then its links; by default it holds the links alone, as the classic window's.
+TEST_F(ProcessMenuModelTest, AFamilysMenuListsItsProcessesFirstWhenAsked)
+{
+    m_processes.add("extensions.blur", "Fancy Blur process");
+    m_processes.add("extensions.sharpen", "Fancy Sharpen process");
+    m_processes.add("other.thing", "Other process");
+    const std::unique_ptr<ProcessMenuModel> model = this->model();
+    an::ui::extensions::ExtensionLoadResult fancy = packageOf("fancy", "Fancy Tools", "extensions.blur", "filters");
+    an::ui::extensions::ExtensionProcessManifest sharpen = fancy.manifest->processes.front();
+    sharpen.id = "extensions.sharpen";
+    sharpen.display_name = "Fancy Sharpen process";
+    sharpen.action_object_name = "actionExtension_fancy_sharpen";
+    fancy.manifest->processes.push_back(sharpen);
+    model->setExtensions({fancy, packageOf("other", "Other", "other.thing", "filters")});
+
+    QMenu extensions;
+    extensions.addAction(QStringLiteral("Manage Extensions..."));
+    model->buildExtensionFamilyMenus(extensions, ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
+    ASSERT_EQ(textsOf(extensions), (QStringList{QStringLiteral("Manage Extensions..."), QStringLiteral("-"),
+                                                QStringLiteral("Fancy Tools"), QStringLiteral("Other")}));
+    QMenu* const family = extensions.actions().at(2)->menu();
+    ASSERT_NE(family, nullptr);
+    EXPECT_EQ(textsOf(*family),
+              (QStringList{QStringLiteral("Fancy Blur process"), QStringLiteral("Fancy Sharpen process"),
+                           QStringLiteral("-"), QStringLiteral("Manage..."), QStringLiteral("Homepage")}));
+    const std::vector<QAction*> inFilters = model->extensionActionsIn("menuFilters");
+    ASSERT_EQ(inFilters.size(), 3u);
+    EXPECT_EQ(family->actions().at(0), inFilters.at(0)) << "the category's very action";
+    EXPECT_EQ(family->actions().at(1), inFilters.at(1));
+
+    // Built again, each family's menu holds its processes once.
+    model->buildExtensionFamilyMenus(extensions, ProcessMenuModel::FamilyEntries::ProcessesAndLinks);
+    QMenu* const again = extensions.actions().at(2)->menu();
+    ASSERT_NE(again, nullptr);
+    EXPECT_EQ(textsOf(*again).count(QStringLiteral("Fancy Blur process")), 1);
+
+    // The links alone by default.
+    model->buildExtensionFamilyMenus(extensions);
+    QMenu* const links = extensions.actions().at(2)->menu();
+    ASSERT_NE(links, nullptr);
+    EXPECT_EQ(textsOf(*links), (QStringList{QStringLiteral("Manage..."), QStringLiteral("Homepage")}));
+}
+
 // The model says what changed, so a shell builds the menus that show it again: the extensions when they change, both
 // stored lists when they are read again - dropping, after the extensions changed, the processes the registry no longer
 // holds - and nothing to a listener that unsubscribed.

@@ -13,6 +13,7 @@
 
 #include "app/ActionLookup.h"
 #include "app/ProcessMenuState.h"
+#include "theme/ComponentParts.h"
 
 #include <QString>
 
@@ -60,6 +61,19 @@ public:
         Extensions,
     };
 
+    /// What a family's menu of the Extensions menu holds.
+    enum class FamilyEntries : std::uint8_t
+    {
+        /// Manage, and the family's homepage, repository and support pages: the classic window's.
+        LinksOnly,
+        /// The extension's processes, then a separator and the links.
+        ProcessesAndLinks,
+    };
+
+    /// The property of an action of an extension's process that holds the quiet tag a menu shows after its text,
+    /// "extension" (`process_registry::extensionProcessTag`). An action of the application has none.
+    static constexpr const char* kMenuTagProperty = an::ui::parts::kMenuTagProperty;
+
     struct Dependencies
     {
         RecentProcessesModel* recentProcesses = nullptr;
@@ -104,8 +118,9 @@ public:
     [[nodiscard]] static std::string_view menuOfCategory(std::string_view category);
 
     /// Takes what the installed packages `discovered` add: an action for each process of each package that is not
-    /// invalid - or the catalogue's action of the same name, bound in its place - in the menu of its category, and each
-    /// extension's family. What an earlier call added goes. Says it changed.
+    /// invalid - or the catalogue's action of the same name, bound in its place - in the menu of its category, each
+    /// carrying the extension tag (`kMenuTagProperty`), and each extension's family. What an earlier call added goes,
+    /// and a catalogue action it bound loses the tag. Says it changed.
     void setExtensions(const std::vector<an::ui::extensions::ExtensionLoadResult>& discovered);
 
     /// Binds again the action of each process the packages `discovered` provide, now that their environments changed.
@@ -123,6 +138,9 @@ public:
 
     [[nodiscard]] const std::vector<ExtensionFamily>& extensionFamilies() const noexcept;
 
+    /// The name of an installed extension's family, by the extension's id; empty for one the model does not hold.
+    [[nodiscard]] QString familyOf(std::string_view extensionId) const;
+
     /// Makes `menu` the favourite processes: each by its name, in the order of the names, launching its process; then
     /// Manage Favorites and Clear favorites list, the latter offered when there is a favourite.
     void buildFavoriteProcessesMenu(QMenu& menu) const;
@@ -137,8 +155,9 @@ public:
     void appendExtensionProcesses(QMenu& menu, std::string_view menuId) const;
 
     /// Adds to the Extensions menu, after a separator, a menu for each extension's family: Manage, and its homepage,
-    /// repository and support pages; first takes away what an earlier call added.
-    void buildExtensionFamilyMenus(QMenu& extensionsMenu) const;
+    /// repository and support pages - after the extension's processes when `entries` asks for them, the very actions
+    /// its category's menu holds - and first takes away what an earlier call added.
+    void buildExtensionFamilyMenus(QMenu& extensionsMenu, FamilyEntries entries = FamilyEntries::LinksOnly) const;
 
     /// Replaces the hooks.
     void setHooks(Hooks hooks);

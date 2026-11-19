@@ -16,6 +16,8 @@
 #include <verdigris/wobjectdefs.h>
 
 class QPaintEvent;
+class QPainter;
+class QRectF;
 
 namespace an::ui
 {
@@ -59,6 +61,14 @@ public:
     /// A tag high, and as wide as its padding, its icon and its text.
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
+
+    /// The size of a tag of a text and a tone, with an icon or without, in the tokens in force: what a painter that
+    /// draws a tag in a part of its own - a palette's row, a menu's entry - reserves for it.
+    [[nodiscard]] static QSize tagSize(const QString& text, Tone tone, bool withIcon = false);
+
+    /// Paints a tag of a text and a tone over `bounds`, as a tag widget paints itself. The painter is left as it was.
+    static void paintTag(QPainter& painter, const QRectF& bounds, const QString& text, Tone tone,
+                         const QIcon& icon = QIcon());
 
 protected:
     void paintEvent(QPaintEvent* event) override;

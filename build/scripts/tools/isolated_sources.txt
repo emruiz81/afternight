@@ -1908,6 +1908,7 @@ sources Test_ControlsSeams
     unit     src/AfterNightControls/components/AnCardWidget.cpp
     unit     src/AfterNightControls/components/AnSectionHeader.cpp
     unit     src/AfterNightControls/components/AnStyledTable.cpp
+    unit     src/AfterNightControls/components/AnTag.cpp
     unit     src/AfterNightControls/controls/AutostretchApply.cpp
     unit     src/AfterNightControls/controls/AutostretchSettingsControl.cpp
     unit     src/AfterNightControls/controls/ComparisonImageGenerator.cpp
@@ -2023,6 +2024,7 @@ sources Test_ControlsSeams
     header   src/AfterNightControls/components/AnLayoutUtils.h
     header   src/AfterNightControls/components/AnSectionHeader.h
     header   src/AfterNightControls/components/AnStyledTable.h
+    header   src/AfterNightControls/components/AnTag.h
     header   src/AfterNightControls/controls/AutostretchApply.h
     header   src/AfterNightControls/controls/AutostretchSettingsControl.h
     header   src/AfterNightControls/controls/AutostretchSettingsControlUiBuilder.h
@@ -2836,6 +2838,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/IntegrationToolsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectLayoutTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/ExtensionManagerTest.cpp
     header   src/AfterNightControls/app/ShowInFileBrowser.h
     header   src/AfterNightControls/controls/DashboardPreferences.h
     header   src/AfterNightControls/controls/HomeContinueRow.h
@@ -2974,6 +2977,9 @@ sources Test_ShellObservatory
     header   src/AfterNightShellObservatory/ShellActions.h
     header   src/AfterNightShellObservatory/chrome/ConsoleDrawer.h
     header   src/AfterNightShellObservatory/chrome/MenuBarOnAlt.h
+    header   src/AfterNightShellCore/actions/ProcessMenuModel.h
+    header   src/AfterNightControls/controls/settings/ExtensionStatusPage.h
+    header   src/AfterNightControls/controls/settings/ExtensionManagerPage.h
     header   src/AfterNightShellObservatory/chrome/PaletteField.h
     header   src/AfterNightShellObservatory/chrome/StatusLine.h
     header   src/AfterNightShellObservatory/chrome/TopBar.h

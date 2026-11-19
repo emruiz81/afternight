@@ -8,6 +8,8 @@
 
 #include <AfterNightEngine/Image/ImageDescriptor.h>
 
+#include <QCoreApplication>
+
 #include <algorithm>
 #include <optional>
 #include <set>
@@ -64,6 +66,16 @@ std::string unsupportedChannelsMessage(const an::ui::process_registry::ProcessDe
 
 namespace an::ui::process_registry
 {
+
+QString extensionProcessTag()
+{
+    return QCoreApplication::translate("ProcessRegistry", "extension");
+}
+
+QString extensionProcessTagToolTip()
+{
+    return QCoreApplication::translate("ProcessRegistry", "Runs in its own process");
+}
 
 LaunchGuardResult evaluateProcessAvailability(const ProcessDescriptor& descriptor)
 {

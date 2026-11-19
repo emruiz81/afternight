@@ -93,15 +93,62 @@ QIcon AnTag::icon() const
     return m_icon;
 }
 
-QSize AnTag::sizeHint() const
+QSize AnTag::tagSize(const QString& text, const Tone tone, const bool withIcon)
 {
     const DesignTokens& t = tokens();
-    int width = 2 * parts::kTagPadding + parts::textWidth(tagFont(t, m_tone), text());
-    if (!m_icon.isNull())
+    int width = 2 * parts::kTagPadding + parts::textWidth(tagFont(t, tone), text);
+    if (withIcon)
     {
         width += parts::kTagIcon + parts::kTagGap;
     }
     return QSize(width, t.metrics.tag);
+}
+
+void AnTag::paintTag(QPainter& painter, const QRectF& bounds, const QString& text, const Tone tone, const QIcon& icon)
+{
+    const DesignTokens& t = tokens();
+    const ToneColours colours = toneColours(tone, t);
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    if (colours.fill.isValid())
+    {
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(colours.fill);
+        painter.drawRoundedRect(bounds, parts::kTagRadius, parts::kTagRadius);
+    }
+    if (tone == Tone::Outlined)
+    {
+        painter.setPen(QPen(t.colors.borderSubtle, 1.0));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), parts::kTagRadius - 0.5,
+                                parts::kTagRadius - 0.5);
+    }
+    else if (tone == Tone::Warning)
+    {
+        // A warning is outlined in its colour, so it is never told by its hue alone.
+        painter.setPen(QPen(colours.text, 1.0));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), parts::kTagRadius - 0.5,
+                                parts::kTagRadius - 0.5);
+    }
+
+    qreal x = bounds.left() + parts::kTagPadding;
+    if (!icon.isNull())
+    {
+        const qreal top = bounds.top() + (bounds.height() - parts::kTagIcon) / 2.0;
+        parts::paintIcon(painter, icon, QRectF(x, top, parts::kTagIcon, parts::kTagIcon), colours.text);
+        x += parts::kTagIcon + parts::kTagGap;
+    }
+    painter.setPen(colours.text);
+    painter.setFont(tagFont(t, tone));
+    painter.drawText(QRectF(x, bounds.top(), bounds.right() - x - parts::kTagPadding, bounds.height()),
+                     Qt::AlignLeft | Qt::AlignVCenter, text);
+    painter.restore();
+}
+
+QSize AnTag::sizeHint() const
+{
+    return tagSize(text(), m_tone, !m_icon.isNull());
 }
 
 QSize AnTag::minimumSizeHint() const
@@ -111,44 +158,8 @@ QSize AnTag::minimumSizeHint() const
 
 void AnTag::paintEvent(QPaintEvent* /*event*/)
 {
-    const DesignTokens& t = tokens();
-    const ToneColours colours = toneColours(m_tone, t);
     QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    const QRectF bounds(rect());
-    if (colours.fill.isValid())
-    {
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(colours.fill);
-        painter.drawRoundedRect(bounds, parts::kTagRadius, parts::kTagRadius);
-    }
-    if (m_tone == Tone::Outlined)
-    {
-        painter.setPen(QPen(t.colors.borderSubtle, 1.0));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), parts::kTagRadius - 0.5,
-                                parts::kTagRadius - 0.5);
-    }
-    else if (m_tone == Tone::Warning)
-    {
-        // A warning is outlined in its colour, so it is never told by its hue alone.
-        painter.setPen(QPen(colours.text, 1.0));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), parts::kTagRadius - 0.5,
-                                parts::kTagRadius - 0.5);
-    }
-
-    qreal x = parts::kTagPadding;
-    if (!m_icon.isNull())
-    {
-        const qreal top = (height() - parts::kTagIcon) / 2.0;
-        parts::paintIcon(painter, m_icon, QRectF(x, top, parts::kTagIcon, parts::kTagIcon), colours.text);
-        x += parts::kTagIcon + parts::kTagGap;
-    }
-    painter.setPen(colours.text);
-    painter.setFont(tagFont(t, m_tone));
-    painter.drawText(QRectF(x, 0, width() - x - parts::kTagPadding, height()), Qt::AlignLeft | Qt::AlignVCenter,
-                     text());
+    paintTag(painter, QRectF(rect()), text(), m_tone, m_icon);
 }
 
 } // namespace an::ui

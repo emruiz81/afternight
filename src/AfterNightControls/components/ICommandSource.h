@@ -30,6 +30,10 @@ struct CommandRow
     bool enabled = true;
     bool favoritable = false; ///< Whether the star makes it a favourite: a process.
     bool favorite = false;
+    /// A quiet tag after the title - "extension" for a process that runs in a process of its own - and what its tooltip
+    /// says; empty for none.
+    QString tag;
+    QString tagToolTip;
 
     [[nodiscard]] bool operator==(const CommandRow&) const = default;
 };
