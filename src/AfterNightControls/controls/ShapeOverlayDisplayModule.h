@@ -12,8 +12,11 @@
 #include "AfterNightControlsExport.h"
 #include "widgets/ImageViewWidgetDisplayModule.h"
 
+#include <QStaticText>
+
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 namespace an::ui
 {
@@ -38,7 +41,17 @@ public:
     void onDraw(QPainter& painter) override;
 
 private:
+    /// Each shape's label laid out at the size labels are drawn at, and its width: made once for the shapes and the
+    /// size, not at every paint, since a pan paints again what it uncovers.
+    struct LaidOutLabels
+    {
+        int pixelSize = -1;
+        std::vector<QStaticText> texts;
+        std::vector<double> widths;
+    };
+
     std::shared_ptr<const ViewShapes> m_Shapes;
+    LaidOutLabels m_Labels;
     std::size_t m_DrawnByLastPaint = 0u;
 };
 

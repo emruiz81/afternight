@@ -28,11 +28,15 @@
 #include "app/ExtensionSdkService.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ExtensionHostedProcess.h"
+#include "controls/ImageCropController.h"
 #include "controls/ImageViewControl.h"
+#include "controls/ImageViewControlListener.h"
+#include "controls/ImageViewScrollArea.h"
 #include "controls/ImageViewFiles.h"
 #include "fixtures/common/FixtureExpectation.h"
 #include "fixtures/common/FixtureFits.h"
 #include "fixtures/common/SidecarCases.h"
+#include "widgets/ImageViewWidget.h"
 
 #include <AfterNightConsumerRuntime/ImageAsset.h>
 
@@ -45,6 +49,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMouseEvent>
 #include <QElapsedTimer>
 #include <QRect>
 #include <QString>
@@ -458,7 +463,7 @@ TEST(ExtensionRegression, EveryBundledExtensionAndTemplateStatesTheVersionsThePr
     EXPECT_EQ(an::ui::extensions::kExtensionProtocolVersion, 1);
     EXPECT_EQ(an::ui::extensions::kExtensionSdkVersion, 1);
     const auto manifests = subjectManifests();
-    ASSERT_EQ(manifests.size(), 15u) << "five bundled extensions and ten author templates";
+    ASSERT_EQ(manifests.size(), 16u) << "five bundled extensions and eleven author templates";
     for (const auto& [directory, manifest] : manifests)
     {
         EXPECT_EQ(manifest.value(QStringLiteral("package_format_version")).toInt(), 1) << directory;
@@ -1161,6 +1166,177 @@ TEST(ExtensionRegression, TheContributingTemplateContributesItsEntriesAndIsStart
     const auto narrowed = kept();
     ASSERT_EQ(narrowed.size(), 1u);
     EXPECT_EQ(narrowed.front().id_suffix, "lift_highlights");
+}
+
+// The view requests template, launched on the Lite host through the coordinator as the application launches a protocol
+// extension with no interface over an image: it draws two shapes and takes one away; asks for the selection area, which
+// the case draws by a drag on the view, and reads the rectangle back; zooms the view; commits a step and undoes and
+// redoes it, the view's own Undo and Redo; and its session's end takes its shape and its area away.
+TEST(ExtensionRegression, TheViewRequestsTemplateDrawsSelectsZoomsAndUndoes)
+{
+    const ExtensionLoadResult* subject = readySubject(Origin::Template, "view_requests_process");
+    ASSERT_NE(subject, nullptr);
+    const an::ui::extensions::ExtensionProcessManifest& process = subject->manifest->processes.front();
+    EXPECT_EQ(process.capabilities.interface_kind, an::ui::extensions::ExtensionInterface::None);
+
+    const std::filesystem::path root = uniqueSharedBufferRootForTest("regression-view-requests");
+    removeAllNoThrow(root);
+    const RemovePathOnExit remove_root{root};
+    const auto image = makeRgbGradientImage(64, 48);
+    ASSERT_TRUE(image);
+    const std::string view_name = "regression-view-requests";
+    an::tests::processes::ViewHandle target = targetViewOf(view_name, image, "regression-view-requests.fits");
+    ASSERT_NE(target, nullptr);
+    target->initializeNewImageHistory("Image opened");
+    target->resize(400, 300);
+    target->show();
+    target->getViewWidget()->scaleImageView(1.0, true);
+    ASSERT_TRUE(an::tests::processes::settleView(*target));
+    const std::size_t modules = target->getViewWidget()->getNumOfDisplayModules();
+
+    InMemorySettings settings_store;
+    an::tests::processes::framework::CaseLaunchCoordinator coordinator;
+    coordinator.configureSdkService(
+        &settings_store.repository(),
+        // The view's state as the application states it: its selection area among it.
+        [&]() -> std::vector<an::ui::extensions::ExtensionViewState> {
+            an::ui::extensions::ExtensionViewState view_state;
+            view_state.view_name = view_name;
+            view_state.is_active = true;
+            view_state.has_image = true;
+            view_state.width = static_cast<int>(widthOf(*image));
+            view_state.height = static_cast<int>(heightOf(*image));
+            view_state.channels = static_cast<int>(channelsOf(*image));
+            view_state.zoom_percent = target->getCurrentZoom();
+            const QRect area = target->getViewWidget()->getCurrentSelectionArea();
+            view_state.selection_area_enabled = target->getViewWidget()->isSelectionAreaEnabled();
+            view_state.selection_area_x = area.x();
+            view_state.selection_area_y = area.y();
+            view_state.selection_area_width = area.width();
+            view_state.selection_area_height = area.height();
+            return {view_state};
+        },
+        [&image, &root](const std::string_view session_id, const std::string_view request_id, const std::string_view,
+                        an::ui::extensions::ExtensionViewSnapshot* snapshot, std::string* snapshot_error) -> bool {
+            *snapshot = an::ui::extensions::ExtensionViewSnapshot{};
+            an::ui::extensions::SharedImageBuffer buffer;
+            if (!exportImageOrReport(an::ui::extensions::SharedBufferManager(root), *image, session_id,
+                                     SharedBufferRole::Preview, &buffer, snapshot_error,
+                                     std::string(request_id) + ".snapshot", "snapshot",
+                                     SharedBufferAccessMode::ReadOnly))
+            {
+                return false;
+            }
+            snapshot->source_buffer = buffer.descriptor();
+            return true;
+        },
+        {}, {}, {}, {});
+    // A commit is an edit of the view, recorded in its history before it is shown, as the application presents one.
+    coordinator.setManagedImageHooks(
+        [](ImageViewControl* control, an::consumer::ImageAsset&& result, const std::string& step,
+           const std::string& description) {
+            auto kept = std::make_shared<an::consumer::ImageAsset>(std::move(result));
+            control->editImage(
+                step, description,
+                [kept](const an::consumer::EngineSession&, const an::consumer::AssetWriteLease&,
+                       std::stop_token) -> an::Result<an::consumer::ImageAsset> { return std::move(*kept); });
+        },
+        {}, {}, {}, {}, {});
+
+    an::ui::extensions::ExtensionHostLaunchBinding binding;
+    binding.descriptor_id = process.id;
+    binding.extension_id = subject->manifest->id;
+    binding.display_name = subject->manifest->name;
+    binding.sdk_backend = "protocol";
+    binding.launch_mode = an::ui::extensions::ExtensionLaunchMode::SingleImage;
+    binding.host_executable = extensionHostLitePathForCurrentAppDir();
+    binding.capabilities = {"execute"};
+    binding.process_capabilities = process.capabilities;
+    binding.host_arguments = {"--extension-package-root",
+                              subject->manifest->package_root,
+                              "--entry-point",
+                              subject->manifest->entry_point,
+                              "--process-class",
+                              process.class_name,
+                              "--environment-root",
+                              subject->environment->environment_path.string(),
+                              "--runtime-root",
+                              runtimeRootForCurrentAppDir().string()};
+    const auto launch = [&]() {
+        std::string error;
+        ASSERT_TRUE(coordinator.launchBoundDescriptor(binding, target.get(), &error)) << error;
+    };
+    const auto areaTool = [&target]() { return ImageCropController::holding(target->getScrollArea()); };
+    an::ui::extensions::ExtensionSdkService settings_reader(&settings_store.repository());
+    const auto setting = [&](const char* key) {
+        QCborValue value;
+        static_cast<void>(
+            settings_reader.selectExtensionSetting(binding.extension_id, key, &value, QCborValue(), nullptr));
+        return value;
+    };
+
+    int imageUpdates = 0;
+    struct Updates final : ImageViewControlListener
+    {
+        Updates(ImageViewControl* view, int* count) : ImageViewControlListener(view), count(count)
+        {
+            view->subscribeListener(this);
+        }
+        ~Updates() override
+        {
+            if (m_image_view_control != nullptr)
+            {
+                m_image_view_control->unsubscribeListener(this);
+            }
+        }
+        void onImageUpdated(ImageViewControl*) override
+        {
+            ++*count;
+        }
+        int* count;
+    } updates(target.get(), &imageUpdates);
+    launch();
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 20000 * kIpcTimingMultiplier, [&]() {
+        return areaTool() != nullptr && target->getViewWidget()->getNumOfDisplayModules() == modules + 1u;
+    })) << "the template never drew its shape and asked for the area";
+    EXPECT_EQ(setting("shapes_kept").toInteger(), 1) << "it drew two shapes and took one away";
+    EXPECT_FALSE(target->getViewWidget()->isSelectionAreaEnabled()) << "no area is drawn before the drag";
+
+    // The case draws the area as a person does: over the image, pressed, dragged, released.
+    ImageViewWidget* const widget = target->getViewWidget();
+    const auto send = [widget](const QEvent::Type type, const QPointF at, const Qt::MouseButton button,
+                               const Qt::MouseButtons buttons) {
+        QMouseEvent event(type, at, widget->mapToGlobal(at), button, buttons, Qt::NoModifier);
+        QCoreApplication::sendEvent(widget, &event);
+    };
+    send(QEvent::MouseMove, QPointF(10.0, 8.0), Qt::NoButton, Qt::NoButton);
+    send(QEvent::MouseButtonPress, QPointF(10.0, 8.0), Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseMove, QPointF(25.0, 20.0), Qt::NoButton, Qt::LeftButton);
+    send(QEvent::MouseMove, QPointF(40.0, 30.0), Qt::NoButton, Qt::LeftButton);
+    send(QEvent::MouseButtonRelease, QPointF(40.0, 30.0), Qt::LeftButton, Qt::NoButton);
+    const QRect drawn = widget->getCurrentSelectionArea();
+    ASSERT_TRUE(widget->isSelectionAreaEnabled());
+
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 30000 * kIpcTimingMultiplier, [&]() {
+        return setting("done").toBool() && coordinator.activeSessionCount() == 0u;
+    })) << "the template did not finish";
+    const QCborArray area = setting("area").toArray();
+    ASSERT_EQ(area.size(), 4);
+    EXPECT_EQ(QRect(static_cast<int>(area.at(0).toInteger()), static_cast<int>(area.at(1).toInteger()),
+                    static_cast<int>(area.at(2).toInteger()), static_cast<int>(area.at(3).toInteger())),
+              drawn)
+        << "the rectangle it read back is not the one drawn";
+    EXPECT_NEAR(setting("zoom").toDouble(), 200.0, 0.01);
+    EXPECT_NEAR(target->getCurrentZoom(), 200.0, 0.01) << "its zoom is not the view's";
+
+    ASSERT_TRUE(an::tests::processes::settleView(*target));
+    an::ui::IViewHistory* const history = target->viewHistory();
+    EXPECT_EQ(history->previousStepName(), "Example View Requests") << "its step, undone and redone, is current";
+    EXPECT_TRUE(history->nextStepName().empty());
+    EXPECT_EQ(history->steps().steps.size(), 2u) << "the image opened and the template's step";
+    EXPECT_GE(imageUpdates, 3) << "the commit, the Undo and the Redo each showed a step";
+    EXPECT_EQ(target->getViewWidget()->getNumOfDisplayModules(), modules) << "its shape outlived its session";
+    EXPECT_EQ(areaTool(), nullptr) << "the area it turned on outlived its session";
 }
 
 // ---- Cancellation, as the application cancels each kind of subject.

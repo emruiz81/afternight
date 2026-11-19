@@ -5,20 +5,29 @@
 /// What an extension asks of the view its session is bound to beyond its pixels - shapes over it, its selection area,
 /// how it is shown, an Undo or a Redo: each request read with its fields; each limit refusing the whole request and
 /// saying what was wrong; a host that did not state a request's capability refused; a session bound to no view
-/// refused; and the shapes a session keeps held to their limits across its requests.
+/// refused; the shapes a session keeps held to their limits across its requests; and no request waiting on the GUI
+/// thread.
+
+#include "Test_ControlsViewer/EditHoldingTheWriter.h"
+#include "Test_ProcessFramework/ExtensionHostTestSupport.h"
 
 #include "app/AfterNightExtensionProtocol.h"
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionSdkService.h"
 #include "app/ExtensionViewRequests.h"
+#include "controls/ImageViewCompanions.h"
+#include "controls/ImageViewControl.h"
 
 #include <QCborArray>
 #include <QCborMap>
+#include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QString>
 
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <string>
@@ -475,4 +484,83 @@ TEST(ViewRequests, TheSessionsShapesAreHeldToTheirLimitsAcrossRequests)
     EXPECT_EQ(requests.shapeCount(), 0u);
     EXPECT_EQ(requests.pointCount(), 0u);
     EXPECT_EQ(answer.value(QStringLiteral("shape_count")).toInteger(), 0);
+}
+
+// A request is answered on the GUI thread and waits for nothing. With a worker holding the view's document - an edit on
+// its way, its writer held - shapes, the selection area and the display are answered at once; an Undo is answered once
+// it is asked for, before the step it asked for is shown, which lands when the view's own work lets it.
+TEST(ViewRequests, NeverWaitOnTheGuiThread)
+{
+    const auto image = an::tests::processes::framework::makeRgbGradientImage(64, 48);
+    ASSERT_TRUE(image);
+    an::tests::processes::ViewHandle view = an::tests::processes::framework::targetViewOf("never-wait", image);
+    ASSERT_NE(view, nullptr);
+    view->initializeNewImageHistory("Image opened");
+    view->resize(400, 300);
+    view->show();
+    view->horizontalMirror();
+    ASSERT_TRUE(an::tests::processes::settleView(*view));
+    an::ui::IViewHistory* const history = view->viewHistory();
+    ASSERT_NE(history, nullptr);
+    ASSERT_EQ(history->previousStepName(), "Image Horizontal Mirror");
+
+    ext::ExtensionSessionController session;
+    session.running_session.prepared_session.session_id = kSession;
+    session.running_session.state = ext::ExtensionHostSessionState::Active;
+    session.target_control = view.get();
+    const auto pumpFor = [](const std::function<bool()>& condition) {
+        QElapsedTimer clock;
+        clock.start();
+        while (clock.elapsed() < 10000)
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            if (condition())
+            {
+                return true;
+            }
+        }
+        return condition();
+    };
+    // Each request is answered within a bound no wait for a worker fits in.
+    const auto answeredAtOnce = [&session](const ext::ExtensionViewRequest& request, const char* what) {
+        QElapsedTimer clock;
+        clock.start();
+        QCborMap answer;
+        std::string reason;
+        EXPECT_TRUE(ext::answerViewRequest(session, request, &answer, &reason)) << what << ": " << reason;
+        EXPECT_LT(clock.elapsed(), 250) << what << " waited on the GUI thread";
+    };
+
+    {
+        an::tests::viewer::EditHoldingTheWriter edit(*view);
+        ASSERT_TRUE(pumpFor([&edit]() { return edit.holdsTheWriter(); })) << "the edit never took the writer";
+
+        ext::ViewOverlayMessage overlay;
+        overlay.add.assign(64u, lineOf(64u));
+        answeredAtOnce(overlay, "the shapes");
+        ext::ViewSelectionMessage selection;
+        selection.enabled = true;
+        selection.rect = ext::ViewSelectionRect{4, 4, 20, 10};
+        answeredAtOnce(selection, "the selection area");
+        ext::ViewDisplayMessage display;
+        display.zoom_percent = 400.0;
+        display.center = ext::ViewOverlayPoint{32.0, 24.0};
+        display.mode = "autostretch";
+        answeredAtOnce(display, "the display");
+        EXPECT_TRUE(edit.holdsTheWriter()) << "the writer was let go while the requests were answered";
+        EXPECT_FALSE(edit.finished());
+
+        edit.askToBeAdmitted();
+        ASSERT_TRUE(pumpFor([&edit]() { return edit.finished(); }));
+    }
+    ASSERT_TRUE(an::tests::processes::settleView(*view));
+
+    ext::ViewHistoryMessage undo;
+    answeredAtOnce(undo, "the Undo");
+    EXPECT_EQ(history->previousStepName(), "Image Horizontal Mirror")
+        << "the Undo was shown before its answer: the GUI thread waited for the step";
+    ASSERT_TRUE(pumpFor([history]() { return history->nextStepName() == "Image Horizontal Mirror"; }))
+        << "the Undo asked for was never shown";
+    session.releaseViewRequests();
+    ASSERT_TRUE(an::tests::processes::settleView(*view));
 }

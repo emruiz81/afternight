@@ -18,6 +18,7 @@
 #include "app/ExtensionSdkService.h"
 #include "app/ExtensionViewRequests.h"
 #include "controls/ImageCropController.h"
+#include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewScrollArea.h"
 #include "session/ImageDocument.h"
@@ -380,4 +381,221 @@ TEST_F(ViewSelection, AnExtensionThatPreviewsInAPartGetsTheSameRectangle)
     EXPECT_NE(refusalOf(off).find("the preview's part"), std::string::npos) << refusalOf(off);
     EXPECT_TRUE(widget()->isSelectionAreaEnabled());
     m_controller->clearManagedPreviewSubArea();
+}
+
+// ---- How the view is shown, and its history
+
+namespace
+{
+
+/// How a session asks the view to be shown.
+class ViewDisplay : public ViewRequestsSeam
+{
+protected:
+    /// Where a point of the image is shown in the view's viewport now.
+    [[nodiscard]] QPointF shownAt(const QPointF image) const
+    {
+        const double scale = widget()->getCurrentScaleFactor();
+        return QPointF(widget()->mapTo(m_target->getScrollArea()->viewport(), image * scale));
+    }
+};
+
+/// The Undo and the Redo a session asks of the view.
+class ViewHistory : public ViewRequestsSeam
+{
+protected:
+    /// Makes one step of the target's history, as an edit of the view does, and waits until it is shown.
+    void makeAStep()
+    {
+        m_target->horizontalMirror();
+        ASSERT_TRUE(settle(*m_target));
+        ASSERT_EQ(m_target->viewHistory()->previousStepName(), "Image Horizontal Mirror");
+    }
+
+    [[nodiscard]] bool pumpUntilHistory(const std::string& previous, const std::string& next)
+    {
+        an::ui::IViewHistory* const history = m_target->viewHistory();
+        QElapsedTimer clock;
+        clock.start();
+        while (clock.elapsed() < 5000)
+        {
+            pump();
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+            if (history->previousStepName() == previous && history->nextStepName() == next)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+} // namespace
+
+// A zoom with a centre lands there: the view takes the zoom and shows the point at the middle of its viewport.
+TEST_F(ViewDisplay, AZoomWithACentreLandsThere)
+{
+    // At 1600 % the image is wider and taller than the view, so the view scrolls to centre a point.
+    const ExtensionProtocolMessage answer =
+        ask("view.display", QCborMap{{QStringLiteral("zoom"), 1600}, {QStringLiteral("center"), QCborArray{40, 30}}});
+    ASSERT_EQ(answer.type, "view.display.result") << refusalOf(answer);
+    EXPECT_NEAR(widget()->getCurrentZoom(), 1600.0, 0.01);
+    EXPECT_NEAR(answer.fields.value(QStringLiteral("zoom")).toDouble(), 1600.0, 0.01);
+    const QPointF middle = QRectF(m_target->getScrollArea()->viewport()->rect()).center();
+    const QPointF shown = shownAt(QPointF(40.0, 30.0));
+    EXPECT_NEAR(shown.x(), middle.x(), 2.0);
+    EXPECT_NEAR(shown.y(), middle.y(), 2.0);
+
+    // A centre alone moves the view and keeps its zoom.
+    ASSERT_EQ(ask("view.display", QCborMap{{QStringLiteral("center"), QCborArray{28, 24}}}).type,
+              "view.display.result");
+    EXPECT_NEAR(widget()->getCurrentZoom(), 1600.0, 0.01);
+    EXPECT_NEAR(shownAt(QPointF(28.0, 24.0)).x(), middle.x(), 2.0);
+}
+
+// Fit to window shows the whole image, as the view's own Fit To Window does.
+TEST_F(ViewDisplay, FitToWindowShowsTheWholeImage)
+{
+    ASSERT_EQ(ask("view.display", QCborMap{{QStringLiteral("zoom"), 1600}}).type, "view.display.result");
+    ASSERT_GT(widget()->width(), m_target->getScrollArea()->viewport()->width());
+
+    const ExtensionProtocolMessage answer = ask("view.display", QCborMap{{QStringLiteral("fit"), true}});
+    ASSERT_EQ(answer.type, "view.display.result") << refusalOf(answer);
+    ASSERT_TRUE(settle(*m_target));
+    const QSize viewport = m_target->getScrollArea()->viewport()->size();
+    EXPECT_LE(widget()->width(), viewport.width());
+    EXPECT_LE(widget()->height(), viewport.height());
+    EXPECT_LT(widget()->getCurrentZoom(), 1600.0);
+}
+
+// A display mode is asked for by the name the view's state reports it under.
+TEST_F(ViewDisplay, ADisplayModeByName)
+{
+    ExtensionProtocolMessage answer =
+        ask("view.display", QCborMap{{QStringLiteral("mode"), QStringLiteral("autostretch")}});
+    ASSERT_EQ(answer.type, "view.display.result") << refusalOf(answer);
+    EXPECT_EQ(widget()->getViewMode(), ImageViewMode::AUTOSTRETCH_MODE);
+    EXPECT_EQ(answer.fields.value(QStringLiteral("mode")).toString(), QStringLiteral("autostretch"));
+
+    answer = ask("view.display", QCborMap{{QStringLiteral("mode"), QStringLiteral("linear")}});
+    ASSERT_EQ(answer.type, "view.display.result") << refusalOf(answer);
+    EXPECT_EQ(widget()->getViewMode(), ImageViewMode::LINEAR_MODE);
+    EXPECT_EQ(answer.fields.value(QStringLiteral("mode")).toString(), QStringLiteral("linear"));
+}
+
+// A mode the view has not is refused by name, and a zoom outside the view's range is refused; a refused request changes
+// nothing of what it also asked.
+TEST_F(ViewDisplay, AModeTheViewHasNotIsRefusedByName)
+{
+    const double zoom = widget()->getCurrentZoom();
+    const ImageViewMode mode = widget()->getViewMode();
+    ExtensionProtocolMessage answer =
+        ask("view.display",
+            QCborMap{{QStringLiteral("zoom"), 300}, {QStringLiteral("mode"), QStringLiteral("false_color")}});
+    EXPECT_EQ(answer.type, "view.display.error");
+    EXPECT_NE(refusalOf(answer).find("the view has no display mode 'false_color'"), std::string::npos)
+        << refusalOf(answer);
+    EXPECT_NEAR(widget()->getCurrentZoom(), zoom, 0.01) << "the zoom of a refused request was taken";
+    EXPECT_EQ(widget()->getViewMode(), mode);
+
+    answer = ask("view.display", QCborMap{{QStringLiteral("zoom"), 10000}});
+    EXPECT_EQ(answer.type, "view.display.error");
+    EXPECT_NE(refusalOf(answer).find("outside the view's range"), std::string::npos) << refusalOf(answer);
+    EXPECT_NEAR(widget()->getCurrentZoom(), zoom, 0.01);
+}
+
+// An Undo the session asks for is the view's own, run once: the view shows the step before and its history moves by
+// one; a Redo shows the step again. No request takes a step away.
+TEST_F(ViewHistory, UndoRunsTheViewsUndoOnceAndRedoItsRedo)
+{
+    makeAStep();
+    an::ui::IViewHistory* const history = m_target->viewHistory();
+    const an::ui::ViewHistorySteps before = history->steps();
+    ASSERT_GT(before.current, 0u);
+
+    ExtensionProtocolMessage answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("undo")}});
+    ASSERT_EQ(answer.type, "view.history.result") << refusalOf(answer);
+    ASSERT_TRUE(pumpUntilHistory(std::string(), "Image Horizontal Mirror")) << "the view did not undo its step";
+    ASSERT_TRUE(settle(*m_target));
+    EXPECT_EQ(history->steps().current, before.current - 1u) << "the Undo ran other than once";
+    EXPECT_EQ(history->steps().steps.size(), before.steps.size()) << "an Undo took a step away";
+
+    answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("redo")}});
+    ASSERT_EQ(answer.type, "view.history.result") << refusalOf(answer);
+    ASSERT_TRUE(pumpUntilHistory("Image Horizontal Mirror", std::string())) << "the view did not redo its step";
+    ASSERT_TRUE(settle(*m_target));
+    EXPECT_EQ(history->steps(), before) << "the Redo did not show the step again, once";
+}
+
+// With nothing to undo, or to redo, the request is refused and the history left as it was.
+TEST_F(ViewHistory, IsRefusedWithNothingToUndoOrToRedo)
+{
+    ExtensionProtocolMessage answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("undo")}});
+    EXPECT_EQ(answer.type, "view.history.error");
+    EXPECT_NE(refusalOf(answer).find("there is nothing to undo"), std::string::npos) << refusalOf(answer);
+
+    makeAStep();
+    answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("redo")}});
+    EXPECT_EQ(answer.type, "view.history.error");
+    EXPECT_NE(refusalOf(answer).find("there is nothing to redo"), std::string::npos) << refusalOf(answer);
+    EXPECT_EQ(m_target->viewHistory()->previousStepName(), "Image Horizontal Mirror");
+}
+
+// While a run holds the view, and while the session's own commit is still to land, an Undo is refused: the history
+// must not move under a result on its way.
+TEST_F(ViewHistory, IsRefusedWhileARunHoldsTheViewAndWhileTheSessionsCommitLands)
+{
+    makeAStep();
+    ASSERT_TRUE(m_target->tryRequestLockForProcessing());
+    ExtensionProtocolMessage answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("undo")}});
+    EXPECT_EQ(answer.type, "view.history.error");
+    EXPECT_NE(refusalOf(answer).find("a run holds the view"), std::string::npos) << refusalOf(answer);
+    m_target->releaseLockForProcessing();
+    pumpQuietly();
+
+    an::ui::extensions::ViewCommitMessage commit;
+    commit.session_id = kSessionId;
+    commit.request_id = "commit-1";
+    commit.result_buffers.emplace_back();
+    m_controller->running_session.last_view_commit = commit;
+    ASSERT_TRUE(m_controller->owesExecuteCommit());
+    answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("undo")}});
+    EXPECT_EQ(answer.type, "view.history.error");
+    EXPECT_NE(refusalOf(answer).find("the session's own commit has not landed"), std::string::npos)
+        << refusalOf(answer);
+    EXPECT_EQ(m_target->viewHistory()->previousStepName(), "Image Horizontal Mirror")
+        << "a refused Undo moved the history";
+
+    m_controller->running_session.last_view_commit.reset();
+    answer = ask("view.history", QCborMap{{QStringLiteral("action"), QStringLiteral("undo")}});
+    EXPECT_EQ(answer.type, "view.history.result") << refusalOf(answer);
+    ASSERT_TRUE(pumpUntilHistory(std::string(), "Image Horizontal Mirror"));
+}
+
+// A host that dies ends its session, and the session's end takes away what it left on the view: its shapes, and the
+// area it turned on.
+TEST_F(ViewSelection, AHostThatDiesTakesItsShapesAndItsAreaWithIt)
+{
+    ASSERT_EQ(ask("view.selection", QCborMap{{QStringLiteral("enabled"), true}}).type, "view.selection.result");
+    const QCborMap shape{{QStringLiteral("kind"), QStringLiteral("line")},
+                         {QStringLiteral("points"), QCborArray{1, 1, 20, 20}},
+                         {QStringLiteral("color"), QStringLiteral("#ff0000")}};
+    ASSERT_EQ(ask("view.overlay", QCborMap{{QStringLiteral("add"), QCborArray{shape}}}).type, "view.overlay.result");
+    ASSERT_NE(m_target->ownedShapes(kSessionId), nullptr);
+    ASSERT_NE(ImageCropController::holding(m_target->getScrollArea()), nullptr);
+
+    m_host->die(*m_controller);
+    QElapsedTimer clock;
+    clock.start();
+    while (m_controller->isActive() && clock.elapsed() < 5000)
+    {
+        pump();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+    }
+    ASSERT_FALSE(m_controller->isActive()) << "the host's death did not end its session";
+    // What the coordinator does with a session that ended: it stops it.
+    m_controller->detachUiHandles();
+    EXPECT_EQ(m_target->ownedShapes(kSessionId), nullptr) << "the shapes outlived their host";
+    EXPECT_EQ(ImageCropController::holding(m_target->getScrollArea()), nullptr) << "the area outlived its host";
+    EXPECT_FALSE(widget()->isSelectionAreaEnabled());
 }

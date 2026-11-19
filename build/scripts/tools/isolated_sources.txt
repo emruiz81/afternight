@@ -2250,6 +2250,7 @@ sources Test_ImageViewControl
     header   src/AfterNightControls/controls/ViewChrome.h
     header   src/AfterNightControls/controls/ViewProcessingNotice.h
     header   src/AfterNightControls/components/AnFloatingToolbar.h
+    header   src/AfterNightControls/controls/ViewShapes.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/ComponentParts.h
     header   src/AfterNightTests/fixtures/ObservatoryLook.h
@@ -6653,6 +6654,7 @@ sources Test_ProcessFramework
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
+    header   src/AfterNightTests/Test_ControlsViewer/EditHoldingTheWriter.h
     header   src/AfterNightTests/Test_ControlsViewer/ViewerTestContext.h
     header   src/AfterNightTests/Test_MaskDrawing/MaskDrawingTestSupport.h
     header   src/AfterNightTests/Test_ProcessFramework/ExtensionHostTestSupport.h

@@ -30,6 +30,7 @@ The checked-in examples are package roots that should stay validator-clean:
 - `protocol_panel_process/` - a protocol package whose panel AfterNight draws (`interface: "panel"`): its parameters described with `afternight.ui_protocol`, previewed and applied through `execute_preview()` and `execute()` on the Lite host, under a non-GPL license.
 - `protocol_batch_process/` - a protocol package with no interface (`interface: "none"`): its own run processes the image it was started on, reports its progress, commits and closes.
 - `contributing_process/` - a protocol package that adds processes while it runs (`afternight.contribute_processes()`): its catalogue process states the entries a person enabled, which AfterNight lists as the extension's processes, and a session started for one reads which from `current_session().contributed_process`.
+- `view_requests_process/` - a protocol package with no interface that asks things of its view (`afternight.ui_protocol`'s `overlay_add()`, `set_selection()`, `set_display()`, `undo()` and `redo()`): it draws shapes over the image, reads back the selection area a person draws, zooms, and undoes and redoes the step it committed.
 - `locked_wheelhouse_process/` - hash-locked dependency declarations plus the exceptional custom/private wheelhouse path.
 
 ## Parameters And Settings
@@ -126,6 +127,56 @@ kept = afternight.contribute_processes([
 
 `contributing_process/` is that package whole: a `protocol` package with no interface whose catalogue process states
 the entries a person enabled (its setting `enabled`) and whose session started for an entry reads which.
+
+## What An Extension May Do To Its View
+
+An extension reads the view its session is bound to and commits to it. Beyond its pixels it may draw shapes over it, use
+its selection area, set how it is shown and ask for an Undo or a Redo - each a request AfterNight validates and may
+refuse. Both hosts carry the calls, which live in the protocol half of the SDK:
+
+```python
+import afternight.ui_protocol as ui
+
+ids = ui.overlay_add([
+    {"points": [(120, 80), (260, 80), (260, 190), (120, 190)], "closed": True, "color": "#ffd54a",
+     "label": "Region"},
+    {"points": [(40, 300), (400, 320)], "color": (90, 200, 255)},
+])
+ui.overlay_remove(ids[1:])
+area = ui.set_selection()            # on; the next drag on the image draws it
+ui.set_display(zoom=200, center=(190, 135))
+ui.undo()
+```
+
+- A request names no view: it acts on the view the session is bound to, and a session bound to none is refused. For an
+  extension drawn in a page, `set_display()` acts on the page's canvas and the shapes are drawn there; the selection
+  area and the history are the task's target's, as the page's own image actions are.
+- **Shapes** (`overlay_add`, `overlay_remove`, `overlay_clear`): a closed polygon or an open line of points in the
+  image's pixels, a colour (`"#rrggbb"`, `"#rrggbbaa"` or an (r, g, b[, a]) tuple), whether a polygon is filled, and a
+  label drawn beside it. `overlay_add` answers each shape's id. A session keeps at most 4,096 shapes holding at most
+  262,144 points together; a label is at most 120 characters of plain text and every point is finite. The shapes follow
+  the view's zoom and scroll, take no click, and are in no saved image, no project and no annotated picture; under Night
+  they are drawn red, as everything over an image is. They go when the session ends, when its host stops and when the
+  view closes.
+- **The selection area** (`set_selection`): the view's one rectangle, the one a crop and a preview's part use. Turned
+  on with a rectangle it is set there, kept inside the image; with none, the next drag on the image draws it. A person
+  moves and sizes it as always, and the extension is told the rectangle once, when the mouse is released, in its view's
+  state (`selection_area`). An extension whose preview runs over a part gets that same rectangle. It is refused while
+  another process holds the area, and the session's end turns off an area the session turned on.
+- **The display** (`set_display`): a zoom in percent (within the view's range, 1 % to 6,400 %), a point of the image
+  to centre, fit to window, a display mode by the name the view's state reports (`"linear"`, `"autostretch"`). A mode
+  the view has not is refused by name.
+- **The history** (`undo`, `redo`): the view's Undo or Redo, by the path its action takes. Refused with nothing to undo
+  or to redo, while a run holds the view, and until the session's own commit has landed - ask again once it has. No
+  request clears a history: its steps are the person's.
+- AfterNight answers at once and waits for nothing: an Undo is answered once it is asked for, and what the view became
+  reaches the extension as every change of its view does. A request refused raises `RuntimeError` with AfterNight's
+  reason, which the session console shows too, and changes nothing. With no application - a standalone launch - every
+  call does nothing.
+
+`view_requests_process/` is that package whole: a `protocol` package with no interface that draws two shapes and takes
+one away, asks for the selection area and reads back the rectangle a person draws, zooms, commits a step, and undoes and
+redoes it.
 
 ## Manifest Rules
 

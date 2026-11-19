@@ -11,6 +11,7 @@
 
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionHostedSession.h"
+#include "app/ExtensionViewRequests.h"
 #include "app/ProcessRegistry.h"
 #include "components/AnInfoBanner.h"
 #include "components/AnTaskHeader.h"
@@ -323,5 +324,63 @@ TEST_F(HostedTasks, AHostThatFailedLeavesItsTaskFailedWithRestartAndClose)
 }
 
 } // namespace
+
+namespace
+{
+
+/// An extension's process the application draws, asking things of its view.
+class HostedProcess : public HostedTasks
+{
+};
+
+// For an extension drawn in a page, a display it asks for moves the page's canvas, as the page's looking actions do,
+// and leaves the target's own view as it was; the shapes it draws lie on the canvas too, and the selection area and the
+// history are the target's.
+} // namespace
+
+TEST_F(HostedProcess, DisplayRequestMovesTheCanvas)
+{
+    ImageViewControl* const view = openView(QStringLiteral("hosted-display"));
+    ASSERT_NE(view, nullptr);
+    QPointer<ExtensionHostedProcess> process = openHosted(view, false);
+    ASSERT_NE(process, nullptr);
+    const an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    ASSERT_NE(layout, nullptr);
+    ImageViewControl* const canvas = layout->previewView();
+    ASSERT_NE(canvas, nullptr);
+    ASSERT_NE(canvas, view) << "a mirror page's canvas is a view of the target's image";
+
+    an::ui::extensions::ExtensionSessionController session;
+    session.running_session.prepared_session.session_id = "hosted-display-session";
+    session.running_session.state = an::ui::extensions::ExtensionHostSessionState::Active;
+    session.target_control = view;
+    session.hosted_process = process.data();
+    EXPECT_EQ(session.requestView(), canvas);
+
+    const float targetZoom = view->getCurrentZoom();
+    an::ui::extensions::ViewDisplayMessage display;
+    display.zoom_percent = 300.0;
+    QCborMap answer;
+    std::string reason;
+    ASSERT_TRUE(an::ui::extensions::answerViewRequest(session, display, &answer, &reason)) << reason;
+    settle();
+    EXPECT_NEAR(canvas->getCurrentZoom(), 300.0, 0.01) << "the display did not move the canvas";
+    EXPECT_NEAR(view->getCurrentZoom(), targetZoom, 0.01) << "the display moved the target's own view";
+    EXPECT_NEAR(answer.value(QStringLiteral("zoom")).toDouble(), 300.0, 0.01);
+
+    an::ui::extensions::ViewOverlayMessage overlay;
+    an::ui::extensions::ViewOverlayShape line;
+    line.points = {{1.0, 1.0}, {5.0, 5.0}};
+    overlay.add = {line};
+    ASSERT_TRUE(an::ui::extensions::answerViewRequest(session, overlay, &answer, &reason)) << reason;
+    EXPECT_NE(canvas->ownedShapes("hosted-display-session"), nullptr) << "the shapes are not on the canvas";
+    EXPECT_EQ(view->ownedShapes("hosted-display-session"), nullptr);
+
+    session.releaseViewRequests();
+    EXPECT_EQ(canvas->ownedShapes("hosted-display-session"), nullptr);
+    session.hosted_process.clear();
+    process->close();
+    settle();
+}
 
 } // namespace an::tests::observatory

@@ -2958,6 +2958,47 @@ palette under "<family> - <group>". Palette rows are one line, so an entry's sum
 tip, and what the palette finds it by. The recent processes and the favourites keep an entry by its id and drop one the
 registry no longer holds at their next refresh, as they drop a removed extension's process.
 
+### What an extension may do to its view (`app/ExtensionViewRequests.h`, `controls/ShapeOverlayDisplayModule.h`)
+
+A host reads the view its session is bound to and commits to it. Four requests reach further: `view.overlay` (shapes
+drawn over the view), `view.selection` (its selection area), `view.display` (its zoom, a point to centre, fit to window,
+its display mode) and `view.history` (an Undo or a Redo). Each is announced by a capability of its own in
+`runtime.hello` (`view_overlay`, `view_selection`, `view_display`, `view_history`), which both hosts state, since the
+requests are protocol data and their calls live in `afternight.ui_protocol`; a host that did not state one is refused
+it. Each is untrusted data, read by the protocol library and refused whole at the first error with its reason - the
+readers are what the fuzz target holds - and then answered by the application for the session
+(`ExtensionSdkService::setViewRequestHandler`, `answerViewRequest`), on the GUI thread when the session's messages are
+pumped. Nothing waits: an Undo is asked for and answered accepted, and the host learns what the view became from the
+`view.updated` every change of its view sends.
+
+A request names no view. It acts on the view the session is bound to, and a session bound to none is refused - a host
+must never reach a view a person is working on and the session was not given. For an extension drawn in a page
+(`ExtensionSessionController::requestView`), the display acts on the page's canvas and the shapes are drawn there, as
+the page's looking actions act on its canvas and the person looks at it; the selection area and the history are the
+task's target's, as the page's image actions act on its target.
+
+What a session leaves is the session's (`ExtensionViewRequests`, a member of its controller) and goes with it: when it
+ends, which a host that dies ends too, and when the view it is bound to closes. The shapes are data the session keeps -
+at most 4,096 shapes and 262,144 points, a request applied to a copy and kept only when the whole holds - handed to the
+view by owner (`ImageViewControl::setOwnedShapes`), which draws each owner's through a display module of its own made
+through the companion seam (`createShapeOverlay`): the overlay belongs to the view and goes with it, and the view's own
+suite holds the seam with a stand-in. `ShapeOverlayDisplayModule` draws only the shapes the paint reaches
+(`ImageViewWidget::rectBeingPainted`; a pan paints the strip it uncovers), in the colours the extension stated drawn as
+Night shows a colour, and takes no click. The shapes are in no saved image, no project and no annotated picture.
+
+The selection area is the view's one rectangle, the one a crop and a preview's part use, so a view whose area another
+process holds - an enabled crop tool listening on its scroll area (`ImageCropController::holding`) - refuses. The
+session turns it on with a crop tool of its own (`AREA_SELECTION_STYLE`), set to the rectangle the host states kept inside
+the image, or, with none, waiting for the next drag; a person moves and sizes it as always, and the host is told once,
+when the mouse is released, by a `view.updated` whose state carries the rectangle - never for each move, which would send
+a snapshot of the view each time. An extension whose preview runs over a part already holds the area through its own
+preview: the request sets that same rectangle and tells the preview it moved. The session's end turns off an area it
+turned on and leaves one it did not. The display request takes the view's own zoom (within its range), centre, fit and
+display mode by the name the view's state reports, a mode the view has not refused by name; the history request takes
+the path the view's Undo and Redo actions take, refused with nothing to undo, while a run holds the view and until the
+session's own commit has landed - the history must not move under a result still on its way. No request clears a
+history: its steps are the person's.
+
 ### The extension regression (`Test_ProcessFramework/test_extension_regression.cpp`, `ProtocolSdkContractTest`)
 
 Every bundled extension and author template is run on the host its backend names - previewed, executed, committed and

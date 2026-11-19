@@ -48,6 +48,7 @@ namespace
 void ShapeOverlayDisplayModule::setShapes(std::shared_ptr<const ViewShapes> shapes)
 {
     m_Shapes = std::move(shapes);
+    m_Labels = LaidOutLabels{};
 }
 
 std::size_t ShapeOverlayDisplayModule::shapeCount() const
@@ -81,6 +82,25 @@ void ShapeOverlayDisplayModule::onDraw(QPainter& painter)
     QFont font = tokens.typography.caption;
     font.setPixelSize((std::max)(1, static_cast<int>(std::lround(
                                         detail::overlayLabelPixels(*m_ViewWidget, AnnotationViewTextSize::Medium)))));
+    if (m_Labels.pixelSize != font.pixelSize() || m_Labels.texts.size() != m_Shapes->shapes.size())
+    {
+        m_Labels = LaidOutLabels{};
+        m_Labels.pixelSize = font.pixelSize();
+        m_Labels.texts.reserve(m_Shapes->shapes.size());
+        m_Labels.widths.reserve(m_Shapes->shapes.size());
+        for (const ViewShape& shape : m_Shapes->shapes)
+        {
+            QStaticText text(shape.label);
+            text.setTextFormat(Qt::PlainText);
+            text.setPerformanceHint(QStaticText::AggressiveCaching);
+            if (!shape.label.isEmpty())
+            {
+                text.prepare(QTransform(), font);
+            }
+            m_Labels.widths.push_back(shape.label.isEmpty() ? 0.0 : text.size().width());
+            m_Labels.texts.push_back(std::move(text));
+        }
+    }
     const QFontMetricsF metrics(font);
 
     an::ui::PainterGuard guard(&painter);
@@ -92,8 +112,9 @@ void ShapeOverlayDisplayModule::onDraw(QPainter& painter)
     pen.setCapStyle(Qt::RoundCap);
 
     QPolygonF scaled;
-    for (const ViewShape& shape : m_Shapes->shapes)
+    for (std::size_t shapeIndex = 0; shapeIndex < m_Shapes->shapes.size(); ++shapeIndex)
     {
+        const ViewShape& shape = m_Shapes->shapes[shapeIndex];
         const QRectF bounds(shape.bounds.x() * scale, shape.bounds.y() * scale, shape.bounds.width() * scale,
                             shape.bounds.height() * scale);
         // A shape and its label beside it: drawn only where the paint reaches them.
@@ -102,7 +123,7 @@ void ShapeOverlayDisplayModule::onDraw(QPainter& painter)
         if (!shape.label.isEmpty())
         {
             covered = covered.united(QRectF(bounds.right() + labelGap, bounds.top(),
-                                            metrics.horizontalAdvance(shape.label) + labelGap, metrics.height()));
+                                            m_Labels.widths[shapeIndex] + labelGap, metrics.height()));
         }
         if (!covered.intersects(reached))
         {
@@ -138,7 +159,7 @@ void ShapeOverlayDisplayModule::onDraw(QPainter& painter)
 
         if (!shape.label.isEmpty())
         {
-            painter.drawText(QPointF(bounds.right() + labelGap, bounds.top() + metrics.ascent()), shape.label);
+            painter.drawStaticText(QPointF(bounds.right() + labelGap, bounds.top()), m_Labels.texts[shapeIndex]);
         }
     }
 }

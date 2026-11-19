@@ -11,6 +11,7 @@
 
 #include "components/AnFloatingToolbar.h"
 #include "controls/ViewProcessingNotice.h"
+#include "controls/ViewShapes.h"
 #include "fixtures/BaselineRecord.h"
 #include "fixtures/ObservatoryLook.h"
 #include "theme/AnDesignTokens.h"
@@ -34,6 +35,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -972,5 +974,102 @@ TEST_F(Timing, PanUnderTheFloatingToolbar)
                 withToolbar, without, withToolbar - without);
     ::testing::Test::RecordProperty("underTheToolbarMs", std::to_string(withToolbar));
     ::testing::Test::RecordProperty("withoutTheToolbarMs", std::to_string(without));
+    host.hide();
+}
+
+// ---- The time a pan takes under an extension's shapes.
+
+// The GUI thread's time in a frame of a pan - the view's offset moved, then the window's paint flushed - of a view 3840
+// x 2160 showing a 6000 x 4000 image at 100 %, under the most shapes a session may keep holding the most points (4,096
+// closed polygons of 64 points each, 262,144 points, spread over the whole image, every one labelled) and under none,
+// the two in alternation, the median of nine rounds of twelve frames each. Measured, never asserted, and only when
+// AFTERNIGHT_TEST_TIMINGS=1 asks for it; the budget is a frame under the shapes within one frame of a 60 Hz display,
+// 16.7 ms. The native platform (`QT_QPA_PLATFORM=windows`, the window kept off the screen) is the one to read.
+TEST_F(Timing, PanUnderAnExtensionsShapesAtTheirLimits)
+{
+    if (qEnvironmentVariable("AFTERNIGHT_TEST_TIMINGS") != QStringLiteral("1"))
+    {
+        GTEST_SKIP() << "a time is measured only when AFTERNIGHT_TEST_TIMINGS=1 asks for it";
+    }
+    an::ui::testing::ObservatoryStyleScope look(an::ui::testing::observatoryLooks()[0]);
+    QWidget host;
+    host.setAttribute(Qt::WA_DontShowOnScreen, true);
+    auto* layout = new QVBoxLayout(&host);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto* view = new ImageViewControl();
+    view->setChromeMode(ViewChromeMode::External);
+    view->initialize("panned", ViewControlMode::standard);
+    layout->addWidget(view);
+    host.resize(3840, 2160);
+    host.show();
+    std::optional<an::consumer::ImageAsset> image = gradient(6000u, 4000u);
+    ASSERT_TRUE(image.has_value());
+    show(*view, std::move(*image));
+    view->zoom100();
+    ASSERT_TRUE(settle(*view));
+
+    // 64 x 64 polygons of 64 points, each a ring of radius 30 pixels, over the whole image.
+    auto shapes = std::make_shared<an::ui::ViewShapes>();
+    constexpr int kAcross = 64;
+    constexpr int kPoints = 64;
+    for (int row = 0; row < kAcross; ++row)
+    {
+        for (int column = 0; column < kAcross; ++column)
+        {
+            an::ui::ViewShape shape;
+            const QPointF centre(6000.0 * (column + 0.5) / kAcross, 4000.0 * (row + 0.5) / kAcross);
+            for (int point = 0; point < kPoints; ++point)
+            {
+                const double angle = 2.0 * 3.14159265358979323846 * point / kPoints;
+                shape.points.emplace_back(centre.x() + 30.0 * std::cos(angle), centre.y() + 30.0 * std::sin(angle));
+            }
+            shape.closed = true;
+            shape.color = QColor(255, 213, 74);
+            shape.label = QStringLiteral("Shape %1").arg(row * kAcross + column);
+            shape.bounds = an::ui::boundsOfPoints(shape.points);
+            shapes->shapes.push_back(std::move(shape));
+        }
+    }
+    ASSERT_EQ(shapes->shapes.size(), 4096u);
+
+    const auto median = [](std::vector<double> values) {
+        std::sort(values.begin(), values.end());
+        return values[values.size() / 2u];
+    };
+    const QPoint start = view->getViewportOffset() + QPoint(400, 300);
+    const auto round = [&](const bool withShapes) {
+        view->setOwnedShapes("session", withShapes ? shapes : nullptr);
+        QCoreApplication::processEvents();
+        view->setViewportOffset(start);
+        EXPECT_TRUE(settle(*view));
+        std::vector<double> frames;
+        for (int frame = 1; frame <= 12; ++frame)
+        {
+            QElapsedTimer timer;
+            timer.start();
+            view->setViewportOffset(start + QPoint(frame * 24, frame * 16));
+            QCoreApplication::sendPostedEvents();
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+            frames.push_back(static_cast<double>(timer.nsecsElapsed()) / 1.0e6);
+            EXPECT_TRUE(settle(*view));
+        }
+        return median(frames);
+    };
+    std::vector<double> under;
+    std::vector<double> bare;
+    for (int index = 0; index < 9; ++index)
+    {
+        under.push_back(round(true));
+        bare.push_back(round(false));
+    }
+    const double withShapes = median(under);
+    const double without = median(bare);
+    std::printf("\nPan of a 3840 x 2160 view at 100 %% over a 6000 x 4000 image, median of 9 rounds of 12 frames: "
+                "%.3f ms a frame under 4,096 shapes of 262,144 points (budget 16.7 ms), %.3f ms under none; %.3f ms "
+                "more\n",
+                withShapes, without, withShapes - without);
+    ::testing::Test::RecordProperty("underTheShapesMs", std::to_string(withShapes));
+    ::testing::Test::RecordProperty("withoutTheShapesMs", std::to_string(without));
+    view->setOwnedShapes("session", nullptr);
     host.hide();
 }

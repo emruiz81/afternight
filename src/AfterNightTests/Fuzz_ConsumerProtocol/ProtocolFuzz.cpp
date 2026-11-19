@@ -16,9 +16,10 @@
 /// * **What decoded encodes, and what it encodes decodes the same.** A message read off the wire serializes, the bytes
 ///   read back as a message, and serializing that gives the same bytes again; a buffer's description written as CBOR
 ///   reads back as one. A typed message - a hello, an execute, a commit, a result, a theme state, a run's activity, a
-///   raise, a panel's description, event, answer and hiding, the processes an extension contributes - decoded from a
-///   message re-encodes into a message the same typed decoder accepts; a panel's event either host reads is read or
-///   refused with a reason; a list of contributed processes written as the application keeps it reads back the same.
+///   raise, a panel's description, event, answer and hiding, the processes an extension contributes, what an extension
+///   asks of its view - decoded from a message re-encodes into a message the same typed decoder accepts; a panel's
+///   event either host reads is read or refused with a reason; a list of contributed processes written as the
+///   application keeps it reads back the same.
 /// * **Framing consumes or stops.** Consuming frames out of a buffer either takes a whole frame, waits for more bytes
 ///   without taking any, or refuses the frame; it never takes more bytes than were there and never loops forever.
 
@@ -224,6 +225,64 @@ enum Mode : std::uint8_t
     contribute.request_id = "contribute-2";
     contribute.entries.clear();
     messages.push_back(protocol::toProtocolMessage(contribute));
+
+    // What an extension asks of its view: shapes added - a filled polygon with a label, a line - removed and cleared;
+    // the selection area set, drawn by a drag, and turned off; a zoom with a centre, fit, a mode; an Undo and a Redo.
+    protocol::ViewOverlayMessage overlay;
+    overlay.session_id = "session-1";
+    overlay.request_id = "overlay-1";
+    protocol::ViewOverlayShape region;
+    region.points = {{1.0, 2.0}, {40.5, 2.0}, {40.5, 30.25}, {1.0, 30.25}};
+    region.closed = true;
+    region.filled = true;
+    region.color = 0x80FFD54Au;
+    region.label = "NGC 2024";
+    protocol::ViewOverlayShape line;
+    line.points = {{0.0, 0.0}, {-3.0, 1e6}};
+    overlay.add = {region, line};
+    messages.push_back(protocol::toProtocolMessage(overlay));
+    overlay.request_id = "overlay-2";
+    overlay.add.clear();
+    overlay.remove = {2, 9};
+    messages.push_back(protocol::toProtocolMessage(overlay));
+    overlay.request_id = "overlay-3";
+    overlay.remove.clear();
+    overlay.clear = true;
+    messages.push_back(protocol::toProtocolMessage(overlay));
+
+    protocol::ViewSelectionMessage selection;
+    selection.session_id = "session-1";
+    selection.request_id = "selection-1";
+    selection.enabled = true;
+    selection.rect = protocol::ViewSelectionRect{8, 6, 20, 10};
+    messages.push_back(protocol::toProtocolMessage(selection));
+    selection.request_id = "selection-2";
+    selection.rect.reset();
+    messages.push_back(protocol::toProtocolMessage(selection));
+    selection.request_id = "selection-3";
+    selection.enabled = false;
+    messages.push_back(protocol::toProtocolMessage(selection));
+
+    protocol::ViewDisplayMessage display;
+    display.session_id = "session-1";
+    display.request_id = "display-1";
+    display.zoom_percent = 250.0;
+    display.center = protocol::ViewOverlayPoint{120.5, 80.0};
+    display.mode = "autostretch";
+    messages.push_back(protocol::toProtocolMessage(display));
+    protocol::ViewDisplayMessage fit;
+    fit.session_id = "session-1";
+    fit.request_id = "display-2";
+    fit.fit = true;
+    messages.push_back(protocol::toProtocolMessage(fit));
+
+    protocol::ViewHistoryMessage history;
+    history.session_id = "session-1";
+    history.request_id = "history-1";
+    messages.push_back(protocol::toProtocolMessage(history));
+    history.request_id = "history-2";
+    history.action = protocol::ViewHistoryAction::Redo;
+    messages.push_back(protocol::toProtocolMessage(history));
     return messages;
 }
 
@@ -293,6 +352,10 @@ void checkMessage(const QByteArray& bytes)
     checkTyped<protocol::UiEventMessage>(message, protocol::uiEventFromProtocolMessage, "typed-event");
     checkTyped<protocol::ProcessesContributeMessage>(message, protocol::processesContributeFromProtocolMessage,
                                                      "typed-contribute");
+    checkTyped<protocol::ViewOverlayMessage>(message, protocol::viewOverlayFromProtocolMessage, "typed-overlay");
+    checkTyped<protocol::ViewSelectionMessage>(message, protocol::viewSelectionFromProtocolMessage, "typed-selection");
+    checkTyped<protocol::ViewDisplayMessage>(message, protocol::viewDisplayFromProtocolMessage, "typed-display");
+    checkTyped<protocol::ViewHistoryMessage>(message, protocol::viewHistoryFromProtocolMessage, "typed-history");
 
     // A list of contributed processes, as the application keeps it, reads back the same.
     protocol::ProcessesContributeMessage contribution;

@@ -3,17 +3,19 @@
 
 /// @file
 /// What an extension's session asks of the view it is bound to beyond its pixels, and what it leaves there: the shapes
-/// it draws over the view (`view.overlay`) and the selection area it turns on (`view.selection`). A request names no
-/// view: it acts on the view the session is bound to; for an extension hosted in a page, the shapes are drawn on the
-/// page's canvas and the selection area is the task's target's, as a page's image actions act on its target. A request
-/// is answered on the GUI thread when the session's messages are pumped and waits for nothing. Nothing a session
-/// leaves outlives it: its shapes go, and an area it turned on is turned off, when it ends, when its host dies and when
-/// the view closes.
+/// it draws over the view (`view.overlay`), the selection area it turns on (`view.selection`), how the view is shown
+/// (`view.display`) and an Undo or a Redo (`view.history`). A request names no view: it acts on the view the session is
+/// bound to; for an extension hosted in a page, the shapes and the display are the page's canvas's, as a page's looking
+/// actions act on its canvas, and the selection area and the history the task's target's, as its image actions act on
+/// its target. A request is answered on the GUI thread when the session's messages are pumped and waits for nothing.
+/// Nothing a session leaves outlives it: its shapes go, and an area it turned on is turned off, when it ends, when its
+/// host dies and when the view closes. No request clears a history.
 #pragma once
 
 #include "AfterNightControlsExport.h"
 
 #include "app/ExtensionSdkService.h"
+#include "widgets/ImageViewWidgetDisplayModule.h"
 
 #include <QCborMap>
 #include <QPointer>
@@ -22,7 +24,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class ImageAreaSelectorControl;
@@ -97,9 +101,21 @@ private:
 };
 
 /// Answers what an extension asked of its view, for its session: refused, with why, for a session bound to no view, and
-/// otherwise as the request's kind is answered. The view is the one `ExtensionSessionController::requestView` names.
+/// otherwise as the request's kind is answered. The shapes and the display act on the view
+/// `ExtensionSessionController::requestView` names; the selection area and the history on the view the session is
+/// bound to. A display is checked whole before anything of it is done - a zoom within the view's range, a mode the view
+/// has - and then takes the view's own zoom, centre, fit and display mode. An Undo or a Redo takes the path the view's
+/// action takes, refused with nothing to undo or to redo, while a run holds the view and while the session's own
+/// commit is still to land.
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool answerViewRequest(ExtensionSessionController& session,
                                                             const ExtensionViewRequest& request, QCborMap* answer,
                                                             std::string* reason);
+
+/// The name a view's state reports its display mode under (`image_display_mode`), and what `view.display` asks for it
+/// by: "linear" or "autostretch".
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::string imageDisplayModeName(ImageViewMode mode);
+
+/// The display mode a name of `imageDisplayModeName` names; none for a name of no mode a view has.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<ImageViewMode> imageDisplayModeNamed(std::string_view name);
 
 } // namespace an::ui::extensions

@@ -22,6 +22,7 @@
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionEnvironmentManager.h"
 #include "app/ExtensionHostManager.h"
+#include "app/ExtensionViewRequests.h"
 #include "app/ExtensionManager.h"
 #include "app/ExtensionSdkService.h"
 #include "app/SharedBufferManager.h"
@@ -13695,5 +13696,132 @@ TEST(ContributedProcesses, AnExtensionContributesAndIsToldWhichEntryItWasStarted
         EXPECT_EQ(kept[1].id_suffix, "two");
         EXPECT_EQ(kept[1].host_process, "runner");
         EXPECT_EQ(told, std::vector<std::string>{extension_id});
+    }
+}
+
+// On either host an extension asks things of the view its session is bound to through the protocol half of the SDK -
+// shapes drawn, the display set - and the application does them to that view; a request it refuses raises its reason
+// in the extension.
+TEST(ViewRequests, AnExtensionAsksThingsOfItsViewOnEitherHost)
+{
+    const std::filesystem::path runtime_root = runtimeRootForCurrentAppDir();
+    const std::filesystem::path bundled_python = repositoryBundledPythonPath();
+    ASSERT_TRUE(std::filesystem::exists(runtime_root)) << runtime_root;
+    ASSERT_FALSE(bundled_python.empty()) << "Repository bundled Python runtime must be available";
+    struct Backend
+    {
+        const char* name;
+        std::filesystem::path host;
+        const char* module;
+    };
+    const Backend backends[] = {{"protocol", extensionHostLitePathForCurrentAppDir(),
+                                 "import afternight.ui_protocol as ui\n"
+                                 "from afternight.lite import LiteProcessExtension as Base\n"},
+                                {"runtime", extensionHostPathForCurrentAppDir(),
+                                 "import afternight.ui as ui\n"
+                                 "Base = ui.ProcessWindow\n"}};
+    for (const Backend& backend : backends)
+    {
+        SCOPED_TRACE(backend.name);
+        if (std::string_view(backend.name) == "runtime")
+        {
+            AN_REQUIRE_FULL_EXTENSION_HOST(backend.host);
+        }
+        ASSERT_TRUE(std::filesystem::exists(backend.host)) << backend.host;
+        const auto temp_root = uniqueExtensionRuntimeRootForTest(std::string("view-asking-") + backend.name);
+        removeAllNoThrow(temp_root);
+        const RemovePathOnExit remove_temp_root{temp_root};
+        const auto env_root = temp_root / "env";
+        const auto package_root = temp_root / "view_asking_ext";
+        std::filesystem::create_directories(package_root);
+        createVirtualEnvironment(bundled_python, env_root);
+        if (!provisionBundledRuntimePackageIntoEnvironment(runtime_root, env_root, "numpy"))
+        {
+            GTEST_SKIP() << "numpy not available in bundled runtime";
+        }
+        {
+            std::ofstream out(package_root / "view_asking_ext.py", std::ios::binary);
+            ASSERT_TRUE(out.is_open());
+            out << "import afternight\n"
+                << backend.module << "class ViewAskingExtension(Base):\n"
+                << "    def get_params(self):\n"
+                << "        return [ui.process_window_meta()]\n\n"
+                << "    def _ask(self):\n"
+                << "        settings = afternight.Settings()\n"
+                << "        settings.set('ids', ui.overlay_add([{'points': [(2, 2), (20, 2), (20, 12)],\n"
+                << "                                            'closed': True, 'color': '#ff0000'}]))\n"
+                << "        settings.set('zoom', ui.set_display(zoom=300))\n"
+                << "        try:\n"
+                << "            ui.set_display(mode='false_color')\n"
+                << "        except RuntimeError as error:\n"
+                << "            settings.set('refused', str(error))\n\n"
+                << "    def on_launch(self):\n"
+                << "        self._ask()\n\n"
+                << "    def on_process_launch(self):\n"
+                << "        self._ask()\n";
+        }
+
+        const auto image = makeRgbGradientImage(32, 24);
+        ASSERT_TRUE(image);
+        an::tests::processes::ViewHandle view = targetViewOf(std::string("view-asking-") + backend.name, image);
+        ASSERT_NE(view, nullptr);
+        const std::string extension_id = std::string("an.test.view_asking.") + backend.name;
+        InMemorySettings settings_store;
+        an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+        an::ui::extensions::ExtensionSessionController session;
+        session.target_control = view.get();
+        sdk_service.setViewRequestHandler([&session](const std::string_view,
+                                                     const an::ui::extensions::ExtensionViewRequest& asked,
+                                                     QCborMap* answer, std::string* reason) {
+            return an::ui::extensions::answerViewRequest(session, asked, answer, reason);
+        });
+        an::ui::extensions::ExtensionHostManager manager;
+        manager.setSdkService(&sdk_service);
+        an::ui::extensions::ExtensionHostLaunchRequest request;
+        request.extension_id = extension_id;
+        request.sdk_backend = backend.name;
+        request.host_executable = backend.host;
+        request.capabilities = {"execute"};
+        request.hosted_panel = true;
+        request.host_arguments = {
+            "--extension-package-root", package_root.string(), "--entry-point",
+            "view_asking_ext",          "--process-class",     "ViewAskingExtension",
+            "--environment-root",       env_root.string(),     "--runtime-root",
+            runtime_root.string(),      "--stay-alive-ms",     std::to_string(8000 * kIpcTimingMultiplier)};
+        auto prepared = manager.prepareSession(request);
+        session.running_session.prepared_session.session_id = prepared.session_id;
+        an::ui::extensions::ExtensionHostRunningSession running;
+        std::string error;
+        ASSERT_TRUE(manager.launchSession(prepared, &running, &error)) << error;
+        SessionGuard guard{manager, running};
+        const auto& stated = running.handshake.hello.capabilities;
+        for (const std::string_view capability :
+             {an::ui::extensions::kViewOverlayCapability, an::ui::extensions::kViewSelectionCapability,
+              an::ui::extensions::kViewDisplayCapability, an::ui::extensions::kViewHistoryCapability})
+        {
+            EXPECT_NE(std::find(stated.begin(), stated.end(), capability), stated.end()) << capability;
+        }
+
+        const auto setting = [&](const char* key) {
+            QCborValue value;
+            static_cast<void>(sdk_service.selectExtensionSetting(extension_id, key, &value, QCborValue(), nullptr));
+            return value;
+        };
+        QElapsedTimer clock;
+        clock.start();
+        while (clock.elapsed() < 8000 * kIpcTimingMultiplier && setting("refused").isUndefined())
+        {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+            static_cast<void>(manager.pumpSession(&running, 20, &error));
+        }
+        ASSERT_FALSE(setting("refused").isUndefined()) << error;
+        EXPECT_EQ(setting("ids").toArray().size(), 1);
+        EXPECT_NEAR(setting("zoom").toDouble(), 300.0, 0.01);
+        EXPECT_TRUE(setting("refused").toString().contains(QStringLiteral("no display mode 'false_color'")))
+            << setting("refused").toString().toStdString();
+        ASSERT_NE(view->ownedShapes(prepared.session_id), nullptr) << "the extension's shape is not over its view";
+        EXPECT_NEAR(view->getCurrentZoom(), 300.0, 0.01) << "the extension's zoom is not its view's";
+        session.releaseViewRequests();
+        EXPECT_EQ(view->ownedShapes(prepared.session_id), nullptr);
     }
 }

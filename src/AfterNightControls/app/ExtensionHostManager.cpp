@@ -1767,7 +1767,12 @@ bool validateManagedExecutionOutputDescriptor(const an::ui::extensions::Extensio
                                               std::string* error, const bool allow_resized_output = false)
 {
     const auto* source_descriptor = findOwnedBufferDescriptor(session, an::ui::extensions::SharedBufferRole::Source);
-    if (!source_descriptor && !session.running_session.handshake.ack.native_process_window)
+    // A protocol extension commits from a run of its own - with no interface, or from a window of its own - with no
+    // request of the application's behind it, so no source was lent to compare its result with, as for a native
+    // window's own commit.
+    const std::string& backend = session.running_session.prepared_session.sdk_backend;
+    const bool protocol_session = backend == "protocol" || backend == "rpc";
+    if (!source_descriptor && !session.running_session.handshake.ack.native_process_window && !protocol_session)
     {
         if (error)
         {
@@ -2977,7 +2982,17 @@ ExtensionHostLaunchCoordinator::ExtensionHostLaunchCoordinator()
             }
             return false;
         }
-        return answerViewRequest(*session, request, answer, reason);
+        if (!answerViewRequest(*session, request, answer, reason))
+        {
+            return false;
+        }
+        // A display changed the view: the host is told its state, as for any change of its view. An Undo is told when
+        // the step it asked for is shown.
+        if (std::holds_alternative<ViewDisplayMessage>(request))
+        {
+            handleViewControlUpdated(session->target_control);
+        }
+        return true;
     });
 }
 

@@ -2497,11 +2497,18 @@
    "afternight.ui_protocol.confirm": "(message, title='Extension Confirmation', warn=False)",
    "afternight.ui_protocol.hide_process_window": "()",
    "afternight.ui_protocol.open_image": "(image_or_array, title='Extension Image', metadata=None)",
+   "afternight.ui_protocol.overlay_add": "(shapes)",
+   "afternight.ui_protocol.overlay_clear": "()",
+   "afternight.ui_protocol.overlay_remove": "(ids)",
    "afternight.ui_protocol.process_window_meta": "(*, panel_variant='native', size=None, fixed_size=None, resizable=None, preview_surface=None, preview_area=None, sub_area=False, sub_area_default_enabled=None, sub_area_size=None, sub_area_label=None, controls_panel_width=None, preview_hq_default=None, preview_autostretch=None, preview_autostretch_default=None, header_progress=None, target_selector=False, target_channel_filter=None, target_selector_label=None, target_selector_position=None, tool_configuration=None)",
+   "afternight.ui_protocol.redo": "()",
+   "afternight.ui_protocol.set_display": "(*, zoom=None, center=None, fit=False, mode=None)",
+   "afternight.ui_protocol.set_selection": "(rect=None, enabled=True)",
    "afternight.ui_protocol.show_error": "(message, title='Extension Error')",
    "afternight.ui_protocol.show_info": "(message, title='Extension Message')",
    "afternight.ui_protocol.show_warning": "(message, title='Extension Warning')",
-   "afternight.ui_protocol.tokens": "()"
+   "afternight.ui_protocol.tokens": "()",
+   "afternight.ui_protocol.undo": "()"
   },
   "theme_state_names": [
    "is_dark",

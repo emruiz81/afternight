@@ -2918,6 +2918,46 @@ PyObject* liteHostContributeProcesses(PyObject*, PyObject* args)
     return PyLong_FromLongLong(response.fields.value(QStringLiteral("count")).toInteger());
 }
 
+/// Asks something of the view the session is bound to (`view.overlay`, `view.selection`, `view.display`,
+/// `view.history`) and answers the application's answer; a request the application refuses raises its reason. With no
+/// application - a standalone launch - there is no view, and nothing is answered.
+PyObject* liteHostViewRequest(PyObject*, PyObject* args)
+{
+    const char* type = nullptr;
+    PyObject* fields_object = nullptr;
+    if (!PyArg_ParseTuple(args, "sO:view_request", &type, &fields_object))
+    {
+        return nullptr;
+    }
+    if (an::ui::extensions::viewRequestCapability(type).empty())
+    {
+        PyErr_SetString(PyExc_ValueError, (std::string("'") + type + "' is not a request of the view").c_str());
+        return nullptr;
+    }
+    if (!g_lite_python_bridge || !g_lite_python_bridge->hasControlSocket())
+    {
+        Py_RETURN_NONE;
+    }
+
+    QCborValue fields;
+    std::string error;
+    if (!pythonObjectToCborValue(fields_object, &fields, &error))
+    {
+        return pyRaiseRuntimeError(error);
+    }
+    if (!fields.isMap())
+    {
+        return pyRaiseRuntimeError(std::string(type) + " is asked with a mapping of its fields");
+    }
+
+    an::ui::extensions::ExtensionProtocolMessage response;
+    if (!g_lite_python_bridge->sendProtocolRequestAwaitResponse(type, fields.toMap(), &response, &error))
+    {
+        return pyRaiseRuntimeError(error);
+    }
+    return cborValueToPythonObject(QCborValue(response.fields));
+}
+
 /// Hides the process window: with a panel the application draws, the application puts the panel's task away; with
 /// none, the Lite host has no window to hide.
 PyObject* liteHostProcessWindowHide(PyObject*, PyObject*)
@@ -3013,6 +3053,7 @@ PyMethodDef kLiteHostMethods[] = {
     {"progress_is_cancelled", liteHostProgressIsCancelled, METH_NOARGS, nullptr},
     {"theme_tokens", liteHostThemeTokens, METH_NOARGS, nullptr},
     {"contribute_processes", liteHostContributeProcesses, METH_VARARGS, nullptr},
+    {"view_request", liteHostViewRequest, METH_VARARGS, nullptr},
     {"process_window_hide", liteHostProcessWindowHide, METH_NOARGS, nullptr},
     {"process_window_close", liteHostProcessWindowClose, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr},
@@ -3931,10 +3972,13 @@ int main(int argc, char* argv[])
     hello.host_version = parser.value(host_version_option).trimmed().toStdString();
     hello.capabilities = splitCapabilities(parser.value(capabilities_option));
     // What the Lite host serves beside what it was launched with: the panel the application draws, the raise of the
-    // extension's own window, where the run it is told of stands, and the processes the extension contributes.
+    // extension's own window, where the run it is told of stands, the processes the extension contributes, and what it
+    // asks of its view.
     for (const std::string_view served :
          {an::ui::extensions::kHostedPanelCapability, an::ui::extensions::kWindowRaiseCapability,
-          an::ui::extensions::kSessionActivityCapability, an::ui::extensions::kContributedProcessesCapability})
+          an::ui::extensions::kSessionActivityCapability, an::ui::extensions::kContributedProcessesCapability,
+          an::ui::extensions::kViewOverlayCapability, an::ui::extensions::kViewSelectionCapability,
+          an::ui::extensions::kViewDisplayCapability, an::ui::extensions::kViewHistoryCapability})
     {
         if (std::find(hello.capabilities.begin(), hello.capabilities.end(), served) == hello.capabilities.end())
         {

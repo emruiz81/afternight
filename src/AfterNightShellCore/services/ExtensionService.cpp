@@ -134,18 +134,6 @@ std::string imageChannelViewModeName(const ImageChannelViewMode mode)
     return "unknown";
 }
 
-std::string imageDisplayModeName(const ImageViewMode mode)
-{
-    switch (mode)
-    {
-    case ImageViewMode::LINEAR_MODE:
-        return "linear";
-    case ImageViewMode::AUTOSTRETCH_MODE:
-        return "autostretch";
-    }
-    return "unknown";
-}
-
 std::string maskRenderingModeName(const MaskRenderingMode mode)
 {
     switch (mode)
@@ -1250,9 +1238,10 @@ void ExtensionService::configureSdk()
                 viewState.file_name = control->getFileName();
                 viewState.selector_tooltip = an::ui::buildImageSelectorTooltip(control).toStdString();
                 viewState.view_mode = viewControlModeName(control->getViewControlMode());
-                viewState.image_display_mode = control->getViewWidget()
-                                                   ? imageDisplayModeName(control->getViewWidget()->getViewMode())
-                                                   : std::string();
+                viewState.image_display_mode =
+                    control->getViewWidget()
+                        ? an::ui::extensions::imageDisplayModeName(control->getViewWidget()->getViewMode())
+                        : std::string();
                 viewState.channel_view_mode =
                     control->getViewWidget() ? imageChannelViewModeName(control->getViewWidget()->getChannelViewMode())
                                              : std::string();

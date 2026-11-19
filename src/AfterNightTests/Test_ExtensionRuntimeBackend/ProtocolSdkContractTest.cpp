@@ -124,6 +124,23 @@ class CommonBridge:
     def settings_keys(self):
         return sorted(self.settings)
 
+    def view_request(self, kind, fields):
+        if fields.get("mode") == "false_color":
+            raise RuntimeError("view.display is refused: the view has no display mode 'false_color'")
+        self.calls.append(("view", kind, fields))
+        if kind == "view.overlay":
+            added = list(fields.get("add", []))
+            return {"accepted": True, "ids": list(range(7, 7 + len(added))), "shape_count": 1 + len(added),
+                    "point_count": 4}
+        if kind == "view.selection":
+            answer = {"accepted": True, "enabled": fields["enabled"]}
+            if "rect" in fields:
+                answer["rect"] = fields["rect"]
+            return answer
+        if kind == "view.display":
+            return {"accepted": True, "zoom": fields.get("zoom", 100.0), "mode": fields.get("mode", "linear")}
+        return {"accepted": True, "action": fields["action"]}
+
     def contribute_processes(self, entries):
         if any(entry.get("id_suffix") == "refused" for entry in entries):
             raise RuntimeError("Invalid processes.contribute request: entry 1 ('refused') states the id_suffix of the "
@@ -515,6 +532,56 @@ for bridge in (LiteBridge(), FullBridge()):
         assert len(bridge.calls) == before, "a list refused before it is sent reaches no host"
 with session_variables():
     assert protocol.contribute_processes(entries) == 0, "with no host nothing keeps the list"
+)PY");
+}
+
+// An extension asks things of its view through the protocol half of the SDK on either host: shapes drawn, taken away
+// and cleared, the selection area, the display, an Undo and a Redo, each sent as the request the application reads; a
+// refusal raises its reason; a shape or a colour that is not one is refused before anything is sent. With no host,
+// every call does nothing.
+TEST(ProtocolSdkContractTest, AnExtensionAsksThingsOfItsViewThroughEitherHost)
+{
+    expectProtocolPython(R"PY(
+assert ui.overlay_add is ui_protocol.overlay_add and ui.undo is ui_protocol.undo
+for bridge in (LiteBridge(), FullBridge()):
+    with hosted(bridge):
+        ids = ui_protocol.overlay_add([
+            {"points": [(1, 2), (5.5, 2), (5.5, 7)], "closed": True, "filled": True, "color": (255, 128, 0, 128),
+             "label": "Region"},
+            {"points": [[0, 0], [10, 10]]}])
+        assert ids == [7, 8], ids
+        assert bridge.calls[-1] == ("view", "view.overlay", {"add": [
+            {"kind": "polygon", "points": [1.0, 2.0, 5.5, 2.0, 5.5, 7.0], "color": "#ff800080", "filled": True,
+             "label": "Region"},
+            {"kind": "line", "points": [0.0, 0.0, 10.0, 10.0], "color": "#ffd54a"}]}), bridge.calls[-1]
+        assert ui_protocol.overlay_remove([8]) == 1
+        assert bridge.calls[-1] == ("view", "view.overlay", {"remove": [8]})
+        assert ui_protocol.overlay_clear() is True
+        assert bridge.calls[-1] == ("view", "view.overlay", {"clear": True})
+        assert ui_protocol.set_selection((4, 3, 20, 10)) == (4, 3, 20, 10)
+        assert bridge.calls[-1] == ("view", "view.selection", {"enabled": True, "rect": [4, 3, 20, 10]})
+        assert ui_protocol.set_selection() is None, "no rectangle until a drag draws one"
+        assert ui_protocol.set_selection(enabled=False) is None
+        assert bridge.calls[-1] == ("view", "view.selection", {"enabled": False})
+        assert ui_protocol.set_display(zoom=200, center=(30, 20.5), mode="autostretch") == 200.0
+        assert bridge.calls[-1] == ("view", "view.display",
+                                    {"zoom": 200.0, "center": [30.0, 20.5], "mode": "autostretch"}), bridge.calls[-1]
+        ui_protocol.set_display(fit=True)
+        assert bridge.calls[-1] == ("view", "view.display", {"fit": True})
+        assert ui_protocol.undo() is True and bridge.calls[-1] == ("view", "view.history", {"action": "undo"})
+        assert ui_protocol.redo() is True and bridge.calls[-1] == ("view", "view.history", {"action": "redo"})
+        refuses(RuntimeError, lambda: ui_protocol.set_display(mode="false_color"), "no display mode 'false_color'")
+        before = len(bridge.calls)
+        refuses(TypeError, lambda: ui_protocol.overlay_add(["not a shape"]), "a shape is a mapping")
+        refuses(ValueError, lambda: ui_protocol.overlay_add([{"points": [(1, 1)], "color": (300, 0, 0)}]),
+                "a colour is")
+        assert len(bridge.calls) == before, "a shape refused before it is sent reaches no host"
+assert ui_protocol.OVERLAY_SHAPE_LIMIT == 4096 and ui_protocol.OVERLAY_POINT_LIMIT == 262144
+assert ui_protocol.OVERLAY_LABEL_LIMIT == 120
+assert ui_protocol.overlay_add([{"points": [(1, 1)]}]) == [], "with no host nothing is drawn"
+assert ui_protocol.overlay_remove([1]) == 0 and ui_protocol.overlay_clear() is False
+assert ui_protocol.set_selection() is None and ui_protocol.set_display(fit=True) is None
+assert ui_protocol.undo() is False and ui_protocol.redo() is False
 )PY");
 }
 

@@ -4297,12 +4297,18 @@ void ImageViewControl::zoomAndCenterOn(int x, int y, float scaleFactor)
     m_impl->m_ImageViewWidget->scaleImageView(scaleFactor, true);
     const double actualScaleFactor = m_impl->m_ImageViewWidget->getCurrentScaleFactor();
 
-    auto scrollArea = m_impl->m_ScrollArea->rect();
-    int offsetx = static_cast<int>(std::lround(x * actualScaleFactor - scrollArea.center().x()));
-    int offsety = static_cast<int>(std::lround(y * actualScaleFactor - scrollArea.center().y()));
-
-    m_impl->m_ScrollArea->horizontalScrollBar()->setValue(offsetx);
-    m_impl->m_ScrollArea->verticalScrollBar()->setValue(offsety);
+    // The point is put at the middle of what the view shows: its viewport, inside the scroll bars and the frame. A zoom
+    // that makes the scroll bars appear or go changes the viewport on the next turn of the event loop, so the point is
+    // centred again then.
+    const auto centre = [this, x, y, actualScaleFactor]() {
+        const QPointF middle = QRectF(m_impl->m_ScrollArea->viewport()->rect()).center();
+        m_impl->m_ScrollArea->horizontalScrollBar()->setValue(
+            static_cast<int>(std::lround(x * actualScaleFactor - middle.x())));
+        m_impl->m_ScrollArea->verticalScrollBar()->setValue(
+            static_cast<int>(std::lround(y * actualScaleFactor - middle.y())));
+    };
+    centre();
+    QMetaObject::invokeMethod(this, centre, Qt::QueuedConnection);
 }
 
 float ImageViewControl::getCurrentZoom()

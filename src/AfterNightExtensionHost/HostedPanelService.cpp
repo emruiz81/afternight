@@ -10,8 +10,9 @@ namespace an::ui::extensions
 
 std::vector<std::string_view> fullHostCapabilities()
 {
-    return {kSessionActivityCapability, kWindowRaiseCapability, kHostedPanelCapability,
-            kContributedProcessesCapability};
+    return {kSessionActivityCapability,      kWindowRaiseCapability, kHostedPanelCapability,
+            kContributedProcessesCapability, kViewOverlayCapability, kViewSelectionCapability,
+            kViewDisplayCapability,          kViewHistoryCapability};
 }
 
 bool showsNativeWindow(const RuntimeHelloAckMessage& ack, const bool headlessPlatform, const bool noProcessWindow)

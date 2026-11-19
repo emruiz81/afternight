@@ -2004,6 +2004,35 @@ public:
         return response.fields.value(QStringLiteral("count")).toInteger();
     }
 
+    /// Asks something of the view the session is bound to (`view.overlay`, `view.selection`, `view.display`,
+    /// `view.history`) and answers the application's answer; a request the application refuses raises its reason. With
+    /// no application - a standalone launch - there is no view, and nothing is answered.
+    py::object viewRequest(const std::string& type, const py::object& fields)
+    {
+        if (an::ui::extensions::viewRequestCapability(type).empty())
+        {
+            throw std::invalid_argument("'" + type + "' is not a request of the view");
+        }
+        if (!socket_)
+        {
+            return py::none();
+        }
+
+        an::ui::extensions::ExtensionProtocolMessage request;
+        request.type = type;
+        request.session_id = session_id_;
+        request.request_id = an::ui::extensions::generateOpaqueToken();
+        request.fields = pythonObjectToCborValue(fields).toMap();
+
+        an::ui::extensions::ExtensionProtocolMessage response;
+        std::string error;
+        if (!sendProtocolRequestAwaitResponse(request, &response, &error))
+        {
+            throw std::runtime_error(error);
+        }
+        return cborValueToPythonObject(QCborValue(response.fields));
+    }
+
     bool settingValue(const QString& key, const QCborValue& default_value, QCborValue* out_value, std::string* error)
     {
         if (!out_value)
@@ -4775,6 +4804,9 @@ PYBIND11_EMBEDDED_MODULE(_afternight_host, m)
           []() { return currentPythonHostBridge() ? currentPythonHostBridge()->settingsKeys() : py::list(); });
     m.def("contribute_processes", [](const py::object& entries) -> long long {
         return currentPythonHostBridge() ? currentPythonHostBridge()->contributeProcesses(entries) : 0;
+    });
+    m.def("view_request", [](const std::string& type, const py::object& fields) -> py::object {
+        return currentPythonHostBridge() ? currentPythonHostBridge()->viewRequest(type, fields) : py::none();
     });
     m.def("log_event", [](const std::string& severity, const std::string& component, const std::string& message) {
         if (currentPythonHostBridge())

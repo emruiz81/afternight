@@ -7,12 +7,15 @@
 
 #include "app/ExtensionHostManager.h"
 #include "controls/ImageCropController.h"
+#include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewScrollArea.h"
 #include "controls/ViewShapes.h"
 #include "widgets/ImageViewWidget.h"
+#include "widgets/ZoomManager.h"
 
 #include <QCborArray>
+#include <QScrollArea>
 
 #include <algorithm>
 #include <utility>
@@ -53,7 +56,147 @@ namespace
                  height);
 }
 
+/// Answers a `view.display` over `view`: checked whole first, then the view's own zoom and centre or fit, and its mode.
+[[nodiscard]] bool answerDisplay(const ViewDisplayMessage& request, ImageViewControl& view, QCborMap* answer,
+                                 std::string* reason)
+{
+    const auto refuse = [reason](std::string why) {
+        if (reason)
+        {
+            *reason = std::move(why);
+        }
+        return false;
+    };
+    ImageViewWidget* const widget = view.getViewWidget();
+    if (widget == nullptr || !view.imageDescriptor().has_value())
+    {
+        return refuse("the view shows no image");
+    }
+    std::optional<double> scale;
+    if (request.zoom_percent.has_value())
+    {
+        const double lowest = an::ui::ZoomManager::MIN_SCALE * 100.0;
+        const double highest = an::ui::ZoomManager::MAX_SCALE * 100.0;
+        if (*request.zoom_percent < lowest || *request.zoom_percent > highest)
+        {
+            return refuse(fmt::format("a zoom of {}% is outside the view's range, {}% to {}%", *request.zoom_percent,
+                                      lowest, highest));
+        }
+        scale = *request.zoom_percent / 100.0;
+    }
+    std::optional<ImageViewMode> mode;
+    if (!request.mode.empty())
+    {
+        mode = imageDisplayModeNamed(request.mode);
+        if (!mode.has_value())
+        {
+            return refuse(fmt::format("the view has no display mode '{}'", request.mode));
+        }
+    }
+
+    if (request.fit)
+    {
+        view.fitToWindow();
+    }
+    else if (request.center.has_value() || scale.has_value())
+    {
+        // A zoom with no centre keeps the point at the middle of the view where it is.
+        const double current = widget->getCurrentScaleFactor();
+        QPointF center;
+        if (request.center.has_value())
+        {
+            center = QPointF(request.center->x, request.center->y);
+        }
+        else
+        {
+            const QRect viewport = view.getScrollArea()->viewport()->rect();
+            const QPointF middle = QPointF(view.getViewportOffset()) + QRectF(viewport).center();
+            center = current > 0.0 ? middle / current : QPointF();
+        }
+        view.zoomAndCenterOn(static_cast<int>(std::lround(center.x())), static_cast<int>(std::lround(center.y())),
+                             static_cast<float>(scale.value_or(current)));
+    }
+    if (mode.has_value())
+    {
+        view.setViewMode(*mode);
+    }
+
+    if (answer)
+    {
+        (*answer)[QStringLiteral("zoom")] = static_cast<double>(view.getCurrentZoom());
+        (*answer)[QStringLiteral("mode")] = QString::fromStdString(imageDisplayModeName(widget->getViewMode()));
+    }
+    return true;
+}
+
+/// Answers a `view.history` of the session's view: its Undo or its Redo, by the path the view's action takes.
+[[nodiscard]] bool answerHistory(const ViewHistoryMessage& request, ExtensionSessionController& session,
+                                 QCborMap* answer, std::string* reason)
+{
+    const auto refuse = [reason](std::string why) {
+        if (reason)
+        {
+            *reason = std::move(why);
+        }
+        return false;
+    };
+    ImageViewControl* const view = session.target_control;
+    an::ui::IViewHistory* const history = view->viewHistory();
+    if (history == nullptr)
+    {
+        return refuse("the view keeps no history");
+    }
+    if (view->isLockedForProcessing())
+    {
+        return refuse("a run holds the view");
+    }
+    // The history must not move under a result still on its way to the view.
+    if (session.owesExecuteCommit())
+    {
+        return refuse("the session's own commit has not landed");
+    }
+    const bool undo = request.action == ViewHistoryAction::Undo;
+    if (undo ? !history->hasUndo() : !history->hasRedo())
+    {
+        return refuse(undo ? "there is nothing to undo" : "there is nothing to redo");
+    }
+    // As the view's Undo and Redo do: the step is read on a worker and shown when it lands.
+    if (!(undo ? history->undo() : history->redo()))
+    {
+        return refuse(undo ? "the view's Undo could not start" : "the view's Redo could not start");
+    }
+    if (answer)
+    {
+        (*answer)[QStringLiteral("action")] = undo ? QStringLiteral("undo") : QStringLiteral("redo");
+    }
+    return true;
+}
+
 } // namespace
+
+std::string imageDisplayModeName(const ImageViewMode mode)
+{
+    switch (mode)
+    {
+    case ImageViewMode::LINEAR_MODE:
+        return "linear";
+    case ImageViewMode::AUTOSTRETCH_MODE:
+        return "autostretch";
+    }
+    return "unknown";
+}
+
+std::optional<ImageViewMode> imageDisplayModeNamed(const std::string_view name)
+{
+    for (const ImageViewMode mode : {ImageViewMode::LINEAR_MODE, ImageViewMode::AUTOSTRETCH_MODE})
+    {
+        if (imageDisplayModeName(mode) == name)
+        {
+            return mode;
+        }
+    }
+    return std::nullopt;
+}
 
 struct ExtensionViewRequests::State
 {
@@ -403,7 +546,11 @@ bool answerViewRequest(ExtensionSessionController& session, const ExtensionViewR
         }
         return session.view_requests.answerSelection(*selection, session.target_control, own, answer, reason);
     }
-    return refuse("the request is not answered for this session");
+    if (const auto* display = std::get_if<ViewDisplayMessage>(&request))
+    {
+        return answerDisplay(*display, *view, answer, reason);
+    }
+    return answerHistory(std::get<ViewHistoryMessage>(request), session, answer, reason);
 }
 
 } // namespace an::ui::extensions

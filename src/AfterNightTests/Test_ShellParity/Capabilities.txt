@@ -650,6 +650,12 @@ capability new.contributed-processes
     classic      ShellScenario.ContributedProcessIsFoundAndStarted/classic
     observatory  ShellScenario.ContributedProcessIsFoundAndStarted/observatory, ContributedProcesses.AnEntryIsFoundInThePaletteAndStartedFromIt, ContributedProcesses.AFavouriteEntryStartsFromTheFavouritesAndAWithdrawnOneIsGoneFromEveryList
 
+capability new.extension-view-requests
+    title        An extension draws over its view, uses its selection area, sets how it is shown and asks for Undo and Redo
+    shared       ShapeOverlay.ShapesLieWhereTheirPointsLieAtThreeZooms, ViewSelection.TheHostIsToldOnceOnReleaseWithTheRectangle, ViewHistory.UndoRunsTheViewsUndoOnceAndRedoItsRedo
+    classic
+    observatory  HostedProcess.DisplayRequestMovesTheCanvas
+
 # ---- Covered less than their lines suggest
 #
 # Read before a capability's cases are written.
