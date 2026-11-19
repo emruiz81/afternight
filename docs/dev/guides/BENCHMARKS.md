@@ -404,6 +404,18 @@ buffers back (`take_mean_ms`), each step of the seam's way (`span_lend_source_ms
 `span_lend_mask_ms`, `span_take_ms`, `span_release_ms`) and the pool's bounds; what a package's Python adds is the
 stand-in's place.
 
+The hosted process has the same drag in `Test_ControlsExtensionSeam`:
+`HostedProcessPreviewBenchmark.ASliderDragThroughTheHostedPath` opens an extension's process the application draws over
+a target of the same frame, drags its slider as the window's case does and lends every frame's source and output from
+the hosted session's pool on the application's side; the request crosses the session's socket to a stand-in host served
+on a thread of its own, which writes the output with the window case's stand-in and answers, and the session is pumped
+as the application pumps it - when its socket has something to read, and every 100 ms. It takes the window case's
+`AN_BENCH_IMAGE`, `AN_BENCH_SCALING`, `AN_BENCH_ZOOM100`, `AN_BENCH_STEPS`, `AN_BENCH_STEP_MS`, `AN_BENCH_FPS`,
+`AN_BENCH_CHANNELS` and `AN_BENCH_FLOAT`, and prints the same `previews_per_s_in_drag`, frames, megapixels, view factor
+and `settled_after_release_ms`, with the stand-in's own times (`host_open_mean_ms`, `stand_in_mean_ms`). The two are
+compared run in alternation at the same frame size, the median of each read: the hosted drag is meant to keep within
+10 % of the window's, a comparison measured and never asserted.
+
 What a real host adds - the extension's word on the parameters, the bridge's binding of the buffers, the Python run and
 the flush of what it set on its result - is measured in `Test_ProcessFramework`:
 `ExtensionHostManagerTest.TheFramesOfANativeWindowInARealHostAreTraced` runs when `AN_BENCH_HOST_FRAMES` names a number

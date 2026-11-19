@@ -12,19 +12,29 @@
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessPageLayout.h"
 #include "session/ExecutionScope.h"
+#include "theme/AnDesignTokens.h"
+#include "theme/AnimationUtils.h"
+#include "theme/ComponentParts.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightPlatform/Logging.h>
 
 #include <QCloseEvent>
+#include <QCoreApplication>
+#include <QFontMetrics>
+#include <QHideEvent>
+#include <QPainter>
 #include <QPointer>
+#include <QShowEvent>
+#include <QSizePolicy>
 #include <QTimer>
 
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <utility>
+#include <vector>
 
 #include <verdigris/wobjectimpl.h>
 
@@ -47,7 +57,8 @@ std::filesystem::path frameTracePath()
 }
 
 /// What a request's answer says when it is not a success, as a status: a cancel is the engine's cancel, so the
-/// framework refuses the run without a word; anything else says why.
+/// framework refuses the run without a word, and so is a request its session's end answered, whose process says why in
+/// its own stopped state; anything else says why.
 an::Status statusOf(const HostedRequest::Answer& answer)
 {
     if (answer.answered && answer.status == "cancelled")
@@ -56,7 +67,7 @@ an::Status statusOf(const HostedRequest::Answer& answer)
     }
     if (!answer.answered)
     {
-        return an::Status::failure(an::ErrorCode::InvalidState,
+        return an::Status::failure(an::ErrorCode::Cancelled,
                                    answer.error.empty() ? "the extension's host did not answer" : answer.error);
     }
     return an::Status::failure(an::ErrorCode::InvalidState,
@@ -84,6 +95,126 @@ struct ApplyLending
         }
         removeLentBuffers(buffers);
     }
+};
+
+QString startingTitle()
+{
+    return QCoreApplication::translate("ExtensionHostedProcess", "Starting");
+}
+
+/// The quiet row a hosted process's body holds while its host starts: a turning arc, "Starting" and the process's
+/// name, and under them how far the host has come, a line a step.
+class StartingRow final : public QWidget
+{
+public:
+    StartingRow(QString name, QWidget* parent) : QWidget(parent), m_name(std::move(name))
+    {
+        setObjectName(QStringLiteral("hostedStartingRow"));
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        m_turn.setInterval(parts::kPageRunSpinnerStep);
+        QObject::connect(&m_turn, &QTimer::timeout, this, [this]() {
+            m_angle = (m_angle + parts::kPageRunSpinnerDegrees) % 360;
+            update();
+        });
+    }
+
+    void setLines(QStringList lines)
+    {
+        if (lines == m_lines)
+        {
+            return;
+        }
+        m_lines = std::move(lines);
+        updateGeometry();
+        update();
+    }
+
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        const DesignTokens& t = tokens();
+        const QFontMetrics title(titleFont(t));
+        const QFontMetrics line(lineFont(t));
+        const int head = (std::max)(title.height(), parts::kPageRunSpinner);
+        return QSize(parts::kPageColumnStandard,
+                     head + static_cast<int>(m_lines.size()) * line.lineSpacing() + t.metrics.gap);
+    }
+
+    [[nodiscard]] QSize minimumSizeHint() const override
+    {
+        return QSize(0, sizeHint().height());
+    }
+
+protected:
+    void showEvent(QShowEvent* event) override
+    {
+        QWidget::showEvent(event);
+        if (AnimationUtils::animationsEnabled())
+        {
+            m_turn.start();
+        }
+    }
+
+    void hideEvent(QHideEvent* event) override
+    {
+        m_turn.stop();
+        QWidget::hideEvent(event);
+    }
+
+    void paintEvent(QPaintEvent* /*event*/) override
+    {
+        const DesignTokens& t = tokens();
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const QFont strong = titleFont(t);
+        const QFontMetrics strongMetrics(strong);
+        const int head = (std::max)(strongMetrics.height(), parts::kPageRunSpinner);
+
+        // The turning arc.
+        const int spinner = parts::kPageRunSpinner;
+        const QRectF arc(parts::kPageRunSpinnerStroke, (head - spinner) / 2.0, spinner, spinner);
+        painter.setPen(QPen(t.colors.accentPrimary, parts::kPageRunSpinnerStroke, Qt::SolidLine, Qt::RoundCap));
+        painter.drawArc(arc, -m_angle * 16, 270 * 16);
+
+        // "Starting", then the process's name, quieter.
+        const int textLeft = static_cast<int>(arc.right()) + t.metrics.gap;
+        const QString title = startingTitle();
+        painter.setFont(strong);
+        painter.setPen(t.colors.textPrimary);
+        painter.drawText(QRect(textLeft, 0, width() - textLeft, head), Qt::AlignVCenter | Qt::AlignLeft, title);
+        const int nameLeft = textLeft + parts::textWidth(strong, title) + t.metrics.gap / 2;
+        const QFont quiet = lineFont(t);
+        painter.setFont(quiet);
+        painter.setPen(t.colors.textSecondary);
+        const QFontMetrics quietMetrics(quiet);
+        painter.drawText(QRect(nameLeft, 0, (std::max)(0, width() - nameLeft), head), Qt::AlignVCenter | Qt::AlignLeft,
+                         quietMetrics.elidedText(m_name, Qt::ElideRight, (std::max)(0, width() - nameLeft)));
+
+        // How far the host has come, a line a step, under the text.
+        int top = head;
+        for (const QString& line : m_lines)
+        {
+            painter.drawText(QRect(textLeft, top, width() - textLeft, quietMetrics.lineSpacing()),
+                             Qt::AlignVCenter | Qt::AlignLeft,
+                             quietMetrics.elidedText(line, Qt::ElideRight, (std::max)(0, width() - textLeft)));
+            top += quietMetrics.lineSpacing();
+        }
+    }
+
+private:
+    [[nodiscard]] static QFont titleFont(const DesignTokens& t)
+    {
+        return parts::sizedFont(t.typography.body, t.metrics.fontSmall, QFont::DemiBold);
+    }
+
+    [[nodiscard]] static QFont lineFont(const DesignTokens& t)
+    {
+        return parts::sizedFont(t.typography.body, t.metrics.fontSmall);
+    }
+
+    QString m_name;
+    QStringList m_lines;
+    QTimer m_turn;
+    int m_angle = 0;
 };
 
 /// The preview's body: each frame lent from the pool of the session it is bound to, run by the host's
@@ -158,6 +289,10 @@ ExtensionHostedProcess::ExtensionHostedProcess(ImageViewControl* target, Setup s
     setPreviewScaling(m_setup.previewScaling, m_setup.previewRegionMargin);
 
     ExtensionHostedSession::Listener listener;
+    listener.started = [this](const ExtensionHostedSession::StartStep step) {
+        addStartingLine(step == ExtensionHostedSession::StartStep::HostStarted ? tr("Its host has started")
+                                                                               : tr("The extension is loaded"));
+    };
     listener.ready = [this]() { onHostReady(); };
     listener.described = [this](const QJsonArray& params, const QString& refusal) { onDescribed(params, refusal); };
     listener.answered = [this](const QString& actionId, const QCborMap& values, const QString& error) {
@@ -204,6 +339,12 @@ ExtensionHostedProcess::ExtensionHostedProcess(ImageViewControl* target, Setup s
     {
         setPreviewBody(hostedPreviewBody(m_hosted, engineSession(), m_trace));
     }
+
+    // Until its host is ready the body says it starts, and what is drawn - the parameters kept from an earlier start -
+    // waits disabled.
+    m_startingRow = new StartingRow(QString::fromStdString(m_setup.displayName), this);
+    insertAtControlsHead(m_startingRow);
+    applyHostState();
 }
 
 ExtensionHostedProcess::~ExtensionHostedProcess()
@@ -239,6 +380,22 @@ bool ExtensionHostedProcess::hostReady() const noexcept
 bool ExtensionHostedProcess::hostFailed() const noexcept
 {
     return m_hostFailed;
+}
+
+bool ExtensionHostedProcess::isStarting() const noexcept
+{
+    return !m_hostReady && !m_hostFailed;
+}
+
+QStringList ExtensionHostedProcess::startingText() const
+{
+    if (!isStarting())
+    {
+        return {};
+    }
+    QStringList text{QStringLiteral("%1 %2").arg(startingTitle(), QString::fromStdString(m_setup.displayName))};
+    text.append(m_startingLines);
+    return text;
 }
 
 const QJsonArray& ExtensionHostedProcess::drawnParams() const noexcept
@@ -413,6 +570,103 @@ void ExtensionHostedProcess::pageLayoutMade()
     }
 }
 
+bool ExtensionHostedProcess::acceptsRuns() const
+{
+    return m_hostReady && !m_hostFailed;
+}
+
+void ExtensionHostedProcess::executeProcessEndedImpl(const RTPreviewMode previewMode, const bool sequenceMode)
+{
+    ExtensionNativeProcessWindow::executeProcessEndedImpl(previewMode, sequenceMode);
+    if (m_hostReady && !m_hostFailed)
+    {
+        return;
+    }
+    // What the run's end gives back - its controls, its message, its run's state - follows in the same call: the
+    // process is shown as its host stands once that has returned.
+    const QPointer<ExtensionHostedProcess> guard(this);
+    QTimer::singleShot(0, this, [guard]() {
+        if (guard)
+        {
+            guard->applyHostState();
+        }
+    });
+}
+
+void ExtensionHostedProcess::applyHostState()
+{
+    const bool starting = isStarting();
+    if (auto* const row = static_cast<StartingRow*>(m_startingRow))
+    {
+        row->setLines(m_startingLines);
+        row->setVisible(starting);
+    }
+    setControlsEnabled(m_hostReady && !m_hostFailed);
+    refreshApplyEnabled();
+    if (!m_hostFailed)
+    {
+        return;
+    }
+    const QPointer<ExtensionHostedProcess> guard(this);
+    std::vector<an::ui::ProcessMessageAction> actions;
+    if (m_hooks.restartSession)
+    {
+        actions.push_back(an::ui::ProcessMessageAction{.text = tr("Restart"), .act = [guard]() {
+                                                           if (guard)
+                                                           {
+                                                               guard->restartHost();
+                                                           }
+                                                       }});
+    }
+    actions.push_back(an::ui::ProcessMessageAction{.text = tr("Close"), .act = [guard]() {
+                                                       if (guard)
+                                                       {
+                                                           guard->close();
+                                                       }
+                                                   }});
+    showProcessMessageWithActions(tr("The extension stopped responding"), m_failure, ProcessMessageTone::Error,
+                                  std::move(actions));
+    if (!runState().running())
+    {
+        an::ui::ProcessRunState failed;
+        failed.phase = an::ui::ProcessRunState::Phase::Failed;
+        failed.text = m_failure;
+        setRunState(failed);
+    }
+}
+
+void ExtensionHostedProcess::addStartingLine(const QString& line)
+{
+    if (!m_startingLines.contains(line))
+    {
+        m_startingLines.push_back(line);
+    }
+    applyHostState();
+}
+
+void ExtensionHostedProcess::restartHost()
+{
+    if (!m_hostFailed || !m_hooks.restartSession)
+    {
+        return;
+    }
+    // The process starts again as it first did: the row, its controls waiting, nothing failed.
+    m_hostFailed = false;
+    m_failure.clear();
+    m_startingLines.clear();
+    m_sessionEnded = false;
+    clearProcessMessage();
+    setRunState(an::ui::ProcessRunState{});
+    applyHostState();
+    std::string error;
+    if (!m_hooks.restartSession(&error) && !m_hostReady)
+    {
+        m_hostFailed = true;
+        m_failure = error.empty() ? tr("The extension could not be started again.") : QString::fromStdString(error);
+        applyHostState();
+    }
+}
+
 void ExtensionHostedProcess::closeEvent(QCloseEvent* event)
 {
     ExtensionNativeProcessWindow::closeEvent(event);
@@ -452,6 +706,8 @@ void ExtensionHostedProcess::onHostReady()
 {
     m_hostReady = true;
     m_hostFailed = false;
+    m_startingLines.clear();
+    applyHostState();
     // A host started anew knows nothing of what the tool's configuration resolved.
     m_toldToolRecord.reset();
     externalToolRecordMayHaveChanged();
@@ -502,6 +758,11 @@ void ExtensionHostedProcess::onSessionEnded(const ExtensionSessionEnd& end)
         m_actionAnswer = nullptr;
         done(QCborMap());
     }
+    if (m_sessionEnded)
+    {
+        // The process asked for it as it closes.
+        return;
+    }
     if (!end.failed)
     {
         // The host closed as it should - the extension closed its window, or the application stopped it: the process
@@ -516,10 +777,12 @@ void ExtensionHostedProcess::onSessionEnded(const ExtensionSessionEnd& end)
         });
         return;
     }
-    // The host failed: the process stays, its run refused and the target's lock let go, saying why.
+    // The host failed: the process stays, its run refused and the target's lock let go, its controls disabled, and its
+    // banner says so with Restart and Close.
     m_hostFailed = true;
+    m_failure = end.reason;
     stopPreviews();
-    showProcessMessage(tr("The extension stopped responding"), end.reason, ProcessMessageTone::Error);
+    applyHostState();
 }
 
 void ExtensionHostedProcess::listOpenImages()

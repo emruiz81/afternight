@@ -452,6 +452,21 @@ protected:
     /// reads as its settings: after every change of what the Apply waits for. Nothing by default.
     virtual void externalToolRecordMayHaveChanged() {}
 
+    /// Whether the window can be applied now, beside what it waits for itself: always, by default; a window whose
+    /// extension runs elsewhere, only while that runs. `refreshApplyEnabled` asks it again.
+    [[nodiscard]] virtual bool acceptsRuns() const
+    {
+        return true;
+    }
+    void refreshApplyEnabled();
+
+    /// Lays a widget at the head of the controls, above everything the extension asked for.
+    void insertAtControlsHead(QWidget* widget);
+
+    /// Enables or disables what a person sets in the window - the extension's controls, the target, the tool's
+    /// configuration and Reset - and leaves Close as it is; a run's lock is laid over it as before.
+    void setControlsEnabled(bool enabled);
+
     /// The width the extension asks its controls' panel to have (`controls_panel_width`); zero when it asks none.
     [[nodiscard]] int configuredControlsPanelWidth() const noexcept
     {

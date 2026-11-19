@@ -442,6 +442,50 @@ QProgressBar* findInfoBannerProgressBar(QWidget* root)
     return root ? root->findChild<QProgressBar*>(QString::fromUtf8(PROCESS_BANNER_PROGRESS_OBJECT_NAME)) : nullptr;
 }
 
+/// The row of the acts a window's message offers, under the message; null while it offers none.
+QWidget* findInfoBannerActions(QWidget* banner)
+{
+    return banner ? banner->findChild<QWidget*>(QStringLiteral("anProcessBannerActions"), Qt::FindDirectChildrenOnly)
+                  : nullptr;
+}
+
+/// The acts a window's message offers, a button each at the end of a row under it; none takes the row away. The row
+/// offered before goes at once, even when one of its buttons asked for this, and is deleted once that press returned.
+void setInfoBannerActions(QWidget* banner, std::vector<an::ui::ProcessMessageAction> actions)
+{
+    if (QWidget* offered = findInfoBannerActions(banner))
+    {
+        offered->hide();
+        offered->setParent(nullptr);
+        offered->deleteLater();
+    }
+    auto* bannerLayout = banner ? qobject_cast<QBoxLayout*>(banner->layout()) : nullptr;
+    if (actions.empty() || bannerLayout == nullptr)
+    {
+        return;
+    }
+    auto* row = new QWidget(banner);
+    row->setObjectName(QStringLiteral("anProcessBannerActions"));
+    auto* rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(0, 0, 0, 0);
+    rowLayout->setSpacing(an::ui::tokens().spacing.sm);
+    rowLayout->addStretch(1);
+    for (an::ui::ProcessMessageAction& action : actions)
+    {
+        auto* button = new QPushButton(action.text, row);
+        button->setObjectName(QStringLiteral("anMessageAction"));
+        button->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
+        QObject::connect(button, &QPushButton::clicked, row, [act = std::move(action.act)]() {
+            if (act)
+            {
+                act();
+            }
+        });
+        rowLayout->addWidget(button);
+    }
+    bannerLayout->addWidget(row);
+}
+
 void fitFreeformButtonWidths(QWidget* root)
 {
     if (!root)
@@ -1158,6 +1202,7 @@ void TopLevelProcessBaseControl::showProcessMessage(const QString& title, const 
         return;
     }
 
+    setInfoBannerActions(infoBanner, {});
     infoBanner->setProperty("anProcessMessageTone", tonePropertyValue(tone));
     if (auto* style = infoBanner->style())
     {
@@ -1198,12 +1243,47 @@ void TopLevelProcessBaseControl::clearProcessMessage()
     }
 
     infoBannerMessage->clear();
+    setInfoBannerActions(infoBanner, {});
     if (QProgressBar* infoBannerProgress = findInfoBannerProgressBar(this))
     {
         infoBannerProgress->setVisible(false);
         infoBannerProgress->reset();
     }
     infoBanner->setVisible(false);
+}
+
+void TopLevelProcessBaseControl::showProcessMessageWithActions(const QString& title, const QString& message,
+                                                               const ProcessMessageTone tone,
+                                                               std::vector<an::ui::ProcessMessageAction> actions)
+{
+    showProcessMessage(title, message, tone);
+    if (m_Page != nullptr)
+    {
+        m_Page->setMessageActions(std::move(actions));
+        return;
+    }
+    if (QWidget* infoBanner = findInfoBanner(this); infoBanner != nullptr && !infoBanner->isHidden())
+    {
+        setInfoBannerActions(infoBanner, std::move(actions));
+    }
+}
+
+QStringList TopLevelProcessBaseControl::processMessageActions() const
+{
+    if (m_Page != nullptr)
+    {
+        return m_Page->messageActions();
+    }
+    QStringList texts;
+    auto* const infoBanner = findChild<QWidget*>(QString::fromUtf8(PROCESS_BANNER_OBJECT_NAME));
+    if (QWidget* row = findInfoBannerActions(infoBanner))
+    {
+        for (const QPushButton* button : row->findChildren<QPushButton*>(QStringLiteral("anMessageAction")))
+        {
+            texts.push_back(button->text());
+        }
+    }
+    return texts;
 }
 
 QString TopLevelProcessBaseControl::processMessage() const

@@ -138,8 +138,21 @@ class AFTERNIGHTCONTROLS_API ExtensionHostedSession final : public std::enable_s
 {
 public:
     /// What the session tells its process, on the GUI thread.
+    /// How far a host has come in its start, before its runtime is ready.
+    enum class StartStep : std::uint8_t
+    {
+        /// The host's process answered and was acknowledged: the session is bound.
+        HostStarted,
+
+        /// The host has loaded the extension and is handed the application's state.
+        ExtensionLoaded
+    };
+
     struct Listener
     {
+        /// How far the host has come in its start, each step once, in order.
+        std::function<void(StartStep step)> started;
+
         /// The host's runtime is ready: requests are sent from now on.
         std::function<void()> ready;
 
@@ -237,6 +250,7 @@ private:
     ExtensionSessionController* m_session = nullptr;
     std::string m_sessionId;
     bool m_wasReady = false;
+    bool m_toldLoaded = false;
     std::optional<SessionActivityMessage> m_toldActivity;
     Listener m_listener;
 

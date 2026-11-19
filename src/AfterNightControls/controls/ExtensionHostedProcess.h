@@ -25,6 +25,7 @@
 
 #include <QJsonArray>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 
 #include <cstdint>
@@ -80,8 +81,8 @@ public:
         /// Ends the process's session: the process closed.
         std::function<void()> closeSession;
 
-        /// Starts the process's session again, after its host failed.
-        std::function<void()> restartSession;
+        /// Starts the process's session again, after its host failed: false, and why, when it could not.
+        std::function<bool(std::string* error)> restartSession;
 
         /// The open images, as an extension lists them, for the target and the view selectors.
         std::function<std::vector<std::map<std::string, QVariant>>()> listViews;
@@ -110,8 +111,16 @@ public:
     [[nodiscard]] bool hostReady() const noexcept;
 
     /// Whether the host failed - crashed, stopped answering, refused what it was sent - and the process waits to be
-    /// started again or closed.
+    /// started again or closed: its controls disabled, its banner saying so with Restart and Close, its run failed.
     [[nodiscard]] bool hostFailed() const noexcept;
+
+    /// Whether the process waits for its host's start: its body holds a row that says so, and its controls - the
+    /// parameters kept from an earlier start among them - are disabled until the host is ready.
+    [[nodiscard]] bool isStarting() const noexcept;
+
+    /// What the starting row says while it shows: "Starting" and the process's name, then how far the host has come, a
+    /// line a step; nothing once the host is ready or failed.
+    [[nodiscard]] QStringList startingText() const;
 
     /// The parameters the host told last, or the ones kept from an earlier start until it has.
     [[nodiscard]] const QJsonArray& drawnParams() const noexcept;
@@ -140,7 +149,17 @@ protected:
     /// The page's header says the process runs in its own process.
     void pageLayoutMade() override;
 
+    /// An Apply waits for a host that is ready.
+    [[nodiscard]] bool acceptsRuns() const override;
+
+    /// A run that ended while the host starts or after it failed leaves the process as its host stands.
+    void executeProcessEndedImpl(const RTPreviewMode previewMode, const bool sequenceMode) override;
+
 private:
+    /// Shows the process as its host stands: starting, ready or failed.
+    void applyHostState();
+    void addStartingLine(const QString& line);
+    void restartHost();
     void onHostReady();
     void onDescribed(const QJsonArray& params, const QString& refusal);
     void onActionAnswered(const QString& actionId, const QCborMap& values, const QString& error);
@@ -157,6 +176,12 @@ private:
     QJsonArray m_drawnParams;
     std::shared_ptr<ExtensionHostedSession> m_hosted;
     std::shared_ptr<PreviewFrameTrace> m_trace;
+    /// The row the body holds while the host starts.
+    QWidget* m_startingRow = nullptr;
+    /// How far the host has come in its start, a line a step.
+    QStringList m_startingLines;
+    /// Why the host failed, as the banner says it.
+    QString m_failure;
     std::function<void(QCborMap)> m_actionAnswer;
     /// The tool's record the host was told last; none before it was told one.
     std::optional<QCborMap> m_toldToolRecord;

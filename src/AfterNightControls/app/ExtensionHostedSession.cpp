@@ -114,13 +114,20 @@ void ExtensionHostedSession::bind(ExtensionHostManager& manager, ExtensionSessio
     m_session = &session;
     m_sessionId = session.sessionId();
     m_wasReady = false;
+    m_toldLoaded = false;
     m_toldActivity.reset();
-    const std::lock_guard lock(m_mutex);
-    m_bufferSessionId = m_sessionId;
-    // The frames are lent from the session's own directory, which the application removes once it has stopped the
-    // session, as it removes everything lent there.
-    m_pool = std::make_shared<PreviewFrameBufferPool>(SharedBufferManager(extensionHostManagedRootPath()),
-                                                      m_bufferSessionId);
+    {
+        const std::lock_guard lock(m_mutex);
+        m_bufferSessionId = m_sessionId;
+        // The frames are lent from the session's own directory, which the application removes once it has stopped the
+        // session, as it removes everything lent there.
+        m_pool = std::make_shared<PreviewFrameBufferPool>(SharedBufferManager(extensionHostManagedRootPath()),
+                                                          m_bufferSessionId);
+    }
+    if (m_listener.started)
+    {
+        m_listener.started(StartStep::HostStarted);
+    }
 }
 
 void ExtensionHostedSession::unbind(const ExtensionSessionEnd& end)
@@ -284,6 +291,14 @@ void ExtensionHostedSession::route()
     }
     ExtensionHostRunningSession& running = m_session->running_session;
 
+    if (!m_toldLoaded && !m_wasReady && running.runtime_bootstrap_state_ready)
+    {
+        m_toldLoaded = true;
+        if (m_listener.started)
+        {
+            m_listener.started(StartStep::ExtensionLoaded);
+        }
+    }
     if (!m_wasReady && ready())
     {
         m_wasReady = true;

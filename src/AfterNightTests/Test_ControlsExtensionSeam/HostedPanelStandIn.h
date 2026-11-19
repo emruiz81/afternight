@@ -112,6 +112,13 @@ public:
         return m_peer.get();
     }
 
+    /// Hands the far end of the session's socket over, to be served from a thread of its own as a host's process serves
+    /// it; the stand-in reads and writes nothing more.
+    [[nodiscard]] std::unique_ptr<QLocalSocket> releasePeer() noexcept
+    {
+        return std::move(m_peer);
+    }
+
     /// Sends a message to the application.
     void send(an::ui::extensions::ExtensionProtocolMessage message)
     {
@@ -167,7 +174,10 @@ public:
         {
             pump();
             QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-            m_peer->waitForReadyRead(2);
+            if (m_peer)
+            {
+                m_peer->waitForReadyRead(2);
+            }
             read();
             const auto found = std::find_if(m_received.begin(), m_received.end(),
                                             [type](const auto& message) { return message.type == type; });

@@ -17,6 +17,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 class ImageViewControl;
@@ -51,6 +52,13 @@ enum class ProcessColumnWidth : std::uint8_t
 {
     Standard,
     Wide
+};
+
+/// An act a process's message offers at its end - Restart, Close - a button that does what it says when it is pressed.
+struct ProcessMessageAction
+{
+    QString text;
+    std::function<void()> act;
 };
 
 /// Where a process's run stands: the phase, how far it has come when it can tell, and what it is doing.

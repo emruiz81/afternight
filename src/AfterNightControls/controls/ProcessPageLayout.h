@@ -279,8 +279,14 @@ public:
     [[nodiscard]] QString canvasMessage() const;
 
     /// The process's message, as `TopLevelProcessBaseControl::showProcessMessage` states it; empty hides the banner.
+    /// The acts the message offered before go with it.
     void showMessage(const QString& text, PageMessageTone tone, std::optional<double> progressPercent);
     [[nodiscard]] QString message() const;
+
+    /// The acts the message shown now offers at its end - Restart, Close - in order, until the next message; none
+    /// takes them away.
+    void setMessageActions(std::vector<ProcessMessageAction> actions);
+    [[nodiscard]] QStringList messageActions() const;
 
     /// Where the process's run stands: during a run the run's row replaces the banner, the toggles, Reset and Close are
     /// disabled, the body's controls are disabled and Cancel takes the primary button's place.

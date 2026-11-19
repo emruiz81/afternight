@@ -12,6 +12,10 @@
 /// preview answers with nothing and lets the next one land; an execute or a workflow is cancelled while it is in
 /// flight, and nothing it would have committed or opened reaches the application. Each in-flight request is held in
 /// flight by the host's own delay, so the cancellation lands at the same point on every run.
+///
+/// Every subject of the full host that runs on one image is run on both paths: its window's, and the hosted panel's - a
+/// session whose panel the application draws, each request lending the output the host writes - with the same answers
+/// expected of both, a cancelled Apply on the hosted path answered and the session going on.
 
 #include "Test_ProcessFramework/ExtensionHostTestSupport.h"
 #include "Test_ProcessFramework/ExtensionTestSupport.h"
@@ -38,6 +42,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QElapsedTimer>
 #include <QRect>
 #include <QString>
 #include <QStringList>
@@ -224,22 +229,115 @@ void expectSamples(const an::consumer::ImageAsset& result, const an::consumer::I
     }
 }
 
-/// One subject's session: launched as the application launches it, stopped however the case ends.
+/// The way a subject's requests go: through its own window's session, or through a session whose panel the
+/// application draws, each request lending the output the host writes.
+enum class Path
+{
+    Window,
+    Hosted
+};
+
+constexpr Path kPaths[] = {Path::Window, Path::Hosted};
+
+[[nodiscard]] const char* nameOf(const Path path)
+{
+    return path == Path::Hosted ? "hosted" : "window";
+}
+
+/// The first source among a request's buffers, or null.
+[[nodiscard]] const SharedBufferDescriptor* sourceOf(const std::vector<SharedBufferDescriptor>& buffers)
+{
+    const auto found = std::find_if(buffers.begin(), buffers.end(), [](const SharedBufferDescriptor& buffer) {
+        return buffer.buffer_role == SharedBufferRole::Source;
+    });
+    return found != buffers.end() ? &*found : nullptr;
+}
+
+/// One subject's session: launched as the application launches it, on a path, stopped however the case ends.
 class SubjectSession
 {
 public:
     SubjectSession(const ExtensionLoadResult& subject, const std::vector<std::string>& extra_arguments = {},
-                   an::ui::extensions::ExtensionSdkService* sdk_service = nullptr)
-        : m_root(uniqueSharedBufferRootForTest("regression-" + subject.manifest->id)), m_removeRoot{m_root}
+                   an::ui::extensions::ExtensionSdkService* sdk_service = nullptr, const Path path = Path::Window)
+        : m_root(uniqueSharedBufferRootForTest("regression-" + subject.manifest->id)), m_removeRoot{m_root},
+          m_path(path)
     {
         removeAllNoThrow(m_root);
         if (sdk_service != nullptr)
         {
             m_manager.setSdkService(sdk_service);
         }
-        const auto prepared = m_manager.prepareSession(launchRequestFor(subject, extra_arguments));
+        an::ui::extensions::ExtensionHostLaunchRequest request = launchRequestFor(subject, extra_arguments);
+        request.hosted_panel = path == Path::Hosted;
+        const auto prepared = m_manager.prepareSession(request);
         m_launched = m_manager.launchSession(prepared, &m_session, &m_error);
         m_guard.emplace(m_manager, m_session);
+        if (m_launched)
+        {
+            EXPECT_EQ(m_session.hosted_panel, path == Path::Hosted) << "the host serves the panel it was asked for";
+        }
+    }
+
+    [[nodiscard]] Path path() const noexcept
+    {
+        return m_path;
+    }
+
+    /// The output the application lends a request on the hosted path, of its source's shape, as the hosted process
+    /// lends one: a frame's of its own, an Apply's beside its source and sharing its sidecar.
+    [[nodiscard]] SharedBufferDescriptor lendOutput(const SharedBufferDescriptor& source, const SharedBufferRole role)
+    {
+        const an::ui::extensions::SharedBufferManager manager(m_root);
+        an::ui::extensions::SharedImageBufferSpec spec;
+        spec.sessionId = m_session.prepared_session.session_id;
+        spec.bufferId = "lent-" + std::to_string(m_lent.size());
+        spec.symbolicName = role == SharedBufferRole::Preview ? "preview" : "destination";
+        spec.width = source.width;
+        spec.height = source.height;
+        spec.channels = source.channels;
+        spec.pixelType = source.pixel_type;
+        spec.pixelFormat = source.pixel_format;
+        spec.colorSpace = source.color_space;
+        spec.accessMode = SharedBufferAccessMode::ReadWrite;
+        spec.bufferRole = role;
+        if (role == SharedBufferRole::Destination)
+        {
+            spec.metadataSidecar = source.metadata_sidecar;
+        }
+        an::Result<an::ui::extensions::SharedImageBuffer> allocated = manager.allocateBuffer(spec);
+        EXPECT_TRUE(allocated.hasValue()) << (allocated.hasValue() ? std::string() : allocated.status().message());
+        if (!allocated.hasValue())
+        {
+            return {};
+        }
+        m_lent.push_back(std::move(*allocated));
+        m_lentOutput = m_lent.back().descriptor();
+        return m_lentOutput;
+    }
+
+    /// A request's buffers as its path sends them: on the hosted path, with the output lent for its source.
+    [[nodiscard]] std::vector<SharedBufferDescriptor> sent(const std::vector<SharedBufferDescriptor>& buffers,
+                                                           const SharedBufferRole outputRole)
+    {
+        std::vector<SharedBufferDescriptor> sent = buffers;
+        if (m_path == Path::Hosted)
+        {
+            if (const SharedBufferDescriptor* source = sourceOf(buffers))
+            {
+                sent.push_back(lendOutput(*source, outputRole));
+            }
+        }
+        return sent;
+    }
+
+    /// On the hosted path, an answer names the output it was lent.
+    void expectAnsweredAsLent(const SharedBufferDescriptor& answered) const
+    {
+        if (m_path == Path::Hosted)
+        {
+            EXPECT_EQ(answered.buffer_id, m_lentOutput.buffer_id) << "the host writes into the output it was lent";
+            EXPECT_EQ(answered.mapped_file_path, m_lentOutput.mapped_file_path);
+        }
     }
 
     SubjectSession(const SubjectSession&) = delete;
@@ -285,7 +383,8 @@ public:
     [[nodiscard]] bool execute(const QCborMap& params, const std::vector<SharedBufferDescriptor>& buffers)
     {
         std::string request_id;
-        if (!m_manager.sendExecuteRequest(&m_session, "regression-execute", params, buffers, &request_id, &m_error))
+        if (!m_manager.sendExecuteRequest(&m_session, "regression-execute", params,
+                                          sent(buffers, SharedBufferRole::Destination), &request_id, &m_error))
         {
             return false;
         }
@@ -296,7 +395,8 @@ public:
     [[nodiscard]] bool preview(const QCborMap& params, const std::vector<SharedBufferDescriptor>& buffers)
     {
         std::string request_id;
-        if (!m_manager.sendPreviewRequest(&m_session, "regression-preview", params, buffers, &request_id, &m_error))
+        if (!m_manager.sendPreviewRequest(&m_session, "regression-preview", params,
+                                          sent(buffers, SharedBufferRole::Preview), &request_id, &m_error))
         {
             return false;
         }
@@ -311,6 +411,8 @@ private:
     std::vector<an::ui::extensions::SharedImageBuffer> m_lent;
     std::optional<SessionGuard> m_guard;
     std::string m_error;
+    Path m_path = Path::Window;
+    SharedBufferDescriptor m_lentOutput;
     bool m_launched = false;
 };
 
@@ -452,37 +554,42 @@ TEST(ExtensionRegression, AHostThatSpeaksAnotherSdkVersionIsRefused)
 TEST(ExtensionRegression, TheEchoDemoInvertsItsSourceAndRecordsTheRun)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Bundled, "an_echo_demo");
-    ASSERT_NE(subject, nullptr);
-
-    for (const bool integer : {false, true})
+    for (const Path path : kPaths)
     {
-        SCOPED_TRACE(integer ? "UInt16" : "Float32");
-        SubjectSession session(*subject);
-        ASSERT_TRUE(session.launched()) << session.error();
-        const auto source = integer ? makeMonoUInt16Image("echo", 6, 4, 100, 997) : unitRamp(6, 4);
-        ASSERT_TRUE(source);
-        const SharedBufferDescriptor lent =
-            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
-        ASSERT_TRUE(session.execute({}, {lent})) << session.error();
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Bundled, "an_echo_demo");
+        ASSERT_NE(subject, nullptr);
 
-        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-        ASSERT_NE(destination, nullptr);
-        const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
-        ASSERT_TRUE(result);
-        EXPECT_EQ(hasSampleType(*result, an::SampleType::UInt16), integer);
-        const double full = integer ? 65535.0 : 1.0;
-        expectSamples(*result, *source, [full](double value, auto, auto, auto) { return full - value; });
+        for (const bool integer : {false, true})
+        {
+            SCOPED_TRACE(integer ? "UInt16" : "Float32");
+            SubjectSession session(*subject, {}, nullptr, path);
+            ASSERT_TRUE(session.launched()) << session.error();
+            const auto source = integer ? makeMonoUInt16Image("echo", 6, 4, 100, 997) : unitRamp(6, 4);
+            ASSERT_TRUE(source);
+            const SharedBufferDescriptor lent =
+                session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+            ASSERT_TRUE(session.execute({}, {lent})) << session.error();
 
-        const QJsonObject sidecar = sidecarOf(*destination);
-        EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.label")).toString(), QStringLiteral("Echo Demo"));
-        EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.pixel_type")).toString(),
-                  integer ? QStringLiteral("uint16") : QStringLiteral("float32"));
-        EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.width")).toString(), QStringLiteral("6"));
-        EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.session_id")).toString().toStdString(),
-                  session.session().prepared_session.session_id);
-        EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.extension_id")).toString(),
-                  QStringLiteral("an.demo.echo"));
+            const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+            ASSERT_NE(destination, nullptr);
+            session.expectAnsweredAsLent(*destination);
+            const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
+            ASSERT_TRUE(result);
+            EXPECT_EQ(hasSampleType(*result, an::SampleType::UInt16), integer);
+            const double full = integer ? 65535.0 : 1.0;
+            expectSamples(*result, *source, [full](double value, auto, auto, auto) { return full - value; });
+
+            const QJsonObject sidecar = sidecarOf(*destination);
+            EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.label")).toString(), QStringLiteral("Echo Demo"));
+            EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.pixel_type")).toString(),
+                      integer ? QStringLiteral("uint16") : QStringLiteral("float32"));
+            EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.width")).toString(), QStringLiteral("6"));
+            EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.session_id")).toString().toStdString(),
+                      session.session().prepared_session.session_id);
+            EXPECT_EQ(sidecar.value(QStringLiteral("an.demo.echo.extension_id")).toString(),
+                      QStringLiteral("an.demo.echo"));
+        }
     }
 }
 
@@ -490,40 +597,46 @@ TEST(ExtensionRegression, TheEchoDemoInvertsItsSourceAndRecordsTheRun)
 TEST(ExtensionRegression, TheRealTimePreviewDemoPreviewsWhatItCommits)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Bundled, "an_rt_preview_demo");
-    ASSERT_NE(subject, nullptr);
-    SubjectSession session(*subject);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = makeRgbGradientImage(6, 5);
-    ASSERT_TRUE(source);
-    const QCborMap params{{QStringLiteral("strength"), 0.6},
-                          {QStringLiteral("lift"), 0.02},
-                          {QStringLiteral("mode"), QStringLiteral("punchy")},
-                          {QStringLiteral("preserve_background"), false}};
-    const auto expected = [](double value, auto, auto, auto) {
-        return expectedRtPreviewDemoValue(value, 0.6, 0.02, QStringLiteral("punchy"), false);
-    };
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Bundled, "an_rt_preview_demo");
+        ASSERT_NE(subject, nullptr);
+        SubjectSession session(*subject, {}, nullptr, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = makeRgbGradientImage(6, 5);
+        ASSERT_TRUE(source);
+        const QCborMap params{{QStringLiteral("strength"), 0.6},
+                              {QStringLiteral("lift"), 0.02},
+                              {QStringLiteral("mode"), QStringLiteral("punchy")},
+                              {QStringLiteral("preserve_background"), false}};
+        const auto expected = [](double value, auto, auto, auto) {
+            return expectedRtPreviewDemoValue(value, 0.6, 0.02, QStringLiteral("punchy"), false);
+        };
 
-    const SharedBufferDescriptor lent =
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source");
-    ASSERT_TRUE(session.preview(params, {lent})) << session.error();
-    ASSERT_TRUE(session.session().last_preview_result.has_value());
-    EXPECT_EQ(session.session().last_preview_result->status, "succeeded")
-        << session.session().last_preview_result->detail;
-    ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
-    const std::optional<an::consumer::ImageAsset> preview =
-        importResult(session.root(), session.session().last_preview_result->output_buffers.front());
-    ASSERT_TRUE(preview);
-    expectSamples(*preview, *source, expected);
+        const SharedBufferDescriptor lent =
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source");
+        ASSERT_TRUE(session.preview(params, {lent})) << session.error();
+        ASSERT_TRUE(session.session().last_preview_result.has_value());
+        EXPECT_EQ(session.session().last_preview_result->status, "succeeded")
+            << session.session().last_preview_result->detail;
+        ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
+        session.expectAnsweredAsLent(session.session().last_preview_result->output_buffers.front());
+        const std::optional<an::consumer::ImageAsset> preview =
+            importResult(session.root(), session.session().last_preview_result->output_buffers.front());
+        ASSERT_TRUE(preview);
+        expectSamples(*preview, *source, expected);
 
-    const SharedBufferDescriptor target =
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
-    ASSERT_TRUE(session.execute(params, {target})) << session.error();
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    ASSERT_NE(destination, nullptr);
-    const std::optional<an::consumer::ImageAsset> committed = importResult(session.root(), *destination);
-    ASSERT_TRUE(committed);
-    expectSamples(*committed, *source, expected);
+        const SharedBufferDescriptor target =
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+        ASSERT_TRUE(session.execute(params, {target})) << session.error();
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        const std::optional<an::consumer::ImageAsset> committed = importResult(session.root(), *destination);
+        ASSERT_TRUE(committed);
+        expectSamples(*committed, *source, expected);
+    }
 }
 
 // ---- The author templates.
@@ -532,20 +645,25 @@ TEST(ExtensionRegression, TheRealTimePreviewDemoPreviewsWhatItCommits)
 TEST(ExtensionRegression, TheBasicTemplateScalesItsSourceByItsStrength)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Template, "basic_process");
-    ASSERT_NE(subject, nullptr);
-    SubjectSession session(*subject);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = makeRgbGradientImage(5, 4);
-    ASSERT_TRUE(source);
-    const SharedBufferDescriptor lent =
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
-    ASSERT_TRUE(session.execute(QCborMap{{QStringLiteral("strength"), 0.5}}, {lent})) << session.error();
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    ASSERT_NE(destination, nullptr);
-    const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
-    ASSERT_TRUE(result);
-    expectSamples(*result, *source, [](double value, auto, auto, auto) { return 0.5 * value; });
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Template, "basic_process");
+        ASSERT_NE(subject, nullptr);
+        SubjectSession session(*subject, {}, nullptr, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = makeRgbGradientImage(5, 4);
+        ASSERT_TRUE(source);
+        const SharedBufferDescriptor lent =
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+        ASSERT_TRUE(session.execute(QCborMap{{QStringLiteral("strength"), 0.5}}, {lent})) << session.error();
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
+        ASSERT_TRUE(result);
+        expectSamples(*result, *source, [](double value, auto, auto, auto) { return 0.5 * value; });
+    }
 }
 
 // The settings and diagnostics template scales its source, records the run on the result, stores what it last did in
@@ -553,42 +671,48 @@ TEST(ExtensionRegression, TheBasicTemplateScalesItsSourceByItsStrength)
 TEST(ExtensionRegression, TheSettingsDiagnosticsTemplateScalesRecordsAndReports)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Template, "settings_diagnostics_process");
-    ASSERT_NE(subject, nullptr);
-    InMemorySettings settings_store;
-    an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
-    SubjectSession session(*subject, {}, &sdk_service);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = unitRamp(5, 3);
-    ASSERT_TRUE(source);
-    const SharedBufferDescriptor lent =
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
-    ASSERT_TRUE(
-        session.execute(QCborMap{{QStringLiteral("strength"), 0.5}, {QStringLiteral("write_artifact"), true}}, {lent}))
-        << session.error();
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    ASSERT_NE(destination, nullptr);
-    const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
-    ASSERT_TRUE(result);
-    expectSamples(*result, *source, [](double value, auto, auto, auto) { return 0.5 * value; });
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Template, "settings_diagnostics_process");
+        ASSERT_NE(subject, nullptr);
+        InMemorySettings settings_store;
+        an::ui::extensions::ExtensionSdkService sdk_service(&settings_store.repository());
+        SubjectSession session(*subject, {}, &sdk_service, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = unitRamp(5, 3);
+        ASSERT_TRUE(source);
+        const SharedBufferDescriptor lent =
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+        ASSERT_TRUE(session.execute(
+            QCborMap{{QStringLiteral("strength"), 0.5}, {QStringLiteral("write_artifact"), true}}, {lent}))
+            << session.error();
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
+        ASSERT_TRUE(result);
+        expectSamples(*result, *source, [](double value, auto, auto, auto) { return 0.5 * value; });
 
-    const QJsonObject sidecar = sidecarOf(*destination);
-    EXPECT_EQ(sidecar.value(QStringLiteral("example.settings_diagnostics.strength")).toString(), QStringLiteral("0.5"));
-    EXPECT_EQ(sidecar.value(QStringLiteral("example.settings_diagnostics.session_id")).toString().toStdString(),
-              session.session().prepared_session.session_id);
-    const std::string artifact =
-        sidecar.value(QStringLiteral("example.settings_diagnostics.artifact")).toString().toStdString();
-    ASSERT_FALSE(artifact.empty()) << "the template writes its report where the session keeps artifacts";
-    std::ifstream report{std::filesystem::path(artifact)};
-    std::stringstream text;
-    text << report.rdbuf();
-    EXPECT_NE(text.str().find("strength=0.500"), std::string::npos) << text.str();
+        const QJsonObject sidecar = sidecarOf(*destination);
+        EXPECT_EQ(sidecar.value(QStringLiteral("example.settings_diagnostics.strength")).toString(),
+                  QStringLiteral("0.5"));
+        EXPECT_EQ(sidecar.value(QStringLiteral("example.settings_diagnostics.session_id")).toString().toStdString(),
+                  session.session().prepared_session.session_id);
+        const std::string artifact =
+            sidecar.value(QStringLiteral("example.settings_diagnostics.artifact")).toString().toStdString();
+        ASSERT_FALSE(artifact.empty()) << "the template writes its report where the session keeps artifacts";
+        std::ifstream report{std::filesystem::path(artifact)};
+        std::stringstream text;
+        text << report.rdbuf();
+        EXPECT_NE(text.str().find("strength=0.500"), std::string::npos) << text.str();
 
-    QCborValue strength;
-    ASSERT_TRUE(
-        sdk_service.selectExtensionSetting(subject->manifest->id, "last_strength", &strength, {}, &session.error()))
-        << session.error();
-    EXPECT_DOUBLE_EQ(strength.toDouble(), 0.5);
+        QCborValue strength;
+        ASSERT_TRUE(
+            sdk_service.selectExtensionSetting(subject->manifest->id, "last_strength", &strength, {}, &session.error()))
+            << session.error();
+        EXPECT_DOUBLE_EQ(strength.toDouble(), 0.5);
+    }
 }
 
 // The auxiliary buffers template blends the selection mask and the weight map the application lends it into its
@@ -596,39 +720,45 @@ TEST(ExtensionRegression, TheSettingsDiagnosticsTemplateScalesRecordsAndReports)
 TEST(ExtensionRegression, TheAuxiliaryBuffersTemplateBlendsItsMaskAndWeightAndReturnsAMask)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Template, "auxiliary_buffers_process");
-    ASSERT_NE(subject, nullptr);
-    SubjectSession session(*subject);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = makeMonoFloatImage("source", 5, 4, 0.1f, 0.02f);
-    const auto selection = makeMonoFloatImage("selection", 5, 4, 0.0f, 0.05f);
-    const auto weight = makeMonoFloatImage("weight", 5, 4, 0.3f, -0.01f);
-    const auto mask_template = makeMonoFloatImage("output", 5, 4, 0.0f, 0.0f);
-    ASSERT_TRUE(source && selection && weight && mask_template);
-    const std::vector<SharedBufferDescriptor> buffers = {
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source"),
-        session.lend(selection, SharedBufferRole::Mask, SharedBufferAccessMode::ReadOnly, "selection"),
-        session.lend(weight, SharedBufferRole::Weight, SharedBufferAccessMode::ReadOnly, "weight_map"),
-        session.lend(mask_template, SharedBufferRole::Mask, SharedBufferAccessMode::ReadWrite, "output_mask")};
-    ASSERT_TRUE(session.execute(
-        QCborMap{{QStringLiteral("mask_strength"), 0.4}, {QStringLiteral("weight_boost"), 0.25}}, buffers))
-        << session.error();
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Template, "auxiliary_buffers_process");
+        ASSERT_NE(subject, nullptr);
+        SubjectSession session(*subject, {}, nullptr, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = makeMonoFloatImage("source", 5, 4, 0.1f, 0.02f);
+        const auto selection = makeMonoFloatImage("selection", 5, 4, 0.0f, 0.05f);
+        const auto weight = makeMonoFloatImage("weight", 5, 4, 0.3f, -0.01f);
+        const auto mask_template = makeMonoFloatImage("output", 5, 4, 0.0f, 0.0f);
+        ASSERT_TRUE(source && selection && weight && mask_template);
+        const std::vector<SharedBufferDescriptor> buffers = {
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source"),
+            session.lend(selection, SharedBufferRole::Mask, SharedBufferAccessMode::ReadOnly, "selection"),
+            session.lend(weight, SharedBufferRole::Weight, SharedBufferAccessMode::ReadOnly, "weight_map"),
+            session.lend(mask_template, SharedBufferRole::Mask, SharedBufferAccessMode::ReadWrite, "output_mask")};
+        ASSERT_TRUE(session.execute(
+            QCborMap{{QStringLiteral("mask_strength"), 0.4}, {QStringLiteral("weight_boost"), 0.25}}, buffers))
+            << session.error();
 
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    const SharedBufferDescriptor* output_mask = resultOfRole(session.session(), SharedBufferRole::Mask, "output_mask");
-    ASSERT_NE(destination, nullptr);
-    ASSERT_NE(output_mask, nullptr);
-    const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
-    const std::optional<an::consumer::ImageAsset> mask = importResult(session.root(), *output_mask);
-    ASSERT_TRUE(result && mask);
-    expectSamples(*result, *source, [&](double value, std::uint32_t x, std::uint32_t y, std::uint32_t) {
-        const double m = sampleAt(*selection, x, y, 0u);
-        const double w = sampleAt(*weight, x, y, 0u);
-        return std::clamp(value * (1.0 - m * 0.4) + m * 0.4 + w * 0.25, 0.0, 1.0);
-    });
-    expectSamples(*mask, *source, [&](double, std::uint32_t x, std::uint32_t y, std::uint32_t) {
-        return std::clamp((std::max)(sampleAt(*selection, x, y, 0u), sampleAt(*weight, x, y, 0u)), 0.0, 1.0);
-    });
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        const SharedBufferDescriptor* output_mask =
+            resultOfRole(session.session(), SharedBufferRole::Mask, "output_mask");
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        ASSERT_NE(output_mask, nullptr);
+        const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
+        const std::optional<an::consumer::ImageAsset> mask = importResult(session.root(), *output_mask);
+        ASSERT_TRUE(result && mask);
+        expectSamples(*result, *source, [&](double value, std::uint32_t x, std::uint32_t y, std::uint32_t) {
+            const double m = sampleAt(*selection, x, y, 0u);
+            const double w = sampleAt(*weight, x, y, 0u);
+            return std::clamp(value * (1.0 - m * 0.4) + m * 0.4 + w * 0.25, 0.0, 1.0);
+        });
+        expectSamples(*mask, *source, [&](double, std::uint32_t x, std::uint32_t y, std::uint32_t) {
+            return std::clamp((std::max)(sampleAt(*selection, x, y, 0u), sampleAt(*weight, x, y, 0u)), 0.0, 1.0);
+        });
+    }
 }
 
 // The locked wheelhouse template runs from the environment installed from its own wheelhouse and leaves its source as
@@ -636,62 +766,73 @@ TEST(ExtensionRegression, TheAuxiliaryBuffersTemplateBlendsItsMaskAndWeightAndRe
 TEST(ExtensionRegression, TheLockedWheelhouseTemplateRunsFromItsInstalledWheelhouse)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Template, "locked_wheelhouse_process");
-    ASSERT_NE(subject, nullptr);
-    EXPECT_EQ(subject->manifest->dependencies.dependency_context,
-              an::ui::extensions::ExtensionDependencyContext::Private);
-    SubjectSession session(*subject);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = unitRamp(4, 4);
-    ASSERT_TRUE(source);
-    const SharedBufferDescriptor lent =
-        session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
-    ASSERT_TRUE(session.execute({}, {lent})) << session.error();
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    ASSERT_NE(destination, nullptr);
-    const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
-    ASSERT_TRUE(result);
-    expectSamples(*result, *source, [](double value, auto, auto, auto) { return value; });
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Template, "locked_wheelhouse_process");
+        ASSERT_NE(subject, nullptr);
+        EXPECT_EQ(subject->manifest->dependencies.dependency_context,
+                  an::ui::extensions::ExtensionDependencyContext::Private);
+        SubjectSession session(*subject, {}, nullptr, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = unitRamp(4, 4);
+        ASSERT_TRUE(source);
+        const SharedBufferDescriptor lent =
+            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+        ASSERT_TRUE(session.execute({}, {lent})) << session.error();
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        const std::optional<an::consumer::ImageAsset> result = importResult(session.root(), *destination);
+        ASSERT_TRUE(result);
+        expectSamples(*result, *source, [](double value, auto, auto, auto) { return value; });
+    }
 }
 
 // The real-time preview template previews its transform and commits it with the scale and offset it applied.
 TEST(ExtensionRegression, TheRealTimePreviewTemplatePreviewsAndCommitsItsTransform)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    const ExtensionLoadResult* subject = readySubject(Origin::Template, "rt_preview_process");
-    ASSERT_NE(subject, nullptr);
-    SubjectSession session(*subject);
-    ASSERT_TRUE(session.launched()) << session.error();
-    const auto source = makeRgbGradientImage(5, 4);
-    ASSERT_TRUE(source);
-    const QCborMap params{{QStringLiteral("strength"), 0.5},
-                          {QStringLiteral("black_point"), 0.05},
-                          {QStringLiteral("mode"), QStringLiteral("darken")}};
-    const double scale = 1.0 - 0.5 * 0.30;
-    const double offset = -0.5 * 0.10 + 0.05;
-    const auto expected = [scale, offset](double value, auto, auto, auto) { return scale * value + offset; };
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        const ExtensionLoadResult* subject = readySubject(Origin::Template, "rt_preview_process");
+        ASSERT_NE(subject, nullptr);
+        SubjectSession session(*subject, {}, nullptr, path);
+        ASSERT_TRUE(session.launched()) << session.error();
+        const auto source = makeRgbGradientImage(5, 4);
+        ASSERT_TRUE(source);
+        const QCborMap params{{QStringLiteral("strength"), 0.5},
+                              {QStringLiteral("black_point"), 0.05},
+                              {QStringLiteral("mode"), QStringLiteral("darken")}};
+        const double scale = 1.0 - 0.5 * 0.30;
+        const double offset = -0.5 * 0.10 + 0.05;
+        const auto expected = [scale, offset](double value, auto, auto, auto) { return scale * value + offset; };
 
-    ASSERT_TRUE(session.preview(
-        params, {session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source")}))
-        << session.error();
-    ASSERT_TRUE(session.session().last_preview_result.has_value());
-    ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
-    const std::optional<an::consumer::ImageAsset> preview =
-        importResult(session.root(), session.session().last_preview_result->output_buffers.front());
-    ASSERT_TRUE(preview);
-    expectSamples(*preview, *source, expected);
+        ASSERT_TRUE(session.preview(
+            params, {session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source")}))
+            << session.error();
+        ASSERT_TRUE(session.session().last_preview_result.has_value());
+        ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
+        session.expectAnsweredAsLent(session.session().last_preview_result->output_buffers.front());
+        const std::optional<an::consumer::ImageAsset> preview =
+            importResult(session.root(), session.session().last_preview_result->output_buffers.front());
+        ASSERT_TRUE(preview);
+        expectSamples(*preview, *source, expected);
 
-    ASSERT_TRUE(session.execute(
-        params, {session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source")}))
-        << session.error();
-    const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
-    ASSERT_NE(destination, nullptr);
-    const std::optional<an::consumer::ImageAsset> committed = importResult(session.root(), *destination);
-    ASSERT_TRUE(committed);
-    expectSamples(*committed, *source, expected);
-    const QJsonObject sidecar = sidecarOf(*destination);
-    EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.scale")).toString().toDouble(), scale, 1e-12);
-    EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.offset")).toString().toDouble(), offset, 1e-12);
+        ASSERT_TRUE(session.execute(
+            params, {session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source")}))
+            << session.error();
+        const SharedBufferDescriptor* destination = resultOfRole(session.session(), SharedBufferRole::Destination);
+        ASSERT_NE(destination, nullptr);
+        session.expectAnsweredAsLent(*destination);
+        const std::optional<an::consumer::ImageAsset> committed = importResult(session.root(), *destination);
+        ASSERT_TRUE(committed);
+        expectSamples(*committed, *source, expected);
+        const QJsonObject sidecar = sidecarOf(*destination);
+        EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.scale")).toString().toDouble(), scale, 1e-12);
+        EXPECT_NEAR(sidecar.value(QStringLiteral("example.rt_preview.offset")).toString().toDouble(), offset, 1e-12);
+    }
 }
 
 // ---- Cancellation, as the application cancels each kind of subject.
@@ -701,92 +842,178 @@ TEST(ExtensionRegression, TheRealTimePreviewTemplatePreviewsAndCommitsItsTransfo
 TEST(ExtensionRegression, APreviewCancelledInFlightShowsNothingAndTheNextOneLands)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    struct Previewing
+    for (const Path path : kPaths)
     {
-        Origin origin;
-        const char* directory;
-    };
-    for (const Previewing previewing :
-         {Previewing{Origin::Bundled, "an_rt_preview_demo"}, Previewing{Origin::Template, "rt_preview_process"}})
-    {
-        SCOPED_TRACE(previewing.directory);
-        const ExtensionLoadResult* subject = readySubject(previewing.origin, previewing.directory);
-        ASSERT_NE(subject, nullptr);
-        SubjectSession session(*subject, {"--preview-delay-ms", std::to_string(600 * kIpcTimingMultiplier)});
-        ASSERT_TRUE(session.launched()) << session.error();
-        const auto source = makeRgbGradientImage(4, 3);
-        ASSERT_TRUE(source);
-        const SharedBufferDescriptor lent =
-            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source");
+        SCOPED_TRACE(nameOf(path));
+        struct Previewing
+        {
+            Origin origin;
+            const char* directory;
+        };
+        for (const Previewing previewing :
+             {Previewing{Origin::Bundled, "an_rt_preview_demo"}, Previewing{Origin::Template, "rt_preview_process"}})
+        {
+            SCOPED_TRACE(previewing.directory);
+            const ExtensionLoadResult* subject = readySubject(previewing.origin, previewing.directory);
+            ASSERT_NE(subject, nullptr);
+            SubjectSession session(*subject, {"--preview-delay-ms", std::to_string(600 * kIpcTimingMultiplier)},
+                                   nullptr, path);
+            ASSERT_TRUE(session.launched()) << session.error();
+            const auto source = makeRgbGradientImage(4, 3);
+            ASSERT_TRUE(source);
+            const SharedBufferDescriptor lent =
+                session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadOnly, "source");
 
-        std::string request_id;
-        ASSERT_TRUE(session.manager().sendPreviewRequest(&session.session(), "superseded", QCborMap{}, {lent},
-                                                         &request_id, &session.error()))
-            << session.error();
-        ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error()))
-            << session.error();
-        ASSERT_TRUE(pumpUntilRequestCompletes(session.manager(), &session.session(), 5000 * kIpcTimingMultiplier,
-                                              &session.error()))
-            << session.error();
-        ASSERT_TRUE(session.session().last_preview_result.has_value());
-        EXPECT_EQ(session.session().last_preview_result->result_kind, "preview");
-        EXPECT_EQ(session.session().last_preview_result->status, "cancelled");
-        EXPECT_TRUE(session.session().last_preview_result->output_buffers.empty());
+            std::string request_id;
+            ASSERT_TRUE(session.manager().sendPreviewRequest(&session.session(), "superseded", QCborMap{},
+                                                             session.sent({lent}, SharedBufferRole::Preview),
+                                                             &request_id, &session.error()))
+                << session.error();
+            ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error()))
+                << session.error();
+            ASSERT_TRUE(pumpUntilRequestCompletes(session.manager(), &session.session(), 5000 * kIpcTimingMultiplier,
+                                                  &session.error()))
+                << session.error();
+            ASSERT_TRUE(session.session().last_preview_result.has_value());
+            EXPECT_EQ(session.session().last_preview_result->result_kind, "preview");
+            EXPECT_EQ(session.session().last_preview_result->status, "cancelled");
+            EXPECT_TRUE(session.session().last_preview_result->output_buffers.empty());
 
-        ASSERT_TRUE(session.preview(QCborMap{}, {lent})) << session.error();
-        EXPECT_EQ(session.session().last_preview_result->status, "succeeded");
-        ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
-        const std::optional<an::consumer::ImageAsset> preview =
-            importResult(session.root(), session.session().last_preview_result->output_buffers.front());
-        ASSERT_TRUE(preview);
-        EXPECT_EQ(widthOf(*preview), widthOf(*source));
-        EXPECT_GT(std::fabs(sampleAt(*preview, 3u, 2u, 0u) - sampleAt(*source, 3u, 2u, 0u)), 1e-6)
-            << "the next preview applies the subject's transform";
+            ASSERT_TRUE(session.preview(QCborMap{}, {lent})) << session.error();
+            EXPECT_EQ(session.session().last_preview_result->status, "succeeded");
+            ASSERT_FALSE(session.session().last_preview_result->output_buffers.empty());
+            session.expectAnsweredAsLent(session.session().last_preview_result->output_buffers.front());
+            const std::optional<an::consumer::ImageAsset> preview =
+                importResult(session.root(), session.session().last_preview_result->output_buffers.front());
+            ASSERT_TRUE(preview);
+            EXPECT_EQ(widthOf(*preview), widthOf(*source));
+            EXPECT_GT(std::fabs(sampleAt(*preview, 3u, 2u, 0u) - sampleAt(*source, 3u, 2u, 0u)), 1e-6)
+                << "the next preview applies the subject's transform";
+        }
     }
 }
 
-// An execute cancelled while it is in flight commits nothing, leaves the image it was lent as it was, and ends the
-// session: the application accepts no execute that answers without a commit - for each subject that executes.
+// An execute cancelled while it is in flight commits nothing and leaves the image it was lent as it was - for each
+// subject that executes. Through its window it ends the session: the application accepts no execute of a window that
+// answers without a commit. Hosted, its cancel is answered and the session goes on.
 TEST(ExtensionRegression, AnExecuteCancelledInFlightCommitsNothingAndLeavesItsSourceAsItWas)
 {
     AN_REGRESSION_REQUIRES_FULL_HOST();
-    struct Executing
+    for (const Path path : kPaths)
+    {
+        SCOPED_TRACE(nameOf(path));
+        struct Executing
+        {
+            Origin origin;
+            const char* directory;
+        };
+        for (const Executing executing :
+             {Executing{Origin::Bundled, "an_echo_demo"}, Executing{Origin::Bundled, "an_custom_ui_demo"},
+              Executing{Origin::Bundled, "an_rt_preview_demo"}, Executing{Origin::Template, "basic_process"},
+              Executing{Origin::Template, "auxiliary_buffers_process"},
+              Executing{Origin::Template, "locked_wheelhouse_process"},
+              Executing{Origin::Template, "rt_preview_process"},
+              Executing{Origin::Template, "settings_diagnostics_process"}})
+        {
+            SCOPED_TRACE(executing.directory);
+            const ExtensionLoadResult* subject = readySubject(executing.origin, executing.directory);
+            ASSERT_NE(subject, nullptr);
+            SubjectSession session(*subject, {"--execute-delay-ms", std::to_string(600 * kIpcTimingMultiplier)},
+                                   nullptr, path);
+            ASSERT_TRUE(session.launched()) << session.error();
+            const auto source = unitRamp(4, 3);
+            ASSERT_TRUE(source);
+            const SharedBufferDescriptor lent =
+                session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
+
+            std::string request_id;
+            ASSERT_TRUE(session.manager().sendExecuteRequest(&session.session(), "cancelled", QCborMap{},
+                                                             session.sent({lent}, SharedBufferRole::Destination),
+                                                             &request_id, &session.error()))
+                << session.error();
+            ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error()))
+                << session.error();
+            // An execute lands only with a commit.
+            const bool landed = pumpUntilRequestCompletes(session.manager(), &session.session(),
+                                                          5000 * kIpcTimingMultiplier, &session.error());
+            EXPECT_FALSE(landed);
+            EXPECT_FALSE(session.session().last_view_commit.has_value());
+            if (path == Path::Hosted)
+            {
+                // A hosted process's Cancel is answered, and the session goes on to its next request.
+                EXPECT_TRUE(session.session().in_flight_request_id.empty()) << session.error();
+                ASSERT_TRUE(session.session().last_preview_result.has_value());
+                EXPECT_EQ(session.session().last_preview_result->result_kind, "execute");
+                EXPECT_EQ(session.session().last_preview_result->status, "cancelled");
+                EXPECT_EQ(session.session().state, an::ui::extensions::ExtensionHostSessionState::Active);
+            }
+            else
+            {
+                EXPECT_EQ(session.session().state, an::ui::extensions::ExtensionHostSessionState::Failed);
+                EXPECT_NE(session.error().find("view.commit"), std::string::npos) << session.error();
+            }
+
+            const std::optional<an::consumer::ImageAsset> after = importResult(session.root(), lent);
+            ASSERT_TRUE(after);
+            expectSamples(*after, *source, [](double value, auto, auto, auto) { return value; }, 0.0);
+            if (path == Path::Hosted)
+            {
+                // The next Apply of the same session commits.
+                ASSERT_TRUE(session.execute(QCborMap{}, {lent})) << session.error();
+                const SharedBufferDescriptor* destination =
+                    resultOfRole(session.session(), SharedBufferRole::Destination);
+                ASSERT_NE(destination, nullptr);
+                session.expectAnsweredAsLent(*destination);
+            }
+        }
+    }
+}
+
+// Hosted, a subject tells the parameters its window draws - the list the application kept of it when it found the
+// package - once its runtime is ready, whole.
+TEST(ExtensionRegression, AHostedSubjectTellsTheParametersItsWindowDraws)
+{
+    AN_REGRESSION_REQUIRES_FULL_HOST();
+    struct Hosted
     {
         Origin origin;
         const char* directory;
     };
-    for (const Executing executing :
-         {Executing{Origin::Bundled, "an_echo_demo"}, Executing{Origin::Bundled, "an_custom_ui_demo"},
-          Executing{Origin::Bundled, "an_rt_preview_demo"}, Executing{Origin::Template, "basic_process"},
-          Executing{Origin::Template, "auxiliary_buffers_process"},
-          Executing{Origin::Template, "locked_wheelhouse_process"}, Executing{Origin::Template, "rt_preview_process"},
-          Executing{Origin::Template, "settings_diagnostics_process"}})
+    for (const Hosted hosted :
+         {Hosted{Origin::Bundled, "an_echo_demo"}, Hosted{Origin::Bundled, "an_custom_ui_demo"},
+          Hosted{Origin::Bundled, "an_rt_preview_demo"}, Hosted{Origin::Template, "basic_process"},
+          Hosted{Origin::Template, "auxiliary_buffers_process"}, Hosted{Origin::Template, "locked_wheelhouse_process"},
+          Hosted{Origin::Template, "rt_preview_process"}, Hosted{Origin::Template, "settings_diagnostics_process"}})
     {
-        SCOPED_TRACE(executing.directory);
-        const ExtensionLoadResult* subject = readySubject(executing.origin, executing.directory);
+        SCOPED_TRACE(hosted.directory);
+        const ExtensionLoadResult* subject = readySubject(hosted.origin, hosted.directory);
         ASSERT_NE(subject, nullptr);
-        SubjectSession session(*subject, {"--execute-delay-ms", std::to_string(600 * kIpcTimingMultiplier)});
+        SubjectSession session(*subject, {}, nullptr, Path::Hosted);
         ASSERT_TRUE(session.launched()) << session.error();
-        const auto source = unitRamp(4, 3);
-        ASSERT_TRUE(source);
-        const SharedBufferDescriptor lent =
-            session.lend(source, SharedBufferRole::Source, SharedBufferAccessMode::ReadWrite, "source");
 
-        std::string request_id;
-        ASSERT_TRUE(session.manager().sendExecuteRequest(&session.session(), "cancelled", QCborMap{}, {lent},
-                                                         &request_id, &session.error()))
-            << session.error();
-        ASSERT_TRUE(session.manager().sendCancelRequest(&session.session(), nullptr, &session.error()))
-            << session.error();
-        EXPECT_FALSE(pumpUntilRequestCompletes(session.manager(), &session.session(), 5000 * kIpcTimingMultiplier,
-                                               &session.error()));
-        EXPECT_FALSE(session.session().last_view_commit.has_value());
-        EXPECT_EQ(session.session().state, an::ui::extensions::ExtensionHostSessionState::Failed);
-        EXPECT_NE(session.error().find("view.commit"), std::string::npos) << session.error();
-
-        const std::optional<an::consumer::ImageAsset> after = importResult(session.root(), lent);
-        ASSERT_TRUE(after);
-        expectSamples(*after, *source, [](double value, auto, auto, auto) { return value; }, 0.0);
+        std::optional<an::ui::extensions::PanelDescribeMessage> described;
+        QElapsedTimer clock;
+        clock.start();
+        while (!described.has_value() && clock.elapsed() < 15000 * kIpcTimingMultiplier)
+        {
+            ASSERT_TRUE(session.manager().pumpSession(&session.session(), 20, &session.error())) << session.error();
+            for (const an::ui::extensions::ExtensionProtocolMessage& message : session.session().panel_inbox)
+            {
+                an::ui::extensions::PanelDescribeMessage read;
+                if (message.type == "ui.describe" &&
+                    an::ui::extensions::panelDescribeFromProtocolMessage(message, &read, &session.error()))
+                {
+                    described = std::move(read);
+                }
+            }
+        }
+        ASSERT_TRUE(described.has_value()) << session.error();
+        EXPECT_EQ(described->session_id, session.session().prepared_session.session_id);
+        ASSERT_TRUE(subject->settings_schema.has_value());
+        const auto kept =
+            subject->settings_schema->process_params_schemas.find(subject->manifest->processes.front().class_name);
+        ASSERT_NE(kept, subject->settings_schema->process_params_schemas.end());
+        EXPECT_EQ(described->params.toJsonArray(), kept->second);
     }
 }
 

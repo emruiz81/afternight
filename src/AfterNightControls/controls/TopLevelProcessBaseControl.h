@@ -9,6 +9,7 @@
 #include <QPointer>
 #include <QWidget>
 #include <QString>
+#include <QStringList>
 #include <memory>
 #include <optional>
 #include <stop_token>
@@ -56,6 +57,14 @@ public:
                             ProcessMessageTone tone = ProcessMessageTone::Info,
                             std::optional<double> progressPercent = std::nullopt);
     void clearProcessMessage();
+
+    /// Says the process's message with the acts it offers at its end - Restart, Close - each a button that does what it
+    /// says; a message said after it without acts, or none, takes them away.
+    void showProcessMessageWithActions(const QString& title, const QString& message, ProcessMessageTone tone,
+                                       std::vector<an::ui::ProcessMessageAction> actions);
+
+    /// The texts of the acts the message offers now, in order; none while it offers none.
+    [[nodiscard]] QStringList processMessageActions() const;
 
     /// The message the window's banner shows now, its title and text joined as `showProcessMessage` joins them; empty
     /// while the banner is hidden.

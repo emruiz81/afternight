@@ -13,7 +13,10 @@
 #include <QPainterPath>
 #include <QPaintEvent>
 #include <QPalette>
+#include <QPushButton>
 #include <QSizePolicy>
+
+#include <utility>
 
 namespace
 {
@@ -82,6 +85,49 @@ QString AnInfoBanner::message() const
 QLabel* AnInfoBanner::messageLabel() const
 {
     return m_messageLabel;
+}
+
+void AnInfoBanner::setActions(std::vector<Action> actions)
+{
+    // The acts offered before go at once, even when one of them asked for this: a button pressed is deleted once its
+    // press has returned.
+    for (QPushButton* button : m_actionButtons)
+    {
+        button->hide();
+        button->setParent(nullptr);
+        button->deleteLater();
+    }
+    m_actionButtons.clear();
+    auto* rootLayout = qobject_cast<QHBoxLayout*>(layout());
+    if (rootLayout == nullptr)
+    {
+        return;
+    }
+    for (Action& action : actions)
+    {
+        auto* button = new QPushButton(action.text, this);
+        button->setObjectName(QStringLiteral("anMessageAction"));
+        button->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
+        button->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        QObject::connect(button, &QPushButton::clicked, this, [act = std::move(action.act)]() {
+            if (act)
+            {
+                act();
+            }
+        });
+        rootLayout->addWidget(button, 0, Qt::AlignVCenter);
+        m_actionButtons.push_back(button);
+    }
+}
+
+QStringList AnInfoBanner::actionTexts() const
+{
+    QStringList texts;
+    for (const QPushButton* button : m_actionButtons)
+    {
+        texts.push_back(button->text());
+    }
+    return texts;
 }
 
 void AnInfoBanner::setTone(const Tone tone)

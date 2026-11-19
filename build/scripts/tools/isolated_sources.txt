@@ -3112,6 +3112,10 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/controls/ExtensionParamPanel.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
+    header   src/AfterNightControls/app/ExtensionCommon.h
+    header   src/AfterNightControls/app/ExtensionHostManager.h
+    header   src/AfterNightControls/app/ExtensionHostedSession.h
+    header   src/AfterNightControls/app/ExtensionSdkService.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3679,8 +3683,10 @@ sources Test_ControlsExtensionSeam
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/PanelDescriptionTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ParamPanelTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/HostedProcessTest.cpp
+    unit     src/AfterNightTests/Test_ControlsExtensionSeam/HostedProcessPreviewBenchmark.cpp
     header   src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionSeamTestSupport.h
     header   src/AfterNightTests/Test_ControlsExtensionSeam/HostedPanelStandIn.h
+    header   src/AfterNightTests/Test_ControlsExtensionSeam/HostedProcessContext.h
     header   src/AfterNightControls/app/ExtensionHostedSession.h
     header   src/AfterNightControls/app/ExtensionPreviewFrames.h
     header   src/AfterNightControls/controls/ExtensionHostedProcess.h
@@ -3766,6 +3772,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/controls/QSliderSpinBox.h
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/session/ExecutionScope.h
+    header   src/AfterNightControls/controls/settings/SettingsKeys.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include

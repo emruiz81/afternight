@@ -3068,7 +3068,11 @@ ExtensionSessionEnd endOf(const ExtensionSessionController& session)
         end.failed = true;
         break;
     default:
-        end.failed = startFailed;
+        // A host serving a panel the application draws has no window a person closes: one that went when neither the
+        // application nor the extension asked it to failed.
+        end.failed = startFailed ||
+                     (running.hosted_panel && !running.native_window_close_requested &&
+                      (state == ExtensionHostSessionState::Disconnected || state == ExtensionHostSessionState::Exited));
         break;
     }
     if (end.failed)
@@ -4302,18 +4306,25 @@ void ExtensionHostLaunchCoordinator::bindHostedProcess(ExtensionSessionControlle
             }
             closeSession(shared->sessionId());
         };
-        hooks.restartSession = [this, alive, binding, guard = QPointer<ExtensionHostedProcess>(process)]() {
+        hooks.restartSession = [this, alive, binding,
+                                guard = QPointer<ExtensionHostedProcess>(process)](std::string* error) -> bool {
             if (alive.expired() || !guard)
             {
-                return;
+                return false;
             }
             ExtensionHostLaunchOptions options;
             options.hosted_process = guard.data();
-            std::string error;
-            if (!launchBoundDescriptor(binding, guard->processTarget(), options, &error))
+            std::string why;
+            if (!launchBoundDescriptor(binding, guard->processTarget(), options, &why))
             {
-                LOG_WARNING("The extension '{}' could not be started again: {}", binding.display_name, error);
+                LOG_WARNING("The extension '{}' could not be started again: {}", binding.display_name, why);
+                if (error != nullptr)
+                {
+                    *error = why;
+                }
+                return false;
             }
+            return true;
         };
         hooks.listViews = [this, alive]() {
             return alive.expired() ? std::vector<std::map<std::string, QVariant>>() : hostedViewList();

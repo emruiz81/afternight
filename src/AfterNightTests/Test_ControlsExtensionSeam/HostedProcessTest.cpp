@@ -5,11 +5,14 @@
 /// An extension's process drawn by the application while its code runs in a host, over a stand-in for that host: the
 /// parameters the host tells become the panel's controls, a change made in the panel is told to it once, an action's
 /// answer lands in the panel, each frame is lent from the application's side of the seam and shown only when its ticket
-/// commits, an Apply is one step of the target's history under its lock and a cancelled one commits nothing, a
-/// description that is not whole draws no control and says why, and the GUI thread waits for none of it.
+/// commits, frames pause for an Apply and resume after it, an Apply is one step of the target's history under its lock
+/// and a cancelled one commits nothing, a description that is not whole draws no control and says why, the process
+/// says that its host starts and waits for it, a host that dies leaves the process and lets the target go, Restart
+/// brings the panel back, and the GUI thread waits for none of it.
 
 #include "Test_ControlsExtensionSeam/ExtensionSeamTestSupport.h"
 #include "Test_ControlsExtensionSeam/HostedPanelStandIn.h"
+#include "Test_ControlsExtensionSeam/HostedProcessContext.h"
 #include "Test_ControlsViewer/ViewerTestContext.h"
 
 #include "app/ExtensionHostManager.h"
@@ -26,6 +29,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QSlider>
+#include <QStringList>
 #include <QThreadPool>
 #include <QTimer>
 
@@ -92,68 +96,6 @@ constexpr const char* kName = "Seam Extension";
                     {QStringLiteral("label"), QStringLiteral("Auto")}};
 }
 
-/// The viewer's context, with what a process window reaches as it opens and closes: a store of process settings and the
-/// register of the open process windows.
-class HostedProcessContext final : public ViewerTestContext,
-                                   public an::ui::IProcessSettingsProvider,
-                                   public an::ui::IProcessRegistry
-{
-public:
-    using ViewerTestContext::ViewerTestContext;
-
-    [[nodiscard]] an::ui::IProcessSettingsProvider* getProcessSettings() override
-    {
-        return this;
-    }
-
-    [[nodiscard]] an::ui::IProcessRegistry* getProcessRegistry() override
-    {
-        return this;
-    }
-
-    void registerProcessInstance(TopLevelProcessBaseControl* process) override
-    {
-        m_open.push_back(process);
-    }
-
-    void unregisterProcessInstance(TopLevelProcessBaseControl* process) override
-    {
-        m_open.erase(std::remove(m_open.begin(), m_open.end(), process), m_open.end());
-    }
-
-    bool upsert(const QString& processName, int winState, int width, int height, const QString& json) override
-    {
-        m_stored[processName] = Stored{winState, width, height, json};
-        return true;
-    }
-
-    [[nodiscard]] bool select(const QString& processName, int& winState, int& width, int& height,
-                              QString& json) override
-    {
-        const auto found = m_stored.find(processName);
-        if (found == m_stored.end())
-        {
-            return false;
-        }
-        winState = found->second.winState;
-        width = found->second.width;
-        height = found->second.height;
-        json = found->second.json;
-        return true;
-    }
-
-private:
-    struct Stored
-    {
-        int winState = 0;
-        int width = 0;
-        int height = 0;
-        QString json;
-    };
-    std::map<QString, Stored> m_stored;
-    std::vector<TopLevelProcessBaseControl*> m_open;
-};
-
 class HostedProcess : public ::testing::Test
 {
 protected:
@@ -210,6 +152,7 @@ protected:
         setup.displayName = kName;
         setup.previews = previews;
         setup.keptParams = kept.toJsonArray();
+        setup.keepOpen = m_keepOpen;
         m_process = new ExtensionHostedProcess(m_target.get(), std::move(setup));
         m_hosted = m_process->hostedSession();
         m_hosted->bind(m_manager, *m_controller);
@@ -218,16 +161,48 @@ protected:
         pumpQuietly();
     }
 
-    /// What the coordinator does at each pump of the session.
+    /// What the coordinator does at each pump of the session: a session that ended is let go, as the coordinator
+    /// stops it.
     void pump()
     {
         std::string error;
         static_cast<void>(m_manager.pumpSession(&m_controller->running_session, 0, &error));
+        if (m_hosted && m_hosted->bound() && !m_controller->isActive())
+        {
+            m_hosted->unbind(an::ui::extensions::endOf(*m_controller));
+            return;
+        }
         if (m_hosted)
         {
             m_hosted->route();
             m_hosted->dispatch();
         }
+    }
+
+    /// The button of an act the process's message offers now, by its text; null when it offers none of that name.
+    [[nodiscard]] QPushButton* messageAction(const QString& text) const
+    {
+        for (QPushButton* button : m_process->findChildren<QPushButton*>(QStringLiteral("anMessageAction")))
+        {
+            if (button->text() == text && !button->isHidden() && button->window() == m_process->window())
+            {
+                return button;
+            }
+        }
+        return nullptr;
+    }
+
+    /// Whether what a person sets in the panel can be set now.
+    [[nodiscard]] bool controlsEnabled() const
+    {
+        const auto* slider = m_process->findChild<QSlider*>(QStringLiteral("anNativeParamDoubleSlider"));
+        return slider != nullptr && slider->isEnabled();
+    }
+
+    [[nodiscard]] bool applyEnabled() const
+    {
+        const auto* apply = m_process->findChild<QPushButton*>(QStringLiteral("anNativeProcessExecuteButton"));
+        return apply != nullptr && apply->isEnabled();
     }
 
     [[nodiscard]] std::function<void()> pumper()
@@ -278,6 +253,8 @@ protected:
     ExtensionHostManager m_manager;
     QPointer<ExtensionHostedProcess> m_process;
     std::shared_ptr<ExtensionHostedSession> m_hosted;
+    /// Whether the process stays after an Apply, as a manifest's `keep_open` keeps it.
+    bool m_keepOpen = false;
 };
 
 TEST_F(HostedProcess, TheDescriptionBecomesControls)
@@ -567,6 +544,154 @@ TEST_F(HostedProcess, NeverWaitsOnTheGuiThread)
     static_cast<void>(pumpFor([]() { return false; }, 200));
     EXPECT_EQ(m_host->waiting("execution.execute"), 0u);
     EXPECT_TRUE(m_target->viewHistory()->previousStepName().empty());
+}
+
+TEST_F(HostedProcess, FramesPauseForAnApplyAndResumeAfterIt)
+{
+    m_keepOpen = true;
+    open(true, QCborArray{strengthParam()});
+    describe(QCborArray{strengthParam()});
+    const std::optional<ExtensionProtocolMessage> frame = m_host->next("execution.preview", pumper());
+    ASSERT_TRUE(frame.has_value());
+
+    // The Apply refuses the frame on its way, which the host is asked to cancel, and waits for it to end.
+    m_process->applyProcess();
+    const std::optional<ExtensionProtocolMessage> cancel = m_host->next("execution.cancel", pumper());
+    ASSERT_TRUE(cancel.has_value());
+    EXPECT_EQ(m_host->waiting("execution.execute"), 0u);
+    m_host->answerWith(frame->request_id, "preview", "cancelled");
+
+    const std::optional<ExtensionProtocolMessage> execute = m_host->next("execution.execute", pumper());
+    ASSERT_TRUE(execute.has_value());
+    EXPECT_EQ(m_host->waiting("execution.preview"), 0u) << "no frame while the Apply runs";
+    m_host->answerExecute(*execute, [](const float value) { return value * 2.0f; });
+    ASSERT_TRUE(pumpFor([&]() { return m_target->viewHistory()->previousStepName() == kName; }));
+
+    // A process its manifest keeps open asks for a frame of the image the Apply made: the frames resume.
+    ASSERT_FALSE(m_process.isNull());
+    const std::optional<ExtensionProtocolMessage> resumed = m_host->next("execution.preview", pumper());
+    ASSERT_TRUE(resumed.has_value());
+}
+
+TEST_F(HostedProcess, AKeptDescriptionWaitsDisabledWhileItsHostStarts)
+{
+    open(false, QCborArray{strengthParam(0.3)}, false);
+
+    // The page is there at once, the description kept from an earlier start drawn and disabled, and the body says that
+    // the extension starts and how far its host has come.
+    EXPECT_TRUE(m_process->isStarting());
+    const auto* row = m_process->findChild<QWidget*>(QStringLiteral("hostedStartingRow"));
+    ASSERT_NE(row, nullptr);
+    EXPECT_TRUE(row->isVisible());
+    EXPECT_EQ(m_process->startingText(), (QStringList{QStringLiteral("Starting %1").arg(QString::fromLatin1(kName)),
+                                                      QStringLiteral("Its host has started")}));
+    ASSERT_NE(m_process->findChild<QSlider*>(QStringLiteral("anNativeParamDoubleSlider")), nullptr);
+    EXPECT_FALSE(controlsEnabled());
+    EXPECT_FALSE(applyEnabled());
+
+    ExtensionProtocolMessage loaded;
+    loaded.type = "runtime.bootstrap_state_ready";
+    m_host->send(loaded);
+    ASSERT_TRUE(pumpFor([&]() { return m_process->startingText().size() == 3; }));
+    EXPECT_EQ(m_process->startingText().back(), QStringLiteral("The extension is loaded"));
+    EXPECT_FALSE(controlsEnabled());
+
+    // Ready: the row goes, and the controls and the Apply wait no more.
+    ExtensionProtocolMessage ready;
+    ready.type = "runtime.ready";
+    m_host->send(ready);
+    ASSERT_TRUE(pumpFor([&]() { return m_process->hostReady(); }));
+    EXPECT_FALSE(m_process->isStarting());
+    EXPECT_TRUE(m_process->startingText().isEmpty());
+    EXPECT_FALSE(row->isVisible());
+    EXPECT_TRUE(controlsEnabled());
+    EXPECT_TRUE(applyEnabled());
+}
+
+TEST_F(HostedProcess, HostDiesLeavesThePageAndReleasesTheLock)
+{
+    open(false, QCborArray{strengthParam()});
+    describe(QCborArray{strengthParam()});
+    m_process->applyProcess();
+    const std::optional<ExtensionProtocolMessage> request = m_host->next("execution.execute", pumper());
+    ASSERT_TRUE(request.has_value());
+    ASSERT_TRUE(m_target->isLockedForProcessing());
+
+    // The host dies under the Apply.
+    m_host->die(*m_controller);
+    ASSERT_TRUE(pumpFor([&]() {
+        return m_process->hostFailed() && !m_target->isLockedForProcessing() && !m_process->runState().running();
+    }));
+
+    // The process stays, says so with Close, its controls and its Apply disabled, its run failed; the target is as it
+    // was, and the application can go on with it.
+    ASSERT_FALSE(m_process.isNull());
+    EXPECT_TRUE(m_process->isVisible());
+    ASSERT_TRUE(pumpFor([&]() { return m_process->processMessage().contains(QStringLiteral("stopped responding")); }));
+    EXPECT_EQ(m_process->processMessageActions(), QStringList{QStringLiteral("Close")})
+        << "Restart is offered where the process can be started again";
+    EXPECT_FALSE(controlsEnabled());
+    EXPECT_FALSE(applyEnabled());
+    EXPECT_EQ(m_process->runState().phase, an::ui::ProcessRunState::Phase::Failed);
+    EXPECT_TRUE(m_target->viewHistory()->previousStepName().empty());
+    EXPECT_FLOAT_EQ(*sampleOf<float>(*m_target->document().asset(), 2u, 3u, 2u), targetValue(2u, 3u, 2u));
+    ASSERT_TRUE(m_target->tryRequestLockForProcessing());
+    m_target->releaseLockForProcessing();
+
+    // Close closes it.
+    QPushButton* close = messageAction(QStringLiteral("Close"));
+    ASSERT_NE(close, nullptr);
+    close->click();
+    ASSERT_TRUE(pumpFor([&]() { return m_process.isNull() || !m_process->isVisible(); }));
+}
+
+TEST_F(HostedProcess, RestartBringsThePanelBack)
+{
+    open(true, QCborArray{strengthParam()});
+    int restarts = 0;
+    ExtensionHostedProcess::Hooks hooks;
+    hooks.restartSession = [this, &restarts](std::string* /*error*/) {
+        // A host started again, as the coordinator starts one into the same process.
+        ++restarts;
+        m_host.emplace();
+        m_controller = std::make_unique<ExtensionSessionController>();
+        m_controller->descriptor_id = "seam.extension.process";
+        m_controller->display_name = kName;
+        m_controller->target_control = m_target.get();
+        m_host->install(*m_controller, kSessionId);
+        m_hosted->bind(m_manager, *m_controller);
+        return true;
+    };
+    m_process->setHooks(std::move(hooks));
+    describe(QCborArray{strengthParam()});
+    const std::optional<ExtensionProtocolMessage> frame = m_host->next("execution.preview", pumper());
+    ASSERT_TRUE(frame.has_value());
+
+    m_host->die(*m_controller);
+    ASSERT_TRUE(pumpFor([&]() { return m_process->hostFailed(); }));
+    ASSERT_TRUE(pumpFor([&]() { return messageAction(QStringLiteral("Restart")) != nullptr; }));
+    EXPECT_EQ(m_process->processMessageActions(), (QStringList{QStringLiteral("Restart"), QStringLiteral("Close")}));
+    EXPECT_FALSE(controlsEnabled());
+
+    messageAction(QStringLiteral("Restart"))->click();
+    EXPECT_EQ(restarts, 1);
+    describe(QCborArray{strengthParam(0.4)});
+
+    // The panel is back as the host tells it, the banner and the failure gone, and frames go to the new host.
+    ASSERT_TRUE(pumpFor([&]() { return m_process->hostReady(); }));
+    EXPECT_FALSE(m_process->hostFailed());
+    EXPECT_TRUE(m_process->processMessage().isEmpty()) << m_process->processMessage().toStdString();
+    EXPECT_TRUE(m_process->processMessageActions().isEmpty());
+    EXPECT_NE(m_process->runState().phase, an::ui::ProcessRunState::Phase::Failed);
+    EXPECT_TRUE(controlsEnabled());
+    EXPECT_TRUE(applyEnabled());
+    const std::optional<ExtensionProtocolMessage> again = m_host->next("execution.preview", pumper());
+    ASSERT_TRUE(again.has_value());
+    m_host->answerPreview(*again, [](const float value) { return value * 2.0f; });
+    ASSERT_TRUE(pumpFor([&]() {
+        const std::optional<float> shown = previewSample(3u, 2u, 1u);
+        return shown.has_value() && std::abs(*shown - targetValue(3u, 2u, 1u) * 2.0f) < 1e-6f;
+    }));
 }
 
 TEST(HostedPanelEvents, AreRefusedForASessionWhosePanelTheApplicationDoesNotDraw)

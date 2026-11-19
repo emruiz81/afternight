@@ -1855,6 +1855,7 @@ void ProcessPageLayout::showMessage(const QString& text, const PageMessageTone t
     {
         return;
     }
+    impl.banner->setActions({});
     if (text.isEmpty())
     {
         impl.banner->hide();
@@ -1875,6 +1876,26 @@ void ProcessPageLayout::showMessage(const QString& text, const PageMessageTone t
 QString ProcessPageLayout::message() const
 {
     return m_impl->message;
+}
+
+void ProcessPageLayout::setMessageActions(std::vector<ProcessMessageAction> actions)
+{
+    if (m_impl->banner == nullptr)
+    {
+        return;
+    }
+    std::vector<AnInfoBanner::Action> offered;
+    offered.reserve(actions.size());
+    for (ProcessMessageAction& action : actions)
+    {
+        offered.push_back(AnInfoBanner::Action{.text = action.text, .act = std::move(action.act)});
+    }
+    m_impl->banner->setActions(std::move(offered));
+}
+
+QStringList ProcessPageLayout::messageActions() const
+{
+    return m_impl->banner != nullptr ? m_impl->banner->actionTexts() : QStringList();
 }
 
 void ProcessPageLayout::setRunState(const ProcessRunState& state)

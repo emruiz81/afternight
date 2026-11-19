@@ -8,8 +8,13 @@
 #include <QColor>
 #include <QFrame>
 #include <QString>
+#include <QStringList>
+
+#include <functional>
+#include <vector>
 
 class QLabel;
+class QPushButton;
 
 namespace an::ui
 {
@@ -35,6 +40,19 @@ public:
     void setTone(Tone tone);
     [[nodiscard]] Tone tone() const;
 
+    /// An act the banner offers after its message - Restart, Close - a button that does what it says.
+    struct Action
+    {
+        QString text;
+        std::function<void()> act;
+    };
+
+    /// The acts the banner offers, in order, after its message; none takes them away.
+    void setActions(std::vector<Action> actions);
+
+    /// The texts of the acts the banner offers now, in order.
+    [[nodiscard]] QStringList actionTexts() const;
+
     void refreshTheme();
 
 protected:
@@ -42,6 +60,7 @@ protected:
 
 private:
     QLabel* m_messageLabel = nullptr;
+    std::vector<QPushButton*> m_actionButtons;
     Tone m_tone = Tone::Info;
     QColor m_bgColor;
     QColor m_borderColor;

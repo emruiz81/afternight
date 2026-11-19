@@ -2785,9 +2785,30 @@ framework's: the target is exported once, a destination of its shape allocated b
 host's `execute` writes the destination, and the result is the view's edit, one step of its history, under the target's
 lock for the run's length; a cancelled Apply commits nothing and the session goes on. The extension's settings are the
 application's store (`ExtensionSdkService::selectExtensionSetting`), read first through what the tool configuration
-resolved, as the window always answered them. `HostedProcess.*` (`Test_ControlsExtensionSeam`) holds it over a stand-in
-host - a local socket's far end and an idle process of the suite standing for the host's (`Test_ControlsExtensionSeam/HostedPanelStandIn.h`) - and
-`HostedTasks.*` (`Test_ShellObservatory`) holds the page.
+resolved, as the window always answered them.
+
+While its host starts the process says so: the page appears as the session starts, its body headed by a quiet row - a
+turning arc, "Starting" and the process's name, and under them how far the host has come, a line a step
+(`ExtensionHostedSession::StartStep`: its host started, the extension loaded) - and the parameters kept from the
+package's discovery are drawn at once, disabled with the target, the tool's configuration, Reset and Apply
+(`ExtensionNativeProcessWindow::setControlsEnabled`, `acceptsRuns`) until the host is ready. A host that fails - it
+crashed, stopped answering, or went when neither the application nor the extension asked it to, which for a hosted
+session is a failure (`endOf`) - leaves the process: every request on its way is answered with why, so a run ends and
+lets the target's lock go, quietly, since the process says it itself; its controls are disabled, its run is failed (the
+rail's failed dot) and its banner, in the error tone, says the extension stopped responding with Restart and Close
+(`TopLevelProcessBaseControl::showProcessMessageWithActions`, a page's `ProcessPageLayout::setMessageActions`, the
+banner's `AnInfoBanner::setActions`). Restart starts a session again into the same process
+(`ExtensionHostedProcess::Hooks::restartSession`), which is starting again until its host is ready. A process shown
+after a run that ended while its host starts or after it failed is shown as its host stands once the run's end returned.
+
+`HostedProcess.*` (`Test_ControlsExtensionSeam`) holds it over a stand-in host - a local socket's far end and an idle
+process of the suite standing for the host's (`Test_ControlsExtensionSeam/HostedPanelStandIn.h`) - among them
+`HostDiesLeavesThePageAndReleasesTheLock`, `RestartBringsThePanelBack` and `NeverWaitsOnTheGuiThread`; `HostedTasks.*`
+(`Test_ShellObservatory`) holds the page, its starting row and its failure. The extension regression
+(`ExtensionRegression.*`, `Test_ProcessFramework`) runs every subject of the full host that works on one image on both
+paths, its window's and the hosted one's - each request lending the output the host writes - and expects the same
+answers of both; a hosted subject tells the parameter list the application kept for its window. The hosted drag is
+measured beside the window's (`HostedProcessPreviewBenchmark`, [BENCHMARKS.md](BENCHMARKS.md)).
 
 ### An extension's panel (`controls/ExtensionPanelDescription.h`, `controls/ExtensionParamPanel.h`)
 

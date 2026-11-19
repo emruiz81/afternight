@@ -3048,7 +3048,33 @@ void ExtensionNativeProcessWindow::updateExecuteButtonEnabled()
         !external_tool_config_enabled_ || (external_tool_config_valid_ && !version_query_pending);
     const bool applies = page_shape_ ? source_view_ != nullptr && source_view_->hasImage()
                                      : static_cast<bool>(execute_callback_) && source_view_ != nullptr;
-    execute_button_->setEnabled(applies && external_tool_ready && !manual_mask_editing_enabled_);
+    execute_button_->setEnabled(applies && acceptsRuns() && external_tool_ready && !manual_mask_editing_enabled_);
+}
+
+void ExtensionNativeProcessWindow::refreshApplyEnabled()
+{
+    updateExecuteButtonEnabled();
+}
+
+void ExtensionNativeProcessWindow::insertAtControlsHead(QWidget* widget)
+{
+    if (widget == nullptr || controls_layout_ == nullptr)
+    {
+        return;
+    }
+    controls_layout_->insertWidget(0, widget, 0);
+}
+
+void ExtensionNativeProcessWindow::setControlsEnabled(const bool enabled)
+{
+    for (QWidget* widget : {static_cast<QWidget*>(param_panel_), target_selector_section_,
+                            static_cast<QWidget*>(external_tool_config_button_), static_cast<QWidget*>(reset_button_)})
+    {
+        if (widget != nullptr)
+        {
+            widget->setEnabled(enabled);
+        }
+    }
 }
 
 void ExtensionNativeProcessWindow::resetExternalToolConfiguration()
