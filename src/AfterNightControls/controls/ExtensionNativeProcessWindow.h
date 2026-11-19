@@ -3,7 +3,9 @@
 
 #pragma once
 
-#include "HostPreviewFrames.h"
+#include "AfterNightControlsExport.h"
+
+#include "app/ExtensionPreviewFrames.h"
 #include "controls/ExtensionParamPanel.h"
 #include "controls/ImageRTPreviewControl.h"
 #include "components/AnInfoBanner.h"
@@ -106,7 +108,7 @@ namespace an::ui::extensions
 /// extension's manifest's to declare (`setPreviewScaling`): the whole image, unless it states its body maps every
 /// pixel alone or reads no farther than a reach it states. An Apply runs the extension's `execute` over the mirror's
 /// own image, never over a preview's.
-class ExtensionNativeProcessWindow : public ImageRTPreviewControl
+class AFTERNIGHTCONTROLS_API ExtensionNativeProcessWindow : public ImageRTPreviewControl
 {
     W_OBJECT(ExtensionNativeProcessWindow)
 public:
@@ -417,6 +419,58 @@ public:
     }
 
 protected:
+    /// How a window derived from this one is laid out when the application draws it as a process of its own: as a
+    /// process window of the framework is, so that a shell can arrange it as a page - its controls in a pane, the
+    /// preview beside them when it previews, and a box of Reset, Close and Apply that the framework presses. Its source
+    /// view is the application's view of the target, never taken into the window.
+    struct PageShape
+    {
+        /// Whether it previews: a preview pane beside the controls, or the controls alone.
+        bool previews = true;
+    };
+
+    /// A window of a page's shape.
+    ExtensionNativeProcessWindow(const std::string& display_name, const std::string& session_id,
+                                 ImageViewControl* source_view, PageShape shape);
+
+    /// Whether the window has a page's shape.
+    [[nodiscard]] bool hasPageShape() const noexcept
+    {
+        return page_shape_;
+    }
+
+    /// The panel the extension's parameters are drawn in.
+    [[nodiscard]] an::ui::extensions::ExtensionParamPanel* paramPanel() const noexcept
+    {
+        return param_panel_;
+    }
+
+    /// Asks for a frame of the parameters the window holds now, as a change of them does.
+    void requestPreviewFrame();
+
+    /// The tool's configuration may have resolved something else (`resolvedExternalToolRecord`), which the extension
+    /// reads as its settings: after every change of what the Apply waits for. Nothing by default.
+    virtual void externalToolRecordMayHaveChanged() {}
+
+    /// The width the extension asks its controls' panel to have (`controls_panel_width`); zero when it asks none.
+    [[nodiscard]] int configuredControlsPanelWidth() const noexcept
+    {
+        return configured_controls_panel_width_;
+    }
+
+    /// What a run of the window read on the GUI thread when it was issued (`getProcessParamsForExecution`), for a
+    /// window derived from this one to read on the run's worker: the parameters the panel held, the manual mask the
+    /// person drew and uses - null when none - and what the extension knows the image's view as. Empty for a run of
+    /// another kind.
+    struct RunReading
+    {
+        QCborMap params;
+        SharedAsset manualMask;
+        std::string viewName;
+        std::string fileName;
+    };
+    [[nodiscard]] static std::optional<RunReading> runReading(const ProcessExecutionParams* params);
+
     void showEvent(QShowEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
     void onContentLayoutReplaced(QBoxLayout* contentLayout) override;
@@ -449,6 +503,11 @@ public:
 private:
     struct ExternalToolResolution;
     struct PreviewParams;
+
+    /// Lays the window out: as the host's window, or in a page's shape.
+    void build(const std::string& display_name, std::optional<PageShape> shape);
+    void buildWindowButtons();
+    void buildPageButtons();
 
     void applyNativeWindowSizeConstraints();
     void fitWindowToVisibleContents();
@@ -552,6 +611,7 @@ private:
     };
     std::string session_id_;
     QPointer<ImageViewControl> source_view_;
+    bool page_shape_ = false;
 
     QHBoxLayout* root_layout_ = nullptr;
     QSplitter* main_splitter_ = nullptr;

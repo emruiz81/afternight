@@ -8,6 +8,7 @@
 #include "components/AnCollapsibleSection.h"
 #include "components/AnIconButton.h"
 #include "components/AnInfoBanner.h"
+#include "components/AnTag.h"
 #include "components/AnTaskHeader.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -192,14 +193,20 @@ public:
         title->setTextInteractionFlags(Qt::NoTextInteraction);
         close = new AnIconButton(QStringLiteral("close"), translated("Close (Esc)"), this);
         close->setObjectName(QStringLiteral("pageClose"));
-        layout->addWidget(eyebrow, 0, 0);
+        // The tag follows the title, as quiet as a fact is; the page shows it once a process states one.
+        tag = new AnTag(QString(), AnTag::Tone::Outlined, this);
+        tag->setObjectName(QStringLiteral("pageTag"));
+        tag->hide();
+        layout->addWidget(eyebrow, 0, 0, 1, 3);
         layout->addWidget(title, 1, 0);
-        layout->addWidget(close, 0, 1, 2, 1, Qt::AlignRight | Qt::AlignVCenter);
-        layout->setColumnStretch(0, 1);
+        layout->addWidget(tag, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+        layout->addWidget(close, 0, 3, 2, 1, Qt::AlignRight | Qt::AlignVCenter);
+        layout->setColumnStretch(2, 1);
     }
 
     QLabel* eyebrow = nullptr;
     QLabel* title = nullptr;
+    AnTag* tag = nullptr;
     AnIconButton* close = nullptr;
 
 protected:
@@ -1731,6 +1738,28 @@ void ProcessPageLayout::setCategory(const QString& category)
 QString ProcessPageLayout::category() const
 {
     return m_impl->header != nullptr ? m_impl->header->eyebrow->text() : QString();
+}
+
+void ProcessPageLayout::setTag(const QString& text, const QString& toolTip)
+{
+    if (m_impl->header == nullptr)
+    {
+        return;
+    }
+    m_impl->header->tag->setText(text);
+    m_impl->header->tag->setToolTip(toolTip);
+    m_impl->header->tag->setAccessibleDescription(toolTip);
+    m_impl->header->tag->setVisible(!text.isEmpty());
+}
+
+QString ProcessPageLayout::tag() const
+{
+    return m_impl->header != nullptr ? m_impl->header->tag->text() : QString();
+}
+
+QString ProcessPageLayout::tagToolTip() const
+{
+    return m_impl->header != nullptr ? m_impl->header->tag->toolTip() : QString();
 }
 
 void ProcessPageLayout::setCompareNames(const QString& shown, const QString& alternate, const QString& toolTip)

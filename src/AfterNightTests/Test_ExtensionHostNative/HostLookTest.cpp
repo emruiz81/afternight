@@ -11,7 +11,7 @@
 
 #include "controls/ImageViewControl.h"
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostThemeSync.h"
 
 #include "app/ExtensionThemeState.h"

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 
 #include <QAbstractButton>
 #include <QButtonGroup>

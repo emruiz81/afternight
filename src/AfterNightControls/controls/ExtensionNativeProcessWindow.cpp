@@ -1,7 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 
 #include <QAbstractButton>
 #include <QAbstractSpinBox>
@@ -90,7 +90,7 @@
 #include "session/ImageDocument.h"
 #include "session/PreviewProxies.h"
 #include "controls/QSliderSpinBox.h"
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/HistogramCompanions.h"
 #include "widgets/HistogramDisplayData.h"
@@ -1141,9 +1141,24 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
                                                            const std::string& session_id, ImageViewControl* source_view)
     : ImageRTPreviewControl(source_view, display_name), session_id_(session_id), source_view_(source_view)
 {
-    // The host owns this window through a std::unique_ptr, so it must not
-    // self-delete on close or the unique_ptr will later delete dangling memory.
+    build(display_name, std::nullopt);
+}
+
+ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& display_name,
+                                                           const std::string& session_id, ImageViewControl* source_view,
+                                                           const PageShape shape)
+    : ImageRTPreviewControl(source_view, display_name), session_id_(session_id), source_view_(source_view),
+      page_shape_(true)
+{
+    build(display_name, shape);
+}
+
+void ExtensionNativeProcessWindow::build(const std::string& display_name, const std::optional<PageShape> shape)
+{
+    // The host owns its window through a std::unique_ptr, so it must not self-delete on close or the unique_ptr will
+    // later delete dangling memory. A window of a page's shape is the application's, and closes as a process does.
     setAttribute(Qt::WA_DeleteOnClose, false);
+    const bool previews = !shape.has_value() || shape->previews;
 
     // The extension's preview is its body's alone: the mirror's mask is the application's to apply to what the window
     // commits, never blended into a frame, and the waiting spinner is the framework's, shown only for a slow frame.
@@ -1154,11 +1169,24 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
     root_layout_->setContentsMargins(0, 0, 0, 0);
     root_layout_->setSpacing(0);
 
-    const auto split = an::ui::processes::rt_preview_ui::buildMainProcessSplitter(root_layout_, this);
-    main_splitter_ = split.mainSplitter;
-    controls_panel_ = split.controlsPanel;
-    preview_panel_ = split.previewPanel;
-    controls_layout_ = split.controlsLayout;
+    QLayout* preview_layout = nullptr;
+    if (previews)
+    {
+        const auto split = an::ui::processes::rt_preview_ui::buildMainProcessSplitter(root_layout_, this);
+        main_splitter_ = split.mainSplitter;
+        controls_panel_ = split.controlsPanel;
+        preview_panel_ = split.previewPanel;
+        controls_layout_ = split.controlsLayout;
+        preview_layout = split.previewLayout;
+    }
+    else
+    {
+        // A page with no preview holds its controls alone: a shell shows the target beside them.
+        controls_panel_ = new QWidget(this);
+        controls_panel_->setObjectName(QStringLiteral("controlsPanel"));
+        controls_layout_ = new QVBoxLayout(controls_panel_);
+        root_layout_->addWidget(controls_panel_, 1);
+    }
 
     if (main_splitter_)
     {
@@ -1169,9 +1197,14 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
     if (!view_area_widget_)
     {
         view_area_widget_ = new QWidget(preview_panel_ ? preview_panel_ : this);
-        if (split.previewLayout)
+        if (preview_layout)
         {
-            split.previewLayout->addWidget(view_area_widget_);
+            preview_layout->addWidget(view_area_widget_);
+        }
+        else
+        {
+            // A page with no preview has no view area to show.
+            view_area_widget_->hide();
         }
     }
     view_area_layout_ = new QVBoxLayout(view_area_widget_);
@@ -1185,17 +1218,22 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
     view_area_layout_->addWidget(placeholder_label_, 1);
 
     // The framework's preview view lands in the view area; the window keeps its own size whether it previews or not.
-    m_ImagePreviewLayout = view_area_layout_;
+    m_ImagePreviewLayout = previews ? view_area_layout_ : nullptr;
 
-    param_scroll_area_ = new QScrollArea(controls_panel_ ? controls_panel_ : this);
-    param_scroll_area_->setObjectName(QStringLiteral("anNativeProcessParamScrollArea"));
-    param_scroll_area_->setWidgetResizable(true);
-    param_scroll_area_->setFrameShape(QFrame::NoFrame);
-    param_scroll_area_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    param_scroll_area_->hide();
+    if (!shape.has_value())
+    {
+        param_scroll_area_ = new QScrollArea(controls_panel_ ? controls_panel_ : this);
+        param_scroll_area_->setObjectName(QStringLiteral("anNativeProcessParamScrollArea"));
+        param_scroll_area_->setWidgetResizable(true);
+        param_scroll_area_->setFrameShape(QFrame::NoFrame);
+        param_scroll_area_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        param_scroll_area_->hide();
+    }
 
-    // The extension hears each change as it is made, on this thread, as its window has always told it.
-    param_panel_ = new an::ui::extensions::ExtensionParamPanel(param_scroll_area_);
+    // The extension hears each change as it is made, on this thread, as its window has always told it. A page's body
+    // scrolls the panel itself.
+    param_panel_ = new an::ui::extensions::ExtensionParamPanel(
+        param_scroll_area_ ? static_cast<QWidget*>(param_scroll_area_) : controls_panel_);
     param_panel_->setEventDelivery(an::ui::extensions::ExtensionParamPanel::EventDelivery::EachChange);
     an::ui::extensions::ExtensionPanelHost panel_host;
     panel_host.interactionWatcher = this;
@@ -1242,6 +1280,67 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
                      [this](const QString& id, const QString& name, const QCborValue& value, bool) {
                          onPanelEvent(id, name, value);
                      });
+    if (shape.has_value())
+    {
+        buildPageButtons();
+    }
+    else
+    {
+        buildWindowButtons();
+    }
+
+    syncEmbeddedViewLayout();
+
+    setWindowTitle(QString::fromStdString(display_name));
+    setProcessDescription(defaultNativeProcessDescription());
+    if (shape.has_value())
+    {
+        // The framework presses the box's buttons, and a shell lays the page out from these parts.
+        initializeStandardProcess(
+            root_layout_, previews ? view_area_layout_ : nullptr, nullptr, button_box_, nullptr, nullptr,
+            ProcessInitOptions{
+                .supportPerChannel = false, .showWaitingSpinner = true, .previewAreaSelectionEnabled = true});
+    }
+    else
+    {
+        setProperty("anForceBottomActionBar", true);
+        resize(kDefaultNativeProcessWindowSize);
+    }
+    initializeTopLevelProcess();
+    refreshTheme();
+}
+
+void ExtensionNativeProcessWindow::buildPageButtons()
+{
+    // A page's buttons are a process's: Reset, Close and Apply in the box the framework presses and a shell shows in
+    // its footer. The tool's Configure, for an extension that declares one, heads the controls.
+    external_tool_config_button_ = new QPushButton(controls_panel_);
+    external_tool_config_button_->setObjectName(QStringLiteral("anNativeProcessToolConfigButton"));
+    external_tool_config_button_->setText(QStringLiteral("Configure"));
+    external_tool_config_button_->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
+    external_tool_config_button_->hide();
+    controls_layout_->addWidget(external_tool_config_button_, 0, Qt::AlignLeft);
+    controls_layout_->addWidget(param_panel_, 0);
+    controls_layout_->addStretch(1);
+
+    button_box_ = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close | QDialogButtonBox::Reset,
+                                       Qt::Horizontal, controls_panel_);
+    reset_button_ = button_box_->button(QDialogButtonBox::Reset);
+    reset_button_->setObjectName(QStringLiteral("anNativeProcessResetButton"));
+    execute_button_ = button_box_->button(QDialogButtonBox::Apply);
+    execute_button_->setObjectName(QStringLiteral("anNativeProcessExecuteButton"));
+    close_button_ = button_box_->button(QDialogButtonBox::Close);
+    close_button_->setObjectName(QStringLiteral("anNativeProcessCloseButton"));
+    close_button_default_text_ = close_button_->text();
+    controls_layout_->addWidget(button_box_, 0);
+    execute_button_->setEnabled(false);
+
+    QObject::connect(external_tool_config_button_, &QPushButton::clicked, this,
+                     [this]() { onExternalToolConfigClicked(); });
+}
+
+void ExtensionNativeProcessWindow::buildWindowButtons()
+{
     param_scroll_area_->setWidget(param_panel_);
 
     action_bar_ = new QWidget(controls_panel_ ? controls_panel_ : this);
@@ -1330,15 +1429,6 @@ ExtensionNativeProcessWindow::ExtensionNativeProcessWindow(const std::string& di
     }
     QObject::connect(external_tool_config_button_, &QPushButton::clicked, this,
                      [this]() { onExternalToolConfigClicked(); });
-
-    syncEmbeddedViewLayout();
-
-    setWindowTitle(QString::fromStdString(display_name));
-    setProcessDescription(defaultNativeProcessDescription());
-    setProperty("anForceBottomActionBar", true);
-    resize(kDefaultNativeProcessWindowSize);
-    initializeTopLevelProcess();
-    refreshTheme();
 }
 
 ExtensionNativeProcessWindow::~ExtensionNativeProcessWindow()
@@ -1383,9 +1473,17 @@ void ExtensionNativeProcessWindow::refreshTheme()
 
     if (controls_layout_)
     {
-        const auto& spacing = an::ui::tokens().spacing;
-        controls_layout_->setSpacing(spacing.md);
-        controls_layout_->setContentsMargins(0, 0, 0, 0);
+        const auto& t = an::ui::tokens();
+        controls_layout_->setSpacing(t.spacing.md);
+        if (page_shape_)
+        {
+            // A page's controls are its body, whose padding their side margins are.
+            controls_layout_->setContentsMargins(t.metrics.pad, t.metrics.gap, t.metrics.pad, t.metrics.gap);
+        }
+        else
+        {
+            controls_layout_->setContentsMargins(0, 0, 0, 0);
+        }
     }
 
     if (action_bar_)
@@ -1770,10 +1868,8 @@ ImageRTPreviewControl::ProcessExecutionParamsPtr ExtensionNativeProcessWindow::g
     snapshot->params = currentParams();
     snapshot->showsSource =
         manual_mask_editing_enabled_ || (manualMaskDisplayModeSelected() && hasManualMask() && manualMaskUseChecked());
-    if (!snapshot->showsSource)
-    {
-        snapshot->manualMask = manualMaskImage();
-    }
+    // A frame that shows the source runs nothing and reads no mask; an Apply reads the mask the person uses.
+    snapshot->manualMask = manualMaskImage();
     if (source_view_)
     {
         snapshot->viewName = source_view_->getUniqueName();
@@ -1784,6 +1880,20 @@ ImageRTPreviewControl::ProcessExecutionParamsPtr ExtensionNativeProcessWindow::g
     snapshot->session = engineSession();
     snapshot->regionMargin = preview_region_margin_;
     return snapshot;
+}
+
+std::optional<ExtensionNativeProcessWindow::RunReading>
+ExtensionNativeProcessWindow::runReading(const ProcessExecutionParams* params)
+{
+    const auto* snapshot = dynamic_cast<const PreviewParams*>(params);
+    if (snapshot == nullptr)
+    {
+        return std::nullopt;
+    }
+    return RunReading{.params = snapshot->params,
+                      .manualMask = snapshot->manualMask,
+                      .viewName = snapshot->viewName,
+                      .fileName = snapshot->fileName};
 }
 
 an::ui::ProcessBodyCoverage ExtensionNativeProcessWindow::processBodyCoverage(const ProcessExecutionParams*) const
@@ -1993,9 +2103,12 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
     {
         controls_panel_->setMinimumWidth(0);
     }
-    setFixedSizeWindow(false);
-    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-    setMinimumSize(0, 0);
+    if (!page_shape_)
+    {
+        setFixedSizeWindow(false);
+        setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        setMinimumSize(0, 0);
+    }
     updating_param_defs_ = true;
     resetExternalToolConfiguration();
 
@@ -2103,25 +2216,29 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
         {
             configured_window_size_ = requested_window_size;
         }
-        if (window_config.contains(QStringLiteral("fixed_size")))
+        // A page is sized by its host: what the extension says of its window's size is the window's alone.
+        if (!page_shape_)
         {
-            setFixedSizeWindow(window_config.value(QStringLiteral("fixed_size")).toBool(false));
-        }
-        if (window_config.contains(QStringLiteral("fixed")))
-        {
-            setFixedSizeWindow(window_config.value(QStringLiteral("fixed")).toBool(false));
-        }
-        if (window_config.contains(QStringLiteral("resizable")))
-        {
-            setFixedSizeWindow(!window_config.value(QStringLiteral("resizable")).toBool(true));
-        }
-        if (obj.contains(QStringLiteral("fixed_size")))
-        {
-            setFixedSizeWindow(obj[QStringLiteral("fixed_size")].toBool(false));
-        }
-        if (obj.contains(QStringLiteral("resizable")))
-        {
-            setFixedSizeWindow(!obj[QStringLiteral("resizable")].toBool(true));
+            if (window_config.contains(QStringLiteral("fixed_size")))
+            {
+                setFixedSizeWindow(window_config.value(QStringLiteral("fixed_size")).toBool(false));
+            }
+            if (window_config.contains(QStringLiteral("fixed")))
+            {
+                setFixedSizeWindow(window_config.value(QStringLiteral("fixed")).toBool(false));
+            }
+            if (window_config.contains(QStringLiteral("resizable")))
+            {
+                setFixedSizeWindow(!window_config.value(QStringLiteral("resizable")).toBool(true));
+            }
+            if (obj.contains(QStringLiteral("fixed_size")))
+            {
+                setFixedSizeWindow(obj[QStringLiteral("fixed_size")].toBool(false));
+            }
+            if (obj.contains(QStringLiteral("resizable")))
+            {
+                setFixedSizeWindow(!obj[QStringLiteral("resizable")].toBool(true));
+            }
         }
         applyNativeWindowSizeConstraints();
         if (preview_area_enabled_ && obj[QStringLiteral("sub_area")].toBool(false))
@@ -2169,7 +2286,8 @@ void ExtensionNativeProcessWindow::setParamDefs(const QJsonArray& defs)
         param_scroll_area_->setVisible(param_panel_->hasVisibleContent());
     }
 
-    if (controls_panel_ && configured_controls_panel_width_ > 0)
+    // A page's column is as wide as its process declares (`processColumnWidth`), the panel's width never more.
+    if (controls_panel_ && configured_controls_panel_width_ > 0 && !page_shape_)
     {
         controls_panel_->setMinimumWidth(configured_controls_panel_width_);
         if (main_splitter_ && preview_panel_)
@@ -2687,7 +2805,13 @@ void ExtensionNativeProcessWindow::syncEmbeddedViewLayout()
         return;
     }
 
-    if (source_view_)
+    if (page_shape_)
+    {
+        // A page's source view is the application's own view of the target, never taken into the page: with no
+        // preview view the page's canvas says why.
+        placeholder_label_->hide();
+    }
+    else if (source_view_)
     {
         view_area_layout_->addWidget(source_view_, 1);
         source_view_->show();
@@ -2861,6 +2985,12 @@ void ExtensionNativeProcessWindow::closeEvent(QCloseEvent* event)
 
 void ExtensionNativeProcessWindow::onContentLayoutReplaced(QBoxLayout* contentLayout)
 {
+    // A window of a page's shape handed the framework its main layout, which the shell's wrapper has just replaced: the
+    // framework follows it too, as every process of the framework's does.
+    if (page_shape_)
+    {
+        ImageRTPreviewControl::onContentLayoutReplaced(contentLayout);
+    }
     root_layout_ = qobject_cast<QHBoxLayout*>(contentLayout);
     if (root_layout_)
     {
@@ -2900,6 +3030,8 @@ void ExtensionNativeProcessWindow::onCancelClicked()
 
 void ExtensionNativeProcessWindow::updateExecuteButtonEnabled()
 {
+    // Every change of the tool's resolution ends here.
+    externalToolRecordMayHaveChanged();
     if (!execute_button_)
     {
         return;
@@ -2914,8 +3046,9 @@ void ExtensionNativeProcessWindow::updateExecuteButtonEnabled()
         external_tool_resolved_record_.value(QStringLiteral("resolved_cli_version_pending")).toBool();
     const bool external_tool_ready =
         !external_tool_config_enabled_ || (external_tool_config_valid_ && !version_query_pending);
-    execute_button_->setEnabled(static_cast<bool>(execute_callback_) && source_view_ != nullptr &&
-                                external_tool_ready && !manual_mask_editing_enabled_);
+    const bool applies = page_shape_ ? source_view_ != nullptr && source_view_->hasImage()
+                                     : static_cast<bool>(execute_callback_) && source_view_ != nullptr;
+    execute_button_->setEnabled(applies && external_tool_ready && !manual_mask_editing_enabled_);
 }
 
 void ExtensionNativeProcessWindow::resetExternalToolConfiguration()
@@ -3641,6 +3774,10 @@ void ExtensionNativeProcessWindow::onExternalToolConfigClicked()
 
 void ExtensionNativeProcessWindow::applyNativeWindowSizeConstraints()
 {
+    if (page_shape_)
+    {
+        return;
+    }
     const bool fixed_size = property("anFixedSizeWindow").toBool();
     if (!fixed_size)
     {
@@ -3705,7 +3842,7 @@ void ExtensionNativeProcessWindow::applyNativeWindowSizeConstraints()
 
 void ExtensionNativeProcessWindow::fitWindowToVisibleContents()
 {
-    if (view_area_visible_)
+    if (view_area_visible_ || page_shape_)
     {
         return;
     }
@@ -3722,6 +3859,11 @@ void ExtensionNativeProcessWindow::fitWindowToVisibleContents()
     updateGeometry();
     adjustSize();
     applyNativeWindowSizeConstraints();
+}
+
+void ExtensionNativeProcessWindow::requestPreviewFrame()
+{
+    requestFrame();
 }
 
 void ExtensionNativeProcessWindow::requestFrame()
@@ -4974,8 +5116,10 @@ void ExtensionNativeProcessWindow::enableTargetSelector(const std::vector<std::m
         if (controls_layout_)
         {
             const bool top_position = pending_target_selector_position_ == QLatin1String("top");
+            // A page's target heads its controls, as every process's does.
             const int insert_idx =
-                top_position && param_scroll_area_
+                page_shape_ ? controls_layout_->indexOf(param_panel_)
+                : top_position && param_scroll_area_
                     ? controls_layout_->indexOf(param_scroll_area_)
                     : controls_layout_->indexOf(action_bar_ ? action_bar_ : static_cast<QWidget*>(button_box_));
             if (insert_idx >= 0)

@@ -17,7 +17,7 @@
 #include "HostRuntimeScenarios.h"
 
 #include "ExtensionAppContext.h"
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostRuntimeSession.h"
 #include "RuntimeSessionCapsule.h"
 #include "controls/ImageViewControl.h"

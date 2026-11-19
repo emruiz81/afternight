@@ -5,6 +5,10 @@
 
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionCommon.h"
+#include "app/ExtensionHostedSession.h"
+#include "app/ProcessRegistry.h"
+#include "controls/ExtensionHostedProcess.h"
+#include "controls/ProcessLaunchScope.h"
 #include "app/ReadRequests.h"
 #include "app/ExtensionProtocolFraming.h"
 #include "app/ExtensionThemeState.h"
@@ -1546,6 +1550,24 @@ bool validateExecutionOutputDescriptor(const std::string_view request_kind, cons
         }
         return false;
     }
+
+    // An output the application lent the request - a hosted panel's frame or Apply, which writes into a buffer of its
+    // own sidecar - comes back as it was lent.
+    if (const auto* lent_output =
+            request_buffers ? findBufferDescriptorById(*request_buffers, output_descriptor.buffer_id) : nullptr;
+        lent_output != nullptr && lent_output->buffer_role == expected_role)
+    {
+        if (lent_output->access_mode != an::ui::extensions::SharedBufferAccessMode::ReadWrite)
+        {
+            if (error)
+            {
+                *error = "Extension returned an output buffer it was lent to read";
+            }
+            return false;
+        }
+        return validateDescriptorMatchesExpectedDescriptor(output_descriptor, *lent_output, error);
+    }
+
     if (!source_descriptor)
     {
         return true;
@@ -3016,8 +3038,10 @@ ExtensionSessionStanding standingOf(const ExtensionSessionController& session)
             standing.run.phase = ProcessRunState::Phase::Cancelled;
         }
     }
-    // A host is asked nothing before its runtime is ready: it reads no such message while it starts.
-    standing.raisesItsWindow = session.isActive() && running.runtime_ready &&
+    // A host is asked nothing before its runtime is ready: it reads no such message while it starts. A host serving a
+    // hosted panel shows no window to raise.
+    standing.hostedPanel = running.hosted_panel;
+    standing.raisesItsWindow = session.isActive() && running.runtime_ready && !running.hosted_panel &&
                                hasCapability(running.handshake.hello.capabilities, kWindowRaiseCapability);
     return standing;
 }
@@ -4054,6 +4078,11 @@ ExtensionSessionController::PumpAction ExtensionSessionController::advanceAfterM
     return PumpAction::None;
 }
 
+std::string extensionHistoryParametersText(const QCborMap& params)
+{
+    return formatExtensionHistoryParams(params);
+}
+
 std::optional<QRect> normalizeManagedPreviewSubArea(const bool selection_enabled, const QSize& source_image_size,
                                                     const QRect& selection_area)
 {
@@ -4127,11 +4156,242 @@ void ExtensionHostLaunchCoordinator::configureSdkService(
     sdk_service_.setViewStateProvider(std::move(view_state_provider));
     sdk_service_.setViewSnapshotProvider(std::move(view_snapshot_provider));
     sdk_service_.setThemeSnapshotProvider(std::move(theme_snapshot_provider));
+    ui_interaction_handler_ = ui_interaction_handler;
     sdk_service_.setUiInteractionHandler(std::move(ui_interaction_handler));
     sdk_service_.setViewBindingHandler(std::move(view_binding_handler));
     sdk_service_.setUiOpenImageHandler(std::move(ui_open_image_handler));
     sdk_service_.setWorkflowOutputHandler(std::move(workflow_output_handler));
     host_manager_.setSdkService(&sdk_service_);
+}
+
+void ExtensionHostLaunchCoordinator::setHostsPanels(std::function<bool()> policy)
+{
+    hosts_panels_ = std::move(policy);
+}
+
+std::vector<ExtensionHostedProcess*> ExtensionHostLaunchCoordinator::hostedProcesses() const
+{
+    std::vector<ExtensionHostedProcess*> processes;
+    for (const auto& session : sessions_)
+    {
+        if (session && session->hosted_process)
+        {
+            processes.push_back(static_cast<ExtensionHostedProcess*>(session->hosted_process.data()));
+        }
+    }
+    return processes;
+}
+
+bool ExtensionHostLaunchCoordinator::hostsPanels(const ExtensionHostLaunchBinding& binding) const
+{
+    // Only an extension of the native process window - a runtime one, of one image, whose parameters the application
+    // read when it found the package - can be drawn by the application.
+    if (binding.sdk_backend != "runtime" || binding.launch_mode != ExtensionLaunchMode::SingleImage ||
+        !binding.extension_host_owns_process_window || !binding.has_cached_native_param_schema)
+    {
+        return false;
+    }
+    if (hosts_panels_)
+    {
+        return hosts_panels_();
+    }
+    an::ui::IAppContext* const context = an::ui::appContext();
+    return context != nullptr && context->getProcessPresenter() != nullptr;
+}
+
+std::vector<std::map<std::string, QVariant>> ExtensionHostLaunchCoordinator::hostedViewList() const
+{
+    std::vector<std::map<std::string, QVariant>> views;
+    std::vector<ExtensionViewState> states;
+    std::string error;
+    if (!sdk_service_.viewStates(&states, &error))
+    {
+        LOG_DEBUG("The open images could not be listed for a hosted panel: {}", error);
+        return views;
+    }
+    for (const ExtensionViewState& state : states)
+    {
+        std::map<std::string, QVariant> view;
+        view["name"] = QString::fromStdString(state.view_name);
+        view["file_name"] = QString::fromStdString(state.file_name);
+        view["width"] = state.width;
+        view["height"] = state.height;
+        view["channels"] = state.channels;
+        view["is_active"] = state.is_active;
+        view["has_image"] = state.has_image;
+        view["has_sequence"] = state.has_sequence;
+        if (!state.selector_tooltip.empty())
+        {
+            view["selector_tooltip"] = QString::fromStdString(state.selector_tooltip);
+        }
+        views.push_back(std::move(view));
+    }
+    return views;
+}
+
+void ExtensionHostLaunchCoordinator::bindHostedProcess(ExtensionSessionController* session,
+                                                       const ExtensionHostLaunchBinding& binding,
+                                                       ImageViewControl* control, ExtensionHostedProcess* restarted)
+{
+    if (!session)
+    {
+        return;
+    }
+    ExtensionHostedProcess* process = restarted;
+    if (process == nullptr)
+    {
+        ExtensionHostedProcess::Setup setup;
+        setup.displayName = binding.display_name;
+        setup.previews = binding.process_capabilities.preview;
+        switch (binding.process_capabilities.preview_scaling)
+        {
+        case ExtensionPreviewScaling::Decimated:
+            setup.previewScaling = an::ui::PreviewScaling::Decimated;
+            break;
+        case ExtensionPreviewScaling::NativeRegion:
+            setup.previewScaling = an::ui::PreviewScaling::NativeRegion;
+            setup.previewRegionMargin = binding.process_capabilities.preview_region_margin;
+            break;
+        case ExtensionPreviewScaling::FullOnly:
+            setup.previewScaling = an::ui::PreviewScaling::FullOnly;
+            break;
+        }
+        setup.keptParams = binding.cached_native_param_schema;
+        setup.keepOpen = binding.process_capabilities.keep_open;
+        // The process is the descriptor's, as a process the launcher opens is: its task, its help and its name follow.
+        // Where it is shown is its manifest's, stated in the launch so that what reads it as the process registers -
+        // its task - reads what the process itself answers.
+        const auto* registered = process_registry::ProcessRegistry::instance().find(binding.descriptor_id);
+        process_registry::ProcessDescriptor stated;
+        if (registered != nullptr)
+        {
+            stated = *registered;
+        }
+        else
+        {
+            stated.id = binding.descriptor_id;
+            stated.display_name = binding.display_name;
+            stated.process_name = binding.display_name;
+        }
+        stated.surface = setup.previews ? an::ui::ProcessSurface::PreviewPage : an::ui::ProcessSurface::MirrorPage;
+        stated.columnWidth = an::ui::ProcessColumnWidth::Standard;
+        for (const QJsonValue& entry : binding.cached_native_param_schema)
+        {
+            const QJsonObject meta = entry.toObject();
+            if (meta.value(QStringLiteral("type")).toString() == QLatin1String("meta") &&
+                meta.value(QStringLiteral("controls_panel_width")).toDouble(0.0) >
+                    static_cast<double>(ExtensionHostedProcess::kStandardColumnWidth))
+            {
+                stated.columnWidth = an::ui::ProcessColumnWidth::Wide;
+            }
+        }
+        {
+            const an::ui::ProcessLaunchScope launch(stated);
+            process = new ExtensionHostedProcess(control, std::move(setup));
+        }
+
+        const std::weak_ptr<int> alive = alive_;
+        const std::weak_ptr<ExtensionHostedSession> hosted = process->hostedSession();
+        const std::string extension_id = binding.extension_id;
+        ExtensionHostedProcess::Hooks hooks;
+        hooks.closeSession = [this, alive, hosted]() {
+            const std::shared_ptr<ExtensionHostedSession> shared = hosted.lock();
+            if (alive.expired() || !shared || !shared->bound())
+            {
+                return;
+            }
+            closeSession(shared->sessionId());
+        };
+        hooks.restartSession = [this, alive, binding, guard = QPointer<ExtensionHostedProcess>(process)]() {
+            if (alive.expired() || !guard)
+            {
+                return;
+            }
+            ExtensionHostLaunchOptions options;
+            options.hosted_process = guard.data();
+            std::string error;
+            if (!launchBoundDescriptor(binding, guard->processTarget(), options, &error))
+            {
+                LOG_WARNING("The extension '{}' could not be started again: {}", binding.display_name, error);
+            }
+        };
+        hooks.listViews = [this, alive]() {
+            return alive.expired() ? std::vector<std::map<std::string, QVariant>>() : hostedViewList();
+        };
+        hooks.targetChosen = [this, alive, hosted,
+                              guard = QPointer<ExtensionHostedProcess>(process)](const std::string& view_name) {
+            const std::shared_ptr<ExtensionHostedSession> shared = hosted.lock();
+            if (alive.expired() || !shared || !shared->bound() || !guard)
+            {
+                return;
+            }
+            std::string error;
+            if (!bindSessionTargetView(shared->sessionId(), view_name, &error))
+            {
+                LOG_WARNING("A hosted panel's target could not be bound: {}", error);
+                return;
+            }
+            an::ui::IAppContext* const context = an::ui::appContext();
+            an::ui::IViewControlManager* const views = context ? context->getViewControlManager() : nullptr;
+            if (ImageViewControl* const view = views ? views->getViewControlByName(view_name) : nullptr)
+            {
+                guard->setSourceView(view);
+            }
+        };
+        hooks.settingGet = [this, alive, extension_id, guard = QPointer<ExtensionHostedProcess>(process)](
+                               const QString& key, const QCborValue& default_value) {
+            if (guard)
+            {
+                const QCborValue transient = guard->transientExternalToolSettingValue(key, QCborValue());
+                if (!transient.isUndefined())
+                {
+                    return transient;
+                }
+            }
+            QCborValue value = default_value;
+            std::string error;
+            if (!alive.expired() &&
+                !sdk_service_.selectExtensionSetting(extension_id, key.toStdString(), &value, default_value, &error))
+            {
+                LOG_WARNING("Failed to read extension setting '{}': {}", key.toStdString(), error);
+            }
+            return value;
+        };
+        hooks.settingSet = [this, alive, extension_id](const QString& key, const QCborValue& value,
+                                                       std::string* error) {
+            return !alive.expired() &&
+                   sdk_service_.upsertExtensionSetting(extension_id, key.toStdString(), value, error);
+        };
+        hooks.openSettings = [this, alive, extension_id, hosted](std::string* error) {
+            const std::shared_ptr<ExtensionHostedSession> shared = hosted.lock();
+            if (alive.expired() || !ui_interaction_handler_.open_extension_settings)
+            {
+                if (error)
+                {
+                    *error = "The extension's settings cannot be opened here";
+                }
+                return false;
+            }
+            return ui_interaction_handler_.open_extension_settings(
+                shared ? shared->sessionId() : std::string(), generateOpaqueToken(), extension_id,
+                [](const std::string& completion_error) {
+                    if (!completion_error.empty())
+                    {
+                        LOG_WARNING("The extension's settings could not be opened: {}", completion_error);
+                    }
+                },
+                error);
+        };
+        process->setHooks(std::move(hooks));
+    }
+
+    session->hosted = process->hostedSession();
+    session->hosted_process = process;
+    session->hosted->bind(host_manager_, *session);
+    if (restarted == nullptr)
+    {
+        process->show();
+    }
 }
 
 bool ExtensionHostLaunchCoordinator::bindSessionTargetView(const std::string_view session_id,
@@ -4352,6 +4612,7 @@ ExtensionHostPreparedSession ExtensionHostManager::prepareSession(const Extensio
     session.inspect_settings_snapshot_cbor_base64 = request.inspect_settings_snapshot_cbor_base64;
     session.handshake_timeout_ms = request.handshake_timeout_ms;
     session.defer_runtime_bootstrap = request.defer_runtime_bootstrap;
+    session.hosted_panel = request.hosted_panel;
 
     std::filesystem::path resolved_app_dir = app_dir;
     if (resolved_app_dir.empty() && QCoreApplication::instance())
@@ -4632,6 +4893,12 @@ bool ExtensionHostManager::launchSession(const ExtensionHostPreparedSession& ses
     RuntimeHelloAckMessage accepted_ack = session.ack_template;
     accepted_ack.native_process_window = hello.native_process_window;
     accepted_ack.bootstrap_status_messages = hello.bootstrap_status_messages;
+    // The application draws the panel only of a host that can serve one; another shows its window as before.
+    const bool hosted_panel = session.hosted_panel && hasCapability(hello.capabilities, kHostedPanelCapability);
+    if (hosted_panel)
+    {
+        accepted_ack.capabilities.emplace_back(kHostedPanelCapability);
+    }
 
     if (!writeAckMessage(socket.get(), session.handshake_timeout_ms, accepted_ack, &local_error))
     {
@@ -4672,6 +4939,8 @@ bool ExtensionHostManager::launchSession(const ExtensionHostPreparedSession& ses
     running_session->last_preview_result.reset();
     running_session->last_view_commit.reset();
     running_session->run_activity.reset();
+    running_session->hosted_panel = hosted_panel;
+    running_session->panel_inbox.clear();
     running_session->latest_ui_validation_request_id.clear();
     running_session->last_ui_validation_result.reset();
     running_session->last_error.clear();
@@ -4997,7 +5266,8 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
                                       "complete via view.commit")
                         : std::string("Extension host replied with an unexpected execution result target id"));
             }
-            if (execute_result)
+            // A hosted panel's execute that failed or was cancelled is answered so; any other completes by view.commit.
+            if (execute_result && !running_session->hosted_panel)
             {
                 return fail_session(ExtensionHostSessionState::Failed,
                                     "Extension host sent execute completion via execution.result; execute must "
@@ -5083,6 +5353,14 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
                 return fail_session(ExtensionHostSessionState::Failed,
                                     "Extension host sent an invalid session.activity message: " + local_error);
             }
+            continue;
+        }
+
+        // What a host serving a hosted panel tells of it waits for the panel, which refuses what is not whole.
+        if (running_session->hosted_panel && message.request_id.empty() &&
+            (message.type == "ui.describe" || message.type == "ui.patch"))
+        {
+            running_session->panel_inbox.push_back(std::move(message));
             continue;
         }
 
@@ -5237,7 +5515,10 @@ bool ExtensionHostManager::pumpSession(ExtensionHostRunningSession* running_sess
         }
     }
 
-    if (running_session->cancel_requested && running_session->cancel_requested_elapsed_ms >= 0 &&
+    // A hosted panel's host hears a cancel when the extension next looks, as its window's own run did: the request is
+    // answered then, and the heartbeat still tells a host that stopped.
+    if (!running_session->hosted_panel && running_session->cancel_requested &&
+        running_session->cancel_requested_elapsed_ms >= 0 &&
         elapsed_ms - running_session->cancel_requested_elapsed_ms >=
             running_session->handshake.ack.cancel_grace_period_ms)
     {
@@ -5749,6 +6030,32 @@ bool ExtensionHostManager::sendWindowRaise(ExtensionHostRunningSession* running_
                                 running_session->prepared_session.handshake_timeout_ms, error);
 }
 
+bool ExtensionHostManager::sendPanelEvent(ExtensionHostRunningSession* running_session, const UiEventMessage& event,
+                                          std::string* error) const
+{
+    if (!running_session || running_session->state != ExtensionHostSessionState::Active ||
+        !running_session->runtime_ready || !running_session->socket)
+    {
+        if (error)
+        {
+            *error = "The extension host session is not running";
+        }
+        return false;
+    }
+    if (!running_session->hosted_panel)
+    {
+        if (error)
+        {
+            *error = "The application does not draw the extension's panel";
+        }
+        return false;
+    }
+    UiEventMessage message = event;
+    message.session_id = running_session->prepared_session.session_id;
+    return writeProtocolMessage(running_session->socket.get(), toProtocolMessage(message),
+                                running_session->prepared_session.handshake_timeout_ms, error);
+}
+
 void ExtensionHostManager::stopSession(ExtensionHostRunningSession* running_session) const
 {
     if (!running_session)
@@ -5992,6 +6299,7 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
     request.host_executable = binding.host_executable;
     request.host_arguments = binding.host_arguments;
     request.defer_runtime_bootstrap = connectsBeforeRuntimeStart(binding);
+    request.hosted_panel = options.hosted_process != nullptr || hostsPanels(binding);
     if (const auto cached_schema = cachedNativeParamSchemaArgument(binding))
     {
         request.host_arguments.push_back("--cached-param-schema");
@@ -6058,7 +6366,9 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
 
     if (session_controller.running_session.handshake.ack.native_process_window)
     {
-        session_controller.running_session.native_process_window_rt_preview = binding.process_capabilities.preview;
+        // A host whose window previews may crash as that window closes; a hosted panel's host has no window.
+        session_controller.running_session.native_process_window_rt_preview =
+            binding.process_capabilities.preview && !session_controller.running_session.hosted_panel;
         session_controller.managed_preview_sub_area_enabled = false;
         session_controller.managed_preview_sub_area_size = QSize();
         session_controller.managed_preview_sub_area_label.clear();
@@ -6095,6 +6405,10 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
 
     sessions_.push_back(std::make_unique<ExtensionSessionController>(std::move(session_controller)));
     armSessionPumpWake(sessions_.back().get());
+    if (sessions_.back()->running_session.hosted_panel)
+    {
+        bindHostedProcess(sessions_.back().get(), binding, control, options.hosted_process);
+    }
     if (sessions_.back()->managed_preview_sub_area_enabled)
     {
         sessions_.back()->configureManagedPreviewSubArea();
@@ -6593,6 +6907,13 @@ void ExtensionHostLaunchCoordinator::stopManagedSession(ExtensionSessionControll
 
     removeSessionFromExecutionGate(&execution_gate_, &session->running_session);
     host_manager_.stopSession(&session->running_session);
+    // The hosted process is told how its session ended - every request on its way answered, the frames' pool closed -
+    // before the session's buffers are removed.
+    if (std::shared_ptr<ExtensionHostedSession> hosted = std::move(session->hosted))
+    {
+        hosted->unbind(endOf(*session));
+    }
+    session->hosted_process.clear();
     clearSessionControllerBuffers(session);
 }
 
@@ -6640,6 +6961,11 @@ void ExtensionHostLaunchCoordinator::pumpSessions()
         session->advanceActivePump([this](ExtensionHostRunningSession* running_session, std::string* error) {
             return host_manager_.pumpManagedSession(&execution_gate_, running_session, 0, error);
         });
+        // A hosted panel's process takes its answers before a commit the extension made itself lands as its window's.
+        if (session->hosted)
+        {
+            session->hosted->route();
+        }
 
         if (!session->launch_outcome_recorded && !session->isActive())
         {
@@ -6759,6 +7085,11 @@ void ExtensionHostLaunchCoordinator::pumpSessions()
         {
             stopManagedSession(session.get(), true);
         }
+
+        if (session->hosted)
+        {
+            session->hosted->dispatch();
+        }
     }
 
     // Where every session stands now is told, a stopped session's end with it, before it is pruned.
@@ -6864,6 +7195,28 @@ void ExtensionHostLaunchCoordinator::handleViewControlCreated(const ImageViewCon
         return;
     }
 
+    // A hosted process lists the open images itself, as its host's window lists them.
+    if (const std::vector<ExtensionHostedProcess*> hosted = hostedProcesses(); !hosted.empty())
+    {
+        const QString name = QString::fromUtf8(view_name.empty() ? view_id : view_name);
+        for (const std::map<std::string, QVariant>& view : hostedViewList())
+        {
+            const auto listed = view.find("name");
+            if (listed == view.end() || listed->second.toString() != name)
+            {
+                continue;
+            }
+            for (ExtensionHostedProcess* process : hosted)
+            {
+                if (process->hasTargetSelector())
+                {
+                    process->addOrUpdateTargetSelectorView(view);
+                }
+                process->addOrUpdateViewSelectorView(view);
+            }
+        }
+    }
+
     for (auto& session : sessions_)
     {
         if (!sessionCanReceiveRuntimeNotifications(session.get()))
@@ -6909,6 +7262,13 @@ void ExtensionHostLaunchCoordinator::handleViewControlDestroyed(const ImageViewC
 
     // A launch still reading its schema for the view has nothing to start once the view is gone.
     endSchemaReads(control);
+
+    for (ExtensionHostedProcess* process : hostedProcesses())
+    {
+        const QString name = QString::fromStdString(control->getUniqueName());
+        process->removeTargetSelectorView(name);
+        process->removeViewSelectorView(name);
+    }
 
     for (auto& session : sessions_)
     {
@@ -6988,6 +7348,14 @@ void ExtensionHostLaunchCoordinator::handleViewControlRenamed(const std::string&
     if (!control && new_name.empty() && old_name.empty())
     {
         return;
+    }
+
+    for (ExtensionHostedProcess* process : hostedProcesses())
+    {
+        process->renameTargetSelectorView(QString::fromStdString(old_name), QString::fromStdString(new_name),
+                                          QString::fromUtf8(file_name), QString::fromUtf8(selector_tooltip));
+        process->renameViewSelectorView(QString::fromStdString(old_name), QString::fromStdString(new_name),
+                                        QString::fromUtf8(file_name), QString::fromUtf8(selector_tooltip));
     }
 
     const std::string fallback_file_name(file_name);

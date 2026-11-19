@@ -682,6 +682,28 @@ TEST_F(ViewThumbnailService, RedoneOnAnImageUpdateAndDroppedWhenTheViewGoes)
 // descriptor it was launched for with its glyph and its category, on the image it was launched on. A model made while a
 // session runs takes it in. The session's end as it should takes the task away, the current one among them, and the
 // observers are told both.
+// A session whose panel the application draws is its process's task, made when the process registers: the session
+// makes no task of its own, while it runs or when it ends.
+TEST_F(ExternalTasks, ASessionWhosePanelTheApplicationDrawsIsNoTaskOfItsOwn)
+{
+    ImageViewControl* view = viewOf(QStringLiteral("M51"));
+    ASSERT_NE(view, nullptr);
+    using Sessions = an::tests::shellcore::StandInExtensionSessions;
+    an::ui::extensions::ExtensionSessionStanding hosted =
+        Sessions::session("hosted", "an.demo.hosted", QStringLiteral("Hosted Demo"), view);
+    hosted.hostedPanel = true;
+    m_sessions.stand(hosted);
+
+    Model& tasks = modelOverSessions();
+    EXPECT_TRUE(tasks.tasks().empty()) << "a session running when the model is made";
+    hosted.host = an::ui::extensions::ExtensionHostStanding::Ready;
+    m_sessions.stand(hosted);
+    EXPECT_TRUE(tasks.tasks().empty()) << "a session that moves on";
+    EXPECT_EQ(tasks.taskForSession("hosted"), nullptr);
+    m_sessions.end("hosted", true, QStringLiteral("crashed"));
+    EXPECT_TRUE(tasks.tasks().empty()) << "a session that ends";
+}
+
 TEST_F(ExternalTasks, ASessionAddsATaskAndItsEndRemovesIt)
 {
     const RegistryKept kept;

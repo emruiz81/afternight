@@ -6,6 +6,7 @@
 #include "AfterNightExtensionProtocolExport.h"
 
 #include <QByteArray>
+#include <QCborArray>
 #include <QCborMap>
 #include <QCborValue>
 
@@ -33,6 +34,19 @@ inline constexpr std::string_view kWindowRaiseCapability = "window_raise";
 
 /// The longest text a `session.activity` may carry, in characters.
 inline constexpr std::size_t kSessionActivityTextLimit = 200u;
+
+/// The capability a host states in its `runtime.hello` when it can serve a panel the application draws, and the
+/// application states in its acknowledgement when it draws the session's panel itself. With it in both, the host shows
+/// no window of its own: it tells the application the extension's parameters (`ui.describe`) and what its actions
+/// answer (`ui.patch`), hears what a person does in the panel (`ui.event`), and runs the previews and the executes the
+/// application sends. Without it in both, none of those messages is sent either way.
+inline constexpr std::string_view kHostedPanelCapability = "hosted_panel";
+
+/// The most entries a hosted panel's parameter list (`ui.describe`) may hold.
+inline constexpr std::size_t kPanelDescribeEntryLimit = 4096u;
+
+/// The longest reason a hosted panel's action may give for failing (`ui.patch`), in characters.
+inline constexpr std::size_t kPanelPatchErrorLimit = 2000u;
 
 enum class ProtocolFrameDecodeStatus
 {
@@ -383,6 +397,31 @@ struct WindowRaiseMessage
     std::string request_id;
 };
 
+/// What a host serving a hosted panel tells of the extension's parameters once its runtime is ready (`ui.describe`,
+/// host to application, answered by nothing): the parameter list the extension's process window reads, each entry a
+/// map. Sent only where both sides stated `kHostedPanelCapability`.
+struct PanelDescribeMessage
+{
+    std::string session_id;
+    std::string request_id;
+    /// The entries, in the extension's order; at most `kPanelDescribeEntryLimit`.
+    QCborArray params;
+};
+
+/// What a panel's action answered (`ui.patch`, host to application, answered by nothing): the parameters' values the
+/// action set, by id, and why it failed when it did. Sent only where both sides stated `kHostedPanelCapability`.
+struct PanelPatchMessage
+{
+    std::string session_id;
+    std::string request_id;
+    /// The id of the action answered.
+    std::string action_id;
+    /// The values the action set, by parameter id; none when it set none or failed.
+    QCborMap values;
+    /// Why the action failed, plain text of at most `kPanelPatchErrorLimit` characters; empty when it did not.
+    std::string error;
+};
+
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ProtocolCompatibilityResult
 negotiateProtocolVersion(int supported_version, int peer_version);
 
@@ -469,6 +508,10 @@ toProtocolMessage(const ThemeChangedMessage& message);
 toProtocolMessage(const SessionActivityMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
 toProtocolMessage(const WindowRaiseMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const PanelDescribeMessage& message);
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API ExtensionProtocolMessage
+toProtocolMessage(const PanelPatchMessage& message);
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 runtimeHelloFromProtocolMessage(const ExtensionProtocolMessage& message, RuntimeHelloMessage* out_message,
                                 std::string* error = nullptr);
@@ -535,6 +578,16 @@ sessionActivityFromProtocolMessage(const ExtensionProtocolMessage& message, Sess
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
 windowRaiseFromProtocolMessage(const ExtensionProtocolMessage& message, WindowRaiseMessage* out_message,
                                std::string* error = nullptr);
+/// Reads a hosted panel's `ui.describe`, refused whole at the first error: `params` an array of at most
+/// `kPanelDescribeEntryLimit` maps.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+panelDescribeFromProtocolMessage(const ExtensionProtocolMessage& message, PanelDescribeMessage* out_message,
+                                 std::string* error = nullptr);
+/// Reads a hosted panel's `ui.patch`, refused whole at the first error: `action` a string that is not empty, `values` a
+/// map, and an `error`, when stated, plain text of at most `kPanelPatchErrorLimit` characters.
+[[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API bool
+panelPatchFromProtocolMessage(const ExtensionProtocolMessage& message, PanelPatchMessage* out_message,
+                              std::string* error = nullptr);
 
 [[nodiscard]] AFTERNIGHTEXTENSIONPROTOCOL_API QCborMap
 sharedBufferDescriptorToCborMap(const SharedBufferDescriptor& descriptor);

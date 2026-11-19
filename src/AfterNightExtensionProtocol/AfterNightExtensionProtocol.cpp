@@ -2226,6 +2226,123 @@ bool windowRaiseFromProtocolMessage(const ExtensionProtocolMessage& message, Win
     return true;
 }
 
+ExtensionProtocolMessage toProtocolMessage(const PanelDescribeMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "ui.describe";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("params")] = message.params;
+    return protocol;
+}
+
+ExtensionProtocolMessage toProtocolMessage(const PanelPatchMessage& message)
+{
+    ExtensionProtocolMessage protocol;
+    protocol.type = "ui.patch";
+    protocol.session_id = message.session_id;
+    protocol.request_id = message.request_id;
+    protocol.fields[QStringLiteral("action")] = QString::fromStdString(message.action_id);
+    protocol.fields[QStringLiteral("values")] = message.values;
+    if (!message.error.empty())
+    {
+        protocol.fields[QStringLiteral("error")] = QString::fromStdString(message.error);
+    }
+    return protocol;
+}
+
+bool panelDescribeFromProtocolMessage(const ExtensionProtocolMessage& message, PanelDescribeMessage* out_message,
+                                      std::string* error)
+{
+    const auto refuse = [error](const char* reason) {
+        if (error)
+        {
+            *error = reason;
+        }
+        return false;
+    };
+    if (!parseRuntimeMessageType(message, "ui.describe", error))
+    {
+        return false;
+    }
+    const auto params = message.fields.find(QStringLiteral("params"));
+    if (params == message.fields.end() || !params->isArray())
+    {
+        return refuse("ui.describe requires an array field: params");
+    }
+    const QCborArray entries = params->toArray();
+    if (static_cast<std::size_t>(entries.size()) > kPanelDescribeEntryLimit)
+    {
+        return refuse("ui.describe states more parameters than its limit");
+    }
+    if (std::any_of(entries.cbegin(), entries.cend(), [](const QCborValue& entry) { return !entry.isMap(); }))
+    {
+        return refuse("ui.describe params must each be a map");
+    }
+    if (out_message)
+    {
+        out_message->session_id = message.session_id;
+        out_message->request_id = message.request_id;
+        out_message->params = entries;
+    }
+    return true;
+}
+
+bool panelPatchFromProtocolMessage(const ExtensionProtocolMessage& message, PanelPatchMessage* out_message,
+                                   std::string* error)
+{
+    const auto refuse = [error](const char* reason) {
+        if (error)
+        {
+            *error = reason;
+        }
+        return false;
+    };
+    if (!parseRuntimeMessageType(message, "ui.patch", error))
+    {
+        return false;
+    }
+    const auto action = message.fields.find(QStringLiteral("action"));
+    if (action == message.fields.end() || !action->isString() || action->toString().isEmpty())
+    {
+        return refuse("ui.patch requires a string field that is not empty: action");
+    }
+    const auto values = message.fields.find(QStringLiteral("values"));
+    if (values == message.fields.end() || !values->isMap())
+    {
+        return refuse("ui.patch requires a map field: values");
+    }
+    PanelPatchMessage parsed;
+    if (const auto failure = message.fields.find(QStringLiteral("error")); failure != message.fields.end())
+    {
+        if (!failure->isString())
+        {
+            return refuse("ui.patch error must be a string");
+        }
+        const QString text = failure->toString();
+        if (static_cast<std::size_t>(text.size()) > kPanelPatchErrorLimit)
+        {
+            return refuse("ui.patch error is longer than its limit");
+        }
+        if (std::any_of(text.cbegin(), text.cend(), [](const QChar character) {
+                return character.category() == QChar::Other_Control && character != QLatin1Char('\n');
+            }))
+        {
+            return refuse("ui.patch error must be plain text");
+        }
+        parsed.error = text.toStdString();
+    }
+    if (out_message)
+    {
+        parsed.session_id = message.session_id;
+        parsed.request_id = message.request_id;
+        parsed.action_id = action->toString().toStdString();
+        parsed.values = values->toMap();
+        *out_message = std::move(parsed);
+    }
+    return true;
+}
+
 QCborMap sharedBufferDescriptorToCborMap(const SharedBufferDescriptor& descriptor)
 {
     QCborMap map;

@@ -829,7 +829,7 @@ sources Test_ImageRTPreviewControl
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
     header   src/AfterNightControls/controls/settings/ProcessingLimits.h
     header   src/AfterNightControls/theme/StyleProfile.h
@@ -1351,7 +1351,7 @@ sources Test_MaskDrawing
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
     header   src/AfterNightProcesses/processes/MaskDrawingProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightControls/app/ActionLookup.h
     header   src/AfterNightControls/theme/StyleProfile.h
     header   src/AfterNightTests/fixtures/BaselineRecord.h
@@ -3039,7 +3039,7 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/AfterNightProcessesExport.h
     header   src/AfterNightProcesses/processes/CurvesTransformationProcess.h
     header   src/AfterNightProcesses/processes/CurvesTransformationProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
     header   src/AfterNightControls/controls/ImageHistoryIndex.h
     header   src/AfterNightShellCore/projects/ProjectHistoryBinder.h
@@ -3070,6 +3070,7 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/core/WorkflowSettingsRecords.h
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectHomeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ExternalTasksTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/HostedTaskTest.cpp
     header   src/AfterNightShellObservatory/pages/ProjectHomePage.h
     header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
     header   src/AfterNightControls/controls/HomeProjectsRow.h
@@ -3102,6 +3103,15 @@ sources Test_ShellObservatory
     header   src/AfterNightProcesses/processes/ImageListAnalyzerProcessUiBuilder.h
     header   src/AfterNightTests/Test_ShellCore/StandInExtensionSessions.h
     header   src/AfterNightControls/app/ExtensionSessionFeed.h
+    header   src/AfterNightControls/app/AfterNightExtensionProtocol.h
+    header   src/AfterNightControls/app/ExtensionPreviewFrames.h
+    header   src/AfterNightControls/app/SharedBufferManager.h
+    header   src/AfterNightControls/controls/ExtensionHostedProcess.h
+    header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
+    header   src/AfterNightControls/controls/ExtensionPanelDescription.h
+    header   src/AfterNightControls/controls/ExtensionParamPanel.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
+    header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocolExport.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3264,8 +3274,6 @@ sources Test_ExtensionHostNative
     unit     src/AfterNightTests/Test_ExtensionHostNative/test_extension_native_process_window.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/test_veralux_native_process_params.cpp
     unit     src/AfterNightExtensionHost/ExtensionAppContext.cpp
-    unit     src/AfterNightExtensionHost/ExtensionNativeProcessWindow.cpp
-    unit     src/AfterNightExtensionHost/HostPreviewFrames.cpp
     unit     src/AfterNightExtensionHost/HostRuntimeSession.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/HostLookTest.cpp
     unit     src/AfterNightTests/Test_ExtensionHostNative/NativeWindowInventoryTest.cpp
@@ -3345,10 +3353,10 @@ sources Test_ExtensionHostNative
     header   src/AfterNightControls/widgets/ViewPresentation.h
     header   src/AfterNightControls/widgets/waitingspinnerwidget.h
     header   src/AfterNightExtensionHost/ExtensionAppContext.h
-    header   src/AfterNightExtensionHost/ExtensionNativeProcessWindow.h
+    header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
     header   src/AfterNightExtensionHost/HostImageDescription.h
     header   src/AfterNightExtensionHost/HostInFlightExecution.h
-    header   src/AfterNightExtensionHost/HostPreviewFrames.h
+    header   src/AfterNightControls/app/ExtensionPreviewFrames.h
     header   src/AfterNightExtensionHost/HostRuntimeSession.h
     header   src/AfterNightExtensionHost/HostThemeSync.h
     header   src/AfterNightExtensionProtocol/AfterNightExtensionProtocol.h
@@ -3359,7 +3367,7 @@ sources Test_ExtensionHostNative
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/LoggingConfig.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightTests/Test_ExtensionHostNative/HostNativeTestSupport.h
     header   src/AfterNightTests/Test_ExtensionHostNative/HostRuntimeScenarios.h
     header   src/AfterNightTests/Test_ExtensionRuntimeBackend/RuntimeBackendTestSupport.h
@@ -3667,7 +3675,13 @@ sources Test_ControlsExtensionSeam
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ExternalTasksTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/PanelDescriptionTest.cpp
     unit     src/AfterNightTests/Test_ControlsExtensionSeam/ParamPanelTest.cpp
+    unit     src/AfterNightTests/Test_ControlsExtensionSeam/HostedProcessTest.cpp
     header   src/AfterNightTests/Test_ControlsExtensionSeam/ExtensionSeamTestSupport.h
+    header   src/AfterNightTests/Test_ControlsExtensionSeam/HostedPanelStandIn.h
+    header   src/AfterNightControls/app/ExtensionHostedSession.h
+    header   src/AfterNightControls/app/ExtensionPreviewFrames.h
+    header   src/AfterNightControls/controls/ExtensionHostedProcess.h
+    header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/ControlsViewerTestSupport.h
     header   src/AfterNightTests/Test_ControlsViewer/EditHoldingTheWriter.h
@@ -3738,6 +3752,17 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/theme/AnDesignTokens.h
     header   src/AfterNightControls/theme/AnProxyStyle.h
     header   src/AfterNightControls/theme/StyleProfile.h
+    header   src/AfterNightControls/app/AfterNightAppListener.h
+    header   src/AfterNightControls/components/AnProgressCard.h
+    header   src/AfterNightControls/controls/ImageProcessControl.h
+    header   src/AfterNightControls/controls/ImageRTPreviewControl.h
+    header   src/AfterNightControls/controls/ProcessCompanions.h
+    header   src/AfterNightControls/controls/ProcessExecution.h
+    header   src/AfterNightControls/controls/ProgressDialogControl.h
+    header   src/AfterNightControls/controls/ProgressDialogControlUiBuilder.h
+    header   src/AfterNightControls/controls/QSliderSpinBox.h
+    header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
+    header   src/AfterNightControls/session/ExecutionScope.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -3957,7 +3982,7 @@ sources Test_ProcessesPointwise
     header   src/AfterNightProcesses/processes/GammaCorrectionProcess.h
     header   src/AfterNightProcesses/processes/GammaCorrectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/PointwiseProcessUtils.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
     header   src/AfterNightTests/Test_ControlsProcessFramework/ProcessFrameworkTestSupport.h
     header   src/AfterNightTests/Test_ControlsSession/ControlsSessionTestSupport.h
@@ -4088,7 +4113,7 @@ sources Test_ProcessesStretching
     header   src/AfterNightProcesses/processes/GHTransformationProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcess.h
     header   src/AfterNightProcesses/processes/HistogramTransformationProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/StatisticalStretch.h
     header   src/AfterNightProcesses/processes/StatisticalStretchUiBuilder.h
     header   src/AfterNightProcesses/processes/StretchProcessSupport.h
@@ -4234,7 +4259,7 @@ sources Test_ProcessesSpatial
     header   src/AfterNightProcesses/processes/NoiseGeneratorProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/PatchPCADenoiseProcess.h
     header   src/AfterNightProcesses/processes/PatchPCADenoiseProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/SharpenAlphaProcess.h
     header   src/AfterNightProcesses/processes/SharpenAlphaProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/SpatialProcessSupport.h
@@ -4379,7 +4404,7 @@ sources Test_ProcessesMasks
     header   src/AfterNightProcesses/processes/MultiscaleLinearProcess.h
     header   src/AfterNightProcesses/processes/MultiscaleLinearProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/PointwiseProcessUtils.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/RangeSelectionProcess.h
     header   src/AfterNightProcesses/processes/RangeSelectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/StarMaskProcess.h
@@ -4669,7 +4694,7 @@ sources Test_ProcessesGeometry
     header   src/AfterNightTests/Test_ProcessesShared/PageLayoutCheck.h
     header   src/AfterNightTests/Test_ProcessesShared/SelectionDrag.h
     header   src/AfterNightControls/controls/RTPreviewHistogramToolbar.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
 
 # The colour calibration tools - background neutralization, colour calibration, linear match and SCNR - and
 # the support they share, run against the processes library, which the suite links, launched through the library's
@@ -5301,7 +5326,7 @@ sources Test_ProcessesCombinations
     header   src/AfterNightProcesses/processes/PointwiseProcessUtils.h
     header   src/AfterNightProcesses/processes/ProfiledStarmaskRecombinationProcess.h
     header   src/AfterNightProcesses/processes/ProfiledStarmaskRecombinationProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/StarmaskRecombinationProcess.h
     header   src/AfterNightProcesses/processes/StarmaskRecombinationProcessUiBuilder.h
     header   src/AfterNightTests/fixtures/common/FixtureCatalogue.h
@@ -6541,7 +6566,7 @@ sources Test_ProcessFramework
     header   src/AfterNightProcesses/processes/ProcessMetadataUtils.h
     header   src/AfterNightProcesses/processes/ProfiledStarmaskRecombinationProcess.h
     header   src/AfterNightProcesses/processes/ProfiledStarmaskRecombinationProcessUiBuilder.h
-    header   src/AfterNightProcesses/processes/RTPreviewUiCommon.h
+    header   src/AfterNightControls/controls/RTPreviewUiCommon.h
     header   src/AfterNightProcesses/processes/RangeSelectionProcess.h
     header   src/AfterNightProcesses/processes/RangeSelectionProcessUiBuilder.h
     header   src/AfterNightProcesses/processes/ResizeProcessUiBuilder.h

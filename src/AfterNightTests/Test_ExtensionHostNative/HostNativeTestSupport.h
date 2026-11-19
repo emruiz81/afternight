@@ -11,8 +11,8 @@
 #pragma once
 
 #include "ExtensionAppContext.h"
-#include "ExtensionNativeProcessWindow.h"
-#include "HostPreviewFrames.h"
+#include "controls/ExtensionNativeProcessWindow.h"
+#include "app/ExtensionPreviewFrames.h"
 #include "HostRuntimeSession.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlListener.h"

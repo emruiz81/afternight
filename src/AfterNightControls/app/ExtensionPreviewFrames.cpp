@@ -6,7 +6,7 @@
 /// window's pool, what the extension wrote taken back, the buffers kept for the next frame and removed when the
 /// window's session ends.
 
-#include "HostPreviewFrames.h"
+#include "app/ExtensionPreviewFrames.h"
 
 #include <AfterNightEngine/Core/ErrorCode.h>
 #include <AfterNightEngine/Image/ImageDescriptor.h>
@@ -702,7 +702,7 @@ an::Result<PreviewFrameBuffers> lendPreviewFrame(PreviewFrameBufferPool& pool, c
     }
     lent.output = std::move(output->buffer);
     SharedImageBufferSpec outputSpec;
-    outputSpec.symbolicName = "destination";
+    outputSpec.symbolicName = frame.outputRole == SharedBufferRole::Preview ? "preview" : "destination";
     outputSpec.width = described.width;
     outputSpec.height = described.height;
     outputSpec.channels = described.channels;
@@ -710,7 +710,7 @@ an::Result<PreviewFrameBuffers> lendPreviewFrame(PreviewFrameBufferPool& pool, c
     outputSpec.pixelFormat = described.pixel_format;
     outputSpec.colorSpace = described.color_space;
     outputSpec.accessMode = SharedBufferAccessMode::ReadWrite;
-    outputSpec.bufferRole = SharedBufferRole::Destination;
+    outputSpec.bufferRole = frame.outputRole;
     outputSpec.offsetX = described.offset_x;
     outputSpec.offsetY = described.offset_y;
     outputSpec.sourceWidth = described.source_width;

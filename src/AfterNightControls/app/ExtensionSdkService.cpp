@@ -1334,6 +1334,11 @@ bool ExtensionSdkService::buildViewUpdatedMessage(const std::string_view session
     return true;
 }
 
+bool ExtensionSdkService::viewStates(std::vector<ExtensionViewState>* out_views, std::string* error) const
+{
+    return collectViewStates(out_views, error);
+}
+
 bool ExtensionSdkService::collectViewStates(std::vector<ExtensionViewState>* out_views, std::string* error) const
 {
     if (!out_views)

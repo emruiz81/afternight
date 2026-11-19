@@ -53,7 +53,7 @@
 #include <vector>
 
 #include "../fixtures/ScopedEnvVar.h"
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostInFlightExecution.h"
 #include "HostNativeTestSupport.h"
 #include "components/AnCardWidget.h"
@@ -61,7 +61,7 @@
 #include "components/AnInfoBanner.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewScrollArea.h"
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 #include "widgets/CurvesWidget.h"
 #include "widgets/HistogramDisplayData.h"

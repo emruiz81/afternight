@@ -216,7 +216,8 @@ struct TaskModel::Impl
     /// A session of the extension host started, or where it stands changed.
     void stood(const an::ui::extensions::ExtensionSessionStanding& standing)
     {
-        if (standing.sessionId.empty())
+        // A session whose panel the application draws is its process's task, made when the process registered.
+        if (standing.sessionId.empty() || standing.hostedPanel)
         {
             return;
         }

@@ -45,6 +45,9 @@ class ImageViewControl;
 namespace an::ui::extensions
 {
 
+class ExtensionHostedProcess;
+class ExtensionHostedSession;
+
 struct ExtensionHostLaunchRequest
 {
     std::string extension_id;
@@ -66,6 +69,9 @@ struct ExtensionHostLaunchRequest
     /// the handshake is acknowledged. Otherwise the host starts its runtime first, and the launch waits for it to
     /// connect for as long as it runs, up to the runtime's start bound, and returns with the runtime ready.
     bool defer_runtime_bootstrap = false;
+    /// The application draws the session's panel itself (`kHostedPanelCapability`): the acknowledgement states it when
+    /// the host's hello does, and the host then shows no window of its own.
+    bool hosted_panel = false;
 };
 
 struct ExtensionHostPreparedSession
@@ -84,6 +90,7 @@ struct ExtensionHostPreparedSession
     std::string inspect_settings_snapshot_cbor_base64;
     int handshake_timeout_ms = 5000;
     bool defer_runtime_bootstrap = false;
+    bool hosted_panel = false;
     RuntimeHelloAckMessage ack_template;
 };
 
@@ -158,6 +165,14 @@ struct ExtensionHostRunningSession
     std::optional<ViewCommitMessage> last_view_commit;
     /// What the host last told of the run of the window it shows (`session.activity`); none before it tells.
     std::optional<SessionActivityMessage> run_activity;
+    /// Whether the application draws the session's panel: both the hello and the acknowledgement stated
+    /// `kHostedPanelCapability`. Such a host answers an execute that failed or was cancelled with `execution.result`,
+    /// and a cancel it takes its time over ends nothing: a frame of a preview may run on until the extension next
+    /// looks.
+    bool hosted_panel = false;
+    /// What a host serving a hosted panel told of it (`ui.describe`, `ui.patch`) and nobody has taken yet, in order;
+    /// read unchecked, for the panel to refuse what is not whole.
+    std::vector<ExtensionProtocolMessage> panel_inbox;
     std::string latest_ui_validation_request_id;
     std::optional<UiValidateResultMessage> last_ui_validation_result;
     std::string last_error;
@@ -217,6 +232,8 @@ struct ExtensionHostLaunchOptions
     bool close_after_successful_execute = false;
     bool create_result_view_after_successful_execute = false;
     std::string initial_view_name;
+    /// A hosted process whose host failed, started again: the new session is bound to it, and no other process is made.
+    ExtensionHostedProcess* hosted_process = nullptr;
 };
 
 // An image the application lends a request beside the source - a mask or a weight map - exported under a read lease
@@ -336,6 +353,10 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
     std::function<void()> managed_preview_sub_area_changed;
     // The import of a result on its way, or landed; null while none was started.
     std::shared_ptr<Materialization> materialization;
+    /// For a session whose panel the application draws (`ExtensionHostRunningSession::hosted_panel`): what its process
+    /// shares with it, bound while the session runs, and the process; null for another.
+    std::shared_ptr<ExtensionHostedSession> hosted;
+    QPointer<QWidget> hosted_process;
 
     ExtensionSessionController() = default;
     ExtensionSessionController(const ExtensionSessionController&) = delete;
@@ -613,6 +634,10 @@ struct AFTERNIGHTCONTROLS_API ExtensionSessionController : public ImageAreaSelec
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::optional<QRect>
 normalizeManagedPreviewSubArea(bool selection_enabled, const QSize& source_image_size, const QRect& selection_area);
 
+/// What an extension's Apply did, as its history step says it: "Parameters used:" and each parameter a person sees, a
+/// line each, in the order of their names; "Parameters used: none" for none.
+[[nodiscard]] AFTERNIGHTCONTROLS_API std::string extensionHistoryParametersText(const QCborMap& params);
+
 /// The longest path a local socket can have where local sockets are files: a socket address holds 108 bytes of path,
 /// its terminator among them.
 inline constexpr std::size_t kLocalSocketPathLimit = 107u;
@@ -697,6 +722,10 @@ public:
     /// front bring another's window forward, the host is let do it first.
     [[nodiscard]] bool sendWindowRaise(ExtensionHostRunningSession* running_session,
                                        std::string* error = nullptr) const;
+    /// Tells a host serving a hosted panel what a person did in it (`ui.event`); refused for a session whose panel the
+    /// application does not draw (`ExtensionHostRunningSession::hosted_panel`), and for one not running.
+    [[nodiscard]] bool sendPanelEvent(ExtensionHostRunningSession* running_session, const UiEventMessage& event,
+                                      std::string* error = nullptr) const;
     void stopSession(ExtensionHostRunningSession* running_session) const;
 
 private:
@@ -752,6 +781,15 @@ public:
                               ManagedGeneratedResultPresenter generated_result_presenter = {});
     void setManagedViewNameProvider(ManagedViewNameProvider view_name_provider);
     void setSessionPumpWakeCallback(SessionPumpWakeCallback callback);
+
+    /// States whether a launch of a `runtime` extension that describes its parameters is drawn by the application -
+    /// a hosted panel, its process an `ExtensionHostedProcess` a shell shows as a page - rather than in a window of its
+    /// host. By default the application draws it when a shell takes processes into pages (`IAppContext`'s process
+    /// presenter), and the host draws it otherwise, as it always did. Null states the default again.
+    void setHostsPanels(std::function<bool()> policy);
+
+    /// The hosted processes of the sessions running now, in the order they started.
+    [[nodiscard]] std::vector<ExtensionHostedProcess*> hostedProcesses() const;
 
     /// How long a launch's parameter schema read may run before the launch is refused, unless a caller states another:
     /// the bound on a host runtime's start, since the read starts one and ends when its host exits.
@@ -827,6 +865,17 @@ private:
     /// Tells the observers where every session stands now.
     void reportSessions();
 
+    /// Whether a launch of a binding is a hosted panel's.
+    [[nodiscard]] bool hostsPanels(const ExtensionHostLaunchBinding& binding) const;
+
+    /// Binds a session whose panel the application draws to its process - one made now, or the one started again - and
+    /// shows a process made now.
+    void bindHostedProcess(ExtensionSessionController* session, const ExtensionHostLaunchBinding& binding,
+                           ImageViewControl* control, ExtensionHostedProcess* restarted);
+
+    /// The open images as an extension lists them.
+    [[nodiscard]] std::vector<std::map<std::string, QVariant>> hostedViewList() const;
+
     // The parameter schemas launches read and the reads still running; defined beside the launches.
     struct SchemaReads;
     void beginSchemaRead(const ExtensionHostLaunchBinding& binding, ImageViewControl* control,
@@ -847,6 +896,11 @@ private:
     ManagedPreviewSubAreaProvider managed_preview_sub_area_provider_;
     ManagedViewNameProvider managed_view_name_provider_;
     SessionPumpWakeCallback session_pump_wake_callback_;
+    std::function<bool()> hosts_panels_;
+    // What opens an extension's settings, kept for the hosted processes, which ask it of no host.
+    ExtensionSdkUiInteractionHandler ui_interaction_handler_;
+    // Held while the coordinator lives: a hosted process's hooks reach the coordinator only while it does.
+    std::shared_ptr<int> alive_ = std::make_shared<int>(0);
     int parameter_schema_read_bound_ms_ = kDefaultParameterSchemaReadBoundMs;
     // The rate the settings answered last and whether a read is on its way, shared with the worker that reads them.
     struct PreviewFrameRateRead;

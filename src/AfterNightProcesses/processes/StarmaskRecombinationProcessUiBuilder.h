@@ -17,7 +17,7 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 
 #include "theme/AnDesignTokens.h"
 

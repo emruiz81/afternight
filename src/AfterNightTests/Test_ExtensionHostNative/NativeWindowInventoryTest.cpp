@@ -15,7 +15,7 @@
 // The window's header dereferences a guarded view, whose class must be complete before it.
 #include "controls/ImageViewControl.h"
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "fixtures/BaselineRecord.h"
 
 #include "components/AnCardWidget.h"

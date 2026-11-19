@@ -28,9 +28,9 @@
 /// The report is printed and recorded as the case's properties; the case asserts only that the drag ran and the window
 /// went idle after it.
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostNativeTestSupport.h"
-#include "HostPreviewFrames.h"
+#include "app/ExtensionPreviewFrames.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ImageViewControl.h"
 #include "controls/settings/SettingsKeys.h"

@@ -198,6 +198,9 @@ public:
                                                std::string_view view_name, ViewUpdatedMessage* out_message,
                                                bool* out_has_message, std::string* error = nullptr) const;
 
+    /// The open images as the view state provider states them, in its order.
+    [[nodiscard]] bool viewStates(std::vector<ExtensionViewState>* out_views, std::string* error = nullptr) const;
+
     [[nodiscard]] bool upsertExtensionSetting(std::string_view extension_id, std::string_view setting_key,
                                               const QString& value, std::string* error = nullptr);
     [[nodiscard]] bool upsertExtensionSetting(std::string_view extension_id, std::string_view setting_key,

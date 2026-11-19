@@ -17,7 +17,7 @@ bool sameStanding(const ExtensionSessionStanding& a, const ExtensionSessionStand
 {
     return a.sessionId == b.sessionId && a.descriptorId == b.descriptorId && a.displayName == b.displayName &&
            a.target.data() == b.target.data() && a.host == b.host && a.run == b.run &&
-           a.raisesItsWindow == b.raisesItsWindow;
+           a.raisesItsWindow == b.raisesItsWindow && a.hostedPanel == b.hostedPanel;
 }
 
 ExtensionSessionReport::ExtensionSessionReport() = default;

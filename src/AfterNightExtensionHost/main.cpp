@@ -93,10 +93,10 @@
 #endif
 
 #include "ExtensionAppContext.h"
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostImageDescription.h"
 #include "HostInFlightExecution.h"
-#include "HostPreviewFrames.h"
+#include "app/ExtensionPreviewFrames.h"
 #include "HostRuntimeSession.h"
 #include "HostThemeSync.h"
 #include "app/ExtensionThemeState.h"

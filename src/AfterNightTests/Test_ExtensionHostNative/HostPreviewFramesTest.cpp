@@ -11,7 +11,7 @@
 /// and the trace a line a frame.
 
 #include "HostNativeTestSupport.h"
-#include "HostPreviewFrames.h"
+#include "app/ExtensionPreviewFrames.h"
 #include "app/SharedBufferManager.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>

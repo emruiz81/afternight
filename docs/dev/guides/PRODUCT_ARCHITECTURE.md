@@ -279,7 +279,7 @@ shows a process another way - inside another window, beside a view - is built on
 - **Two layouts hold a preview.** `initializeStandardProcess` is handed the main layout, the preview layout, the
   preview checkbox, the button box and the two selectors, and keeps the two layouts and the selectors; the checkbox
   and the button box it only connects. Most builders make the main layout with `buildMainProcessSplitter`
-  (`processes/RTPreviewUiCommon.h`): a splitter named `mainSplitter` whose first pane, a widget, holds the controls
+  (`controls/RTPreviewUiCommon.h`): a splitter named `mainSplitter` whose first pane, a widget, holds the controls
   and whose second holds the preview. Six - the median, Gaussian, morphological, cosmetic, banding and bilateral
   filters - have no splitter: their main layout is a row whose first item is the controls' *layout* and whose last is
   the preview's. Whatever rearranges a process therefore moves widgets in the one case and layout items in the other,
@@ -2674,7 +2674,7 @@ contract, `fixtures/common/expectations/sdk/runtime-bindings.json`, is an entry 
 `Test_ExtensionRuntimeBackend` loads the module by name, starts the host's isolated interpreter, and runs each
 lifecycle case as this executable started again with `AFTERNIGHT_RUNTIME_BACKEND_SCENARIO` naming it.
 
-### The full extension host (`src/AfterNightExtensionHost/`: `HostRuntimeSession.h`, `ExtensionAppContext.h`, `ExtensionNativeProcessWindow.h`)
+### The full extension host (`src/AfterNightExtensionHost/`: `HostRuntimeSession.h`, `ExtensionAppContext.h`; `controls/ExtensionNativeProcessWindow.h`)
 
 The host opens no session: `RuntimeBackendModule` (`HostRuntimeSession.h`) loads the backend by name, refuses an
 interface version other than 2 and answers `an::Status` for its probe, initialization and shutdown, a refused shutdown
@@ -2686,11 +2686,12 @@ missing or mismatched capsule stops the start. Teardown is `shutDownHostRuntime`
 delivered, the borrow let go, the interpreter finalized, the backend asked to shut down and unloaded only when it
 accepted. The host keeps the session and lets the capsule go because its native windows use the session on the GUI
 thread without the interpreter's lock, and a backend that refused stays loaded because the session and every image of
-it run the module's code. The native window is a real-time preview window (`ImageRTPreviewControl`) over the host's mirror of the
-bound view: its body (`setPreviewBody`) lends each frame's source - the image, its reduction by the preview view's
+it run the module's code. The native window (`controls/ExtensionNativeProcessWindow.h`, in Controls, so that the
+application's hosted process is built on the same class) is a real-time preview window (`ImageRTPreviewControl`) over the
+host's mirror of the bound view: its body (`setPreviewBody`) lends each frame's source - the image, its reduction by the preview view's
 factor, or a part cut from the image with where it lies stated - and the manual mask laid over it to the extension's
-`execute_preview` at the frame's own size and takes what it wrote back (`HostPreviewFrames.h`: `lendPreviewFrame`,
-`takePreviewFrameResult`). The frames reuse their buffers through the window session's `PreviewFrameBufferPool`, which
+`execute_preview` at the frame's own size and takes what it wrote back (`app/ExtensionPreviewFrames.h`, in Controls:
+`lendPreviewFrame`, `takePreviewFrameResult`). The frames reuse their buffers through the window session's `PreviewFrameBufferPool`, which
 the runtime holds: a buffer of a frame's role, size and representation is lent to the next frame that asks for one and
 to no two at once, an output is cleared and its own sidecar reset to the source's cards at every frame, and the pool
 keeps a gibibyte idle, the least recently lent going first; the window's close and the host's teardown close it, and
@@ -2711,9 +2712,64 @@ type it sends Python is the protocol's name (`HostImageDescription.h`). The cont
 was handed. The host is heartbeat-supervised by the application, so nothing may block its event loop.
 `Test_ExtensionHostNative`, an isolated suite linking the interpreter, borrows one session the run owns through a
 capsule record and runs the host's startup and teardown scenarios against the real backend and interpreter, each in its
-own process, and holds the window's frames and the seam (`NativeWindowPreviewFrames`, `HostPreviewFramesTest`); its
+own process, and holds the window's frames and the seam they cross (`NativeWindowPreviewFrames`, `HostPreviewFramesTest`); its
 opt-in `NativeWindowPreviewBenchmark` drags the window over a frame through the seam ([BENCHMARKS.md](BENCHMARKS.md)). The Lite host links only the protocol library; `docs/dev/EXTENSION_HOST_MODES_AND_LICENSING.md` is the
 boundary.
+
+### A hosted extension process (`controls/ExtensionHostedProcess.h`, `app/ExtensionHostedSession.h`)
+
+The application draws the process of a `runtime` extension that describes its parameters - every extension written for
+the native process window - while the extension's code stays in its host: a **hosted panel**. Both sides state
+`kHostedPanelCapability` in the handshake (the host in its hello, the application in its acknowledgement), and the
+application asks for it (`ExtensionHostLaunchRequest::hosted_panel`) only when a shell takes processes into pages - an
+`IAppContext` with a process presenter, the Observatory shell - so the classic shell keeps the host's window
+(`ExtensionHostLaunchCoordinator::setHostsPanels` states another policy). A host that does not state the capability is
+acknowledged without it and shows its window as before. `ExtensionHostedProcess` is the native window's class in a
+page's shape (`ExtensionNativeProcessWindow::PageShape`): the same panel, target selector, view selectors, manual mask,
+tool configuration and histograms, laid out as a framework process - a splitter of its controls and its preview, or the
+controls alone for an extension that does not preview, and a box of Reset, Close and Apply the framework presses - so a
+shell arranges it as any process; its source view is the application's view of the target, never taken into it. It is
+a preview page when its manifest declares a preview and a mirror page otherwise, which it answers itself
+(`processSurface`) and the coordinator states in the launch scope it makes the process under, so the task reads the
+same; a panel wider than the standard column (`controls_panel_width`) takes the wide one. The page's header carries the
+quiet tag "extension" (`ProcessPageLayout::setTag`).
+
+What the process and its host say to each other is protocol data, untrusted on the application's side and refused whole
+at the first error. The host tells the extension's parameter list once its runtime is ready (`ui.describe`,
+`PanelDescribeMessage`), and the process draws it through `setParamDefs`, exactly as the window does; the parameters
+kept from the package's discovery are drawn at once. A change in the panel is told as `ui.event` `parameters_changed`
+(the whole set, the keys and the reason, as the window's extension hears them), an action as `clicked` with the
+parameters, and what the panel's tool configuration resolved as `tool_record`; the panel delivers `LastOfABurst`, so
+of a slider's drag only the last change crosses. An action's answer comes back as `ui.patch` (`PanelPatchMessage`): the
+values it set, or why it failed. A host's `ui.describe` and `ui.patch` wait in the session's `panel_inbox` for the
+process, and the manager writes no `ui.event` to a session whose panel the application does not draw.
+
+`ExtensionHostedSession` is what the process shares with its session, and it outlives the session: a run makes its
+request on its worker (`submit`), the GUI thread sends it when the host is ready and nothing else is on its way
+(`dispatch`), hears the answer when the session's messages are pumped (`route`, before a commit the extension made
+itself lands through the presenters) and hands it to the waiting worker; the GUI thread waits for none of it. The host
+takes one request at a time, so a request waits its turn. A request its run gave up on is withdrawn while it waits and
+cancelled at the host once sent (`withdraw`); what it lent stays lent until the host has answered, since the host may
+still write it, and a host's cancel ends nothing when it is slow to come - the cancel grace applies to other sessions
+alone, and a frame stopped is answered when the extension next looks. A failed or cancelled execute is answered by
+`execution.result` for a hosted session; any other execute completes by `view.commit`. When the session ends every
+request on its way is answered with why (`unbind`), and the process is told how it ended.
+
+The preview is the framework's, its body the remote one: each frame's source, its output and the manual mask are lent
+from a `PreviewFrameBufferPool` the hosted session keeps in the session's own directory, the output under the
+protocol's `Preview` role (`ExtensionPreviewFrame::outputRole`); the host's `execute_preview` writes the output it was
+lent, and the result is taken back and shown only when the frame's ticket commits. A frame asked for before the host is
+ready, or after its session ended, is refused without a word, and the host's readiness asks for one again. A result
+buffer the application lent the request is held to the descriptor it was lent (`validateExecutionOutputDescriptor`).
+The frames are traced, a line a frame, to the file `AFTERNIGHT_PREVIEW_FRAME_TRACE` names, by the side that lends them:
+the application for a hosted process, its `run` span the request's whole way to the host and back. The Apply is the
+framework's: the target is exported once, a destination of its shape allocated beside it and the manual mask lent, the
+host's `execute` writes the destination, and the result is the view's edit, one step of its history, under the target's
+lock for the run's length; a cancelled Apply commits nothing and the session goes on. The extension's settings are the
+application's store (`ExtensionSdkService::selectExtensionSetting`), read first through what the tool configuration
+resolved, as the window always answered them. `HostedProcess.*` (`Test_ControlsExtensionSeam`) holds it over a stand-in
+host - a local socket's far end and an idle process of the suite standing for the host's (`Test_ControlsExtensionSeam/HostedPanelStandIn.h`) - and
+`HostedTasks.*` (`Test_ShellObservatory`) holds the page.
 
 ### An extension's panel (`controls/ExtensionPanelDescription.h`, `controls/ExtensionParamPanel.h`)
 

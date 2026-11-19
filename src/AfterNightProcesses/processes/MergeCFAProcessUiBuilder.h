@@ -17,7 +17,7 @@
 #include <QtWidgets/QWidget>
 
 #include "processes/FixedDialogUiSizing.h"
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 
 namespace an::ui::processes

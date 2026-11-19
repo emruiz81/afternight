@@ -59,6 +59,10 @@ struct ExtensionSessionStanding
 
     /// Whether the host shows its window in front when asked (`raiseSessionWindow`).
     bool raisesItsWindow = false;
+
+    /// Whether the application draws the session's panel: its process is the application's, a task like any other's,
+    /// so a shell makes no task of the session itself.
+    bool hostedPanel = false;
 };
 
 /// Whether two standings say the same.

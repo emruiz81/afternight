@@ -4,7 +4,7 @@
 #pragma once
 
 #include "controls/drawing/DrawingToolbar.h"
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QCheckBox>

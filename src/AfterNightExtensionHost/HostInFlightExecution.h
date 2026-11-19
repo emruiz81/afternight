@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 
 #include "app/AfterNightExtensionProtocol.h"
 

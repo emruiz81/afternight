@@ -245,6 +245,12 @@ public:
     void setCategory(const QString& category);
     [[nodiscard]] QString category() const;
 
+    /// A quiet tag after the title - "extension" for a process whose code runs in a process of its own - and what its
+    /// tooltip says; an empty text shows none, as a page does until a process states one.
+    void setTag(const QString& text, const QString& toolTip);
+    [[nodiscard]] QString tag() const;
+    [[nodiscard]] QString tagToolTip() const;
+
     /// What the toggles row's Compare names the image the canvas shows and the alternate it shows instead, and its
     /// tooltip: "Processed" and "Original" for a process's result and the image before it; a process whose alternate is
     /// another image names the two.

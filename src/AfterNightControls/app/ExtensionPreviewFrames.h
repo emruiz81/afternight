@@ -16,6 +16,8 @@
 /// frame, to the file `AFTERNIGHT_PREVIEW_FRAME_TRACE` names (`PreviewFrameTrace`).
 #pragma once
 
+#include "AfterNightControlsExport.h"
+
 #include "app/SharedBufferManager.h"
 
 #include <AfterNightConsumerRuntime/EngineSession.h>
@@ -83,6 +85,11 @@ struct ExtensionPreviewFrame
     /// Stops when the frame is no longer wanted: superseded by a newer one, refused for an Apply, or its window
     /// closing.
     std::stop_token stop;
+
+    /// The role the output is lent under: `SharedBufferRole::Destination`, as the host's window lends it to the
+    /// extension in its own process, or `SharedBufferRole::Preview`, as the protocol states a preview's output for a
+    /// frame the application lends a host.
+    SharedBufferRole outputRole = SharedBufferRole::Destination;
 };
 
 /// Runs the extension's preview over one frame, on the frame's worker, and answers what it made: a new asset of the
@@ -127,15 +134,15 @@ struct PreviewFrameSpans
 };
 
 /// The first line of a frame trace: the names of the columns `previewFrameTraceLine` writes, comma-separated.
-[[nodiscard]] QByteArray previewFrameTraceHeader();
+[[nodiscard]] AFTERNIGHTCONTROLS_API QByteArray previewFrameTraceHeader();
 
 /// One frame's line of a trace: what it lent, whether it showed a drag, then each span in microseconds,
 /// comma-separated.
-[[nodiscard]] QByteArray previewFrameTraceLine(const PreviewFrameSpans& spans);
+[[nodiscard]] AFTERNIGHTCONTROLS_API QByteArray previewFrameTraceLine(const PreviewFrameSpans& spans);
 
 /// A trace of a window's frames: a header and then one line a frame, written to a file as each frame ends, or nothing
 /// when no file is named. Safe to write from several frames' workers.
-class PreviewFrameTrace
+class AFTERNIGHTCONTROLS_API PreviewFrameTrace
 {
 public:
     /// @param path the file to write; empty writes nothing. The file is replaced when the first frame is written.
@@ -191,13 +198,13 @@ class PreviewFrameBuffers;
 /// @param spans where to state how long each lending took and what was lent; may be null.
 /// @return the buffers; `ErrorCode::Cancelled` for a part of an image being written, as for a superseded frame; or
 ///         what the export or an allocation refused, the buffers taken so far given back.
-[[nodiscard]] an::Result<PreviewFrameBuffers>
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<PreviewFrameBuffers>
 lendPreviewFrame(PreviewFrameBufferPool& pool, const ExtensionPreviewFrame& frame, PreviewFrameSpans* spans = nullptr);
 
 /// The buffers one frame lends the extension: the source, the output it writes and, when the person uses one, the
 /// manual mask as the selection. Move-only; letting it go gives the buffers back to the pool that lent them, which
 /// keeps them for a later frame of their shape or removes their files.
-class PreviewFrameBuffers
+class AFTERNIGHTCONTROLS_API PreviewFrameBuffers
 {
 public:
     PreviewFrameBuffers() noexcept = default;
@@ -226,7 +233,7 @@ public:
     void release(PreviewFrameSpans* spans = nullptr) noexcept;
 
 private:
-    friend an::Result<PreviewFrameBuffers>
+    friend AFTERNIGHTCONTROLS_API an::Result<PreviewFrameBuffers>
     lendPreviewFrame(PreviewFrameBufferPool& pool, const ExtensionPreviewFrame& frame, PreviewFrameSpans* spans);
 
     explicit PreviewFrameBuffers(std::shared_ptr<PreviewFrameBufferStore> store) noexcept;
@@ -243,7 +250,7 @@ private:
 /// What the extension reads is what a new file would hold: an output is cleared and its sidecar reset to the source's
 /// cards at every frame, since the bridge writes what the extension set on its result into that sidecar. An array the
 /// extension takes of a buffer is the call's alone, as the SDK states; a later frame writes the same file.
-class PreviewFrameBufferPool
+class AFTERNIGHTCONTROLS_API PreviewFrameBufferPool
 {
 public:
     /// @param manager the seam, over the root the buffers go under.
@@ -275,7 +282,7 @@ public:
     [[nodiscard]] std::uint64_t sidecarWrites() const;
 
 private:
-    friend an::Result<PreviewFrameBuffers>
+    friend AFTERNIGHTCONTROLS_API an::Result<PreviewFrameBuffers>
     lendPreviewFrame(PreviewFrameBufferPool& pool, const ExtensionPreviewFrame& frame, PreviewFrameSpans* spans);
 
     std::shared_ptr<PreviewFrameBufferStore> m_store;
@@ -286,7 +293,7 @@ private:
 /// passed over.
 ///
 /// @param buffers the buffers; null entries are passed over.
-void removeLentBuffers(const std::vector<SharedImageBuffer*>& buffers) noexcept;
+AFTERNIGHTCONTROLS_API void removeLentBuffers(const std::vector<SharedImageBuffer*>& buffers) noexcept;
 
 /// Removes what a run lent the extension when it goes, however the run ends: the buffers it names, and every buffer
 /// the auxiliary list holds by then.
@@ -335,9 +342,8 @@ private:
 /// @param lent the frame's buffers.
 /// @param spans where to state how long it took; may be null.
 /// @return the asset, or what the import refused.
-[[nodiscard]] an::Result<an::consumer::ImageAsset> takePreviewFrameResult(const SharedBufferManager& manager,
-                                                                          const an::consumer::EngineSession& session,
-                                                                          PreviewFrameBuffers& lent,
-                                                                          PreviewFrameSpans* spans = nullptr);
+[[nodiscard]] AFTERNIGHTCONTROLS_API an::Result<an::consumer::ImageAsset>
+takePreviewFrameResult(const SharedBufferManager& manager, const an::consumer::EngineSession& session,
+                       PreviewFrameBuffers& lent, PreviewFrameSpans* spans = nullptr);
 
 } // namespace an::ui::extensions

@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostNativeTestSupport.h"
 #include "controls/ImageViewControl.h"
 #include "widgets/CurvesWidget.h"

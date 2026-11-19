@@ -27,7 +27,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "processes/RTPreviewUiCommon.h"
+#include "controls/RTPreviewUiCommon.h"
 
 using namespace an::ui::processes::rt_preview_ui;
 

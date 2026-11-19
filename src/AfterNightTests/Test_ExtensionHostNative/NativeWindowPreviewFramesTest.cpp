@@ -9,9 +9,9 @@
 /// it the same way; an Apply's source is the image itself, never a frame; and the window's close leaves no file of its
 /// frames behind.
 
-#include "ExtensionNativeProcessWindow.h"
+#include "controls/ExtensionNativeProcessWindow.h"
 #include "HostNativeTestSupport.h"
-#include "HostPreviewFrames.h"
+#include "app/ExtensionPreviewFrames.h"
 #include "app/SharedBufferManager.h"
 #include "controls/ImageViewControl.h"
 #include "controls/settings/SettingsKeys.h"
