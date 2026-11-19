@@ -290,6 +290,7 @@ ExtensionHostedProcess::ExtensionHostedProcess(ImageViewControl* target, Setup s
 
     ExtensionHostedSession::Listener listener;
     listener.started = [this](const ExtensionHostedSession::StartStep step) {
+        m_preparation.clear();
         addStartingLine(step == ExtensionHostedSession::StartStep::HostStarted ? tr("Its host has started")
                                                                                : tr("The extension is loaded"));
     };
@@ -394,8 +395,18 @@ QStringList ExtensionHostedProcess::startingText() const
         return {};
     }
     QStringList text{QStringLiteral("%1 %2").arg(startingTitle(), QString::fromStdString(m_setup.displayName))};
+    if (!m_preparation.isEmpty())
+    {
+        text.push_back(m_preparation);
+    }
     text.append(m_startingLines);
     return text;
+}
+
+void ExtensionHostedProcess::setPreparation(const QString& line)
+{
+    m_preparation = line.trimmed();
+    applyHostState();
 }
 
 const QJsonArray& ExtensionHostedProcess::drawnParams() const noexcept
@@ -598,7 +609,13 @@ void ExtensionHostedProcess::applyHostState()
     const bool starting = isStarting();
     if (auto* const row = static_cast<StartingRow*>(m_startingRow))
     {
-        row->setLines(m_startingLines);
+        QStringList lines;
+        if (!m_preparation.isEmpty())
+        {
+            lines.push_back(m_preparation);
+        }
+        lines.append(m_startingLines);
+        row->setLines(lines);
         row->setVisible(starting);
     }
     setControlsEnabled(m_hostReady && !m_hostFailed);

@@ -4233,9 +4233,108 @@ std::vector<std::map<std::string, QVariant>> ExtensionHostLaunchCoordinator::hos
     return views;
 }
 
+ExtensionHostedProcess* ExtensionHostLaunchCoordinator::makeHostedProcess(const ExtensionHostLaunchBinding& binding,
+                                                                          ImageViewControl* control)
+{
+    ExtensionHostedProcess* process = nullptr;
+    ExtensionHostedProcess::Setup setup;
+    setup.displayName = binding.display_name;
+    setup.previews = binding.process_capabilities.preview;
+    switch (binding.process_capabilities.preview_scaling)
+    {
+    case ExtensionPreviewScaling::Decimated:
+        setup.previewScaling = an::ui::PreviewScaling::Decimated;
+        break;
+    case ExtensionPreviewScaling::NativeRegion:
+        setup.previewScaling = an::ui::PreviewScaling::NativeRegion;
+        setup.previewRegionMargin = binding.process_capabilities.preview_region_margin;
+        break;
+    case ExtensionPreviewScaling::FullOnly:
+        setup.previewScaling = an::ui::PreviewScaling::FullOnly;
+        break;
+    }
+    setup.keptParams = binding.cached_native_param_schema;
+    setup.keepOpen = binding.process_capabilities.keep_open;
+    // The process is the descriptor's, as a process the launcher opens is: its task, its help and its name follow.
+    // Where it is shown is its manifest's, stated in the launch so that what reads it as the process registers -
+    // its task - reads what the process itself answers.
+    const auto* registered = process_registry::ProcessRegistry::instance().find(binding.descriptor_id);
+    process_registry::ProcessDescriptor stated;
+    if (registered != nullptr)
+    {
+        stated = *registered;
+    }
+    else
+    {
+        stated.id = binding.descriptor_id;
+        stated.display_name = binding.display_name;
+        stated.process_name = binding.display_name;
+    }
+    stated.surface = setup.previews ? an::ui::ProcessSurface::PreviewPage : an::ui::ProcessSurface::MirrorPage;
+    stated.columnWidth = an::ui::ProcessColumnWidth::Standard;
+    for (const QJsonValue& entry : binding.cached_native_param_schema)
+    {
+        const QJsonObject meta = entry.toObject();
+        if (meta.value(QStringLiteral("type")).toString() == QLatin1String("meta") &&
+            meta.value(QStringLiteral("controls_panel_width")).toDouble(0.0) >
+                static_cast<double>(ExtensionHostedProcess::kStandardColumnWidth))
+        {
+            stated.columnWidth = an::ui::ProcessColumnWidth::Wide;
+        }
+    }
+    {
+        const an::ui::ProcessLaunchScope launch(stated);
+        process = new ExtensionHostedProcess(control, std::move(setup));
+    }
+    return process;
+}
+
+ExtensionHostedProcess* ExtensionHostLaunchCoordinator::openStartingPage(const std::string& descriptor_id,
+                                                                         const std::string& display_name,
+                                                                         const ExtensionCapabilities& capabilities,
+                                                                         ImageViewControl* control)
+{
+    if (control == nullptr)
+    {
+        return nullptr;
+    }
+    // Drawn by the application as its launch will be once the preparation has read the extension's parameters.
+    ExtensionHostLaunchBinding binding;
+    binding.descriptor_id = descriptor_id;
+    binding.display_name = display_name;
+    binding.sdk_backend = "runtime";
+    binding.launch_mode = ExtensionLaunchMode::SingleImage;
+    binding.extension_host_owns_process_window = true;
+    binding.has_cached_native_param_schema = true;
+    binding.process_capabilities = capabilities;
+    if (!hostsPanels(binding))
+    {
+        return nullptr;
+    }
+    binding.has_cached_native_param_schema = false;
+    ExtensionHostedProcess* page = makeHostedProcess(binding, control);
+    starting_pages_[descriptor_id] = page;
+    page->show();
+    return page;
+}
+
+ExtensionHostedProcess* ExtensionHostLaunchCoordinator::takeStartingPage(const std::string& descriptor_id,
+                                                                         ImageViewControl* control)
+{
+    const auto found = starting_pages_.find(descriptor_id);
+    if (found == starting_pages_.end())
+    {
+        return nullptr;
+    }
+    auto* const page = qobject_cast<ExtensionHostedProcess*>(found->second.data());
+    starting_pages_.erase(found);
+    return page != nullptr && page->processTarget() == control ? page : nullptr;
+}
+
 void ExtensionHostLaunchCoordinator::bindHostedProcess(ExtensionSessionController* session,
                                                        const ExtensionHostLaunchBinding& binding,
-                                                       ImageViewControl* control, ExtensionHostedProcess* restarted)
+                                                       ImageViewControl* control, ExtensionHostedProcess* restarted,
+                                                       const bool adopted)
 {
     if (!session)
     {
@@ -4244,56 +4343,10 @@ void ExtensionHostLaunchCoordinator::bindHostedProcess(ExtensionSessionControlle
     ExtensionHostedProcess* process = restarted;
     if (process == nullptr)
     {
-        ExtensionHostedProcess::Setup setup;
-        setup.displayName = binding.display_name;
-        setup.previews = binding.process_capabilities.preview;
-        switch (binding.process_capabilities.preview_scaling)
-        {
-        case ExtensionPreviewScaling::Decimated:
-            setup.previewScaling = an::ui::PreviewScaling::Decimated;
-            break;
-        case ExtensionPreviewScaling::NativeRegion:
-            setup.previewScaling = an::ui::PreviewScaling::NativeRegion;
-            setup.previewRegionMargin = binding.process_capabilities.preview_region_margin;
-            break;
-        case ExtensionPreviewScaling::FullOnly:
-            setup.previewScaling = an::ui::PreviewScaling::FullOnly;
-            break;
-        }
-        setup.keptParams = binding.cached_native_param_schema;
-        setup.keepOpen = binding.process_capabilities.keep_open;
-        // The process is the descriptor's, as a process the launcher opens is: its task, its help and its name follow.
-        // Where it is shown is its manifest's, stated in the launch so that what reads it as the process registers -
-        // its task - reads what the process itself answers.
-        const auto* registered = process_registry::ProcessRegistry::instance().find(binding.descriptor_id);
-        process_registry::ProcessDescriptor stated;
-        if (registered != nullptr)
-        {
-            stated = *registered;
-        }
-        else
-        {
-            stated.id = binding.descriptor_id;
-            stated.display_name = binding.display_name;
-            stated.process_name = binding.display_name;
-        }
-        stated.surface = setup.previews ? an::ui::ProcessSurface::PreviewPage : an::ui::ProcessSurface::MirrorPage;
-        stated.columnWidth = an::ui::ProcessColumnWidth::Standard;
-        for (const QJsonValue& entry : binding.cached_native_param_schema)
-        {
-            const QJsonObject meta = entry.toObject();
-            if (meta.value(QStringLiteral("type")).toString() == QLatin1String("meta") &&
-                meta.value(QStringLiteral("controls_panel_width")).toDouble(0.0) >
-                    static_cast<double>(ExtensionHostedProcess::kStandardColumnWidth))
-            {
-                stated.columnWidth = an::ui::ProcessColumnWidth::Wide;
-            }
-        }
-        {
-            const an::ui::ProcessLaunchScope launch(stated);
-            process = new ExtensionHostedProcess(control, std::move(setup));
-        }
-
+        process = makeHostedProcess(binding, control);
+    }
+    if (restarted == nullptr || adopted)
+    {
         const std::weak_ptr<int> alive = alive_;
         const std::weak_ptr<ExtensionHostedSession> hosted = process->hostedSession();
         const std::string extension_id = binding.extension_id;
@@ -6310,6 +6363,10 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
     request.host_executable = binding.host_executable;
     request.host_arguments = binding.host_arguments;
     request.defer_runtime_bootstrap = connectsBeforeRuntimeStart(binding);
+    // A page made while the extension's environment was prepared is the process this launch starts.
+    ExtensionHostedProcess* const adopted_page = options.hosted_process == nullptr && hostsPanels(binding)
+                                                     ? takeStartingPage(binding.descriptor_id, control)
+                                                     : nullptr;
     request.hosted_panel = options.hosted_process != nullptr || hostsPanels(binding);
     if (const auto cached_schema = cachedNativeParamSchemaArgument(binding))
     {
@@ -6418,7 +6475,9 @@ bool ExtensionHostLaunchCoordinator::launchBoundDescriptor(const ExtensionHostLa
     armSessionPumpWake(sessions_.back().get());
     if (sessions_.back()->running_session.hosted_panel)
     {
-        bindHostedProcess(sessions_.back().get(), binding, control, options.hosted_process);
+        bindHostedProcess(sessions_.back().get(), binding, control,
+                          options.hosted_process != nullptr ? options.hosted_process : adopted_page,
+                          adopted_page != nullptr);
     }
     if (sessions_.back()->managed_preview_sub_area_enabled)
     {

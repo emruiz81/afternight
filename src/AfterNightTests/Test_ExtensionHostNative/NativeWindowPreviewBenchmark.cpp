@@ -45,10 +45,12 @@
 #include <gtest/gtest.h>
 
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QSlider>
 #include <QTemporaryDir>
+#include <QTimer>
 
 #include <algorithm>
 #include <chrono>
@@ -340,16 +342,27 @@ TEST(NativeWindowPreviewBenchmark, ASliderDragThroughTheFrameSeam)
     ASSERT_NE(slider, nullptr);
     const auto dragStart = std::chrono::steady_clock::now();
     slider->setSliderDown(true);
-    for (int step = 1; step <= steps; ++step)
-    {
-        slider->setValue(step % 100);
-        const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(stepMs);
-        while (std::chrono::steady_clock::now() < until)
+    // A step at a steady rate from a precise timer, the event loop waiting for events between the steps as the
+    // application's does: the GUI thread is never asleep while a frame's request, its answer or its result waits for
+    // it.
+    int step = 1;
+    slider->setValue(step % 100);
+    QEventLoop drag;
+    QTimer stepper;
+    stepper.setTimerType(Qt::PreciseTimer);
+    stepper.setInterval(stepMs);
+    QObject::connect(&stepper, &QTimer::timeout, &drag, [&]() {
+        if (step >= steps)
         {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 2);
-            std::this_thread::sleep_for(1ms);
+            stepper.stop();
+            drag.quit();
+            return;
         }
-    }
+        ++step;
+        slider->setValue(step % 100);
+    });
+    stepper.start();
+    drag.exec();
     const ProcessRunTelemetry atRelease = window.runTelemetry();
     std::uint64_t dragFrames = 0u;
     std::uint64_t dragPixels = 0u;

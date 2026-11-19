@@ -7146,8 +7146,23 @@ struct PreparedExecutionBuffers
 bool prepareExecutionBuffersForRequest(const std::string& session_id, const std::string& request_kind,
                                        const std::vector<an::ui::extensions::SharedBufferDescriptor>& input_buffers,
                                        const std::optional<an::ui::extensions::SharedBufferRole>& forced_buffer_role,
-                                       PreparedExecutionBuffers* prepared_buffers, std::string* error)
+                                       PreparedExecutionBuffers* prepared_buffers, std::string* error,
+                                       an::ui::extensions::KeptFrameMappings* kept_frames = nullptr)
 {
+    // A hosted panel's host keeps the mappings of the files a frame names, and lets every other go before it answers:
+    // an Apply's files are its own, and none is kept for it.
+    const bool keeps_frames = kept_frames != nullptr && request_kind == "preview";
+    if (kept_frames != nullptr)
+    {
+        kept_frames->keepOnly(keeps_frames ? input_buffers : std::vector<an::ui::extensions::SharedBufferDescriptor>{});
+    }
+    const auto open_lent = [kept_frames, keeps_frames](const an::ui::extensions::SharedBufferManager& manager,
+                                                       const an::ui::extensions::SharedBufferDescriptor& descriptor,
+                                                       an::ui::extensions::SharedImageBuffer* opened,
+                                                       std::string* why) {
+        return keeps_frames ? kept_frames->open(manager, descriptor, opened, why)
+                            : openSharedBuffer(manager, descriptor, opened, why);
+    };
     if (input_buffers.empty())
     {
         return true;
@@ -7179,7 +7194,7 @@ bool prepareExecutionBuffersForRequest(const std::string& session_id, const std:
 
     an::ui::extensions::SharedBufferManager manager(*root_path);
     an::ui::extensions::SharedImageBuffer source_buffer;
-    if (!openSharedBuffer(manager, *source_it, &source_buffer, error))
+    if (!open_lent(manager, *source_it, &source_buffer, error))
     {
         return false;
     }
@@ -7189,7 +7204,7 @@ bool prepareExecutionBuffersForRequest(const std::string& session_id, const std:
     if (const auto* lent = an::ui::extensions::lentOutputOf(request_kind, input_buffers); lent != nullptr)
     {
         an::ui::extensions::SharedImageBuffer output_buffer;
-        if (!openSharedBuffer(manager, *lent, &output_buffer, error))
+        if (!open_lent(manager, *lent, &output_buffer, error))
         {
             return false;
         }
@@ -7220,7 +7235,7 @@ bool prepareExecutionBuffersForRequest(const std::string& session_id, const std:
                 return false;
             }
             an::ui::extensions::SharedImageBuffer auxiliary_buffer;
-            if (!openSharedBuffer(manager, descriptor, &auxiliary_buffer, error))
+            if (!open_lent(manager, descriptor, &auxiliary_buffer, error))
             {
                 return false;
             }
@@ -7993,6 +8008,8 @@ int main(int argc, char* argv[])
 
     // The application draws the session's panel itself: the host shows no window, and serves the panel instead.
     const bool hosted_panel = an::ui::extensions::servesHostedPanel(ack);
+    // The files a hosted panel's frames are lent, kept mapped from one request to the next.
+    an::ui::extensions::KeptFrameMappings kept_frames;
 
     // Complete the native process window binding when the host confirms the mode.
     if (an::ui::extensions::showsNativeWindow(ack, headless_qt_platform))
@@ -9388,7 +9405,8 @@ int main(int argc, char* argv[])
                     continue;
                 }
                 if (!prepareExecutionBuffersForRequest(hello.session_id, in_flight.kind(), in_flight.buffers(),
-                                                       forced_result_buffer_role, &prepared_buffers, &error))
+                                                       forced_result_buffer_role, &prepared_buffers, &error,
+                                                       hosted_panel ? &kept_frames : nullptr))
                 {
                     printError(error);
                     return 28;

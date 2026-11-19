@@ -997,6 +997,17 @@ std::shared_ptr<void> SharedImageBuffer::mappingToken() const noexcept
     return m_mapping;
 }
 
+SharedImageBuffer SharedImageBuffer::shared() const
+{
+    SharedImageBuffer holder;
+    holder.m_descriptor = m_descriptor;
+    holder.m_filePath = m_filePath;
+    holder.m_mapping = m_mapping;
+    holder.m_sidecarBytes = m_sidecarBytes;
+    holder.m_sidecarWrites = m_sidecarWrites;
+    return holder;
+}
+
 const QByteArray& SharedImageBuffer::sidecarBytes() const noexcept
 {
     return m_sidecarBytes;
@@ -1485,6 +1496,27 @@ an::Result<SharedImageBuffer> SharedBufferManager::openBuffer(const SharedBuffer
     buffer.m_descriptor = descriptor;
     buffer.m_filePath = mapping->file_path();
     buffer.m_mapping = std::move(mapping);
+    return buffer;
+}
+
+an::Result<SharedImageBuffer> SharedBufferManager::openBuffer(const SharedBufferDescriptor& descriptor,
+                                                              const SharedImageBuffer& mappedBefore) const
+{
+    const SharedBufferDescriptor& before = mappedBefore.descriptor();
+    const bool sameLayout =
+        mappedBefore.valid() && before.mapped_file_path == descriptor.mapped_file_path &&
+        before.byte_size == descriptor.byte_size && before.width == descriptor.width &&
+        before.height == descriptor.height && before.channels == descriptor.channels &&
+        before.pixel_type == descriptor.pixel_type && before.pixel_format == descriptor.pixel_format &&
+        before.row_stride == descriptor.row_stride && before.plane_stride == descriptor.plane_stride &&
+        before.access_mode == descriptor.access_mode;
+    if (!sameLayout)
+    {
+        return openBuffer(descriptor);
+    }
+    // The file was opened and checked against this layout when it was mapped; only what names it is new.
+    SharedImageBuffer buffer = mappedBefore.shared();
+    buffer.m_descriptor = descriptor;
     return buffer;
 }
 

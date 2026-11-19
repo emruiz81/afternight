@@ -412,9 +412,11 @@ on a thread of its own, which writes the output with the window case's stand-in 
 as the application pumps it - when its socket has something to read, and every 100 ms. It takes the window case's
 `AN_BENCH_IMAGE`, `AN_BENCH_SCALING`, `AN_BENCH_ZOOM100`, `AN_BENCH_STEPS`, `AN_BENCH_STEP_MS`, `AN_BENCH_FPS`,
 `AN_BENCH_CHANNELS` and `AN_BENCH_FLOAT`, and prints the same `previews_per_s_in_drag`, frames, megapixels, view factor
-and `settled_after_release_ms`, with the stand-in's own times (`host_open_mean_ms`, `stand_in_mean_ms`). The two are
-compared run in alternation at the same frame size, the median of each read: the hosted drag is meant to keep within
-10 % of the window's, a comparison measured and never asserted.
+and `settled_after_release_ms`, with the stand-in's own times (`host_open_mean_ms`, `stand_in_mean_ms`); the stand-in
+keeps its mappings of the frame's files as the full host does. The two are compared run in alternation at the same
+frame size, the median of each read: the hosted drag is meant to keep within 10 % of the window's, a comparison measured
+and never asserted. Both drags step from a precise timer while the event loop waits for events, as the application's
+does: a loop that slept the GUI thread between steps held each hosted frame's two turns of it back.
 
 What a real host adds - the extension's word on the parameters, the bridge's binding of the buffers, the Python run and
 the flush of what it set on its result - is measured in `Test_ProcessFramework`:

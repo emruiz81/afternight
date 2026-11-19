@@ -51,6 +51,7 @@
 #include <QCborMap>
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QEventLoop>
 #include <QLocalSocket>
 #include <QMetaObject>
 #include <QSlider>
@@ -63,6 +64,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -238,8 +240,10 @@ private:
         {
             const auto started = std::chrono::steady_clock::now();
             const an::ui::extensions::SharedBufferManager manager(an::ui::extensions::extensionHostManagedRootPath());
-            an::Result<SharedImageBuffer> in = manager.openBuffer(*source);
-            an::Result<SharedImageBuffer> out = manager.openBuffer(*output);
+            // As the full host does: the files a frame names stay mapped for the next, and every other is let go.
+            keepOnly(preview.buffers);
+            an::Result<SharedImageBuffer> in = open(manager, *source);
+            an::Result<SharedImageBuffer> out = open(manager, *output);
             const auto opened = std::chrono::steady_clock::now();
             if (in.hasValue() && out.hasValue())
             {
@@ -267,7 +271,33 @@ private:
         m_socket->flush();
     }
 
+    void keepOnly(const std::vector<SharedBufferDescriptor>& named)
+    {
+        for (auto it = m_kept.begin(); it != m_kept.end();)
+        {
+            const bool stillNamed =
+                std::any_of(named.begin(), named.end(), [&it](const SharedBufferDescriptor& buffer) {
+                    return buffer.mapped_file_path == it->first;
+                });
+            it = stillNamed ? std::next(it) : m_kept.erase(it);
+        }
+    }
+
+    [[nodiscard]] an::Result<SharedImageBuffer> open(const an::ui::extensions::SharedBufferManager& manager,
+                                                     const SharedBufferDescriptor& descriptor)
+    {
+        const auto kept = m_kept.find(descriptor.mapped_file_path);
+        an::Result<SharedImageBuffer> opened =
+            kept != m_kept.end() ? manager.openBuffer(descriptor, kept->second) : manager.openBuffer(descriptor);
+        if (opened.hasValue())
+        {
+            m_kept.insert_or_assign(descriptor.mapped_file_path, opened->shared());
+        }
+        return opened;
+    }
+
     QLocalSocket* m_socket = nullptr;
+    std::map<std::string, SharedImageBuffer> m_kept;
     bool m_floating = false;
     std::shared_ptr<HostCosts> m_costs;
     QByteArray m_buffered;
@@ -284,8 +314,10 @@ private:
         {
             return true;
         }
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
-        std::this_thread::sleep_for(1ms);
+        // Waiting in the event loop, as the application waits: woken by what is posted to it.
+        QEventLoop pause;
+        QTimer::singleShot(1, &pause, &QEventLoop::quit);
+        pause.exec();
     }
     return condition();
 }
@@ -423,16 +455,27 @@ TEST(HostedProcessPreviewBenchmark, ASliderDragThroughTheHostedPath)
     ASSERT_NE(slider, nullptr);
     const auto dragStart = std::chrono::steady_clock::now();
     slider->setSliderDown(true);
-    for (int step = 1; step <= steps; ++step)
-    {
-        slider->setValue(step % 100);
-        const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(stepMs);
-        while (std::chrono::steady_clock::now() < until)
+    // A step at a steady rate from a precise timer, the event loop waiting for events between the steps as the
+    // application's does: the GUI thread is never asleep while a frame's request, its answer or its result waits for
+    // it.
+    int step = 1;
+    slider->setValue(step % 100);
+    QEventLoop drag;
+    QTimer stepper;
+    stepper.setTimerType(Qt::PreciseTimer);
+    stepper.setInterval(stepMs);
+    QObject::connect(&stepper, &QTimer::timeout, &drag, [&]() {
+        if (step >= steps)
         {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 2);
-            std::this_thread::sleep_for(1ms);
+            stepper.stop();
+            drag.quit();
+            return;
         }
-    }
+        ++step;
+        slider->setValue(step % 100);
+    });
+    stepper.start();
+    drag.exec();
     const ProcessRunTelemetry atRelease = process->runTelemetry();
     std::uint64_t dragFrames = 0u;
     std::uint64_t dragPixels = 0u;

@@ -791,6 +791,17 @@ public:
     /// The hosted processes of the sessions running now, in the order they started.
     [[nodiscard]] std::vector<ExtensionHostedProcess*> hostedProcesses() const;
 
+    /// Makes the page of an extension's process whose environment is still being prepared, as a hosted process starts -
+    /// its body saying so - over the image it will run on: the launch that follows the preparation starts its session
+    /// into it. Null where the process would not be drawn by the application, or with no image.
+    ///
+    /// @param descriptor_id the process's descriptor.
+    /// @param display_name its name.
+    /// @param capabilities what its manifest declares of it.
+    /// @param control the image it runs on.
+    ExtensionHostedProcess* openStartingPage(const std::string& descriptor_id, const std::string& display_name,
+                                             const ExtensionCapabilities& capabilities, ImageViewControl* control);
+
     /// How long a launch's parameter schema read may run before the launch is refused, unless a caller states another:
     /// the bound on a host runtime's start, since the read starts one and ends when its host exits.
     static constexpr int kDefaultParameterSchemaReadBoundMs = 60000;
@@ -868,10 +879,19 @@ private:
     /// Whether a launch of a binding is a hosted panel's.
     [[nodiscard]] bool hostsPanels(const ExtensionHostLaunchBinding& binding) const;
 
-    /// Binds a session whose panel the application draws to its process - one made now, or the one started again - and
-    /// shows a process made now.
+    /// Binds a session whose panel the application draws to its process - one made now, the one started again, or a
+    /// page made while its environment was prepared (`adopted`), which is given the session's hooks - and shows a
+    /// process made now.
     void bindHostedProcess(ExtensionSessionController* session, const ExtensionHostLaunchBinding& binding,
-                           ImageViewControl* control, ExtensionHostedProcess* restarted);
+                           ImageViewControl* control, ExtensionHostedProcess* restarted, bool adopted = false);
+
+    /// Makes a hosted process of a binding over an image, under a launch scope stating where it is shown.
+    [[nodiscard]] ExtensionHostedProcess* makeHostedProcess(const ExtensionHostLaunchBinding& binding,
+                                                            ImageViewControl* control);
+
+    /// Takes the page made for a process while its environment was prepared, when it is over the image the launch is
+    /// of; null otherwise.
+    [[nodiscard]] ExtensionHostedProcess* takeStartingPage(const std::string& descriptor_id, ImageViewControl* control);
 
     /// The open images as an extension lists them.
     [[nodiscard]] std::vector<std::map<std::string, QVariant>> hostedViewList() const;
@@ -901,6 +921,8 @@ private:
     ExtensionSdkUiInteractionHandler ui_interaction_handler_;
     // Held while the coordinator lives: a hosted process's hooks reach the coordinator only while it does.
     std::shared_ptr<int> alive_ = std::make_shared<int>(0);
+    /// The pages made while their process's environment is prepared, by descriptor, until their launch takes them.
+    std::map<std::string, QPointer<QWidget>> starting_pages_;
     int parameter_schema_read_bound_ms_ = kDefaultParameterSchemaReadBoundMs;
     // The rate the settings answered last and whether a read is on its way, shared with the worker that reads them.
     struct PreviewFrameRateRead;

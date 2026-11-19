@@ -5,6 +5,9 @@
 #include "app/ExtensionLaunchPreparations.h"
 
 #include "app/ExtensionEnvironmentManager.h"
+#include "app/ExtensionHostedSession.h"
+#include "controls/ExtensionHostedProcess.h"
+#include "controls/ImageViewControl.h"
 #include "controls/ProgressDialogControl.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -42,6 +45,8 @@ struct ExtensionLaunchPreparations::Impl
         /// Which start this is, so a completion completes the preparation it belongs to and no later one.
         std::uint64_t serial = 0;
         QPointer<ProgressDialogControl> window;
+        /// The page of the process the preparation says what it does in, in place of the window.
+        QPointer<ExtensionHostedProcess> page;
         /// The stop the window's Cancel and its going request; it outlives the window.
         std::stop_token windowStop;
         ExtensionOperationCancellationToken cancellation;
@@ -51,6 +56,7 @@ struct ExtensionLaunchPreparations::Impl
     QPointer<QWidget> windowParent;
     Work work;
     Finished finished;
+    StartingPage startingPage;
     /// Lives as long as this does: a completion that finds it gone finds nothing to complete.
     QObject alive;
     std::map<std::string, Preparation, std::less<>> preparations;
@@ -63,9 +69,13 @@ struct ExtensionLaunchPreparations::Impl
     }
 
     /// Whether the preparation is being stopped or the person closed its window: a close hides the window at once and
-    /// deletes it later, and only the deletion requests its stop.
+    /// deletes it later, and only the deletion requests its stop. A page's close requests the stop itself.
     [[nodiscard]] static bool closedOrBeingStopped(const Preparation& preparation)
     {
+        if (preparation.page)
+        {
+            return beingStopped(preparation);
+        }
         return beingStopped(preparation) || preparation.window.isNull() || !preparation.window->isVisible();
     }
 
@@ -77,32 +87,55 @@ struct ExtensionLaunchPreparations::Impl
 void ExtensionLaunchPreparations::Impl::start(const std::string& processId, const std::string& extensionId,
                                               const std::string& displayName)
 {
-    auto* window = new ProgressDialogControl(windowParent.data(),
-                                             QCoreApplication::translate("ExtensionLaunchPreparations", "Preparing %1")
-                                                 .arg(QString::fromStdString(displayName)));
-    window->setText(
-        QCoreApplication::translate("ExtensionLaunchPreparations", "Preparing the extension's Python environment"));
-    window->setBusy(true);
-    window->show();
+    const QString preparing =
+        QCoreApplication::translate("ExtensionLaunchPreparations", "Preparing the extension's Python environment");
+    ExtensionHostedProcess* const page = startingPage ? startingPage(processId) : nullptr;
+    ProgressDialogControl* window = nullptr;
+    if (page == nullptr)
+    {
+        window = new ProgressDialogControl(windowParent.data(),
+                                           QCoreApplication::translate("ExtensionLaunchPreparations", "Preparing %1")
+                                               .arg(QString::fromStdString(displayName)));
+        window->setText(preparing);
+        window->setBusy(true);
+        window->show();
+    }
 
     Preparation& preparation = preparations[extensionId];
     preparation = Preparation{};
     preparation.serial = nextSerial++;
     preparation.window = window;
-    preparation.windowStop = window->stopToken();
+    preparation.page = page;
+    if (window != nullptr)
+    {
+        preparation.windowStop = window->stopToken();
+    }
+    if (page != nullptr)
+    {
+        // The page says what the preparation does; closing it stops the preparation as the window's Cancel does.
+        page->setPreparation(preparing);
+        ExtensionHostedProcess::Hooks hooks;
+        hooks.closeSession = [cancellation = preparation.cancellation]() { cancellation.requestCancellation(); };
+        page->setHooks(std::move(hooks));
+    }
 
     const QPointer<QObject> receiver(&alive);
     const QPointer<ProgressDialogControl> windowGuard(window);
-    QThreadPool::globalInstance()->start([self = this, receiver, windowGuard, work = work,
+    const QPointer<ExtensionHostedProcess> pageGuard(page);
+    QThreadPool::globalInstance()->start([self = this, receiver, windowGuard, pageGuard, work = work,
                                           stop = preparation.windowStop, cancellation = preparation.cancellation,
                                           serial = preparation.serial, processId, extensionId]() {
         // The window's Cancel stops the preparation, as its going and the application's closing do.
         const std::stop_callback cancelOnStop(stop, [cancellation]() { cancellation.requestCancellation(); });
-        const Progress progress = [windowGuard](const ExtensionOperationProgress& reported) {
+        const Progress progress = [windowGuard, pageGuard](const ExtensionOperationProgress& reported) {
             QMetaObject::invokeMethod(
                 QCoreApplication::instance(),
-                [windowGuard, message = QString::fromStdString(reported.message), current = reported.current,
+                [windowGuard, pageGuard, message = QString::fromStdString(reported.message), current = reported.current,
                  total = reported.total, indeterminate = reported.indeterminate]() {
+                    if (pageGuard && !message.isEmpty())
+                    {
+                        pageGuard->setPreparation(message);
+                    }
                     if (!windowGuard)
                     {
                         return;
@@ -164,6 +197,15 @@ void ExtensionLaunchPreparations::Impl::complete(const std::string& extensionId,
     // The person may have closed the window after the work returned: the launch is cancelled all the same.
     const bool stopped = closedOrBeingStopped(recorded->second);
     const QPointer<ProgressDialogControl> window = recorded->second.window;
+    const QPointer<ExtensionHostedProcess> page = recorded->second.page;
+    // A page the launch started no session into - the preparation stopped or failed, or the launch went another way -
+    // closes once the launch has completed.
+    const auto closeUnstartedPage = [page]() {
+        if (page && page->hostedSession() && !page->hostedSession()->bound())
+        {
+            page->close();
+        }
+    };
     std::optional<Launch> next = std::move(recorded->second.next);
     preparations.erase(recorded);
     if (window)
@@ -172,6 +214,7 @@ void ExtensionLaunchPreparations::Impl::complete(const std::string& extensionId,
     }
     if (closing)
     {
+        closeUnstartedPage();
         return;
     }
     if (!cancelled)
@@ -185,8 +228,10 @@ void ExtensionLaunchPreparations::Impl::complete(const std::string& extensionId,
         {
             finished(next ? next->processId : processId, extensionId, std::move(outcome));
         }
+        closeUnstartedPage();
         return;
     }
+    closeUnstartedPage();
     if (next)
     {
         start(next->processId, extensionId, next->displayName);
@@ -222,8 +267,12 @@ void ExtensionLaunchPreparations::launch(const std::string& processId, const std
     Impl::Preparation& preparation = recorded->second;
     if (!Impl::closedOrBeingStopped(preparation))
     {
-        preparation.window->raise();
-        preparation.window->activateWindow();
+        // A launch while the preparation runs shows what shows it: its page, or its window.
+        QWidget* const shown = preparation.page ? static_cast<QWidget*>(preparation.page.data())
+                                                : static_cast<QWidget*>(preparation.window.data());
+        shown->show();
+        shown->raise();
+        shown->activateWindow();
         return;
     }
     // The preparation is being stopped and its work still runs to its next check of the stop: this launch starts once
@@ -250,6 +299,17 @@ ProgressDialogControl* ExtensionLaunchPreparations::windowOf(const std::string_v
 {
     const auto recorded = m_impl->preparations.find(extensionId);
     return recorded == m_impl->preparations.end() ? nullptr : recorded->second.window.data();
+}
+
+void ExtensionLaunchPreparations::setStartingPage(StartingPage startingPage)
+{
+    m_impl->startingPage = std::move(startingPage);
+}
+
+ExtensionHostedProcess* ExtensionLaunchPreparations::pageOf(const std::string_view extensionId) const
+{
+    const auto recorded = m_impl->preparations.find(extensionId);
+    return recorded == m_impl->preparations.end() ? nullptr : recorded->second.page.data();
 }
 
 ExtensionLaunchPreparationOutcome prepareExtensionEnvironmentForLaunch(

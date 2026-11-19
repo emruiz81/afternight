@@ -23,9 +23,11 @@
 #include "app/AfterNightExtensionProtocol.h"
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionHostManager.h"
+#include "app/ExtensionHostedSession.h"
 #include "app/ExtensionManager.h"
 #include "app/ExtensionSdkService.h"
 #include "app/SharedBufferManager.h"
+#include "controls/ExtensionHostedProcess.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
 #include "fixtures/common/FixtureExpectation.h"
@@ -967,6 +969,138 @@ TEST(ExtensionRegression, AnExecuteCancelledInFlightCommitsNothingAndLeavesItsSo
             }
         }
     }
+}
+
+// A bundled preview extension the application draws, launched through the coordinator as the application launches
+// it: its page over the view, its frame shown, its host killed - the page stays and says so, the view's lock let go -
+// Restart bringing the panel back, and its Apply one step of the view's history.
+TEST(ExtensionRegression, TheRealTimePreviewDemoHostedPreviewsOutlivesItsHostAndApplies)
+{
+    AN_REGRESSION_REQUIRES_FULL_HOST();
+    const ExtensionLoadResult* subject = readySubject(Origin::Bundled, "an_rt_preview_demo");
+    ASSERT_NE(subject, nullptr);
+    const an::ui::extensions::ExtensionProcessManifest& process = subject->manifest->processes.front();
+    ASSERT_TRUE(subject->settings_schema.has_value());
+    const auto schema = subject->settings_schema->process_params_schemas.find(process.class_name);
+    ASSERT_NE(schema, subject->settings_schema->process_params_schemas.end());
+
+    const std::filesystem::path root = uniqueSharedBufferRootForTest("regression-hosted-demo");
+    removeAllNoThrow(root);
+    const RemovePathOnExit remove_root{root};
+    const auto image = makeRgbGradientImage(6, 5);
+    ASSERT_TRUE(image);
+    const std::string view_name = "regression-hosted-view";
+    an::tests::processes::ViewHandle target = targetViewOf(view_name, image, "regression-hosted-view.fits");
+    ASSERT_NE(target, nullptr);
+    target->initializeNewImageHistory("Image opened");
+
+    InMemorySettings settings_store;
+    an::tests::processes::framework::CaseLaunchCoordinator coordinator;
+    coordinator.configureSdkService(
+        &settings_store.repository(),
+        [&]() -> std::vector<an::ui::extensions::ExtensionViewState> {
+            an::ui::extensions::ExtensionViewState view_state;
+            view_state.view_name = view_name;
+            view_state.is_active = true;
+            view_state.has_image = true;
+            view_state.width = static_cast<int>(widthOf(*image));
+            view_state.height = static_cast<int>(heightOf(*image));
+            view_state.channels = static_cast<int>(channelsOf(*image));
+            return {view_state};
+        },
+        [&image, &root](const std::string_view session_id, const std::string_view request_id, const std::string_view,
+                        an::ui::extensions::ExtensionViewSnapshot* snapshot, std::string* snapshot_error) -> bool {
+            *snapshot = an::ui::extensions::ExtensionViewSnapshot{};
+            an::ui::extensions::SharedImageBuffer buffer;
+            if (!exportImageOrReport(an::ui::extensions::SharedBufferManager(root), *image, session_id,
+                                     SharedBufferRole::Preview, &buffer, snapshot_error,
+                                     std::string(request_id) + ".snapshot", "snapshot",
+                                     SharedBufferAccessMode::ReadOnly))
+            {
+                return false;
+            }
+            snapshot->source_buffer = buffer.descriptor();
+            return true;
+        },
+        {}, {}, {}, {});
+    coordinator.setHostsPanels([]() { return true; });
+
+    an::ui::extensions::ExtensionHostLaunchBinding binding;
+    binding.descriptor_id = process.id;
+    binding.extension_id = subject->manifest->id;
+    binding.display_name = subject->manifest->name;
+    binding.sdk_backend = "runtime";
+    binding.launch_mode = an::ui::extensions::ExtensionLaunchMode::SingleImage;
+    binding.host_executable = extensionHostPathForCurrentAppDir();
+    binding.capabilities = {"execute", "preview"};
+    binding.process_capabilities = process.capabilities;
+    binding.extension_host_owns_process_window = true;
+    binding.has_cached_native_param_schema = true;
+    binding.cached_native_param_schema = schema->second;
+    binding.host_arguments = {"--extension-package-root",
+                              subject->manifest->package_root,
+                              "--entry-point",
+                              subject->manifest->entry_point,
+                              "--process-class",
+                              process.class_name,
+                              "--environment-root",
+                              subject->environment->environment_path.string(),
+                              "--runtime-root",
+                              runtimeRootForCurrentAppDir().string()};
+    const auto launch = [&]() {
+        std::string error;
+        ASSERT_TRUE(coordinator.launchBoundDescriptor(binding, target.get(), &error)) << error;
+    };
+    launch();
+    const std::vector<an::ui::extensions::ExtensionHostedProcess*> hosted = coordinator.hostedProcesses();
+    ASSERT_EQ(hosted.size(), 1u) << "the application draws the extension's process";
+    const QPointer<an::ui::extensions::ExtensionHostedProcess> page = hosted.front();
+    const auto shown = [&page]() {
+        const ImageViewControl* preview = page ? page->previewView() : nullptr;
+        return preview != nullptr && preview->hasImage() &&
+               page->runTelemetry().settledPreviewsCommitted + page->runTelemetry().interactivePreviewsCommitted > 0u;
+    };
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 20000 * kIpcTimingMultiplier,
+                                     [&]() { return page && page->hostReady() && shown(); }));
+    EXPECT_EQ(page->runTelemetry().previewsFailed, 0u);
+
+    // The host killed: the page stays, says so, and lets the view go.
+    an::ui::extensions::ExtensionSessionController* const session = page->hostedSession()->boundSession();
+    ASSERT_NE(session, nullptr);
+    ASSERT_TRUE(session->running_session.process);
+    session->running_session.process->kill();
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 10000 * kIpcTimingMultiplier, [&]() {
+        return page && page->hostFailed() && coordinator.activeSessionCount() == 0u;
+    }));
+    EXPECT_TRUE(page->isVisible());
+    EXPECT_TRUE(page->processMessage().contains(QStringLiteral("stopped responding")))
+        << page->processMessage().toStdString();
+    EXPECT_EQ(page->processMessageActions(), (QStringList{QStringLiteral("Restart"), QStringLiteral("Close")}));
+    EXPECT_FALSE(target->isLockedForProcessing());
+
+    // Restart: a new host into the same page, which is ready and previews again.
+    QPushButton* restart = nullptr;
+    for (QPushButton* button : page->findChildren<QPushButton*>(QStringLiteral("anMessageAction")))
+    {
+        if (button->text() == QStringLiteral("Restart") && button->window() == page->window())
+        {
+            restart = button;
+        }
+    }
+    ASSERT_NE(restart, nullptr);
+    restart->click();
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 20000 * kIpcTimingMultiplier,
+                                     [&]() { return page && page->hostReady() && !page->hostFailed(); }));
+    EXPECT_EQ(coordinator.hostedProcesses().size(), 1u) << "the same page, not a second one";
+
+    // The Apply: one step of the view's history, named as the process, under the view's lock.
+    page->applyProcess();
+    ASSERT_TRUE(pumpCoordinatorUntil(coordinator, 20000 * kIpcTimingMultiplier, [&]() {
+        const an::ui::IViewHistory* history = target->viewHistory();
+        return !target->isLockedForProcessing() && history != nullptr &&
+               history->previousStepName() == binding.display_name;
+    }));
+    EXPECT_TRUE(stopCoordinatorAndWaitForSessionAbsence(coordinator, 5000 * kIpcTimingMultiplier));
 }
 
 // Hosted, a subject tells the parameters its window draws - the list the application kept of it when it found the

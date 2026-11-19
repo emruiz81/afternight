@@ -2787,9 +2787,14 @@ lock for the run's length; a cancelled Apply commits nothing and the session goe
 application's store (`ExtensionSdkService::selectExtensionSetting`), read first through what the tool configuration
 resolved, as the window always answered them.
 
-While its host starts the process says so: the page appears as the session starts, its body headed by a quiet row - a
-turning arc, "Starting" and the process's name, and under them how far the host has come, a line a step
-(`ExtensionHostedSession::StartStep`: its host started, the extension loaded) - and the parameters kept from the
+While its host starts the process says so: the page appears as the session starts - or, for a first start whose
+environment is still to be prepared, before the preparation, which says what it does in that page rather than in a
+window of its own (`ExtensionLaunchPreparations::setStartingPage`; the extension service keeps what the manifest declares
+of each process, `ExtensionService::openStartingPage`, and the coordinator makes the page, `openStartingPage`, which the
+launch after the preparation starts its session into; closing the page stops the preparation, and a page no session was
+started into closes) - its body headed by a quiet row: a turning arc, "Starting" and the process's name, and under them
+what the preparation does and how far the host has come, a line a step (`ExtensionHostedSession::StartStep`: its host
+started, the extension loaded). The parameters kept from the
 package's discovery are drawn at once, disabled with the target, the tool's configuration, Reset and Apply
 (`ExtensionNativeProcessWindow::setControlsEnabled`, `acceptsRuns`) until the host is ready. A host that fails - it
 crashed, stopped answering, or went when neither the application nor the extension asked it to, which for a hosted
@@ -2807,8 +2812,18 @@ process of the suite standing for the host's (`Test_ControlsExtensionSeam/Hosted
 (`Test_ShellObservatory`) holds the page, its starting row and its failure. The extension regression
 (`ExtensionRegression.*`, `Test_ProcessFramework`) runs every subject of the full host that works on one image on both
 paths, its window's and the hosted one's - each request lending the output the host writes - and expects the same
-answers of both; a hosted subject tells the parameter list the application kept for its window. The hosted drag is
-measured beside the window's (`HostedProcessPreviewBenchmark`, [BENCHMARKS.md](BENCHMARKS.md)).
+answers of both; a hosted subject tells the parameter list the application kept for its window; and the real-time
+preview demo is launched hosted through the coordinator over a view, previewed, its host killed, restarted and applied.
+The hosted drag is measured beside the window's (`HostedProcessPreviewBenchmark`, [BENCHMARKS.md](BENCHMARKS.md)).
+
+**The frames' files stay mapped in the host.** The application's frame pool lends the same files frame after frame, and
+a file mapped anew for every frame is touched afresh page by page - three times the window path's cost of a transform
+over a full frame. The host keeps the mappings of the files the frame it serves names (`KeptFrameMappings`,
+`HostedPanelService.h`; `SharedBufferManager::openBuffer` through the mapping held before), and lets every other go
+before it answers a request - an Apply keeps none, its files being its own. A file mapped in the host cannot be removed
+on Windows, so the pool keeps what it lets go until the host has answered a request sent after it went
+(`PreviewFrameBufferPool::keepRemovalsForTheHost`, `requestSent`, `requestAnswered`); closing the pool, after the host
+was stopped, removes the rest.
 
 ### An extension's panel (`controls/ExtensionPanelDescription.h`, `controls/ExtensionParamPanel.h`)
 

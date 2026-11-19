@@ -19,6 +19,8 @@ class QWidget;
 namespace an::ui::extensions
 {
 
+class ExtensionHostedProcess;
+
 /// What preparing an extension's environment for a launch came to.
 struct ExtensionLaunchPreparationOutcome
 {
@@ -54,6 +56,10 @@ public:
     using Finished = std::function<void(const std::string& processId, const std::string& extensionId,
                                         ExtensionLaunchPreparationOutcome outcome)>;
 
+    /// Makes the page of the process a launch is of, where a shell draws it as a page - a hosted process starting over
+    /// the image it will run on - or returns null, and the preparation shows its window.
+    using StartingPage = std::function<ExtensionHostedProcess*(const std::string& processId)>;
+
     /// @param windowParent the window a preparation's progress window belongs to.
     /// @param work what prepares an extension's environment, on a worker of the global thread pool.
     /// @param finished what completes a launch, on the GUI thread.
@@ -81,6 +87,15 @@ public:
 
     /// The window showing the extension's preparation; null when it has none.
     [[nodiscard]] ProgressDialogControl* windowOf(std::string_view extensionId) const;
+
+    /// A preparation says what it does in the page of its process when one is made for it (`StartingPage`), the page's
+    /// close stopping it as the window's Cancel does; the launch that follows starts its session into that page, and a
+    /// page no session was started into once the launch completed closes. Without one, or where it makes none, the
+    /// preparation shows its window.
+    void setStartingPage(StartingPage startingPage);
+
+    /// The page showing the extension's preparation; null when it has none.
+    [[nodiscard]] ExtensionHostedProcess* pageOf(std::string_view extensionId) const;
 
 private:
     struct Impl;

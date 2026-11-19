@@ -50,6 +50,7 @@
 
 #include <array>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <utility>
 
@@ -411,10 +412,39 @@ struct ExtensionService::Impl
         return shell != nullptr ? shell->mainWindow() : nullptr;
     }
 
+    /// What a page of a process needs before its environment is ready: what its manifest declares of it, for each
+    /// process of a `runtime` extension that runs on one image.
+    std::map<std::string, an::ui::extensions::ExtensionCapabilities, std::less<>> startingFacts;
+
+    void rememberStartingFacts(const std::vector<ExtensionLoadResult>& discovered)
+    {
+        for (const ExtensionLoadResult& result : discovered)
+        {
+            if (!result.manifest)
+            {
+                continue;
+            }
+            const bool hostable = result.manifest->sdk_backend == an::ui::extensions::ExtensionSdkBackend::Runtime &&
+                                  result.manifest->launch_mode == an::ui::extensions::ExtensionLaunchMode::SingleImage;
+            for (const auto& process : result.manifest->processes)
+            {
+                if (hostable)
+                {
+                    startingFacts.insert_or_assign(process.id, process.capabilities);
+                }
+                else
+                {
+                    startingFacts.erase(process.id);
+                }
+            }
+        }
+    }
+
     /// The installed packages are as `discovered` says: registered, bound to their hosts and put in the menus.
     void registerAndShow(const std::filesystem::path& appDir, const std::vector<ExtensionLoadResult>& discovered,
                          const bool bindLaunches)
     {
+        rememberStartingFacts(discovered);
         an::ui::extensions::ExtensionManager extensionManager;
         extensionManager.registerDiscoveredProcesses(discovered, an::ui::process_registry::ProcessRegistry::instance());
         if (bindLaunches)
@@ -1418,6 +1448,7 @@ void ExtensionService::viewDestroyed(const ImageViewControl* view)
 void ExtensionService::extensionsPrepared(const std::vector<ExtensionLoadResult>& discovered)
 {
     const std::filesystem::path appDir(QCoreApplication::applicationDirPath().toStdString());
+    m_impl->rememberStartingFacts(discovered);
     bindDiscoveredExtensionLaunches(*m_impl->launches, appDir, discovered);
     m_impl->core.processMenus().rebindExtensions(discovered);
     m_impl->listsChanged();
@@ -1426,6 +1457,18 @@ void ExtensionService::extensionsPrepared(const std::vector<ExtensionLoadResult>
 an::ui::extensions::ExtensionHostLaunchCoordinator& ExtensionService::launchCoordinator() noexcept
 {
     return *m_impl->launches;
+}
+
+an::ui::extensions::ExtensionHostedProcess* ExtensionService::openStartingPage(const std::string& processId,
+                                                                               ImageViewControl* target)
+{
+    const auto facts = m_impl->startingFacts.find(processId);
+    const auto* descriptor = an::ui::process_registry::ProcessRegistry::instance().find(processId);
+    if (facts == m_impl->startingFacts.end() || descriptor == nullptr || target == nullptr)
+    {
+        return nullptr;
+    }
+    return m_impl->launches->openStartingPage(processId, descriptor->display_name, facts->second, target);
 }
 
 QString ExtensionService::statusPageTitle()

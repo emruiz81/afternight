@@ -6,6 +6,7 @@
 #include "core/ApplicationCore.h"
 #include "core/IShell.h"
 #include "services/DialogService.h"
+#include "services/ExtensionService.h"
 #include "services/RecentProcessesModel.h"
 #include "views/ViewService.h"
 
@@ -190,6 +191,10 @@ an::ui::extensions::ExtensionLaunchPreparations& ProcessLaunchService::preparati
                    const an::ui::extensions::ExtensionLaunchPreparationOutcome& outcome) {
                 completePreparedExtensionLaunch(processId, extensionId, outcome);
             });
+        // Where a shell draws the process as a page, the page appears at once and says what the preparation does.
+        m_preparations->setStartingPage([this](const std::string& processId) {
+            return m_core.extensions().openStartingPage(processId, m_core.viewService().subjectView());
+        });
     }
     return *m_preparations;
 }

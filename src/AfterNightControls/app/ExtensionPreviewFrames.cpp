@@ -196,7 +196,7 @@ public:
         {
             // A buffer that could not be listed stays until a later frame lets it go, or the pool closes.
         }
-        removeBuffers(removed);
+        dispose(removed);
     }
 
     /// A buffer of a shape for a frame: the idle one lent longest ago, or a new one, which no other frame is lent until
@@ -310,11 +310,55 @@ public:
         {
             // A buffer that could not be kept is removed below with the rest.
         }
-        removeBuffers(removed);
+        dispose(removed);
         if (removeDirectory)
         {
             removeEmptyDirectory();
         }
+    }
+
+    void keepRemovalsForTheHost() noexcept
+    {
+        const std::lock_guard lock(m_mutex);
+        m_hostKeepsMappings = true;
+    }
+
+    [[nodiscard]] std::uint64_t requestSent() noexcept
+    {
+        const std::lock_guard lock(m_mutex);
+        return ++m_requestsSent;
+    }
+
+    void requestAnswered(const std::uint64_t sent) noexcept
+    {
+        std::vector<SharedImageBuffer> removed;
+        try
+        {
+            const std::lock_guard lock(m_mutex);
+            for (auto it = m_retired.begin(); it != m_retired.end();)
+            {
+                if (it->retiredAt < sent)
+                {
+                    removed.push_back(std::move(it->buffer));
+                    it = m_retired.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
+        catch (...)
+        {
+            // What could not be listed is removed by a later answer, or when the pool closes.
+        }
+        removeBuffers(removed);
+    }
+
+    [[nodiscard]] std::size_t buffersAwaitingTheHost() const
+    {
+        const std::lock_guard lock(m_mutex);
+        return m_retired.size();
     }
 
     /// Removes the idle buffers now and keeps nothing from now on.
@@ -326,6 +370,12 @@ public:
         {
             const std::lock_guard lock(m_mutex);
             m_closed = true;
+            // The host was stopped before the pool closes: nothing of it maps a file any more.
+            for (Retired& retired : m_retired)
+            {
+                removed.push_back(std::move(retired.buffer));
+            }
+            m_retired.clear();
             for (auto it = m_kept.begin(); it != m_kept.end();)
             {
                 if (!it->lent)
@@ -377,6 +427,40 @@ public:
     }
 
 private:
+    /// A buffer the pool let go while its host may still map its file, and the number of requests sent when it went.
+    struct Retired
+    {
+        std::uint64_t retiredAt = 0u;
+        SharedImageBuffer buffer;
+    };
+
+    /// Removes buffers the pool let go - or, for a host that keeps the files of the frame it serves mapped, keeps them
+    /// until it has answered a request sent after they went.
+    void dispose(std::vector<SharedImageBuffer>& removed) noexcept
+    {
+        try
+        {
+            const std::lock_guard lock(m_mutex);
+            if (m_hostKeepsMappings && !m_closed)
+            {
+                for (SharedImageBuffer& buffer : removed)
+                {
+                    if (!buffer.filePath().empty())
+                    {
+                        m_retired.push_back(Retired{.retiredAt = m_requestsSent, .buffer = std::move(buffer)});
+                    }
+                }
+                removed.clear();
+            }
+        }
+        catch (...)
+        {
+            // What could not be kept for the host is removed now; a file the host still maps stays until its session's
+            // directory is removed.
+        }
+        removeBuffers(removed);
+    }
+
     /// A buffer the pool made: idle, holding it, or lent to a frame, which holds it.
     struct Kept
     {
@@ -425,6 +509,10 @@ private:
     mutable std::mutex m_mutex;
     std::vector<Kept> m_kept;
     std::uint64_t m_frames = 0u;
+    /// Whether the host keeps the files of the frame it serves mapped; the requests sent to it; what waits for it.
+    bool m_hostKeepsMappings = false;
+    std::uint64_t m_requestsSent = 0u;
+    std::vector<Retired> m_retired;
     std::uint64_t m_lends = 0u;
     std::uint64_t m_nextNumber = 0u;
     std::uint64_t m_sidecarWrites = 0u;
@@ -570,6 +658,26 @@ const SharedBufferManager& PreviewFrameBufferPool::manager() const noexcept
 void PreviewFrameBufferPool::close() noexcept
 {
     m_store->close();
+}
+
+void PreviewFrameBufferPool::keepRemovalsForTheHost() noexcept
+{
+    m_store->keepRemovalsForTheHost();
+}
+
+std::uint64_t PreviewFrameBufferPool::requestSent() noexcept
+{
+    return m_store->requestSent();
+}
+
+void PreviewFrameBufferPool::requestAnswered(const std::uint64_t sent) noexcept
+{
+    m_store->requestAnswered(sent);
+}
+
+std::size_t PreviewFrameBufferPool::buffersAwaitingTheHost() const
+{
+    return m_store->buffersAwaitingTheHost();
 }
 
 std::uint64_t PreviewFrameBufferPool::idleBytes() const

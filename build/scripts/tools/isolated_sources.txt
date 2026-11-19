@@ -3773,6 +3773,7 @@ sources Test_ControlsExtensionSeam
     header   src/AfterNightControls/controls/TopLevelProcessBaseControl.h
     header   src/AfterNightControls/session/ExecutionScope.h
     header   src/AfterNightControls/controls/settings/SettingsKeys.h
+    header   src/AfterNightControls/app/ExtensionLaunchPreparations.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -6662,3 +6663,9 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/controls/ExtensionParamPanel.h
     header   src/AfterNightControls/app/ExtensionSessionFeed.h
     header   src/AfterNightControls/app/ExtensionThemeState.h
+    header   src/AfterNightControls/app/ExtensionHostedSession.h
+    header   src/AfterNightControls/app/ExtensionPreviewFrames.h
+    header   src/AfterNightControls/controls/ExtensionHostedProcess.h
+    header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
+    header   src/AfterNightControls/widgets/CurvesWidget.h
+    header   src/AfterNightControls/widgets/ToneCurveModel.h

@@ -11,6 +11,7 @@
 /// resolved. The window, when there is one, is shown exactly as before.
 
 #include "app/AfterNightExtensionProtocol.h"
+#include "app/SharedBufferManager.h"
 
 #include <QCborMap>
 #include <QCborValue>
@@ -18,6 +19,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -74,5 +76,33 @@ struct HostedPanelEvent
 /// as it does for any other request.
 [[nodiscard]] const SharedBufferDescriptor* lentOutputOf(std::string_view requestKind,
                                                          const std::vector<SharedBufferDescriptor>& buffers);
+
+/// The mappings a host serving a hosted panel keeps of the files the application lends its frames, from one request to
+/// the next: the application's frame pool lends the same files frame after frame, and a file mapped once keeps its
+/// pages in the host, where one mapped anew for every frame is touched afresh page by page.
+///
+/// The agreement with the application: a request lets go every file it does not name before it is answered - an
+/// Apply every one, since its files are its own - so a file the application's pool let go is unmapped here once a
+/// request sent after it is answered, and the application removes it then (`PreviewFrameBufferPool::requestAnswered`).
+class KeptFrameMappings
+{
+public:
+    /// Lets go every file the request does not name, before its buffers are opened.
+    void keepOnly(const std::vector<SharedBufferDescriptor>& named);
+
+    /// Opens a buffer a frame was lent, through the mapping kept of its file when there is one, and keeps the mapping
+    /// for the next request.
+    [[nodiscard]] bool open(const SharedBufferManager& manager, const SharedBufferDescriptor& descriptor,
+                            SharedImageBuffer* opened, std::string* error);
+
+    /// Whether a file is kept mapped.
+    [[nodiscard]] bool keeps(const std::string& mappedFilePath) const;
+
+    /// How many files are kept mapped.
+    [[nodiscard]] std::size_t size() const noexcept;
+
+private:
+    std::map<std::string, SharedImageBuffer, std::less<>> m_kept;
+};
 
 } // namespace an::ui::extensions

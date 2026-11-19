@@ -151,6 +151,10 @@ public:
     /// The mapping's lifetime, for a frame borrowed over it: holding the token keeps the file mapped.
     [[nodiscard]] std::shared_ptr<void> mappingToken() const noexcept;
 
+    /// Another holder of the same mapping, with this buffer's descriptor: one keeps the file mapped while the other is
+    /// lent on.
+    [[nodiscard]] SharedImageBuffer shared() const;
+
     /// What the seam last wrote to the buffer's sidecar, as it remembers it; empty when it wrote none.
     [[nodiscard]] const QByteArray& sidecarBytes() const noexcept;
 
@@ -348,6 +352,12 @@ public:
     ///         the managed root, or `ErrorCode::ExternalFailure` when the file is missing, too small or cannot be
     ///         mapped.
     [[nodiscard]] an::Result<SharedImageBuffer> openBuffer(const SharedBufferDescriptor& descriptor) const;
+
+    /// `openBuffer`, through the mapping a buffer opened before holds when the descriptor names the same file with the
+    /// same layout and access: a file lent again and again - a frame pool's - is mapped once, and its pages stay in the
+    /// process. Any other descriptor is opened afresh.
+    [[nodiscard]] an::Result<SharedImageBuffer> openBuffer(const SharedBufferDescriptor& descriptor,
+                                                           const SharedImageBuffer& mappedBefore) const;
 
     /// Describes a mapped buffer as a frame: a borrow whose bytes are released through the mapping's lifetime, so the
     /// frame cannot outlive the mapping and the engine refuses to adopt it. Writable when the buffer is.

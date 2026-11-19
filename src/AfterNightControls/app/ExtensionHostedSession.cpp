@@ -123,6 +123,8 @@ void ExtensionHostedSession::bind(ExtensionHostManager& manager, ExtensionSessio
         // session, as it removes everything lent there.
         m_pool = std::make_shared<PreviewFrameBufferPool>(SharedBufferManager(extensionHostManagedRootPath()),
                                                           m_bufferSessionId);
+        // The host keeps the files of the frame it serves mapped until it is sent the next.
+        m_pool->keepRemovalsForTheHost();
     }
     if (m_listener.started)
     {
@@ -164,6 +166,11 @@ void ExtensionHostedSession::unbind(const ExtensionSessionEnd& end)
 bool ExtensionHostedSession::bound() const noexcept
 {
     return m_session != nullptr;
+}
+
+ExtensionSessionController* ExtensionHostedSession::boundSession() const noexcept
+{
+    return m_session;
 }
 
 bool ExtensionHostedSession::ready() const noexcept
@@ -348,9 +355,16 @@ void ExtensionHostedSession::route()
         }
         if (answer.has_value())
         {
+            std::shared_ptr<PreviewFrameBufferPool> pool;
             {
                 const std::lock_guard lock(m_mutex);
                 m_onItsWay.reset();
+                pool = m_pool;
+            }
+            // The host has let go every file this request did not name: what the pool let go before it was sent goes.
+            if (pool)
+            {
+                pool->requestAnswered(on_its_way->m_sentAs);
             }
             on_its_way->end(std::move(*answer));
         }
@@ -470,6 +484,7 @@ void ExtensionHostedSession::dispatch()
         {
             const std::lock_guard lock(m_mutex);
             next->m_requestId = id;
+            next->m_sentAs = m_pool ? m_pool->requestSent() : 0u;
             cancel_now = next->m_withdrawn;
         }
         if (cancel_now)

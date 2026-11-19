@@ -118,9 +118,14 @@ public:
     /// parameters kept from an earlier start among them - are disabled until the host is ready.
     [[nodiscard]] bool isStarting() const noexcept;
 
-    /// What the starting row says while it shows: "Starting" and the process's name, then how far the host has come, a
-    /// line a step; nothing once the host is ready or failed.
+    /// What the starting row says while it shows: "Starting" and the process's name, what the preparation of its
+    /// environment does when one runs, then how far the host has come, a line a step; nothing once the host is ready or
+    /// failed.
     [[nodiscard]] QStringList startingText() const;
+
+    /// What the preparation of the extension's environment does now - a first start's - said in the starting row until
+    /// its host starts.
+    void setPreparation(const QString& line);
 
     /// The parameters the host told last, or the ones kept from an earlier start until it has.
     [[nodiscard]] const QJsonArray& drawnParams() const noexcept;
@@ -180,6 +185,8 @@ private:
     QWidget* m_startingRow = nullptr;
     /// How far the host has come in its start, a line a step.
     QStringList m_startingLines;
+    /// What the preparation of the extension's environment does now; empty once its host started.
+    QString m_preparation;
     /// Why the host failed, as the banner says it.
     QString m_failure;
     std::function<void(QCborMap)> m_actionAnswer;

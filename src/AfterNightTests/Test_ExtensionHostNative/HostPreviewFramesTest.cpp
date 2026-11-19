@@ -623,6 +623,39 @@ TEST_F(HostPreviewFramesTest, ABufferOverTheSizeBoundIsRemovedWhenItsFrameEnds)
     EXPECT_EQ(pool.idleBytes(), 2u * floatBytes(8u, 6u));
 }
 
+// For a host that keeps the files of the frame it serves mapped until it is sent the next - a hosted panel's - a buffer
+// the pool lets go is removed only once the host has answered a request sent after it went; closing removes the rest,
+// the host having been stopped first.
+TEST_F(HostPreviewFramesTest, AFileLetGoWhileItsHostMayMapItGoesOnceTheHostAnsweredALaterRequest)
+{
+    const an::consumer::ImageAsset image = greyAsset(8u, 6u, 0.25);
+    PreviewFrameBufferPool pool(manager(), "frames", keepingNothing());
+    pool.keepRemovalsForTheHost();
+    const std::uint64_t first = pool.requestSent();
+    {
+        LeasedFrame leased(image);
+        an::Result<PreviewFrameBuffers> lent = lendPreviewFrame(pool, leased.frame);
+        ASSERT_TRUE(lent.hasValue()) << lent.status().message();
+    }
+    EXPECT_EQ(files().size(), 4u) << "the frame's buffers went while the host may still map them";
+    EXPECT_EQ(pool.buffersAwaitingTheHost(), 2u);
+    pool.requestAnswered(first);
+    EXPECT_EQ(files().size(), 4u) << "the request answered was sent before they went";
+    const std::uint64_t second = pool.requestSent();
+    pool.requestAnswered(second);
+    EXPECT_TRUE(files().empty());
+    EXPECT_EQ(pool.buffersAwaitingTheHost(), 0u);
+
+    {
+        LeasedFrame leased(image);
+        an::Result<PreviewFrameBuffers> lent = lendPreviewFrame(pool, leased.frame);
+        ASSERT_TRUE(lent.hasValue()) << lent.status().message();
+    }
+    EXPECT_EQ(files().size(), 4u);
+    pool.close();
+    EXPECT_TRUE(files().empty());
+}
+
 TEST_F(HostPreviewFramesTest, TheIdleBuffersNeverPassTheirBoundTheLeastRecentlyLentGoingFirst)
 {
     // Room for three of the frames' buffers, each 40x30 Float32.

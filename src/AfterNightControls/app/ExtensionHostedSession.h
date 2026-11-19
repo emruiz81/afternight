@@ -129,6 +129,8 @@ private:
 
     /// GUI thread: the id the host knows it by once sent, and whether its run gave up on it.
     std::string m_requestId;
+    /// The number the pool gave the request as it was sent, which its answer is told back by.
+    std::uint64_t m_sentAs = 0u;
     bool m_withdrawn = false;
     bool m_cancelSent = false;
 };
@@ -193,6 +195,9 @@ public:
 
     /// Whether a session is bound. GUI thread.
     [[nodiscard]] bool bound() const noexcept;
+
+    /// The session the object is bound to; null while it is bound to none. GUI thread.
+    [[nodiscard]] ExtensionSessionController* boundSession() const noexcept;
 
     /// Whether the bound session's host is running and its runtime ready, so a request is sent. GUI thread.
     [[nodiscard]] bool ready() const noexcept;

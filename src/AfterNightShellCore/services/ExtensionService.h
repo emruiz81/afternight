@@ -23,6 +23,7 @@ class ImageViewControl;
 namespace an::ui::extensions
 {
 class ExtensionHostLaunchCoordinator;
+class ExtensionHostedProcess;
 struct ExtensionOperationCancellationToken;
 struct ExtensionLoadResult;
 } // namespace an::ui::extensions
@@ -108,6 +109,12 @@ public:
 
     /// The extension host's launch coordinator, which runs the sessions.
     [[nodiscard]] an::ui::extensions::ExtensionHostLaunchCoordinator& launchCoordinator() noexcept;
+
+    /// The page of an extension's process whose environment is about to be prepared, starting over the image it will
+    /// run on, where the application draws it (a `runtime` extension of one image, in a shell that shows pages); null
+    /// otherwise, and the preparation shows its window.
+    [[nodiscard]] an::ui::extensions::ExtensionHostedProcess* openStartingPage(const std::string& processId,
+                                                                               ImageViewControl* target);
 
     /// The titles of the extensions' window's pages: the installed extensions' status, the manager, and the manager's
     /// two tabs.

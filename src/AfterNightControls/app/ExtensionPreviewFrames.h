@@ -273,6 +273,21 @@ public:
     /// buffers, removed when it ends. The window's session ends with it.
     void close() noexcept;
 
+    /// For a host that keeps the files of the frame it serves mapped until it is sent the next one - a hosted panel's,
+    /// whose frames the application lends: a buffer the pool lets go is removed only once the host has answered a
+    /// request sent after it went (`requestAnswered`), since a file still mapped there cannot be removed. Closing
+    /// removes them all, the host having been stopped first.
+    void keepRemovalsForTheHost() noexcept;
+
+    /// A request was sent to the host: the number it is answered by.
+    [[nodiscard]] std::uint64_t requestSent() noexcept;
+
+    /// The host answered the request sent as `sent`: what the pool let go before it was sent is removed.
+    void requestAnswered(std::uint64_t sent) noexcept;
+
+    /// How many buffers the pool let go that wait for the host's answer before they are removed.
+    [[nodiscard]] std::size_t buffersAwaitingTheHost() const;
+
     /// How many bytes, and buffers, wait idle for a frame of their shape.
     [[nodiscard]] std::uint64_t idleBytes() const;
     [[nodiscard]] std::size_t idleBuffers() const;

@@ -11,16 +11,20 @@
 #include "HostedPanelService.h"
 
 #include "app/AfterNightExtensionProtocol.h"
+#include "app/SharedBufferManager.h"
 
 #include <QCborArray>
 #include <QCborMap>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QTemporaryDir>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace
@@ -59,6 +63,76 @@ using namespace an::ui::extensions;
     descriptor.buffer_role = role;
     descriptor.access_mode = access;
     return descriptor;
+}
+
+/// A buffer of a frame the application lends, in a root of the case's.
+[[nodiscard]] SharedBufferDescriptor lentFrameBuffer(const SharedBufferManager& manager, const std::string& id)
+{
+    SharedImageBufferSpec spec;
+    spec.sessionId = "session-windowless";
+    spec.bufferId = id;
+    spec.symbolicName = "preview";
+    spec.width = 8;
+    spec.height = 6;
+    spec.channels = 1;
+    spec.pixelType = SharedBufferPixelType::Float32;
+    spec.pixelFormat = SharedBufferPixelFormat::Mono;
+    spec.colorSpace = SharedBufferColorSpace::Grayscale;
+    spec.accessMode = SharedBufferAccessMode::ReadWrite;
+    spec.bufferRole = SharedBufferRole::Preview;
+    an::Result<SharedImageBuffer> made = manager.allocateBuffer(spec);
+    EXPECT_TRUE(made.hasValue()) << (made.hasValue() ? std::string() : made.status().message());
+    return made.hasValue() ? made->descriptor() : SharedBufferDescriptor{};
+}
+
+TEST(Windowless, KeepsTheMappingsOfAFramesFilesForTheNext)
+{
+    const QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    const SharedBufferManager manager(std::filesystem::path(root.path().toStdWString()));
+    const SharedBufferDescriptor source = lentFrameBuffer(manager, "source.1");
+    const SharedBufferDescriptor output = lentFrameBuffer(manager, "preview.2");
+
+    KeptFrameMappings kept;
+    kept.keepOnly({source, output});
+    SharedImageBuffer first;
+    std::string error;
+    ASSERT_TRUE(kept.open(manager, source, &first, &error)) << error;
+    ASSERT_TRUE(kept.open(manager, output, nullptr, &error)) << error;
+    EXPECT_EQ(kept.size(), 2u);
+
+    // The next frame names the same files: they are opened through the mappings kept, not mapped anew.
+    kept.keepOnly({source, output});
+    SharedImageBuffer again;
+    ASSERT_TRUE(kept.open(manager, source, &again, &error)) << error;
+    EXPECT_EQ(again.bytes(), first.bytes()) << "one mapping of the file, its pages already in the process";
+    EXPECT_EQ(kept.size(), 2u);
+}
+
+TEST(Windowless, LetsGoEveryFileARequestDoesNotNameSoTheApplicationCanRemoveIt)
+{
+    const QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    const SharedBufferManager manager(std::filesystem::path(root.path().toStdWString()));
+    const SharedBufferDescriptor retired = lentFrameBuffer(manager, "preview.1");
+    const SharedBufferDescriptor current = lentFrameBuffer(manager, "preview.2");
+    KeptFrameMappings kept;
+    std::string error;
+    kept.keepOnly({retired, current});
+    ASSERT_TRUE(kept.open(manager, retired, nullptr, &error)) << error;
+    ASSERT_TRUE(kept.open(manager, current, nullptr, &error)) << error;
+
+    // A frame that names only another file lets the first go: the application can remove it.
+    kept.keepOnly({current});
+    EXPECT_FALSE(kept.keeps(retired.mapped_file_path));
+    EXPECT_TRUE(kept.keeps(current.mapped_file_path));
+    std::error_code removed;
+    EXPECT_TRUE(std::filesystem::remove(retired.mapped_file_path, removed)) << removed.message();
+
+    // An Apply names none of a frame's files: every one goes.
+    kept.keepOnly({});
+    EXPECT_EQ(kept.size(), 0u);
+    EXPECT_TRUE(std::filesystem::remove(current.mapped_file_path, removed)) << removed.message();
 }
 
 TEST(Windowless, TheHostStatesItCanServeAPanel)

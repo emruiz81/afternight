@@ -17,6 +17,7 @@
 
 #include "app/ExtensionHostManager.h"
 #include "app/ExtensionHostedSession.h"
+#include "app/ExtensionLaunchPreparations.h"
 #include "app/ExtensionPreviewFrames.h"
 #include "controls/ExtensionHostedProcess.h"
 #include "controls/ImageViewCompanions.h"
@@ -36,13 +37,18 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <condition_variable>
 #include <cstdint>
 #include <map>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -692,6 +698,132 @@ TEST_F(HostedProcess, RestartBringsThePanelBack)
         const std::optional<float> shown = previewSample(3u, 2u, 1u);
         return shown.has_value() && std::abs(*shown - targetValue(3u, 2u, 1u) * 2.0f) < 1e-6f;
     }));
+}
+
+/// A preparation of an extension's environment held until a case lets it go, as `ExtensionLaunchPreparations` runs one
+/// on a worker: it says what it does, waits, and returns prepared unless it was stopped. The worker shares it, so it
+/// outlives a case that ends before the work returns.
+struct HeldPreparation : std::enable_shared_from_this<HeldPreparation>
+{
+    std::mutex mutex;
+    std::condition_variable letGo;
+    bool released = false;
+    std::atomic<bool> returned{false};
+    std::atomic<bool> sawItsStop{false};
+
+    [[nodiscard]] an::ui::extensions::ExtensionLaunchPreparations::Work work()
+    {
+        return [this, self = shared_from_this()](
+                   const std::string&, const an::ui::extensions::ExtensionLaunchPreparations::Progress& progress,
+                   const an::ui::extensions::ExtensionOperationCancellationToken& cancellation) {
+            progress(an::ui::extensions::ExtensionOperationProgress{
+                .phase_id = "install", .message = "Installing numpy", .current = 0, .total = 0, .indeterminate = true});
+            {
+                // As a preparation's work does, it looks at its stop as it goes, not only when it is woken.
+                const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+                std::unique_lock lock(mutex);
+                while (!released && !cancellation.isCancellationRequested() && std::chrono::steady_clock::now() < until)
+                {
+                    letGo.wait_for(lock, std::chrono::milliseconds(10));
+                }
+            }
+            an::ui::extensions::ExtensionLaunchPreparationOutcome outcome;
+            sawItsStop = cancellation.isCancellationRequested();
+            outcome.prepared = !sawItsStop;
+            returned = true;
+            return outcome;
+        };
+    }
+
+    void release()
+    {
+        {
+            const std::lock_guard lock(mutex);
+            released = true;
+        }
+        letGo.notify_all();
+    }
+};
+
+/// Lets a held preparation go however the case ends, before the preparations that run it go.
+struct LetGoAtTheEnd
+{
+    std::shared_ptr<HeldPreparation> held;
+
+    ~LetGoAtTheEnd()
+    {
+        held->release();
+    }
+};
+
+TEST_F(HostedProcess, AFirstStartSaysWhatItsPreparationDoesInThePageAndStartsIntoIt)
+{
+    const auto held = std::make_shared<HeldPreparation>();
+    std::vector<std::string> completed;
+    an::ui::extensions::ExtensionLaunchPreparations preparations(
+        nullptr, held->work(),
+        [this, &completed](const std::string& processId, const std::string&,
+                           an::ui::extensions::ExtensionLaunchPreparationOutcome) {
+            // The launch that follows: a session started into the page, as the coordinator starts one.
+            completed.push_back(processId);
+            m_host->install(*m_controller, kSessionId);
+            m_process->hostedSession()->bind(m_manager, *m_controller);
+            m_hosted = m_process->hostedSession();
+        });
+    preparations.setStartingPage([this](const std::string&) {
+        ExtensionHostedProcess::Setup setup;
+        setup.displayName = kName;
+        m_process = new ExtensionHostedProcess(m_target.get(), std::move(setup));
+        m_process->show();
+        return m_process.data();
+    });
+    const LetGoAtTheEnd letGo{held};
+    preparations.launch("seam.extension.process", "seam.extension", kName);
+
+    // The page is there at once, and no window of the preparation's own.
+    ASSERT_FALSE(m_process.isNull());
+    EXPECT_EQ(preparations.windowOf("seam.extension"), nullptr);
+    EXPECT_EQ(preparations.pageOf("seam.extension"), m_process.data());
+    EXPECT_TRUE(m_process->isStarting());
+    ASSERT_TRUE(pumpFor([&]() { return m_process->startingText().contains(QStringLiteral("Installing numpy")); }));
+    EXPECT_EQ(m_process->startingText().front(), QStringLiteral("Starting %1").arg(QString::fromLatin1(kName)));
+
+    // Prepared: the launch starts into the page, which stays and says how far its host has come.
+    held->release();
+    ASSERT_TRUE(pumpFor([&]() { return held->returned.load() && !completed.empty(); }));
+    EXPECT_EQ(completed, std::vector<std::string>{"seam.extension.process"});
+    ASSERT_FALSE(m_process.isNull());
+    EXPECT_TRUE(m_process->isVisible());
+    EXPECT_FALSE(m_process->startingText().contains(QStringLiteral("Installing numpy")));
+    EXPECT_TRUE(m_process->startingText().contains(QStringLiteral("Its host has started")));
+    describe(QCborArray{strengthParam()});
+    EXPECT_TRUE(m_process->hostReady());
+}
+
+TEST_F(HostedProcess, ClosingTheStartingPageStopsThePreparation)
+{
+    const auto held = std::make_shared<HeldPreparation>();
+    bool completed = false;
+    an::ui::extensions::ExtensionLaunchPreparations preparations(
+        nullptr, held->work(),
+        [&completed](const std::string&, const std::string&, an::ui::extensions::ExtensionLaunchPreparationOutcome) {
+            completed = true;
+        });
+    preparations.setStartingPage([this](const std::string&) {
+        ExtensionHostedProcess::Setup setup;
+        setup.displayName = kName;
+        m_process = new ExtensionHostedProcess(m_target.get(), std::move(setup));
+        m_process->show();
+        return m_process.data();
+    });
+    const LetGoAtTheEnd letGo{held};
+    preparations.launch("seam.extension.process", "seam.extension", kName);
+    ASSERT_FALSE(m_process.isNull());
+
+    m_process->close();
+    ASSERT_TRUE(pumpFor([&]() { return held->returned.load() && !preparations.isPreparing("seam.extension"); }));
+    EXPECT_TRUE(held->sawItsStop.load()) << "the page's close stops the preparation, as its window's Cancel does";
+    EXPECT_FALSE(completed) << "a stopped preparation launches nothing";
 }
 
 TEST(HostedPanelEvents, AreRefusedForASessionWhosePanelTheApplicationDoesNotDraw)
