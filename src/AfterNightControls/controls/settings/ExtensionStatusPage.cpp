@@ -10,11 +10,13 @@
 #include "app/DesktopUtils.h"
 #include "app/ExtensionCommon.h"
 #include "app/ExtensionEnvironmentManager.h"
+#include "app/WindowPlacement.h"
 #include "components/AnCardWidget.h"
 #include "components/AnCollapsibleSection.h"
 #include "components/AnInfoBanner.h"
 #include "components/AnLayoutUtils.h"
 #include "components/AnStatusBadge.h"
+#include "components/AnWindowHeading.h"
 #include "theme/AnDesignTokens.h"
 
 #include <AfterNightPlatform/Logging.h>
@@ -1655,6 +1657,9 @@ void ExtensionStatusPage::openSettingsDialog(const an::ui::extensions::Extension
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
     layout->addWidget(buttonBox);
+    an::ui::headWindow(dialog, dialog.windowTitle(), tr("The settings this extension states for itself."),
+                       tr("Extensions"));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(dialog);
 
     dialog.exec();
 }

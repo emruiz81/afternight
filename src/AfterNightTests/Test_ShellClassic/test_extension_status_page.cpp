@@ -34,6 +34,7 @@
 #include "components/AnInfoBanner.h"
 #include "components/AnStatusBadge.h"
 #include "controls/settings/ExtensionStatusPage.h"
+#include "fixtures/WindowLook.h"
 #include "theme/AnDesignTokens.h"
 
 namespace
@@ -1240,4 +1241,39 @@ TEST_F(ExtensionStatusPageTest, ConditionalExtensionSettingsSchemaRendersSetting
         page.findChild<QPushButton*>(QStringLiteral("anExtensionStatusButton_settings_rt_preview_demo"));
     ASSERT_NE(settings_button, nullptr);
     EXPECT_TRUE(settings_button->toolTip().contains(QStringLiteral("configure"), Qt::CaseInsensitive));
+}
+
+// An extension's settings, which its page runs to their answer, under the Observatory profile: a heading that says
+// whose they are, the fields its schema states, and a footer whose button that accepts is at the right - in both
+// densities, within its screen.
+class WindowLook : public ExtensionStatusPageTest
+{
+};
+
+TEST_F(WindowLook, ExtensionSettings)
+{
+    const an::tests::look::WindowLookMeasured measured = an::tests::look::expectModalWindowLook(
+        []() {
+            ExtensionStatusPage page(nullptr);
+            page.setDiscoveryProvider([]() {
+                std::vector<ExtensionLoadResult> results;
+                auto result = makeReadyResult("rc_astro", "RC-Astro XTerminators", "/tmp/extensions/rc_astro",
+                                              "/tmp/extensions/rc_astro/.venv", ExtensionPackageSource::Bundled);
+                result.settings_schema = makeReadySchema(
+                    QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("cli_executable")},
+                                           {QStringLiteral("type"), QStringLiteral("file_path")},
+                                           {QStringLiteral("label"), QStringLiteral("Executable")},
+                                           {QStringLiteral("default"), QStringLiteral("/tmp/rc-astro")}},
+                               QJsonObject{{QStringLiteral("id"), QStringLiteral("model")},
+                                           {QStringLiteral("type"), QStringLiteral("string")},
+                                           {QStringLiteral("label"), QStringLiteral("Model")},
+                                           {QStringLiteral("default"), QStringLiteral("2")}}});
+                results.push_back(std::move(result));
+                return results;
+            });
+            page.loadSettings();
+            EXPECT_TRUE(page.openExtensionSettingsDialog("rc_astro"));
+        },
+        [](const QWidget& window) { return window.windowTitle() == QStringLiteral("RC-Astro XTerminators Settings"); });
+    AN_WINDOW_LOOK_REPORT(measured);
 }

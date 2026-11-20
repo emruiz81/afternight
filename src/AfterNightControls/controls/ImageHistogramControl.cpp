@@ -3,6 +3,8 @@
 
 #include "stdafx.hpp"
 #include "ImageHistogramControl.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/ImageViewControl.h"
 #include "controls/IAppContext.h"
 #include "session/ImageDocument.h"
@@ -41,6 +43,11 @@ ImageHistogramControl::ImageHistogramControl(ImageViewControl* control)
     : QDialog(control), ImageViewControlListener(control)
 {
     m_ui = an::ui::controls::buildImageHistogramControlUi(this);
+    // Under the Observatory profile the header is a window's heading, which says the image too.
+    an::ui::headWindowInPlaceOf(m_ui.headerSection,
+                                an::ui::windowEyebrow(QStringLiteral("Analysis"),
+                                                      QString::fromStdString(m_image_view_control->getUniqueName())));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Minimize button.. disabled for now
     // setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint);
@@ -121,6 +128,9 @@ void ImageHistogramControl::onImageRenamed(ImageViewControl* ctrl)
 {
     std::string title = fmt::format("Histogram <{}>", m_image_view_control->getUniqueName());
     setWindowTitle(QString::fromUtf8(title));
+    an::ui::setWindowEyebrow(*this,
+                             an::ui::windowEyebrow(QStringLiteral("Analysis"),
+                                                   QString::fromStdString(m_image_view_control->getUniqueName())));
 }
 
 ImageHistogramControl::~ImageHistogramControl() = default;

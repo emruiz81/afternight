@@ -4,7 +4,9 @@
 #include "stdafx.hpp"
 #include "AboutDialog.h"
 #include "app/UiStyleTokens.h"
+#include "app/WindowPlacement.h"
 #include "components/AnCardWidget.h"
+#include "components/AnWindowHeading.h"
 #include "controls/EngineVersionReport.h"
 #include "controls/ProcessTabStyling.h"
 #include "theme/AnDesignTokens.h"
@@ -165,6 +167,7 @@ AboutDialog::AboutDialog(QWidget* parent, bool darkMode) : QDialog(parent), m_Da
     // Set minimum size and center on screen
     setMinimumSize(700, 550);
     resize(880, 640);
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Center on parent or primary screen available geometry (exclude taskbar)
     const auto centerTo = [this](const QRect& area) {
@@ -232,6 +235,9 @@ void AboutDialog::setupUi()
     headerLayout->addWidget(subtitleLabel);
     headerCard->setContentLayout(headerLayout);
     mainLayout->addWidget(headerCard);
+    // Under the Observatory profile the card is a window's heading: the product over its version and what it is.
+    an::ui::headWindowInPlaceOf(headerCard, titleLabel->text(),
+                                an::ui::windowEyebrow(versionText, subtitleLabel->text()), QString());
 
     // Create tab widget
     m_TabWidget = new QTabWidget(this);

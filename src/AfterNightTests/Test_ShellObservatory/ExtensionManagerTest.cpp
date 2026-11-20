@@ -9,8 +9,10 @@
 /// extension's process is listed in the palette under its family with the quiet "extension" tag, whose tooltip says it
 /// runs in its own process, and in the menus - its category's and its family's - with the tag painted after its text.
 
+#include "Test_ShellObservatory/KeptWindowLook.h"
 #include "Test_ShellObservatory/ObservatoryWindowCase.h"
 #include "fixtures/ClippedControls.h"
+#include "fixtures/WindowLook.h"
 
 #include "chrome/MenuBarOnAlt.h"
 #include "pages/HomePage.h"
@@ -289,6 +291,8 @@ struct Inspection
     QSize settingsLeastSize;
     QStringList clipped;
     QStringList unsized;
+    /// What the dialog and an extension's settings lack of the look of a window that stays a window.
+    QStringList look;
 };
 
 /// Opens the Extensions dialog as the menu tree's Manage Extensions opens it and, at its least size, lists what is
@@ -355,6 +359,10 @@ Inspection inspectTheExtensionsDialog(an::ui::shell::ApplicationCore& core)
         {
             queued->click();
         }
+        for (const QString& found : an::tests::observatory::lookProblemsOfAKeptWindow(*dialog))
+        {
+            inspection.look.append(QStringLiteral("Extensions: ") + found);
+        }
         inspection.leastSize = toItsLeastSize(*dialog);
         for (const QString& found : clippedControls(*dialog))
         {
@@ -400,6 +408,10 @@ Inspection inspectTheExtensionsDialog(an::ui::shell::ApplicationCore& core)
                     settings->objectName() == QLatin1String("extensionsDialog"))
                 {
                     return false;
+                }
+                for (const QString& found : an::tests::observatory::lookProblemsOfAKeptWindow(*settings))
+                {
+                    inspection.look.append(QStringLiteral("Settings: ") + found);
                 }
                 inspection.settingsLeastSize = toItsLeastSize(*settings);
                 for (const QString& found : clippedControls(*settings))
@@ -597,13 +609,16 @@ TEST_F(ExtensionManagerPage, ALongNameTakesTheLinesItNeeds)
     status.hide();
 }
 
-// At both densities the Extensions dialog takes its stated least size, 860 x 640, and an extension's settings theirs,
-// 500 x 400; at them no control of the Extension Manager - its toolbar, its cards with their details open, an install
-// under way and another queued, the warning of unsigned packages - nor of the status page with its cards' details open,
-// nor of an extension's settings, is clipped, and every scroll area's content is as tall as its width needs. Whether a
-// control is clipped depends on how wide text is, and the suites' own platform draws text in a box font about twice the
-// interface's width: there the sizes are asserted and the rest is reported skipped; started under the native platform
-// (`QT_QPA_PLATFORM=windows`) the case measures text as the interface does.
+// At both densities the Extensions dialog is no smaller than it states, 860 x 640, and no higher than a 1280 x 720
+// display leaves a window - under its heading the comfortable density needs a few pixels more than it states - and an
+// extension's settings take their stated least size, 500 x 400; at them no control of the Extension Manager - its
+// toolbar, its cards with their details open, an install under way and another queued, the warning of unsigned
+// packages - nor of the status page with its cards' details open, nor of an extension's settings, is clipped, and
+// every scroll area's content is as tall as its width needs. Whether a control is clipped depends on how wide text is,
+// and the suites' own platform draws text in a box font about twice the interface's width: there what the dialogs
+// hold needs more than they state, and a window takes what it needs as it is first shown, so the dialogs are held to
+// be no smaller than they state and the rest is reported skipped; started under the native platform
+// (`QT_QPA_PLATFORM=windows`) the case measures text as the interface does, and holds the least sizes.
 TEST_F(ExtensionManagerPage, NoControlIsClipped)
 {
     ASSERT_EQ(an::ui::styleProfile(), an::ui::StyleProfile::Observatory);
@@ -616,10 +631,28 @@ TEST_F(ExtensionManagerPage, NoControlIsClipped)
         const char* const named = density == an::ui::ThemeDensity::Compact ? "Compact" : "Comfortable";
         const Inspection inspection = inspectTheExtensionsDialog(core());
         ASSERT_TRUE(inspection.opened) << named;
-        EXPECT_EQ(inspection.leastSize, QSize(860, 640)) << named;
-        EXPECT_EQ(inspection.settingsLeastSize, QSize(500, 400)) << named;
+        if (measured)
+        {
+            EXPECT_EQ(inspection.leastSize.width(), 860) << named;
+            EXPECT_GE(inspection.leastSize.height(), 640) << named;
+            EXPECT_LE(inspection.leastSize.height(), an::tests::look::kFloorRoom.height())
+                << named << ": the dialog's least height is more than a 1280 x 720 display leaves a window";
+            EXPECT_EQ(inspection.settingsLeastSize, QSize(500, 400)) << named;
+        }
+        else
+        {
+            EXPECT_TRUE(inspection.leastSize.width() >= 860 && inspection.leastSize.height() >= 640)
+                << named << ": " << inspection.leastSize.width() << " x " << inspection.leastSize.height();
+            EXPECT_TRUE(inspection.settingsLeastSize.width() >= 500 && inspection.settingsLeastSize.height() >= 400)
+                << named << ": " << inspection.settingsLeastSize.width() << " x "
+                << inspection.settingsLeastSize.height();
+        }
         EXPECT_TRUE(inspection.unsized.isEmpty())
             << named << ": " << inspection.unsized.join(QStringLiteral("\n  ")).toStdString();
+        // Each is a window that stays a window: a heading, the button that accepts at its footer's right, text that
+        // meets the contrast rule, a dialog's surface.
+        EXPECT_TRUE(inspection.look.isEmpty())
+            << named << ": " << inspection.look.join(QStringLiteral("\n  ")).toStdString();
         if (measured)
         {
             EXPECT_TRUE(inspection.clipped.isEmpty())
@@ -630,8 +663,9 @@ TEST_F(ExtensionManagerPage, NoControlIsClipped)
     settle();
     if (!measured && !HasFailure())
     {
-        GTEST_SKIP() << "the least sizes hold; whether anything is clipped is measured under the native platform, "
-                        "where text is as wide as the interface draws it";
+        GTEST_SKIP() << "the dialogs are no smaller than they state; their least sizes and whether anything is "
+                        "clipped are measured under the native platform, where text is as wide as the interface "
+                        "draws it";
     }
 }
 

@@ -55,6 +55,21 @@ QFont capsFont(const QFont& base, const int logicalPixels)
     return font;
 }
 
+QFont windowHeadingEyebrowFont(const DesignTokens& tokens)
+{
+    return capsFont(tokens.typography.caption, tokens.metrics.fontCaption);
+}
+
+QFont windowHeadingTitleFont(const DesignTokens& tokens)
+{
+    return sizedFont(tokens.typography.body, kWindowHeadingTitleFont, QFont::DemiBold);
+}
+
+QFont windowHeadingDescriptionFont(const DesignTokens& tokens)
+{
+    return sizedFont(tokens.typography.body, tokens.metrics.fontSmall);
+}
+
 int textWidth(const QFont& font, const QString& text)
 {
     return static_cast<int>(std::ceil(QFontMetricsF(font).horizontalAdvance(text)));

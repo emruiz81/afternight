@@ -29,4 +29,30 @@ namespace an::ui
 /// as the window system draws it. Called as the window is first shown.
 AFTERNIGHTCONTROLS_API void holdWithinAvailableArea(QWidget& window);
 
+/// The name of the scroll area the body of a window scrolls in, where it has one (`scrollWindowBody`).
+inline constexpr const char* kWindowBodyName = "anWindowBody";
+
+/// The height the scrolling body of a window needs to be shown whole, at the width it has with no bar beside it;
+/// nothing for a window with no such body. It changes when what the body holds changes - not when the window is
+/// made lower and the body scrolls - so a window that follows its content asks again only when this does.
+[[nodiscard]] AFTERNIGHTCONTROLS_API int windowBodyHeightNeeded(QWidget& window);
+
+/// Gives a window whose body scrolls the height that shows the body whole, no more and no less, and holds it within
+/// the available area of its screen, where the body scrolls if it is higher than the area leaves it: what a window
+/// that is as high as what it holds does when what it holds changes - a section opened, a message shown. A window
+/// with no such body is only held.
+AFTERNIGHTCONTROLS_API void fitHeightToBodyWithinAvailableArea(QWidget& window);
+
+/// Has a window held within the available area of its screen as it is first shown as a window of its own, and only
+/// then: sized or moved since, it is the person's. Called as the window is made, by a window that stays a window - a
+/// tool window of a view, a dialog - so that none opens larger than the screen leaves it or with its title bar off it.
+/// A widget that is first shown inside another is left alone.
+///
+/// Under the Observatory profile the window is sized for the look first. A size stated for one of its parts, or for
+/// itself, that is smaller than the part needs in the profile's font and density is dropped - a field 60 pixels
+/// wide, a row 28 high, a least size the heading no longer fits in - so the part takes what it needs; and a window
+/// whose body scrolls (`kWindowBodyName`) is given the height that shows the body whole, which the hold then bounds
+/// to the screen.
+AFTERNIGHTCONTROLS_API void holdWithinAvailableAreaWhenFirstShown(QWidget& window);
+
 } // namespace an::ui

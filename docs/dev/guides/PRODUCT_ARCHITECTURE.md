@@ -921,6 +921,52 @@ every tool window, the astrometry and plate-solve windows once per view. The Pix
 `pixelMathVocabulary()`, the engine's function tables and the syntax's operators. `Test_ControlsDialogs` holds all of
 it, with the settings dialog's cases.
 
+### The windows that stay windows (`components/AnWindowHeading.h`, `app/WindowPlacement.h`)
+
+A tool window or a dialog the Observatory shell does not draw as a page - the information windows, Plate Solve, Find
+Object, Annotate Image, the sequence windows, the Autostretch settings, Image Integration's settings dialogs and its
+tools, the catalog downloads, Manage Favorite Processes, an extension's settings, About, System Information - is the
+window 1.1 had, made by the same builder, and both shells open the same one. What the Observatory profile asks of it
+is done where the window is built, by calls that do nothing under the Classic profile, so the classic shell shows it
+as 1.1 drew it:
+
+- **A heading.** `headWindow` puts an `AnWindowHeading` at the head of the window's column: an eyebrow that says
+  where the window belongs and, for a window of a view, the image it reads (`windowEyebrow`: "Analysis · M31"), the
+  title and a description. `headWindowInPlaceOf` puts it in the place of the header the window had, which stays the
+  window's and is shown no more. A window that follows its view's name renames its eyebrow where it renames its title
+  (`setWindowEyebrow`). A process window's own header is its heading, and takes none. A message box takes none either:
+  its text is what it says.
+- **A body that scrolls.** A window whose content is higher than the least display leaves a window - 1280 x 720
+  leaves 1278 x 656 - hands the part of its column between its heading and its footer to `scrollWindowBody`: a scroll
+  area (`anWindowBody`) never narrower than its content, so the heading and the footer stay in place and the window's
+  least size is not its content's. The Stacking, Calibration and advanced Registration settings, the Autostretch
+  settings and Plate Solve have one.
+- **Its first show.** `holdWithinAvailableAreaWhenFirstShown` acts once, as the window is first shown and before it
+  is put on the screen. Under the Observatory profile it sizes the window for the look first: 1.1's builders state
+  sizes in pixels - a field 60 wide, a row 28 high, a window no smaller than 500 by 380 - which the profile's font and
+  its densities outgrow, so a field, a button with a text, a part that lays out others and the window itself, the
+  innermost first, each take what they need where what was stated is less; and a window with a scrolling body is
+  given the height that shows the body whole. Then, under either profile, the window is held within the available
+  area of its screen, its frame included (`holdWithinAvailableArea`), where that area holds its least size. Two facts
+  of Qt decide how the sizing is written: a least size set to nothing in one direction alone
+  (`setMinimumHeight(0)`) still counts as stated, and a layout leaves a stated size alone, so both directions are
+  cleared together and the one that stands is stated again; and a combo box keeps the least width it worked out when
+  it was first asked, which for one filled since is an empty box's, until it is told its style changed.
+- **A height that follows the content.** Plate Solve is as high as what it shows: when a section opens or a message
+  appears it asks for the height that shows its body whole (`fitHeightToBodyWithinAvailableArea`), and only when what
+  the body needs changed (`windowBodyHeightNeeded`), so a window a person made lower stays as they left it. Under the
+  Classic profile it keeps the fixed height 1.1 gave it. A dialog that resizes itself to its content
+  (`scheduleDialogResize`, `processes/FixedDialogUiSizing.h`) is held within the screen after it does, under the
+  Observatory profile alone: under the Classic one it is sized as 1.1 sized it.
+- **Its surface and its footer** are the style's: the first surface, and the button that accepts at the right ("The
+  Observatory look" in `docs/dev/THEME_SYSTEM.md`). A footer a window lays out by hand puts its primary button last
+  under the Observatory profile - Plate Solve's Solve, Annotate Image's Export, the recommended settings' Apply.
+
+`WindowLook.<Window>` in the suite that owns each window holds the result in both densities ("A window's size is not
+measured under the suites' platform" in `docs/dev/guides/TESTING.md`), and `<Window>.OpensFromTheObservatory`
+(`Test_ShellObservatory`) that the Observatory shell opens it by the path a person takes: a card of the readout, the
+history strip, the view's toolbar, the palette, the menu tree, a page's button.
+
 ### The dock area (`controls/KDDockWidgetsHelper.h`, `theme/KddwProxyStyle.h`)
 
 Docking is KDDockWidgets. The decorations declare the configuration they are drawn for beside them - the flags of

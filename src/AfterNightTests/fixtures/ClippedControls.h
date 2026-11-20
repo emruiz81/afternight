@@ -22,6 +22,7 @@
 #include <QScrollBar>
 #include <QString>
 #include <QStringList>
+#include <QToolButton>
 #include <QWidget>
 
 namespace an::tests::look
@@ -74,6 +75,13 @@ namespace an::tests::look
         {
             continue;
         }
+        // What a field lays out inside itself - a line edit's clear button, a spin box's line edit - is the field's
+        // own, sized by it and judged with it.
+        if (qobject_cast<const QLineEdit*>(parent) != nullptr ||
+            qobject_cast<const QAbstractSpinBox*>(parent) != nullptr)
+        {
+            continue;
+        }
         if (const QAbstractScrollArea* const area = scrollAreaOfViewport(parent); area != nullptr)
         {
             const bool scrollsSideways =
@@ -95,7 +103,15 @@ namespace an::tests::look
             qobject_cast<const QLineEdit*>(widget) != nullptr ||
             qobject_cast<const QAbstractSpinBox*>(widget) != nullptr)
         {
-            const QSize least = widget->minimumSizeHint();
+            // A button that shows an icon alone needs the room of its icon: it is drawn whole in a square smaller than
+            // the height the style gives a button with a text. A tool button that shows its icon alone is one
+            // whether or not a suite has the icons: without the product's icon provider it has none to show.
+            const auto* const button = qobject_cast<const QAbstractButton*>(widget);
+            const auto* const tool = qobject_cast<const QToolButton*>(widget);
+            const bool iconAlone =
+                button != nullptr && ((tool != nullptr && tool->toolButtonStyle() == Qt::ToolButtonIconOnly) ||
+                                      (!button->icon().isNull() && button->text().isEmpty()));
+            const QSize least = iconAlone ? button->iconSize() : widget->minimumSizeHint();
             if (size.width() < least.width() || size.height() < least.height())
             {
                 clipped.append(nameOf(widget) + QStringLiteral(" is smaller than it needs (%1 x %2 < %3 x %4)")
@@ -108,11 +124,17 @@ namespace an::tests::look
         else if (const auto* combo = qobject_cast<const QComboBox*>(widget); combo != nullptr)
         {
             const QSize needs = combo->sizeHint();
-            if (size.width() < needs.width() || size.height() < combo->minimumSizeHint().height())
+            if (size.width() < needs.width())
             {
                 clipped.append(nameOf(widget) + QStringLiteral(" is too narrow for its longest item (%1 < %2)")
                                                     .arg(size.width())
                                                     .arg(needs.width()));
+            }
+            if (size.height() < combo->minimumSizeHint().height())
+            {
+                clipped.append(nameOf(widget) + QStringLiteral(" is lower than it needs (%1 < %2)")
+                                                    .arg(size.height())
+                                                    .arg(combo->minimumSizeHint().height()));
             }
         }
         else if (const auto* label = qobject_cast<const QLabel*>(widget);

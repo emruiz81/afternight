@@ -881,7 +881,9 @@ void AnProxyStyle::polish(QWidget* widget)
         const QString objName = label->objectName();
         if (objName == QLatin1String("anProcessShellHeaderTitle"))
         {
-            label->setFont(m_tokens->typography.heading1);
+            // Under the Observatory profile a process window's header is a window's heading.
+            label->setFont(observatoryProfile() ? an::ui::parts::windowHeadingTitleFont(*m_tokens)
+                                                : m_tokens->typography.heading1);
             // textPrimary already set above
         }
         // ── Process-shell header description ────────────────────────────
@@ -889,13 +891,31 @@ void AnProxyStyle::polish(QWidget* widget)
         {
             pal.setColor(QPalette::WindowText, m_tokens->colors.textSecondary);
             label->setPalette(pal);
-            label->setFont(m_tokens->typography.body);
+            label->setFont(observatoryProfile() ? an::ui::parts::windowHeadingDescriptionFont(*m_tokens)
+                                                : m_tokens->typography.body);
         }
         // ── Process-shell banner message ────────────────────────────────
         else if (objName == QLatin1String("anProcessShellBannerMessage"))
         {
             label->setFont(m_tokens->typography.body);
             // textPrimary already set above — nothing extra needed
+        }
+        // ── A window's heading: its eyebrow, its title, its description ──
+        else if (objName == QLatin1String("anWindowHeadingEyebrow"))
+        {
+            pal.setColor(QPalette::WindowText, m_tokens->colors.textSecondary);
+            label->setPalette(pal);
+            label->setFont(an::ui::parts::windowHeadingEyebrowFont(*m_tokens));
+        }
+        else if (objName == QLatin1String("anWindowHeadingTitle"))
+        {
+            label->setFont(an::ui::parts::windowHeadingTitleFont(*m_tokens));
+        }
+        else if (objName == QLatin1String("anWindowHeadingDescription"))
+        {
+            pal.setColor(QPalette::WindowText, m_tokens->colors.textSecondary);
+            label->setPalette(pal);
+            label->setFont(an::ui::parts::windowHeadingDescriptionFont(*m_tokens));
         }
         // Handle anStatusTone property
         const QString tone = label->property("anStatusTone").toString();

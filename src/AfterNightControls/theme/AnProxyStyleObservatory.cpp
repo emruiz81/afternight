@@ -25,6 +25,9 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QEvent>
 #include <QFrame>
 #include <QFontMetrics>
@@ -41,6 +44,7 @@
 #include <QStyleOption>
 #include <QTabBar>
 #include <QToolButton>
+#include <QVariant>
 #include <QWidget>
 
 #include <algorithm>
@@ -247,6 +251,27 @@ QPixmap tinted(const QPixmap& source, const QColor& colour)
     p.setCompositionMode(QPainter::CompositionMode_SourceIn);
     p.fillRect(result.rect(), colour);
     return result;
+}
+
+// ── A dialog's buttons ─────────────────────────────────────────────────
+
+/// The property of a box of buttons that holds the order its buttons take, once they have been looked at.
+constexpr char kButtonOrderProperty[] = "anDialogButtonOrder";
+
+/// The order a box's buttons take: the one that accepts at the right. Where Apply is the one button that accepts - a
+/// window that applies and stays open - the order that puts it after Close; otherwise the order that puts Ok after
+/// Cancel and Yes after No, Apply before them.
+int buttonOrderOf(const QDialogButtonBox& box)
+{
+    bool applies = false;
+    bool accepts = false;
+    for (QAbstractButton* button : box.buttons())
+    {
+        const QDialogButtonBox::ButtonRole role = box.buttonRole(button);
+        applies = applies || role == QDialogButtonBox::ApplyRole;
+        accepts = accepts || role == QDialogButtonBox::AcceptRole || role == QDialogButtonBox::YesRole;
+    }
+    return static_cast<int>(applies && !accepts ? QDialogButtonBox::WinLayout : QDialogButtonBox::GnomeLayout);
 }
 
 // ── Buttons ───────────────────────────────────────────────────────────────
@@ -1995,7 +2020,6 @@ std::optional<int> AnProxyStyle::observatoryStyleHint(StyleHint hint, const QSty
                                                       const QWidget* widget) const
 {
     Q_UNUSED(option);
-    Q_UNUSED(widget);
     switch (hint)
     {
     case SH_Table_GridLineColor:
@@ -2007,6 +2031,19 @@ std::optional<int> AnProxyStyle::observatoryStyleHint(StyleHint hint, const QSty
     case SH_ToolTip_Mask:
         // A raised part's rounded corners and its shadow come from its translucent window, not from a mask.
         return 0;
+    case SH_DialogButtonLayout:
+        // A dialog's buttons stand with the one that accepts at the right, on every platform: Reset and Help at the
+        // left, then Apply, Cancel and Ok; of No and Yes, Yes last. A box whose buttons were looked at as it was
+        // polished holds the order they take.
+        if (widget != nullptr)
+        {
+            const QVariant held = widget->property(kButtonOrderProperty);
+            if (held.isValid())
+            {
+                return held.toInt();
+            }
+        }
+        return static_cast<int>(QDialogButtonBox::GnomeLayout);
     default:
         return std::nullopt;
     }
@@ -2015,6 +2052,32 @@ std::optional<int> AnProxyStyle::observatoryStyleHint(StyleHint hint, const QSty
 void AnProxyStyle::polishObservatory(QWidget* widget)
 {
     const DesignTokens& t = *m_tokens;
+    // A window that stays a window - a dialog, or a window that says it is one - lies on the first surface, so that
+    // its cards, on the second, stand off it; what it holds takes the surface from it.
+    if (widget->isWindow() &&
+        (qobject_cast<QDialog*>(widget) != nullptr || widget->property(parts::kDialogSurfaceProperty).toBool()))
+    {
+        QPalette palette = widget->palette();
+        if (palette.color(QPalette::Window) != t.layers.surface1)
+        {
+            palette.setColor(QPalette::Window, t.layers.surface1);
+            widget->setPalette(palette);
+        }
+    }
+    if (auto* box = qobject_cast<QDialogButtonBox*>(widget); box != nullptr && !box->isHidden())
+    {
+        // The order is asked for as the box is made, before it holds a button: it is asked for again here, where
+        // the buttons say which of them accepts.
+        const int wanted = buttonOrderOf(*box);
+        const QVariant held = box->property(kButtonOrderProperty);
+        const int current = held.isValid() ? held.toInt() : static_cast<int>(QDialogButtonBox::GnomeLayout);
+        if (current != wanted)
+        {
+            box->setProperty(kButtonOrderProperty, wanted);
+            QEvent styleChange(QEvent::StyleChange);
+            QCoreApplication::sendEvent(box, &styleChange);
+        }
+    }
     const bool menu = qobject_cast<QMenu*>(widget) != nullptr;
     // A tooltip is a label shown as a tooltip window: Qt's own is one.
     const bool tip = widget->inherits("QTipLabel") ||

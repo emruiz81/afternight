@@ -21,6 +21,11 @@ class QIcon;
 class QPainter;
 class QString;
 
+namespace an::ui
+{
+struct DesignTokens;
+}
+
 namespace an::ui::parts
 {
 
@@ -87,6 +92,13 @@ inline constexpr int kSettingsPageLeastWidth = 600;
 inline constexpr int kSwatchSize = 28;
 inline constexpr int kSwatchRing = 2;
 inline constexpr int kSwatchCheck = 12;
+
+// A window's heading: its title at 19 px, its lines 2 px apart.
+inline constexpr int kWindowHeadingTitleFont = 19;
+inline constexpr int kWindowHeadingLineGap = 2;
+/// The property by which a window that is no dialog says it stays a window as a dialog does: the Observatory profile
+/// lays it on the first surface, as it lays a dialog.
+inline constexpr const char* kDialogSurfaceProperty = "anDialogSurface";
 
 // A process's page: its column's widths, standard and wide, and in a window under the narrow width; the run's row.
 inline constexpr int kPageColumnStandard = 360;
@@ -573,6 +585,13 @@ AFTERNIGHTCONTROLS_API void paintExclamationMark(QPainter& painter, const QRectF
 /// A caps label: the caption in semibold capitals, its letters spaced by the readout's tracking - a card's title, a
 /// readout's label, the column's eyebrow.
 [[nodiscard]] AFTERNIGHTCONTROLS_API QFont capsFont(const QFont& base, int logicalPixels);
+
+/// The lines of a window's heading in a set of tokens: its eyebrow, the caption in semibold capitals; its title, in
+/// semibold at the heading's size; its description, the small text. A header that is a heading in all but its widget -
+/// a process window's - draws its title and its description in the same.
+[[nodiscard]] AFTERNIGHTCONTROLS_API QFont windowHeadingEyebrowFont(const DesignTokens& tokens);
+[[nodiscard]] AFTERNIGHTCONTROLS_API QFont windowHeadingTitleFont(const DesignTokens& tokens);
+[[nodiscard]] AFTERNIGHTCONTROLS_API QFont windowHeadingDescriptionFont(const DesignTokens& tokens);
 
 /// A chevron pointing right stroked in a square, as a breadcrumb draws it between its parts.
 AFTERNIGHTCONTROLS_API void paintChevronRight(QPainter& painter, const QRectF& square, const QColor& colour,

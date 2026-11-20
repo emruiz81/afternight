@@ -32,6 +32,7 @@
 #include "components/RailItem.h"
 #include "controls/ImageProcessControl.h"
 #include "controls/ImageRTPreviewControl.h"
+#include "controls/ProcessExecution.h"
 #include "controls/ImageViewCompanions.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ProcessLaunchScope.h"
@@ -61,6 +62,7 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
@@ -106,6 +108,7 @@ constexpr std::string_view kLrgbCombination = "color.actionLRGB_Combination";
 constexpr std::string_view kNbrgbCombination = "color.actionNBRGB_Combination";
 constexpr std::string_view kNbColorMapper = "color.actionNBColorMapper";
 constexpr std::string_view kScnr = "color.actionSCNR";
+constexpr std::string_view kBrightnessContrast = "tone_brightness.actionAdjustBrightness_Contrast";
 
 /// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
 /// character one width.
@@ -769,6 +772,79 @@ TEST_F(TaskPage, TheStructuringElementGridIsEditedInTheColumn)
 // Star Reduction chooses, beside its target, the starless image it reads the stars against: on its page that chooser is
 // in the column with its label, lists the images open and one opened while the page is shown, and the target's chooser
 // leads the body with its own label.
+// What a process works on is chosen on its page: the target among the open images and, for a colour image, the
+// channel, at the head of the column's body; the preview on or off in the toggles' row. The channel chosen is the one
+// a run is confined to, the preview turned off leaves the canvas with none and comes back when it is turned on, and
+// another target is the image the process then works on and the task then names.
+TEST_F(TaskPage, TheTargetTheChannelAndThePreviewAreChosenOnThePage)
+{
+    ImageViewControl* const grey = openView(QStringLiteral("target-grey"));
+    ImageViewControl* const colour = openColourView(QStringLiteral("target-colour"));
+    ASSERT_TRUE(grey != nullptr && colour != nullptr);
+    TopLevelProcessBaseControl* const process = launch(kBrightnessContrast);
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    auto* const preview = dynamic_cast<ImageRTPreviewControl*>(process);
+    an::ui::ProcessPageLayout* const layout = process->pageLayout();
+    an::ui::observatory::TaskPage* const page = pageOf(process);
+    ASSERT_TRUE(preview != nullptr && layout != nullptr && page != nullptr);
+    QComboBox* const target = preview->standardParts().targetSelector;
+    QComboBox* const channel = preview->standardParts().channelSelector;
+    QCheckBox* const toggle = preview->standardParts().previewCheckbox;
+    ASSERT_TRUE(target != nullptr && channel != nullptr && toggle != nullptr);
+
+    // Where they are: the target and the channel in the column's body, the preview in the toggles' row, all shown.
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(target));
+    EXPECT_TRUE(layout->bodyContent()->isAncestorOf(channel));
+    ASSERT_NE(layout->toggles(), nullptr);
+    EXPECT_TRUE(layout->toggles()->isAncestorOf(toggle));
+    EXPECT_TRUE(target->isVisibleTo(page) && channel->isVisibleTo(page) && toggle->isVisibleTo(page));
+
+    // The image the process was opened over is its target, and the task says so.
+    EXPECT_EQ(target->currentText(), QStringLiteral("target-colour"));
+    EXPECT_EQ(process->processTarget(), colour);
+    EXPECT_EQ(page->header()->targetName(), QStringLiteral("target-colour"));
+
+    // A colour image offers its channels; the one chosen is the one a run is confined to.
+    EXPECT_GT(channel->count(), 1) << "a colour target offers one choice";
+    const int red = channel->findText(QStringLiteral("Red"));
+    ASSERT_GE(red, 0) << "the channel's choices name no Red";
+    channel->setCurrentIndex(red);
+    settle();
+    EXPECT_EQ(preview->selectedChannelScope(), an::ChannelScope::Red);
+
+    // The preview: shown in the canvas while it is on, gone when it is turned off, back when it is turned on.
+    if (!toggle->isChecked())
+    {
+        toggle->click();
+        settle();
+    }
+    ASSERT_TRUE(idle(process));
+    EXPECT_NE(preview->previewView(), nullptr) << "the preview is on and the canvas shows none";
+    toggle->click();
+    settle();
+    EXPECT_FALSE(toggle->isChecked());
+    EXPECT_EQ(preview->previewView(), nullptr) << "the preview stays in the canvas after it is turned off";
+    toggle->click();
+    settle();
+    ASSERT_TRUE(idle(process));
+    EXPECT_NE(preview->previewView(), nullptr) << "the preview does not come back when it is turned on";
+
+    // Another target: the process works on it, the task names it, and a grey image offers its one channel.
+    ASSERT_GE(target->findText(QStringLiteral("target-grey")), 0) << "the target's choices leave an open image out";
+    target->setCurrentText(QStringLiteral("target-grey"));
+    settle();
+    ASSERT_TRUE(idle(process));
+    EXPECT_EQ(process->processTarget(), grey);
+    EXPECT_EQ(page->header()->targetName(), QStringLiteral("target-grey"));
+    const Task* const task = tasks().model().taskFor(process);
+    ASSERT_NE(task, nullptr);
+    EXPECT_EQ(task->target.data(), grey);
+    EXPECT_EQ(channel->count(), 1);
+    EXPECT_EQ(channel->currentText(), QString::fromLatin1(an::ui::kProcessGreyscaleChannelLabel));
+    ASSERT_TRUE(idle(process));
+}
+
 TEST_F(TaskPage, AChooserOfASecondImageFollowsTheOpenImages)
 {
     ImageViewControl* const starless = openView(QStringLiteral("page-starless"));

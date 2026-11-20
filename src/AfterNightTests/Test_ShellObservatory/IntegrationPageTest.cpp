@@ -15,6 +15,7 @@
 /// with the job.
 
 #include "ObservatoryWindowCase.h"
+#include "Test_ShellObservatory/KeptWindowLook.h"
 
 #include "ShellActions.h"
 #include "pages/IntegrationHubPage.h"
@@ -727,6 +728,7 @@ TEST_F(IntegrationPage, TheFrameTreeMenuOpensOnThePageAndBlinks)
     ASSERT_TRUE(an::tests::app::processEventsUntil(
         [&]() { return (blink = openDialogOf("BlinkComparatorDialog")) != nullptr; }, kWaitMs));
     EXPECT_EQ(blink->parentWidget(), process) << "the comparator is the page's";
+    expectTheLookOfAKeptWindow(*blink);
     blink->reject();
     settle();
 }
@@ -767,6 +769,7 @@ TEST_F(IntegrationPage, ASettingsDialogAndTheToolsOpenFromThePage)
         [&]() { return (settings = openDialogOf("RegistrationSettingsDialog")) != nullptr; }, kWaitMs))
         << "the button opens the group's settings";
     EXPECT_TRUE(process->isAncestorOf(settings->parentWidget())) << "the dialog is the page's";
+    expectTheLookOfAKeptWindow(*settings);
 
     // Each tool is its registration method's: the method is chosen, and its button opens the tool.
     auto* const method = settings->findChild<QComboBox*>(QStringLiteral("registrationMethodComboBox"));
@@ -782,6 +785,7 @@ TEST_F(IntegrationPage, ASettingsDialogAndTheToolsOpenFromThePage)
     ASSERT_TRUE(an::tests::app::processEventsUntil(
         [&]() { return (points = openDialogOf("ManualRegistrationDialog")) != nullptr; }, kWaitMs))
         << "the manual registration points; open: " << openDialogs();
+    expectTheLookOfAKeptWindow(*points);
     points->reject();
     settle();
 
@@ -794,8 +798,145 @@ TEST_F(IntegrationPage, ASettingsDialogAndTheToolsOpenFromThePage)
     ASSERT_TRUE(an::tests::app::processEventsUntil(
         [&]() { return (tracking = openDialogOf("CometTrackingDialog")) != nullptr; }, kWaitMs))
         << "the comet tracking; open: " << openDialogs();
+    expectTheLookOfAKeptWindow(*tracking);
     tracking->reject();
     settle();
+    settings->reject();
+    settle();
+}
+
+// A group's stacking settings open from the Stacking stage's button, and from them the weighting options, the local
+// normalization settings and the recommended settings: each a window of the page's with the look of one that stays a
+// window.
+TEST_F(IntegrationPage, TheStackingSettingsAndWhatTheyOpenOpenFromThePage)
+{
+    const QStringList files = {writeFrame(QStringLiteral("stack_light_1.fits"), 0.2f),
+                               writeFrame(QStringLiteral("stack_light_2.fits"), 0.3f),
+                               writeFrame(QStringLiteral("stack_light_3.fits"), 0.4f)};
+    ASSERT_FALSE(files.contains(QString()));
+    ImageIntegrationProcess* const process = launch();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    addLights(*process, files);
+    auto* const stacking = process->findChild<QWidget*>(QStringLiteral("stackingTab"));
+    ASSERT_TRUE(process->stageNavigator() != nullptr && stacking != nullptr);
+    process->stageNavigator()->setCurrentPage(StagePage::Stacking);
+    settle();
+    auto* const groups = stacking->findChild<QTableWidget*>(QStringLiteral("tblIntegrationGroups"));
+    ASSERT_NE(groups, nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return groups->rowCount() > 0; }, kWaitMs))
+        << "the lights' stacking group";
+    groups->selectRow(0);
+    settle();
+    auto* const open = stacking->findChild<QPushButton*>(QStringLiteral("btnStackingSettings"));
+    ASSERT_NE(open, nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return open->isEnabled(); }, kWaitMs));
+    open->click();
+    QDialog* settings = nullptr;
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() { return (settings = openDialogOf("StackingSettingsDialog")) != nullptr; }, kWaitMs))
+        << "the button opens the group's stacking settings; open: " << openDialogs();
+    EXPECT_TRUE(process->isAncestorOf(settings->parentWidget())) << "the dialog is the page's";
+    settle();
+    expectTheLookOfAKeptWindow(*settings);
+
+    // The weighting options: offered once the frames are weighted.
+    auto* const weighting = settings->findChild<QComboBox*>(QStringLiteral("weightingSelector"));
+    auto* const weightingOptions = settings->findChild<QPushButton*>(QStringLiteral("weightingOptionsButton"));
+    ASSERT_TRUE(weighting != nullptr && weightingOptions != nullptr);
+    weighting->setCurrentText(QStringLiteral("Number of stars"));
+    settle();
+    ASSERT_TRUE(weightingOptions->isEnabled()) << "weighted by the number of stars, the options are not offered";
+    weightingOptions->click();
+    settle();
+    auto* const options = settings->findChild<QDialog*>(QStringLiteral("stackingWeightingOptionsDialog"));
+    ASSERT_TRUE(options != nullptr && options->isVisible()) << "the weighting options; open: " << openDialogs();
+    expectTheLookOfAKeptWindow(*options);
+    options->reject();
+    settle();
+
+    // The local normalization settings: offered once local normalization is on.
+    auto* const normalize = settings->findChild<QAbstractButton*>(QStringLiteral("localNormalizationEnabled"));
+    auto* const configure = settings->findChild<QPushButton*>(QStringLiteral("localNormalizationConfigureButton"));
+    ASSERT_TRUE(normalize != nullptr && configure != nullptr);
+    if (!normalize->isChecked())
+    {
+        normalize->click();
+        settle();
+    }
+    ASSERT_TRUE(configure->isEnabled()) << "with local normalization on, its settings are not offered";
+    configure->click();
+    QDialog* local = nullptr;
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() { return (local = openDialogOf("LocalNormalizationSettingsDialog")) != nullptr; }, kWaitMs))
+        << "the local normalization settings; open: " << openDialogs();
+    settle();
+    expectTheLookOfAKeptWindow(*local);
+    local->reject();
+    settle();
+
+    // The recommended settings: offered for a group that holds frames.
+    auto* const recommended = settings->findChild<QPushButton*>(QStringLiteral("recommendedButton"));
+    ASSERT_NE(recommended, nullptr);
+    ASSERT_TRUE(recommended->isEnabled()) << "the group holds frames, and no recommendation is offered";
+    recommended->click();
+    QDialog* recommendation = nullptr;
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() { return (recommendation = openDialogOf("StackingRecommendationDialog")) != nullptr; }, kWaitMs))
+        << "the recommended settings; open: " << openDialogs();
+    settle();
+    expectTheLookOfAKeptWindow(*recommendation);
+    recommendation->reject();
+    settle();
+    settings->reject();
+    settle();
+}
+
+// A group's calibration settings open from the Calibration stage's button, a window of the page's with the look of
+// one that stays a window.
+TEST_F(IntegrationPage, TheCalibrationSettingsOpenFromThePage)
+{
+    const QStringList files = {writeFrame(QStringLiteral("calibrate_light_1.fits"), 0.2f),
+                               writeFrame(QStringLiteral("calibrate_light_2.fits"), 0.3f)};
+    ASSERT_FALSE(files.contains(QString()));
+    ImageIntegrationProcess* const process = launch();
+    ASSERT_NE(process, nullptr);
+    ASSERT_TRUE(process->isPresentedAsPage());
+    addLights(*process, files);
+    auto* const calibration = process->findChild<QWidget*>(QStringLiteral("calibrationTab"));
+    ASSERT_TRUE(process->stageNavigator() != nullptr && calibration != nullptr);
+    process->stageNavigator()->setCurrentPage(StagePage::Calibration);
+    settle();
+    auto* const groups = calibration->findChild<QTableWidget*>(QStringLiteral("tblLightCalibration"));
+    ASSERT_NE(groups, nullptr);
+    ASSERT_TRUE(an::tests::app::processEventsUntil([&]() { return groups->rowCount() > 0; }, kWaitMs))
+        << "the lights' calibration group";
+    auto* const open = calibration->findChild<QPushButton*>(QStringLiteral("btnLightCalibrationSettings"));
+    ASSERT_NE(open, nullptr);
+    // The table is filled again as the frames' facts are read, and a row selected before that is no longer: the
+    // group is selected once the table has stopped changing, as a person selects it.
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() {
+            if (groups->rowCount() > 0 && groups->selectionModel()->selectedRows().isEmpty())
+            {
+                groups->selectRow(0);
+            }
+            return open->isEnabled();
+        },
+        kWaitMs))
+        << "a group is selected, and its calibration settings are not offered: " << groups->rowCount() << " rows, "
+        << groups->selectionModel()->selectedRows().size() << " selected, the first one's group \""
+        << (groups->item(0, 0) != nullptr ? groups->item(0, 0)->data(Qt::UserRole).toString().toStdString()
+                                          : std::string("none"))
+        << "\"";
+    open->click();
+    QDialog* settings = nullptr;
+    ASSERT_TRUE(an::tests::app::processEventsUntil(
+        [&]() { return (settings = openDialogOf("LightCalibrationSettingsDialog")) != nullptr; }, kWaitMs))
+        << "the button opens the group's calibration settings; open: " << openDialogs();
+    EXPECT_TRUE(process->isAncestorOf(settings->parentWidget())) << "the dialog is the page's";
+    settle();
+    expectTheLookOfAKeptWindow(*settings);
     settings->reject();
     settle();
 }

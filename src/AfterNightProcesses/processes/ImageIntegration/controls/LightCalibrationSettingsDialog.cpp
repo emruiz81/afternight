@@ -3,6 +3,8 @@
 
 #include "stdafx.hpp"
 #include "LightCalibrationSettingsDialog.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "processes/FixedDialogUiSizing.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
 #include "processes/ImageIntegration/core/TooltipFormatUtils.h"
@@ -75,6 +77,14 @@ void LightCalibrationSettingsDialog::setupUi()
     separator1->setFrameShape(QFrame::HLine);
     separator1->setFrameShadow(QFrame::Sunken);
     mainLayout->addWidget(separator1);
+    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
+    if (an::ui::headWindow(*this, windowTitle(), m_GroupLabel, tr("Image Integration")) != nullptr)
+    {
+        titleLabel->setVisible(false);
+        groupLabel->setVisible(false);
+        separator1->setVisible(false);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Cosmetic Correction Group
     m_CosmeticGroup = new an::ui::AnCollapsibleSection(tr("Cosmetic Correction"));
@@ -262,6 +272,9 @@ void LightCalibrationSettingsDialog::setupUi()
     separator2->setFrameShape(QFrame::HLine);
     separator2->setFrameShadow(QFrame::Sunken);
     mainLayout->addWidget(separator2);
+    // Under the Observatory profile the sections scroll between the heading and the footer: opened whole they are
+    // higher than a small display.
+    an::ui::scrollWindowBody(*mainLayout, separator1, separator2);
 
     // Buttons
     auto* buttonLayout = new QHBoxLayout();

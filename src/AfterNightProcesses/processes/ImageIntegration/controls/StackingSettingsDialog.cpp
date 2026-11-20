@@ -5,6 +5,8 @@
 #include "StackingSettingsDialog.h"
 #include "LocalNormalizationSettingsDialog.h"
 #include "StackingRecommendationDialog.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "processes/ImageIntegration/core/NormalizationOptionParsing.h"
 #include "processes/ImageIntegration/core/PersistedChoiceMaps.h"
 #include "processes/FixedDialogUiSizing.h"
@@ -122,6 +124,17 @@ StackingSettingsDialog::StackingSettingsDialog(FrameType frameType, const QStrin
         setWindowTitle(tr("LIGHT Integration Stacking Settings"));
         break;
     }
+
+    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
+    if (an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration")) != nullptr)
+    {
+        m_ui.titleLabel->setVisible(false);
+        m_ui.groupLabel->setVisible(false);
+        m_ui.separator1->setVisible(false);
+        // The settings scroll between the heading and the footer: opened whole they are taller than a small display.
+        an::ui::scrollWindowBody(*m_ui.verticalLayout_main, m_ui.separator1, m_ui.separator2);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Connect signals
     QObject::connect(m_ui.stackMethodSelector, &QComboBox::currentTextChanged, this,
@@ -1266,6 +1279,9 @@ void StackingSettingsDialog::ensureWeightingOptionsDialog()
     QObject::connect(buttonBox, &QDialogButtonBox::accepted, m_weightingOptionsDialog, &QDialog::accept);
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, m_weightingOptionsDialog, &QDialog::reject);
     layout->addWidget(buttonBox);
+    an::ui::headWindow(*m_weightingOptionsDialog, m_weightingOptionsDialog->windowTitle(),
+                       tr("What a frame's weight in the stack is made of."), tr("Image Integration"));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*m_weightingOptionsDialog);
 
     an::ui::processes::fixed_dialog_ui::applyStandardControlHeights(m_weightingOptionsDialog);
 

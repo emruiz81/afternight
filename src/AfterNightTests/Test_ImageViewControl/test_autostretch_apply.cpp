@@ -11,6 +11,7 @@
 
 #include "controls/AutostretchApply.h"
 #include "controls/AutostretchSettingsControl.h"
+#include "fixtures/WindowLook.h"
 
 #include <AfterNightEngine/Algorithms/Astrometry/WcsCards.h>
 #include <AfterNightEngine/IO/ProcessingStateCards.h>
@@ -588,6 +589,31 @@ TEST_F(AutostretchApply, TheSettingsWindowIsOfferedOnlyWhileTheViewShowsItsImage
     ASSERT_TRUE(pumpUntil([&view]() { return openSettingsWindow(*view) == nullptr; }));
     ASSERT_EQ(view->getViewWidget()->getViewMode(), ImageViewMode::LINEAR_MODE);
     EXPECT_FALSE(isOffered(*button)) << "the stretched image is shown linear, so its settings are not offered";
+}
+
+/// The cases of the settings window's look, over the stretch's own fixture.
+class WindowLook : public AutostretchApply
+{
+};
+
+// The Autostretch Settings window under the Observatory profile: a heading that says the image, Close its footer's
+// primary button, text that meets the contrast rule, and a size its heading and its controls fit in whatever the
+// density - the window is as high as they need, where under the Classic profile it is the size it was drawn at.
+TEST_F(WindowLook, AutostretchSettings)
+{
+    ViewHandle view = viewOfDarkFrame();
+    view->setViewMode(ImageViewMode::AUTOSTRETCH_MODE);
+    ASSERT_TRUE(settle(*view));
+    const an::tests::look::WindowLookMeasured measured = an::tests::look::expectWindowLook(
+        [&view]() -> QWidget* {
+            view->autostretchSettings();
+            return openSettingsWindow(*view);
+        },
+        [&view](QWidget* window) {
+            an::tests::look::letGo(window);
+            (void)settle(*view);
+        });
+    AN_WINDOW_LOOK_REPORT(measured);
 }
 
 } // namespace

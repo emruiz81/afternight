@@ -5,6 +5,8 @@
 #include "SystemInformationDialog.h"
 #include "SystemMemoryInfoParser.h"
 #include "app/FileDialogUtils.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/IAppContext.h"
 #include "theme/AnDesignTokens.h"
 #include "controls/EngineVersionReport.h"
@@ -141,16 +143,32 @@ void SystemInformationDialog::initialize()
     connect(m_ui.exportButton, &QPushButton::clicked, this, &SystemInformationDialog::on_exportButton_clicked);
     connect(m_ui.copyButton, &QPushButton::clicked, this, &SystemInformationDialog::on_copyButton_clicked);
 
+    // Under the Observatory profile the title is a window's heading, the footer's Close its primary button, and the
+    // sections go by their names alone: a picture in a title is drawn in its own colours, which no theme reaches.
+    const bool observatoryLook = an::ui::windowsTakeHeadings();
+    if (observatoryLook)
+    {
+        an::ui::headWindowInPlaceOf(m_ui.titleLabel, QStringLiteral("System Information"),
+                                    QStringLiteral("The operating system, the application and its libraries, the "
+                                                   "hardware and the storage AfterNight runs on."),
+                                    QString());
+        m_ui.closeButton->setProperty("buttonVariant", QStringLiteral("primary"));
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
+
     // Set platform-specific titles with emojis
 #ifdef Q_OS_WIN
-    // Windows: Emojis render properly with default fonts
-    m_ui.titleLabel->setText(QStringLiteral("💻 System Information"));
-    m_ui.osGroupBox->setTitle(QStringLiteral("🖥️ Operating System"));
-    m_ui.appGroupBox->setTitle(QStringLiteral("📦 Application"));
-    m_ui.depsGroupBox->setTitle(QStringLiteral("📚 Dependencies"));
-    m_ui.pcGroupBox->setTitle(QStringLiteral("⚙️ Hardware"));
-    m_ui.diskGroupBox->setTitle(QStringLiteral("💾 Storage Devices"));
-    m_ui.exportButton->setText(QStringLiteral("📄 Export to File..."));
+    if (!observatoryLook)
+    {
+        // Windows: Emojis render properly with default fonts
+        m_ui.titleLabel->setText(QStringLiteral("💻 System Information"));
+        m_ui.osGroupBox->setTitle(QStringLiteral("🖥️ Operating System"));
+        m_ui.appGroupBox->setTitle(QStringLiteral("📦 Application"));
+        m_ui.depsGroupBox->setTitle(QStringLiteral("📚 Dependencies"));
+        m_ui.pcGroupBox->setTitle(QStringLiteral("⚙️ Hardware"));
+        m_ui.diskGroupBox->setTitle(QStringLiteral("💾 Storage Devices"));
+        m_ui.exportButton->setText(QStringLiteral("📄 Export to File..."));
+    }
 #elif defined(Q_OS_LINUX)
     // Linux: Skip emojis due to rendering issues with QGroupBox titles
     // QGroupBox on Linux has font metric issues with emoji characters that cause cutoff

@@ -11,6 +11,7 @@
 #include "Test_ControlsDialogs/DialogsTestSupport.h"
 
 #include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/SettingsDialog.h"
 #include "controls/settings/ProjectSettings.h"
 #include "controls/settings/SettingsDefaults.h"
@@ -25,6 +26,9 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDialog>
+#include <QGuiApplication>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMargins>
@@ -32,7 +36,10 @@
 #include <QPushButton>
 #include <QRect>
 #include <QScreen>
+#include <QScrollArea>
+#include <QSpinBox>
 #include <QTimer>
+#include <QVBoxLayout>
 
 #include <gtest/gtest.h>
 
@@ -433,6 +440,105 @@ TEST(WindowPlacement, AWindowIsHeldWithinTheAreaItsScreenLeavesIt)
     // An area that does not start at the screen's corner - a taskbar at the top - is held to as it is.
     const QRect lowered(0, 40, 1280, 680);
     EXPECT_TRUE(lowered.contains(an::ui::geometryWithinArea(asked, frame, least, lowered).marginsAdded(frame)));
+}
+
+// A window that asked to be held is held within the available area of its screen as it is first shown - larger than the
+// area and standing out of it, it comes to lie inside, its frame included - and is not held again: shown a second time
+// where a person left it, standing out of the screen, it stays there.
+TEST(WindowPlacement, AWindowIsHeldAsItIsFirstShownAndNotAgain)
+{
+    const QScreen* const screen = QGuiApplication::primaryScreen();
+    ASSERT_NE(screen, nullptr);
+    const QRect area = screen->availableGeometry();
+    QWidget window;
+    window.setAttribute(Qt::WA_DontShowOnScreen, true);
+    window.setMinimumSize(120, 90);
+    window.setGeometry(area.left() + 40, area.top() + 40, area.width() + 200, area.height() + 160);
+    an::ui::holdWithinAvailableAreaWhenFirstShown(window);
+    EXPECT_GT(window.width(), area.width()) << "the window was held before it was shown";
+
+    window.show();
+    settle();
+    EXPECT_TRUE(area.contains(window.frameGeometry()))
+        << "the window's frame (" << window.frameGeometry().x() << ", " << window.frameGeometry().y() << ", "
+        << window.frameGeometry().width() << " x " << window.frameGeometry().height()
+        << ") stands out of the screen's area (" << area.x() << ", " << area.y() << ", " << area.width() << " x "
+        << area.height() << ")";
+    EXPECT_GE(window.width(), window.minimumWidth());
+    EXPECT_GE(window.height(), window.minimumHeight());
+
+    window.hide();
+    const QRect theirs(area.right() - 60, area.top() + 48, 160, 120);
+    window.setGeometry(theirs);
+    window.show();
+    settle();
+    EXPECT_EQ(window.geometry(), theirs) << "a window shown again was moved from where it was left";
+}
+
+// Under the Observatory profile a window held at its first show is sized for the look first: a field stated narrower
+// than it needs takes what it needs, a window stated smaller than its layout needs takes its layout's least size, and
+// a body that scrolls is shown whole where the screen has room for it. Under the Classic profile what was stated
+// stands.
+TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
+{
+    struct Built
+    {
+        QSpinBox* field = nullptr;
+        QScrollArea* body = nullptr;
+    };
+    const auto build = [](QDialog& window) {
+        Built built;
+        window.setAttribute(Qt::WA_DontShowOnScreen, true);
+        auto* const column = new QVBoxLayout(&window);
+        auto* const above = new QLabel(QStringLiteral("Above"), &window);
+        column->addWidget(above);
+        built.field = new QSpinBox(&window);
+        built.field->setRange(0, 100000);
+        built.field->setMinimumWidth(12);
+        built.field->setMaximumWidth(12);
+        column->addWidget(built.field);
+        for (int row = 0; row < 6; ++row)
+        {
+            column->addWidget(new QLabel(QStringLiteral("Row %1").arg(row), &window));
+        }
+        auto* const footer = new QPushButton(QStringLiteral("Close"), &window);
+        column->addWidget(footer);
+        built.body = an::ui::scrollWindowBody(*column, above, footer);
+        window.setMinimumSize(40, 20);
+        window.resize(220, 60);
+        an::ui::holdWithinAvailableAreaWhenFirstShown(window);
+        return built;
+    };
+    {
+        const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
+        QDialog window;
+        const Built built = build(window);
+        window.show();
+        settle();
+        EXPECT_GE(built.field->width(), built.field->minimumSizeHint().width())
+            << "the field kept the width stated for it";
+        EXPECT_GE(window.minimumHeight(), window.layout()->minimumSize().height())
+            << "the window's least size is under what its layout needs";
+        ASSERT_NE(built.body, nullptr);
+        const int whole = built.body->widget()->sizeHint().height();
+        const QRect area = window.screen()->availableGeometry();
+        const int heightShowingAll = window.frameGeometry().height() - built.body->viewport()->height() + whole;
+        if (heightShowingAll <= area.height())
+        {
+            EXPECT_GE(built.body->viewport()->height(), whole) << "the body is not shown whole";
+        }
+        else
+        {
+            EXPECT_TRUE(area.contains(window.frameGeometry())) << "the window stands out of its screen";
+        }
+    }
+    const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0], StyleProfile::Classic);
+    QDialog window;
+    const Built built = build(window);
+    window.show();
+    settle();
+    EXPECT_EQ(built.field->width(), 12) << "under the Classic profile the stated width does not stand";
+    EXPECT_EQ(built.body, nullptr);
 }
 
 // The Settings dialog opens within the available area of the screen it is shown on, its frame included, where that area

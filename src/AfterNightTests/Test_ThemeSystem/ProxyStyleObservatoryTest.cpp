@@ -20,6 +20,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDeadlineTimer>
+#include <QDialog>
 #include <QDialogButtonBox>
 #include <QFontMetrics>
 #include <QFrame>
@@ -33,6 +34,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
@@ -1328,6 +1330,107 @@ TEST(ProxyStyleObservatory, DialogButtonBoxButtonsTakeTheirRoles)
         });
         expectColour(resetPicture.at(0.2, reset->height() / 2.0), bg, "a quiet button has no outline");
     });
+}
+
+// A dialog's buttons stand with the one that accepts at the right: Reset at the left, then, after the room between
+// them, Apply, Cancel and Ok; of No and Yes, Yes at the right, in a box of buttons and in a message box. Under the
+// Classic profile the order is the one the platform gives.
+TEST(ProxyStyleObservatory, ADialogsButtonsPutTheOneThatAcceptsAtTheRight)
+{
+    const auto leftOf = [](const QAbstractButton* button) {
+        return button != nullptr ? button->mapTo(button->window(), QPoint(0, 0)).x() : -1;
+    };
+    forEachLook([&leftOf](ObservatoryStyleScope& scope, const DesignTokens&) {
+        EXPECT_EQ(scope.style()->styleHint(QStyle::SH_DialogButtonLayout),
+                  static_cast<int>(QDialogButtonBox::GnomeLayout));
+
+        QDialogButtonBox box(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Apply |
+                             QDialogButtonBox::Reset);
+        box.setAttribute(Qt::WA_DontShowOnScreen, true);
+        box.resize(720, box.sizeHint().height());
+        box.show();
+        QCoreApplication::processEvents();
+        const int reset = leftOf(box.button(QDialogButtonBox::Reset));
+        const int apply = leftOf(box.button(QDialogButtonBox::Apply));
+        const int cancel = leftOf(box.button(QDialogButtonBox::Cancel));
+        const int ok = leftOf(box.button(QDialogButtonBox::Ok));
+        EXPECT_LT(reset, apply);
+        EXPECT_LT(apply, cancel);
+        EXPECT_LT(cancel, ok) << "Ok does not stand at the right of Cancel";
+        EXPECT_GT(apply - reset, box.button(QDialogButtonBox::Reset)->width() * 2)
+            << "Reset does not stand apart at the left";
+
+        QMessageBox question(QMessageBox::Question, QStringLiteral("Close"), QStringLiteral("Close the image?"),
+                             QMessageBox::Yes | QMessageBox::No);
+        question.setAttribute(Qt::WA_DontShowOnScreen, true);
+        question.show();
+        QCoreApplication::processEvents();
+        EXPECT_LT(leftOf(question.button(QMessageBox::No)), leftOf(question.button(QMessageBox::Yes)))
+            << "Yes does not stand at the right of No";
+        question.hide();
+    });
+
+    const ObservatoryStyleScope classic(observatoryLooks()[0], StyleProfile::Classic);
+    EXPECT_EQ(classic.style()->styleHint(QStyle::SH_DialogButtonLayout),
+              classic.style()->baseStyle()->styleHint(QStyle::SH_DialogButtonLayout));
+}
+
+// Where Apply is the one button of a box that accepts - a window that applies and stays open, beside its Close - it
+// stands at the right as Ok would: Reset at the left, then Close, then Apply.
+TEST(ProxyStyleObservatory, ApplyStandsAtTheRightWhereNothingElseAccepts)
+{
+    forEachLook([](ObservatoryStyleScope&, const DesignTokens&) {
+        QWidget window;
+        window.setAttribute(Qt::WA_DontShowOnScreen, true);
+        auto* const layout = new QVBoxLayout(&window);
+        auto* const box =
+            new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close | QDialogButtonBox::Reset, &window);
+        layout->addWidget(box);
+        window.resize(720, 120);
+        window.show();
+        QCoreApplication::processEvents();
+        const auto leftOf = [box](const QDialogButtonBox::StandardButton which) {
+            return box->button(which)->mapTo(box, QPoint(0, 0)).x();
+        };
+        EXPECT_LT(leftOf(QDialogButtonBox::Reset), leftOf(QDialogButtonBox::Close));
+        EXPECT_LT(leftOf(QDialogButtonBox::Close), leftOf(QDialogButtonBox::Apply))
+            << "Apply does not stand at the right of Close";
+        ASSERT_NE(box->button(QDialogButtonBox::Apply), nullptr);
+        EXPECT_EQ(box->button(QDialogButtonBox::Apply)->property("anProcessButtonRole").toString(),
+                  QStringLiteral("primary"));
+    });
+}
+
+// Under the Observatory profile a window that stays a window - a dialog - lies on the first surface, so that its cards,
+// on the second, stand off it; what it holds takes the surface from it. A window that is no dialog keeps the
+// application's, and under the Classic profile a dialog does too.
+TEST(ProxyStyleObservatory, ADialogLiesOnTheFirstSurface)
+{
+    forEachLook([](ObservatoryStyleScope&, const DesignTokens& t) {
+        QDialog dialog;
+        dialog.setAttribute(Qt::WA_DontShowOnScreen, true);
+        auto* const layout = new QVBoxLayout(&dialog);
+        auto* const label = new QLabel(QStringLiteral("What the window holds"), &dialog);
+        layout->addWidget(label);
+        dialog.show();
+        QCoreApplication::processEvents();
+        EXPECT_EQ(dialog.palette().color(QPalette::Window), t.layers.surface1);
+        EXPECT_EQ(label->palette().color(QPalette::Window), t.layers.surface1);
+        EXPECT_NE(t.layers.surface1, t.colors.bgCard) << "a card would not stand off the window";
+
+        QWidget plain;
+        plain.setAttribute(Qt::WA_DontShowOnScreen, true);
+        plain.show();
+        QCoreApplication::processEvents();
+        EXPECT_EQ(plain.palette().color(QPalette::Window), QApplication::palette().color(QPalette::Window));
+    });
+
+    const ObservatoryStyleScope classic(observatoryLooks()[0], StyleProfile::Classic);
+    QDialog dialog;
+    dialog.setAttribute(Qt::WA_DontShowOnScreen, true);
+    dialog.show();
+    QCoreApplication::processEvents();
+    EXPECT_EQ(dialog.palette().color(QPalette::Window), QApplication::palette().color(QPalette::Window));
 }
 
 // The process windows' card is the second surface with the cards' radius and no border; their banner is the status

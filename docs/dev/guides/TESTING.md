@@ -218,9 +218,33 @@ decision is, not a case of a sweep.
 A window that stays a window is held the same way by `fixtures/ClippedControls.h`: `clippedControls` names every
 control shown that lies outside its parent, a button, a field or a box smaller than it needs, a combo box narrower than
 its longest item and a label too small for its text, `unsizedScrollContents` every scroll area whose content is shorter
-than its width needs, and `textIsMeasured` tells the box font apart. A case asserts the window's least size and the
-scroll areas under any platform, and what is clipped only where text is measured, reporting itself skipped otherwise
-(`ExtensionManagerPage.NoControlIsClipped`, `SettingsDialog.NoControlIsClipped`).
+than its width needs, and `textIsMeasured` tells the box font apart. A case asserts the scroll areas under any
+platform and what is clipped only where text is measured, reporting itself skipped otherwise
+(`ExtensionManagerPage.NoControlIsClipped`, `SettingsDialog.NoControlIsClipped`). A window's least size is asserted
+under any platform where the window states it and nothing sizes it again (the Settings dialog), and only where text
+is measured for a window that is sized for the look as it is first shown (the Extensions dialog, an extension's
+settings): under the box font what such a window holds needs more than the window states, and it takes what it
+needs, so there it is held to be no smaller.
+
+`fixtures/WindowLook.h` holds a window that stays a window to the Observatory look, whichever window it is.
+`expectWindowLook(make)` makes the window as the product makes it - once under the Classic profile, to learn which
+labels are cut short there, then in each density of the Observatory profile - and holds that it shows a heading that
+says a title (an `AnWindowHeading`, or a process window's header) with nothing above it; that the rightmost button of
+its footer, the lowest row of buttons that can be seen, is the primary one; that every text meets the contrast rule
+against the surface it is painted on, read from the palette roles in the dark theme, the light one and a tinted
+preset (4.5:1, and 3:1 for the tertiary and the status texts); that no scroll area's content is shorter than its
+width needs; and, where text is measured, that nothing is clipped as it opens or at its least size, that no label is
+cut short that the Classic profile shows whole, that the window opens within its screen's available area - a second
+one is asked before its first show to be larger than the screen - and that its least size fits the room a 1280 x 720
+display leaves a window (`kFloorRoom`). `expectModalWindowLook(run, isIt)` holds the same of a dialog the product
+runs to its answer, looked at from inside its loop. The cases are `WindowLook.<Window>`, in the suite that owns the
+window; each ends with `AN_WINDOW_LOOK_REPORT`, which reports it skipped, saying what its platform could not measure,
+where nothing it did measure failed. Started with `QT_QPA_PLATFORM=windows` they measure all of it, their windows
+kept off the screen but a dialog run to its answer, which shows for a moment, and write the size each window opens
+at and its least size, per density, and its footer's buttons into the report (`--gtest_output`). Two things the
+fixture learned: a widget scrolled out of the area that holds it is still visible to its window, so what can be
+seen is asked of `visibleRegion()`; and a suite without the product's icon provider has no icons, so a tool button
+that shows its icon alone is told by its style, not by its icon.
 
 The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
 are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control in the

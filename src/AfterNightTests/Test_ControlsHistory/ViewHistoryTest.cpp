@@ -10,6 +10,7 @@
 /// closes.
 
 #include "Test_ControlsHistory/HistoryTestContext.h"
+#include "fixtures/WindowLook.h"
 #include "Test_ControlsHistory/StepCodecTestSupport.h"
 
 #include "components/AnElidedLabel.h"
@@ -600,6 +601,32 @@ TEST_F(ViewHistoryTest, TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheVi
     view.reset();
     pumpQuietly();
     EXPECT_TRUE(window.isNull()) << "the window goes with the view whose history it shows";
+}
+
+/// The cases of the history window's look, over the history's own fixture.
+class WindowLook : public ViewHistoryTest
+{
+};
+
+// The Image History window under the Observatory profile: a heading that says the image, a footer whose rightmost
+// button is the primary one, text that meets the contrast rule, nothing clipped as it opens or at its least size,
+// and no step's name cut short that the Classic profile shows whole - in both densities.
+TEST_F(WindowLook, ImageHistory)
+{
+    open();
+    ViewHandle view = shownView("M42_L");
+    view->horizontalMirror();
+    ASSERT_TRUE(settle(*view));
+    const an::tests::look::WindowLookMeasured measured = an::tests::look::expectWindowLook(
+        [&view]() -> QWidget* {
+            view->history();
+            return historyWindowOf(*view);
+        },
+        [&view](QWidget* window) {
+            an::tests::look::letGo(window);
+            (void)settle(*view);
+        });
+    AN_WINDOW_LOOK_REPORT(measured);
 }
 
 TEST_F(ViewHistoryTest, AFourChannelStepIsPreviewedWithItsAlphaUnsheared)

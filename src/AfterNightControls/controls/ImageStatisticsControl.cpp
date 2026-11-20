@@ -3,6 +3,8 @@
 
 #include "stdafx.hpp"
 #include "ImageStatisticsControl.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "session/IEngineSessionProvider.h"
@@ -111,6 +113,11 @@ ImageStatisticsControl::ImageStatisticsControl(ImageViewControl* control)
     : QDialog(control), ImageViewControlListener(control), m_Requests(std::make_shared<RequestState>())
 {
     m_ui = an::ui::controls::buildImageStatisticsControlUi(this);
+    // Under the Observatory profile the header is a window's heading, which says the image too.
+    an::ui::headWindowInPlaceOf(m_ui.headerSection,
+                                an::ui::windowEyebrow(QStringLiteral("Analysis"),
+                                                      QString::fromStdString(m_image_view_control->getUniqueName())));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Minimize button.. disabled for now
     // setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint);
@@ -155,6 +162,9 @@ void ImageStatisticsControl::onImageRenamed(ImageViewControl* ctrl)
 {
     std::string title = fmt::format("Statistics <{}>", m_image_view_control->getUniqueName());
     setWindowTitle(QString::fromUtf8(title));
+    an::ui::setWindowEyebrow(*this,
+                             an::ui::windowEyebrow(QStringLiteral("Analysis"),
+                                                   QString::fromStdString(m_image_view_control->getUniqueName())));
 }
 
 void ImageStatisticsControl::recalculateAsync()

@@ -40,7 +40,7 @@ capability files.save-as
     title        Save as (Ctrl+Shift+S) and the per-format options
     shared       FileSaveTest.EachContainerIsWrittenAsTheSettingsSay, FileSaveTest.AnXisfFileIsWrittenInTheFormTheSettingsChoose, ExportSettingsTest.SavingStoresTheTextsASaveReadsBack
     classic      ApplicationMenu.SaveAsWritesTheActiveViewToTheChosenFileAndItReopensTheSame, ProductSmoke.AnImageSavedInEveryContainerTheProductWritesOpensAgainWithItsSamples
-    observatory  WorkspacePage.SaveAsWritesTheActiveView
+    observatory  WorkspacePage.SaveAsWritesTheActiveView, SaveAsWindow.OpensFromTheObservatory
 
 capability files.close
     title        Close, Close All, Close All Others
@@ -58,7 +58,7 @@ capability files.new-sequence
     title        New Sequence dialog
     shared       NewSequenceWindowTest.AddedFilesAreProbedAndListedInOrder, NewSequenceWindowTest.AnImageListNamesTheFilesAndOpensInANewSequenceView, NewSequenceWindowTest.ASerHoldsEveryFileDemosaicedByTheOneSetting
     classic      ApplicationMenu.NewSequenceOpensTheNewSequenceWindow
-    observatory  ObservatoryWindow.HomeOpensANewSequence
+    observatory  ObservatoryWindow.HomeOpensANewSequence, NewSequenceWindow.OpensFromTheObservatory
 
 # ---- Home
 
@@ -222,7 +222,7 @@ capability view.autostretch
     title        Autostretch Settings and Apply Stretch
     shared       AutostretchApply.StretchesACopyAndLeavesTheSourceUnchanged, AutostretchApply.TheSettingsWindowIsOfferedOnlyWhileTheViewShowsItsImageStretched, AutostretchApply.TheStepIsNamedAutostretch
     classic
-    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools, WorkspacePage.TheToolbarSwitchesTheDisplayMode
+    observatory  WorkspacePage.TheToolbarCarriesTheViewsTools, WorkspacePage.TheToolbarSwitchesTheDisplayMode, AutostretchSettingsWindow.OpensFromTheObservatory
 
 capability view.undo-redo
     title        Undo, Redo, Image History
@@ -234,7 +234,7 @@ capability view.information
     title        Statistics, Histogram, EXIF, FITS Header, Summary
     shared       ViewToolsTest.EachToolOpensItsOwnWindowAsAChildOfTheView, ViewToolsTest.TheViewsOwnCommandsOpenTheirWindowsThroughTheOpener, ViewToolsTest.TheInspectorsAViewOffersFollowItsImageAndNotItsToolbarsRoom
     classic      ApplicationMenu.StatisticsOpensTheStatisticsWindowOverTheActiveView, ApplicationMenu.HistogramOpensTheHistogramWindowOverTheActiveView, ApplicationMenu.SummaryOpensTheSummaryWindowOverTheActiveView
-    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
+    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory, StatisticsWindow.OpensFromTheObservatory, HistogramWindow.OpensFromTheObservatory
 
 capability view.astrometry
     title        Show Astrometry and its settings
@@ -246,7 +246,7 @@ capability view.astrometry-tools
     title        Astrometry Info, Annotate Image, Plate Solve
     shared       ViewToolsTest.TheAstrometryAndPlateSolveWindowsOpenOncePerViewAndAreRaisedWhenAskedAgain, AnnotateImageWindowTest.TheWindowPreviewsTheAnnotationsOfTheSolvedImageAndIsOnePerView, ImageAstrometryInfoFormatter.BuildSummaryExtractsSolvedMetadataFields
     classic      ApplicationMenu.AstrometryInfoOpensTheSolutionWindowOverTheActiveView, ApplicationMenu.AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView, ApplicationMenu.PlateSolveOpensThePlateSolveWindowOverTheActiveView
-    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
+    observatory  ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory, PlateSolveWindow.OpensFromTheObservatory, AnnotateImageWindow.OpensFromTheObservatory
 
 capability view.overlays
     title        Statistics overlay; the AUTOSTRETCH badge
@@ -272,25 +272,25 @@ capability info.statistics
     title        Statistics window
     shared       StatisticsWindowTest.TheTableIsFilledWhenTheMeasurementLands, StatisticsWindowTest.IncludingTheClippedSamplesRefreshingOrAnotherImageMeasuresAgain, StatisticsWindowTest.AScaleChangesOnlyTheNumbersShown
     classic      ApplicationMenu.StatisticsOpensTheStatisticsWindowOverTheActiveView
-    observatory  pending
+    observatory  StatisticsWindow.OpensFromTheObservatory
 
 capability info.histogram
     title        Histogram window
     shared       HistogramWindowTest.TheWindowShowsTheViewsImageCountedOnAWorker, HistogramWindowTest.AnotherResolutionOrAnotherImageIsCountedAgain, HistogramWindowTest.TheChannelSelectorFollowsTheImagesChannels
     classic      ApplicationMenu.HistogramOpensTheHistogramWindowOverTheActiveView
-    observatory  pending
+    observatory  HistogramWindow.OpensFromTheObservatory
 
 capability info.headers
     title        FITS Header, EXIF, Summary, Astrometry Info windows
     shared       InspectorWindowsTest.TheFitsHeaderWindowShowsTheViewsCardsAndFollowsTheImageItShows, InspectorWindowsTest.TheExifWindowShowsTheViewsExifFieldsAndNothingElse, InspectorWindowsTest.TheSummaryWindowShowsTheViewsSummaryAndCopiesIt
     classic      ApplicationMenu.FitsHeaderOpensTheHeaderWindowOverAViewOfAFitsFile, ApplicationMenu.ExifViewerOpensTheExifWindowOverAViewOfATiffFile, ApplicationMenu.AstrometryInfoOpensTheSolutionWindowOverTheActiveView
-    observatory  pending
+    observatory  FitsHeaderWindow.OpensFromTheObservatory, ExifWindow.OpensFromTheObservatory, SummaryWindow.OpensFromTheObservatory, AstrometryInfoWindow.OpensFromTheObservatory
 
 capability info.history
     title        Image History window
     shared       ImageHistoryControlLifecycle.DoubleClickingAStepInTheHistoryWindowShowsThatStep, ImageHistoryControlLifecycle.TheHistoryWindowsContextMenuRemovesOneStepAndClonesAnother, ViewHistoryTest.TheHistoryWindowListsAndPreviewsTheStepsAndGoesWithTheView
     classic      ApplicationMenu.ImageHistoryShowsTheActiveViewsHistoryWindow, ApplicationMenu.ImageHistoryWithNoImageIsOfferedDisabledAndShowsNothing
-    observatory  pending
+    observatory  ImageHistoryWindow.OpensFromTheObservatory
 
 # ---- Image actions
 
@@ -328,7 +328,7 @@ capability image.sequence
     title        Sequence: Convert, Extract Frame, Extract Sequence, Export
     shared       ImageOperationsTest.TheSequenceConversionsRunTheNonInteractiveConversion, ImageOperationTest.ExtractFrameOpensTheShownFrameAsAStillImage, ImageOperationsTest.ExportOpensTheExportWindowOverTheActiveSequence
     classic
-    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory
+    observatory  ShellScenario.ViewMenuEntries/observatory, ShellScenario.EveryCatalogueActionIsReachableInTheCataloguesState/observatory, ExportSequenceWindow.OpensFromTheObservatory
 
 capability image.show-in-browser
     title        Show In File Browser
@@ -348,7 +348,7 @@ capability process.favorites
     title        Favorite Processes, Manage Favorites
     shared       AfterNightAppProcessMenuSuite.BuildFavoriteProcessEntriesFiltersMissingAndSortsCaseInsensitive, AfterNightAppProcessMenuSuite.FavoriteMenuLayoutReflectsManageAndClearPlacementRules, AfterNightAppProcessMenuSuite.DeserializeProcessIdSetParsesMixedSeparatorsAndWhitespace
     classic
-    observatory  Palette.AnEmptyQueryListsTheFavouritesFirst
+    observatory  Palette.AnEmptyQueryListsTheFavouritesFirst, ManageFavoritesWindow.OpensFromTheObservatory
 
 capability process.recent
     title        Recent Processes
@@ -390,7 +390,7 @@ capability process.target
     title        Target Image, Channel, Preview
     shared       ProcessWindowTest.TheSelectorOffersEveryChoiceForAColourTargetEachCarryingItsScope, PreviewRunTest.TheChannelAPreviewRunsOnIsTheOneTheSelectorNamedWhenItStarted, ProcessWindowTest.ASecondPreviewOnAViewTurnsOffTheOneAlreadyShownThere
     classic
-    observatory  pending
+    observatory  TaskPage.TheTargetTheChannelAndThePreviewAreChosenOnThePage
 
 capability process.buttons
     title        Reset, Close, Apply
@@ -458,7 +458,7 @@ capability integration.settings
     title        Stacking, Registration, Local Normalization, Calibration, Weighting dialogs
     shared       RegistrationSettingsDialog.RegistrationSettingsSnapshotReflectsLiveWidgetEdits, DialogModernizationLifecycle.TheLocalNormalizationDialogOffersOnlyWhatTheRunReads, DialogModernizationLifecycle.TheLightCalibrationDialogOffersAndSaysWhatTheRunReads
     classic
-    observatory  IntegrationPage.ASettingsDialogAndTheToolsOpenFromThePage
+    observatory  IntegrationPage.ASettingsDialogAndTheToolsOpenFromThePage, IntegrationPage.TheStackingSettingsAndWhatTheyOpenOpenFromThePage, IntegrationPage.TheCalibrationSettingsOpenFromThePage
 
 capability integration.tools
     title        Blink, manual registration points, comet tracking
@@ -514,19 +514,19 @@ capability astrometry.plate-solve
     title        Plate Solve
     shared       PlateSolveWindowTest.ASolveIsWrittenIntoTheImageAsAnEditTheHistoryRecords, PlateSolveWindowTest.TheHintsAreThePointingAndOpticsTheSolveReads, PlateSolveWindowTest.AFailedSolveIsReportedThroughTheDialogService
     classic      ApplicationMenu.PlateSolveOpensThePlateSolveWindowOverTheActiveView
-    observatory  pending
+    observatory  PlateSolveWindow.OpensFromTheObservatory
 
 capability astrometry.find-object
     title        Find object dialog
     shared       CatalogSearchDialog.DialogReturnsSelectedEntry, CatalogSearchDialog.FitsObjectKeywordPreFillsSearchField, LocalCatalogSearchTest.TheBundledCatalogsAnswerByName
     classic
-    observatory  pending
+    observatory  FindObjectWindow.OpensFromTheObservatory
 
 capability astrometry.annotate
     title        Annotate Image
     shared       AnnotateImageWindowTest.TheWindowPreviewsTheAnnotationsOfTheSolvedImageAndIsOnePerView, AnnotateImageWindowTest.ThePictureIsExportedAtTheSizeChosenAndATransparentOneIsNotWrittenAsJpeg, AnnotateImageWindowTest.AnImageWithoutASolutionIsSaidToNeedOneAndOffersNoPicture
     classic      ApplicationMenu.AnnotateImageOpensTheAnnotationWindowOverASolvedViewAndIsNotOfferedForAnotherView
-    observatory  pending
+    observatory  AnnotateImageWindow.OpensFromTheObservatory
 
 # ---- Settings and extensions
 
@@ -558,7 +558,7 @@ capability extensions.catalogs
     title        Catalog download dialogs
     shared       CatalogDownloadDialogTest.DefaultGaiaInspectorMarksInstalledPackAsDownloaded, CatalogDownloadDialogTest.SpccInspectorMarksInstalledPackAsDownloaded, CatalogDownloadDialogTest.SynchronousDownloadFailureDoesNotLeaveDialogBusy
     classic
-    observatory  pending
+    observatory  CatalogDownloadWindow.OpensFromTheObservatory
 
 # ---- Help
 
@@ -566,7 +566,7 @@ capability help.all
     title        User Guide (F1), About, About Qt, System Information
     shared       VersionDialogsTest.TheAboutDialogShowsTheProductsVersionTheEngineAndTheEnginesLibraries, VersionDialogsTest.TheSystemInformationListsTheProductsVersionTheEngineAndItsLibraries, DialogOrchestrationCoordinatorComponent.DialogOrchestrationCoordinator_OpenHelp_ResolvesBundledUserGuide
     classic      ApplicationMenu.UserGuideAnswersF1FromEveryWindowOfTheApplication, ApplicationMenu.AboutShowsTheAboutWindowNamingTheProductsVersion, ApplicationMenu.SystemInformationShowsTheSystemInformationWindow
-    observatory  TopBar.TheButtonsAtItsRight
+    observatory  TopBar.TheButtonsAtItsRight, AboutWindow.OpensFromTheObservatory, SystemInformationWindow.OpensFromTheObservatory
 
 # ---- Keyboard
 

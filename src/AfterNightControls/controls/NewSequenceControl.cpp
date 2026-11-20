@@ -6,6 +6,7 @@
 
 #include "app/AppContextHelpers.h"
 #include "app/FileCompanions.h"
+#include "app/WindowPlacement.h"
 #include "common.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -764,6 +765,18 @@ void NewSequenceControl::on_clearAllButtonPushed()
 void NewSequenceControl::on_debayerCFA_clicked(Qt::CheckState state)
 {
     m_ui.bayerPatternSelector->setEnabled(state == Qt::Checked);
+}
+
+void NewSequenceControl::showEvent(QShowEvent* evt)
+{
+    TopLevelProcessBaseControl::showEvent(evt);
+    if (!m_HeldWithinScreen && isWindow())
+    {
+        // Held within its screen once, as it is first shown, after its shell has taken the size its content needs:
+        // the size it is built at is larger than a small display's.
+        m_HeldWithinScreen = true;
+        an::ui::holdWithinAvailableArea(*this);
+    }
 }
 
 void NewSequenceControl::closeEvent(QCloseEvent* evt)

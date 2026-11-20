@@ -8,6 +8,8 @@
 #include "app/FileDialogUtils.h"
 #include "app/GaiaCatalogSettings.h"
 #include "app/SpccCatalogSettings.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/IAppContext.h"
 #include "theme/AnDesignTokens.h"
 
@@ -284,6 +286,16 @@ CatalogDownloadDialog::CatalogDownloadDialog(QVector<CatalogPackDescriptor> pack
     connect(m_closeButton, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_service, &CatalogDownloadService::downloadProgress, this, &CatalogDownloadDialog::applyProgress);
     connect(m_service, &CatalogDownloadService::downloadFinished, this, &CatalogDownloadDialog::applyResult);
+
+    if (an::ui::headWindow(*this, windowTitle(),
+                           tr("Download a catalog pack and install it where AfterNight reads it. A pack that is "
+                              "installed can be verified and repaired."),
+                           tr("Catalogs & Data")) != nullptr)
+    {
+        // Under the Observatory profile the button that downloads is the footer's primary one.
+        m_downloadButton->setProperty("anButtonVariant", QStringLiteral("primary"));
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     refreshPackChoices();
     refreshPackDetails();

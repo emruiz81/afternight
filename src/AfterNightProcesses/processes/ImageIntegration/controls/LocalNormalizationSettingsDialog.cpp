@@ -4,6 +4,9 @@
 #include "stdafx.hpp"
 #include "LocalNormalizationSettingsDialog.h"
 
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
+
 #include <cmath>
 
 #include <verdigris/wobjectimpl.h>
@@ -86,6 +89,12 @@ namespace
 LocalNormalizationSettingsDialog::LocalNormalizationSettingsDialog(QWidget* parent) : QDialog(parent)
 {
     m_ui = an::ui::imageintegration::buildLocalNormalizationSettingsDialogUi(this);
+    // Under the Observatory profile the line that says what the settings do is the description of a window's heading.
+    if (an::ui::headWindow(*this, windowTitle(), m_ui.infoLabel->text(), tr("Image Integration")) != nullptr)
+    {
+        m_ui.infoLabel->setVisible(false);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     setWindowModality(Qt::WindowModal);
     setModal(true);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);

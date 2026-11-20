@@ -8,6 +8,8 @@
 #include "SexagesimalFormatter.h"
 
 #include "app/ApplicationStorage.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/settings/SettingsKeys.h"
 #include "theme/AnDesignTokens.h"
 
@@ -217,6 +219,10 @@ CatalogSearchDialog::CatalogSearchDialog(const QString& initialQuery, QWidget* p
     updateBusyState(false);
     updateOkButtonState();
     updateDetailsPane();
+    an::ui::headWindow(*this, tr("Find Object"),
+                       tr("Search the catalogs for an object by its name: the one chosen gives its coordinates."),
+                       tr("Astrometry"));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     resize(720, 460);
 }
 

@@ -560,6 +560,15 @@ and at four device pixel ratios:
   hovered, a process splitter's a grip. The process windows' card (`anProcessShellCard`) is `bgCard` with no border, and
   their banner and a context message are a note: their tone's soft share with a three-pixel bar of the tone at its
   start.
+- **A window that stays a window** - a dialog, a tool window - lies on the first surface, its cards on the second:
+  as the style polishes a top-level `QDialog`, or a window that carries `anDialogSurface`, it gives it
+  `layers.surface1` as its `Window` colour. It opens with a heading (`AnWindowHeading`,
+  [Reusable Components](#reusable-components-components)); the process windows' own header is one, and its title and
+  description take the heading's fonts. Its footer puts the button that accepts at the right: a `QDialogButtonBox`
+  lays its buttons out as `QDialogButtonBox::GnomeLayout` does (`SH_DialogButtonLayout`), and one whose only
+  accepting button is Apply as `WinLayout` does, where Apply follows the button that rejects - the style writes the
+  order it chose on the box (`anDialogButtonOrder`) as it polishes it and tells the box, which reads the hint only
+  when it is made and when its style changes. A footer a window lays out by hand puts its primary button last.
 
 ### Elevation
 
@@ -770,6 +779,7 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnInputField` | Labeled input with validation styling |
 | `AnProgressCard` | Card with embedded progress bar and status |
 | `AnSectionHeader` | Section heading with optional action widgets |
+| `AnWindowHeading` | The heading of a window that stays a window: an optional eyebrow in small capitals, the title at 19 px in semibold, an optional description in the small text of `textSecondary`, one under the other (`parts::windowHeading*Font`). `headWindow()` puts one at the head of a window's column and `headWindowInPlaceOf()` in the place of the header the window had, `setWindowEyebrow()` renames its eyebrow, and `scrollWindowBody()` makes the part of the column between the heading and the footer scroll (`anWindowBody`), so the window can be lower than its content; each acts under the Observatory profile alone and answers null under Classic. The title is the heading's accessible name |
 | `AnSliderControl` | Labeled slider with value display |
 | `AnStatusBadge` | Colored status indicator chip |
 | `AnStyledTable` | Pre-themed `QTableWidget`: row selection, alternating rows, token palette and header font; `refreshTheme()` re-applies them |
@@ -1289,6 +1299,13 @@ The proxy style uses dynamic properties to differentiate visual variants without
 | `anGroupVariant` | `"flat"` | Flat (process-shell) group box, as `QGroupBox::isFlat()` |
 | `anComboPopupAnchored` | `"true"` | Drop-down list opens below the combo box (`SH_ComboBox_Popup` = 0) |
 
+### Window Properties
+
+| Property | Values | Effect |
+|---|---|---|
+| `anDialogSurface` | `true` | Under the Observatory profile a window that is not a `QDialog` lies on the first surface as a dialog does (`parts::kDialogSurfaceProperty`; the process windows set it) |
+| `anDialogButtonOrder` | a `QDialogButtonBox::ButtonLayout` | Written by the style on a `QDialogButtonBox` under the Observatory profile: the order its buttons are laid out in. Not set by a window |
+
 ### Layout Opt-Out Properties
 
 | Property | Values | Effect |
@@ -1305,8 +1322,11 @@ Some widgets are identified by `objectName()` for specific styling:
 |---|---|---|
 | `anProcessShellCard` | `QFrame` | Elevated card with surface tint, rounded `radius.lg` |
 | `anProcessShellBanner` | `QWidget`/`QFrame` | Status-toned banner |
-| `anProcessShellHeaderTitle` | `QLabel` | `heading1` font |
-| `anProcessShellHeaderDescription` | `QLabel` | `textSecondary` color, `body` font |
+| `anProcessShellHeaderTitle` | `QLabel` | `heading1` font; under the Observatory profile the window heading's title font |
+| `anProcessShellHeaderDescription` | `QLabel` | `textSecondary` color, `body` font; under the Observatory profile the window heading's description font |
+| `anWindowHeadingEyebrow` | `QLabel` | `textSecondary` color, the caption in small capitals |
+| `anWindowHeadingTitle` | `QLabel` | 19 px, semibold |
+| `anWindowHeadingDescription` | `QLabel` | `textSecondary` color, the small text |
 | `anProcessShellBannerMessage` | `QLabel` | `body` font |
 | `anContextMessage` | `QFrame` | Generic semantically-toned info card |
 | `anMessageBox` | `QMessageBox` | Styled message box variant |

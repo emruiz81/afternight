@@ -4,6 +4,9 @@
 #include "stdafx.hpp"
 #include "RegistrationSettingsDialog.h"
 
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
+
 #include "processes/ProcessCommonUtils.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
 #include "processes/ImageIntegration/core/RegistrationSettingsUtils.h"
@@ -153,6 +156,14 @@ RegistrationSettingsDialog::RegistrationSettingsDialog(const QString& groupLabel
 
     // Set window title
     setWindowTitle(tr("Registration Settings"));
+    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
+    if (an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration")) != nullptr)
+    {
+        m_ui.titleLabel->setVisible(false);
+        m_ui.groupLabel->setVisible(false);
+        m_ui.separator1->setVisible(false);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     setWindowModality(Qt::WindowModal);
     setModal(true);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
@@ -938,6 +949,15 @@ void RegistrationSettingsDialog::ensureAdvancedSettingsDialog()
     QObject::connect(buttonBox, &QDialogButtonBox::accepted, m_advancedSettingsDialog, &QDialog::accept);
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, m_advancedSettingsDialog, &QDialog::reject);
     layout->addWidget(buttonBox);
+    if (an::ui::AnWindowHeading* const heading =
+            an::ui::headWindow(*m_advancedSettingsDialog, m_advancedSettingsDialog->windowTitle(),
+                               tr("How stars are detected, and the settings a registration seldom needs changed."),
+                               tr("Image Integration")))
+    {
+        // The panel scrolls between the heading and the footer: opened whole it is taller than a small display.
+        an::ui::scrollWindowBody(*layout, heading, buttonBox);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*m_advancedSettingsDialog);
 
     an::ui::processes::fixed_dialog_ui::applyStandardControlHeights(m_advancedSettingsDialog);
     m_advancedSettingsDialog->resize((std::max)(width(), 560), m_advancedSettingsDialog->sizeHint().height());

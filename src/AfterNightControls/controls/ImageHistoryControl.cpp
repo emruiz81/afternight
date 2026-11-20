@@ -6,6 +6,8 @@
 
 #include "stdafx.hpp"
 #include "ImageHistoryControl.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 
 #include "ImageHistoryTrackerUtils.h"
 #include "app/FileDialogUtils.h"
@@ -216,6 +218,11 @@ ImageHistoryControl::ImageHistoryControl(ImageViewControl* control, const std::s
     : QDialog(control), ImageViewControlListener(control), m_Tracker(tracker)
 {
     m_ui = an::ui::controls::buildImageHistoryControlUi(this);
+    // Under the Observatory profile the header is a window's heading, which says the image too.
+    an::ui::headWindowInPlaceOf(
+        m_ui.headerSection,
+        an::ui::windowEyebrow(QStringLiteral("Image"), QString::fromStdString(m_image_view_control->getUniqueName())));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     setAttribute(Qt::WA_DeleteOnClose);
 
@@ -267,6 +274,9 @@ void ImageHistoryControl::onImageRenamed(ImageViewControl* ctrl)
 
     std::string title = fmt::format("Image History <{}>", m_image_view_control->getUniqueName());
     setWindowTitle(QString::fromUtf8(title.c_str()));
+    an::ui::setWindowEyebrow(
+        *this,
+        an::ui::windowEyebrow(QStringLiteral("Image"), QString::fromStdString(m_image_view_control->getUniqueName())));
 }
 
 void ImageHistoryControl::onImageHistoryUpdated()

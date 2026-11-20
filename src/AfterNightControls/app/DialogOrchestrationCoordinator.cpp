@@ -5,6 +5,8 @@
 
 #include "app/DialogOrchestrationCoordinator.h"
 #include "app/MessageBoxes.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 
 #include "controls/AboutDialog.h"
 #include "controls/MainDashboard.h"
@@ -245,6 +247,10 @@ public:
         setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
         setMinimumSize(860, 640);
         resize(980, 740);
+        // Its title alone: a line of description would make the dialog higher at the least than a small display
+        // leaves it, and its two tabs say what it holds.
+        an::ui::headWindow(*this, extensionDialogTitle(), QString());
+        an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
         onCurrentTabChanged(m_Tabs->currentIndex());
         updateUiState();

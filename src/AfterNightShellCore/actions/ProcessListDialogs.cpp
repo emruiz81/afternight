@@ -12,6 +12,8 @@
 #include "app/MessageBoxes.h"
 #include "app/ProcessMenuState.h"
 #include "app/ProcessRegistry.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QCoreApplication>
@@ -137,6 +139,11 @@ bool manageFavoriteProcesses(ApplicationCore& core, QWidget* parent)
     QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     layout->addWidget(buttons);
+    an::ui::headWindow(dialog, text("Manage Favorite Processes"),
+                       text("The processes ticked are listed first: in the Favorite Processes menu and in the command "
+                            "palette."),
+                       text("Processes"));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(dialog);
 
     if (dialog.exec() != QDialog::Accepted)
     {

@@ -5,7 +5,9 @@
 
 #include "controls/ImageAstrometryInfoControl.h"
 
+#include "app/WindowPlacement.h"
 #include "components/AnCardWidget.h"
+#include "components/AnWindowHeading.h"
 #include "controls/ImageAstrometryInfoFormatter.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -83,6 +85,8 @@ ImageAstrometryInfoControl::ImageAstrometryInfoControl(ImageViewControl* control
     }
     headerLayout->addWidget(descriptionLabel);
     rootLayout->addWidget(headerWidget);
+    // Under the Observatory profile the header is a window's heading, which says the image too.
+    an::ui::headWindowInPlaceOf(headerWidget, titleLabel->text(), descriptionLabel->text(), QString());
 
     m_statusLabel = new QLabel(this);
     m_statusLabel->setWordWrap(true);
@@ -110,12 +114,15 @@ ImageAstrometryInfoControl::ImageAstrometryInfoControl(ImageViewControl* control
     auto* buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch(1);
     m_closeButton = new QPushButton(tr("Close"), this);
-    m_closeButton->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
+    // The one button of the footer is its primary one under the Observatory profile.
+    m_closeButton->setProperty("anProcessButtonRole",
+                               an::ui::windowsTakeHeadings() ? QStringLiteral("primary") : QStringLiteral("secondary"));
     buttonLayout->addWidget(m_closeButton);
     rootLayout->addLayout(buttonLayout);
 
     connect(m_closeButton, &QPushButton::clicked, this, &QDialog::close);
 
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     resize(520, 520);
     refreshWindowTitle();
     recalculate();
@@ -178,6 +185,8 @@ void ImageAstrometryInfoControl::refreshWindowTitle()
     const QString image_name =
         m_currentViewControl ? QString::fromUtf8(m_currentViewControl->getUniqueName()) : tr("No active image");
     setWindowTitle(tr("Astrometry Info <%1>").arg(image_name));
+    an::ui::setWindowEyebrow(*this,
+                             an::ui::windowEyebrow(tr("Astrometry"), m_currentViewControl ? image_name : QString()));
 }
 
 void ImageAstrometryInfoControl::recalculate()

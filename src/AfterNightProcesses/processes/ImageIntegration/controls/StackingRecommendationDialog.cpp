@@ -4,6 +4,8 @@
 #include "stdafx.hpp"
 #include "StackingRecommendationDialog.h"
 #include "app/UiStyleTokens.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "theme/AnDesignTokens.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/tabs/CalibrationPanelUtils.h"
@@ -203,6 +205,17 @@ void StackingRecommendationDialog::setupUi()
         new QLabel(tr("Based on %1 <b>%2</b> frames in this stacking group.").arg(m_frameCount).arg(frameTypeName));
     headerLayout->addWidget(subtitleLabel);
     mainLayout->addLayout(headerLayout);
+    // Under the Observatory profile the two lines are a window's heading, its description in plain text.
+    const bool observatoryLook =
+        an::ui::headWindow(*this, titleLabel->text(),
+                           tr("Based on %1 %2 frames in this stacking group.").arg(m_frameCount).arg(frameTypeName),
+                           tr("Image Integration")) != nullptr;
+    if (observatoryLook)
+    {
+        titleLabel->setVisible(false);
+        subtitleLabel->setVisible(false);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // --- Comparison Section ---
     auto* comparisonGroup = new QFrame();
@@ -607,16 +620,23 @@ void StackingRecommendationDialog::setupUi()
         applyButton->setToolTip(tr("Apply the recommended settings."));
     }
 
-    auto* applyRow = new QHBoxLayout();
-    applyRow->addWidget(applyButton);
-    applyRow->addStretch();
-    mainLayout->addLayout(applyRow);
-
     auto* closeButton = new QPushButton(tr("Close"));
 
     auto* closeRow = new QHBoxLayout();
     closeRow->addStretch();
     closeRow->addWidget(closeButton);
+    if (observatoryLook)
+    {
+        // One footer: Close, then the button that applies, the primary one at the right.
+        closeRow->addWidget(applyButton);
+    }
+    else
+    {
+        auto* applyRow = new QHBoxLayout();
+        applyRow->addWidget(applyButton);
+        applyRow->addStretch();
+        mainLayout->addLayout(applyRow);
+    }
     mainLayout->addLayout(closeRow);
 
     connect(applyButton, &QPushButton::clicked, this, [this]() {

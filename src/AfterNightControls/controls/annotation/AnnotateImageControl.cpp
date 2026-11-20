@@ -7,9 +7,11 @@
 #include "app/AppContextHelpers.h"
 #include "app/FileDialogUtils.h"
 #include "app/FilePolicies.h"
+#include "app/WindowPlacement.h"
 #include "components/AnCollapsibleSection.h"
 #include "components/AnInfoBanner.h"
 #include "components/AnSliderControl.h"
+#include "components/AnWindowHeading.h"
 #include "controls/AutostretchApply.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
@@ -2033,6 +2035,17 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     description->setWordWrap(true);
     description->setProperty("anStatusTone", QStringLiteral("secondary"));
     root->addWidget(description);
+    if (windowsTakeHeadings())
+    {
+        // Under the Observatory profile the two lines are a window's heading, which says the image too.
+        auto* const windowHeading = new AnWindowHeading(heading->text(), description->text(), this);
+        windowHeading->setEyebrow(
+            windowEyebrow(translated("Analysis"),
+                          viewControl != nullptr ? QString::fromStdString(viewControl->getUniqueName()) : QString()));
+        root->insertWidget(0, windowHeading);
+        heading->setVisible(false);
+        description->setVisible(false);
+    }
 
     impl.banner = new AnInfoBanner(QString(), AnInfoBanner::Tone::Info, this);
     impl.banner->setObjectName(QStringLiteral("annotateBanner"));
@@ -2048,6 +2061,16 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     scroll->setWidget(impl.buildChoices(scroll));
     scroll->setMinimumWidth(360);
     scroll->setMaximumWidth(420);
+    if (windowsTakeHeadings())
+    {
+        // Under the Observatory profile the choices are wider than the column drawn for them: the column takes the
+        // width they and its scroll bar need, so none of them is cut at its right.
+        const int needed = scroll->widget()->minimumSizeHint().width() +
+                           scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, scroll) +
+                           2 * scroll->frameWidth();
+        scroll->setMinimumWidth((std::max)(scroll->minimumWidth(), needed));
+        scroll->setMaximumWidth((std::max)(scroll->maximumWidth(), needed));
+    }
     body->addWidget(scroll);
 
     auto* previewColumn = new QVBoxLayout();
@@ -2086,17 +2109,32 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     impl.openButton->setObjectName(QStringLiteral("annotateOpen"));
     impl.openButton->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
     impl.openButton->setToolTip(translated("Draw the picture and open it in a view of its own"));
-    buttons->addWidget(impl.openButton);
     impl.exportButton = new QPushButton(translated("Export…"), this);
     impl.exportButton->setObjectName(QStringLiteral("annotateExport"));
     impl.exportButton->setProperty("anProcessButtonRole", QStringLiteral("primary"));
     impl.exportButton->setToolTip(translated("Draw the picture and write it to a PNG, JPEG or TIFF file"));
     impl.exportButton->setDefault(true);
-    buttons->addWidget(impl.exportButton);
     auto* close = new QPushButton(translated("Close"), this);
     close->setObjectName(QStringLiteral("annotateClose"));
     close->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
-    buttons->addWidget(close);
+    if (windowsTakeHeadings())
+    {
+        // The primary button is the footer's rightmost, the other way of taking the picture beside it in the tonal
+        // fill, and the keyboard reaches the buttons in the order they stand.
+        impl.openButton->setProperty("anButtonVariant", QStringLiteral("tonal"));
+        buttons->addWidget(close);
+        buttons->addWidget(impl.openButton);
+        buttons->addWidget(impl.exportButton);
+        QWidget::setTabOrder(reset, close);
+        QWidget::setTabOrder(close, impl.openButton);
+        QWidget::setTabOrder(impl.openButton, impl.exportButton);
+    }
+    else
+    {
+        buttons->addWidget(impl.openButton);
+        buttons->addWidget(impl.exportButton);
+        buttons->addWidget(close);
+    }
     root->addLayout(buttons);
 
     impl.drawingTimer = new QTimer(this);
@@ -2153,6 +2191,7 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     impl.overlay->setStyle(impl.settings.style);
     resize(1320, 860);
     setMinimumSize(980, 640);
+    holdWithinAvailableAreaWhenFirstShown(*this);
     if (ImageViewWidget* shown = impl.view != nullptr ? impl.view->getViewWidget() : nullptr; shown != nullptr)
     {
         impl.viewWatcher = std::make_unique<ViewDisplayWatcher>([this]() { m_impl->viewDisplayChanged(); });
@@ -2187,6 +2226,7 @@ void AnnotateImageControl::onImageRenamed(ImageViewControl* ctrl)
     {
         m_impl->imageName = QString::fromStdString(ctrl->getUniqueName());
         setWindowTitle(translated("Annotate Image <%1>").arg(m_impl->imageName));
+        setWindowEyebrow(*this, windowEyebrow(translated("Analysis"), m_impl->imageName));
     }
 }
 

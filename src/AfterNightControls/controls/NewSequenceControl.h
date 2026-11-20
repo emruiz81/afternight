@@ -154,6 +154,7 @@ private:
     void on_clearAllButtonPushed();
     void on_debayerCFA_clicked(Qt::CheckState state);
 
+    void showEvent(QShowEvent* evt) override;
     void closeEvent(QCloseEvent* evt) override;
 
     void initialize();
@@ -191,6 +192,9 @@ private:
     an::ui::RequestTracker m_Previews;
     std::shared_ptr<const an::consumer::ImageAsset> m_PreviewImage;
     QPointer<ProgressDialogControl> m_Progress;
+
+    /// Whether the window has been held within its screen: it is held once, as it is first shown.
+    bool m_HeldWithinScreen = false;
 
     std::uint64_t m_AddsOutstanding = 0u;
     std::uint64_t m_PreviewsAsked = 0u;

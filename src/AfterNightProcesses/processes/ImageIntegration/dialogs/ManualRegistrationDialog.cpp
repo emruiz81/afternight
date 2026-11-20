@@ -4,6 +4,9 @@
 #include "stdafx.hpp"
 #include "ManualRegistrationDialog.h"
 
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
+
 #include "controls/ImageViewControl.h"
 #include "processes/ImageIntegration/core/TooltipFormatUtils.h"
 #include "theme/AnDesignTokens.h"
@@ -321,6 +324,12 @@ ManualRegistrationDialog::ManualRegistrationDialog(const QString& referenceFrame
                    this);
     instructions->setWordWrap(true);
     main_layout->addWidget(instructions);
+    // Under the Observatory profile the instructions are the description of a window's heading.
+    if (an::ui::headWindow(*this, windowTitle(), instructions->text(), tr("Image Integration")) != nullptr)
+    {
+        instructions->setVisible(false);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     auto* header_layout = new QHBoxLayout();
     header_layout->setSpacing(spacing.sm);

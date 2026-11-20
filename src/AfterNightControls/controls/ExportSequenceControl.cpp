@@ -6,6 +6,8 @@
 
 #include "app/AppContextHelpers.h"
 #include "app/FileDialogUtils.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"
@@ -527,6 +529,11 @@ ExportSequenceControl::ExportSequenceControl(QWidget* parent, an::ui::DocumentSe
     });
 
     setWindowTitle(QStringLiteral("Export Sequence"));
+    an::ui::headWindow(*this, QStringLiteral("Export Sequence"),
+                       QStringLiteral("Write the sequence's frames to a file of the format, the codec and the size "
+                                      "chosen."),
+                       QStringLiteral("Sequence"));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     initialize();
 }

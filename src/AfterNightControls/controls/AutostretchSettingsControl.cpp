@@ -7,8 +7,15 @@
 #include "controls/ImageViewControl.h"
 #include "controls/IAppContext.h"
 #include "app/GuiThreadInvoke.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
+#include "theme/AnDesignTokens.h"
 
+#include <QDialogButtonBox>
+#include <QLayout>
+#include <QMargins>
 #include <QMessageBox>
+#include <QPushButton>
 
 namespace
 {
@@ -69,6 +76,30 @@ AutostretchSettingsControl::AutostretchSettingsControl(ImageViewControl* control
     auto title = fmt::format("Autostretch Settings <{}>", uniqueName);
     setWindowTitle(QString::fromUtf8(title));
 
+    if (an::ui::headWindow(*this, QStringLiteral("Autostretch Settings"),
+                           QStringLiteral("How the view stretches a linear image to show it. The image itself is not "
+                                          "changed until the stretch is applied."),
+                           an::ui::windowEyebrow(QStringLiteral("Display"), QString::fromStdString(uniqueName))) !=
+        nullptr)
+    {
+        // Under the Observatory profile the window is no longer the one size it was drawn at, which its heading and
+        // the Comfortable density's controls outgrow: it is as wide as it was drawn, its two groups scroll where a
+        // display is too small for them, and it opens showing them whole where there is room. The footer's Close is
+        // its primary button.
+        const QMargins margins = layout()->contentsMargins();
+        m_ui.verticalLayoutWidget->setMinimumWidth(width() - margins.left() - margins.right());
+        layout()->setSpacing(an::ui::tokens().spacing.md);
+        setMinimumSize(0, 0);
+        setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+        an::ui::scrollWindowBody(*m_ui.verticalLayout, 0, 2);
+        if (QPushButton* const close = m_ui.buttonBox->button(QDialogButtonBox::Close))
+        {
+            close->setProperty("buttonVariant", QStringLiteral("primary"));
+        }
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
+
     m_image_view_control->setAutostretchSettingsOpen(true);
 
     auto settings = m_image_view_control->getViewWidget()->getAutostretchSettings();
@@ -98,6 +129,9 @@ void AutostretchSettingsControl::onImageRenamed(ImageViewControl* ctrl)
 {
     std::string title = fmt::format("Autostretch Settings <{}>", m_image_view_control->getUniqueName());
     setWindowTitle(QString::fromUtf8(title));
+    an::ui::setWindowEyebrow(*this,
+                             an::ui::windowEyebrow(QStringLiteral("Display"),
+                                                   QString::fromStdString(m_image_view_control->getUniqueName())));
 }
 
 void AutostretchSettingsControl::onImageUpdated(ImageViewControl* ctrl)

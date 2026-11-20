@@ -4,7 +4,9 @@
 #pragma once
 
 #include "CometTrackingPreviewController.h"
+#include "app/WindowPlacement.h"
 #include "components/AnCollapsibleSection.h"
+#include "components/AnWindowHeading.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlListener.h"
@@ -841,6 +843,11 @@ public:
         m_statusLabel->setWordWrap(true);
         m_statusLabel->setProperty("anStatusTone", QStringLiteral("secondary"));
         root_layout->addWidget(m_statusLabel);
+        headWindow(*this, windowTitle(),
+                   tr("Mark the comet on the frames, or have it found, and fit its motion: the frames are then "
+                      "registered on the comet."),
+                   tr("Image Integration"));
+        holdWithinAvailableAreaWhenFirstShown(*this);
 
         auto* content_splitter = new QSplitter(Qt::Vertical, this);
         content_splitter->setObjectName(QStringLiteral("cometTrackingMainSplitter"));

@@ -3,6 +3,8 @@
 
 #include "stdafx.hpp"
 #include "ImageSummaryViewerControl.h"
+#include "app/WindowPlacement.h"
+#include "components/AnWindowHeading.h"
 #include "controls/ImageInspectorContent.h"
 #include "controls/ImageViewControl.h"
 #include "theme/AnDesignTokens.h"
@@ -297,6 +299,11 @@ ImageSummaryViewerControl::ImageSummaryViewerControl(ImageViewControl* control)
     : QDialog(control), ImageViewControlListener(control)
 {
     m_ui = an::ui::controls::buildImageSummaryViewerControlUi(this);
+    // Under the Observatory profile the header is a window's heading, which says the image too.
+    an::ui::headWindowInPlaceOf(m_ui.headerSection,
+                                an::ui::windowEyebrow(QStringLiteral("Information"),
+                                                      QString::fromStdString(m_image_view_control->getUniqueName())));
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     this->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -325,6 +332,9 @@ void ImageSummaryViewerControl::onImageUpdated(ImageViewControl*)
 void ImageSummaryViewerControl::onImageRenamed(ImageViewControl*)
 {
     setWindowTitle(summaryTitle(*m_image_view_control));
+    an::ui::setWindowEyebrow(*this,
+                             an::ui::windowEyebrow(QStringLiteral("Information"),
+                                                   QString::fromStdString(m_image_view_control->getUniqueName())));
     recalculate();
 }
 

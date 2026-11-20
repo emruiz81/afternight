@@ -9,6 +9,9 @@
 #include "components/AnCollapsibleSection.h"
 #include "theme/AnDesignTokens.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace an::ui::imageintegration
 {
 
@@ -587,12 +590,14 @@ public:
         horizontalLayout_dialogButtons->addWidget(okButton);
         verticalLayout_main->addLayout(horizontalLayout_dialogButtons);
 
-        const auto configureResponsiveRow = [&t](QHBoxLayout* row, QLabel* label, QWidget* field) {
+        std::vector<QLabel*> rowLabels;
+        const auto configureResponsiveRow = [&t, &rowLabels](QHBoxLayout* row, QLabel* label, QWidget* field) {
             if (!row || !label || !field)
             {
                 return;
             }
 
+            rowLabels.push_back(label);
             label->setMinimumSize(QSize(120, 0));
             label->setMaximumSize(QSize(120, 16777215));
             label->setSizePolicy(QSizePolicy::Policy::Fixed, QSizePolicy::Policy::Preferred);
@@ -653,6 +658,21 @@ public:
         weightingOptionsGroupBox->setExpanded(true);
 
         retranslateUi(StackingSettingsDialog);
+        if (an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+        {
+            // The labels' column is as wide as its widest label in the profile's font, and no narrower than it was
+            // drawn: the fields stay in line, and no label is cut.
+            int column = 120;
+            for (const QLabel* label : rowLabels)
+            {
+                column = (std::max)(column, label->sizeHint().width());
+            }
+            for (QLabel* label : rowLabels)
+            {
+                label->setMinimumWidth(column);
+                label->setMaximumWidth(column);
+            }
+        }
         QObject::connect(okButton, &QPushButton::clicked, StackingSettingsDialog, &QDialog::accept);
         QObject::connect(cancelButton, &QPushButton::clicked, StackingSettingsDialog, &QDialog::reject);
         QMetaObject::connectSlotsByName(StackingSettingsDialog);

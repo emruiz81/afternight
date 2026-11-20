@@ -132,6 +132,8 @@ private:
     bool m_isSolving = false;
     bool m_closeOnCancelFinish = false;
     bool m_syncingWindowSize = false;
+    /// What the window's scrolling middle needed when the window was last fitted to it; none yet below zero.
+    int m_bodyHeightFitted = -1;
     QString m_activeInputPath;
     uint64_t m_solveGeneration = 0;
     uint64_t m_activeSolveGeneration = 0;

@@ -4,7 +4,9 @@
 #include "stdafx.hpp"
 #include "BlinkComparatorDialog.h"
 #include "app/ApplicationStorage.h"
+#include "app/WindowPlacement.h"
 #include "components/AnCardWidget.h"
+#include "components/AnWindowHeading.h"
 #include "controls/ImageViewControl.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
 #include "processes/ImageIntegration/model/FrameId.h"
@@ -529,7 +531,9 @@ BlinkComparatorDialog::BlinkComparatorDialog(const QStringList& files, const QSt
 
     m_comparisonView = new an::ui::ComparisonViewWidget(this);
     m_comparisonView->setObjectName(QStringLiteral("comparisonView"));
-    m_comparisonView->setMinimumSize(spacing.xl * 16, spacing.xl * 10);
+    // With a heading over it the window's least height is more than a small display leaves it: the images give
+    // the room, as they do whenever the window is made lower.
+    m_comparisonView->setMinimumSize(spacing.xl * 16, spacing.xl * (an::ui::windowsTakeHeadings() ? 7 : 10));
     mainLayout->addWidget(m_comparisonView, 1);
 
     // Playback Controls
@@ -642,6 +646,17 @@ BlinkComparatorDialog::BlinkComparatorDialog(const QStringList& files, const QSt
 
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &BlinkComparatorDialog::showNextImage);
+
+    // Under the Observatory profile the window has a heading, which says the title it is given later too: a
+    // comparison of masters is named by whoever opens it.
+    if (an::ui::AnWindowHeading* const heading = an::ui::headWindow(
+            *this, windowTitle(),
+            tr("Blink between the frames or lay two side by side, rate them and mark the ones to leave out."),
+            tr("Image Integration")))
+    {
+        connect(this, &QWidget::windowTitleChanged, heading, &an::ui::AnWindowHeading::setTitle);
+    }
+    an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     restoreWindowSize();
 
