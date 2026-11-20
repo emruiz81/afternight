@@ -1637,8 +1637,14 @@ sources Test_ControlsDialogs
     external kddockwidgets
     qt       core gui widgets network sql testlib
     unit     src/AfterNightTests/Test_ControlsDialogs/CompactHistoryDialogTest.cpp
+    unit     src/AfterNightTests/Test_ControlsDialogs/SettingsDialogPagesTest.cpp
     header   src/AfterNightControls/dialogs/CompactHistoryDialog.h
     header   src/AfterNightControls/controls/ImageHistoryIndex.h
+    header   src/AfterNightControls/app/WindowPlacement.h
+    header   src/AfterNightControls/controls/settings/SettingsPages.h
+    header   src/AfterNightTests/fixtures/ClippedControls.h
+    header   src/AfterNightTests/fixtures/ObservatoryLook.h
+    header   src/AfterNightControls/theme/AnProxyStyle.h
 
 # The docking suite, class engine: the dock library held to the behaviour the interface is built on, driven
 # through its installed interface as the application drives it, with the application's view factory, dock
@@ -1887,6 +1893,9 @@ sources Test_ShellCore
     header   src/AfterNightShellCore/projects/JobProjects.h
     header   src/AfterNightTests/Test_ShellCore/StandInExtensionSessions.h
     header   src/AfterNightControls/app/ExtensionSessionFeed.h
+    header   src/AfterNightControls/controls/settings/SettingsPages.h
+    header   src/AfterNightControls/components/AnSwitch.h
+    header   src/AfterNightControls/controls/SettingsDialog.h
     include  src/AfterNightTests
     include  src/AfterNightShellCore
     include  src/AfterNightControls
@@ -2831,6 +2840,7 @@ sources Test_ShellClassic
     qt       core gui widgets sql svg network testlib
     header   src/AfterNightTests/fixtures/WindowDriving.h
     header   src/AfterNightControls/controls/ImageHistoryIndex.h
+    header   src/AfterNightControls/controls/settings/SettingsPages.h
 
 # The Observatory shell's suite: its window driven as a person drives it - its regions, its places, its pages and its
 # chrome - started and ended in the application's order by the suite's fixture, linked against the Observatory shell
@@ -3101,6 +3111,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/ProjectHomeTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/ExternalTasksTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/HostedTaskTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/SettingsTest.cpp
     header   src/AfterNightShellObservatory/pages/ProjectHomePage.h
     header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
     header   src/AfterNightControls/controls/HomeProjectsRow.h
@@ -3146,6 +3157,8 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/app/ExtensionHostManager.h
     header   src/AfterNightControls/app/ExtensionHostedSession.h
     header   src/AfterNightControls/app/ExtensionSdkService.h
+    header   src/AfterNightTests/fixtures/ClippedControls.h
+    header   src/AfterNightShellCore/core/ShellRegistry.h
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3671,6 +3684,7 @@ sources Test_Persistence
     unit     src/AfterNightTests/Test_Persistence/test_persistence_repository.cpp
     unit     src/AfterNightTests/Test_Persistence/test_schema_versioning.cpp
     unit     src/AfterNightTests/Test_Persistence/test_interface_console_drawer_settings.cpp
+    unit     src/AfterNightTests/Test_Persistence/test_settings_keys_defaults.cpp
     header   src/AfterNightControls/AfterNightControlsExport.h
     header   src/AfterNightControls/app/DemosaicTextMaps.h
     header   src/AfterNightControls/app/FileDialogUtils.h
@@ -3701,6 +3715,7 @@ sources Test_Persistence
     header   src/AfterNightConsumerRuntime/include/AfterNightConsumerRuntime/OperationScope.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/Logging.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/PlatformExport.h
+    header   src/AfterNightControls/app/ThemeManager.h
     include  src/AfterNightTests
     include  src/AfterNightControls
     include  src/AfterNightPlatform/include
@@ -6714,3 +6729,4 @@ sources Test_ProcessFramework
     header   src/AfterNightControls/controls/ExtensionNativeProcessWindow.h
     header   src/AfterNightControls/widgets/CurvesWidget.h
     header   src/AfterNightControls/widgets/ToneCurveModel.h
+    header   src/AfterNightControls/controls/settings/SettingsPages.h

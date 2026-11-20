@@ -126,6 +126,10 @@ void CatalogsDataSettingsPage::setupUi()
 
     m_GaiaCatalogPackCombo = new QComboBox(gaiaGroup);
     m_GaiaCatalogPackCombo->setObjectName(QStringLiteral("gaiaCatalogPackCombo"));
+    // A pack's name and size are long: in a narrow page the closed box elides the chosen one, its list showing each
+    // whole.
+    m_GaiaCatalogPackCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_GaiaCatalogPackCombo->setMinimumContentsLength(24);
     gaiaLayout->addRow(tr("Catalog pack:"), m_GaiaCatalogPackCombo);
 
     m_GaiaCatalogDownloadButton = new QPushButton(tr("Download Catalog..."), gaiaGroup);
@@ -161,6 +165,8 @@ void CatalogsDataSettingsPage::setupUi()
 
     m_SpccCatalogPackCombo = new QComboBox(spccGroup);
     m_SpccCatalogPackCombo->setObjectName(QStringLiteral("spccCatalogPackCombo"));
+    m_SpccCatalogPackCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_SpccCatalogPackCombo->setMinimumContentsLength(24);
     spccLayout->addRow(tr("Catalog pack:"), m_SpccCatalogPackCombo);
 
     m_SpccCatalogDownloadButton = new QPushButton(tr("Download Full Offline Catalog..."), spccGroup);

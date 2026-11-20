@@ -69,7 +69,15 @@ void PathPickerWidget::setupUi()
     m_BrowseButton = new QPushButton(this);
     refreshBrowseIcon();
     m_BrowseButton->setToolTip(tr("Browse..."));
-    m_BrowseButton->setFixedWidth(32);
+    if (an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+    {
+        // As wide as the style draws an icon button in the density in force, which the Comfortable one makes wider.
+        m_BrowseButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    }
+    else
+    {
+        m_BrowseButton->setFixedWidth(32);
+    }
     m_BrowseButton->setAutoDefault(false);
     m_BrowseButton->setDefault(false);
     m_BrowseButton->setProperty("anProcessButtonRole", QStringLiteral("secondary"));

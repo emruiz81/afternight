@@ -70,7 +70,8 @@
 | `theme/NightImage.h/.cpp` | Night's form of a colour and of a picture: `nightColor`, `colorAsShown`, `nightImage` and its cache, `NightPicture` (see [Night](#night)) |
 | `theme/NightImageWidgets.h` | Every widget that paints a picture, and how it shows it under Night |
 | `widgets/NightPictureLabel.h/.cpp` | A label showing a picture in its Night form under Night |
-| `controls/settings/ThemePresetTile.h/.cpp` | A colour preset's tile on the Interface page (see [Presets](#presets)) |
+| `controls/settings/ThemePresetTile.h/.cpp` | A colour preset's tile and a theme's on the Interface page (see [Presets](#presets)) |
+| `controls/settings/ThemeSwatch.h/.cpp` | An accent's disc and a surface tint's square on the Interface page (see [Presets](#presets)) |
 | `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
 | `theme/AnProxyStyleObservatory.cpp` | The proxy style's drawing under the Observatory profile (see [The Observatory look](#the-observatory-look)) |
 | `theme/Elevation.h/.cpp` | A raised part's shadow and edge line: the kept nine-patch images (see [Elevation](#elevation)) |
@@ -369,6 +370,15 @@ the contrast profile stay the user's:
   strength (Balanced): they are the preset they make, or `Custom`.
 - **The presets are the `Observatory` profile's.** Under `Classic` the page offers none and writes no preset, strength,
   density or Night setting, so a 1.1 user's settings file stays as 1.1 wrote it.
+- **The Interface page under `Observatory`** holds the appearance's choices in one group, in their order: the presets'
+  tiles, the theme as tiles (`ThemeModeTile`: the system's choice, light, dark, each a window's miniature in the parts in
+  force), the contrast as segments, the accent as discs and the surface tint as squares (`ThemeSwatch`, each its colour
+  as the theme in force resolves it, asked at each paint), the tint strength and the density as segments
+  (`AnSegmentedControl`), Night, starting in it, the animations and the menu bar as switches (`AnSwitch`), then the
+  Shell row, above the rows 1.1's page had. Every one acts at once. 1.1's combo boxes for the theme, the contrast, the
+  accent and the tint stay the page's record of those four, not shown: a picker chooses in its combo box, and the
+  combo box's change is what previews, is kept by Apply and is put back by Cancel, as it is under `Classic`, where the
+  page is as 1.1 drew it.
 
 ### Night
 

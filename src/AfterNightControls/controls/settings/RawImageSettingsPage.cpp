@@ -193,6 +193,9 @@ void RawImageSettingsPage::setupUi()
 
     // Demosaic algorithm dropdown
     m_DemosaicAlgorithmCombo = new QComboBox(demosaicGroup);
+    // Its items are long: in a narrow page the closed box elides the chosen one, its list showing each whole.
+    m_DemosaicAlgorithmCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_DemosaicAlgorithmCombo->setMinimumContentsLength(24);
     for (const auto& [value, display] : demosaicMethods())
     {
         m_DemosaicAlgorithmCombo->addItem(display, value);

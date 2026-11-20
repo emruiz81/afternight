@@ -79,6 +79,15 @@ inline constexpr qreal kSnackbarDetailOpacity = 0.72;
 /// How far above the status line a transient message stands, at the bottom centre of the centre.
 inline constexpr int kSnackbarAboveStatusLine = 16;
 
+// The Settings dialog's navigation column, with its search field above the pages' list; the least width of its page,
+// which the Comfortable density's controls need.
+inline constexpr int kSettingsNavigationWidth = 208;
+inline constexpr int kSettingsPageLeastWidth = 600;
+// A colour's swatch on the Interface page: its side, the ring that marks it chosen, the check it carries then.
+inline constexpr int kSwatchSize = 28;
+inline constexpr int kSwatchRing = 2;
+inline constexpr int kSwatchCheck = 12;
+
 // A process's page: its column's widths, standard and wide, and in a window under the narrow width; the run's row.
 inline constexpr int kPageColumnStandard = 360;
 inline constexpr int kPageColumnWide = 520;

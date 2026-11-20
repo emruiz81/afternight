@@ -534,19 +534,19 @@ capability settings.pages
     title        Ten pages, search, Reset Page, Reset All
     shared       SettingsDialogTest.SettingsDialog_NavigationWorks, SettingsDialogTest.SettingsDialog_SavesModifiedSettings, RawSettingsTest.ResetPageSelectsNoneAsItAlwaysHas
     classic      ApplicationMenu.SettingsShowsTheSettingsWindow, ShellScenario.TheSettingsDialogOpensAtAPage/classic
-    observatory  pending
+    observatory  Settings.ListThePagesInTheShellsOrder, ShellScenario.TheSettingsDialogOpensAtAPage/observatory
 
 capability settings.interface
     title        Theme, contrast, accent, tint, animations
     shared       TokenBaseline.ClassicValuesAreRecorded, ThemeSystemDesignTokens.DesignTokens_ContrastProfilesShiftDarkThemeIntensity, ThemeSystemDesignTokens.DesignTokens_AccentFamiliesRetintAccentRoles
     classic      ShellScenario.AThemeChangeRepaintsWithoutARestart/classic
-    observatory  pending
+    observatory  Settings.AnAccentChosenRepaintsTheWindowAtOnce, Settings.TheMenuBarRowShowsTheBarAtOnceAndOkKeepsIt, ShellScenario.AThemeChangeRepaintsWithoutARestart/observatory
 
 capability settings.shell
     title        The shell a run starts with: the command line, the environment, the Interface page
     shared       ShellSelection.TheCommandLineWinsOverTheEnvironmentAndTheSetting, ApplicationStart.StartsTheChosenShell, SettingsDialogTest.InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIsAChoice
     classic
-    observatory  pending
+    observatory  Settings.TheShellRowOffersEveryShellRegistered
 
 capability extensions.menu
     title        Extensions menu and a submenu per family

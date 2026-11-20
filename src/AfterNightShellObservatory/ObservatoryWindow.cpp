@@ -1290,8 +1290,14 @@ void ObservatoryWindow::makeUnits()
     };
     dialogDeps.persistRecentFiles = [this]() { m_impl->core.recentFiles().save(); };
     dialogDeps.settingsApplied = [this]() { m_impl->core.extensions().settingsApplied(); };
-    // This shell offers projects: the Settings show their page.
-    dialogDeps.offersProjects = true;
+    // This shell's Settings: its order, Projects after General, and its menu bar, shown on Alt or kept shown.
+    dialogDeps.settingsPages = an::ui::SettingsPageOrder::Observatory;
+    dialogDeps.keepMenuBarShown = [this](const bool shown) {
+        if (m_impl->menuBar != nullptr)
+        {
+            m_impl->menuBar->setAlwaysShown(shown);
+        }
+    };
     dialogDeps.updateRecentFilesMenuEntries = [this]() {
         if (m_impl->fileManager)
         {

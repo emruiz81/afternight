@@ -20,7 +20,10 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QComboBox>
+#include <QFormLayout>
 #include <QGroupBox>
+#include <QLabel>
+#include <QLayout>
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QPushButton>
@@ -30,6 +33,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 namespace
 {
@@ -309,4 +313,218 @@ TEST_F(InterfacePage, TheSettingsFileCarriesTheNewInterfaceKeys)
     EXPECT_EQ(other.stored(SettingsKeys::INTERFACE_DENSITY), QStringLiteral("comfortable"));
     EXPECT_EQ(other.stored(SettingsKeys::INTERFACE_THEME_PRESET), QStringLiteral("observatory"));
     EXPECT_EQ(other.stored(SettingsKeys::INTERFACE_START_IN_NIGHT), QStringLiteral("1"));
+}
+
+namespace
+{
+
+/// The two shells the application registers.
+std::vector<an::ui::ShellOption> bothShells()
+{
+    return {an::ui::ShellOption{.id = QStringLiteral("classic"), .displayName = QStringLiteral("Classic")},
+            an::ui::ShellOption{.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory")}};
+}
+
+/// The titles of the groups a page shows, in the order its layout holds them.
+QStringList shownGroups(QWidget& page)
+{
+    QStringList titles;
+    QLayout* const layout = page.layout();
+    if (layout == nullptr)
+    {
+        return titles;
+    }
+    for (int index = 0; index < layout->count(); ++index)
+    {
+        if (auto* const group = qobject_cast<QGroupBox*>(layout->itemAt(index)->widget());
+            group != nullptr && !group->isHidden())
+        {
+            titles.append(group->title());
+        }
+    }
+    return titles;
+}
+
+/// The labels of a form's rows, in order, each without its colon; empty for a row with no label.
+QStringList rowLabels(const QFormLayout& form)
+{
+    QStringList labels;
+    for (int row = 0; row < form.rowCount(); ++row)
+    {
+        QString label;
+        if (const QLayoutItem* const item = form.itemAt(row, QFormLayout::LabelRole);
+            item != nullptr && item->widget() != nullptr)
+        {
+            if (const auto* const text = qobject_cast<const QLabel*>(item->widget()))
+            {
+                label = text->text();
+            }
+        }
+        if (label.endsWith(QLatin1Char(':')))
+        {
+            label.chop(1);
+        }
+        labels.append(label);
+    }
+    return labels;
+}
+
+/// A button of the page by the prefix of its row and the setting's value.
+QAbstractButton* choice(QWidget& page, const char* row, const char* value)
+{
+    return page.findChild<QAbstractButton*>(
+        QStringLiteral("anInterfaceSettings%1_%2").arg(QLatin1String(row), QLatin1String(value)));
+}
+
+} // namespace
+
+// Under the Observatory profile the page's first group holds the choices of the new interface in their order - the
+// colour preset, the theme, the contrast, the accent, the surface tint, the tint strength, the density, Night and
+// starting in it, the animations and the menu bar - with the Shell row right after it, above the rows 1.1 had, and the
+// combo boxes of 1.1's Appearance are not shown. Under the Classic profile the page is as 1.1 drew it, the Shell row
+// last.
+TEST_F(InterfacePage, ObservatoryRowsHoldEveryChoiceInItsOrder)
+{
+    {
+        const ScopedStyleProfile classic(StyleProfile::Classic);
+        InterfaceSettingsPage page(nullptr);
+        page.setAvailableShells(bothShells());
+        page.loadSettings();
+        auto* const appearance = named<QGroupBox>(page, "anInterfaceSettingsAppearanceGroup");
+        ASSERT_NE(appearance, nullptr);
+        EXPECT_FALSE(appearance->isHidden());
+        EXPECT_EQ(shownGroups(page), (QStringList{QStringLiteral("Appearance"), QStringLiteral("Image Viewing"),
+                                                  QStringLiteral("File Browser"), QStringLiteral("Window Layout"),
+                                                  QStringLiteral("Shell")}));
+    }
+    const ScopedStyleProfile observatory(StyleProfile::Observatory);
+    InterfaceSettingsPage page(nullptr);
+    page.setAvailableShells(bothShells());
+    page.setMenuBarKeeper([](bool) {});
+    page.loadSettings();
+    auto* const appearance = named<QGroupBox>(page, "anInterfaceSettingsAppearanceGroup");
+    ASSERT_NE(appearance, nullptr);
+    EXPECT_TRUE(appearance->isHidden()) << "the Observatory profile shows 1.1's combo boxes";
+    EXPECT_EQ(shownGroups(page),
+              (QStringList{QStringLiteral("Colours and Size"), QStringLiteral("Shell"), QStringLiteral("Image Viewing"),
+                           QStringLiteral("File Browser"), QStringLiteral("Window Layout")}));
+    auto* const group = named<QGroupBox>(page, "anInterfaceSettingsObservatoryGroup");
+    ASSERT_NE(group, nullptr);
+    auto* const form = qobject_cast<QFormLayout*>(group->layout());
+    ASSERT_NE(form, nullptr);
+    EXPECT_EQ(rowLabels(*form),
+              (QStringList{QStringLiteral("Colour preset"), QStringLiteral("Theme"), QStringLiteral("Contrast"),
+                           QStringLiteral("Accent"), QStringLiteral("Surface tint"), QStringLiteral("Tint strength"),
+                           QStringLiteral("Density"), QStringLiteral("Night"), QString(), QStringLiteral("Animations"),
+                           QStringLiteral("Menu bar")}));
+    for (const char* theme : {"system", "light", "dark"})
+    {
+        EXPECT_NE(choice(page, "Theme", theme), nullptr) << theme;
+    }
+    for (const char* contrast : {"soft", "balanced", "high", "oled"})
+    {
+        EXPECT_NE(choice(page, "Contrast", contrast), nullptr) << contrast;
+    }
+    for (const char* accent : {"blue", "teal", "amber", "amethyst", "rose"})
+    {
+        EXPECT_NE(choice(page, "Accent", accent), nullptr) << accent;
+    }
+    for (const char* tint : {"neutral", "ocean", "mint", "amethyst", "rose", "amber"})
+    {
+        EXPECT_NE(choice(page, "Tint", tint), nullptr) << tint;
+    }
+    EXPECT_NE(named<QAbstractButton>(page, "anInterfaceSettingsAnimations"), nullptr);
+    EXPECT_NE(named<QAbstractButton>(page, "anInterfaceSettingsAlwaysShowMenuBar"), nullptr);
+}
+
+// Under the Observatory profile a theme's tile, a contrast's segment, an accent's disc and a tint's act at once, each
+// shown chosen; Cancel puts back what was in force and Apply keeps what is chosen. The light theme offers no OLED
+// contrast.
+TEST_F(InterfacePage, ObservatoryPickersActAtOnce)
+{
+    const ChoicesRestored restored;
+    const ScopedStyleProfile observatory(StyleProfile::Observatory);
+    SettingsStore store;
+    InterfaceSettingsPage page(store.persistence());
+    page.loadSettings();
+    for (const auto& [row, value] : std::vector<std::pair<const char*, const char*>>{
+             {"Accent", "teal"}, {"Tint", "ocean"}, {"Contrast", "high"}, {"Theme", "dark"}})
+    {
+        ASSERT_NE(choice(page, row, value), nullptr) << row << " " << value;
+    }
+    EXPECT_TRUE(choice(page, "Accent", "blue")->isChecked());
+    EXPECT_TRUE(choice(page, "Tint", "neutral")->isChecked());
+    EXPECT_TRUE(choice(page, "Contrast", "balanced")->isChecked());
+    EXPECT_TRUE(choice(page, "Theme", "dark")->isChecked());
+
+    choice(page, "Accent", "teal")->click();
+    choice(page, "Tint", "ocean")->click();
+    choice(page, "Contrast", "high")->click();
+    EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Teal) << "the accent did not act at once";
+    EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Ocean);
+    EXPECT_EQ(an::ui::themeContrastProfile(), an::ui::ThemeContrastProfile::High);
+    EXPECT_TRUE(choice(page, "Accent", "teal")->isChecked());
+    EXPECT_FALSE(choice(page, "Accent", "blue")->isChecked());
+    EXPECT_TRUE(page.hasUnsavedChanges());
+    EXPECT_FALSE(store.stored(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY).has_value()) << "a disc wrote before Apply";
+
+    page.discardChanges();
+    EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Blue) << "Cancel left the accent in force";
+    EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Neutral);
+    EXPECT_EQ(an::ui::themeContrastProfile(), an::ui::ThemeContrastProfile::Balanced);
+    EXPECT_TRUE(choice(page, "Accent", "blue")->isChecked()) << "the page does not show what is in force again";
+
+    ASSERT_NE(choice(page, "Theme", "light"), nullptr);
+    ASSERT_NE(choice(page, "Contrast", "oled"), nullptr);
+    EXPECT_TRUE(choice(page, "Contrast", "oled")->isEnabled());
+    choice(page, "Theme", "light")->click();
+    EXPECT_TRUE(choice(page, "Theme", "light")->isChecked());
+    EXPECT_FALSE(choice(page, "Contrast", "oled")->isEnabled()) << "the light theme offers the OLED contrast";
+    choice(page, "Accent", "amber")->click();
+    page.saveSettings();
+    EXPECT_EQ(store.stored(SettingsKeys::INTERFACE_THEME), QStringLiteral("light"));
+    EXPECT_EQ(store.stored(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY), QStringLiteral("amber"));
+    EXPECT_FALSE(page.hasUnsavedChanges());
+}
+
+// "Always show the menu bar" is offered where the shell shows its menu bar on Alt - where it is handed a keeper - and
+// nowhere else. Switched, it keeps the bar shown at once; Cancel puts back what was in force; Apply stores it; Reset
+// brings it back to its default, the bar shown on Alt.
+TEST_F(InterfacePage, TheMenuBarRowIsOfferedWhereTheBarShowsOnAlt)
+{
+    const ScopedStyleProfile observatory(StyleProfile::Observatory);
+    {
+        InterfaceSettingsPage page(nullptr);
+        page.loadSettings();
+        auto* const row = named<QAbstractButton>(page, "anInterfaceSettingsAlwaysShowMenuBar");
+        ASSERT_NE(row, nullptr);
+        EXPECT_TRUE(row->isHidden()) << "a shell whose menu bar is always shown is offered the row";
+    }
+    SettingsStore store;
+    std::vector<bool> kept;
+    InterfaceSettingsPage page(store.persistence());
+    page.setMenuBarKeeper([&kept](const bool shown) { kept.push_back(shown); });
+    page.loadSettings();
+    auto* const row = named<QAbstractButton>(page, "anInterfaceSettingsAlwaysShowMenuBar");
+    ASSERT_NE(row, nullptr);
+    EXPECT_FALSE(row->isHidden());
+    EXPECT_FALSE(row->isChecked());
+
+    row->click();
+    EXPECT_EQ(kept, std::vector<bool>{true}) << "the bar was not kept shown at once";
+    EXPECT_TRUE(page.hasUnsavedChanges());
+    EXPECT_FALSE(store.stored(SettingsKeys::INTERFACE_ALWAYS_SHOW_MENU_BAR).has_value());
+    page.discardChanges();
+    EXPECT_EQ(kept, (std::vector<bool>{true, false})) << "Cancel left the bar kept shown";
+    EXPECT_FALSE(row->isChecked());
+
+    row->click();
+    page.saveSettings();
+    EXPECT_EQ(store.stored(SettingsKeys::INTERFACE_ALWAYS_SHOW_MENU_BAR), QStringLiteral("1"));
+    page.resetToDefaults();
+    EXPECT_FALSE(row->isChecked());
+    EXPECT_FALSE(kept.empty());
+    EXPECT_FALSE(kept.back()) << "Reset left the bar kept shown";
+    page.saveSettings();
+    EXPECT_EQ(store.stored(SettingsKeys::INTERFACE_ALWAYS_SHOW_MENU_BAR), QStringLiteral("0"));
 }

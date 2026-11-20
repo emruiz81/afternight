@@ -19,6 +19,7 @@ class QScrollArea;
 class QLineEdit;
 class QPushButton;
 class QLabel;
+class QShowEvent;
 class SettingsPage;
 
 namespace an::ui
@@ -68,6 +69,9 @@ public:
     /// Get the number of pages
     [[nodiscard]] int pageCount() const;
 
+    /// The page the navigation lists at `index`; null for none.
+    [[nodiscard]] SettingsPage* page(int index) const;
+
     /// Check if any page has unsaved changes
     [[nodiscard]] bool hasUnsavedChanges() const;
 
@@ -88,11 +92,16 @@ public:
     /// Slot to reject the dialog (discard changes and close)
     void reject() override;
 
+protected:
+    /// Holds the dialog within the available area of its screen as it is first shown.
+    void showEvent(QShowEvent* event) override;
+
 private:
     void setupUi();
     void setupConnections();
 
-    /// Update the navigation list based on search filter
+    /// Lists the pages a search finds: those whose title, search words or rows - a row's label or its section, as the
+    /// Settings' search table states them - hold the text searched for, in any case.
     void filterPages(const QString& searchText);
 
     /// Handle navigation item selection
@@ -137,4 +146,7 @@ private:
 
     // Pages
     QList<SettingsPage*> m_Pages;
+
+    /// Whether the dialog was shown yet: it is held to its screen at its first show only.
+    bool m_Shown = false;
 };

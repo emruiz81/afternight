@@ -288,7 +288,7 @@ void AnSegmentedControl::paintEvent(QPaintEvent* /*event*/)
             {
                 painter.fillRect(area, t.colors.accentContainer);
             }
-            if (isEnabled() && (segment->underMouse() || segment->isDown()))
+            if (isEnabled() && segment->isEnabled() && (segment->underMouse() || segment->isDown()))
             {
                 painter.fillRect(area, parts::atShare(t.colors.stateLayer,
                                                       segment->isDown() ? parts::kPressedLayer : parts::kHoverLayer));
@@ -296,6 +296,12 @@ void AnSegmentedControl::paintEvent(QPaintEvent* /*event*/)
         }
 
         const QColor text = chosen ? t.colors.textOnAccentContainer : t.colors.textPrimary;
+        // A segment that cannot be chosen now is drawn as a disabled control is.
+        const PainterGuard dimmed(&painter);
+        if (!segment->isEnabled())
+        {
+            painter.setOpacity(painter.opacity() * parts::kDisabledOpacity);
+        }
         const int textWidth = parts::textWidth(font, segment->text());
         const int content = textWidth + (withCheck && chosen ? parts::kSegmentCheck + parts::kSegmentCheckGap : 0);
         qreal x = area.left() + (area.width() - content) / 2.0;
@@ -338,16 +344,16 @@ void AnSegmentedControl::keyPressEvent(QKeyEvent* event)
     switch (event->key())
     {
     case Qt::Key_Left:
-        m_focused = (std::max)(0, m_focused - 1);
+        m_focused = enabledSegmentFrom(m_focused - 1, -1, m_focused);
         break;
     case Qt::Key_Right:
-        m_focused = (std::min)(last, m_focused + 1);
+        m_focused = enabledSegmentFrom(m_focused + 1, 1, m_focused);
         break;
     case Qt::Key_Home:
-        m_focused = 0;
+        m_focused = enabledSegmentFrom(0, 1, m_focused);
         break;
     case Qt::Key_End:
-        m_focused = (std::max)(0, last);
+        m_focused = enabledSegmentFrom(last, -1, m_focused);
         break;
     case Qt::Key_Space:
     case Qt::Key_Return:
@@ -399,9 +405,21 @@ bool AnSegmentedControl::eventFilter(QObject* watched, QEvent* event)
     return QWidget::eventFilter(watched, event);
 }
 
+int AnSegmentedControl::enabledSegmentFrom(const int from, const int step, const int otherwise) const
+{
+    for (int index = from; index >= 0 && index < count(); index += step)
+    {
+        if (m_segments[static_cast<std::size_t>(index)]->isEnabled())
+        {
+            return index;
+        }
+    }
+    return otherwise;
+}
+
 void AnSegmentedControl::choose(const int index)
 {
-    if (index < 0 || index >= count())
+    if (index < 0 || index >= count() || !m_segments[static_cast<std::size_t>(index)]->isEnabled())
     {
         return;
     }

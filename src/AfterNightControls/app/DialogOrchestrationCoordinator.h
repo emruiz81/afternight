@@ -5,6 +5,7 @@
 
 #include "AfterNightControlsExport.h"
 #include "app/ExtensionManager.h"
+#include "controls/settings/SettingsPages.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -237,8 +238,12 @@ public:
         std::function<void()> updateRecentFilesMenuEntries;
         // Called on the GUI thread each time the Settings dialog applies what it holds, after its pages have stored it.
         std::function<void()> settingsApplied;
-        // Whether the shell offers projects: the Settings dialog then shows the Projects page, after General.
-        bool offersProjects = false;
+        // The pages the shell's Settings dialog lists and their order: the Observatory shell's offer projects, and list
+        // the Projects page after General.
+        SettingsPageOrder settingsPages = SettingsPageOrder::Classic;
+        // Keeps the shell's menu bar shown or lets it show on Alt, at once: set by a shell whose bar shows on Alt,
+        // whose Interface page then offers "Always show the menu bar".
+        std::function<void(bool)> keepMenuBarShown;
     };
 
     explicit DialogOrchestrationCoordinator(const Dependencies& dependencies);

@@ -893,9 +893,18 @@ says when a change waits for the next start; `controls/settings/ProcessingLimits
 gives the session settings the application builds its session with (`sessionSettingsForLimits`). The Export page reads
 and stores through `readExportSettings` and `writeExportSettings`, the table every save reads. The Projects page
 (`controls/settings/ProjectsSettingsPage.h`) shows and stores what a project starts from through `readProjectSettings`
-and `writeProjectSettings` (`controls/settings/ProjectSettings.h`); the Settings dialog lists it, after General, only
-for a shell that offers projects (`DialogOrchestrationCoordinator::Dependencies::offersProjects`), and the table the
-palette finds settings in (`settingsSearchPages`) holds it. The Extensions window (`DialogOrchestrationCoordinator`'s:
+and `writeProjectSettings` (`controls/settings/ProjectSettings.h`). A shell's Settings dialog is made by
+`addSettingsPages` (`controls/settings/SettingsPages.h`) in the order the shell asks for
+(`DialogOrchestrationCoordinator::Dependencies::settingsPages`): the classic shell's lists 1.1's pages in 1.1's order
+and no Projects page, since it offers no projects; the Observatory shell's puts first what a person changes most -
+General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export, External Tools, Logging.
+The table the palette finds settings in (`settingsSearchPages`) is that order's pages and their rows, and the dialog's
+own search finds a page by a row it shows too, so a row added to a page is found without a search word of its own. A
+shell whose menu bar shows on Alt hands the dialog a keeper (`Dependencies::keepMenuBarShown`), and the Interface page
+then offers "Always show the menu bar", which acts at once, as every appearance row does under the Observatory profile.
+The dialog opens within the available area of its screen, its frame included (`holdWithinAvailableArea`,
+`app/WindowPlacement.h`), where that area holds its least size: on a 1280 x 720 display its default height put its
+title bar above the screen. The Extensions window (`DialogOrchestrationCoordinator`'s:
 the Extension Manager, `controls/settings/ExtensionManagerPage.h`, and the installed packages,
 `controls/settings/ExtensionStatusPage.h`) says in a package's details how it runs - with the engine's access when its
 host is the full one, without it otherwise - and where its processes open: a panel the application draws opens in the

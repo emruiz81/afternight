@@ -215,6 +215,13 @@ as it is polished lets the window be laid out, shown as far as Qt is concerned a
 measurement is run by hand with `QT_QPA_PLATFORM=windows`; it is a number for a design decision, written where the
 decision is, not a case of a sweep.
 
+A window that stays a window is held the same way by `fixtures/ClippedControls.h`: `clippedControls` names every
+control shown that lies outside its parent, a button, a field or a box smaller than it needs, a combo box narrower than
+its longest item and a label too small for its text, `unsizedScrollContents` every scroll area whose content is shorter
+than its width needs, and `textIsMeasured` tells the box font apart. A case asserts the window's least size and the
+scroll areas under any platform, and what is clipped only where text is measured, reporting itself skipped otherwise
+(`ExtensionManagerPage.NoControlIsClipped`, `SettingsDialog.NoControlIsClipped`).
+
 The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
 are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control in the
 column, none left beside the preview in the canvas, and reached by Tab (a checkable button of an exclusive group through

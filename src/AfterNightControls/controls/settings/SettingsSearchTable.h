@@ -37,7 +37,9 @@ struct SettingsSearchPage
     [[nodiscard]] bool operator==(const SettingsSearchPage&) const = default;
 };
 
-/// The pages of the Settings dialog, in the order it lists them.
+/// The pages of the Settings dialog, in the order the Observatory shell lists them (`SettingsPageOrder::Observatory`):
+/// the command palette is that shell's, and the classic shell lists the same pages but Projects. The dialog's search
+/// finds a page by its rows here too.
 [[nodiscard]] AFTERNIGHTCONTROLS_API std::vector<SettingsSearchPage> settingsSearchPages();
 
 } // namespace an::ui

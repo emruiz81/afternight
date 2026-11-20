@@ -5,8 +5,11 @@
 #include "SettingsDialog.h"
 #include "settings/SettingsPage.h"
 #include "settings/PathPickerWidget.h"
+#include "settings/SettingsSearchTable.h"
+#include "app/WindowPlacement.h"
 #include "components/AnSectionHeader.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/ComponentParts.h"
 
 #include <verdigris/wobjectimpl.h>
 
@@ -23,7 +26,10 @@
 #include <QScreen>
 #include <QFrame>
 #include <QScrollArea>
+#include <QShowEvent>
 #include <QSizePolicy>
+
+#include <vector>
 
 W_OBJECT_IMPL(SettingsDialog)
 
@@ -39,6 +45,40 @@ constexpr int DEFAULT_DIALOG_HEIGHT = 700;
 
 // Role for storing page pointer in list items
 constexpr int PagePointerRole = Qt::UserRole + 1;
+
+/// The navigation column's width: the Observatory profile's column, or 1.1's.
+int navigationWidth()
+{
+    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::kSettingsNavigationWidth
+                                                                       : MIN_NAV_WIDTH;
+}
+
+/// The page's least width: the Observatory profile's, whose Comfortable density draws larger controls, or 1.1's.
+int pageLeastWidth()
+{
+    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::kSettingsPageLeastWidth
+                                                                       : MIN_CONTENT_WIDTH;
+}
+
+/// Whether a page's rows, as the Settings' search table states them, hold a text: a row's label or its section.
+bool rowsHold(const std::vector<an::ui::SettingsSearchPage>& table, const QString& title, const QString& search)
+{
+    for (const an::ui::SettingsSearchPage& entry : table)
+    {
+        if (entry.title != title)
+        {
+            continue;
+        }
+        for (const an::ui::SettingsSearchRow& row : entry.rows)
+        {
+            if (row.label.toLower().contains(search) || row.section.toLower().contains(search))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 } // namespace
 
 SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
@@ -49,7 +89,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
     // Set dialog properties
     setWindowTitle(tr("Settings"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    setMinimumSize(MIN_NAV_WIDTH + MIN_CONTENT_WIDTH + 50, MIN_DIALOG_HEIGHT);
+    setMinimumSize(navigationWidth() + pageLeastWidth() + 50, MIN_DIALOG_HEIGHT);
     resize(DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT);
 
     // Center on parent or primary screen
@@ -109,7 +149,7 @@ void SettingsDialog::setupUi()
     m_NavigationList->setFocusPolicy(Qt::StrongFocus);
     navLayout->addWidget(m_NavigationList, 1);
 
-    navPanel->setMinimumWidth(MIN_NAV_WIDTH);
+    navPanel->setMinimumWidth(navigationWidth());
     splitter->addWidget(navPanel);
 
     // === Right Panel (Content) ===
@@ -121,6 +161,7 @@ void SettingsDialog::setupUi()
     // Page header (AnSectionHeader with inline Reset Page action)
     m_PageSectionHeader = new an::ui::AnSectionHeader(QString(), QString(), tr("Reset Page"), contentPanel);
     m_PageSectionHeader->setObjectName(QStringLiteral("settingsPageSectionHeader"));
+    m_PageSectionHeader->actionButton()->setObjectName(QStringLiteral("settingsResetPageButton"));
     m_PageSectionHeader->actionButton()->setToolTip(tr("Reset all settings on this page to defaults"));
     contentLayout->addWidget(m_PageSectionHeader);
 
@@ -138,11 +179,11 @@ void SettingsDialog::setupUi()
 
     contentLayout->addWidget(m_PageScrollArea, 1);
 
-    contentPanel->setMinimumWidth(MIN_CONTENT_WIDTH);
+    contentPanel->setMinimumWidth(pageLeastWidth());
     splitter->addWidget(contentPanel);
 
     // Set initial splitter sizes (nav:content = 1:3)
-    splitter->setSizes({MIN_NAV_WIDTH, MIN_CONTENT_WIDTH + 100});
+    splitter->setSizes({navigationWidth(), pageLeastWidth() + 100});
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
 
@@ -155,6 +196,7 @@ void SettingsDialog::setupUi()
     buttonLayout->setSpacing(8);
 
     m_ResetAllButton = new QPushButton(tr("Reset All to Defaults"), buttonBar);
+    m_ResetAllButton->setObjectName(QStringLiteral("settingsResetAllButton"));
     m_ResetAllButton->setToolTip(tr("Reset all settings in all categories to their default values"));
     buttonLayout->addWidget(m_ResetAllButton);
 
@@ -306,6 +348,11 @@ int SettingsDialog::pageCount() const
     return m_Pages.size();
 }
 
+SettingsPage* SettingsDialog::page(const int index) const
+{
+    return index >= 0 && index < m_Pages.size() ? m_Pages.at(index) : nullptr;
+}
+
 bool SettingsDialog::hasUnsavedChanges() const
 {
     for (const auto* page : m_Pages)
@@ -344,6 +391,18 @@ void SettingsDialog::accept()
     QDialog::accept();
 }
 
+void SettingsDialog::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    // A window that stays a window opens within its screen: on a small display its default size would put its title bar
+    // above the screen's top.
+    if (!m_Shown && !event->spontaneous())
+    {
+        m_Shown = true;
+        an::ui::holdWithinAvailableArea(*this);
+    }
+}
+
 void SettingsDialog::reject()
 {
     if (hasUnsavedChanges())
@@ -367,6 +426,8 @@ void SettingsDialog::reject()
 void SettingsDialog::filterPages(const QString& searchText)
 {
     const QString search = searchText.trimmed().toLower();
+    const std::vector<an::ui::SettingsSearchPage> table =
+        search.isEmpty() ? std::vector<an::ui::SettingsSearchPage>{} : an::ui::settingsSearchPages();
 
     for (int i = 0; i < m_NavigationList->count(); ++i)
     {
@@ -395,6 +456,8 @@ void SettingsDialog::filterPages(const QString& searchText)
                         }
                     }
                 }
+                // And the rows the page shows.
+                visible = visible || rowsHold(table, page->pageTitle(), search);
             }
         }
 

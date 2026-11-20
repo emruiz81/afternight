@@ -12,19 +12,10 @@
 #include "controls/SystemInformationDialog.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "controls/GlobalSettingsPersistence.h"
-#include "controls/settings/CatalogsDataSettingsPage.h"
-#include "controls/settings/ExportSettingsPage.h"
 #include "controls/settings/ExtensionManagerPage.h"
 #include "controls/settings/ExtensionStatusPage.h"
-#include "controls/settings/ExternalToolsSettingsPage.h"
-#include "controls/settings/GeneralSettingsPage.h"
-#include "controls/settings/InterfaceSettingsPage.h"
-#include "controls/settings/LoggingSettingsPage.h"
-#include "controls/settings/PlateSolvingSettingsPage.h"
-#include "controls/settings/ProcessingSettingsPage.h"
-#include "controls/settings/ProjectsSettingsPage.h"
-#include "controls/settings/RawImageSettingsPage.h"
 #include "controls/settings/SettingsDefaults.h"
+#include "controls/settings/SettingsPages.h"
 #include "controls/settings/SettingsKeys.h"
 #include "controls/settings/SettingsPage.h"
 #include "theme/AnDesignTokens.h"
@@ -696,25 +687,15 @@ void DialogOrchestrationCoordinator::openSettingsAt(const QString& pageName) con
     GlobalSettingsPersistence* settingsPersistence =
         m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
 
-    dialog.addPage(new GeneralSettingsPage(settingsPersistence, &dialog));
-    if (m_dependencies.offersProjects)
-    {
-        dialog.addPage(new an::ui::ProjectsSettingsPage(settingsPersistence, &dialog));
-    }
-    dialog.addPage(new RawImageSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new ExternalToolsSettingsPage(settingsPersistence, &dialog));
-    auto* interfacePage = new InterfaceSettingsPage(settingsPersistence, &dialog);
+    SettingsPagesOptions pages;
+    pages.order = m_dependencies.settingsPages;
+    pages.keepMenuBarShown = m_dependencies.keepMenuBarShown;
     if (auto* context = an::ui::appContext();
         context != nullptr && context->getInterfaceSettingsRuntimeService() != nullptr)
     {
-        interfacePage->setAvailableShells(context->getInterfaceSettingsRuntimeService()->availableShells());
+        pages.shells = context->getInterfaceSettingsRuntimeService()->availableShells();
     }
-    dialog.addPage(interfacePage);
-    dialog.addPage(new ExportSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new ProcessingSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new LoggingSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new CatalogsDataSettingsPage(settingsPersistence, &dialog));
-    dialog.addPage(new PlateSolvingSettingsPage(settingsPersistence, &dialog));
+    addSettingsPages(dialog, settingsPersistence, pages);
 
     QObject::connect(&dialog, &SettingsDialog::settingsApplied, m_dependencies.mainWindow, [this]() {
         if (m_dependencies.settingsApplied)

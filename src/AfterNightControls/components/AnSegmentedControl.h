@@ -33,7 +33,9 @@ namespace an::ui
 /// disabled, the control is drawn at 38 % opacity.
 ///
 /// The control is one stop for the keyboard: Left and Right move between the segments, Home and End to the ends, and
-/// Space and Enter choose the segment moved to, which draws the focus ring while the focus came from the keyboard. The
+/// Space and Enter choose the segment moved to, which draws the focus ring while the focus came from the keyboard. A
+/// segment disabled (`segmentButton(index)->setEnabled(false)`) is drawn at the disabled opacity, and neither the
+/// keyboard nor the pointer chooses it: the keys pass over it. The
 /// pointer chooses a segment by a click. A choice - the user's or `setCurrentIndex` - is told once by
 /// `currentIndexChanged`. Each segment is a button child of the control that takes no focus, which assistive technology
 /// reads as a radio button named by its text and checked when chosen; the caller names the control.
@@ -98,7 +100,10 @@ void currentIndexChanged(int index) W_SIGNAL(currentIndexChanged, index)
 private:
     /// Tells the layout the segments' sizes may have changed.
     void refreshSegments();
+    /// Chooses a segment, unless it is disabled.
     void choose(int index);
+    /// The first enabled segment from `from` on, by `step`; `otherwise` when there is none.
+    [[nodiscard]] int enabledSegmentFrom(int from, int step, int otherwise) const;
 
     std::vector<QAbstractButton*> m_segments;
     int m_current = -1;

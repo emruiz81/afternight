@@ -159,3 +159,34 @@ TEST(AnSegmentedControl, SegmentsAreRadioButtonsNamedByTheirText)
         EXPECT_EQ(segment->focusPolicy(), Qt::NoFocus) << "the control is the one stop";
     }
 }
+
+// A segment disabled - the OLED contrast while the light theme is chosen - is drawn at the disabled opacity and is not
+// chosen: neither a click nor the keyboard's Space on it changes the choice, and Left and Right pass over it.
+TEST(AnSegmentedControl, ADisabledSegmentIsDrawnDimAndIsNotChosen)
+{
+    forEachLook([](const DesignTokens& /*t*/) {
+        AnSegmentedControl control(QStringList{QStringLiteral("Soft"), QStringLiteral("Balanced"),
+                                               QStringLiteral("High"), QStringLiteral("OLED")});
+        an::tests::widgets::showOffScreen(control);
+        control.resize(control.sizeHint());
+        control.setCurrentIndex(1);
+        control.segmentButton(2)->setEnabled(false);
+        EXPECT_DOUBLE_EQ(recordedText(control, QStringLiteral("High")).opacity, kDisabledOpacity)
+            << "a disabled segment is drawn as an enabled one";
+        EXPECT_DOUBLE_EQ(recordedText(control, QStringLiteral("Soft")).opacity, 1.0);
+
+        QSignalSpy changed(&control, &AnSegmentedControl::currentIndexChanged);
+        QTest::mouseClick(control.segmentButton(2), Qt::LeftButton);
+        EXPECT_EQ(control.currentIndex(), 1);
+        QTest::keyClick(&control, Qt::Key_Right);
+        EXPECT_EQ(control.focusedSegment(), 3) << "Right stopped on the disabled segment";
+        QTest::keyClick(&control, Qt::Key_Left);
+        EXPECT_EQ(control.focusedSegment(), 1) << "Left stopped on the disabled segment";
+        control.segmentButton(3)->setEnabled(false);
+        QTest::keyClick(&control, Qt::Key_End);
+        EXPECT_EQ(control.focusedSegment(), 1) << "End went to a disabled segment";
+        QTest::keyClick(&control, Qt::Key_Space);
+        EXPECT_EQ(control.currentIndex(), 1);
+        EXPECT_EQ(changed.count(), 0) << "a disabled segment was chosen";
+    });
+}

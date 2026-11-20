@@ -83,6 +83,9 @@ inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = true;
 inline constexpr bool INTERFACE_USE_SYSTEM_FILE_BROWSER = false;
 #endif
 inline constexpr auto INTERFACE_SHELL = "classic";
+inline constexpr auto INTERFACE_PALETTE_RECENT_COMMANDS = ""; // the palette has run nothing yet
+// How Home shows the recent files; DashboardPreferences reads an absent or unknown value as it.
+inline constexpr auto INTERFACE_DASHBOARD_RECENT_ARRANGEMENT = "grid";
 inline constexpr auto INTERFACE_READOUT_CARDS = ""; // no card folded but by the window's height
 inline constexpr bool INTERFACE_READOUT_COLLAPSED = false;
 

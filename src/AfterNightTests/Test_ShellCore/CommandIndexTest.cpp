@@ -22,18 +22,11 @@
 #include "services/RecentFilesModel.h"
 
 #include "app/ProcessRegistry.h"
-#include "controls/settings/CatalogsDataSettingsPage.h"
-#include "controls/settings/ExportSettingsPage.h"
-#include "controls/settings/ExternalToolsSettingsPage.h"
-#include "controls/settings/GeneralSettingsPage.h"
-#include "controls/settings/InterfaceSettingsPage.h"
-#include "controls/settings/LoggingSettingsPage.h"
-#include "controls/settings/PlateSolvingSettingsPage.h"
-#include "controls/settings/ProcessingSettingsPage.h"
-#include "controls/settings/ProjectsSettingsPage.h"
-#include "controls/settings/RawImageSettingsPage.h"
+#include "components/AnSwitch.h"
+#include "controls/SettingsDialog.h"
 #include "controls/settings/SettingsKeys.h"
 #include "controls/settings/SettingsPage.h"
+#include "controls/settings/SettingsPages.h"
 #include "controls/settings/SettingsSearchTable.h"
 
 #include <gtest/gtest.h>
@@ -796,8 +789,8 @@ TEST_F(CommandIndex, ListsTheSettingsPagesAndTheirRows)
     EXPECT_EQ(openedPages, (QStringList{QStringLiteral("Plate Solving"), QStringLiteral("Plate Solving")}));
 }
 
-/// The rows a settings page shows: each labelled field of its forms, its label without the colon, and each check box,
-/// in the order the page makes them, each with the title of the group it sits in.
+/// The rows a settings page shows: each labelled field of its forms, its label without the colon, and each check box
+/// and switch with a text, in the order the page makes them, each with the title of the group it sits in.
 std::vector<SettingsSearchRow> rowsShownBy(QWidget& page)
 {
     QSet<const QWidget*> formLabels;
@@ -831,6 +824,10 @@ std::vector<SettingsSearchRow> rowsShownBy(QWidget& page)
         {
             label = typed(check->text());
         }
+        else if (const auto* const toggle = qobject_cast<const an::ui::AnSwitch*>(widget))
+        {
+            label = typed(toggle->text());
+        }
         else if (const auto* const text = qobject_cast<const QLabel*>(widget);
                  text != nullptr && formLabels.contains(text))
         {
@@ -861,28 +858,25 @@ std::string written(const std::vector<SettingsSearchRow>& rows)
     return text;
 }
 
-// The table the palette finds settings in is the Settings dialog's pages as they are: each page's title and search
-// words as the page answers them, and its rows - every labelled field and every check box it shows, in its order, with
-// the group each sits in. A page that gains a row, loses one or renames one fails here until the table says so.
+// The table the palette finds settings in is the Settings dialog's pages as the Observatory shell lists them: each
+// page's title and search words as the page answers them, and its rows - every labelled field, every check box and
+// every switch it shows, in its order, with the group each sits in. A page that gains a row, loses one or renames one,
+// and a page listed in another place, fails here until the table says so.
 TEST_F(CommandIndex, TheSettingsTableIsWhatThePagesShow)
 {
-    std::vector<std::unique_ptr<SettingsPage>> pages;
-    pages.push_back(std::make_unique<GeneralSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<an::ui::ProjectsSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<RawImageSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<ExternalToolsSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<InterfaceSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<ExportSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<ProcessingSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<LoggingSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<CatalogsDataSettingsPage>(nullptr));
-    pages.push_back(std::make_unique<PlateSolvingSettingsPage>(nullptr));
+    SettingsDialog dialog;
+    an::ui::SettingsPagesOptions options;
+    options.order = an::ui::SettingsPageOrder::Observatory;
+    an::ui::addSettingsPages(dialog, nullptr, options);
 
     const std::vector<SettingsSearchPage> table = an::ui::settingsSearchPages();
-    ASSERT_EQ(table.size(), pages.size()) << "one entry for each page of the Settings dialog, in its order";
-    for (std::size_t index = 0; index < pages.size(); ++index)
+    ASSERT_EQ(table.size(), static_cast<std::size_t>(dialog.pageCount()))
+        << "one entry for each page of the Settings dialog, in its order";
+    for (std::size_t index = 0; index < table.size(); ++index)
     {
-        SettingsPage& page = *pages[index];
+        SettingsPage* const listed = dialog.page(static_cast<int>(index));
+        ASSERT_NE(listed, nullptr);
+        SettingsPage& page = *listed;
         const SettingsSearchPage& entry = table[index];
         EXPECT_EQ(entry.title, page.pageTitle());
         EXPECT_EQ(entry.keywords, page.searchKeywords()) << page.pageTitle().toStdString();
