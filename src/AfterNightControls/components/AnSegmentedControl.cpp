@@ -10,6 +10,8 @@
 #include "theme/PainterGuard.h"
 
 #include <QAbstractButton>
+#include <QAccessible>
+#include <QAccessibleWidget>
 #include <QBoxLayout>
 #include <QFocusEvent>
 #include <QKeyEvent>
@@ -90,8 +92,29 @@ qreal radiusOf(const an::ui::DesignTokens& t, const ControlHeight height)
 namespace an::ui
 {
 
+namespace
+{
+
+/// The control's accessible interface: a group of the segments, which assistive technology reads as radio buttons.
+QAccessibleInterface* segmentedAccessibleFactory(const QString& key, QObject* object)
+{
+    if (key == QLatin1String(AnSegmentedControl::staticMetaObject.className()))
+    {
+        if (auto* const control = qobject_cast<AnSegmentedControl*>(object))
+        {
+            return new QAccessibleWidget(control, QAccessible::Grouping);
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
 AnSegmentedControl::AnSegmentedControl(QWidget* parent) : QWidget(parent)
 {
+    // One factory serves every segmented control: installed again it is not installed twice.
+    QAccessible::removeFactory(&segmentedAccessibleFactory);
+    QAccessible::installFactory(&segmentedAccessibleFactory);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     // The segments side by side inside the outline, a hairline between two.

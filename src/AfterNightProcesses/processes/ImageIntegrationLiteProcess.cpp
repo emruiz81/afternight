@@ -44,6 +44,9 @@
 #include <QVariant>
 #include <QtConcurrent/QtConcurrentRun>
 
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -1057,6 +1060,37 @@ bool ImageIntegrationLiteProcess::cancelRun()
     }
     view->requestCancellation();
     return true;
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ImageIntegrationLiteProcess::makePageLayout()
+{
+    QVBoxLayout* const main = m_ui.mainLayout;
+    if (main != nullptr && m_ui.summaryCard != nullptr && m_ui.setupCard != nullptr && m_ui.settingsCard != nullptr &&
+        m_ui.framesCard != nullptr)
+    {
+        const int at = main->indexOf(m_ui.summaryCard);
+        for (QWidget* const card : {static_cast<QWidget*>(m_ui.summaryCard), static_cast<QWidget*>(m_ui.setupCard),
+                                    static_cast<QWidget*>(m_ui.settingsCard), static_cast<QWidget*>(m_ui.framesCard)})
+        {
+            main->removeWidget(card);
+        }
+        auto* const columns = new QHBoxLayout();
+        columns->setObjectName(QStringLiteral("litePageColumns"));
+        columns->setSpacing(main->spacing());
+        auto* const frames = new QVBoxLayout();
+        frames->setSpacing(main->spacing());
+        frames->addWidget(m_ui.summaryCard);
+        frames->addWidget(m_ui.framesCard, 1);
+        columns->addLayout(frames, 3);
+        auto* const set = new QVBoxLayout();
+        set->setSpacing(main->spacing());
+        set->addWidget(m_ui.setupCard);
+        set->addWidget(m_ui.settingsCard);
+        set->addStretch(1);
+        columns->addLayout(set, 2);
+        main->insertLayout(at, columns, 1);
+    }
+    return TopLevelProcessBaseControl::makePageLayout();
 }
 
 bool ImageIntegrationLiteProcess::showsRunInItself() const

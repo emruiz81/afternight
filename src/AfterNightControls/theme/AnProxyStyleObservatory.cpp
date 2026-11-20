@@ -1408,7 +1408,16 @@ bool AnProxyStyle::drawObservatoryControl(ControlElement element, const QStyleOp
         QFont font = painter->font();
         font.setWeight(QFont::DemiBold);
         painter->setFont(font);
+        // The base style draws a tab's focus frame itself, in its own colours and for any focus: the ring is this
+        // style's, drawn for the keyboard's focus alone, where a tab's state layer lies.
+        label.state &= ~State_HasFocus;
         QProxyStyle::drawControl(element, &label, painter, widget);
+        if (keyboardFocus(option))
+        {
+            painter->setRenderHint(QPainter::Antialiasing, true);
+            strokeRounded(painter, QRectF(option->rect).adjusted(2.0, 4.0, -2.0, -4.0), t.radius.sm, c.borderFocus,
+                          kFocusRing);
+        }
         break;
     }
 

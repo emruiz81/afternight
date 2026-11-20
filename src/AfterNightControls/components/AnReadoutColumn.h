@@ -48,7 +48,7 @@ enum class ReadoutCardId : std::uint8_t
 /// **What is remembered.** Which cards are folded is a line of their names (`foldedCards`, "statistics,image"), and
 /// the column's being collapsed a flag: whoever keeps them hands them back (`setFoldedCards`, `setCollapsed`) and is
 /// told when the person changes them (`foldsChanged`, `collapsedChanged`). Until it is handed a remembered line, the
-/// Image card starts folded in a window under 820 px high.
+/// Image card starts folded in a window under 820 px high, and the Astrometry card too under 720 px.
 class AFTERNIGHTCONTROLS_API AnReadoutColumn final : public QWidget
 {
     W_OBJECT(AnReadoutColumn)

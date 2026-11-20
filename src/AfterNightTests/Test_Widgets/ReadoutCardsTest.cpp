@@ -37,6 +37,7 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -765,11 +766,15 @@ TEST(ReadoutColumn, TheHistogramGrowsTo248PixelsAndTheRestIsLeftEmpty)
         EXPECT_GT(room, t.metrics.pad) << "no room is left under the last card";
 
         // Shorter by more than the room left: the histogram gives up the difference and nothing is left under the
-        // cards.
-        const int shorter = room - t.metrics.pad + 40;
+        // cards. It gives up 40 px, or less where its least is nearer: a font wider than the interface's puts the
+        // resolution on a row of its own under the tools, which the card's least holds.
+        const int give =
+            (std::min)(40, column.histogramCard()->height() - column.histogramCard()->minimumSizeHint().height());
+        ASSERT_GT(give, 0) << "the histogram has nothing to give up";
+        const int shorter = room - t.metrics.pad + give;
         column.resize(column.width(), column.height() - shorter);
         settleLayouts();
-        EXPECT_EQ(column.histogramCard()->height(), an::ui::parts::kReadoutHistogramCardMaximum - 40);
+        EXPECT_EQ(column.histogramCard()->height(), an::ui::parts::kReadoutHistogramCardMaximum - give);
         EXPECT_EQ(roomUnder(), t.metrics.pad) << "the cards leave room under them in a short column";
 
         // Folded, its room is left empty and the other cards keep their place under it.

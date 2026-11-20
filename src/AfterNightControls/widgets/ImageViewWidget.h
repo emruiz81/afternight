@@ -16,6 +16,8 @@
 
 #include <AfterNightEngine/Algorithms/Presentation/DisplayPresentation.h>
 
+#include <verdigris/wobjectdefs.h>
+
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -151,6 +153,10 @@ struct ImageViewPresentationTelemetry
 /// on the GUI thread for one.
 class AFTERNIGHTCONTROLS_API ImageViewWidget : public QWidget, public ImageViewControlListener
 {
+    // A meta-object of its own, by which assistive technology is handed the image's interface: a picture named by the
+    // image.
+    W_OBJECT(ImageViewWidget)
+
 public:
     ImageViewWidget(ImageViewControl* control);
 

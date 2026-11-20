@@ -421,8 +421,8 @@ TEST_F(Night, ToggleRepaintsEverythingRed)
     EXPECT_FALSE(an::ui::nightModeSet());
 }
 
-// The shortcuts this shell adds - Ctrl+K, Ctrl+Shift+N and Ctrl+W - are none of the window's, the Session Console's or
-// a view's in AfterNight 1.1.
+// The shortcuts this shell adds - Ctrl+K, Ctrl+Shift+N, Ctrl+W, F6 and Shift+F6 - are none of the window's, the
+// Session Console's or a view's in AfterNight 1.1.
 TEST_F(NewShortcuts, DoNotCollideWithTheRecordedOnes)
 {
     const an::tests::fixtures::BaselineRecord record(QString::fromLatin1(an::tests::app::kShortcutInventoryPath),
@@ -441,7 +441,7 @@ TEST_F(NewShortcuts, DoNotCollideWithTheRecordedOnes)
     ASSERT_GT(recorded.size(), 20);
     for (const QKeySequence& added :
          {QKeySequence(Qt::CTRL | Qt::Key_K), QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N),
-          QKeySequence(Qt::CTRL | Qt::Key_W)})
+          QKeySequence(Qt::CTRL | Qt::Key_W), QKeySequence(Qt::Key_F6), QKeySequence(Qt::SHIFT | Qt::Key_F6)})
     {
         const QString portable = added.toString(QKeySequence::PortableText);
         EXPECT_FALSE(recorded.contains(portable)) << portable.toStdString() << " is a shortcut of 1.1";

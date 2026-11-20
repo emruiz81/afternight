@@ -15,6 +15,8 @@
 #include "controls/AutostretchApply.h"
 #include "controls/ExportSequenceControl.h"
 #include "controls/IAppContext.h"
+#include "controls/ProcessPageLayout.h"
+#include "theme/ComponentParts.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlListener.h"
 #include "controls/ImageViewFiles.h"
@@ -55,6 +57,9 @@
 #include <QUuid>
 
 #include <nlohmann/json.hpp>
+
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 
 #include <algorithm>
 #include <atomic>
@@ -828,6 +833,38 @@ void ImageListAnalyzerProcess::exportSequence()
             window->show();
         });
     });
+}
+
+std::unique_ptr<an::ui::ProcessPageLayout> ImageListAnalyzerProcess::makePageLayout()
+{
+    an::ui::processes::ImageListAnalyzerProcessUiElements& elements = ui();
+    QVBoxLayout* const main = elements.verticalLayout_Main;
+    if (main != nullptr && elements.imagePreviewLayout != nullptr && elements.tableLayout != nullptr)
+    {
+        const int at = (std::min)(main->indexOf(elements.imagePreviewLayout), main->indexOf(elements.tableLayout));
+        main->removeItem(elements.imagePreviewLayout);
+        main->removeItem(elements.tableLayout);
+        // A layout taken out keeps its parent, which a layout it is added to refuses.
+        elements.imagePreviewLayout->setParent(nullptr);
+        elements.tableLayout->setParent(nullptr);
+        auto* const columns = new QHBoxLayout();
+        columns->setObjectName(QStringLiteral("analyzerPageColumns"));
+        columns->setSpacing(main->spacing());
+        columns->addLayout(elements.tableLayout, 2);
+        columns->addLayout(elements.imagePreviewLayout, 3);
+        main->insertLayout((std::max)(0, at), columns, 1);
+        // The preview and its view take a canvas view's least: beside the list, the window's would make the page wider
+        // than the centre.
+        for (QWidget* const preview : {elements.imagePreviewWidget, static_cast<QWidget*>(m_impl->preview)})
+        {
+            if (preview != nullptr)
+            {
+                preview->setMinimumSize(an::ui::parts::kPageCanvasViewLeastWidth,
+                                        an::ui::parts::kPageCanvasViewLeastHeight);
+            }
+        }
+    }
+    return TopLevelProcessBaseControl::makePageLayout();
 }
 
 void ImageListAnalyzerProcess::closeEvent(QCloseEvent* evt)

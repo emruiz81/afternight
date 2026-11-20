@@ -517,8 +517,14 @@ and at four device pixel ratios:
   control's.
 - **The focus ring** - two pixels of `borderFocus` at the control's edge - is drawn only for focus that came from the
   keyboard (`State_KeyboardFocusChange`), on a button, a tool button, a check box's or a radio button's text, a tab and a
-  slider's knob. A field shows its focus as a two-pixel `borderFocus` border whatever brought it there: its caret is in
-  it.
+  slider's knob. A tab's is the style's own, where its state layer lies: the base style draws a tab's focus frame
+  itself, in its own colours and for any focus, so the label is painted without it. A field shows its focus as a
+  two-pixel `borderFocus` border whatever brought it there, as a browser shows `:focus-visible` on a text field it was
+  clicked into: its caret is in it. `FocusRing.KeyboardOnly` (`Test_ThemeSystem`) holds both through real widgets, the
+  focus given by the pointer and by Tab.
+- **A control in a strip that holds no more** than the extra-small control's height - the status line's combo box -
+  says so with the property `parts::kControlHeightProperty` set to `parts::kControlHeightExtraSmall`, and the style
+  sizes it `controlXSmall` high.
 - **Buttons** have five roles, named by the variant properties ([Button Properties](#button-properties)): primary
   (`accentPrimary` under `textOnAccent`, hovering and pressing in `accentHover` and `accentPressed`), tonal
   (`accentContainer` under `textOnAccentContainer`), outlined (no fill, a one-pixel `borderPrimary` outline; the default),
@@ -723,6 +729,11 @@ if (!an::ui::AnimationUtils::animationsEnabled()) {
 ```
 
 Every animated component **must** use `AnimationUtils::duration()` instead of hardcoded durations. This ensures the global "Disable animations" preference is respected.
+
+A movement on a timer of its own - a run's turning arc, a task header's sliding bar, the history strip's spinner, a rail
+item's arc, a hosted process's starting arc - starts only while animations are on, and at its next step after they are
+turned off stops where it would stand drawn with them off: with animations off nothing moves, whether they were off
+before the movement began or turned off during it (`Motion.*` in `Test_ShellObservatory`).
 
 ---
 

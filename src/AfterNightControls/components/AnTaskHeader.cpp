@@ -226,6 +226,14 @@ AnTaskHeader::AnTaskHeader(QWidget* parent) : QWidget(parent), m_impl(new Impl)
     QObject::connect(m_impl->menuButton, &QAbstractButton::clicked, this, [this]() { menuRequested(); });
     m_impl->slide.setInterval(parts::kPageRunSpinnerStep);
     QObject::connect(&m_impl->slide, &QTimer::timeout, this, [this]() {
+        // Animations turned off while it slid: the bar stops where a bar drawn with them off stands.
+        if (!AnimationUtils::animationsEnabled())
+        {
+            m_impl->slide.stop();
+            m_impl->slideStep = 0;
+            update();
+            return;
+        }
         ++m_impl->slideStep;
         update(runBarRect().isEmpty()
                    ? QRect()

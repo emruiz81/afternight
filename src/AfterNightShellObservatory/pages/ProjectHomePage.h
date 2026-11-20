@@ -27,6 +27,7 @@
 
 class QAbstractButton;
 class QPlainTextEdit;
+class QResizeEvent;
 class QShowEvent;
 
 namespace ImageIntegration
@@ -194,6 +195,7 @@ public:
     void storageMeasured(const an::ui::shell::ProjectStorageReport& report) W_SIGNAL(storageMeasured, report);
 
 protected:
+    void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
 
 private:

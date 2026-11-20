@@ -9,6 +9,7 @@
 #include "chrome/ConsoleDrawer.h"
 #include "chrome/MenuBarOnAlt.h"
 #include "chrome/PaletteField.h"
+#include "chrome/RegionFocus.h"
 #include "chrome/StatusLine.h"
 #include "chrome/TopBar.h"
 #include "pages/FloatingImagesPage.h"
@@ -85,6 +86,7 @@
 #include "components/AnSnackbar.h"
 #include "components/AnTaskHeader.h"
 #include "components/RailItem.h"
+#include "controls/AccessiblePage.h"
 #include "controls/ExportSequenceControl.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/HomeProjectsRow.h"
@@ -104,6 +106,7 @@
 #include "theme/AnProxyStyle.h"
 #include "theme/ComponentParts.h"
 #include "theme/ObservatoryDock.h"
+#include "widgets/ImageViewWidget.h"
 
 #include <kddockwidgets/DockWidget.h>
 #include <kddockwidgets/MainWindow.h>
@@ -332,6 +335,8 @@ struct ObservatoryWindow::Impl
     std::unique_ptr<an::ui::shell::ProjectLayoutStore> layout;
     // The shell's own actions, their commands in the core's index, the palette and its scrim, the top bar's menus.
     std::unique_ptr<ShellActions> shellActions;
+    // The regions F6 and Shift+F6 move the focus through.
+    std::unique_ptr<RegionFocus> regionFocus;
     const an::ui::shell::ICommandProvider* shellCommands = nullptr;
     an::ui::AnCommandPalette* palette = nullptr;
     PaletteScrim* scrim = nullptr;
@@ -520,6 +525,41 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
     impl.tasks = std::make_unique<TaskPresenter>(core);
 
     buildRegions();
+    // F6 and Shift+F6 move the focus through the rail, the centre and the column; on a task's page the process's column
+    // is the column, and the centre the rest of the page. The centre's focus is its image's: the active one of the
+    // workspace shown, or the canvas of the task's page.
+    const auto shownPageLayout = [this]() -> an::ui::ProcessPageLayout* {
+        const TaskPage* const page = isTaskPageShown() ? taskPage(m_impl->shownTask) : nullptr;
+        TopLevelProcessBaseControl* const process = page != nullptr ? page->process() : nullptr;
+        return process != nullptr ? process->pageLayout() : nullptr;
+    };
+    std::vector<RegionFocus::Region> regions;
+    regions.push_back({QStringLiteral("rail"), [this]() -> QWidget* { return m_impl->rail; }, {}});
+    regions.push_back({QStringLiteral("centre"), [this]() -> QWidget* { return m_impl->centre->currentWidget(); },
+                       [this, shownPageLayout]() -> QWidget* {
+                           ImageViewControl* image = nullptr;
+                           if (isTaskPageShown())
+                           {
+                               const an::ui::ProcessPageLayout* const page = shownPageLayout();
+                               image = page != nullptr ? page->previewView() : nullptr;
+                           }
+                           else if (isWorkspaceShown())
+                           {
+                               image = m_impl->core.viewService().getActiveImageViewControl();
+                           }
+                           return image != nullptr ? image->getViewWidget() : nullptr;
+                       }});
+    regions.push_back({QStringLiteral("column"),
+                       [this, shownPageLayout]() -> QWidget* {
+                           if (isTaskPageShown())
+                           {
+                               const an::ui::ProcessPageLayout* const page = shownPageLayout();
+                               return page != nullptr ? page->column() : nullptr;
+                           }
+                           return m_impl->rightColumn;
+                       },
+                       {}});
+    impl.regionFocus = std::make_unique<RegionFocus>(*this, std::move(regions));
     makeUnits();
     bindServices();
 
@@ -678,6 +718,8 @@ ObservatoryWindow::~ObservatoryWindow()
     an::ui::shell::ApplicationCore& core = impl.core;
 
     qApp->removeEventFilter(this);
+    // The focus is followed no more: what goes from here on may move it.
+    impl.regionFocus.reset();
     core.projects().unsubscribe(impl.jobsProjectSubscription);
     if (impl.miniatures)
     {
@@ -831,6 +873,7 @@ void ObservatoryWindow::buildRegions()
 
     impl.rail = new an::ui::AnIconRail(central);
     impl.rail->setObjectName(QStringLiteral("observatoryRail"));
+    impl.rail->setAccessibleName(tr("Places and tasks"));
     impl.rail->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     body->addWidget(impl.rail);
     QObject::connect(impl.rail, &an::ui::AnIconRail::itemActivated, this,
@@ -1069,6 +1112,12 @@ void ObservatoryWindow::buildRegions()
 
     impl.centre->setCurrentWidget(impl.homePage);
     connectHome();
+    // The places' own pages: their scroll areas are no stops of Tab, their controls named.
+    for (QWidget* const place : {static_cast<QWidget*>(impl.homePage), static_cast<QWidget*>(impl.hubPage),
+                                 static_cast<QWidget*>(impl.projectHome)})
+    {
+        an::ui::prepareForKeyboard(*place);
+    }
 
     // The command palette over the core's index of commands, and its scrim over the centre and the column.
     impl.topBar->setIconProvider([this](const QString& name) { return m_impl->icon(name.toStdString()); });
@@ -2315,6 +2364,17 @@ bool ObservatoryWindow::eventFilter(QObject* watched, QEvent* event)
     return QMainWindow::eventFilter(watched, event);
 }
 
+bool ObservatoryWindow::focusNextPrevChild(const bool next)
+{
+    // The top bar, the rail, the page or the task, the column and the status line, each in the order its layouts
+    // state: what a page or a task laid out after the window was made is read where it is shown.
+    if (QWidget* const central = centralWidget())
+    {
+        an::ui::orderFocusChain(*central);
+    }
+    return QMainWindow::focusNextPrevChild(next);
+}
+
 void ObservatoryWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
@@ -3386,10 +3446,12 @@ void ObservatoryWindow::buildTopBarTrailing()
     night->setIcon(nightButton->icon());
     nightButton->setDefaultAction(night);
     nightButton->setToolTip(withKeys(night));
+    nightButton->setAccessibleName(QString(night->text()).remove(QLatin1Char('&')));
 
     // Help: the user guide.
     QAction* const guide = impl.core.actions().action(an::ui::shell::ids::kUserGuide);
     QToolButton* const helpButton = button("topBarHelpButton", QStringLiteral("help"), withKeys(guide));
+    helpButton->setAccessibleName(guide != nullptr ? QString(guide->text()).remove(QLatin1Char('&')) : tr("Help"));
     QObject::connect(helpButton, &QToolButton::clicked, this, [guide]() {
         if (guide != nullptr)
         {
@@ -3399,6 +3461,7 @@ void ObservatoryWindow::buildTopBarTrailing()
 
     // Information: About, About Qt and System Information.
     QToolButton* const information = button("topBarInformationButton", QStringLiteral("info"), tr("Information"));
+    information->setAccessibleName(tr("Information"));
     impl.informationMenu = new QMenu(information);
     impl.informationMenu->setObjectName(QStringLiteral("topBarInformationMenu"));
     for (const std::string_view id :
@@ -3414,6 +3477,7 @@ void ObservatoryWindow::buildTopBarTrailing()
 
     // More: the menu tree, as the menu bar holds it.
     QToolButton* const more = button("topBarMoreButton", QStringLiteral("more_horiz"), tr("More"));
+    more->setAccessibleName(tr("All menus"));
     impl.moreMenu = new QMenu(more);
     impl.moreMenu->setObjectName(QStringLiteral("topBarMoreMenu"));
     for (QAction* top : impl.menuBar->bar()->actions())
@@ -3498,6 +3562,18 @@ void ObservatoryWindow::bindShellActions()
         density->setObjectName(QStringLiteral("menuDensity"));
         density->addAction(compact);
         density->addAction(comfortable);
+    }
+
+    // F6 and Shift+F6: the rail, the centre and the column, in that order and back.
+    QObject::connect(actions.action(ids::kFocusNextRegion), &QAction::triggered, this,
+                     [this]() { (void)m_impl->regionFocus->next(); });
+    QObject::connect(actions.action(ids::kFocusPreviousRegion), &QAction::triggered, this,
+                     [this]() { (void)m_impl->regionFocus->previous(); });
+    if (QMenu* const view = impl.menuBar->menu("menuView_2"))
+    {
+        view->addSeparator();
+        view->addAction(actions.action(ids::kFocusNextRegion));
+        view->addAction(actions.action(ids::kFocusPreviousRegion));
     }
 
     // The workspace's, in the Window menu, acting on the current workspace.

@@ -586,7 +586,7 @@ capability keys.new
     title        Esc, Ctrl+Enter, Ctrl+Shift+N, Ctrl+W, F6
     shared
     classic
-    observatory  NewShortcuts.DoNotCollideWithTheRecordedOnes, NewShortcuts.CtrlWIsTheObservatoryShellsAlone, Night.ToggleRepaintsEverythingRed
+    observatory  NewShortcuts.DoNotCollideWithTheRecordedOnes, NewShortcuts.CtrlWIsTheObservatoryShellsAlone, Night.ToggleRepaintsEverythingRed, RegionFocus.F6AndShiftF6MoveThroughTheRegionsInOrderAndBack
 
 # ---- Added by the design
 

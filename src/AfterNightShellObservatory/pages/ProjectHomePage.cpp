@@ -27,6 +27,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QSaveFile>
+#include <QResizeEvent>
 #include <QShowEvent>
 #include <QStorageInfo>
 #include <QTimer>
@@ -276,23 +277,55 @@ private:
     bool m_outlined = false;
 };
 
-/// Lays a row of the images' table out in its columns: the picture, the name, which stretches, then the others.
+/// A cell of the images' table: as wide as its column, and where a row is short down to its least - alike in every
+/// row, so the columns stay aligned. What it holds fills it, a text eliding.
+class TableCell final : public QWidget
+{
+public:
+    TableCell(QWidget* content, const int width, const int least, QWidget* parent)
+        : QWidget(parent), m_width(width), m_least(least)
+    {
+        auto* const layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        content->setParent(this);
+        layout->addWidget(content, 1);
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    }
+
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        return {m_width, QWidget::sizeHint().height()};
+    }
+
+    [[nodiscard]] QSize minimumSizeHint() const override
+    {
+        return {m_least, QWidget::minimumSizeHint().height()};
+    }
+
+private:
+    int m_width;
+    int m_least;
+};
+
+/// Lays a row of the images' table out in its columns: the picture, the name, which stretches, then the others, each
+/// as wide as its column where the row has room and giving way alike where it has not.
 void addImageColumns(QHBoxLayout& row, QWidget* picture, QWidget* name, QWidget* type, QWidget* dimensions,
                      QWidget* history, QWidget* state, QWidget* modified)
 {
     row.setContentsMargins(0, 0, 0, 0);
     row.setSpacing(parts::kHubJobColumnGap);
     row.addWidget(picture, 0);
+    name->setMinimumWidth(parts::kProjectImageNameLeast);
     row.addWidget(name, 1);
-    const auto fixed = [&row](QWidget* cell, const int width) {
-        cell->setFixedWidth(width);
-        row.addWidget(cell, 0);
+    QWidget* const line = row.parentWidget();
+    const auto column = [&row, line](QWidget* cell, const int width, const int least) {
+        row.addWidget(new TableCell(cell, width, least, line), 0);
     };
-    fixed(type, parts::kProjectImageTypeColumn);
-    fixed(dimensions, parts::kProjectImageSizeColumn);
-    fixed(history, parts::kProjectImageHistoryColumn);
-    fixed(state, parts::kProjectImageStateColumn);
-    fixed(modified, parts::kProjectImageModifiedColumn);
+    column(type, parts::kProjectImageTypeColumn, parts::kProjectImageTypeColumn);
+    column(dimensions, parts::kProjectImageSizeColumn, parts::kProjectImageSizeLeast);
+    column(history, parts::kProjectImageHistoryColumn, parts::kProjectImageHistoryLeast);
+    column(state, parts::kProjectImageStateColumn, parts::kProjectImageStateLeast);
+    column(modified, parts::kProjectImageModifiedColumn, parts::kProjectImageModifiedLeast);
 }
 
 /// The colours of the storage's parts: the undo history, the masters and stacked images, the calibrated and
@@ -451,6 +484,11 @@ struct ProjectHomePage::Impl
     QWidget* tileFiller = nullptr;
     std::vector<WorkspaceTileFacts> workspaces;
     std::map<QString, QImage> viewPictures;
+
+    // The column at the right of the cards: narrower in a window under the narrow width, where the storage's two
+    // buttons lie one over the other.
+    QWidget* rightColumn = nullptr;
+    QBoxLayout* storageButtons = nullptr;
 
     SectionCard* imagesCard = nullptr;
     QVBoxLayout* imageRowsLayout = nullptr;
@@ -611,6 +649,7 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     right->setSpacing(parts::kProjectHomeGap);
     auto* rightColumn = new QWidget(content);
     rightColumn->setFixedWidth(parts::kProjectHomeSideColumn);
+    impl.rightColumn = rightColumn;
     rightColumn->setLayout(right);
     impl.integrationsCard = new SectionCard(tr("Integrations"), rightColumn);
     right->addWidget(impl.integrationsCard, 0);
@@ -647,15 +686,16 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     }
     auto* storageButtons = new QHBoxLayout();
     storageButtons->setContentsMargins(0, 0, 0, 0);
+    impl.storageButtons = storageButtons;
     impl.compact = new QPushButton(tr("Compact history..."), impl.storageCard);
     impl.compact->setObjectName(QStringLiteral("projectHomeCompactHistory"));
-    storageButtons->addWidget(impl.compact, 0);
+    storageButtons->addWidget(impl.compact, 0, Qt::AlignLeft);
     impl.clean = new QPushButton(tr("Clean intermediate files..."), impl.storageCard);
     impl.clean->setObjectName(QStringLiteral("projectHomeCleanIntermediate"));
     impl.clean->setToolTip(tr("Remove the calibrated, corrected and registered frames of this project's integration "
                               "jobs. A run makes them again from the lights."));
     impl.clean->setEnabled(false);
-    storageButtons->addWidget(impl.clean, 0);
+    storageButtons->addWidget(impl.clean, 0, Qt::AlignLeft);
     storageButtons->addStretch(1);
     impl.storageCard->body()->addLayout(storageButtons);
     right->addWidget(impl.storageCard, 0);
@@ -663,6 +703,7 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     notesCard->setSummary(tr("saved with the project"));
     impl.notes = new QPlainTextEdit(notesCard);
     impl.notes->setObjectName(QStringLiteral("projectHomeNotes"));
+    impl.notes->setAccessibleName(tr("Notes"));
     impl.notes->setPlaceholderText(tr("Notes about this project, kept in its folder as notes.md"));
     impl.notes->setMinimumHeight(parts::kProjectNotesMinHeight);
     notesCard->body()->addWidget(impl.notes, 1);
@@ -916,6 +957,24 @@ QAbstractButton* ProjectHomePage::compactHistoryButton() const
 QPlainTextEdit* ProjectHomePage::notes() const
 {
     return m_impl->notes;
+}
+
+void ProjectHomePage::resizeEvent(QResizeEvent* event)
+{
+    QScrollArea::resizeEvent(event);
+    // Under the narrow width the side column is as narrow as a readout column there.
+    const QWidget* const shown = window();
+    const int side = shown != nullptr && shown->width() < parts::kPageNarrowWindow ? parts::kProjectHomeSideColumnNarrow
+                                                                                   : parts::kProjectHomeSideColumn;
+    if (m_impl->rightColumn != nullptr && m_impl->rightColumn->minimumWidth() != side)
+    {
+        m_impl->rightColumn->setFixedWidth(side);
+    }
+    if (m_impl->storageButtons != nullptr)
+    {
+        m_impl->storageButtons->setDirection(side == parts::kProjectHomeSideColumnNarrow ? QBoxLayout::TopToBottom
+                                                                                         : QBoxLayout::LeftToRight);
+    }
 }
 
 void ProjectHomePage::showEvent(QShowEvent* event)

@@ -16,6 +16,7 @@
 #include "controls/ProcessPreviewLayout.h"
 #include "controls/ViewChrome.h"
 #include "theme/AnDesignTokens.h"
+#include "controls/AccessiblePage.h"
 #include "theme/AnimationUtils.h"
 #include "theme/ComponentParts.h"
 
@@ -279,6 +280,14 @@ public:
         setObjectName(QStringLiteral("pageRunRow"));
         m_turn.setInterval(parts::kPageRunSpinnerStep);
         QObject::connect(&m_turn, &QTimer::timeout, this, [this]() {
+            // Animations turned off while it turned: the arc stops where an arc drawn with them off stands.
+            if (!AnimationUtils::animationsEnabled())
+            {
+                m_turn.stop();
+                m_angle = 0;
+                update();
+                return;
+            }
             m_angle = (m_angle + parts::kPageRunSpinnerDegrees) % 360;
             update();
         });
@@ -1438,6 +1447,32 @@ struct ProcessPageLayout::Impl : public QObject
         {
             controlsLayout->setContentsMargins(side, current.top(), side, current.bottom());
         }
+        // A combo box the body gives less than its longest item - a narrow column's - elides its chosen one, its list
+        // showing each whole, and takes its row's rest.
+        if (available > 0 && body->widget() != nullptr)
+        {
+            bool elided = false;
+            for (QComboBox* const combo : body->widget()->findChildren<QComboBox*>())
+            {
+                const QComboBox::SizeAdjustPolicy policy = combo->sizeAdjustPolicy();
+                const bool squeezed =
+                    combo->isVisibleTo(body) && combo->width() > 0 && combo->width() < combo->sizeHint().width();
+                if ((policy == QComboBox::AdjustToContents || policy == QComboBox::AdjustToContentsOnFirstShow) &&
+                    (squeezed || (least > available && combo->sizeHint().width() > available * 2 / 3)))
+                {
+                    combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+                    combo->setMinimumContentsLength(parts::kPageComboLeastCharacters);
+                    QSizePolicy sizing = combo->sizePolicy();
+                    sizing.setHorizontalPolicy(QSizePolicy::Expanding);
+                    combo->setSizePolicy(sizing);
+                    elided = true;
+                }
+            }
+            if (elided)
+            {
+                queueBodyFit();
+            }
+        }
         fitting = false;
     }
 
@@ -1557,6 +1592,8 @@ ProcessPageLayout::ProcessPageLayout(QWidget& process, const ProcessStandardPart
     : m_impl(std::make_unique<Impl>(process, parts, std::move(description)))
 {
     m_impl->build();
+    // Whatever the process's builder did, the page's controls are reached by Tab and named for assistive technology.
+    prepareForKeyboard(*m_impl->page);
 }
 
 ProcessPageLayout::~ProcessPageLayout() = default;
@@ -1779,6 +1816,11 @@ void ProcessPageLayout::setPreviewView(ImageViewControl* preview)
     if (m_impl->canvas == nullptr)
     {
         return;
+    }
+    if (preview != nullptr)
+    {
+        // A canvas is narrower than a window's preview at the least window: the view takes a small preview's least.
+        preview->setMinimumSize(parts::kPageCanvasViewLeastWidth, parts::kPageCanvasViewLeastHeight);
     }
     m_impl->bindPreview(preview);
     m_impl->canvas->update();

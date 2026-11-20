@@ -575,6 +575,7 @@ IntegrationHubPage::IntegrationHubPage(ImageIntegration::IntegrationJobsModel& j
     jobsHead->addWidget(new HomeText(HomeText::Role::Secondary, tr("Show"), content), 0, Qt::AlignVCenter);
     m_impl->projects = new QComboBox(content);
     m_impl->projects->setObjectName(QStringLiteral("integrationJobProjects"));
+    m_impl->projects->setAccessibleName(tr("Show jobs from"));
     m_impl->projects->setMinimumWidth(an::ui::parts::kHubProjectChoiceWidth);
     m_impl->projects->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     jobsHead->addWidget(m_impl->projects, 0, Qt::AlignVCenter);

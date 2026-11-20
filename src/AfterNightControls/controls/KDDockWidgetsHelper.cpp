@@ -1047,9 +1047,11 @@ void AN_Stack::applyObservatoryStrip()
     const bool floating = inFloatingWindowOf(this);
     if (auto* corner = cornerWidget(Qt::TopRightCorner); corner != nullptr && corner->layout() != nullptr)
     {
-        // The tab widget gives its corner the strip's height less its tabs' base.
-        const int cornerHeight = an::ui::observatoryDockStripHeight(floating) -
-                                 style()->pixelMetric(QStyle::PM_TabBarBaseHeight, nullptr, this);
+        // The tab widget gives its corner the strip's height less its tabs' base, and lays it above its pages, which
+        // start the base's overlap above the strip's foot: the corner is no higher than that leaves.
+        const int base = (std::max)(style()->pixelMetric(QStyle::PM_TabBarBaseHeight, nullptr, this),
+                                    style()->pixelMetric(QStyle::PM_TabBarBaseOverlap, nullptr, this));
+        const int cornerHeight = an::ui::observatoryDockStripHeight(floating) - base;
         corner->layout()->setContentsMargins(an::ui::observatoryDockCornerMargins(cornerHeight));
         corner->layout()->setSpacing(0);
         for (auto* button : corner->findChildren<QAbstractButton*>(Qt::FindDirectChildrenOnly))
@@ -1066,6 +1068,14 @@ void AN_Stack::applyObservatoryStrip()
     {
         m_tabList->setToolTip(QObject::tr("Tab List"));
         m_tabList->setVisible(count() > 1);
+    }
+    // The strip's buttons show an icon alone: assistive technology names each by what its tooltip says.
+    if (auto* corner = cornerWidget(Qt::TopRightCorner))
+    {
+        for (auto* button : corner->findChildren<QAbstractButton*>(Qt::FindDirectChildrenOnly))
+        {
+            button->setAccessibleName(button->toolTip());
+        }
     }
     applyTabLocks();
     updateGeometry();
@@ -1089,6 +1099,7 @@ void AN_Stack::applyTabLocks()
         if (QWidget* close = strip->tabButton(index, closeSide))
         {
             close->setEnabled(!locked);
+            close->setAccessibleName(QObject::tr("Close %1").arg(strip->tabText(index)));
         }
         if (index == strip->currentIndex())
         {

@@ -424,6 +424,12 @@ AnIconRail::AnIconRail(QWidget* parent)
     });
     m_turnTimer.setInterval(kTurnInterval);
     connect(&m_turnTimer, &QTimer::timeout, this, [this] {
+        // Animations turned off while an arc turned: the arcs are drawn once more where arcs drawn with them off stand,
+        // and stop.
+        if (!AnimationUtils::animationsEnabled())
+        {
+            m_turnTimer.stop();
+        }
         for (const RailItem& item : m_items)
         {
             if (item.section == RailSection::Task && item.runPhase == RailRunPhase::Running && !item.progress)

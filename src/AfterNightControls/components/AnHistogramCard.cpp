@@ -14,6 +14,7 @@
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QResizeEvent>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QScrollArea>
@@ -22,6 +23,7 @@
 
 #include <verdigris/wobjectimpl.h>
 
+#include <algorithm>
 #include <array>
 #include <utility>
 
@@ -96,6 +98,8 @@ AnHistogramCard::AnHistogramCard(QWidget* parent) : AnReadoutCard(tr("Histogram"
     m_well = new AnReadoutWell(body());
     m_scroll = new QScrollArea(m_well);
     m_scroll->setObjectName(QStringLiteral("readoutHistogramScrollArea"));
+    // The plot in it is what the keyboard reaches.
+    m_scroll->setFocusPolicy(Qt::NoFocus);
     m_scroll->setFrameShape(QFrame::NoFrame);
     m_scroll->setWidgetResizable(true);
     m_scroll->setAutoFillBackground(false);
@@ -130,7 +134,8 @@ AnHistogramCard::AnHistogramCard(QWidget* parent) : AnReadoutCard(tr("Histogram"
         }
         tools->addWidget(tool);
     }
-    tools->addWidget(new ToolSeparator(body()));
+    m_resolutionSeparator = new ToolSeparator(body());
+    tools->addWidget(m_resolutionSeparator);
     m_resolution = new QComboBox(body());
     m_resolution->setObjectName(QStringLiteral("readoutHistogramResolution"));
     m_resolution->setToolTip(tr("Plot resolution"));
@@ -142,6 +147,11 @@ AnHistogramCard::AnHistogramCard(QWidget* parent) : AnReadoutCard(tr("Histogram"
     m_resolution->setCurrentIndex(m_resolution->findData(static_cast<int>(HistogramResolution::Bits8)));
     tools->addWidget(m_resolution, 1);
     bodyLayout()->addLayout(tools);
+    m_toolRow = tools;
+    m_resolutionRow = new QHBoxLayout();
+    keepLayout(m_resolutionRow);
+    m_resolutionRow->setContentsMargins(0, 0, 0, 0);
+    bodyLayout()->addLayout(m_resolutionRow);
 
     const auto toolOf = [this](const HistogramCardTool which) { return m_tools[static_cast<std::size_t>(which)]; };
     QObject::connect(toolOf(HistogramCardTool::ZoomIn), &QAbstractButton::clicked, this, [this]() {
@@ -267,6 +277,55 @@ void AnHistogramCard::staleChanged()
     {
         m_scroll->setGraphicsEffect(nullptr);
         m_staleEffect = nullptr;
+    }
+}
+
+void AnHistogramCard::resizeEvent(QResizeEvent* event)
+{
+    AnReadoutCard::resizeEvent(event);
+    placeResolution();
+}
+
+void AnHistogramCard::placeResolution()
+{
+    if (m_toolRow == nullptr || m_resolutionRow == nullptr || m_resolution == nullptr)
+    {
+        return;
+    }
+    // The room the body gives a row, and what the tools and the resolution need side by side.
+    const QMargins card = layout() != nullptr ? layout()->contentsMargins() : QMargins();
+    const QMargins inner = bodyLayout()->contentsMargins();
+    const int room = width() - card.left() - card.right() - inner.left() - inner.right();
+    const int spacing = (std::max)(0, m_toolRow->spacing());
+    int needed = 0;
+    int items = 0;
+    for (int index = 0; index < m_toolRow->count(); ++index)
+    {
+        const QWidget* const widget = m_toolRow->itemAt(index)->widget();
+        if (widget != nullptr && widget != m_resolution && widget != m_resolutionSeparator)
+        {
+            needed += widget->sizeHint().width();
+            ++items;
+        }
+    }
+    needed += items * spacing + m_resolutionSeparator->sizeHint().width() + spacing + m_resolution->sizeHint().width();
+    const bool under = needed > room;
+    const bool isUnder = m_resolutionRow->indexOf(m_resolution) >= 0;
+    if (under == isUnder)
+    {
+        return;
+    }
+    if (under)
+    {
+        m_toolRow->removeWidget(m_resolution);
+        m_resolutionSeparator->hide();
+        m_resolutionRow->addWidget(m_resolution, 1);
+    }
+    else
+    {
+        m_resolutionRow->removeWidget(m_resolution);
+        m_resolutionSeparator->show();
+        m_toolRow->addWidget(m_resolution, 1);
     }
 }
 

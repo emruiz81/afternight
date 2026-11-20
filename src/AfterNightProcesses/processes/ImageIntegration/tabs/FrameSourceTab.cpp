@@ -19,6 +19,7 @@
 #include "controls/ImageViewControl.h"
 #include "processes/ImageIntegration/widgets/TreeDisplayModeWidget.h"
 #include "theme/ComponentParts.h"
+#include "theme/AnDesignTokens.h"
 
 #include <QCheckBox>
 #include <QAction>
@@ -89,7 +90,11 @@ FrameSourceTab::FrameSourceTab(FrameType type, IntegrationDataModel* model, QWid
     auto* action_strip = new QWidget(this);
     action_strip->setObjectName(QStringLiteral("frameSourceActionStrip"));
     action_strip->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    action_strip->setFixedHeight(26);
+    // Under the Observatory profile the strip is as high as its buttons, which the profile sizes from its density.
+    if (an::ui::styleProfile() != an::ui::StyleProfile::Observatory)
+    {
+        action_strip->setFixedHeight(26);
+    }
     auto* action_layout = new QHBoxLayout(action_strip);
     action_layout->setContentsMargins(0, 0, 0, 0);
     action_layout->setSpacing(4);
@@ -279,6 +284,7 @@ FrameSourceTab::FrameSourceTab(FrameType type, IntegrationDataModel* model, QWid
     left_layout->addWidget(search_row, /*stretch=*/0);
 
     m_tree = new FrameTreeView(this);
+    m_tree->setAccessibleName(tr("Frames"));
     m_tree->setFrameType(type);
     m_tree->setGroupTreeModel(m_treeModel);
     if (m_tree && m_tree->header())

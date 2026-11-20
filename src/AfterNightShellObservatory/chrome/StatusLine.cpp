@@ -107,6 +107,10 @@ StatusLine::StatusLine(QWidget* parent) : QWidget(parent)
 
     m_selector = new QComboBox(this);
     m_selector->setObjectName(QStringLiteral("observatoryViewSelector"));
+    m_selector->setAccessibleName(tr("Active image"));
+    // The line holds no more than the extra-small control's height.
+    m_selector->setProperty(an::ui::parts::kControlHeightProperty,
+                            QString::fromLatin1(an::ui::parts::kControlHeightExtraSmall));
     m_selector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     m_selector->setToolTip(tr("The active image"));
     m_selector->hide();

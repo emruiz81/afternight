@@ -30,6 +30,8 @@
 
 #include <AfterNightPlatform/Logging.h>
 
+#include <QAccessible>
+#include <QAccessibleWidget>
 #include <QCoreApplication>
 #include <QMetaObject>
 #include <QPointer>
@@ -38,6 +40,8 @@
 #include <QThread>
 #include <QThreadPool>
 #include <QTransform>
+
+#include <verdigris/wobjectimpl.h>
 
 #include <atomic>
 #include <chrono>
@@ -275,9 +279,32 @@ struct ImageViewWidget::Impl
 static_assert(sizeof(ImageViewWidget) <= sizeof(QWidget) + sizeof(void*) * 3,
               "ImageViewWidget should stay thin: its state lives behind the pimpl.");
 
+namespace
+{
+
+/// The image's accessible interface: a picture, named by the image its view shows.
+QAccessibleInterface* imageViewAccessibleFactory(const QString& key, QObject* object)
+{
+    if (key == QLatin1String(ImageViewWidget::staticMetaObject.className()))
+    {
+        if (auto* const widget = qobject_cast<ImageViewWidget*>(object))
+        {
+            return new QAccessibleWidget(widget, QAccessible::Graphic);
+        }
+    }
+    return nullptr;
+}
+
+} // namespace
+
+W_OBJECT_IMPL(ImageViewWidget)
+
 ImageViewWidget::ImageViewWidget(ImageViewControl* control)
     : QWidget(nullptr), ImageViewControlListener(control), m_impl(std::make_unique<Impl>())
 {
+    // One factory serves every view: installed again it is not installed twice.
+    QAccessible::removeFactory(&imageViewAccessibleFactory);
+    QAccessible::installFactory(&imageViewAccessibleFactory);
     this->setAttribute(Qt::WA_DeleteOnClose);
     setFocusPolicy(Qt::StrongFocus);
     setAutoFillBackground(true);

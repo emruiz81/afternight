@@ -70,6 +70,11 @@ protected:
     /// A run is shown in the page by its own view, which has its own Cancel: the page adds no row for it.
     [[nodiscard]] bool showsRunInItself() const override;
 
+    /// As a page it reads across two columns, which the centre of the floor display holds whole: at the left the frames
+    /// and what they are - the dataset over the list - and at the right what is set of them - the setup and the
+    /// processing settings. In a window of its own it is one column, as it was.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     /// Takes the view of a run that has ended off the page and gives the page back to the process.
     void dismissRun();

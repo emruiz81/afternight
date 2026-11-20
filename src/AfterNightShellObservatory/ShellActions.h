@@ -36,6 +36,8 @@ inline constexpr std::string_view kToggleReadout = "actionToggle_Readout";
 inline constexpr std::string_view kToggleNight = "actionToggle_Night";
 inline constexpr std::string_view kDensityCompact = "actionDensity_Compact";
 inline constexpr std::string_view kDensityComfortable = "actionDensity_Comfortable";
+inline constexpr std::string_view kFocusNextRegion = "actionFocus_Next_Region";
+inline constexpr std::string_view kFocusPreviousRegion = "actionFocus_Previous_Region";
 inline constexpr std::string_view kNewWorkspace = "actionNew_Workspace";
 inline constexpr std::string_view kRenameWorkspace = "actionRename_Workspace";
 inline constexpr std::string_view kMoveWorkspaceToNewWindow = "actionMove_Workspace_To_New_Window";
@@ -65,13 +67,13 @@ struct ShellActionSpec
 };
 
 /// The shell's own actions: Home, Integration, the Command Palette (`Ctrl+K`), the Readout, Night (`Ctrl+Shift+N`), the
-/// two densities, which are exclusive, the workspace's: New Workspace, Rename Workspace..., Move Workspace to New
-/// Window and Close Workspace, and the current task's: Apply (`Ctrl+Enter`, from either Enter key), which runs its
-/// primary action - inside a page the page answers the key itself - and, in the Window menu, Float as Window, Attach
-/// and Close Task; and the project's, in the File menu: New Project..., Open Project..., Switch Project..., Close
-/// Project and Project Settings.... They are children of the window and its own, so their shortcuts work wherever the
-/// focus is in it; the window connects what each does. The classic shell holds none of them, so its records of the
-/// actions, the menus and the shortcuts stay as they are.
+/// two densities, which are exclusive, Next Region (`F6`) and Previous Region (`Shift+F6`), the workspace's: New
+/// Workspace, Rename Workspace..., Move Workspace to New Window and Close Workspace, and the current task's: Apply
+/// (`Ctrl+Enter`, from either Enter key), which runs its primary action - inside a page the page answers the key itself
+/// - and, in the Window menu, Float as Window, Attach and Close Task; and the project's, in the File menu: New
+/// Project..., Open Project..., Switch Project..., Close Project and Project Settings.... They are children of the
+/// window and its own, so their shortcuts work wherever the focus is in it; the window connects what each does. The
+/// classic shell holds none of them, so its records of the actions, the menus and the shortcuts stay as they are.
 class AFTERNIGHTSHELLOBSERVATORY_API ShellActions final
 {
 public:

@@ -106,6 +106,14 @@ public:
                 m_spinner = new QTimer(this);
                 m_spinner->setInterval(parts::kHistorySpinnerFrameMs);
                 QObject::connect(m_spinner, &QTimer::timeout, this, [this]() {
+                    // Animations turned off while it turned: the arc stops where an arc drawn with them off stands.
+                    if (!AnimationUtils::animationsEnabled())
+                    {
+                        m_spinner->stop();
+                        m_angle = 0;
+                        update();
+                        return;
+                    }
                     m_angle = (m_angle + 360 * parts::kHistorySpinnerFrameMs / parts::kHistorySpinnerTurnMs) % 360;
                     update();
                 });

@@ -1767,6 +1767,8 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
     m_impl->m_NoImagePreviewWidget = new NoImagePreviewWidget(nullptr);
 
     m_impl->m_ScrollArea = new ImageViewScrollArea();
+    // The image in it is what the keyboard reaches; the area scrolls it.
+    m_impl->m_ScrollArea->setFocusPolicy(Qt::NoFocus);
 
     m_impl->m_ScrollArea->setViewControl(this);
 
@@ -1779,6 +1781,7 @@ void ImageViewControl::initialize(const std::string& uniqueName, const ViewContr
 
     m_impl->m_ImageViewWidget = new ImageViewWidget(this);
     m_impl->m_ImageViewWidget->installEventFilter(this);
+    m_impl->m_ImageViewWidget->setAccessibleName(QString::fromUtf8(m_impl->m_UniqueName));
     m_impl->m_ImageViewWidget->setBackgroundRole(QPalette::Base);
     m_impl->m_ImageViewWidget->enablePerformanceMode(m_impl->m_ViewControlMode == ViewControlMode::rt_preview);
 
@@ -2986,6 +2989,13 @@ void ImageViewControl::setUniqueName(const std::string& name)
         }
 
         setWindowTitle(title);
+        // Assistive technology names the picture by its image, a preview as one.
+        if (m_impl->m_ImageViewWidget != nullptr)
+        {
+            const QString name = QString::fromUtf8(m_impl->m_UniqueName);
+            m_impl->m_ImageViewWidget->setAccessibleName(
+                m_impl->m_ViewControlMode == ViewControlMode::rt_preview ? tr("Preview of %1").arg(name) : name);
+        }
 
         if (m_DockWidget)
         {

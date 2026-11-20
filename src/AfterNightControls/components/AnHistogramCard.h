@@ -23,6 +23,8 @@
 class HistogramWidget;
 class QComboBox;
 class QGraphicsOpacityEffect;
+class QHBoxLayout;
+class QResizeEvent;
 class QScrollArea;
 
 namespace an::ui
@@ -82,13 +84,21 @@ void resolutionChanged() W_SIGNAL(resolutionChanged)
     void histogramWindowRequested() W_SIGNAL(histogramWindowRequested)
 
         protected : void staleChanged() override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
+    /// The resolution at the end of the tools' row, or on a row of its own under it where the card is too narrow for
+    /// the two side by side - a narrow column's.
+    void placeResolution();
+
     QPointer<HistogramWidget> m_plot;
     QScrollArea* m_scroll = nullptr;
     AnReadoutWell* m_well = nullptr;
     AnIconButton* m_tools[7] = {};
     QComboBox* m_resolution = nullptr;
+    QHBoxLayout* m_toolRow = nullptr;
+    QHBoxLayout* m_resolutionRow = nullptr;
+    QWidget* m_resolutionSeparator = nullptr;
     AnIconButton* m_window = nullptr;
     QGraphicsOpacityEffect* m_staleEffect = nullptr;
 };

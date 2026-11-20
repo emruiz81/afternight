@@ -504,6 +504,7 @@ void FeaturedFileCard::updatePinButton()
     m_PinButton->setEnabled(!m_CurrentFilePath.trimmed().isEmpty());
     m_PinButton->setText({});
     m_PinButton->setToolTip(m_IsPinned ? tr("Unpin featured file") : tr("Pin featured file"));
+    m_PinButton->setAccessibleName(m_PinButton->toolTip());
     m_PinButton->setIcon(m_IsPinned ? m_UnpinIcon : m_PinIcon);
 }
 

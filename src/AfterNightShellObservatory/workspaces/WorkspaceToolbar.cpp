@@ -102,6 +102,7 @@ void WorkspaceToolbar::refreshLock()
     const QString iconName = locked ? QStringLiteral("unlock") : QStringLiteral("lock");
     m_lock->setIcon(m_dependencies.icon ? m_dependencies.icon(iconName) : QIcon());
     m_lock->setToolTip(locked ? tr("Unlock layout") : tr("Lock layout"));
+    m_lock->setAccessibleName(m_lock->toolTip());
 }
 
 } // namespace an::ui::observatory

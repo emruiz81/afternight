@@ -246,6 +246,18 @@ fixture learned: a widget scrolled out of the area that holds it is still visibl
 seen is asked of `visibleRegion()`; and a suite without the product's icon provider has no icons, so a tool button
 that shows its icon alone is told by its style, not by its icon.
 
+The Observatory window's pages are walked by `Test_ShellObservatory/ObservatoryPages.h`: `PagesCase::open(page)` opens
+each page a person works on as a person opens it - Home with a recent file, Project Home of a project made for the
+case, the Integration hub, a workspace, Curves Transformation's page (a preview), Resize's (a mirror), Image
+Integration's, Image Integration Lite's and Image List Analyzer's (full pages) - and `leave()` closes what it opened, an
+image's dock with its image (deleting a view alone leaves its dock in the workspace, which the suite's other cases do,
+so each case starts by removing the docks no image lives in). `Accessibility.*` walks every page for a name and a role
+of every interactive widget and for a Tab order that visits each control once in reading order; `SmallWindow.*`,
+`DisplaySizes.*` and `Scaling.*` hold the pages at the least window, the display sizes and the device pixel ratios. What
+a size leaves of a page depends on the width of its font, so `SmallWindow.NothingIsClippedAt1024x640` and the
+`DisplaySizes.*` cases run natively (`QT_QPA_PLATFORM=windows`) and report themselves skipped under the suites' box
+font; there a label that elides by design (its least width none) and shows a character and the ellipsis is not clipped.
+
 The page cases of the process families, `PageLayout.<Process>FitsItsColumn` (`Test_ProcessesShared/PageLayoutCheck.h`),
 are such measurements kept as cases. Under the suites' platform they hold what no font decides - every control in the
 column, none left beside the preview in the canvas, and reached by Tab (a checkable button of an exclusive group through

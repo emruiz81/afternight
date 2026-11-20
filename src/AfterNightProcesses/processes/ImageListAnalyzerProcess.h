@@ -121,6 +121,11 @@ public:
 protected:
     void closeEvent(QCloseEvent* evt) override;
 
+    /// As a page it reads across two columns, which the centre of the floor display holds whole: the images at the left
+    /// with what adds and removes them, and at the right the image chosen - its preview, its summary and histogram, and
+    /// what makes a sequence of them. In a window of its own it is the preview over the list, as it was.
+    [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
+
 private:
     void on_dialog_box_button_clicked(QAbstractButton* button);
     void on_addFilesButtonPushed();

@@ -116,6 +116,14 @@ public:
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         m_turn.setInterval(parts::kPageRunSpinnerStep);
         QObject::connect(&m_turn, &QTimer::timeout, this, [this]() {
+            // Animations turned off while it turned: the arc stops where an arc drawn with them off stands.
+            if (!AnimationUtils::animationsEnabled())
+            {
+                m_turn.stop();
+                m_angle = 0;
+                update();
+                return;
+            }
             m_angle = (m_angle + parts::kPageRunSpinnerDegrees) % 360;
             update();
         });

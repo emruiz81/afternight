@@ -27,6 +27,8 @@ AnIconButton::AnIconButton(const QString& iconKey, const QString& text, QWidget*
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     setAttribute(Qt::WA_Hover, true);
     setIconKey(iconKey);
+    // The icon it draws, whatever the style's default for a button.
+    setIconSize(QSize(parts::kIconButtonIcon, parts::kIconButtonIcon));
     setDescription(text);
 }
 
@@ -50,7 +52,9 @@ QSize AnIconButton::sizeHint() const
 
 QSize AnIconButton::minimumSizeHint() const
 {
-    return sizeHint();
+    // The least it is drawn whole at: its icon, with the focus ring's room around it.
+    const int side = parts::kIconButtonIcon + 2 * parts::kFocusRingWidth;
+    return QSize(side, side);
 }
 
 void AnIconButton::setDescription(const QString& text)

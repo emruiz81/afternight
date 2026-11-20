@@ -112,6 +112,17 @@ inline constexpr int kPageRunSpinnerStroke = 2;
 inline constexpr int kPageRunSpinnerStep = 80;
 inline constexpr int kPageRunSpinnerDegrees = 30;
 inline constexpr int kPageRunBar = 3;
+/// The least a page's canvas view takes, as a small preview's: a canvas is narrower than a window's preview at the
+/// least window.
+inline constexpr int kPageCanvasViewLeastWidth = 240;
+inline constexpr int kPageCanvasViewLeastHeight = 180;
+/// The characters a page's combo box shows of its chosen item at the least once its column is narrower than its
+/// longest item: it elides there, its list showing each whole.
+inline constexpr int kPageComboLeastCharacters = 8;
+/// The property by which a control says it is one of a strip that holds no more than the extra-small control's
+/// height - a status line's combo box - and the value it says it with.
+inline constexpr const char* kControlHeightProperty = "anControlHeight";
+inline constexpr const char* kControlHeightExtraSmall = "extraSmall";
 
 // A task's header: its target's thumbnail, the state's icon, its paddings; the bar of a run's progress under it.
 inline constexpr int kTaskHeaderThumbnail = 22;
@@ -267,11 +278,13 @@ inline constexpr int kIconButtonRadius = 6;
 
 // The readout: a column 360 px wide - 320 in a window under 1200 px wide - of cards 8 px apart, each radius 12 with a
 // section header; a plot in a well of radius 8 at least 100 px high; a value being measured again drawn at 55 %. The
-// image card starts folded in a window under 820 px high.
+// image card starts folded in a window under 820 px high, and the astrometry card too under 720.
 inline constexpr int kReadoutColumnWidth = 360;
 inline constexpr int kReadoutColumnNarrowWidth = 320;
 inline constexpr int kReadoutNarrowWindow = 1200;
 inline constexpr int kReadoutShortWindow = 820;
+/// In a window under this height the Astrometry card starts folded too.
+inline constexpr int kReadoutShorterWindow = 720;
 inline constexpr int kReadoutCardGap = 8;
 /// The readout column's histogram card grows with the column up to this height - its header, its well and its tools -
 /// and the room under the last card is left empty, so a tall window does not stretch the plot.
@@ -503,6 +516,8 @@ inline constexpr int kProjectHomePaddingTop = 14;
 inline constexpr int kProjectHomeGap = 12;
 inline constexpr int kProjectHomePicture = 64;
 inline constexpr int kProjectHomeSideColumn = 384;
+/// Under the narrow width the side column is as narrow as a readout column there.
+inline constexpr int kProjectHomeSideColumnNarrow = 320;
 inline constexpr int kProjectSectionHead = 32;
 inline constexpr int kProjectSectionPadding = 10;
 inline constexpr int kWorkspaceTilePadding = 8;
@@ -524,6 +539,12 @@ inline constexpr int kProjectImageSizeColumn = 98;
 inline constexpr int kProjectImageHistoryColumn = 134;
 inline constexpr int kProjectImageStateColumn = 168;
 inline constexpr int kProjectImageModifiedColumn = 124;
+/// Where a row is short the columns give way alike, down to these, the name keeping its least beside them.
+inline constexpr int kProjectImageNameLeast = 96;
+inline constexpr int kProjectImageSizeLeast = 64;
+inline constexpr int kProjectImageHistoryLeast = 64;
+inline constexpr int kProjectImageStateLeast = 72;
+inline constexpr int kProjectImageModifiedLeast = 72;
 inline constexpr int kProjectIntegrationRowPadding = 7;
 inline constexpr int kStorageBarHeight = 10;
 inline constexpr int kStorageBarGap = 2;

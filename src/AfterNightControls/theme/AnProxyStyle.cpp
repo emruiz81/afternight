@@ -689,8 +689,13 @@ QSize observatorySizeFromContents(const QStyle::ContentsType type, const QStyleO
         }
         return QSize(base.width(), (std::max)(base.height(), m.control));
     }
-    case QStyle::CT_ComboBox:
-        return QSize(base.width(), (std::max)(base.height(), m.control));
+    case QStyle::CT_ComboBox: {
+        // A control high; in a strip that holds no more - a status line's - the extra-small control's height.
+        const bool extraSmall =
+            widget != nullptr && widget->property(an::ui::parts::kControlHeightProperty).toString() ==
+                                     QLatin1String(an::ui::parts::kControlHeightExtraSmall);
+        return QSize(base.width(), extraSmall ? m.controlXSmall : (std::max)(base.height(), m.control));
+    }
     case QStyle::CT_SpinBox:
         return QSize((std::max)(base.width(), kMinimumSpinBoxWidth), (std::max)(base.height(), m.control));
     case QStyle::CT_TabBarTab: {

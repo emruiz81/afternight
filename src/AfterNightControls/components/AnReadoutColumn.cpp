@@ -216,6 +216,7 @@ void AnReadoutColumn::setWindowSize(const QSize& size)
     {
         m_restoring = true;
         m_image->setFolded(size.height() < parts::kReadoutShortWindow);
+        m_astrometry->setFolded(size.height() < parts::kReadoutShorterWindow);
         m_restoring = false;
     }
     applyCollapsed();

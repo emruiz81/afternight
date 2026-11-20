@@ -227,6 +227,10 @@ public:
         exportSequenceButton->setText(
             QCoreApplication::translate("ImageListAnalyzerProcess", "Export Sequence", nullptr));
         addFiles->setText(QCoreApplication::translate("ImageListAnalyzerProcess", "Add Files", nullptr));
+        // What assistive technology names the summary and the list by: no label stands beside them.
+        imageSummary->setAccessibleName(
+            QCoreApplication::translate("ImageListAnalyzerProcess", "Image summary", nullptr));
+        tableWidget->setAccessibleName(QCoreApplication::translate("ImageListAnalyzerProcess", "Images", nullptr));
         addFolder->setText(QCoreApplication::translate("ImageListAnalyzerProcess", "Add Folder", nullptr));
         removeSelected->setText(QCoreApplication::translate("ImageListAnalyzerProcess", "Remove Selected", nullptr));
         label_27->setText(QCoreApplication::translate("ImageListAnalyzerProcess", "Current Image: ", nullptr));

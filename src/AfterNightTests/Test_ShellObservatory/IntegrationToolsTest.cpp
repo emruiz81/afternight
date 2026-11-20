@@ -26,12 +26,15 @@
 #include "core/ApplicationCore.h"
 #include "processes/ImageIntegrationLiteProcess.h"
 #include "processes/ImageListAnalyzerProcess.h"
+#include "processes/ImageListAnalyzerProcessUiBuilder.h"
 #include "services/ProcessLaunchService.h"
 #include "tasks/TaskModel.h"
 
 #include <QAbstractButton>
 #include <QPointer>
 #include <QPushButton>
+#include <QRect>
+#include <QTextEdit>
 #include <QScrollArea>
 
 #include <gtest/gtest.h>
@@ -262,6 +265,44 @@ TEST_F(IntegrationTools, TheAnalyzerIsATaskWithItsPreviewInsideItsPage)
         << "the preview is none of the application's views";
     ASSERT_NE(page->cancelButton(), nullptr) << "its optimization is shown at the page's head, with Cancel";
     EXPECT_FALSE(analyzer->triggerPrimaryAction()) << "nothing to optimize with no file listed";
+}
+
+// Image Integration Lite and Image List Analyzer read across two columns on their pages, which the centre of the floor
+// display holds whole: Lite's dataset over its frames at the left of its setup over its settings; the Analyzer's
+// images, with what adds and removes them, at the left of the image chosen - its preview and its summary.
+TEST_F(IntegrationTools, LiteAndTheAnalyzerReadAcrossTwoColumnsOnTheirPages)
+{
+    const auto placeOf = [](const QWidget* widget) {
+        return QRect(widget->mapTo(widget->window(), QPoint(0, 0)), widget->size());
+    };
+    auto* const lite = dynamic_cast<ImageIntegrationLiteProcess*>(launch(IntegrationHubPage::kImageIntegrationLite));
+    ASSERT_NE(lite, nullptr);
+    const QWidget* const frames = lite->findChild<QWidget*>(QStringLiteral("liteFramesCard"));
+    const QWidget* const summary = lite->findChild<QWidget*>(QStringLiteral("liteSummaryCard"));
+    const QWidget* const setup = lite->findChild<QWidget*>(QStringLiteral("liteSetupCard"));
+    const QWidget* const settings = lite->findChild<QWidget*>(QStringLiteral("liteSettingsCard"));
+    ASSERT_TRUE(frames != nullptr && summary != nullptr && setup != nullptr && settings != nullptr);
+    for (const QWidget* const left : {summary, frames})
+    {
+        for (const QWidget* const right : {setup, settings})
+        {
+            EXPECT_LE(placeOf(left).right(), placeOf(right).left())
+                << left->objectName().toStdString() << " beside " << right->objectName().toStdString();
+        }
+    }
+    EXPECT_EQ(placeOf(summary).top(), placeOf(setup).top()) << "the two columns start together";
+    EXPECT_LT(placeOf(summary).bottom(), placeOf(frames).top());
+    EXPECT_LT(placeOf(setup).bottom(), placeOf(settings).top());
+    (void)lite->close();
+    settle();
+
+    auto* const analyzer = dynamic_cast<ImageListAnalyzerProcess*>(launch(IntegrationHubPage::kImageListAnalyzer));
+    ASSERT_NE(analyzer, nullptr);
+    const an::ui::processes::ImageListAnalyzerProcessUiElements& ui = analyzer->ui();
+    EXPECT_LE(placeOf(ui.tableWidget).right(), placeOf(ui.imagePreviewWidget).left());
+    EXPECT_LE(placeOf(ui.addFiles).right(), placeOf(ui.imagePreviewWidget).left()) << "what adds images is the list's";
+    EXPECT_LE(placeOf(ui.tableWidget).right(), placeOf(ui.imageSummary).left());
+    EXPECT_EQ(placeOf(ui.tableWidget).top(), placeOf(ui.imagePreviewWidget).top()) << "the two columns start together";
 }
 
 } // namespace an::tests::observatory

@@ -2460,6 +2460,37 @@ to assistive technology as an announcement from the task's page, or the window f
 (`QAccessibleAnnouncementEvent`): "Curves Transformation applied to M20" politely, "... failed: why" at once
 (`AnnouncementPoliteness::Assertive`), and "... stopped".
 
+**The keyboard and assistive technology.** `F6` and `Shift+F6` - the shell's Next Region and Previous Region, in the
+View menu and the palette - move the focus through the window's regions in their order and back
+(`chrome/RegionFocus`): the rail, the centre and the column, passing over one that is not shown. On a task's page the
+process's column is the column and the rest of the page the centre; the centre's focus is its image's, the active view
+of the workspace shown or the task's canvas; and the focus comes back, in each region, to the control it left it
+from. It is given as a shortcut gives it, so the focus ring shows. Tab and Shift+Tab follow the reading order of what
+the window shows, whatever was laid out after it was made: before each the window puts its focus chain in the order
+its layouts state (`controls/AccessiblePage.h`, `orderFocusChain`) - the top bar, the rail, the page or the task, the
+column, the status line, each box's items in its direction and a grid's and a form's row by row, a child no layout
+places where it lies, and an overlay - a floating toolbar - after the deepest widget that holds all of it; a widget
+that hands its focus to one inside it (a tab widget to its bar) is kept just before it, as Qt reads it as a stop at
+its own place. Each place's page and each process's page are prepared for the keyboard once
+(`prepareForKeyboard`): a scroll area that holds a widget of controls is no stop of its own, a text area and a table
+pass Tab on, and every control assistive technology finds no name for is named from what a person reads beside it -
+its form row's label, its grid row's label and column's heading, the label or check box before it, a field's
+placeholder, an icon button's tooltip, the title of the card or group a list fills (`readableNameOf`). The shell's own
+controls are named where they are made; an image's view is a picture named by its image (a preview by "Preview of"),
+and its scroll area is no stop.
+
+**Small windows.** The window is at least 1024 x 640, and nothing of any page is clipped there. Under 1200 px of width
+the readout column and Project Home's side column are 320 px, a task's standard column 320 and a wide one 440, the
+palette's field 240 px and an icon under 1100; Project Home's image columns then give way alike down to their least,
+the name keeping 96 px, and its storage buttons lie one over the other. Under 820 px of height the readout's Image card
+starts folded, and under 720 the Astrometry card too, until a person's own folds are kept. In a column narrower than
+its longest item a process's combo box elides its chosen item, its list showing each whole; the readout's plot
+resolution goes under the tools; a page's canvas view takes a small preview's least (240 x 180). At 1920 x 1080 and
+1536 x 864 nothing scrolls but a task's body - Home may scroll down at 1536 x 864, at the maintainer's word - and a
+full page fits the centre: Image Integration Lite and Image List Analyzer read across two columns on their pages
+(Lite's dataset over its frames beside its setup over its settings; the Analyzer's images beside the image chosen),
+and are the one column they were in a window of their own.
+
 The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
 mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
 window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's

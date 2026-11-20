@@ -326,6 +326,8 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+    /// Tab and Shift+Tab follow the reading order of what the window shows: the focus chain is put in it first.
+    bool focusNextPrevChild(bool next) override;
 
 private:
     void buildRegions();

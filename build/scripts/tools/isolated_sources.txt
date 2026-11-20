@@ -3169,6 +3169,7 @@ sources Test_ShellObservatory
     unit     src/AfterNightTests/Test_ShellObservatory/HostedTaskTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/SettingsTest.cpp
     unit     src/AfterNightTests/Test_ShellObservatory/KeptWindowsTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/RegionFocusTest.cpp
     header   src/AfterNightShellObservatory/pages/ProjectHomePage.h
     header   src/AfterNightShellObservatory/workspaces/WorkspaceMiniature.h
     header   src/AfterNightControls/controls/HomeProjectsRow.h
@@ -3263,6 +3264,12 @@ sources Test_ShellObservatory
     header   src/AfterNightControls/dialogs/CatalogSearchDialog.h
     header   src/AfterNightControls/widgets/HistogramCompanions.h
     header   src/AfterNightPlatform/include/AfterNightPlatform/Sha256.h
+    unit     src/AfterNightTests/Test_ShellObservatory/MotionTest.cpp
+    header   src/AfterNightTests/Test_ShellObservatory/ObservatoryPages.h
+    header   src/AfterNightControls/theme/AnimationUtils.h
+    header   src/AfterNightShellObservatory/chrome/RegionFocus.h
+    unit     src/AfterNightTests/Test_ShellObservatory/AccessibilityTest.cpp
+    unit     src/AfterNightTests/Test_ShellObservatory/SmallWindowTest.cpp
 
 # The parity scenarios: what a person does to the application, run for every registered shell through a driver of each,
 # every shell started and ended by the application's own start, which the suite compiles.
@@ -3620,7 +3627,8 @@ sources Test_ThemeSystem
     include  src/AfterNightPlatform/include
     link     AfterNightControls
     link     AfterNightPlatform
-    qt       core gui widgets
+    qt       core gui widgets testlib
+    unit     src/AfterNightTests/Test_ThemeSystem/FocusRingTest.cpp
 
 # The widgets suite, linked against the Controls library: the components, the timeline and stage widgets, the waiting
 # spinner, the structuring element, vector slope, lens, curves and histogram widgets, the quick zoom over an image the
