@@ -2314,6 +2314,21 @@ tokens' Night and applies the theme again, the densities store `interface/densit
 catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table and the classic
 shell keep 1.1's shortcuts.
 
+The window keeps the system's title bar, with the top bar under it. Drawing the top bar in the title bar's place - the
+window hints by which Qt extends the client area under the title bar and leaves the title bar's background out, the bar
+kept clear of the window's safe area - was tried on Windows 11 with Qt 6.10.3 and refused, for what Qt does there (Qt
+6.11.0's and its development branch's code does the same; only the development branch gives a maximized window its
+restore glyph): Qt draws the caption buttons itself, in a layered window over the client area, and draws the window's
+icon and title there too whenever the window has a minimize or maximize button - a widget window with either is given a
+title - so they lie over the logo and the project switcher; with no title-bar background it paints a hovered minimize or
+maximize button as an opaque white rectangle over its glyph, a translucent colour composed into a bitmap the system
+reads as premultiplied; and it answers the system's hit test over the maximize button as client area until a button is
+pressed, so Windows 11 offers no snap layouts when it is hovered, only through `Win+Z`. The safe area is the caption's
+height across the whole width, not where the buttons are. What does work - a press on the bar's empty part within the
+caption's height moves the window, a double click there maximizes, a right click opens the system menu - is what the
+system's title bar does already. Answering the hit tests and drawing the buttons in the top bar instead is owning the
+window's frame, which this shell does not do.
+
 Several workspaces are the host's `WorkspaceModel` (ShellCore). The rail lists Home, a workspace each - the digit of its
 place on each while there are several, the window glyph on one in a window of its own - and Integration; a workspace's
 icon shows it, and its menu (a right click, or a press held) holds New Workspace, Rename..., Move to New Window, Group
