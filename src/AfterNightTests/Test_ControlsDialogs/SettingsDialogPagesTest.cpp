@@ -37,13 +37,16 @@
 #include <QRect>
 #include <QScreen>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSpinBox>
 #include <QTimer>
 #include <QVBoxLayout>
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -309,6 +312,55 @@ TEST(SettingsDialog, NoControlIsClipped)
         GTEST_SKIP()
             << "the least sizes hold; whether anything is clipped is measured under the native platform, where "
                "text is as wide as the interface draws it";
+    }
+}
+
+// Each page scrolls only as far as its own rows need, in either profile and density: the pages' stack is as tall as the
+// page it shows, not as its tallest page, so a short page leaves no empty room under its rows to scroll into.
+TEST(SettingsDialog, APageScrollsOnlyAsFarAsItsOwnRowsNeed)
+{
+    const Installed installed;
+    SettingsStore store;
+    const auto& looks = an::ui::testing::observatoryLooks();
+    const std::vector<std::pair<an::ui::testing::ObservatoryLook, StyleProfile>> profiles = {
+        {looks[0], StyleProfile::Classic},
+        {looks[0], StyleProfile::Observatory},
+        {looks[3], StyleProfile::Observatory}};
+    for (const auto& [look, profile] : profiles)
+    {
+        const an::ui::testing::ObservatoryStyleScope scope(look, profile);
+        settle();
+        const std::string named =
+            std::string(profile == StyleProfile::Classic ? "Classic" : "Observatory") + ", " + look.name;
+        SettingsDialog dialog;
+        an::ui::addSettingsPages(dialog, store.persistence(),
+                                 profile == StyleProfile::Classic ? SettingsPagesOptions{} : observatoryOptions());
+        dialog.setAttribute(Qt::WA_DontShowOnScreen, true);
+        dialog.show();
+        settle();
+        dialog.resize(900, 700);
+        settle();
+        for (int index = 0; index < dialog.pageCount(); ++index)
+        {
+            dialog.setCurrentPage(index);
+            settle();
+            const QWidget* const page = dialog.page(index);
+            const QWidget* const stack = page->parentWidget();
+            ASSERT_NE(stack, nullptr);
+            ASSERT_NE(stack->parentWidget(), nullptr);
+            const auto* const area = qobject_cast<const QScrollArea*>(stack->parentWidget()->parentWidget());
+            ASSERT_NE(area, nullptr) << named << ": the page lies in no scroll area";
+            const QMargins margins = stack->contentsMargins();
+            const int rows = (std::max)(page->minimumSizeHint().height(),
+                                        page->hasHeightForWidth() ? page->heightForWidth(page->width()) : 0);
+            const int needed = rows + margins.top() + margins.bottom();
+            const int room = area->viewport()->height();
+            const int scrolls = area->verticalScrollBar()->maximum();
+            EXPECT_LE(scrolls, (std::max)(0, needed - room) + 1)
+                << named << ", " << dialog.page(index)->pageTitle().toStdString() << ": the page scrolls " << scrolls
+                << " px where its rows need " << needed << " px in " << room;
+        }
+        dialog.hide();
     }
 }
 

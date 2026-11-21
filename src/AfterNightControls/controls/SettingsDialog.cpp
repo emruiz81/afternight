@@ -16,6 +16,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListWidget>
+#include <QMargins>
 #include <QStackedWidget>
 #include <QLineEdit>
 #include <QPushButton>
@@ -29,6 +30,7 @@
 #include <QShowEvent>
 #include <QSizePolicy>
 
+#include <algorithm>
 #include <vector>
 
 W_OBJECT_IMPL(SettingsDialog)
@@ -59,6 +61,55 @@ int pageLeastWidth()
     return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::kSettingsPageLeastWidth
                                                                        : MIN_CONTENT_WIDTH;
 }
+
+/// The pages' stack, as tall as the page it shows. A stack is as tall as its tallest page, and in the dialog's scroll
+/// area every page would then scroll as far as that one does, into empty room under a shorter page's rows.
+class ShownPageStack final : public QStackedWidget
+{
+public:
+    using QStackedWidget::QStackedWidget;
+
+    [[nodiscard]] QSize sizeHint() const override
+    {
+        const QWidget* const page = currentWidget();
+        return page != nullptr ? page->sizeHint() + marginsSize() : QStackedWidget::sizeHint();
+    }
+
+    [[nodiscard]] QSize minimumSizeHint() const override
+    {
+        const QWidget* const page = currentWidget();
+        return page != nullptr ? page->minimumSizeHint() + marginsSize() : QStackedWidget::minimumSizeHint();
+    }
+
+    [[nodiscard]] bool hasHeightForWidth() const override
+    {
+        const QWidget* const page = currentWidget();
+        return page != nullptr ? page->hasHeightForWidth() : QStackedWidget::hasHeightForWidth();
+    }
+
+    /// The height the page shown needs at a width: the scroll area asks for it whenever one of the pages' heights
+    /// follows its width, as its stack's layout answers for all of them.
+    [[nodiscard]] int heightForWidth(const int width) const override
+    {
+        const QWidget* const page = currentWidget();
+        if (page == nullptr)
+        {
+            return QStackedWidget::heightForWidth(width);
+        }
+        const QMargins margins = contentsMargins();
+        const int least = page->minimumSizeHint().height();
+        const int rows =
+            page->hasHeightForWidth() ? page->heightForWidth(width - margins.left() - margins.right()) : least;
+        return (std::max)(rows, least) + margins.top() + margins.bottom();
+    }
+
+private:
+    [[nodiscard]] QSize marginsSize() const
+    {
+        const QMargins margins = contentsMargins();
+        return {margins.left() + margins.right(), margins.top() + margins.bottom()};
+    }
+};
 
 /// Whether a page's rows, as the Settings' search table states them, hold a text: a row's label or its section.
 bool rowsHold(const std::vector<an::ui::SettingsSearchPage>& table, const QString& title, const QString& search)
@@ -172,7 +223,7 @@ void SettingsDialog::setupUi()
     m_PageScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
     // Stacked widget for pages
-    m_PageStack = new QStackedWidget(m_PageScrollArea);
+    m_PageStack = new ShownPageStack(m_PageScrollArea);
     m_PageStack->setContentsMargins(0, 0, tokenSet.spacing.sm, 0);
     m_PageStack->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Expanding);
     m_PageScrollArea->setWidget(m_PageStack);
@@ -495,6 +546,7 @@ void SettingsDialog::onNavigationItemChanged(QListWidgetItem* current, QListWidg
         m_PageSectionHeader->setTitle(QString());
         m_PageSectionHeader->actionButton()->setEnabled(false);
         m_PageStack->setCurrentIndex(0); // Show empty placeholder
+        m_PageStack->updateGeometry();
         updateUiState();
         return;
     }
@@ -521,6 +573,8 @@ void SettingsDialog::onNavigationItemChanged(QListWidgetItem* current, QListWidg
 
     // Switch stacked widget to the page (add 1 to skip empty placeholder at index 0)
     m_PageStack->setCurrentWidget(page);
+    // The page's height is the stack's now: the scroll area scrolls as far as this page needs.
+    m_PageStack->updateGeometry();
 
     // Notify page it's being activated
     page->onPageActivated();
