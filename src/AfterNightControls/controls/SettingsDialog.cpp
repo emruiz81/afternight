@@ -27,6 +27,7 @@
 #include <QScreen>
 #include <QFrame>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QShowEvent>
 #include <QSizePolicy>
 
@@ -450,7 +451,35 @@ void SettingsDialog::showEvent(QShowEvent* event)
     if (!m_Shown && !event->spontaneous())
     {
         m_Shown = true;
+        widenForThePages();
         an::ui::holdWithinAvailableArea(*this);
+    }
+}
+
+void SettingsDialog::widenForThePages()
+{
+    if (an::ui::styleProfile() != an::ui::StyleProfile::Observatory)
+    {
+        return;
+    }
+    QWidget* const column = m_PageScrollArea->parentWidget();
+    int widest = 0;
+    for (SettingsPage* const page : m_Pages)
+    {
+        page->ensurePolished();
+        widest = (std::max)(widest, page->minimumSizeHint().width());
+    }
+    // The page within the stack's margins, in the scroll area beside the bar a page taller than the area shows, within
+    // the column's margins.
+    const QMargins stack = m_PageStack->contentsMargins();
+    const QMargins around = column->layout() != nullptr ? column->layout()->contentsMargins() : QMargins();
+    const int needs = widest + stack.left() + stack.right() + 2 * m_PageScrollArea->frameWidth() +
+                      m_PageScrollArea->verticalScrollBar()->sizeHint().width() + around.left() + around.right();
+    const int least = (std::max)(pageLeastWidth(), needs);
+    if (least != column->minimumWidth())
+    {
+        column->setMinimumWidth(least);
+        setMinimumWidth(navigationWidth() + least + 50);
     }
 }
 
@@ -566,6 +595,11 @@ void SettingsDialog::onNavigationItemChanged(QListWidgetItem* current, QListWidg
     {
         page->loadSettings();
         page->setSettingsLoaded(true);
+    }
+    // A page loaded first now may need more width than it did before it was filled.
+    if (m_Shown)
+    {
+        widenForThePages();
     }
 
     // Update title

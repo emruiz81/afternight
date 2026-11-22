@@ -20,6 +20,7 @@
 #include "theme/AnimationUtils.h"
 #include "theme/ComponentParts.h"
 
+#include <QAbstractSpinBox>
 #include <QAction>
 #include <QApplication>
 #include <QBoxLayout>
@@ -1466,6 +1467,21 @@ struct ProcessPageLayout::Impl : public QObject
                     sizing.setHorizontalPolicy(QSizePolicy::Expanding);
                     combo->setSizePolicy(sizing);
                     elided = true;
+                }
+            }
+            // A spin box stated wider than it needs - 1.1's builders state its least width in pixels; its own is its
+            // widest value's - gives way to what it needs where the controls are wider than the body even without
+            // their side margins.
+            if (least > available)
+            {
+                for (QAbstractSpinBox* const field : body->widget()->findChildren<QAbstractSpinBox*>())
+                {
+                    const int needs = field->minimumSizeHint().width();
+                    if (field->isVisibleTo(body) && needs > 0 && field->minimumWidth() > needs)
+                    {
+                        field->setMinimumWidth(needs);
+                        elided = true;
+                    }
                 }
             }
             if (elided)

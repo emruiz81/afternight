@@ -34,9 +34,11 @@
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMenu>
+#include <QPoint>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
+#include <QSpinBox>
 #include <QSplitter>
 #include <QToolBar>
 #include <QToolButton>
@@ -46,6 +48,7 @@
 #include <gtest/gtest.h>
 
 #include <tuple>
+#include <vector>
 
 namespace
 {
@@ -285,6 +288,48 @@ TEST(ProcessPageLayout, TheControlsMarginsGiveWayWhenTheControlsGrowAfterTheFirs
     const QPoint at = group->mapTo(page->bodyContent(), QPoint(0, 0));
     EXPECT_GE(at.x(), 0);
     EXPECT_LE(at.x() + group->width(), page->body()->viewport()->width()) << "the group lies within the column";
+    process.reset();
+}
+
+// A field stated wider than it needs gives way to what it needs where the controls are wider than the column: 1.1's
+// builders state a spin box's least width in pixels (Resize's three, 80 px each beside "Height"), and in a font whose
+// text runs wider (Noto Sans) the row came to a pixel more than a 320 px column.
+TEST(ProcessPageLayout, AFieldStatedWiderThanItNeedsGivesWayInANarrowColumn)
+{
+    PagedContext paged(QSize(1492, 1000));
+    ASSERT_NE(paged.context, nullptr);
+    ViewHandle target = flatTarget(paged.context->engineSession(), 0.25f);
+    ProcessHandle process = openProcess(*target, TestProcessOptions{.groups = 1});
+    auto* const group = process->findChild<QGroupBox*>(QStringLiteral("group1"));
+    ASSERT_NE(group, nullptr);
+    ASSERT_NE(group->layout(), nullptr);
+    auto* const row = new QWidget(group);
+    auto* const fields = new QHBoxLayout(row);
+    fields->setContentsMargins(0, 0, 0, 0);
+    std::vector<QSpinBox*> spins;
+    for (int index = 0; index < 3; ++index)
+    {
+        auto* const spin = new QSpinBox(row);
+        spin->setMinimumWidth(130);
+        fields->addWidget(spin);
+        spins.push_back(spin);
+    }
+    group->layout()->addWidget(row);
+    process->show();
+    pumpQuietly();
+    pumpQuietly();
+    ProcessPageLayout* page = process->pageLayout();
+    ASSERT_NE(page, nullptr);
+    ASSERT_LT(spins.front()->minimumSizeHint().width() * 3, page->body()->viewport()->width() - 60)
+        << "the fields need as much as they are stated to: the case shows nothing";
+    EXPECT_LE(page->bodyContent()->minimumSizeHint().width(), page->body()->viewport()->width())
+        << "the controls are wider than the column";
+    for (const QSpinBox* spin : spins)
+    {
+        EXPECT_GE(spin->width(), spin->minimumSizeHint().width()) << "a field is cut short";
+        EXPECT_LE(spin->mapTo(page->bodyContent(), QPoint(spin->width(), 0)).x(), page->body()->viewport()->width())
+            << "a field lies past the column";
+    }
     process.reset();
 }
 

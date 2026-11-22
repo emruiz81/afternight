@@ -129,6 +129,11 @@ private:
     /// @return true if the user wants to proceed (discard changes), false to cancel
     bool confirmDiscardChanges();
 
+    /// Under the Observatory profile, widens the page column's least width - the profile's 600 px - to what the widest
+    /// page needs: the pages' stack takes its scroll area's width whatever its pages need, so a row wider than that was
+    /// cut short at the dialog's least size in a font whose text runs wider.
+    void widenForThePages();
+
     /// Helper to create a navigation list item for a page
     QListWidgetItem* createNavItem(SettingsPage* page);
 

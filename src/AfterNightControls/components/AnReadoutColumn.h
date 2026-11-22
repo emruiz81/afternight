@@ -17,6 +17,7 @@
 #include <verdigris/wobjectdefs.h>
 
 class QPaintEvent;
+class QScrollArea;
 
 namespace an::ui
 {
@@ -108,6 +109,7 @@ private:
     AnReadoutText* m_eyebrow = nullptr;
     AnElidedLabel* m_name = nullptr;
     AnIconButton* m_collapse = nullptr;
+    QScrollArea* m_cardsArea = nullptr;
     QWidget* m_cards = nullptr;
     AnHistogramCard* m_histogram = nullptr;
     AnStatisticsCard* m_statistics = nullptr;

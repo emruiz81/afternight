@@ -9,6 +9,7 @@
 #include "components/AnHistogramCard.h"
 #include "components/AnIconButton.h"
 #include "components/AnImageFactsCard.h"
+#include "components/AnLayoutUtils.h"
 #include "components/AnReadoutGrid.h"
 #include "components/AnStatisticsCard.h"
 #include "theme/AnDesignTokens.h"
@@ -18,6 +19,7 @@
 #include <QHBoxLayout>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QScrollArea>
 #include <QSizePolicy>
 #include <QStringList>
 #include <QVBoxLayout>
@@ -65,7 +67,20 @@ AnReadoutColumn::AnReadoutColumn(QWidget* parent) : QWidget(parent), m_width(par
     header->addWidget(m_collapse, 0, Qt::AlignVCenter);
     column->addLayout(header);
 
-    m_cards = new QWidget(this);
+    // The cards scroll under the header where those open need more than the column's height - a person may open every
+    // card in a short window, where the Image and Astrometry cards start folded. Where they fit, nothing scrolls and
+    // the cards lie as they would without the area.
+    m_cardsArea = new QScrollArea(this);
+    m_cardsArea->setObjectName(QStringLiteral("readoutCardsArea"));
+    m_cardsArea->setFrameShape(QFrame::NoFrame);
+    m_cardsArea->setFocusPolicy(Qt::NoFocus);
+    m_cardsArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_cardsArea->setWidgetResizable(true);
+    m_cardsArea->setAutoFillBackground(false);
+    m_cardsArea->viewport()->setAutoFillBackground(false);
+    m_cards = new QWidget(m_cardsArea);
+    // As wide as the area, as the column made the cards before they scrolled: each card's rows give way to its width.
+    m_cards->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     auto* cards = new QVBoxLayout(m_cards);
     keepLayout(cards);
     cards->setContentsMargins(0, 0, 0, 0);
@@ -87,7 +102,11 @@ AnReadoutColumn::AnReadoutColumn(QWidget* parent) : QWidget(parent), m_width(par
     cards->addWidget(m_astrometry);
     cards->addWidget(m_image);
     cards->addStretch(0);
-    column->addWidget(m_cards, 1);
+    m_cardsArea->setWidget(m_cards);
+    // Set by the area as it takes the cards; the column's surface is what lies between them.
+    m_cards->setAutoFillBackground(false);
+    keepScrollContentSizedForItsWidth(m_cardsArea);
+    column->addWidget(m_cardsArea, 1);
 
     for (const ReadoutCardId id : kCards)
     {
@@ -246,7 +265,7 @@ void AnReadoutColumn::applyCollapsed()
 {
     m_eyebrow->setVisible(!m_collapsed);
     m_name->setVisible(!m_collapsed);
-    m_cards->setVisible(!m_collapsed);
+    m_cardsArea->setVisible(!m_collapsed);
     m_collapse->setDescription(m_collapsed ? tr("Open the readout column") : tr("Collapse the readout column"));
     if (m_collapsed)
     {

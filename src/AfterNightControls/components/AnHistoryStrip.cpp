@@ -146,9 +146,15 @@ public:
         return QSize(width, tokens().metrics.chip);
     }
 
+    /// The least it is drawn at: the strip narrows a chip that finds too little room and its name is elided, to its
+    /// first letter and an ellipsis at the least.
     [[nodiscard]] QSize minimumSizeHint() const override
     {
-        return sizeHint();
+        const QSize whole = sizeHint();
+        const QFont font = chipFont();
+        const int name = parts::textWidth(font, text());
+        const int elided = parts::textWidth(font, text().left(1) + QChar(0x2026));
+        return QSize(whole.width() - name + (std::min)(name, elided), whole.height());
     }
 
 protected:

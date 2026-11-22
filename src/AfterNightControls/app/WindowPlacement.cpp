@@ -13,6 +13,7 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QGuiApplication>
+#include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
 #include <QList>
@@ -132,6 +133,58 @@ void applyLayoutsFromTheInside(QWidget& window)
     }
 }
 
+/// Keeps a window's least height as high as its rows need at its least width, as what it shows changes. Qt works a
+/// window's least size out without the height its layout needs for a width, so where text wraps - a heading's
+/// description, a card of values - the rows were squeezed under their lines at the window's least size, by a few
+/// pixels each in a font whose lines are taller (Noto Sans). Owned by the window.
+class LeastHeightOfTheLines final : public QObject
+{
+public:
+    LeastHeightOfTheLines(QWidget& window, const int stated) : QObject(&window), m_window(window), m_stated(stated)
+    {
+        window.installEventFilter(this);
+        apply();
+    }
+
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        // A part's needs changed: the layout is worked out again as the window handles the request, after this.
+        if (watched == &m_window && event->type() == QEvent::LayoutRequest)
+        {
+            apply();
+        }
+        return false;
+    }
+
+private:
+    void apply()
+    {
+        QLayout* const layout = m_window.layout();
+        if (layout == nullptr)
+        {
+            return;
+        }
+        const QSize least = layout->totalMinimumSize();
+        int needs = least.height();
+        if (layout->hasHeightForWidth())
+        {
+            // The least height for the width: a part whose height follows its width at that height, any other at its
+            // least size - a scroll area at its own, not at what it holds.
+            const QMargins margins = m_window.contentsMargins();
+            const int width = (std::max)(m_window.minimumWidth(), least.width()) - margins.left() - margins.right();
+            needs = (std::max)(needs, layout->minimumHeightForWidth(width) + margins.top() + margins.bottom());
+        }
+        const int height = (std::max)(m_stated, needs);
+        if (height != m_window.minimumHeight())
+        {
+            m_window.setMinimumHeight(height);
+        }
+    }
+
+    QWidget& m_window;
+    int m_stated = 0;
+};
+
 /// Sizes a window's parts for the look in force. A window drawn for AfterNight 1.1 states sizes in pixels - a field
 /// 60 wide, a row 28 high, a window no smaller than 500 by 380 - that the Observatory profile's font and its
 /// densities outgrow: a field, a button with a text, a part that lays out others and the window itself each take
@@ -183,6 +236,16 @@ void fitToTheLook(QWidget& window)
         {
             letTakeWhatItNeeds(*part, QSize(0, part->minimumSizeHint().height()));
         }
+        else if (const auto* const label = qobject_cast<const QLabel*>(part))
+        {
+            // A label that does not wrap shows its text whole only as wide as the text: a width stated under it
+            // (1.1's "Output File Name", 100 px) cut the text short. A label that elides by design says so in its
+            // own least size.
+            if (!label->wordWrap() && !label->text().isEmpty())
+            {
+                letTakeWhatItNeeds(*part, QSize(label->minimumSizeHint().width(), 0));
+            }
+        }
         else if (QLayout* const layout = part->layout())
         {
             // Its layout's least size and what the part draws round it - a group box, its title - now that what
@@ -199,6 +262,9 @@ void fitToTheLook(QWidget& window)
         // up to it.
         layout->invalidate();
         layout->activate();
+        // A least height still stated is more than the layout asks; one the layout gave follows the layout.
+        const int stated = window.minimumHeight() > layout->totalMinimumSize().height() ? window.minimumHeight() : 0;
+        new LeastHeightOfTheLines(window, stated);
     }
 }
 

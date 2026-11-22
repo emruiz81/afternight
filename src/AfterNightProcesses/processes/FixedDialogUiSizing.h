@@ -136,8 +136,14 @@ inline void scheduleDialogResize(QDialog* dialog, const int delayMs = 0)
             (std::max)(guard->width(), (std::max)(guard->sizeHint().width(), guard->minimumSizeHint().width()));
         const int oldMinimumWidth = guard->minimumWidth();
         const int oldMaximumWidth = guard->maximumWidth();
+        // A least width of nothing - a dialog not yet shown, whose layout has given it none - is left alone: held and
+        // set back, Qt would keep it as a stated width of nothing, and the layout would never give the dialog its own.
+        const bool holdsLeastWidth = oldMinimumWidth > 0;
 
-        guard->setMinimumWidth(currentWidth);
+        if (holdsLeastWidth)
+        {
+            guard->setMinimumWidth(currentWidth);
+        }
         guard->setMaximumWidth(currentWidth);
 
         for (auto* childLayout : guard->findChildren<QLayout*>())
@@ -175,7 +181,10 @@ inline void scheduleDialogResize(QDialog* dialog, const int delayMs = 0)
             }
         }
 
-        guard->setMinimumWidth(oldMinimumWidth);
+        if (holdsLeastWidth)
+        {
+            guard->setMinimumWidth(oldMinimumWidth);
+        }
         guard->setMaximumWidth(oldMaximumWidth);
         guard->resize(currentWidth, targetHeight);
         // Under the Observatory profile, as high as what it holds and no higher than its screen leaves it: past

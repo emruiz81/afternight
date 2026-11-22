@@ -2239,6 +2239,34 @@ TEST(RegistrationSettingsDialog, CollapsingAdvancedSectionsResizesAdvancedDialog
     EXPECT_EQ(collapsedWidth, expandedWidth);
 }
 
+// The advanced dialog keeps the least width its layout gives it: its resize, asked for as it is made and run before its
+// first show, held its width while it measured and set back the least width it read - none yet - which Qt then keeps as
+// a stated width of nothing, so the dialog could be made 1 px wide with its heading, body and buttons outside it.
+TEST(RegistrationSettingsDialog, TheAdvancedDialogCannotBeMadeNarrowerThanItsLayout)
+{
+    ensureQApplication();
+
+    RegistrationSettingsDialog dialog(QStringLiteral("Group 1"), {QStringLiteral("C:/light_a.fit")});
+    dialog.show();
+    QApplication::processEvents();
+
+    auto* button = dialog.findChild<QPushButton*>(QStringLiteral("advancedSettingsButton"));
+    ASSERT_NE(button, nullptr);
+    QTest::mouseClick(button, Qt::LeftButton);
+    QApplication::processEvents();
+
+    auto* advancedDialog = dialog.findChild<QDialog*>(QStringLiteral("registrationAdvancedSettingsDialog"));
+    ASSERT_NE(advancedDialog, nullptr);
+    ASSERT_TRUE(advancedDialog->isVisible());
+    ASSERT_NE(advancedDialog->layout(), nullptr);
+
+    advancedDialog->resize(1, 1);
+    QApplication::processEvents();
+    EXPECT_GE(advancedDialog->width(), advancedDialog->layout()->totalMinimumSize().width())
+        << "the dialog was made " << advancedDialog->width() << " px wide where its layout needs "
+        << advancedDialog->layout()->totalMinimumSize().width();
+}
+
 TEST(RegistrationSettingsDialog, DetailedTooltipsArePresentForMainAndAdvancedParameters)
 {
     ensureQApplication();

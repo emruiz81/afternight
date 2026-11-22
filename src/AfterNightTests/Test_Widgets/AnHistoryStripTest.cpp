@@ -189,6 +189,25 @@ TEST(HistoryStrip, OverflowGivesWayToTheOldest)
     EXPECT_EQ(strip.shownChips().size(), 6);
 }
 
+// A chip the strip narrows elides its name, and states as its least size what it is then drawn at - its padding, its
+// icon, the first letter of its name and an ellipsis - not its whole width: narrowed by a font whose text runs wider
+// (Curves Transformation's chip under a task's image, in Noto Sans), it was read as clipped.
+TEST(HistoryStrip, ANarrowedChipStatesTheLeastItIsDrawnAt)
+{
+    AnHistoryStrip strip;
+    strip.setSteps(historyOf({"Curves Transformation"}, 0u));
+    const QSize full = strip.sizeHint();
+    strip.resize(full.width() - 25, full.height());
+    showOffScreen(strip);
+    QAbstractButton* const chip = strip.chipForStep(0u);
+    ASSERT_NE(chip, nullptr);
+    ASSERT_TRUE(chip->isVisible());
+    EXPECT_LT(chip->width(), chip->sizeHint().width()) << "the chip was not narrowed: the case shows nothing";
+    EXPECT_GE(chip->width(), chip->minimumSizeHint().width())
+        << "the strip draws the chip " << chip->width() << " px wide, under the least it states, "
+        << chip->minimumSizeHint().width();
+}
+
 // A click on one of the view's own steps other than the one shown asks for it, by its index in the steps.
 TEST(HistoryStrip, AClickJumps)
 {

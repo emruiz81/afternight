@@ -212,6 +212,11 @@ class SmallWindow : public SizesCase
 {
 };
 
+/// A window of its own: the folds a case opens stay with the column for the window's life.
+class EveryReadoutCardOpen : public SizesCase
+{
+};
+
 class DisplaySizes : public SizesCase
 {
 };
@@ -245,6 +250,31 @@ TEST_F(SmallWindow, NothingIsClippedAt1024x640)
                                            << clipped.join(QStringLiteral("\n  ")).toStdString();
             leave();
         }
+    }
+}
+
+// Every card of the readout opened, as a person may open them in a short window where the Image and Astrometry cards
+// start folded: at 1024 x 640 the cards scroll in their column and nothing of the workspace is clipped, in either
+// density.
+TEST_F(EveryReadoutCardOpen, NothingIsClippedAt1024x640)
+{
+    if (!textIsMeasured())
+    {
+        GTEST_SKIP() << "measured natively (QT_QPA_PLATFORM=windows): the suites' box font overflows what the "
+                        "interface's does not";
+    }
+    for (const an::ui::ThemeDensity density : kDensities)
+    {
+        setDensity(density);
+        SCOPED_TRACE(densityName(density));
+        ASSERT_NE(open(Page::Workspace), nullptr);
+        window().readoutColumn()->setFoldedCards(QString());
+        resizeTo(kLeastWindow);
+        ASSERT_TRUE(window().readoutColumn()->foldedCards().isEmpty());
+        const QStringList clipped = clippedIn(window());
+        EXPECT_TRUE(clipped.isEmpty()) << "a workspace with every card open at 1024 x 640, " << densityName(density)
+                                       << ":\n  " << clipped.join(QStringLiteral("\n  ")).toStdString();
+        leave();
     }
 }
 

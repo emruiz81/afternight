@@ -22,6 +22,7 @@
 #include "core/ApplicationCore.h"
 #include "projects/ProjectService.h"
 #include "services/ProcessLaunchService.h"
+#include "services/RecentFilesModel.h"
 #include "tasks/TaskModel.h"
 #include "theme/AnDesignTokens.h"
 
@@ -167,7 +168,11 @@ protected:
         switch (page)
         {
         case Page::Home: {
-            // Home shows a recent file, as it does once a person has worked: one opened and closed again.
+            // Home shows a recent file, as it does once a person has worked: one opened and closed again. The ones
+            // earlier cases opened go first, as Home's Clear recent files does once its question is answered: each is a
+            // tile, and Home's height would follow the order the suite ran in.
+            core().recentFiles().clear();
+            window().homePage()->recentFilesCleared();
             const QString file = writeImage(QStringLiteral("walk-recent.fits"));
             openFile(file);
             closeViews();

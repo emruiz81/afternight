@@ -197,8 +197,14 @@ public:
 protected:
     void resizeEvent(QResizeEvent* event) override;
     void showEvent(QShowEvent* event) override;
+    /// Places the storage buttons again as what they need changes - the density, the font - with the window's size.
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    /// The storage buttons side by side where both fit the side column in the font in force, one above the other
+    /// where they do not: under the narrow width, or where their text runs wider (Noto Sans' in the comfortable
+    /// density).
+    void placeStorageButtons();
     void rebuildHeader();
     void rebuildImages();
     void rebuildIntegrations();

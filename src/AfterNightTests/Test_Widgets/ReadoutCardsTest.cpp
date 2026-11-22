@@ -34,6 +34,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -874,6 +875,58 @@ TEST(ReadoutColumn, TheImageCardStartsFoldedInAShortWindow)
     remembered.setFoldedCards(QString());
     remembered.setWindowSize(QSize(1536, 800));
     EXPECT_FALSE(remembered.imageCard()->isFolded());
+}
+
+// Every card opened by the person in a column shorter than they need: the cards keep their least heights and scroll
+// under the header, the last one reached whole at the end, nothing sideways; a column they fit does not scroll.
+TEST(ReadoutColumn, CardsOpenedInAShortColumnScrollAndNothingIsCut)
+{
+    forEachLook([](const DesignTokens& /*t*/) {
+        an::ui::AnReadoutColumn column;
+        column.setFoldedCards(QString());
+        column.setWindowSize(QSize(1024, 640));
+        column.resize(column.columnWidth(), 420);
+        showOffScreen(column);
+        for (int round = 0; round < 3; ++round)
+        {
+            QCoreApplication::processEvents();
+        }
+        for (const an::ui::ReadoutCardId id : {an::ui::ReadoutCardId::Histogram, an::ui::ReadoutCardId::Statistics,
+                                               an::ui::ReadoutCardId::Astrometry, an::ui::ReadoutCardId::Image})
+        {
+            const an::ui::AnReadoutCard* const card = column.card(id);
+            EXPECT_FALSE(card->isFolded());
+            EXPECT_GE(card->height(), card->minimumSizeHint().height())
+                << an::ui::AnReadoutColumn::cardName(id).toStdString() << " is squeezed";
+        }
+        QScrollArea* area = nullptr;
+        for (QWidget* above = column.imageCard()->parentWidget(); above != nullptr && above != &column;
+             above = above->parentWidget())
+        {
+            if (auto* const found = qobject_cast<QScrollArea*>(above))
+            {
+                area = found;
+            }
+        }
+        ASSERT_NE(area, nullptr) << "the cards are in no scroll area: the last ones cannot be reached";
+        EXPECT_GE(area->mapTo(&column, QPoint(0, 0)).y(),
+                  column.nameLabel()->mapTo(&column, QPoint(0, 0)).y() + column.nameLabel()->height())
+            << "the header scrolls with the cards";
+        EXPECT_GT(area->verticalScrollBar()->maximum(), 0);
+        EXPECT_EQ(area->horizontalScrollBar()->maximum(), 0) << "the cards scroll sideways";
+        EXPECT_LE(area->widget()->width(), area->viewport()->width());
+        area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
+        QCoreApplication::processEvents();
+        const QRect last(column.imageCard()->mapTo(area->viewport(), QPoint(0, 0)), column.imageCard()->size());
+        EXPECT_TRUE(area->viewport()->rect().contains(last)) << "the last card is not reached whole";
+
+        column.resize(column.width(), 1000);
+        for (int round = 0; round < 3; ++round)
+        {
+            QCoreApplication::processEvents();
+        }
+        EXPECT_EQ(area->verticalScrollBar()->maximum(), 0) << "a column the cards fit scrolls";
+    });
 }
 
 // The collapse button collapses the column to itself and is told; again, it opens it.

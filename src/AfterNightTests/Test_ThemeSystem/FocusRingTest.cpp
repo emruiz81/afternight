@@ -154,11 +154,13 @@ protected:
         QCoreApplication::processEvents();
     }
 
-    /// The focus given to a control as Tab gives it: Tab pressed on the widget before it in the focus chain.
+    /// The focus given to a control as Tab gives it: Tab pressed on the widget before it in the focus chain that Tab
+    /// stops on - one shown: a tab bar's scroll buttons are in the chain, hidden while its tabs fit.
     void focusFromTheKeyboard(QWidget& control)
     {
         QWidget* before = control.previousInFocusChain();
-        while (before != nullptr && before != &control && (before->focusPolicy() & Qt::TabFocus) == 0)
+        while (before != nullptr && before != &control &&
+               ((before->focusPolicy() & Qt::TabFocus) == 0 || !before->isVisible()))
         {
             before = before->previousInFocusChain();
         }

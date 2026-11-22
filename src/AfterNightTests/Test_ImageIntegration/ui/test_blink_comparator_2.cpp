@@ -8,7 +8,12 @@
 #include <QtTest/QTest>
 #include <QListWidget>
 #include <QApplication>
+#include <QDeadlineTimer>
 #include <QKeyEvent>
+#include <QMargins>
+#include <QRect>
+#include <QScreen>
+#include <QWindow>
 #include <QDir>
 #include <QTemporaryDir>
 #include <QFile>
@@ -19,6 +24,7 @@
 #include <QVariantMap>
 
 #include "app/ApplicationStorage.h"
+#include "app/WindowPlacement.h"
 #include "Test_ControlsViewer/ViewerTestContext.h"
 
 #include "controls/ImageViewControl.h"
@@ -657,7 +663,12 @@ TEST(BlinkComparatorDialogWindowSettingsTest, RemembersWindowSizeAfterHistoryCom
         dialog.open();
         QApplication::processEvents();
         dialog.resize(930, 760);
-        QApplication::processEvents();
+        // The size the dialog keeps is the one the window manager gave it: waited for, as it answers in its own time.
+        const QDeadlineTimer resized(2000);
+        do
+        {
+            QApplication::processEvents();
+        } while (dialog.size() != QSize(930, 760) && !resized.hasExpired());
         dialog.reject();
         QApplication::processEvents();
     }
@@ -669,8 +680,26 @@ TEST(BlinkComparatorDialogWindowSettingsTest, RemembersWindowSizeAfterHistoryCom
         dialog.resize(820, 680);
         dialog.setMode(BlinkComparatorDialog::BlinkMode::SideBySide);
         dialog.open();
-        QApplication::processEvents();
-        EXPECT_EQ(dialog.size(), QSize(930, 760));
+        // The size remembered, as the first show holds it within the screen's available area: whole on a screen that
+        // has room for it, narrower on the 800 px screen of the suites' platform under Linux. A window manager answers
+        // the size when it comes to it, and the frame it puts round the window is known once the window is mapped.
+        const auto rememberedSize = [&dialog]() {
+            QMargins frame;
+            if (const QWindow* const native = dialog.windowHandle())
+            {
+                frame = native->frameMargins();
+            }
+            return an::ui::geometryWithinArea(QRect(dialog.pos(), QSize(930, 760)), frame, dialog.minimumSize(),
+                                              dialog.screen()->availableGeometry())
+                .size();
+        };
+        const QDeadlineTimer answered(2000);
+        do
+        {
+            QApplication::processEvents();
+        } while (dialog.size() != rememberedSize() && !answered.hasExpired());
+        const QSize remembered = rememberedSize();
+        EXPECT_EQ(dialog.size(), remembered);
     }
 
     clearBlinkComparatorWindowSettings();

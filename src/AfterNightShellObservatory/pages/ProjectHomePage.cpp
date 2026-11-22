@@ -18,10 +18,12 @@
 #include "theme/NightImage.h"
 
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QMargins>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -698,6 +700,7 @@ ProjectHomePage::ProjectHomePage(an::ui::shell::ApplicationCore& core, ImageInte
     storageButtons->addWidget(impl.clean, 0, Qt::AlignLeft);
     storageButtons->addStretch(1);
     impl.storageCard->body()->addLayout(storageButtons);
+    impl.storageCard->installEventFilter(this);
     right->addWidget(impl.storageCard, 0);
     auto* notesCard = new SectionCard(tr("Notes"), rightColumn);
     notesCard->setSummary(tr("saved with the project"));
@@ -970,10 +973,41 @@ void ProjectHomePage::resizeEvent(QResizeEvent* event)
     {
         m_impl->rightColumn->setFixedWidth(side);
     }
-    if (m_impl->storageButtons != nullptr)
+    placeStorageButtons();
+}
+
+bool ProjectHomePage::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_impl->storageCard && event->type() == QEvent::LayoutRequest)
     {
-        m_impl->storageButtons->setDirection(side == parts::kProjectHomeSideColumnNarrow ? QBoxLayout::TopToBottom
-                                                                                         : QBoxLayout::LeftToRight);
+        placeStorageButtons();
+    }
+    return QScrollArea::eventFilter(watched, event);
+}
+
+void ProjectHomePage::placeStorageButtons()
+{
+    Impl& impl = *m_impl;
+    if (impl.storageButtons == nullptr || impl.storageCard == nullptr || impl.rightColumn == nullptr ||
+        impl.compact == nullptr || impl.clean == nullptr)
+    {
+        return;
+    }
+    const int side = impl.rightColumn->minimumWidth();
+    const QLayout* const column = impl.rightColumn->layout();
+    const QLayout* const card = impl.storageCard->layout();
+    const QMargins around = column != nullptr ? column->contentsMargins() : QMargins();
+    const QMargins inside = card != nullptr ? card->contentsMargins() : QMargins();
+    const int room = side - around.left() - around.right() - inside.left() - inside.right();
+    const int sideBySide = impl.compact->sizeHint().width() + (std::max)(0, impl.storageButtons->spacing()) +
+                           impl.clean->sizeHint().width();
+    const QBoxLayout::Direction direction = side != parts::kProjectHomeSideColumnNarrow && sideBySide <= room
+                                                ? QBoxLayout::LeftToRight
+                                                : QBoxLayout::TopToBottom;
+    // Set only where it changes: a change asks for the card's layout again, which comes back here.
+    if (impl.storageButtons->direction() != direction)
+    {
+        impl.storageButtons->setDirection(direction);
     }
 }
 

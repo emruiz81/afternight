@@ -197,15 +197,9 @@ protected:
         const QString name = QString::fromUtf8(view.getUniqueName());
         EXPECT_TRUE(processEventsUntil([column, &name]() { return column->viewName() == name; }, kWaitMs))
             << "the readout follows " << column->viewName().toStdString();
-        for (an::ui::AnReadoutCard* card :
-             {column->card(an::ui::ReadoutCardId::Histogram), column->card(an::ui::ReadoutCardId::Statistics),
-              column->card(an::ui::ReadoutCardId::Astrometry), column->card(an::ui::ReadoutCardId::Image)})
-        {
-            if (card != nullptr)
-            {
-                card->setFolded(false);
-            }
-        }
+        // Every card open, as a line handed back opens them: a fold of the person's would be kept in the settings
+        // store, and every window the suite's later cases start would open with each card open.
+        column->setFoldedCards(QString());
         settle();
         return column;
     }

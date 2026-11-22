@@ -25,9 +25,14 @@
 
 #include <QAbstractButton>
 #include <QApplication>
+#include <QCheckBox>
 #include <QCoreApplication>
+#include <QDeadlineTimer>
 #include <QDialog>
+#include <QFormLayout>
 #include <QGuiApplication>
+#include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -234,6 +239,41 @@ void expectTheDefaults(const SettingsStore& store, const char* how)
     }
 }
 
+/// A page of one row wider than the page's least width: a check box whose text runs long, beside the form's labels.
+class WideRowPage final : public SettingsPage
+{
+public:
+    WideRowPage()
+    {
+        auto* const rows = new QFormLayout(this);
+        rows->setContentsMargins(0, 0, 0, 0);
+        m_box = new QCheckBox(QStringLiteral("A choice whose text runs on past the width the page states for itself, "
+                                             "which every page is given at the least"),
+                              this);
+        rows->addRow(QStringLiteral("Default compression:"), m_box);
+    }
+
+    [[nodiscard]] QString pageTitle() const override
+    {
+        return QStringLiteral("Wide");
+    }
+    [[nodiscard]] QIcon pageIcon() const override
+    {
+        return {};
+    }
+    void loadSettings() override {}
+    void saveSettings() override {}
+    void resetToDefaults() override {}
+
+    [[nodiscard]] QCheckBox* box() const
+    {
+        return m_box;
+    }
+
+private:
+    QCheckBox* m_box = nullptr;
+};
+
 } // namespace
 
 // The Observatory shell's Settings list General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs &
@@ -283,13 +323,27 @@ TEST(SettingsDialog, NoControlIsClipped)
         dialog.show();
         settle();
         dialog.resize(1, 1);
-        settle();
+        // A window manager answers the resize when it comes to it: under X11 the size comes back with its configure
+        // event, after the request is sent.
+        const QDeadlineTimer answered(2000);
+        do
+        {
+            settle();
+        } while (dialog.size() != dialog.minimumSize() && !answered.hasExpired());
         const QSize least = dialog.size();
         EXPECT_EQ(least, dialog.minimumSize()) << named;
-        EXPECT_EQ(least, QSize(858, 600)) << named;
-        // The area a 1280 x 720 display at 150 % leaves a window under its taskbar, less a title bar.
-        EXPECT_LE(least.width(), 1280) << named;
-        EXPECT_LE(least.height(), 688 - 32) << named;
+        // 858 x 600, or wider where a page's rows need more than the page's 600 px in the font in force (860 in the
+        // comfortable density in Noto Sans).
+        EXPECT_GE(least.width(), 858) << named;
+        EXPECT_EQ(least.height(), 600) << named;
+        ::testing::Test::RecordProperty(std::string(named) + "_least",
+                                        std::to_string(least.width()) + " x " + std::to_string(least.height()));
+        if (measured)
+        {
+            // The area a 1280 x 720 display at 150 % leaves a window under its taskbar, less a title bar.
+            EXPECT_LE(least.width(), 1280) << named;
+            EXPECT_LE(least.height(), 688 - 32) << named;
+        }
         for (int index = 0; index < dialog.pageCount(); ++index)
         {
             dialog.setCurrentPage(index);
@@ -536,6 +590,7 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
     struct Built
     {
         QSpinBox* field = nullptr;
+        QLabel* label = nullptr;
         QScrollArea* body = nullptr;
     };
     const auto build = [](QDialog& window) {
@@ -553,6 +608,13 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
         {
             column->addWidget(new QLabel(QStringLiteral("Row %1").arg(row), &window));
         }
+        // A label stated narrower than its text, beside a field that takes the rest of its row.
+        auto* const named = new QHBoxLayout();
+        built.label = new QLabel(QStringLiteral("A label stated narrower than its text"), &window);
+        built.label->setMinimumSize(QSize(10, 0));
+        named->addWidget(built.label);
+        named->addWidget(new QLineEdit(&window));
+        column->addLayout(named);
         auto* const footer = new QPushButton(QStringLiteral("Close"), &window);
         column->addWidget(footer);
         built.body = an::ui::scrollWindowBody(*column, above, footer);
@@ -583,6 +645,10 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
         {
             EXPECT_TRUE(area.contains(window.frameGeometry())) << "the window stands out of its screen";
         }
+        window.resize(1, 1);
+        settle();
+        EXPECT_GE(built.label->width(), built.label->minimumSizeHint().width())
+            << "at the window's least size the label kept the width stated for it, under its text's";
     }
     const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0], StyleProfile::Classic);
     QDialog window;
@@ -590,7 +656,91 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
     window.show();
     settle();
     EXPECT_EQ(built.field->width(), 12) << "under the Classic profile the stated width does not stand";
+    EXPECT_EQ(built.label->minimumWidth(), 10) << "under the Classic profile the label's stated width does not stand";
     EXPECT_EQ(built.body, nullptr);
+}
+
+// Under the Observatory profile a window whose text wraps is, at its least size, as high as its rows need at its least
+// width: Qt works a window's least size out without the height its layout needs for a width, so a card of wrapping
+// values under a wrapping description had its rows squeezed under their lines there, by a few pixels each in a font
+// whose lines are taller (Noto Sans).
+TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
+{
+    const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
+    QDialog window;
+    window.setAttribute(Qt::WA_DontShowOnScreen, true);
+    auto* const column = new QVBoxLayout(&window);
+    auto* const description =
+        new QLabel(QStringLiteral("A description long enough to take several lines where the window is as narrow as "
+                                  "it can be made, which is narrower than this sentence"),
+                   &window);
+    description->setWordWrap(true);
+    column->addWidget(description);
+    auto* const card = new QWidget(&window);
+    auto* const rows = new QFormLayout(card);
+    for (int row = 0; row < 8; ++row)
+    {
+        auto* const value = new QLabel(QStringLiteral("A value that wraps where it is narrow, %1").arg(row), card);
+        value->setWordWrap(true);
+        rows->addRow(QStringLiteral("Key %1").arg(row), value);
+    }
+    column->addWidget(card);
+    an::ui::holdWithinAvailableAreaWhenFirstShown(window);
+    window.show();
+    settle();
+    window.resize(1, 1);
+    settle();
+    const auto expectLinesWhole = [&window](const char* when) {
+        ASSERT_TRUE(window.layout()->hasHeightForWidth());
+        EXPECT_GE(window.height(), window.layout()->totalHeightForWidth(window.width()))
+            << when << ", at its least size, " << window.width() << " x " << window.height();
+        for (const QLabel* label : window.findChildren<QLabel*>())
+        {
+            const int lines = label->wordWrap() ? label->heightForWidth(label->width()) : label->sizeHint().height();
+            EXPECT_GE(label->height(), lines) << when << ": " << label->text().toStdString();
+        }
+    };
+    expectLinesWhole("as it was shown");
+
+    // What it shows grows after its first show - a banner, a row - and its least height follows, then comes back.
+    auto* const banner = new QLabel(QStringLiteral("A banner shown later, as long as the description and wrapping as "
+                                                   "it does where the window is narrow"),
+                                    &window);
+    banner->setWordWrap(true);
+    column->insertWidget(0, banner);
+    banner->show();
+    settle();
+    window.resize(1, 1);
+    settle();
+    expectLinesWhole("with a banner shown later");
+    const int withTheBanner = window.minimumHeight();
+    delete banner;
+    settle();
+    EXPECT_LT(window.minimumHeight(), withTheBanner) << "the least height did not come back as the banner went";
+    window.resize(1, 1);
+    settle();
+    expectLinesWhole("once the banner went");
+}
+
+// Under the Observatory profile a page whose rows need more than the page's least width widens the dialog's least size:
+// the pages' stack takes its scroll area's width whatever its pages need, so a row wider than the 600 px stated was cut
+// short at the dialog's least size - the Export page's byte-shuffle check box, 2 px short in Noto Sans.
+TEST(SettingsDialog, APageWhoseRowsNeedMoreThanTheLeastWidthWidensTheDialog)
+{
+    const Installed installed;
+    const an::ui::testing::ObservatoryStyleScope scope(an::ui::testing::observatoryLooks()[0]);
+    settle();
+    SettingsDialog dialog;
+    auto* const page = new WideRowPage();
+    dialog.addPage(page);
+    dialog.show();
+    settle();
+    dialog.resize(1, 1);
+    settle();
+    EXPECT_GE(page->box()->width(), page->box()->minimumSizeHint().width())
+        << "at the dialog's least size, " << dialog.width() << " x " << dialog.height();
+    EXPECT_GE(page->width(), page->minimumSizeHint().width());
+    dialog.hide();
 }
 
 // The Settings dialog opens within the available area of the screen it is shown on, its frame included, where that area

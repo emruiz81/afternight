@@ -31,6 +31,7 @@
 #include "controls/ImageHistoryIndex.h"
 #include "controls/ImageViewControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
+#include "theme/ComponentParts.h"
 #include "controls/SettingsDialog.h"
 #include "controls/settings/SettingsPage.h"
 #include "controls/settings/SettingsKeys.h"
@@ -56,6 +57,7 @@
 #include <QLayout>
 #include <QPlainTextEdit>
 #include <QMessageBox>
+#include <QPoint>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSize>
@@ -520,6 +522,39 @@ TEST_F(ProjectHome, TheNotesAreSavedToNotesMdAndReadBack)
     ASSERT_TRUE(projects().isOpen());
     ASSERT_TRUE(showProjectHome());
     EXPECT_EQ(page().notes()->toPlainText(), QStringLiteral("Red needs a second night."));
+}
+
+// The storage buttons stand side by side where both fit the side column and one above the other where they do not:
+// under the narrow width, or where their text runs wider than the column - Noto Sans' in the comfortable density, or a
+// longer translation - where side by side the second was cut short.
+TEST_F(Storage, TheButtonsStandOneAboveTheOtherWhereTheyDoNotFitSideBySide)
+{
+    (void)makeProject(QStringLiteral("Buttons"));
+    ASSERT_TRUE(showProjectHome());
+    auto* const compact = page().findChild<QPushButton*>(QStringLiteral("projectHomeCompactHistory"));
+    auto* const clean = page().findChild<QPushButton*>(QStringLiteral("projectHomeCleanIntermediate"));
+    ASSERT_NE(compact, nullptr);
+    ASSERT_NE(clean, nullptr);
+    // A text long enough that the two do not fit side by side, and short enough that each fits the card alone.
+    const int room = clean->parentWidget()->width();
+    QString text = QStringLiteral("Clean intermediate files");
+    while (compact->sizeHint().width() + clean->sizeHint().width() <= room)
+    {
+        text += QStringLiteral(" again");
+        clean->setText(text + QStringLiteral("..."));
+    }
+    if (clean->sizeHint().width() > room - 2 * an::ui::parts::kProjectSectionPadding)
+    {
+        GTEST_SKIP() << "the platform's font draws the button wider than the card alone";
+    }
+    window().resize(1300, 800);
+    QCoreApplication::processEvents();
+    window().resize(1280, 800);
+    QCoreApplication::processEvents();
+    page().widget()->layout()->activate();
+    EXPECT_GT(clean->mapTo(&page(), QPoint()).y(), compact->mapTo(&page(), QPoint()).y())
+        << "the buttons stand side by side where they do not fit";
+    EXPECT_GE(clean->width(), clean->minimumSizeHint().width()) << "the second button is cut short";
 }
 
 // The storage card's figures equal the folder's: its undo history, its integration data, the rest and the whole.
