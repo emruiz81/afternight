@@ -12,7 +12,7 @@
 #include "ObservatoryShell.h"
 #include "ObservatoryWindow.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "fixtures/WindowDriving.h"
 
 #include "app/FileCompanions.h"

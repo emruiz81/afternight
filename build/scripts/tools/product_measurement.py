@@ -28,16 +28,8 @@ output roots, and never against a baseline rebuilt from changed sources. That ne
   1.0. A second batch is analysed together with the first. The cancellation case's latency is reported, never decided
   with throughput.
 
-`run` and `campaign` measure one of two paths. `--path driver`, the default, launches the workflow driver above;
-`--path application` launches each deployment's application and drives it through its own windows with
-`product_application_driver.ps1` on Windows and `product_application_driver_linux.py` on Linux - the Process menu, the
-integration window, its folder dialogs, its progress dialog - so the region is the one a person sees and the resident
-peak includes Qt, Python and the codecs. The application path stages the pinned frame set as hard links under
-`--frames`, one folder per role, which is what the windows add, and gives every run a storage root of its own. Each path
-is decided against its own resolution: a recorded baseline states the path it measured.
-
 `campaign` runs a host's pinned series at the host's pairs and refuses one whose estimate - each side's run seconds
-the host states and what each path adds per run - exceeds the budget, which is under an hour; `run` refuses more pairs
+the host states and what the runner adds per run - exceeds the budget, which is under an hour; `run` refuses more pairs
 or warm-ups than the protocol unless asked.
 
 `check`, in the common check list, holds `build/scripts/tools/product_measurement.json` - the pinned dataset, the
@@ -54,10 +46,8 @@ Usage:
                                                          --corpus-root <dir> --output <new dir> [--pairs N]
                                                          [--warmups N] [--seed N]
                                                          [--keep-outputs] [--over-budget]
-                                                         [--path driver|application] [--frames <dir>]
     python build/scripts/tools/product_measurement.py campaign --baseline <dir> --candidate <dir> --host-id <host>
                                                               --corpus-root <dir> --output <new dir> [--work <dir>]
-                                                              [--path driver|application] [--frames <dir>]
                                                               [--dry-run]
     python build/scripts/tools/product_measurement.py compare <run dir> [<second batch dir>] [--output <file>]
     python build/scripts/tools/product_measurement.py check [--repo-root <dir>]
@@ -89,16 +79,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 CONFIGURATION = 'build/scripts/tools/product_measurement.json'
 DRIVER = 'AfterNightWorkflowDriver'
-# The two paths a run takes through the product: the workflow driver, or the application's own windows.
-PATHS = ('driver', 'application')
-# The script that drives a deployment's application through its windows, per platform.
-APPLICATION_DRIVER = {'windows': 'build/scripts/tools/product_application_driver.ps1',
-                      'linux': 'build/scripts/tools/product_application_driver_linux.py'}
-# The Linux driver runs under the system's Python, which carries PyGObject and the AT-SPI client library; the Python
-# running this tool is the project's, which carries numpy for the comparison and neither of those.
-SYSTEM_PYTHON = '/usr/bin/python3'
-# The folder each role's frames are staged in for the application's windows to add, which the windows read as the role.
-FRAME_FOLDERS = {'lights': 'LIGHTS', 'flats': 'FLAT', 'darks': 'DARK', 'bias': 'BIAS'}
 WORKFLOWS = ('full', 'lite')
 CASES = ('cold', 'warm', 'incremental', 'cancel')
 SIDES = ('baseline', 'candidate')
@@ -188,9 +168,6 @@ def configuration_findings(configuration: dict) -> list[str]:
 RUN_KINDS = ('fresh', 'incremental', 'cancel')
 # What the runner adds per run outside the driver: starting the child, reading the results, comparing the images.
 RUN_OVERHEAD_SECONDS = 5.0
-# What the application path adds per run outside its region: starting the application, opening the window, adding the
-# frames through its dialogs, stopping it and hashing and comparing its images - about 30 seconds on bench-windows.
-APPLICATION_RUN_OVERHEAD_SECONDS = 35.0
 # What evicting the pinned frame set from the cache before a cold run costs, as measured.
 EVICTION_SECONDS = 2.0
 
@@ -206,21 +183,20 @@ def series_runs(case: str, pairs: int, warmups: int) -> list[tuple[str, str]]:
     return runs
 
 
-def campaign_estimate(configuration: dict, host: str, path: str = 'driver') -> dict:
-    """The seconds each series of a host's campaign is expected to take by a path, and their total."""
+def campaign_estimate(configuration: dict, host: str) -> dict:
+    """The seconds each series of a host's campaign is expected to take, and their total."""
     campaign = (configuration.get('campaign') or {}).get('hosts', {}).get(host) or {}
     seconds = ((configuration.get('hosts') or {}).get(host) or {}).get('runSeconds') or {}
     warmups = configuration['protocol']['warmups']
-    overhead = APPLICATION_RUN_OVERHEAD_SECONDS if path == 'application' else RUN_OVERHEAD_SECONDS
     estimate = {}
     for series in campaign.get('series') or []:
         _, case = series.split('-', 1)
         total = 0.0
         for side, kind in series_runs(case, campaign.get('pairs', 0), warmups):
-            total += float((seconds.get(side) or {}).get(kind, 0.0)) + overhead
+            total += float((seconds.get(side) or {}).get(kind, 0.0)) + RUN_OVERHEAD_SECONDS
             total += EVICTION_SECONDS if case == 'cold' else 0.0
         estimate[series] = round(total, 1)
-    return {'path': path, 'series': estimate, 'totalSeconds': round(sum(estimate.values()), 1)}
+    return {'series': estimate, 'totalSeconds': round(sum(estimate.values()), 1)}
 
 
 def campaign_findings(configuration: dict) -> list[str]:
@@ -257,11 +233,10 @@ def campaign_findings(configuration: dict) -> list[str]:
                     problems.append(f'{host} states no {side} {kind} run seconds')
         if problems:
             continue
-        for path in PATHS:
-            total = campaign_estimate(configuration, host, path)['totalSeconds']
-            if total > budget * 60:
-                problems.append(f'the {host} campaign by the {path} path is estimated at {total / 60:.1f} minutes, '
-                                f'over its budget of {budget} minutes')
+        total = campaign_estimate(configuration, host)['totalSeconds']
+        if total > budget * 60:
+            problems.append(f'the {host} campaign is estimated at {total / 60:.1f} minutes, over its budget of {budget} '
+                            f'minutes')
     return problems
 
 
@@ -316,12 +291,10 @@ def baseline_findings(repo_root: pathlib.Path, configuration: dict) -> list[str]
     dataset = configuration.get('dataset') or {}
     head = _git(repo_root, 'rev-parse', 'HEAD').stdout.strip()
     for entry in configuration.get('baselines') or []:
-        label = f'the {entry.get("host")} {entry.get("path", "driver")} baseline'
+        label = f'the {entry.get("host")} baseline'
         for key in ('host', 'commit', 'archiveManifest', 'records'):
             if key not in entry:
                 problems.append(f'{label} states no {key}')
-        if entry.get('path', 'driver') not in PATHS:
-            problems.append(f'{label} names a path that is neither {" nor ".join(PATHS)}')
         commit = entry.get('commit', '')
         if commit and _git(repo_root, 'cat-file', '-e', f'{commit}^{{commit}}').returncode != 0:
             problems.append(f'{label} names {commit}, which is not a commit of this repository')
@@ -380,19 +353,16 @@ def baseline_resolution(comparisons: list[dict], factor: float) -> dict:
     return resolution
 
 
-def host_resolution(configuration: dict, host: str, path: str = 'driver') -> dict:
-    """The resolution a host's recorded baseline of a path states, with where it came from; 1.0 when it has none.
-
-    A baseline that names no path measured the driver's."""
+def host_resolution(configuration: dict, host: str) -> dict:
+    """The resolution a host's recorded baseline states, with where it came from; 1.0 when it has none."""
     limit = configuration['protocol']['noRegressionRatio']
     for entry in configuration.get('baselines') or []:
-        if entry.get('host') == host and entry.get('path', 'driver') == path \
-                and isinstance(entry.get('resolution'), dict):
+        if entry.get('host') == host and isinstance(entry.get('resolution'), dict):
             return {**{metric: entry['resolution'].get(metric, limit) for metric in METRICS},
-                    'source': f'the {host} {path} baseline at {str(entry.get("commit", ""))[:9]}, '
+                    'source': f'the {host} baseline at {str(entry.get("commit", ""))[:9]}, '
                               f'{configuration["protocol"]["resolutionFactor"]:g} times its largest excursion'}
     return {**{metric: limit for metric in METRICS},
-            'source': f'no recorded {path} baseline for {host}, so the no-regression ratio'}
+            'source': f'no recorded baseline for {host}, so the no-regression ratio'}
 
 
 def check(repo_root: pathlib.Path = REPO_ROOT) -> list[str]:
@@ -673,10 +643,9 @@ def build_schedule(pairs: int, seed: int) -> list[tuple[str, str]]:
     return schedule
 
 
-def driver_path(directory: pathlib.Path, path: str = 'driver') -> pathlib.Path:
-    """The binary a deployment runs by a path: its workflow driver, or its application."""
-    name = DRIVER + ('.exe' if host_platform() == 'windows' else '') if path == 'driver' \
-        else APPLICATION[host_platform()]
+def driver_path(directory: pathlib.Path) -> pathlib.Path:
+    """The workflow driver a deployment runs."""
+    name = DRIVER + ('.exe' if host_platform() == 'windows' else '')
     for candidate in (pathlib.Path(directory) / 'bin' / name, pathlib.Path(directory) / name):
         if candidate.is_file():
             return candidate
@@ -688,62 +657,6 @@ def require_numpy() -> None:
     if importlib.util.find_spec('numpy') is None:
         raise MeasurementError('the outputs are compared through numpy, which this Python does not have: '
                                'python -m pip install numpy')
-
-
-def stage_frames(frame_set: dict, corpus_root: pathlib.Path, frames: pathlib.Path) -> dict[str, int]:
-    """Stages the pinned frame set for the application's windows: each role's frames as hard links in the role's
-    folder under `frames`, nothing else beside them, so a window that adds a folder adds exactly the role's frames and
-    reads the corpus's own files. A link that is another file, or anything else under `frames`, is refused rather than
-    replaced."""
-    frames = pathlib.Path(frames)
-    frames.mkdir(parents=True, exist_ok=True)
-    counts = {}
-    for role in frame_set['roles']:
-        folder = FRAME_FOLDERS.get(role['role'])
-        if folder is None:
-            raise MeasurementError(f'the frame set has a role {role["role"]} no window adds')
-        directory = frames / folder
-        directory.mkdir(exist_ok=True)
-        expected = set()
-        for frame in role['frames']:
-            source = pathlib.Path(corpus_root) / frame['relativePath']
-            staged = directory / source.name
-            expected.add(staged.name)
-            if staged.exists():
-                if not os.path.samefile(staged, source):
-                    raise MeasurementError(f'{staged} is not {source}')
-                continue
-            try:
-                os.link(source, staged)
-            except OSError as error:
-                raise MeasurementError(f'{source} cannot be linked under {frames}, which must be on the corpus\'s '
-                                       f'volume: {error}') from error
-        foreign = sorted(entry.name for entry in directory.iterdir() if entry.name not in expected)
-        if foreign:
-            raise MeasurementError(f'{directory} holds {", ".join(foreign)}, which the frame set does not')
-        counts[folder] = len(expected)
-    foreign = sorted(entry.name for entry in frames.iterdir() if entry.name not in counts)
-    if foreign:
-        raise MeasurementError(f'{frames} holds {", ".join(foreign)} beside the role folders')
-    return counts
-
-
-def application_command(script: pathlib.Path, application: pathlib.Path, workflow: str, frames: pathlib.Path,
-                        output: pathlib.Path, storage: pathlib.Path, result: pathlib.Path, variant: int,
-                        cancel_after_ms: int, sampling_interval_ms: int, identity: str) -> list[str]:
-    """The command that drives one run through a deployment's application: Windows PowerShell, which carries the UI
-    Automation the Windows driver uses, or the system's Python, which carries the AT-SPI client the Linux driver uses."""
-    if host_platform() != 'windows':
-        return [SYSTEM_PYTHON, str(script), '--application', str(application), '--workflow', workflow,
-                '--frames', str(frames), '--output', str(output), '--storage', str(storage), '--result', str(result),
-                '--variant', str(variant), '--cancel-after-ms', str(cancel_after_ms),
-                '--sampling-interval-ms', str(sampling_interval_ms), '--dataset-identity', identity]
-    system = os.environ.get('SystemRoot', r'C:\Windows')
-    return [system + r'\System32\WindowsPowerShell\v1.0\powershell.exe', '-NoProfile', '-NonInteractive',
-            '-ExecutionPolicy', 'Bypass', '-File', str(script), '-Application', str(application), '-Workflow', workflow,
-            '-Frames', str(frames), '-Output', str(output), '-Storage', str(storage), '-Result', str(result),
-            '-Variant', str(variant), '-CancelAfterMs', str(cancel_after_ms),
-            '-SamplingIntervalMs', str(sampling_interval_ms), '-DatasetIdentity', identity]
 
 
 def child_environment(binaries: pathlib.Path) -> dict:
@@ -854,7 +767,6 @@ def summarize_result(result: dict) -> dict:
     timing = result.get('timing') or {}
     memory = result.get('memory') or {}
     preparation = result.get('preparation') or {}
-    process = result.get('process') or {}
     outputs = {entry['role'] + ':' + pathlib.PurePosixPath(entry['path']).name: entry['sha256']
                for entry in result.get('outputs') or [] if entry.get('role') != 'report'}
     return {'success': outcome.get('success', False), 'cancelled': outcome.get('cancelled', False),
@@ -866,9 +778,7 @@ def summarize_result(result: dict) -> dict:
             'executionMode': preparation.get('executionMode'),
             'stages': [stage.get('name') for stage in timing.get('stages') or []],
             'datasetIdentity': (result.get('dataset') or {}).get('identityDigest'),
-            'engine': result.get('engine'), 'outputs': outputs,
-            'regionCpuSeconds': process.get('cpuSecondsInRegion'), 'completion': outcome.get('completion'),
-            'error': outcome.get('error')}
+            'engine': result.get('engine'), 'outputs': outputs}
 
 
 def run_protocol(arguments) -> dict:
@@ -881,14 +791,11 @@ def run_protocol(arguments) -> dict:
                                f'{protocol["pairs"]} and {protocol["warmups"]}; pass --over-budget to run them anyway')
     dataset = configuration['dataset']
     workflow, case = arguments.workflow, arguments.case
-    path = getattr(arguments, 'path', 'driver')
     require_numpy()
-    if path == 'application' and not getattr(arguments, 'frames', None):
-        raise MeasurementError('the application path needs --frames, a directory on the corpus\'s volume')
     output = pathlib.Path(arguments.output)
     if output.exists() and any(output.iterdir()):
         raise MeasurementError(f'{output} exists and is not empty')
-    drivers = {'baseline': driver_path(arguments.baseline, path), 'candidate': driver_path(arguments.candidate, path)}
+    drivers = {'baseline': driver_path(arguments.baseline), 'candidate': driver_path(arguments.candidate)}
     corpus_root = pathlib.Path(arguments.corpus_root)
     corpus_manifest = corpus_root / dataset['corpusManifest']
     if file_sha256(corpus_manifest) != dataset['corpusManifestSha256']:
@@ -896,21 +803,16 @@ def run_protocol(arguments) -> dict:
     frame_set = next(entry for entry in json.loads(corpus_manifest.read_text(encoding='utf-8'))['frameSets']
                      if entry['id'] == dataset['frameSet'])
     inputs = [corpus_root / frame['relativePath'] for role in frame_set['roles'] for frame in role['frames']]
-    frames = pathlib.Path(arguments.frames) if path == 'application' else None
-    staged = stage_frames(frame_set, corpus_root, frames) if frames is not None else None
-    script = pathlib.Path(arguments.repo_root) / APPLICATION_DRIVER[host_platform()]
     (output / 'results').mkdir(parents=True)
     (output / 'logs').mkdir()
     seed = arguments.seed if arguments.seed is not None else protocol['seed']
     schedule = build_schedule(pairs, seed)
     work = pathlib.Path(arguments.work) if arguments.work else output / 'work'
-    record = {'schema': 1, 'path': path, 'workflow': workflow, 'case': case, 'host': arguments.host_id, 'seed': seed,
+    record = {'schema': 1, 'workflow': workflow, 'case': case, 'host': arguments.host_id, 'seed': seed,
               'pairsPlanned': pairs, 'warmups': warmups, 'datasetIdentity': dataset['identityDigest'],
               'baseline': str(pathlib.Path(arguments.baseline).resolve()),
               'candidate': str(pathlib.Path(arguments.candidate).resolve()),
               'driverSha256': {side: file_sha256(binary) for side, binary in drivers.items()},
-              'applicationDriverSha256': file_sha256(script) if path == 'application' else None,
-              'stagedFrames': staged,
               'maxParallelCores': arguments.max_parallel_cores, 'runs': [],
               'started': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}
     measured_count = {side: 0 for side in SIDES}
@@ -928,32 +830,18 @@ def run_protocol(arguments) -> dict:
         result_path = output / 'results' / f'{counter:03d}-{label}-{side}.json'
         log = output / 'logs' / f'{counter:03d}-{label}-{side}.log'
         cancel_after = configuration['cases']['cancel']['cancelAfterMs'] if case == 'cancel' else 0
-        storage = run_root / f'storage-{counter:03d}'
-        if path == 'application':
-            # Every run starts the application from a storage root of its own, so no run reads another's session.
-            env = dict(os.environ)
-            env.pop('AFTERNIGHT_TEST_STORAGE_ROOT', None)
-            command = application_command(script, drivers[side], workflow, frames, run_root / 'out', storage,
-                                          result_path, variant, cancel_after, protocol['samplingIntervalMs'],
-                                          dataset['identityDigest'])
-            process = run_one(command, log, env, run_root)
-        else:
-            driver_arguments = ['--workflow', workflow, '--corpus-manifest', str(corpus_manifest), '--frame-set',
-                                dataset['frameSet'], '--corpus-root', str(corpus_root), '--output',
-                                str(run_root / 'out'), '--result', str(result_path), '--variant', str(variant),
-                                '--sampling-interval-ms', str(protocol['samplingIntervalMs']),
-                                '--max-parallel-cores', str(arguments.max_parallel_cores)]
-            if case == 'cancel':
-                driver_arguments += ['--cancel-after-ms', str(cancel_after)]
-            process = run_one([str(drivers[side]), *driver_arguments], log, child_environment(drivers[side].parent),
-                              drivers[side].parent)
+        driver_arguments = ['--workflow', workflow, '--corpus-manifest', str(corpus_manifest), '--frame-set',
+                            dataset['frameSet'], '--corpus-root', str(corpus_root), '--output', str(run_root / 'out'),
+                            '--result', str(result_path), '--variant', str(variant),
+                            '--sampling-interval-ms', str(protocol['samplingIntervalMs']),
+                            '--max-parallel-cores', str(arguments.max_parallel_cores)]
+        if case == 'cancel':
+            driver_arguments += ['--cancel-after-ms', str(cancel_after)]
+        process = run_one([str(drivers[side]), *driver_arguments], log, child_environment(drivers[side].parent),
+                          drivers[side].parent)
         result = json.loads(result_path.read_text(encoding='utf-8-sig')) if result_path.is_file() else {}
         entry = {'index': counter, 'label': label, 'side': side, 'pair': pair_index, 'variant': variant,
                  'evictionSeconds': evicted, **process, **summarize_result(result)}
-        if path == 'application':
-            # The application's own processor time, not the driving script's.
-            entry['cpuSeconds'] = (result.get('process') or {}).get('cpuSeconds')
-            shutil.rmtree(storage, ignore_errors=True)
         if case != 'cancel':
             # Read before the run's output is deleted: its images against its side's first run's, outside any
             # measured region.
@@ -1455,19 +1343,21 @@ def compare(directories: list[pathlib.Path], configuration: dict | None = None) 
     protocol = configuration['protocol']
     records = [json.loads((pathlib.Path(directory) / 'runs.json').read_text(encoding='utf-8'))
                for directory in directories]
+    for directory, record in zip(directories, records):
+        # An older batch names the path it took. One that drove each deployment's application through its windows
+        # measured another region than the workflow driver's, so it is never decided as the driver's.
+        if record.get('path', 'driver') != 'driver':
+            raise MeasurementError(f'{directory} was measured by the {record["path"]} path, not the workflow driver')
     first = records[0]
     for record in records[1:]:
         for key in ('workflow', 'case', 'host', 'datasetIdentity'):
             if record.get(key) != first.get(key):
                 raise MeasurementError(f'the batches differ in {key}, so they cannot be analysed together')
-        if record.get('path', 'driver') != first.get('path', 'driver'):
-            raise MeasurementError('the batches differ in path, so they cannot be analysed together')
     pairs = measured_pairs(records)
     failures = [run['index'] for pair in pairs for run in pair
                 if not (run.get('cancelled') if first['case'] == 'cancel' else run.get('success'))]
-    path = first.get('path', 'driver')
-    resolution = host_resolution(configuration, first['host'], path)
-    report = {'schema': 1, 'path': path, 'workflow': first['workflow'], 'case': first['case'], 'host': first['host'],
+    resolution = host_resolution(configuration, first['host'])
+    report = {'schema': 1, 'workflow': first['workflow'], 'case': first['case'], 'host': first['host'],
               'datasetIdentity': first['datasetIdentity'], 'batches': len(records), 'pairs': len(pairs),
               'noRegressionRatio': protocol['noRegressionRatio'], 'resolution': resolution,
               'runsThatDidNotComplete': failures}
@@ -1489,9 +1379,7 @@ def compare(directories: list[pathlib.Path], configuration: dict | None = None) 
     report.update({'wallTime': time_decision, 'residentPeak': memory_decision, 'outputs': outputs,
                    'executionModes': modes,
                    'cpuSeconds': {side: [run.get('cpuSeconds') for pair in pairs for run in pair
-                                         if run['side'] == side] for side in SIDES},
-                   'regionCpuSeconds': {side: [run.get('regionCpuSeconds') for pair in pairs for run in pair
-                                               if run['side'] == side] for side in SIDES}})
+                                         if run['side'] == side] for side in SIDES}})
     if failures or not outputs['held']:
         verdict = 'refused: ' + ('a run did not complete' if failures else 'the outputs differ from their contract')
     elif first['case'] == 'incremental' and not all(reused_before_the_stack(run) for pair in pairs for run in pair):
@@ -1515,9 +1403,8 @@ def run_campaign(arguments) -> dict:
     entry = configuration['campaign']['hosts'].get(arguments.host_id)
     if entry is None:
         raise MeasurementError(f'the configuration states no campaign for {arguments.host_id}')
-    path = getattr(arguments, 'path', 'driver')
-    estimate = campaign_estimate(configuration, arguments.host_id, path)
-    print(f'{arguments.host_id}: {len(entry["series"])} series by the {path} path at {entry["pairs"]} pairs, estimated '
+    estimate = campaign_estimate(configuration, arguments.host_id)
+    print(f'{arguments.host_id}: {len(entry["series"])} series at {entry["pairs"]} pairs, estimated '
           f'{estimate["totalSeconds"] / 60:.1f} of {configuration["campaign"]["budgetMinutes"]} minutes', flush=True)
     for series, seconds in estimate['series'].items():
         print(f'  {series}: {seconds / 60:.1f} minutes', flush=True)
@@ -1538,7 +1425,7 @@ def run_campaign(arguments) -> dict:
         verdicts[series] = {'verdict': report['verdict'], 'minutes': round((time.monotonic() - started) / 60, 1)}
         print(f'{series}: {report["verdict"]}, {verdicts[series]["minutes"]} minutes', flush=True)
         shutil.rmtree(work / series, ignore_errors=True)
-    summary = {'host': arguments.host_id, 'path': path, 'estimate': estimate, 'series': verdicts}
+    summary = {'host': arguments.host_id, 'estimate': estimate, 'series': verdicts}
     (output / 'campaign.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
     return summary
 
@@ -1581,11 +1468,6 @@ def main(argv: list[str] | None = None) -> int:
     campaigning.add_argument('--output', type=pathlib.Path, required=True)
     campaigning.add_argument('--work', type=pathlib.Path)
     campaigning.add_argument('--dry-run', action='store_true', help='print the plan and its estimate only')
-    for parser_ in (running, campaigning):
-        parser_.add_argument('--path', choices=PATHS, default='driver',
-                             help='the workflow driver, or the application driven through its own windows')
-        parser_.add_argument('--frames', type=pathlib.Path,
-                             help='the application path: where the frame set is staged, on the corpus\'s volume')
     campaigning.add_argument('--repo-root', type=pathlib.Path, default=REPO_ROOT)
     running.add_argument('--repo-root', type=pathlib.Path, default=REPO_ROOT)
     comparing = commands.add_parser('compare')
@@ -1625,7 +1507,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if arguments.command == 'run':
             report = run_protocol(arguments)
-            print(f'{report["workflow"]} {report["case"]} by the {report["path"]} path: {report["verdict"]}')
+            print(f'{report["workflow"]} {report["case"]}: {report["verdict"]}')
             return 0
         report = compare(arguments.directories)
         if arguments.output:

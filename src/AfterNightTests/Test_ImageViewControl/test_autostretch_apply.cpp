@@ -596,9 +596,9 @@ class WindowLook : public AutostretchApply
 {
 };
 
-// The Autostretch Settings window under the Observatory profile: a heading that says the image, Close its footer's
-// primary button, text that meets the contrast rule, and a size its heading and its controls fit in whatever the
-// density - the window is as high as they need, where under the Classic profile it is the size it was drawn at.
+// The Autostretch Settings window: a heading that says the image, Close its footer's primary button, text that meets
+// the contrast rule, and a size its heading and its controls fit in whatever the density - the window is as high as
+// they need.
 TEST_F(WindowLook, AutostretchSettings)
 {
     ViewHandle view = viewOfDarkFrame();

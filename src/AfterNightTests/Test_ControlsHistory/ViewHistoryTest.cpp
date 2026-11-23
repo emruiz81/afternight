@@ -608,9 +608,9 @@ class WindowLook : public ViewHistoryTest
 {
 };
 
-// The Image History window under the Observatory profile: a heading that says the image, a footer whose rightmost
-// button is the primary one, text that meets the contrast rule, nothing clipped as it opens or at its least size,
-// and no step's name cut short that the Classic profile shows whole - in both densities.
+// The Image History window: a heading that says the image, a footer whose rightmost button is the primary one, text
+// that meets the contrast rule, nothing clipped as it opens or at its least size, and no step's name cut short as it
+// opens - in both densities.
 TEST_F(WindowLook, ImageHistory)
 {
     open();

@@ -50,8 +50,8 @@ inline void reparentLayoutWidgets(QLayout* layout, QWidget* parent)
 }
 
 /// Maps common hardcoded spacing values to the nearest design token value.
-/// Sizes a layout keeps whatever the spacing tokens are: under the Observatory profile, the density's gap and a panel's
-/// padding, which a widget sized from the metric tokens sets. -1 keeps nothing.
+/// Sizes a layout keeps whatever the spacing tokens are: the density's gap and a panel's padding, which a widget sized
+/// from the metric tokens sets. -1 keeps nothing.
 struct KeptSpacings
 {
     int gap = -1;

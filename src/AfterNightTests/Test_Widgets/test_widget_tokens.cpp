@@ -22,6 +22,7 @@
 #include "widgets/ImageLensWidget.h"
 #include "widgets/StructuredElementWidget.h"
 #include "widgets/SubStageIndicatorWidget.h"
+#include "theme_test_utils.h"
 #include "widgets/TimelineStageWidget.h"
 #include "widgets/waitingspinnerwidget.h"
 
@@ -77,10 +78,17 @@ TEST(WidgetDesignTokens, HistogramWidget_GridColorMatchesTokenBorderSubtle)
 
 TEST(WidgetDesignTokens, HistogramWidget_BackgroundColorMatchesTokenPrimarySurface)
 {
-    // The histogram always uses the dark theme background so that bar colours
-    // (white for mono, red/green/blue for RGB) remain visible in both themes.
+    // The histogram is drawn in the well, dark in both themes, so that its bars (white for mono, red, green and blue
+    // for RGB) stay visible whatever the theme.
+    an::tests::widgets::ScopedPaletteOverride paletteOverride;
     HistogramWidget widget(nullptr);
-    EXPECT_EQ(widget.getBackgroundColor(), an::ui::darkTokens().colors.bgPrimary);
+    for (const int window : {10, 245})
+    {
+        paletteOverride.setWindowColor(QColor(window, window, window));
+        an::ui::refreshTokens();
+        EXPECT_EQ(widget.getBackgroundColor(), an::ui::tokens().colors.bgWell) << window;
+        EXPECT_LT(widget.getBackgroundColor().lightnessF(), 0.25) << window;
+    }
 }
 
 TEST(WidgetDesignTokens, HistogramWidget_GuideLineColorMatchesTokenBorderSubtle)

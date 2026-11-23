@@ -1590,14 +1590,14 @@ QString runsText(const ExtensionRepositoryBrowseEntry& entry)
     return QObject::tr("Not declared");
 }
 
-/// Where a process of an interface opens: a panel the application draws in the main window when the shell takes
-/// processes into pages, and in a window of its own otherwise, as a window the extension draws does.
-QString opensText(const ExtensionInterface interface_kind, const bool processesArePages)
+/// Where a process of an interface opens: a panel the application draws in the main window, as a page; a window the
+/// extension draws in a window of its own.
+QString opensText(const ExtensionInterface interface_kind)
 {
     switch (interface_kind)
     {
     case ExtensionInterface::Panel:
-        return processesArePages ? QObject::tr("In the main window") : QObject::tr("In a window of its own");
+        return QObject::tr("In the main window");
     case ExtensionInterface::Window:
         return QObject::tr("In a window of its own");
     case ExtensionInterface::None:
@@ -1608,7 +1608,7 @@ QString opensText(const ExtensionInterface interface_kind, const bool processesA
 
 /// Where an extension's processes open: one place for all of them, or each process's where they differ. Known only
 /// once the package is installed, since its manifest says it.
-QString opensText(const ExtensionRepositoryBrowseEntry& entry, const bool processesArePages)
+QString opensText(const ExtensionRepositoryBrowseEntry& entry)
 {
     if (entry.installed_version.empty() || entry.installed_process_interfaces.empty())
     {
@@ -1617,7 +1617,7 @@ QString opensText(const ExtensionRepositoryBrowseEntry& entry, const bool proces
     QStringList places;
     for (const ExtensionProcessInterface& process : entry.installed_process_interfaces)
     {
-        const QString place = opensText(process.interface_kind, processesArePages);
+        const QString place = opensText(process.interface_kind);
         if (!places.contains(place))
         {
             places.append(place);
@@ -1631,7 +1631,7 @@ QString opensText(const ExtensionRepositoryBrowseEntry& entry, const bool proces
     for (const ExtensionProcessInterface& process : entry.installed_process_interfaces)
     {
         each.append(QObject::tr("%1: %2").arg(QString::fromStdString(process.display_name),
-                                              opensText(process.interface_kind, processesArePages).toLower()));
+                                              opensText(process.interface_kind).toLower()));
     }
     return each.join(QStringLiteral("; "));
 }
@@ -1650,14 +1650,6 @@ int contributedProcessCount(const std::string& extension_id)
 QString addedText(const int count)
 {
     return count == 1 ? QObject::tr("1 process") : QObject::tr("%1 processes").arg(count);
-}
-
-/// Whether the shell running takes processes into pages of the main window - it has a process presenter - which is
-/// where a panel the application draws is shown then.
-bool processesOpenAsPages()
-{
-    an::ui::IAppContext* const context = an::ui::appContext();
-    return context != nullptr && context->getProcessPresenter() != nullptr;
 }
 
 QString compatibilityText(const ExtensionRepositoryBrowseEntry& entry)
@@ -4785,8 +4777,7 @@ QWidget* ExtensionManagerPage::buildRepositoryCard(const ExtensionRepositoryBrow
                    fieldObjectName(entry.id, "publisher"));
     addMetadataRow(grid, row++, 1, tr("License:"), metadataText(entry.license), fieldObjectName(entry.id, "license"));
     addMetadataRow(grid, row, 0, tr("How It Runs:"), runsText(entry), fieldObjectName(entry.id, "runs"));
-    addMetadataRow(grid, row++, 1, tr("Where It Opens:"), opensText(entry, processesOpenAsPages()),
-                   fieldObjectName(entry.id, "opens"));
+    addMetadataRow(grid, row++, 1, tr("Where It Opens:"), opensText(entry), fieldObjectName(entry.id, "opens"));
     // An extension that added processes while it ran says how many it has added.
     if (const int added = contributedProcessCount(entry.id); added > 0)
     {

@@ -7,25 +7,24 @@
     capability view.context-menu
         title        The context menu of a view, entry for entry
         shared       ViewMenuBuilder.EqualsTheRecordedTree
-        classic      ShellScenario.ViewMenuEntries/classic
-        observatory  pending
+        observatory  ShellScenario.ViewMenuEntries/observatory
 
-`shared` names cases of code every shell uses - a dialog, a control, a model; `classic` and `observatory` name cases
-that drive that shell's own window. A case is named `Suite.Case`, and a scenario run for one shell `Suite.Case/<shell>`,
-as Google Test names it. The check holds the register to the tree:
+`shared` names cases of code every shell uses - a dialog, a control, a model; `observatory` names cases that drive the
+Observatory shell's own window. A case is named `Suite.Case`, and a scenario run for one shell `Suite.Case/<shell>`, as
+Google Test names it. The check holds the register to the tree:
 
-- every record states its title and its three lines, in that order, and no capability is listed twice;
+- every record states its title and its two lines, in that order, and no capability is listed twice; a line of
+  another kind is refused;
 - every case named exists in the suites' sources under src/AfterNightTests - a `TEST`, `TEST_F`, `TEST_P`,
   `TYPED_TEST` or `TYPED_TEST_P` of that suite and name - and a case named for a shell is a value-parameterised case,
   named on that shell's line; a value-parameterised case named whole, every instance of it, is named so only on the
   `shared` line;
 - every capability has an `observatory` line: one case or more, or the word `pending` until its cases are written.
 
-An empty `shared` or `classic` line is a capability with no case of that kind: 1.1 has no case for it, or no code of
-it is shared.
+An empty `shared` line is a capability with no code of it shared.
 
 With `--require-shell <shell>`, no line of that shell may be `pending` or empty: every capability names a case that
-drives that shell - the condition a shell meets before the shell it replaces is retired.
+drives that shell.
 
 Usage:
     python build/scripts/tools/check_shell_capabilities.py [--repo-root <dir>] [--require-shell <shell>]
@@ -42,7 +41,7 @@ import sys
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 REGISTER = 'src/AfterNightTests/Test_ShellParity/Capabilities.txt'
 TESTS_ROOT = 'src/AfterNightTests'
-SHELLS = ('classic', 'observatory')
+SHELLS = ('observatory',)
 FIELDS = ('title', 'shared') + SHELLS
 PENDING = 'pending'
 
@@ -188,10 +187,9 @@ def summary(repo_root: pathlib.Path) -> str:
     named = {field: sum(len([name for name in capability.cases(field) if name != PENDING])
                         for capability in capabilities) for field in ('shared',) + SHELLS}
     pending = sum(1 for capability in capabilities if capability.cases('observatory') == [PENDING])
-    without = sum(1 for capability in capabilities if not capability.cases('classic'))
     return (f'the capability register holds {len(capabilities)} capabilities and the suites define every case it '
-            f'names: shared {named["shared"]}, classic {named["classic"]}, observatory {named["observatory"]}; '
-            f'{without} with no classic case, {pending} pending for the observatory shell')
+            f'names: shared {named["shared"]}, observatory {named["observatory"]}; {pending} pending for the '
+            f'observatory shell')
 
 
 def main(argv=None) -> int:

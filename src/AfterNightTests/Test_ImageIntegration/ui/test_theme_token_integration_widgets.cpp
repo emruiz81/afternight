@@ -160,20 +160,20 @@ TEST(ThemeTokenIntegrationWidgets, ImageIntegrationResponsiveSourceGuardsUseToke
         QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/dialogs/ManualRegistrationDialog.cpp"));
     const QString blinkDialog = readRepoSourceFile(
         QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/dialogs/BlinkComparatorDialog.cpp"));
-    const QString progressDialog = readRepoSourceFile(
-        QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.cpp"));
+    const QString runView = readRepoSourceFile(
+        QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/widgets/WorkflowRunView.cpp"));
     const QString pipelineWidget = readRepoSourceFile(
         QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/tabs/WorkflowProgressPipelineWidget.cpp"));
     ASSERT_FALSE(manualDialog.isEmpty());
     ASSERT_FALSE(blinkDialog.isEmpty());
-    ASSERT_FALSE(progressDialog.isEmpty());
+    ASSERT_FALSE(runView.isEmpty());
     ASSERT_FALSE(pipelineWidget.isEmpty());
 
     EXPECT_FALSE(manualDialog.contains(QStringLiteral("resize(1200, 760)")));
     EXPECT_FALSE(manualDialog.contains(QRegularExpression(QStringLiteral(R"(\bresize\s*\()"))));
     EXPECT_FALSE(blinkDialog.contains(QRegularExpression(QStringLiteral(R"(\bresize\s*\(\s*\d+\s*,)"))));
     EXPECT_TRUE(blinkDialog.contains(QStringLiteral("expandedTo(minimumSize())")));
-    EXPECT_FALSE(progressDialog.contains(QRegularExpression(QStringLiteral(R"(\bresize\s*\()"))));
+    EXPECT_FALSE(runView.contains(QRegularExpression(QStringLiteral(R"(\bresize\s*\()"))));
     EXPECT_TRUE(manualDialog.contains(QStringLiteral("setSizeGripEnabled(true)")));
     EXPECT_TRUE(manualDialog.contains(QStringLiteral("setMinimumSize(spacing.xl * 28, spacing.xl * 18)")));
 

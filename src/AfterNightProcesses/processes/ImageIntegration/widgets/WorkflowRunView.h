@@ -4,8 +4,7 @@
 #pragma once
 
 /// @file
-/// A run of the workflow as a person follows it: what the Processing window holds, as a widget the window and a page
-/// both show.
+/// A run of the workflow as a person follows it, in the process it was launched from.
 
 #include "AfterNightProcessesExport.h"
 
@@ -55,7 +54,7 @@ class WorkflowProgressController;
 ///
 /// **Its acts.** Cancel asks the run to stop (`cancelRequested`, and the controller's cancel) and says so until it
 /// has. Once the run has ended, Open Report opens the report it left, when it left one, and Close asks whatever holds
-/// the view to put it away (`closeRequested`): a window closes, a page shows its stages again.
+/// the view to put it away (`closeRequested`): the process shows what the view took the place of again.
 ///
 /// It follows the controller it is given - its progress, its log, its end - and may be fed by hand, as a preparation
 /// that ends before any run does. Used on the GUI thread.

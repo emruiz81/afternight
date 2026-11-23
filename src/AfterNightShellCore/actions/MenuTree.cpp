@@ -18,7 +18,8 @@ namespace an::ui::shell
 namespace
 {
 
-/// The context the menus' titles are translated under: the one the classic window's titles always had.
+/// The context the menus' titles are translated under: the one AfterNight 1.1's main window gave them, which the
+/// translations keep.
 constexpr const char* kTranslationContext = "AfterNightAppClass";
 
 // clang-format off

@@ -2,25 +2,25 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Home's parts, held to the dashboard's: the quick actions in the order and with the overflow the dashboard's
-/// settings give, moved, hidden and reset as the dashboard's are; the featured image and its pin, which are the
-/// dashboard's settings; the last sequence; the recent files searched and sorted as the dashboard's grid does, shown as
+/// Home's parts: the quick actions in the order and with the More menu their settings give, moved, hidden, shown and
+/// reset step by step, each asking for what it names and recorded by its words, their stored order and hidden actions
+/// read and kept in their canonical form, and their tooltips; the featured image, its title and facts, its pin, its
+/// fade and the image passed over when its picture cannot be read; the last sequence; the recent files searched and
+/// sorted, the search, the sort and the arrangement remembered in their settings and in the settings' format, shown as
 /// a grid or a list, a sequence's tile with its film glyph and frame count, and the tile's menu; and the welcome with
-/// no recent file, its cards and its drop zone. The parts read the application double's settings, recent files and
-/// thumbnails through the context the suite installs, as the dashboard does.
+/// no recent file, its cards and its drop zone. The parts read the application double's settings and thumbnails
+/// through the context the suite installs.
 
 #include "Test_MainDashboard/DashboardApplication.h"
 
-#include "controls/DashboardOnboardingPanel.h"
 #include "controls/DashboardPreferences.h"
+#include "controls/DashboardUtils.h"
 #include "controls/EngineVersionReport.h"
 #include "controls/HomeContinueRow.h"
 #include "controls/HomeParts.h"
 #include "controls/HomeQuickActions.h"
 #include "controls/HomeRecentGrid.h"
 #include "controls/HomeWelcome.h"
-#include "controls/MainDashboard.h"
-#include "controls/RecentFilesGrid.h"
 #include "controls/settings/SettingsKeys.h"
 #include "widgets/FeaturedFileCard.h"
 
@@ -34,11 +34,12 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFile>
+#include <QGraphicsOpacityEffect>
 #include <QImage>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
-#include <QPointer>
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QUrl>
@@ -49,7 +50,7 @@
 
 #include <algorithm>
 #include <deque>
-#include <functional>
+#include <iterator>
 #include <string>
 
 namespace
@@ -105,18 +106,26 @@ void recordThumbnail(const QTemporaryDir& folder, const QString& file, const QCo
     DashboardApplication::instance()->setThumbnailPath(file, path);
 }
 
-/// Records recent files, most recent first, each with a thumbnail.
-void recordRecents(const QTemporaryDir& folder, const QStringList& files)
+/// Records a thumbnail for each recent file, each in a shade of its own.
+void recordThumbnails(const QTemporaryDir& folder, const QStringList& files)
 {
-    std::deque<std::string> recents;
     int shade = 60;
     for (const QString& file : files)
     {
-        recents.push_back(file.toStdString());
         recordThumbnail(folder, file, QColor(shade, 120, 200 - shade / 2));
         shade += 25;
     }
-    DashboardApplication::instance()->setRecentFiles(recents);
+}
+
+/// Three recent images with their thumbnails, most recent first: M42_Light_001.fit, Andromeda_001.xisf and
+/// M42_Blue_002.fit.
+QStringList threeRecentImages(const QTemporaryDir& folder)
+{
+    const QStringList files = {recentFile(folder, QStringLiteral("M42_Light_001.fit")),
+                               recentFile(folder, QStringLiteral("Andromeda_001.xisf")),
+                               recentFile(folder, QStringLiteral("M42_Blue_002.fit"))};
+    recordThumbnails(folder, files);
+    return files;
 }
 
 std::deque<QString> asDeque(const QStringList& files)
@@ -124,33 +133,16 @@ std::deque<QString> asDeque(const QStringList& files)
     return std::deque<QString>(files.cbegin(), files.cend());
 }
 
-// ---- The dashboard, read as its own cases read it.
-
-QStringList dashboardRowTitles(MainDashboard& dashboard)
+/// The quick actions' titles, as the row and the More menu show them.
+struct Titles
 {
-    QList<QPushButton*> buttons = dashboard.findChildren<QPushButton*>(QStringLiteral("dashboardActionButton"));
-    buttons.erase(std::remove_if(buttons.begin(), buttons.end(),
-                                 [](QPushButton* button) {
-                                     return !button->isVisible() ||
-                                            button->property("dashboardActionPlacement").toString() !=
-                                                QStringLiteral("primary");
-                                 }),
-                  buttons.end());
-    std::sort(buttons.begin(), buttons.end(),
-              [](QPushButton* lhs, QPushButton* rhs) { return lhs->geometry().x() < rhs->geometry().x(); });
-    QStringList titles;
-    for (QPushButton* button : buttons)
-    {
-        titles << button->property("dashboardActionTitle").toString();
-    }
-    return titles;
-}
-
-QMenu* dashboardMoreMenu(MainDashboard& dashboard)
-{
-    auto* button = dashboard.findChild<QPushButton*>(QStringLiteral("dashboardToolbarOverflowButton"));
-    return button != nullptr ? button->menu() : nullptr;
-}
+    QString open = QStringLiteral("Open file");
+    QString sequence = QStringLiteral("New sequence");
+    QString integration = QStringLiteral("Image integration");
+    QString extensions = QStringLiteral("Extension Manager");
+    QString clear = QStringLiteral("Clear recents");
+    QString info = QStringLiteral("System info");
+};
 
 /// The actions of a menu that act - not its submenus and separators - by their text.
 QStringList actingEntries(const QMenu* menu)
@@ -267,13 +259,6 @@ std::string described(const QuickActionsState& state)
         .toStdString();
 }
 
-QuickActionsState stateOf(MainDashboard& dashboard)
-{
-    return {dashboardRowTitles(dashboard), actingEntries(dashboardMoreMenu(dashboard)),
-            stored(SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER),
-            stored(SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS)};
-}
-
 QuickActionsState stateOf(HomeQuickActions& home)
 {
     // The row as it is laid out, left to right, and every button of it shown.
@@ -304,7 +289,7 @@ void showAndSettle(QWidget& widget, const QSize& size)
     QTest::qWait(20);
 }
 
-/// The steps a person takes in the customization, as the dashboard's More menu names them.
+/// The steps a person takes in the customization, as the More menu names them.
 const QList<QStringList>& customizationSteps()
 {
     static const QList<QStringList> steps = {
@@ -317,6 +302,36 @@ const QList<QStringList>& customizationSteps()
         {QStringLiteral("Reset quick actions")},
     };
     return steps;
+}
+
+/// What the row, the More menu and the settings hold before the first step of the customization and after each.
+QList<QuickActionsState> customizationStates()
+{
+    const Titles t;
+    const QString canonical =
+        QStringLiteral("open_file\nnew_sequence\nimage_integration\nextension_manager\nclear_recents\nsystem_info");
+    const QString openLater =
+        QStringLiteral("new_sequence\nopen_file\nimage_integration\nextension_manager\nclear_recents\nsystem_info");
+    const QString integrationEarlier =
+        QStringLiteral("new_sequence\nimage_integration\nopen_file\nextension_manager\nclear_recents\nsystem_info");
+    const QString extensionsEarlier =
+        QStringLiteral("new_sequence\nimage_integration\nextension_manager\nopen_file\nclear_recents\nsystem_info");
+    return {
+        {{t.open, t.sequence, t.integration}, {t.extensions, t.clear, t.info}, canonical, QString()},
+        {{t.sequence, t.open, t.integration}, {t.extensions, t.clear, t.info}, openLater, QString()},
+        {{t.sequence, t.open, t.integration}, {t.extensions, t.clear}, openLater, QStringLiteral("system_info")},
+        {{t.sequence, t.integration, t.open},
+         {t.extensions, t.clear},
+         integrationEarlier,
+         QStringLiteral("system_info")},
+        {{t.integration, t.open},
+         {t.extensions, t.clear},
+         integrationEarlier,
+         QStringLiteral("new_sequence\nsystem_info")},
+        {{t.integration, t.open}, {t.extensions, t.clear, t.info}, integrationEarlier, QStringLiteral("new_sequence")},
+        {{t.integration, t.open}, {t.extensions, t.clear, t.info}, extensionsEarlier, QStringLiteral("new_sequence")},
+        {{t.open, t.sequence, t.integration}, {t.extensions, t.clear, t.info}, canonical, QString()},
+    };
 }
 
 // ---- Home's recent files
@@ -364,35 +379,32 @@ HomeRecentTile* tileFor(const HomeRecentGrid& grid, const QString& path)
     return nullptr;
 }
 
-/// The dashboard's grid over a list, once it has ordered it.
-QStringList dashboardGridOrder(an::ui::RecentFilesGrid& grid, const QString& search, int sortMode)
-{
-    QSignalSpy refreshed(&grid, &an::ui::RecentFilesGrid::stateChanged);
-    grid.setSearchFilter(search);
-    grid.setSortMode(sortMode);
-    grid.reloadThumbnails();
-    EXPECT_TRUE(refreshed.wait(kWaitMs));
-    return grid.visibleFileOrder();
-}
-
 } // namespace
 
 // ---- The quick actions
 
-// For the same settings - none, an order with a hidden action, a hidden primary action - Home's row holds the actions
-// the dashboard's toolbar shows, in its order, and its More menu the ones the dashboard's overflow holds.
-TEST(HomeQuickActions, TheRowAndTheMoreMenuEqualTheDashboardsForTheSameSettings)
+// For each of three settings - none, an order with a hidden action, a hidden primary action - the row holds the shown
+// primary actions in the stored order and the More menu the other shown actions, in that order.
+TEST(HomeQuickActions, TheRowAndTheMoreMenuFollowTheStoredOrderAndHiddenActions)
 {
+    const Titles t;
     struct Stored
     {
         QString order;
         QString hidden;
+        QStringList row;
+        QStringList more;
     };
     const QList<Stored> cases = {
-        {QString(), QString()},
+        {QString(), QString(), {t.open, t.sequence, t.integration}, {t.extensions, t.clear, t.info}},
         {QStringLiteral("image_integration\nnew_sequence\nopen_file\nsystem_info\nclear_recents"),
-         QStringLiteral("system_info")},
-        {QStringLiteral("system_info\nextension_manager"), QStringLiteral("new_sequence\nclear_recents")},
+         QStringLiteral("system_info"),
+         {t.integration, t.sequence, t.open},
+         {t.clear, t.extensions}},
+        {QStringLiteral("system_info\nextension_manager"),
+         QStringLiteral("new_sequence\nclear_recents"),
+         {t.open, t.integration},
+         {t.info, t.extensions}},
     };
     for (const Stored& stated : cases)
     {
@@ -402,45 +414,22 @@ TEST(HomeQuickActions, TheRowAndTheMoreMenuEqualTheDashboardsForTheSameSettings)
         store(SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER, stated.order);
         store(SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS, stated.hidden);
 
-        MainDashboard dashboard;
-        dashboard.initialize(DashboardApplication::instance());
-        showAndSettle(dashboard, QSize(1280, 900));
         HomeQuickActions home;
         showAndSettle(home, QSize(1100, 60));
 
-        const QuickActionsState dashboardShows = stateOf(dashboard);
-        const QuickActionsState homeShows = stateOf(home);
-        EXPECT_EQ(homeShows.row, dashboardShows.row) << described(homeShows) << " / " << described(dashboardShows);
-        EXPECT_EQ(homeShows.more, dashboardShows.more) << described(homeShows) << " / " << described(dashboardShows);
-        EXPECT_EQ(titlesOf(home.rowActionIds()), homeShows.row);
+        const QuickActionsState shown = stateOf(home);
+        EXPECT_EQ(shown.row, stated.row) << described(shown);
+        EXPECT_EQ(shown.more, stated.more) << described(shown);
+        EXPECT_EQ(titlesOf(home.rowActionIds()), shown.row);
     }
 }
 
-// Moving, hiding, showing and resetting the quick actions, step by step, leave Home's row, its More menu and the
-// settings as the same steps leave the dashboard's: through the More menu and through the row's right-click.
-TEST(HomeQuickActions, MovingHidingAndResettingEqualTheDashboards)
+// Moving, hiding, showing and resetting the quick actions, step by step, leave the row, the More menu and the settings
+// as each step says: through the More menu and through the row's right-click alike.
+TEST(HomeQuickActions, MovingHidingAndResettingChangeTheRowTheMenuAndTheSettingsStepByStep)
 {
-    const auto customizeDashboard = []() {
-        DashboardApplication::instance()->resetForTest();
-        MainDashboard dashboard;
-        dashboard.initialize(DashboardApplication::instance());
-        showAndSettle(dashboard, QSize(1280, 900));
-        QList<QuickActionsState> states{stateOf(dashboard)};
-        for (const QStringList& step : customizationSteps())
-        {
-            QAction* action =
-                entryAt(dashboardMoreMenu(dashboard), QStringList{QStringLiteral("Customize quick actions")} + step);
-            EXPECT_NE(action, nullptr) << step.join(QStringLiteral(" > ")).toStdString();
-            if (action != nullptr)
-            {
-                action->trigger();
-                QCoreApplication::processEvents();
-            }
-            states << stateOf(dashboard);
-        }
-        return states;
-    };
-    const QList<QuickActionsState> dashboardStates = customizeDashboard();
+    const QList<QuickActionsState> expected = customizationStates();
+    ASSERT_EQ(expected.size(), customizationSteps().size() + 1);
 
     // Through Home's More menu.
     {
@@ -459,12 +448,11 @@ TEST(HomeQuickActions, MovingHidingAndResettingEqualTheDashboards)
             }
             states << stateOf(home);
         }
-        ASSERT_EQ(states.size(), dashboardStates.size());
+        ASSERT_EQ(states.size(), expected.size());
         for (qsizetype step = 0; step < states.size(); ++step)
         {
-            EXPECT_EQ(states[step], dashboardStates[step])
-                << "after step " << step << ": Home " << described(states[step]) << " / the dashboard "
-                << described(dashboardStates[step]);
+            EXPECT_EQ(states[step], expected[step]) << "after step " << step << ": shown " << described(states[step])
+                                                    << " / expected " << described(expected[step]);
         }
     }
 
@@ -481,77 +469,54 @@ TEST(HomeQuickActions, MovingHidingAndResettingEqualTheDashboards)
             EXPECT_TRUE(choose(menu, step)) << step.join(QStringLiteral(" > ")).toStdString();
             states << stateOf(home);
         }
+        ASSERT_EQ(states.size(), expected.size());
         for (qsizetype step = 0; step < states.size(); ++step)
         {
-            EXPECT_EQ(states[step], dashboardStates[step])
-                << "after step " << step << ": Home " << described(states[step]) << " / the dashboard "
-                << described(dashboardStates[step]);
+            EXPECT_EQ(states[step], expected[step]) << "after step " << step << ": shown " << described(states[step])
+                                                    << " / expected " << described(expected[step]);
         }
     }
 }
 
-// Each quick action, from the row or from the More menu, asks for what the same action of the dashboard asks for, and
-// leaves the dashboard's record of the last action as the dashboard leaves it.
-TEST(HomeQuickActions, EachActionAsksForWhatTheDashboardsAsksFor)
+// Each quick action, from the row or from the More menu, asks for what it names and nothing else, and records itself
+// as the last action by its words.
+TEST(HomeQuickActions, EachActionAsksForWhatItNamesAndIsRecordedByItsWords)
 {
-    // A recent file, so that Clear recents is on in the dashboard as it is in Home's row.
-    QTemporaryDir folder;
-    ASSERT_TRUE(folder.isValid());
+    struct Asked
+    {
+        const char* id;
+        int signal;
+        const char* recorded;
+    };
+    // The signals in the order of the spies below.
+    const Asked asked[] = {
+        {DashboardPreferences::ACTION_ID_OPEN_FILE, 0, "Open file"},
+        {DashboardPreferences::ACTION_ID_NEW_SEQUENCE, 1, "New sequence"},
+        {DashboardPreferences::ACTION_ID_IMAGE_INTEGRATION, 2, "Image integration"},
+        {DashboardPreferences::ACTION_ID_EXTENSION_MANAGER, 3, "Open Extension Manager"},
+        {DashboardPreferences::ACTION_ID_CLEAR_RECENTS, 4, "Clear recent files"},
+        {DashboardPreferences::ACTION_ID_SYSTEM_INFO, 5, "Open system info"},
+    };
+    ASSERT_EQ(static_cast<qsizetype>(std::size(asked)), DashboardPreferences::dashboardActionIds().size());
+
     DashboardApplication::instance()->resetForTest();
-    recordRecents(folder, {recentFile(folder, QStringLiteral("recent.fit"))});
-    MainDashboard dashboard;
-    dashboard.initialize(DashboardApplication::instance());
-    showAndSettle(dashboard, QSize(1280, 900));
-    const QString clearTitle =
-        DashboardPreferences::actionTitleForId(QString::fromUtf8(DashboardPreferences::ACTION_ID_CLEAR_RECENTS));
-    ASSERT_TRUE(QTest::qWaitFor(
-        [&dashboard, &clearTitle]() {
-            const QAction* clear = entryAt(dashboardMoreMenu(dashboard), {clearTitle});
-            return clear != nullptr && clear->isEnabled();
-        },
-        kWaitMs))
-        << "the dashboard's Clear recents did not turn on with a recent file";
     HomeQuickActions home;
     showAndSettle(home, QSize(1100, 60));
 
-    for (const QString& id : DashboardPreferences::dashboardActionIds())
+    for (const Asked& action : asked)
     {
+        const QString id = QString::fromUtf8(action.id);
         SCOPED_TRACE(id.toStdString());
-        QSignalSpy dashboardSpies[] = {QSignalSpy(&dashboard, &MainDashboard::openFileRequested),
-                                       QSignalSpy(&dashboard, &MainDashboard::newSequenceRequested),
-                                       QSignalSpy(&dashboard, &MainDashboard::imageIntegrationRequested),
-                                       QSignalSpy(&dashboard, &MainDashboard::openExtensionManagerRequested),
-                                       QSignalSpy(&dashboard, &MainDashboard::clearRecentFilesRequested),
-                                       QSignalSpy(&dashboard, &MainDashboard::systemInformationRequested)};
+        ASSERT_TRUE(DashboardPreferences::dashboardActionIds().contains(id));
         QSignalSpy homeSpies[] = {QSignalSpy(&home, &HomeQuickActions::openFileRequested),
                                   QSignalSpy(&home, &HomeQuickActions::newSequenceRequested),
                                   QSignalSpy(&home, &HomeQuickActions::imageIntegrationRequested),
                                   QSignalSpy(&home, &HomeQuickActions::openExtensionManagerRequested),
                                   QSignalSpy(&home, &HomeQuickActions::clearRecentFilesRequested),
                                   QSignalSpy(&home, &HomeQuickActions::systemInformationRequested)};
-
-        // The dashboard's own way: its button, or its overflow's entry.
-        const QString title = DashboardPreferences::actionTitleForId(id);
-        if (DashboardPreferences::isPrimaryAction(id))
-        {
-            for (QPushButton* button : dashboard.findChildren<QPushButton*>(QStringLiteral("dashboardActionButton")))
-            {
-                if (button->property("dashboardActionId").toString() == id)
-                {
-                    button->click();
-                }
-            }
-        }
-        else
-        {
-            QAction* entry = entryAt(dashboardMoreMenu(dashboard), {title});
-            ASSERT_NE(entry, nullptr);
-            entry->trigger();
-        }
-        const QString dashboardRecorded = stored(SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION);
         store(SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION, QString());
 
-        // Home's: its row's button, or its More menu's entry.
+        // Its row's button, or its More menu's entry.
         if (DashboardPreferences::isPrimaryAction(id))
         {
             QAbstractButton* button = home.actionButton(id);
@@ -560,7 +525,7 @@ TEST(HomeQuickActions, EachActionAsksForWhatTheDashboardsAsksFor)
         }
         else
         {
-            QAction* entry = entryAt(home.moreMenu(), {title});
+            QAction* entry = entryAt(home.moreMenu(), {DashboardPreferences::actionTitleForId(id)});
             ASSERT_NE(entry, nullptr);
             entry->trigger();
         }
@@ -568,9 +533,9 @@ TEST(HomeQuickActions, EachActionAsksForWhatTheDashboardsAsksFor)
 
         for (int signal = 0; signal < 6; ++signal)
         {
-            EXPECT_EQ(homeSpies[signal].count(), dashboardSpies[signal].count()) << "signal " << signal;
+            EXPECT_EQ(homeSpies[signal].count(), signal == action.signal ? 1 : 0) << "signal " << signal;
         }
-        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION), dashboardRecorded);
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_LAST_ACTION), QString::fromUtf8(action.recorded));
     }
 }
 
@@ -596,28 +561,85 @@ TEST(HomeQuickActions, AnActionTurnedOffIsOffWhereverItIs)
     EXPECT_FALSE(home.actionButton(open)->isEnabled());
 }
 
-// An action a shell adds to the row stands after the dashboard's and before More, asks by its id, and is none of the
-// dashboard's: the customization does not list it, the settings do not hold it, and moving, hiding and resetting the
-// dashboard's actions leave it where it is.
-TEST(HomeQuickActions, AnActionAddedToTheRowIsAfterTheDashboardsAndIsNotCustomized)
+// A stored order and hidden set name each action once; one that names an action twice, one there is not, or stray
+// separators, is read in its canonical form and stored so, and the row and the More menu follow it.
+TEST(HomeQuickActions, TheStoredOrderAndHiddenActionsAreReadAndKeptInTheirCanonicalForm)
+{
+    DashboardApplication::instance()->resetForTest();
+    store(SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER,
+          QStringLiteral(" system_info ; open_file,invalid,new_sequence\nsystem_info "));
+    store(SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS,
+          QStringLiteral("clear_recents,invalid;system_info,clear_recents"));
+    storeTheCurrentFormat();
+
+    HomeQuickActions home;
+    showAndSettle(home, QSize(1100, 60));
+
+    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION), QStringLiteral("4"));
+    const QString canonicalOrder =
+        QStringLiteral("system_info\nopen_file\nnew_sequence\nimage_integration\nextension_manager\nclear_recents");
+    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_ACTION_ORDER), canonicalOrder);
+    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_HIDDEN_ACTIONS), QStringLiteral("clear_recents\nsystem_info"));
+    const Titles t;
+    const QuickActionsState shown = stateOf(home);
+    EXPECT_EQ(shown.row, (QStringList{t.open, t.sequence, t.integration})) << described(shown);
+    EXPECT_EQ(shown.more, QStringList{t.extensions}) << described(shown);
+}
+
+// The More menu's Extension Manager says what the manager does - install extensions and repair their environments -
+// and asks for the manager.
+TEST(HomeQuickActions, TheExtensionManagersEntrySaysWhatItDoesAndAsksForIt)
 {
     DashboardApplication::instance()->resetForTest();
     HomeQuickActions home;
-    const QStringList dashboardRow = home.rowActionIds();
-    const QStringList dashboardMore = home.moreActionIds();
+    showAndSettle(home, QSize(1100, 60));
+
+    QAction* entry = entryAt(home.moreMenu(), {QStringLiteral("Extension Manager")});
+    ASSERT_NE(entry, nullptr);
+    EXPECT_TRUE(entry->toolTip().contains(QStringLiteral("install"), Qt::CaseInsensitive))
+        << entry->toolTip().toStdString();
+    EXPECT_TRUE(entry->toolTip().contains(QStringLiteral("repair environments"), Qt::CaseInsensitive))
+        << entry->toolTip().toStdString();
+
+    QSignalSpy asked(&home, &HomeQuickActions::openExtensionManagerRequested);
+    entry->trigger();
+    EXPECT_EQ(asked.count(), 1);
+}
+
+// Open file's button names its shortcut, Ctrl+O, in its tooltip.
+TEST(HomeQuickActions, OpenFilesTooltipNamesItsShortcut)
+{
+    DashboardApplication::instance()->resetForTest();
+    HomeQuickActions home;
+    showAndSettle(home, QSize(1100, 60));
+
+    QAbstractButton* open = home.actionButton(QString::fromUtf8(DashboardPreferences::ACTION_ID_OPEN_FILE));
+    ASSERT_NE(open, nullptr);
+    EXPECT_TRUE(open->toolTip().contains(QStringLiteral("Ctrl+O"))) << open->toolTip().toStdString();
+}
+
+// An action a shell adds to the row stands after the quick actions the settings arrange and before More, asks by its
+// id, and is none of them: the customization does not list it, the settings do not hold it, and moving, hiding and
+// resetting the arranged actions leave it where it is.
+TEST(HomeQuickActions, AnActionAddedToTheRowIsAfterTheArrangedActionsAndIsNotCustomized)
+{
+    DashboardApplication::instance()->resetForTest();
+    HomeQuickActions home;
+    const QStringList arrangedRow = home.rowActionIds();
+    const QStringList arrangedMore = home.moreActionIds();
     home.addRowAction(QStringLiteral("new_project"), QStringLiteral("New project"), QStringLiteral("folder_closed"),
                       QStringLiteral("Make a project"));
     showAndSettle(home, QSize(1100, 60));
 
     EXPECT_EQ(home.addedRowActionIds(), QStringList{QStringLiteral("new_project")});
-    EXPECT_EQ(home.rowActionIds(), dashboardRow) << "the dashboard's row changed";
-    EXPECT_EQ(home.moreActionIds(), dashboardMore);
+    EXPECT_EQ(home.rowActionIds(), arrangedRow) << "the arranged row changed";
+    EXPECT_EQ(home.moreActionIds(), arrangedMore);
     QAbstractButton* const added = home.actionButton(QStringLiteral("new_project"));
     ASSERT_NE(added, nullptr);
     EXPECT_EQ(added->text(), QStringLiteral("New project"));
     EXPECT_EQ(added->toolTip(), QStringLiteral("Make a project"));
     EXPECT_EQ(added->property("anButtonVariant").toString(), QStringLiteral("tonal"));
-    for (const QString& id : dashboardRow)
+    for (const QString& id : arrangedRow)
     {
         ASSERT_NE(home.actionButton(id), nullptr) << id.toStdString();
         EXPECT_LT(home.actionButton(id)->x(), added->x()) << id.toStdString() << " is after the added action";
@@ -629,7 +651,7 @@ TEST(HomeQuickActions, AnActionAddedToTheRowIsAfterTheDashboardsAndIsNotCustomiz
     ASSERT_EQ(asked.count(), 1);
     EXPECT_EQ(asked.at(0).at(0).toString(), QStringLiteral("new_project"));
 
-    // The customization lists the dashboard's actions alone, and what it changes leaves the added action in place.
+    // The customization lists the arranged actions alone, and what it changes leaves the added action in place.
     QMenu customization;
     home.populateCustomizationMenu(customization);
     for (const QAction* entry : customization.actions())
@@ -659,35 +681,29 @@ TEST(HomeQuickActions, AnActionAddedToTheRowIsAfterTheDashboardsAndIsNotCustomiz
 
 // ---- The Continue row
 
-// With images only, the featured image is the one the dashboard features - the most recent with a thumbnail - and its
-// Continue asks for that file to be opened.
-TEST(HomeContinueRow, TheFeaturedImageIsTheDashboardsAndContinueOpensIt)
+// With images only, the featured image is the most recent with a thumbnail: its card names it and says its format and
+// size, and its Continue asks for that file to be opened.
+TEST(HomeContinueRow, TheFeaturedImageIsTheMostRecentAndContinueOpensIt)
 {
     QTemporaryDir folder;
     ASSERT_TRUE(folder.isValid());
     DashboardApplication::instance()->resetForTest();
-    const QStringList files = {recentFile(folder, QStringLiteral("M42_Light_001.fit")),
-                               recentFile(folder, QStringLiteral("Andromeda_001.xisf")),
-                               recentFile(folder, QStringLiteral("M42_Blue_002.fit"))};
-    recordRecents(folder, files);
-
-    MainDashboard dashboard;
-    dashboard.initialize(DashboardApplication::instance());
-    showAndSettle(dashboard, QSize(1280, 900));
-    auto* dashboardFeatured = dashboard.findChild<QWidget*>(QStringLiteral("dashboardFeaturedFileCard"));
-    ASSERT_NE(dashboardFeatured, nullptr);
-    ASSERT_TRUE(QTest::qWaitFor(
-        [dashboardFeatured]() {
-            return !dashboardFeatured->property("dashboardFeaturedFilePath").toString().isEmpty();
-        },
-        kWaitMs));
+    const QStringList files = threeRecentImages(folder);
 
     HomeContinueRow row;
     row.setRecentFiles(asDeque(files));
     showAndSettle(row, QSize(1200, 240));
     ASSERT_TRUE(QTest::qWaitFor([&row]() { return !row.featuredFilePath().isEmpty(); }, kWaitMs));
-    EXPECT_EQ(row.featuredFilePath(), dashboardFeatured->property("dashboardFeaturedFilePath").toString());
     EXPECT_EQ(row.featuredFilePath(), files.front());
+
+    const auto* title = row.findChild<QLabel*>(QStringLiteral("dashboardFeaturedFileTitle"));
+    const auto* facts = row.findChild<QLabel*>(QStringLiteral("dashboardFeaturedFileMetadata"));
+    ASSERT_NE(title, nullptr);
+    ASSERT_NE(facts, nullptr);
+    EXPECT_EQ(title->text(), QStringLiteral("M42_Light_001.fit"));
+    // A file too small to hold a header is described by its format and the size of the picture read for it.
+    EXPECT_EQ(facts->text().section(QLatin1Char('\n'), 0, 0), QStringLiteral("FITS \u00b7 48 x 32"))
+        << facts->text().toStdString();
 
     QSignalSpy opened(&row, &HomeContinueRow::openRecentFileRequested);
     auto* continueButton = row.findChild<QPushButton*>(QStringLiteral("dashboardFeaturedContinueButton"));
@@ -697,16 +713,40 @@ TEST(HomeContinueRow, TheFeaturedImageIsTheDashboardsAndContinueOpensIt)
     EXPECT_EQ(opened.front().front().toString(), files.front());
 }
 
-// The featured image's pin is the dashboard's: pinned on Home, the dashboard features it too and it stays featured when
-// another file becomes the most recent; unpinned, the most recent image is featured again.
-TEST(HomeContinueRow, APinnedImageStaysFeaturedAndItsPinIsTheDashboards)
+// The featured image is the most recent whose picture can be read: one whose thumbnail is gone is passed over for the
+// next.
+TEST(HomeContinueRow, AnImageWhosePictureCannotBeReadIsPassedOver)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    DashboardApplication::instance()->resetForTest();
+    const QString first = recentFile(folder, QStringLiteral("NoThumb_001.fit"));
+    const QString second = recentFile(folder, QStringLiteral("HasThumb_001.xisf"));
+    // The first file's thumbnail is recorded where no file is; the second's is on disk.
+    const QString missing = QDir(folder.path()).filePath(QStringLiteral("missing_thumb.png"));
+    DashboardApplication::instance()->setThumbnailPath(first, missing);
+    recordThumbnail(folder, second, QColor(200, 200, 50));
+
+    HomeContinueRow row;
+    row.setRecentFiles(asDeque({first, second}));
+    showAndSettle(row, QSize(1200, 240));
+    ASSERT_TRUE(QTest::qWaitFor([&row]() { return !row.featuredFilePath().isEmpty(); }, kWaitMs));
+    EXPECT_EQ(row.featuredFilePath(), second);
+    const auto* title = row.findChild<QLabel*>(QStringLiteral("dashboardFeaturedFileTitle"));
+    ASSERT_NE(title, nullptr);
+    EXPECT_EQ(title->text(), QStringLiteral("HasThumb_001.xisf"));
+}
+
+// A pinned image stays featured when another file becomes the most recent, and its pin is kept in the settings: a
+// Continue row made afresh over them features it too. Unpinned, the most recent image is featured again.
+TEST(HomeContinueRow, APinnedImageStaysFeaturedAndItsPinIsKept)
 {
     QTemporaryDir folder;
     ASSERT_TRUE(folder.isValid());
     DashboardApplication::instance()->resetForTest();
     QStringList files = {recentFile(folder, QStringLiteral("NGC7000.fit")),
                          recentFile(folder, QStringLiteral("M31.xisf")), recentFile(folder, QStringLiteral("M45.png"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
 
     HomeContinueRow row;
     row.setRecentFiles(asDeque(files));
@@ -721,30 +761,55 @@ TEST(HomeContinueRow, APinnedImageStaysFeaturedAndItsPinIsTheDashboards)
 
     // Another file is the most recent: the pinned one stays.
     files.move(2, 0);
-    DashboardApplication::instance()->setRecentFiles(
-        {files[0].toStdString(), files[1].toStdString(), files[2].toStdString()});
     row.setRecentFiles(asDeque(files));
     QTest::qWait(50);
     EXPECT_EQ(row.featuredFilePath(), files[1]);
+    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_PINNED_HERO_FILE), files[1]);
 
-    MainDashboard dashboard;
-    dashboard.initialize(DashboardApplication::instance());
-    showAndSettle(dashboard, QSize(1280, 900));
-    auto* dashboardFeatured = dashboard.findChild<QWidget*>(QStringLiteral("dashboardFeaturedFileCard"));
-    ASSERT_NE(dashboardFeatured, nullptr);
-    EXPECT_TRUE(QTest::qWaitFor(
-        [dashboardFeatured, &files]() {
-            return dashboardFeatured->property("dashboardFeaturedFilePath").toString() == files[1];
-        },
-        kWaitMs))
-        << "the dashboard does not feature the image Home pinned";
+    {
+        HomeContinueRow next;
+        next.setRecentFiles(asDeque(files));
+        showAndSettle(next, QSize(1200, 240));
+        EXPECT_TRUE(QTest::qWaitFor([&next, &files]() { return next.featuredFilePath() == files[1]; }, kWaitMs))
+            << "a row made afresh does not feature the pinned image";
+        EXPECT_TRUE(next.isFeaturedPinned());
+    }
 
-    // Unpinned on Home: the most recent image is featured again.
+    // Unpinned: the most recent image is featured again.
     QTest::mouseClick(pin, Qt::LeftButton);
     QCoreApplication::processEvents();
     EXPECT_TRUE(stored(SettingsKeys::INTERFACE_DASHBOARD_PINNED_HERO_FILE).isEmpty());
     EXPECT_TRUE(QTest::qWaitFor([&row, &files]() { return row.featuredFilePath() == files[0]; }, kWaitMs));
     EXPECT_FALSE(row.isFeaturedPinned());
+}
+
+// The featured image fades in whole: a row features the most recent image, and once another is pinned in the settings
+// the next row features that one, pinned, at full opacity.
+TEST(HomeContinueRow, TheFeaturedImageFadesInWhole)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    DashboardApplication::instance()->resetForTest();
+    const QStringList files = threeRecentImages(folder);
+    {
+        HomeContinueRow row;
+        row.setRecentFiles(asDeque(files));
+        showAndSettle(row, QSize(1200, 240));
+        ASSERT_TRUE(QTest::qWaitFor([&row, &files]() { return row.featuredFilePath() == files.front(); }, kWaitMs));
+    }
+
+    storeTheCurrentFormat();
+    store(SettingsKeys::INTERFACE_DASHBOARD_PINNED_HERO_FILE, files[1]);
+    HomeContinueRow row;
+    row.setRecentFiles(asDeque(files));
+    showAndSettle(row, QSize(1200, 240));
+    ASSERT_TRUE(QTest::qWaitFor([&row, &files]() { return row.featuredFilePath() == files[1]; }, kWaitMs))
+        << row.featuredFilePath().toStdString();
+    EXPECT_TRUE(row.isFeaturedPinned());
+
+    auto* const fade = qobject_cast<QGraphicsOpacityEffect*>(row.featuredCard()->graphicsEffect());
+    ASSERT_NE(fade, nullptr) << "the featured card has no opacity effect to fade in with";
+    EXPECT_TRUE(QTest::qWaitFor([fade]() { return fade->opacity() >= 0.99; }, kWaitMs)) << fade->opacity();
 }
 
 // The row features an image, never a sequence: the most recent sequence has a card of its own beside it - its name,
@@ -758,7 +823,7 @@ TEST(HomeContinueRow, TheLastSequenceIsShownBesideTheImageAndResumed)
     const QStringList files = {recentFile(folder, QStringLiteral("jupiter_2026.ser")),
                                recentFile(folder, QStringLiteral("M42.fit")),
                                recentFile(folder, QStringLiteral("saturn_old.ser"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
 
     HomeContinueRow row;
     row.setFactsProbe(&probedFacts);
@@ -795,7 +860,6 @@ TEST(HomeContinueRow, TheSequenceCardReadsItsThumbnailOnceItIsWritten)
     ASSERT_TRUE(folder.isValid());
     DashboardApplication::instance()->resetForTest();
     const QString sequence = recentFile(folder, QStringLiteral("late_thumbnail.ser"));
-    DashboardApplication::instance()->setRecentFiles({sequence.toStdString()});
 
     HomeContinueRow row;
     row.setFactsProbe(&probedFacts);
@@ -819,7 +883,7 @@ TEST(HomeContinueRow, TheFeaturedImageFillsTheRow)
     DashboardApplication::instance()->resetForTest();
     const QStringList files = {recentFile(folder, QStringLiteral("tall.fit")),
                                recentFile(folder, QStringLiteral("seq.ser"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
     HomeContinueRow row;
     row.setFactsProbe(&probedFacts);
     row.setRecentFiles(asDeque(files));
@@ -832,9 +896,9 @@ TEST(HomeContinueRow, TheFeaturedImageFillsTheRow)
 
 // ---- Recent images and sequences
 
-// For the same list and the same pins, every search and sort leaves Home's recent files in the order the dashboard's
-// grid gives them.
-TEST(HomeRecentGrid, SearchAndSortEqualTheDashboardsGridForTheSameList)
+// For the same list and the same pin, every search keeps the files whose path or name holds it, case aside, and every
+// sort orders them - most recent first, by name, or by type and then name - with the pinned file first.
+TEST(HomeRecentGrid, SearchAndSortOrderTheRecentFilesWithThePinnedFirst)
 {
     QTemporaryDir folder;
     ASSERT_TRUE(folder.isValid());
@@ -846,40 +910,190 @@ TEST(HomeRecentGrid, SearchAndSortEqualTheDashboardsGridForTheSameList)
                                recentFile(folder, QStringLiteral("M42_Blue_002.fit")),
                                recentFile(folder, QStringLiteral("bubble.png")),
                                recentFile(folder, QStringLiteral("Crescent.tif"))};
-    recordRecents(folder, files);
-    const QSet<QString> pins = {files[4]};
-    store(SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS, files[4]);
-
-    an::ui::RecentFilesGrid dashboardGrid;
-    dashboardGrid.setPinnedFilePaths(pins);
-    dashboardGrid.setRecentFiles(asDeque(files));
+    recordThumbnails(folder, files);
+    const QString& light = files[0];
+    const QString& andromeda = files[1];
+    const QString& saturn = files[2];
+    const QString& blue = files[3];
+    const QString& bubble = files[4];
+    const QString& crescent = files[5];
+    store(SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS, bubble);
 
     HomeRecentGrid home;
     home.setRecentFiles(asDeque(files));
     showAndSettle(home, QSize(1200, 700));
 
-    const QStringList searches = {QString(), QStringLiteral("m42"), QStringLiteral("FIT"), QStringLiteral(".x"),
-                                  QStringLiteral("nothing-matches")};
+    // Names are compared as the system's locale compares them: one that sets case aside puts andromeda before
+    // Crescent, the C locale after every name that begins with a capital.
+    const bool caseAside =
+        QString::localeAwareCompare(QStringLiteral("andromeda.xisf"), QStringLiteral("Crescent.tif")) < 0;
+    // Every file, pinned first, for each sort: most recent first, by name, by type and then name.
+    const QList<QStringList> everyFile = {
+        {bubble, light, andromeda, saturn, blue, crescent},
+        caseAside ? QStringList{bubble, andromeda, crescent, blue, light, saturn}
+                  : QStringList{bubble, crescent, blue, light, saturn, andromeda},
+        {bubble, blue, light, saturn, crescent, andromeda},
+    };
+    // The two M42 frames, the two FITS files.
+    const QList<QStringList> theM42Frames = {{light, blue}, {blue, light}, {blue, light}};
+    struct Searched
+    {
+        QString search;
+        QList<QStringList> bySort;
+    };
+    const QList<Searched> searches = {
+        {QString(), everyFile},
+        {QStringLiteral("m42"), theM42Frames},
+        {QStringLiteral("FIT"), theM42Frames},
+        {QStringLiteral(".x"), {{andromeda}, {andromeda}, {andromeda}}},
+        {QStringLiteral("nothing-matches"), {{}, {}, {}}},
+    };
     const QList<int> sorts = {DashboardPreferences::RECENT_SORT_RECENT, DashboardPreferences::RECENT_SORT_NAME,
                               DashboardPreferences::RECENT_SORT_TYPE};
-    for (const QString& search : searches)
+    for (const Searched& searched : searches)
     {
-        for (const int sort : sorts)
+        for (qsizetype sort = 0; sort < sorts.size(); ++sort)
         {
-            SCOPED_TRACE(("search '" + search + "' sort " + QString::number(sort)).toStdString());
-            const QStringList expected = dashboardGridOrder(dashboardGrid, search, sort);
-            home.searchField()->setText(search);
-            home.sortBox()->setCurrentIndex(home.sortBox()->findData(sort));
+            SCOPED_TRACE(("search '" + searched.search + "' sort " + QString::number(sorts[sort])).toStdString());
+            // The path is searched with the name: a search the folder's own path holds keeps every file.
+            const QStringList expected =
+                folder.path().contains(searched.search, Qt::CaseInsensitive) ? everyFile[sort] : searched.bySort[sort];
+            home.searchField()->setText(searched.search);
+            home.sortBox()->setCurrentIndex(home.sortBox()->findData(sorts[sort]));
             EXPECT_TRUE(QTest::qWaitFor([&home, &expected]() { return home.visibleFileOrder() == expected; }, kWaitMs))
-                << "Home: " << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString()
-                << "\nthe dashboard: " << expected.join(QStringLiteral(", ")).toStdString();
+                << "shown: " << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString()
+                << "\nexpected: " << expected.join(QStringLiteral(", ")).toStdString();
             EXPECT_TRUE(QTest::qWaitFor([&home, &expected]() { return tilePaths(home) == expected; }, kWaitMs))
                 << "the tiles are not the order";
         }
     }
-    // The search and the sort are the dashboard's settings.
-    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT), searches.back());
+    // The search and the sort are kept in the settings.
+    EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT), searches.back().search);
     EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE), QStringLiteral("type"));
+}
+
+// The sort is remembered in the settings and their format: chosen in one Home, the next sorts the recent files so.
+TEST(HomeRecentGrid, TheSortIsRemembered)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    DashboardApplication::instance()->resetForTest();
+    const QStringList files = threeRecentImages(folder);
+    // By type: the two FITS files by name, then the XISF file.
+    const QStringList byType = {files[2], files[0], files[1]};
+    {
+        HomeRecentGrid home;
+        home.setRecentFiles(asDeque(files));
+        showAndSettle(home, QSize(1300, 800));
+        home.sortBox()->setCurrentIndex(home.sortBox()->findData(DashboardPreferences::RECENT_SORT_TYPE));
+        EXPECT_TRUE(QTest::qWaitFor([&home, &byType]() { return home.visibleFileOrder() == byType; }, kWaitMs))
+            << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString();
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE), QStringLiteral("type"));
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION), QStringLiteral("4"));
+    }
+
+    HomeRecentGrid home;
+    home.setRecentFiles(asDeque(files));
+    showAndSettle(home, QSize(1300, 800));
+    EXPECT_EQ(home.sortBox()->currentText(), QStringLiteral("Type"));
+    EXPECT_TRUE(QTest::qWaitFor([&home, &byType]() { return home.visibleFileOrder() == byType; }, kWaitMs))
+        << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString();
+}
+
+// The search is remembered in the settings and their format: typed in one Home, the next shows it and the files it
+// keeps.
+TEST(HomeRecentGrid, TheSearchIsRemembered)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    DashboardApplication::instance()->resetForTest();
+    const QStringList files = threeRecentImages(folder);
+    // The two M42 frames, most recent first.
+    const QStringList found = {files[0], files[2]};
+    {
+        HomeRecentGrid home;
+        home.setRecentFiles(asDeque(files));
+        showAndSettle(home, QSize(1300, 800));
+        home.searchField()->setText(QStringLiteral("M42"));
+        EXPECT_TRUE(QTest::qWaitFor([&home, &found]() { return home.visibleFileOrder() == found; }, kWaitMs))
+            << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString();
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT), QStringLiteral("M42"));
+        EXPECT_EQ(stored(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION), QStringLiteral("4"));
+    }
+
+    HomeRecentGrid home;
+    home.setRecentFiles(asDeque(files));
+    showAndSettle(home, QSize(1300, 800));
+    EXPECT_EQ(home.searchField()->text(), QStringLiteral("M42"));
+    EXPECT_TRUE(QTest::qWaitFor([&home, &found]() { return tilePaths(home) == found; }, kWaitMs))
+        << tilePaths(home).join(QStringLiteral(", ")).toStdString();
+}
+
+// The settings are read only at the format their writer writes, 4. Settings of another format - an older one, a newer
+// one, or keys that state none - are never read: each is set aside under its own name with the format it states beside
+// it, and Home starts from the defaults - every file, most recent first.
+TEST(HomeRecentGrid, SettingsOfAnotherFormatAreSetAsideAndNotRead)
+{
+    const QString sortKey = QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE);
+    const QString searchKey = QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT);
+    const QString formatKey = QString::fromUtf8(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION);
+    for (const QString& format : {QStringLiteral("3"), QStringLiteral("5"), QString()})
+    {
+        SCOPED_TRACE("format '" + format.toStdString() + "'");
+        QTemporaryDir folder;
+        ASSERT_TRUE(folder.isValid());
+        DashboardApplication::instance()->resetForTest();
+        const QStringList files = threeRecentImages(folder);
+        store(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SORT_MODE, QStringLiteral("type"));
+        store(SettingsKeys::INTERFACE_DASHBOARD_RECENT_SEARCH_TEXT, QStringLiteral("M42"));
+        if (!format.isEmpty())
+        {
+            store(SettingsKeys::INTERFACE_DASHBOARD_SETTINGS_SCHEMA_VERSION, format);
+        }
+        const QString suffix =
+            format.isEmpty() ? QStringLiteral(".unversioned") : QStringLiteral(".format%1").arg(format);
+
+        HomeRecentGrid home;
+        home.setRecentFiles(asDeque(files));
+        showAndSettle(home, QSize(1300, 800));
+        EXPECT_EQ(home.sortBox()->currentData().toInt(), DashboardPreferences::RECENT_SORT_RECENT);
+        EXPECT_TRUE(home.searchField()->text().isEmpty()) << home.searchField()->text().toStdString();
+        EXPECT_TRUE(QTest::qWaitFor([&home, &files]() { return home.visibleFileOrder() == files; }, kWaitMs))
+            << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString();
+        EXPECT_EQ(settings().select(formatKey), QStringLiteral("4"));
+        EXPECT_EQ(settings().select(sortKey + suffix), QStringLiteral("type"));
+        EXPECT_EQ(settings().select(searchKey + suffix), QStringLiteral("M42"));
+        if (!format.isEmpty())
+        {
+            EXPECT_EQ(settings().select(formatKey + suffix), format);
+        }
+    }
+}
+
+// A recent entry with a byte order mark before its path is the file the path names: read as Home reads the recent
+// files, it is the pinned file, first and marked pinned.
+TEST(HomeRecentGrid, AnEntryWithAByteOrderMarkIsTheFileItNamesAndKeepsItsPin)
+{
+    QTemporaryDir folder;
+    ASSERT_TRUE(folder.isValid());
+    DashboardApplication::instance()->resetForTest();
+    const QStringList files = threeRecentImages(folder);
+    const QString& pinned = files[2];
+    storeTheCurrentFormat();
+    store(SettingsKeys::INTERFACE_DASHBOARD_PINNED_RECENTS, pinned);
+
+    const QString marked = QString(QChar::ByteOrderMark) + pinned;
+    ASSERT_EQ(DashboardUtils::normalizeRecentFilePath(marked), pinned);
+
+    HomeRecentGrid home;
+    home.setRecentFiles(asDeque({files[0], files[1], DashboardUtils::normalizeRecentFilePath(marked)}));
+    showAndSettle(home, QSize(1300, 800));
+    ASSERT_TRUE(waitForTiles(home, 3));
+    const QStringList expected = {pinned, files[0], files[1]};
+    EXPECT_TRUE(QTest::qWaitFor([&home, &expected]() { return home.visibleFileOrder() == expected; }, kWaitMs))
+        << home.visibleFileOrder().join(QStringLiteral(", ")).toStdString();
+    ASSERT_NE(tileFor(home, pinned), nullptr);
+    EXPECT_TRUE(tileFor(home, pinned)->isPinned());
 }
 
 // The grid and the list show the same tiles in the same order, each with the same name, type and facts: the list one
@@ -893,7 +1107,7 @@ TEST(HomeRecentGrid, TheGridAndTheListShowTheSameItems)
         recentFile(folder, QStringLiteral("one.fit")), recentFile(folder, QStringLiteral("two.xisf")),
         recentFile(folder, QStringLiteral("three.ser")), recentFile(folder, QStringLiteral("four.png")),
         recentFile(folder, QStringLiteral("five.tiff"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
 
     HomeRecentGrid home;
     home.setFactsProbe(&probedFacts);
@@ -958,9 +1172,9 @@ TEST(HomeRecentGrid, TheGridAndTheListShowTheSameItems)
     EXPECT_EQ(shown().size(), inGrid.size());
 }
 
-// The grid or the list is remembered, in the dashboard's settings and their format: chosen in one Home, it is how the
-// next shows the recent files; a stored word is read in its canonical form, one that names neither is the grid, and a
-// choice of another format is set aside with the dashboard's other settings.
+// The grid or the list is remembered with the other settings of the recent files, in their format: chosen in one Home,
+// it is how the next shows the recent files; a stored word is read in its canonical form, one that names neither is
+// the grid, and a choice of another format is set aside with the other settings.
 TEST(HomeRecentGrid, TheArrangementIsRemembered)
 {
     DashboardApplication::instance()->resetForTest();
@@ -1015,7 +1229,7 @@ TEST(HomeRecentGrid, ASequencesTileShowsItsFilmGlyphAndFrameCount)
     const QStringList files = {recentFile(folder, QStringLiteral("02_52_14_pipp.ser")),
                                recentFile(folder, QStringLiteral("M20_FINAL.png")),
                                recentFile(folder, QStringLiteral("Carina.fit"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
 
     HomeRecentGrid home;
     home.setFactsProbe(&probedFacts);
@@ -1046,9 +1260,8 @@ TEST(HomeRecentGrid, ASequencesTileShowsItsFilmGlyphAndFrameCount)
     EXPECT_EQ(home.countText(), QStringLiteral("2 images · 1 sequence"));
 }
 
-// The tile's menu is the dashboard thumbnail's: Open, Pin to top, Show in File Browser, Copy path and Remove from
-// recent files, and each does what it says. Pinned, the tile is first, the pin is the dashboard's setting and the entry
-// unpins it.
+// The tile's menu has five entries - Open, Pin to top, Show in File Browser, Copy path and Remove from recent files -
+// and each does what it says. Pinned, the tile is first, the pin is kept in the settings and the entry unpins it.
 TEST(HomeRecentGrid, TheTilesMenuHasItsFiveEntriesAndEachActs)
 {
     QTemporaryDir folder;
@@ -1057,7 +1270,7 @@ TEST(HomeRecentGrid, TheTilesMenuHasItsFiveEntriesAndEachActs)
     const QStringList files = {recentFile(folder, QStringLiteral("first.fit")),
                                recentFile(folder, QStringLiteral("second.fit")),
                                recentFile(folder, QStringLiteral("third.xisf"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
 
     HomeRecentGrid home;
     QStringList revealed;
@@ -1108,7 +1321,7 @@ TEST(HomeRecentGrid, TheTilesMenuHasItsFiveEntriesAndEachActs)
     EXPECT_EQ(removed.front().front().toString(), target);
 }
 
-// A click on a tile asks for its file to be opened, as a click on the dashboard's thumbnail does.
+// A click on a tile asks for its file to be opened.
 TEST(HomeRecentGrid, AClickOnATileOpensItsFile)
 {
     QTemporaryDir folder;
@@ -1116,7 +1329,7 @@ TEST(HomeRecentGrid, AClickOnATileOpensItsFile)
     DashboardApplication::instance()->resetForTest();
     const QStringList files = {recentFile(folder, QStringLiteral("a.fit")),
                                recentFile(folder, QStringLiteral("b.fit"))};
-    recordRecents(folder, files);
+    recordThumbnails(folder, files);
     HomeRecentGrid home;
     home.setRecentFiles(asDeque(files));
     showAndSettle(home, QSize(1300, 800));
@@ -1130,7 +1343,7 @@ TEST(HomeRecentGrid, AClickOnATileOpensItsFile)
 // ---- The welcome
 
 // With no recent file Home welcomes: the logo and the version, the three cards to start with, the drop zone with Open
-// file, and the first-run panel's six things AfterNight does; of projects it says one line.
+// file, and six things AfterNight does, in their order; of projects it says one line.
 TEST(HomeWelcome, ShowsTheLogoTheVersionTheCardsTheDropZoneAndTheFeatures)
 {
     HomeWelcome welcome;
@@ -1164,12 +1377,10 @@ TEST(HomeWelcome, ShowsTheLogoTheVersionTheCardsTheDropZoneAndTheFeatures)
     {
         features << feature->accessibleName();
     }
-    QStringList firstRun;
-    for (const an::ui::DashboardFeature& feature : an::ui::dashboardFeatures())
-    {
-        firstRun << QString::fromUtf8(feature.title);
-    }
-    EXPECT_EQ(features, firstRun);
+    const QStringList six = {QStringLiteral("Multi-Format Support"),  QStringLiteral("Frame Calibration"),
+                             QStringLiteral("Star Alignment"),        QStringLiteral("Image Stacking"),
+                             QStringLiteral("Background Extraction"), QStringLiteral("Enhancement")};
+    EXPECT_EQ(features, six);
 
     // One text speaks of projects: the line that says they are optional.
     QStringList aboutProjects;
@@ -1232,7 +1443,7 @@ TEST(HomeWelcome, TheLineAboutProjectsSaysTheyAreOptionalAndOffersOne)
 }
 
 // A file dragged over the welcome lights its drop zone, which goes dark when the drag leaves; dropped, the file is
-// handed to the application to open, as a file dropped on the dashboard is.
+// handed to the application to open.
 TEST(HomeWelcome, AFileDroppedOnItIsOpenedAndTheZoneLightsWhileDragged)
 {
     QTemporaryDir folder;

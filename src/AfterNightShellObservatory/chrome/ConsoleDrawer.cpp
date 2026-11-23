@@ -302,7 +302,7 @@ void ConsoleDrawer::makeConsole()
     {
         return;
     }
-    // The console as AfterNight 1.1 makes it, its toolbar the header, the drawer's parts set about the console's.
+    // The console as it makes itself, its toolbar the header, the drawer's parts set about the console's.
     m_console = new LogViewerControl(this);
     m_console->setObjectName(QStringLiteral("observatorySessionConsole"));
     m_console->initialize();

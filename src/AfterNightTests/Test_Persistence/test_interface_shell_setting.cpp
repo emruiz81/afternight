@@ -37,7 +37,7 @@ TEST(InterfaceShellSetting, TheGlobalSettingsStoreKeepsTheChoice)
     EXPECT_EQ(store.selectOptional(key), std::nullopt);
     EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("observatory"));
 
-    ASSERT_TRUE(store.upsert(key, QStringLiteral("classic")));
-    EXPECT_EQ(store.selectOptional(key), std::optional<QString>(QStringLiteral("classic")));
-    EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("classic"));
+    ASSERT_TRUE(store.upsert(key, QStringLiteral("nebula")));
+    EXPECT_EQ(store.selectOptional(key), std::optional<QString>(QStringLiteral("nebula")));
+    EXPECT_EQ(store.select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)), QStringLiteral("nebula"));
 }

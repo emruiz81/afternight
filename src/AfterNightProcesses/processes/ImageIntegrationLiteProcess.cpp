@@ -13,7 +13,6 @@
 #include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegration/workflow/ManifestBuilder.h"
@@ -77,6 +76,27 @@ enum class LiteFrameRole
 [[nodiscard]] FrameType frameTypeFromIndexValue(const int value)
 {
     return frameTypeForIndex(value);
+}
+
+/// Hides every widget a layout holds that is shown - in it, or in a layout it holds - and keeps it, to be shown again.
+void holdShownWidgets(const QLayout& layout, std::vector<QPointer<QWidget>>& held)
+{
+    for (int at = 0; at < layout.count(); ++at)
+    {
+        QLayoutItem* const item = layout.itemAt(at);
+        if (QWidget* const part = item->widget(); part != nullptr)
+        {
+            if (!part->isHidden())
+            {
+                held.emplace_back(part);
+                part->hide();
+            }
+        }
+        else if (const QLayout* const inner = item->layout(); inner != nullptr)
+        {
+            holdShownWidgets(*inner, held);
+        }
+    }
 }
 
 [[nodiscard]] LiteFrameRole liteFrameRoleFromValue(const int value)
@@ -1045,15 +1065,8 @@ bool ImageIntegrationLiteProcess::cancelRun()
     {
         return false;
     }
-    // The run's view is the page's, or the Processing window's over a window of its own.
-    WorkflowRunView* view = m_runView.data();
-    if (view == nullptr)
-    {
-        if (const auto* const window = findChild<WorkflowProgressDialogV2*>())
-        {
-            view = window->runView();
-        }
-    }
+    // The run is stopped through its view, which the process shows.
+    WorkflowRunView* const view = m_runView.data();
     if (view == nullptr || view->isFinished())
     {
         return false;
@@ -1101,6 +1114,10 @@ bool ImageIntegrationLiteProcess::showsRunInItself() const
 bool ImageIntegrationLiteProcess::showWorkflowRun(WorkflowRunView* const view)
 {
     an::ui::ProcessPageLayout* const page = pageLayout();
+    if (view != nullptr && page == nullptr)
+    {
+        return showRunInItsBody(view);
+    }
     auto* const pageBox =
         page != nullptr && page->page() != nullptr ? qobject_cast<QBoxLayout*>(page->page()->layout()) : nullptr;
     if (view == nullptr || pageBox == nullptr || page->fullArea() == nullptr)
@@ -1118,6 +1135,34 @@ bool ImageIntegrationLiteProcess::showWorkflowRun(WorkflowRunView* const view)
     view->setParent(page->page());
     pageBox->addWidget(view, 1);
     page->fullArea()->hide();
+    view->show();
+    connect(view, &WorkflowRunView::closeRequested, this, [this]() { dismissRun(); });
+    return true;
+}
+
+bool ImageIntegrationLiteProcess::showRunInItsBody(WorkflowRunView* const view)
+{
+    auto* const body = qobject_cast<QBoxLayout*>(layout());
+    if (body == nullptr)
+    {
+        return false;
+    }
+    if (WorkflowRunView* const before = m_runView.data())
+    {
+        // The view of a run before, still shown with how it ended, gives way; what the window lays out is put away
+        // already.
+        before->hide();
+        before->deleteLater();
+    }
+    else
+    {
+        // What the window lays out gives way to the run's view, and is shown again as it was once the view is closed.
+        m_heldForRun.clear();
+        holdShownWidgets(*body, m_heldForRun);
+    }
+    m_runView = view;
+    view->setParent(this);
+    body->addWidget(view, 1);
     view->show();
     connect(view, &WorkflowRunView::closeRequested, this, [this]() { dismissRun(); });
     return true;
@@ -1147,6 +1192,14 @@ void ImageIntegrationLiteProcess::dismissRun()
     {
         page->fullArea()->show();
     }
+    for (const QPointer<QWidget>& part : m_heldForRun)
+    {
+        if (!part.isNull())
+        {
+            part->show();
+        }
+    }
+    m_heldForRun.clear();
 }
 
 void ImageIntegrationLiteProcess::onExecute()
@@ -1165,11 +1218,6 @@ void ImageIntegrationLiteProcess::onExecute()
     if (m_ui.runButton)
     {
         m_ui.runButton->setEnabled(false);
-    }
-    // A window says it prepares in its banner, behind the Processing window; on a page the run's view says it.
-    if (!hasPageLayout())
-    {
-        showProcessMessage(tr("Preparing"), tr("Preparing Image Integration Lite workflow."));
     }
     m_ui.statusBanner->setTone(an::ui::AnInfoBanner::Tone::Info);
     m_ui.statusBanner->setMessage(tr("Preparing integration..."));

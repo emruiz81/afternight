@@ -48,9 +48,9 @@ AFTERNIGHTCONTROLS_API void fitHeightToBodyWithinAvailableArea(QWidget& window);
 /// tool window of a view, a dialog - so that none opens larger than the screen leaves it or with its title bar off it.
 /// A widget that is first shown inside another is left alone.
 ///
-/// Under the Observatory profile the window is sized for the look first. A size stated for one of its parts, or for
-/// itself, that is smaller than the part needs in the profile's font and density is dropped - a field 60 pixels
-/// wide, a row 28 high, a least size the heading no longer fits in - so the part takes what it needs; and a window
+/// The window is sized for the look first. A size stated for one of its parts, or for itself, that is smaller than
+/// the part needs in the look's font and density is dropped - a field 60 pixels wide, a row 28 high, a least size the
+/// heading no longer fits in - so the part takes what it needs; and a window
 /// whose body scrolls (`kWindowBodyName`) is given the height that shows the body whole, which the hold then bounds
 /// to the screen.
 AFTERNIGHTCONTROLS_API void holdWithinAvailableAreaWhenFirstShown(QWidget& window);

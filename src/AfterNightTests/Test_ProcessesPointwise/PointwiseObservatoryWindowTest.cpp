@@ -2,10 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The eight pointwise and tone processes' windows under the Observatory profile, as the developer switch shows them:
-/// each launched through its registry descriptor over a colour view, in the 1.1 look and then in the Observatory one at
-/// each density. No control lies outside the widget that holds it, no text is cut that the 1.1 window shows whole, and
-/// grabbed with Night on the window holds no green or blue.
+/// The eight pointwise and tone processes' windows in the Observatory look: each launched through its registry
+/// descriptor over a colour view, at each density. No control lies outside the widget that holds it, no text is cut
+/// where the platform measures text as the interface does, and grabbed with Night on the window holds no green or blue.
 
 #include "Test_ProcessesPointwise/PointwiseTestSupport.h"
 #include "Test_ProcessesShared/ObservatoryWindowCheck.h"

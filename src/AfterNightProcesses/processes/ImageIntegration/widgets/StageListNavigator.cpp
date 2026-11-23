@@ -312,10 +312,6 @@ void StageListNavigator::setCurrentPage(const StagePage page)
     }
 }
 
-void StageListNavigator::setFrameCounts(const std::array<int, kFrameSourcePageCount>& /*counts*/) {}
-
-void StageListNavigator::setIssues(const std::array<StagePageIssues, kStagePageCount>& /*issues*/) {}
-
 void StageListNavigator::refreshTheme()
 {
     if (!m_body.isNull())

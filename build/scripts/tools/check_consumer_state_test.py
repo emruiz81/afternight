@@ -130,22 +130,9 @@ class ConsumerStateTest(unittest.TestCase):
                             "the shell core's core or a shell" in p for p in problems), problems)
         self.assertFalse(any('gCore' in p for p in problems), problems)
 
-    def test_the_classic_shell_is_read(self) -> None:
+    def test_the_classic_shell_is_not_read(self) -> None:
+        # The classic shell went; a tree of that name left in a clone is no product's.
         write(self.root, 'src/AfterNightShellClassic/Cache.cpp', 'static QHash<int, int> gCache;\n')
-        problems = state.check(self.root)
-        self.assertTrue(any('src/AfterNightShellClassic/Cache.cpp:1: gCache has process lifetime' in p
-                            for p in problems), problems)
-
-    def test_the_classic_shell_is_a_qt_layer(self) -> None:
-        write(self.root, 'src/AfterNightShellClassic/Order.cpp', 'static int gOrder = 0;\n')
-        self.entries.append(('src/AfterNightShellClassic/Order.cpp', 'gOrder', 'ui-state', 'GUI thread'))
-        self.write_register()
-        self.assertEqual(state.check(self.root), [])
-
-    def test_an_application_seat_may_live_in_the_classic_shell(self) -> None:
-        write(self.root, 'src/AfterNightShellClassic/Window.cpp', 'static Window* gWindow = nullptr;\n')
-        self.entries.append(('src/AfterNightShellClassic/Window.cpp', 'gWindow', 'application-seat', 'GUI thread'))
-        self.write_register()
         self.assertEqual(state.check(self.root), [])
 
     def test_the_observatory_shell_is_read(self) -> None:

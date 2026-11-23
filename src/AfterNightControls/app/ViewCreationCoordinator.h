@@ -13,7 +13,6 @@
 
 class ImageViewControl;
 class ImageViewControlManager;
-class QScrollArea;
 class QWidget;
 
 #include "controls/ViewControlMode.h"
@@ -27,45 +26,6 @@ namespace an::ui
 {
 
 class ImageDocument;
-
-struct NewViewLayoutTransitionDecision
-{
-    bool shouldSwitchToDockManager = false;
-    bool shouldRestoreMaximizedActiveView = false;
-};
-
-inline NewViewLayoutTransitionDecision
-decideNewViewLayoutTransition(const bool standardMode, const bool currentWidgetIsMainDashboard,
-                              const bool currentWidgetIsDockManager, const bool hasActiveView,
-                              const bool activeViewInFloatingWindow, const bool activeViewMaximized)
-{
-    NewViewLayoutTransitionDecision decision;
-    if (!standardMode)
-    {
-        return decision;
-    }
-
-    if (currentWidgetIsMainDashboard)
-    {
-        decision.shouldSwitchToDockManager = true;
-        return decision;
-    }
-
-    if (!currentWidgetIsDockManager)
-    {
-        if (!hasActiveView)
-        {
-            decision.shouldSwitchToDockManager = true;
-        }
-        else
-        {
-            decision.shouldSwitchToDockManager = !activeViewInFloatingWindow;
-            decision.shouldRestoreMaximizedActiveView = decision.shouldSwitchToDockManager && activeViewMaximized;
-        }
-    }
-
-    return decision;
-}
 
 inline bool shouldRollbackCreatedControlAfterLoadFailure(const bool standardMode)
 {
@@ -99,11 +59,6 @@ public:
     struct Dependencies
     {
         ImageViewControlManager* imageViewControlManager = nullptr;
-        QScrollArea** mainDashboardScrollArea = nullptr;
-        KDDockWidgets::QtWidgets::MainWindow** dockMainWindow = nullptr;
-
-        std::function<QWidget*()> currentCentralWidget;
-        std::function<void()> switchToDockManager;
         std::function<QIcon(const std::string&)> iconProvider;
         std::function<void()> updateActiveImageActions;
         std::function<void()> updateActiveImageHistory;

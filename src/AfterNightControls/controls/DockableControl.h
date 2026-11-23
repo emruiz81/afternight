@@ -12,7 +12,7 @@
 
 class AN_TabBar;
 class AN_Stack;
-// Exported: the classic shell, a library of its own, raises the dock of the view it activates.
+// Exported: the image view and the log viewer, exported themselves, derive from it.
 class AFTERNIGHTCONTROLS_API DockableControl : public QWidget
 {
 public:

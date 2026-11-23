@@ -88,7 +88,6 @@ public:
         std::function<void()> createAuxToolBars;
         std::function<void(bool)> setEnableImageActions;
         std::function<void()> updateRecentFilesMenuEntries;
-        std::function<void()> initializeMainDashboard;
         std::function<void()> initializeDockManager;
         std::function<void()> initializeMaximizedView;
         std::function<void()> lockLayout;

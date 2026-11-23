@@ -18,10 +18,10 @@ TEST(WidgetsComponentsAnStyledTable, AnStyledTable_HasThemedHeaders)
     an::ui::refreshTokens();
     table.refreshTheme();
 
-    // Header styling is now via QPalette, not QSS.
+    // The header is the third surface, in the secondary text.
     QHeaderView* header = table.horizontalHeader();
     ASSERT_NE(header, nullptr);
-    EXPECT_EQ(header->palette().color(QPalette::Window), an::ui::tokens().colors.bgCardPrimary);
+    EXPECT_EQ(header->palette().color(QPalette::Window), an::ui::tokens().layers.surface3);
     EXPECT_EQ(header->palette().color(QPalette::WindowText), an::ui::tokens().colors.textSecondary);
 }
 
@@ -34,10 +34,9 @@ TEST(WidgetsComponentsAnStyledTable, AnStyledTable_SelectionColor)
     an::ui::refreshTokens();
     table.refreshTheme();
 
-    // Selection highlight is now via QPalette::Highlight.
-    QColor expectedHighlight = an::ui::tokens().colors.accentPrimary;
-    expectedHighlight.setAlpha(an::ui::isDarkTheme() ? 116 : 84);
-    EXPECT_EQ(table.palette().color(QPalette::Highlight), expectedHighlight);
+    // The selection is the accent's soft share, under the primary text.
+    EXPECT_EQ(table.palette().color(QPalette::Highlight), an::ui::tokens().colors.accentSoft);
+    EXPECT_EQ(table.palette().color(QPalette::HighlightedText), an::ui::tokens().colors.textPrimary);
 }
 
 TEST(WidgetsComponentsAnStyledTable, AnStyledTable_GridLines)
@@ -49,7 +48,12 @@ TEST(WidgetsComponentsAnStyledTable, AnStyledTable_GridLines)
     an::ui::refreshTokens();
     table.refreshTheme();
 
-    // Base/AlternateBase colors are set for grid appearance.
-    EXPECT_EQ(table.palette().color(QPalette::Base), an::ui::tokens().colors.bgInput);
-    EXPECT_EQ(table.palette().color(QPalette::AlternateBase), an::ui::tokens().colors.bgSurface);
+    // The rows are on the first surface, and every other one is a breath lighter: the state colour's 4 % over it.
+    const auto& tokenSet = an::ui::tokens();
+    QColor alternate = tokenSet.colors.stateLayer;
+    alternate.setAlphaF(0.04f);
+    EXPECT_EQ(table.palette().color(QPalette::Base), tokenSet.layers.surface1);
+    EXPECT_EQ(table.palette().color(QPalette::AlternateBase),
+              an::ui::compositeOver(alternate, tokenSet.layers.surface1));
+    EXPECT_NE(table.palette().color(QPalette::AlternateBase), table.palette().color(QPalette::Base));
 }

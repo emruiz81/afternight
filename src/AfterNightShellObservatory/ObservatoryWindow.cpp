@@ -515,8 +515,8 @@ ObservatoryWindow::ObservatoryWindow(an::ui::shell::ApplicationCore& core)
                          SettingsDefaults::INTERFACE_ALWAYS_SHOW_MENU_BAR ? QStringLiteral("1")
                                                                           : QStringLiteral("0")) == QStringLiteral("1");
     impl.menuBar = new MenuBarOnAlt(*this, core.actions().lookup(), alwaysShown);
-    // The shell's own actions, and Ctrl+W on Close, which only this shell gives it: the catalogue's table and the
-    // classic shell keep 1.1's shortcuts.
+    // The shell's own actions, and Ctrl+W on Close, which the window gives it while it lives: the catalogue's table
+    // keeps its own shortcut, which the window puts back as it goes.
     impl.shellActions = std::make_unique<ShellActions>(*this);
     if (QAction* const closeAction = core.actions().action(an::ui::shell::ids::kClose))
     {
@@ -1344,8 +1344,7 @@ void ObservatoryWindow::makeUnits()
     };
     dialogDeps.persistRecentFiles = [this]() { m_impl->core.recentFiles().save(); };
     dialogDeps.settingsApplied = [this]() { m_impl->core.extensions().settingsApplied(); };
-    // This shell's Settings: its order, Projects after General, and its menu bar, shown on Alt or kept shown.
-    dialogDeps.settingsPages = an::ui::SettingsPageOrder::Observatory;
+    // This shell's Settings: its menu bar, shown on Alt or kept shown.
     dialogDeps.keepMenuBarShown = [this](const bool shown) {
         if (m_impl->menuBar != nullptr)
         {
@@ -3554,7 +3553,7 @@ void ObservatoryWindow::bindShellActions()
     QObject::connect(compact, &QAction::triggered, this, [this]() { setDensity(false); });
     QObject::connect(comfortable, &QAction::triggered, this, [this]() { setDensity(true); });
 
-    // The View menu of the menu bar lists them after what 1.1 had there.
+    // The View menu of the menu bar lists them after the entries the menu tree gives it.
     if (QMenu* const view = impl.menuBar->menu("menuView_2"))
     {
         view->addSeparator();
@@ -3787,7 +3786,7 @@ void ObservatoryWindow::applyCaptionColour()
     const auto colourOf = [](const QColor& colour) {
         return static_cast<DWORD>(RGB(colour.red(), colour.green(), colour.blue()));
     };
-    const bool night = an::ui::nightModeSet() && an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
+    const bool night = an::ui::nightModeSet();
     const an::ui::DesignTokens& t = an::ui::tokens();
     const DWORD caption = night ? colourOf(t.layers.surface0) : kDefaultColour;
     const DWORD text = night ? colourOf(t.colors.textPrimary) : kDefaultColour;

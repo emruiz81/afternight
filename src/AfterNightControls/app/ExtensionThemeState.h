@@ -37,7 +37,7 @@ namespace an::ui::extensions
 /// The theme state of the choices in force, under the theme's name ("AfterNight Dark", "AfterNight Light").
 [[nodiscard]] AFTERNIGHTCONTROLS_API ExtensionThemeSnapshot currentExtensionThemeSnapshot();
 
-/// A style profile's name, as a host is told it: "classic" or "observatory".
+/// A style profile's name, as a host is told it: "observatory".
 [[nodiscard]] AFTERNIGHTCONTROLS_API QString styleProfileName(StyleProfile profile);
 
 /// The style profile a name names, ignoring case and surrounding space; nothing for another name.

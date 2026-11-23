@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Entry point of the dashboard suite, linked against the Controls library: the dashboard, its toolbar, recent files
-/// grid, featured file and onboarding panel are the library's, made under a headless QApplication in an application
-/// double whose settings and thumbnails are the library's own repositories over an in-memory database, and reached
-/// through an application context that lends them as the application's does. The dashboard reads no image here, so the
-/// context lends no engine session and the dashboard shows no file facts.
+/// Entry point of the suite of Home's parts, linked against the Controls library: the quick actions, the Continue row,
+/// the recent images and sequences, the welcome and the projects row, and the parts they are built of - the featured
+/// file card and its presenter, the thumbnail cache, the onboarding panel - are the library's, made under a headless
+/// QApplication in an application double whose settings and thumbnails are the library's own repositories over an
+/// in-memory database, and reached through an application context that lends them as the application's does. No image
+/// is read here, so the context lends no engine session; a case that needs a file's facts gives the part a probe of its
+/// own.
 
 #include "Test_MainDashboard/DashboardApplication.h"
 
@@ -30,7 +32,7 @@
 namespace
 {
 
-/// Icons the dashboard asks for by name, all empty, and transparent pixmaps of the size asked for.
+/// Icons the parts ask for by name, all empty, and transparent pixmaps of the size asked for.
 class DashboardIcons final : public an::ui::IIconProvider
 {
 public:
@@ -61,8 +63,8 @@ public:
     }
 };
 
-/// The application context the dashboard reaches its settings, recent files and thumbnails through, each lent by the
-/// application double; the services the dashboard does not use are not lent.
+/// The application context the parts reach their settings and thumbnails through, and the recent-files service a
+/// dropped file is handed to, each lent by the application double; the services the parts do not use are not lent.
 class DashboardContext final : public an::ui::IAppContext,
                                public an::ui::IGlobalSettingsProvider,
                                public an::ui::IRecentFilesService,
@@ -174,11 +176,12 @@ public:
         return m_application.getGlobalSettingsPersistence()->selectOptional(key);
     }
 
-    // ---- IRecentFilesService and IThumbnailPathProvider: the application double's recent files and thumbnails.
+    // ---- IRecentFilesService and IThumbnailPathProvider: the files dropped on the application double and its
+    // thumbnails. Each case gives a part its recent files itself, so the application's own list is empty.
 
     [[nodiscard]] std::deque<std::string> getRecentFilesList() const override
     {
-        return m_application.getRecentFilesList();
+        return {};
     }
     void openRecentSingleFile(const QString&) override {}
     void openDroppedFiles(const QStringList& files) override
@@ -195,8 +198,9 @@ private:
     an::ui::IIconProviderPtr m_icons;
 };
 
-/// Resets the application double before every case, so each starts from no recent files, thumbnails, settings or
-/// dropped files whatever ran before it: the dashboard keeps its toolbar's order and hidden actions in the settings.
+/// Resets the application double before every case, so each starts from no thumbnails, settings or dropped files
+/// whatever ran before it: the quick actions' order and hidden actions, the pins, the search, the sort and the
+/// arrangement of the recent files are all kept in the settings.
 class ResetBetweenCases final : public ::testing::EmptyTestEventListener
 {
 public:

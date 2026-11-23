@@ -8,6 +8,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
+#include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDoubleSpinBox>
@@ -35,9 +36,9 @@
 #include "components/AnInfoBanner.h"
 #include "controls/IAppContext.h"
 #include "processes/ImageIntegration/core/ParallelExecutionUtils.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/lite/LiteIntegrationProfile.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
+#include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegrationLiteProcess.h"
 #include "processes/ImageIntegrationLiteProcessUiBuilder.h"
 
@@ -796,7 +797,9 @@ TEST_F(ImageIntegrationLiteProcessUi, ChangingNonCalibrationSettingsDoesNotRebui
     EXPECT_EQ(frameTable->item(0, 0), firstTypeItem);
 }
 
-TEST_F(ImageIntegrationLiteProcessUi, ExecuteOpensPreparingProgressDialogImmediately)
+// Run Integration shows the run in the process at once, while it is still being prepared: its view takes the place of
+// what the window lays out, and no window opens over the application.
+TEST_F(ImageIntegrationLiteProcessUi, ExecuteShowsThePreparingRunInTheProcessImmediately)
 {
     QTemporaryDir outputDir;
     ASSERT_TRUE(outputDir.isValid());
@@ -821,9 +824,13 @@ TEST_F(ImageIntegrationLiteProcessUi, ExecuteOpensPreparingProgressDialogImmedia
     EXPECT_EQ(banner->tone(), an::ui::AnInfoBanner::Tone::Info);
     EXPECT_TRUE(banner->message().contains(QStringLiteral("Preparing")));
 
-    auto* progressDialog = process.findChild<WorkflowProgressDialogV2*>(QStringLiteral("workflowProgressDialogV2"));
-    ASSERT_NE(progressDialog, nullptr);
-    EXPECT_TRUE(progressDialog->isVisible());
+    WorkflowRunView* const view = process.runView();
+    ASSERT_NE(view, nullptr) << "the run is shown in the process";
+    EXPECT_TRUE(process.isAncestorOf(view));
+    EXPECT_TRUE(view->isVisibleTo(&process));
+    EXPECT_FALSE(view->isFinished());
+    EXPECT_FALSE(runButton->isVisibleTo(&process)) << "the run's view takes the place of what the window lays out";
+    EXPECT_TRUE(process.findChildren<QDialog*>().isEmpty()) << "no window opens over the application";
 }
 
 TEST_F(ImageIntegrationLiteProcessUi, SelectedFramesCanBeReassignedToAnotherType)

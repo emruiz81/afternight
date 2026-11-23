@@ -70,14 +70,19 @@ namespace an::tests::processes::framework
     return outside;
 }
 
-/// The widgets in a window whose font was chosen outside the design tokens' typography: a widget that sets its font
-/// must take the point size and family of one of the tokens' faces, or keep the ones it would inherit, so a size set
+/// The widgets in a window whose font was chosen outside the design tokens: a widget that sets its font must take the
+/// family of one of the typography's faces and the point size of one of them or of the density's text sizes (the
+/// body, the small text and the caption, given in pixels at 96 dpi), or keep the ones it would inherit, so a size set
 /// by hand - in points or in pixels - is found.
 [[nodiscard]] inline QStringList fontsOutsideTheTokens(const QWidget& window)
 {
     const an::ui::TypographyTokens& typography = an::ui::tokens().typography;
     const std::array<const QFont*, 6> faces{&typography.heading1, &typography.heading2, &typography.heading3,
                                             &typography.body,     &typography.caption,  &typography.monospace};
+    const an::ui::MetricTokens& metrics = an::ui::tokens().metrics;
+    const std::array<int, 3> densitySizes{qRound(metrics.fontBody * 72.0 / 96.0),
+                                          qRound(metrics.fontSmall * 72.0 / 96.0),
+                                          qRound(metrics.fontCaption * 72.0 / 96.0)};
     QStringList outside;
     for (const QWidget* widget : window.findChildren<QWidget*>())
     {
@@ -94,6 +99,10 @@ namespace an::tests::processes::framework
         {
             sizeOfAFace = sizeOfAFace || font.pointSize() == face->pointSize();
             familyOfAFace = familyOfAFace || font.family() == face->family();
+        }
+        for (const int size : densitySizes)
+        {
+            sizeOfAFace = sizeOfAFace || font.pointSize() == size;
         }
         if (font.pointSize() <= 0 || !sizeOfAFace || !familyOfAFace)
         {

@@ -13,7 +13,7 @@
 #include "chrome/TopBar.h"
 #include "projects/ProjectFlows.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "controls/IAppContext.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewFiles.h"

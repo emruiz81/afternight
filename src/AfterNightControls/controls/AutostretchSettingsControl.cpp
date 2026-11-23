@@ -76,27 +76,24 @@ AutostretchSettingsControl::AutostretchSettingsControl(ImageViewControl* control
     auto title = fmt::format("Autostretch Settings <{}>", uniqueName);
     setWindowTitle(QString::fromUtf8(title));
 
-    if (an::ui::headWindow(*this, QStringLiteral("Autostretch Settings"),
-                           QStringLiteral("How the view stretches a linear image to show it. The image itself is not "
-                                          "changed until the stretch is applied."),
-                           an::ui::windowEyebrow(QStringLiteral("Display"), QString::fromStdString(uniqueName))) !=
-        nullptr)
+    // The window's layout is a column, so it always takes the heading.
+    an::ui::headWindow(*this, QStringLiteral("Autostretch Settings"),
+                       QStringLiteral("How the view stretches a linear image to show it. The image itself is not "
+                                      "changed until the stretch is applied."),
+                       an::ui::windowEyebrow(QStringLiteral("Display"), QString::fromStdString(uniqueName)));
+    // The window is no longer the one size it was drawn at, which its heading and the Comfortable density's controls
+    // outgrow: it is as wide as it was drawn, its two groups scroll where a display is too small for them, and it opens
+    // showing them whole where there is room. The footer's Close is its primary button.
+    const QMargins margins = layout()->contentsMargins();
+    m_ui.verticalLayoutWidget->setMinimumWidth(width() - margins.left() - margins.right());
+    layout()->setSpacing(an::ui::tokens().spacing.md);
+    setMinimumSize(0, 0);
+    setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    an::ui::scrollWindowBody(*m_ui.verticalLayout, 0, 2);
+    if (QPushButton* const close = m_ui.buttonBox->button(QDialogButtonBox::Close))
     {
-        // Under the Observatory profile the window is no longer the one size it was drawn at, which its heading and
-        // the Comfortable density's controls outgrow: it is as wide as it was drawn, its two groups scroll where a
-        // display is too small for them, and it opens showing them whole where there is room. The footer's Close is
-        // its primary button.
-        const QMargins margins = layout()->contentsMargins();
-        m_ui.verticalLayoutWidget->setMinimumWidth(width() - margins.left() - margins.right());
-        layout()->setSpacing(an::ui::tokens().spacing.md);
-        setMinimumSize(0, 0);
-        setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        an::ui::scrollWindowBody(*m_ui.verticalLayout, 0, 2);
-        if (QPushButton* const close = m_ui.buttonBox->button(QDialogButtonBox::Close))
-        {
-            close->setProperty("buttonVariant", QStringLiteral("primary"));
-        }
+        close->setProperty("buttonVariant", QStringLiteral("primary"));
     }
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 

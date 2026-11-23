@@ -21,7 +21,7 @@
 namespace
 {
 
-/// Under the Observatory profile: the tone's soft share, and the width of the tone's bar at the note's start.
+/// The tone's soft share, and the width of the tone's bar at the note's start.
 constexpr float kSoftShare = 0.16f;
 constexpr qreal kToneBar = 3.0;
 QColor toneColorFor(const an::ui::AnInfoBanner::Tone tone, const an::ui::DesignTokens& tokenSet)
@@ -156,41 +156,22 @@ void AnInfoBanner::refreshTheme()
     refreshTokens();
     const auto& tokenSet = tokens();
     const QColor toneColor = toneColorFor(m_tone, tokenSet);
-    const bool observatory = styleProfile() == StyleProfile::Observatory;
+    // A note: the tone's soft share, no border, a bar of the tone at its start; its message in the primary text.
     m_bgColor = toneColor;
-    m_borderColor = toneColor;
-    if (observatory)
-    {
-        // A note: the tone's soft share, no border, a bar of the tone at its start; its message in the primary text.
-        m_bgColor.setAlphaF(toneColor.alphaF() * kSoftShare);
-        m_borderColor = QColor();
-    }
-    else
-    {
-        m_bgColor.setAlpha(40);
-        m_borderColor.setAlpha(180);
-    }
+    m_bgColor.setAlphaF(toneColor.alphaF() * kSoftShare);
     m_radius = tokenSet.radius.md;
 
     if (auto* rootLayout = qobject_cast<QHBoxLayout*>(layout()))
     {
-        if (observatory)
-        {
-            rootLayout->setContentsMargins(tokenSet.metrics.pad, tokenSet.metrics.gap, tokenSet.metrics.pad,
-                                           tokenSet.metrics.gap);
-        }
-        else
-        {
-            rootLayout->setContentsMargins(tokenSet.spacing.sm, tokenSet.spacing.sm, tokenSet.spacing.sm,
-                                           tokenSet.spacing.sm);
-        }
+        rootLayout->setContentsMargins(tokenSet.metrics.pad, tokenSet.metrics.gap, tokenSet.metrics.pad,
+                                       tokenSet.metrics.gap);
     }
 
     m_messageLabel->setFont(tokenSet.typography.body);
 
     // Message color via palette
     QPalette msgPal = m_messageLabel->palette();
-    msgPal.setColor(QPalette::WindowText, observatory ? tokenSet.colors.textPrimary : toneColor);
+    msgPal.setColor(QPalette::WindowText, tokenSet.colors.textPrimary);
     m_messageLabel->setPalette(msgPal);
 
     update();
@@ -203,28 +184,20 @@ void AnInfoBanner::paintEvent(QPaintEvent* /*event*/)
 
     const auto& tokenSet = tokens();
     const QColor bg = m_bgColor.isValid() ? m_bgColor : tokenSet.colors.statusInfo;
-    const QColor border = m_borderColor.isValid() ? m_borderColor : tokenSet.colors.statusInfo;
     const int r = m_radius > 0 ? m_radius : tokenSet.radius.md;
 
-    if (!m_borderColor.isValid())
-    {
-        // The Observatory profile's note: the fill and, clipped to its shape, the tone's bar at its start.
-        const QRectF bounds(rect());
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(bg);
-        painter.drawRoundedRect(bounds, r, r);
-        QPainterPath shape;
-        shape.addRoundedRect(bounds, r, r);
-        painter.setClipPath(shape);
-        const QRectF bar = layoutDirection() == Qt::RightToLeft
-                               ? QRectF(bounds.right() - kToneBar, bounds.top(), kToneBar, bounds.height())
-                               : QRectF(bounds.left(), bounds.top(), kToneBar, bounds.height());
-        painter.fillRect(bar, toneColorFor(m_tone, tokenSet));
-        return;
-    }
-    painter.setPen(QPen(border, 1));
+    // The note: the fill and, clipped to its shape, the tone's bar at its start.
+    const QRectF bounds(rect());
+    painter.setPen(Qt::NoPen);
     painter.setBrush(bg);
-    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), r, r);
+    painter.drawRoundedRect(bounds, r, r);
+    QPainterPath shape;
+    shape.addRoundedRect(bounds, r, r);
+    painter.setClipPath(shape);
+    const QRectF bar = layoutDirection() == Qt::RightToLeft
+                           ? QRectF(bounds.right() - kToneBar, bounds.top(), kToneBar, bounds.height())
+                           : QRectF(bounds.left(), bounds.top(), kToneBar, bounds.height());
+    painter.fillRect(bar, toneColorFor(m_tone, tokenSet));
 }
 
 } // namespace an::ui

@@ -65,7 +65,7 @@ public:
     /// What a family's menu of the Extensions menu holds.
     enum class FamilyEntries : std::uint8_t
     {
-        /// Manage, and the family's homepage, repository and support pages: the classic window's.
+        /// Manage, and the family's homepage, repository and support pages.
         LinksOnly,
         /// The extension's processes, then a separator and the links.
         ProcessesAndLinks,

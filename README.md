@@ -186,7 +186,8 @@ src/AfterNightConsumerRuntime/
 src/AfterNightControls/      reusable Qt controls, application services and the theme
 src/AfterNightProcesses/     every user-facing process and the ImageIntegration workflow
 src/AfterNightShellCore/     the application without a window: its stores, services, views and actions
-src/AfterNightShellClassic/  the classic shell, the main window of AfterNight 1.1
+src/AfterNightShellObservatory/
+                             the Observatory shell, the application's main window
 src/AfterNightApp/           the application, which starts a shell
 src/AfterNightCLI/           the command-line tool
 src/AfterNightExtension*/    the extension protocol, the two extension hosts and the runtime backend

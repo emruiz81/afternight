@@ -63,7 +63,6 @@ private:
     std::vector<QPushButton*> m_actionButtons;
     Tone m_tone = Tone::Info;
     QColor m_bgColor;
-    QColor m_borderColor;
     int m_radius = 8;
 };
 

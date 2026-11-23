@@ -11,7 +11,6 @@
 #include <QPushButton>
 #include <QSizePolicy>
 #include <QTemporaryDir>
-#include <QTabBar>
 #include <QToolButton>
 #include <QListView>
 #include <QTreeView>
@@ -25,7 +24,6 @@
 #include "processes/ImageIntegration/model/FrameId.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/tabs/SummaryTab.h"
-#include "processes/ImageIntegration/widgets/TabIssueBadge.h"
 
 namespace
 {
@@ -215,26 +213,6 @@ TEST_F(SummaryTabTest, RunHistoryUsesScrollAreaExtraSpace)
     const int historyViewIndex = runHistoryLayout->indexOf(historyView);
     ASSERT_GE(historyViewIndex, 0);
     EXPECT_GT(runHistoryLayout->stretch(historyViewIndex), 0);
-}
-
-TEST(TabIssueBadgeTest, ClickSelectsOwningTab)
-{
-    ensureApp();
-
-    QTabBar bar;
-    bar.addTab(QStringLiteral("Frames"));
-    bar.addTab(QStringLiteral("Summary"));
-
-    auto* badge = new TabIssueBadge(&bar);
-    badge->setText(QStringLiteral("2"));
-    bar.setTabButton(1, QTabBar::RightSide, badge);
-    bar.setCurrentIndex(0);
-
-    bar.show();
-    QCoreApplication::processEvents();
-
-    QTest::mouseClick(badge, Qt::LeftButton, Qt::NoModifier, badge->rect().center());
-    EXPECT_EQ(bar.currentIndex(), 1);
 }
 
 TEST_F(SummaryTabTest, ResourceStatusShowsDiskEstimateTooltipWhenOutputDirSet)

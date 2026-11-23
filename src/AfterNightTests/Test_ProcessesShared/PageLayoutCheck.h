@@ -58,15 +58,6 @@ namespace an::tests::processes::shared
 /// The height a page is held to: a short window's.
 inline constexpr int kPageCheckHeight = 600;
 
-/// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
-/// character one width.
-[[nodiscard]] inline bool textIsMeasured()
-{
-    const QFontMetrics metrics(QApplication::font());
-    return metrics.horizontalAdvance(QStringLiteral("iiiiiiiiii")) <
-           metrics.horizontalAdvance(QStringLiteral("WWWWWWWWWW"));
-}
-
 /// Whether a widget is a control a person reaches by Tab: a button, a field, a choice, a slider or a spin box.
 [[nodiscard]] inline bool isTabControl(const QWidget& widget)
 {
@@ -147,7 +138,7 @@ inline bool expectPageFitsItsColumn(const std::string& descriptorId, ImageViewCo
     for (const ObservatoryLook* look : {&observatoryLooks()[0], &observatoryLooks()[3]})
     {
         SCOPED_TRACE(look->name);
-        const ObservatoryStyleScope scope(*look, an::ui::StyleProfile::Observatory);
+        const ObservatoryStyleScope scope(*look);
         PagePresenter presenter(QSize(PagePresenter::kCentre.width(), kPageCheckHeight));
         context.presenter = &presenter;
         TopLevelProcessBaseControl* const process = launchedPage(descriptorId, target);

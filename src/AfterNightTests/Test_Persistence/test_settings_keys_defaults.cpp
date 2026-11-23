@@ -3,9 +3,8 @@
 
 /// @file
 /// What a fresh settings store means: every key the new interface added to the global settings store has its default,
-/// which a reader takes while nothing is stored; and a store that holds nothing, read under the Classic style profile,
-/// puts in force what AfterNight 1.1 had - its theme, contrast, accent and tint, its tokens, Night off - but for the
-/// shell, which is the Observatory one.
+/// which a reader takes while nothing is stored; and a store that holds nothing puts in force the choices AfterNight
+/// 1.1 had - its theme, contrast, accent and tint, Night off - but for the shell, which is the Observatory one.
 
 #include <gtest/gtest.h>
 
@@ -40,11 +39,10 @@ QString switchText(const bool on)
 } // namespace
 
 // Every key the new interface added to the global settings store has its default, the value its reader falls back to;
-// none is stored in a fresh store. A store that holds nothing, read under the Classic profile as the application reads
-// it as it starts, gives the choices and the tokens of 1.1: the dark theme, the balanced contrast, the blue accent, the
-// neutral tint and Night off; and the preset a fresh store names is made of 1.1's accent and tint, so a store that
-// keeps it puts nothing else in force. The shell is the one default that is not 1.1's: a fresh store starts the
-// Observatory shell.
+// none is stored in a fresh store. A store that holds nothing, read as the application reads it as it starts, gives
+// the choices of 1.1: the dark theme, the balanced contrast, the blue accent, the neutral tint and Night off; and the
+// preset a fresh store names is made of 1.1's accent and tint, so a store that keeps it puts nothing else in force. The
+// shell is the one default that is not 1.1's: a fresh store starts the Observatory shell.
 TEST(SettingsKeys, DefaultsReproduce1_1)
 {
     const std::vector<KeyDefault> added = {
@@ -109,7 +107,7 @@ TEST(SettingsKeys, DefaultsReproduce1_1)
         EXPECT_EQ(store.select(key, added[index].value), stated[index].value) << key.toStdString();
     }
 
-    // The store read as the application reads it as it starts, under the Classic profile.
+    // The store read as the application reads it as it starts.
     const QString theme = store.select(QString::fromLatin1(SettingsKeys::INTERFACE_THEME),
                                        QString::fromLatin1(SettingsDefaults::INTERFACE_THEME));
     const an::ui::ThemeChoices read{
@@ -126,25 +124,22 @@ TEST(SettingsKeys, DefaultsReproduce1_1)
         .tintStrength = an::ui::resolveThemeTintStrength(
             store.select(QString::fromLatin1(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH),
                          QString::fromLatin1(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH))),
-        .profile = an::ui::StyleProfile::Classic,
         .density = an::ui::resolveThemeDensity(store.select(QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY),
                                                             QString::fromLatin1(SettingsDefaults::INTERFACE_DENSITY))),
         .night = store.select(QString::fromLatin1(SettingsKeys::INTERFACE_START_IN_NIGHT),
                               switchText(SettingsDefaults::INTERFACE_START_IN_NIGHT)) == QStringLiteral("1"),
     };
-    // What 1.1 had: the dark theme, the balanced contrast, the blue accent, the neutral tint, and nothing else to say -
-    // the choices the Classic profile resolves to 1.1's tokens, which the theme suite's record holds.
+    // What 1.1 had: the dark theme, the balanced contrast, the blue accent, the neutral tint, and nothing else to say.
     const an::ui::ThemeChoices previous{.theme = an::ui::ThemeVariant::Dark,
                                         .contrast = an::ui::ThemeContrastProfile::Balanced,
                                         .accent = an::ui::ThemeAccentFamily::Blue,
-                                        .tint = an::ui::ThemeSurfaceTintFamily::Neutral,
-                                        .profile = an::ui::StyleProfile::Classic};
+                                        .tint = an::ui::ThemeSurfaceTintFamily::Neutral};
     EXPECT_EQ(read.theme, previous.theme);
     EXPECT_EQ(read.contrast, previous.contrast);
     EXPECT_EQ(read.accent, previous.accent);
     EXPECT_EQ(read.tint, previous.tint);
     EXPECT_FALSE(read.night) << "a fresh store starts in Night";
-    EXPECT_TRUE(read == previous) << "a fresh store reads as other choices than 1.1's under the Classic profile";
+    EXPECT_TRUE(read == previous) << "a fresh store reads as other choices than 1.1's";
     EXPECT_EQ(store.select(QString::fromLatin1(SettingsKeys::INTERFACE_SHELL),
                            QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL)),
               QStringLiteral("observatory"))

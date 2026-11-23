@@ -5,10 +5,7 @@
 
 #include "app/ApplicationMain.h"
 
-#include "ClassicShell.h"
-#include "ObservatoryShell.h"
 #include "app/ApplicationStart.h"
-#include "app/ModernizationFeatureFlags.h"
 #include "app/SessionConsoleBridge.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
@@ -244,8 +241,7 @@ int runApplication(int argc, char* argv[])
 
         // The shells this application can make; one run makes one of them.
         an::ui::shell::ShellRegistry shells;
-        (void)shells.add(an::ui::shell::classicShellDescriptor());
-        (void)shells.add(an::ui::observatory::observatoryShellDescriptor());
+        an::ui::registerApplicationShells(shells);
         core->setShellRegistry(&shells);
 
         // The stores open first - they make no widget - then the shell is chosen, its style profile is put in force and
@@ -255,10 +251,7 @@ int runApplication(int argc, char* argv[])
             *core, shells, arguments, QProcessEnvironment::systemEnvironment(), [](const an::ui::StyleProfile profile) {
                 (void)an::ui::setStyleProfile(profile);
                 // The QProxyStyle theme paints the standard widgets with direct C++ calls using AnDesignTokens.
-                if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
-                {
-                    an::ui::installAnProxyStyle();
-                }
+                an::ui::installAnProxyStyle();
             });
 
         an::ui::showApplication(*started.shell);

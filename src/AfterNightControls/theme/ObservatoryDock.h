@@ -4,10 +4,9 @@
 #pragma once
 
 /// @file
-/// The dock decorations under the Observatory profile: the sizes of a tab strip and of its parts, where a tab's parts
-/// lie, and the painters the decorations (`controls/KDDockWidgetsHelper.h`) and the dock style
-/// (`theme/KddwProxyStyle.h`) hand over to under that profile. Every colour, size and font is read from the tokens in
-/// force when a part is measured or painted. Under the Classic profile nothing here runs.
+/// The dock decorations in the Observatory look: the sizes of a tab strip and of its parts, where a tab's parts lie,
+/// and the painters the decorations (`controls/KDDockWidgetsHelper.h`) and the dock style (`theme/KddwProxyStyle.h`)
+/// hand over to. Every colour, size and font is read from the tokens in force when a part is measured or painted.
 
 #include "AfterNightControlsExport.h"
 
@@ -17,20 +16,15 @@
 #include <QRect>
 #include <QString>
 
-#include <cstdint>
-
 class QPainter;
 
 namespace an::ui
 {
 
-/// Whether the dock decorations draw the Observatory look: the profile in force is the Observatory one.
-[[nodiscard]] AFTERNIGHTCONTROLS_API bool observatoryDockDecorations();
-
-/// The dock library's separator under the Observatory profile: groups lie two pixels apart, on the dock area's ground.
+/// The dock library's separator: groups lie two pixels apart, on the dock area's ground.
 inline constexpr int kObservatoryDockSeparator = 2;
 
-/// The side of a tab's close button under the Observatory profile; the application's style sizes the button from it.
+/// The side of a tab's close button; the application's style sizes the button from it.
 inline constexpr int kObservatoryDockTabClose = 16;
 
 /// A tab strip's height: the strip of the density, or the smaller strip of a floating image window.
@@ -173,12 +167,5 @@ AFTERNIGHTCONTROLS_API void paintObservatoryDropBand(QPainter& painter, const QR
 
 /// The band's border.
 inline constexpr int kObservatoryDropBandBorder = 2;
-
-namespace testing
-{
-/// How many dock parts the Observatory profile's painters have drawn since the process started. For the suites, which
-/// prove the Classic profile draws the dock decorations through their own code alone; the application never reads it.
-[[nodiscard]] AFTERNIGHTCONTROLS_API std::uint64_t observatoryDockPaints();
-} // namespace testing
 
 } // namespace an::ui

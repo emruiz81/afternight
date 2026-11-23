@@ -25,7 +25,6 @@
 #include <QScrollArea>
 #include <QShortcut>
 #include <QStackedWidget>
-#include <QTabWidget>
 #include <QTemporaryDir>
 
 #include <memory>
@@ -328,20 +327,11 @@ TEST_F(IntegrationPage, EverySequenceRunsThePagesOwnInsideIt)
     ASSERT_TRUE(inside->isVisibleTo(&process));
     const AmbiguityCounter ambiguity;
 
-    // Shows a widget of the page: what holds it is told to show it, the tabs of a window or the stage list's pages.
+    // Shows a widget of the page: each stack that holds it - the stage list's pages among them - is told to show it.
     const auto reveal = [&process](QWidget* widget) {
         for (QWidget* at = widget; at != nullptr && at != &process; at = at->parentWidget())
         {
-            auto* const stack = qobject_cast<QStackedWidget*>(at->parentWidget());
-            if (stack == nullptr)
-            {
-                continue;
-            }
-            if (auto* const tabs = qobject_cast<QTabWidget*>(stack->parentWidget()))
-            {
-                tabs->setCurrentWidget(at);
-            }
-            else
+            if (auto* const stack = qobject_cast<QStackedWidget*>(at->parentWidget()))
             {
                 stack->setCurrentWidget(at);
             }

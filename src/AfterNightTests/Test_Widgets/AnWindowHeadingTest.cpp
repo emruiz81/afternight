@@ -152,47 +152,33 @@ TEST(AnWindowHeading, SaysWhatItWasGiven)
     EXPECT_EQ(an::tests::widgets::accessibleName(*held.heading), QStringLiteral("Stacking Settings"));
 }
 
-// Under the Observatory profile a window whose layout is a column gains a heading at its head, which says the title,
-// the description and the eyebrow it is given, and whose eyebrow is set again as the image it names is renamed. Under
-// the Classic profile the window is left as it is.
-TEST(WindowHeading, AWindowIsHeadedUnderTheObservatoryProfileAlone)
+// A window whose layout is a column gains a heading at its head, which says the title, the description and the eyebrow
+// it is given, and whose eyebrow is set again as the image it names is renamed.
+TEST(WindowHeading, AWindowWhoseLayoutIsAColumnIsHeaded)
 {
     EXPECT_EQ(an::ui::windowEyebrow(QStringLiteral("Analysis"), QStringLiteral("M31_Lum")),
               QStringLiteral("Analysis · M31_Lum"));
     EXPECT_EQ(an::ui::windowEyebrow(QStringLiteral("Astrometry")), QStringLiteral("Astrometry"));
-    {
-        const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
-        ASSERT_TRUE(an::ui::windowsTakeHeadings());
-        QDialog window;
-        auto* const column = new QVBoxLayout(&window);
-        auto* const content = new QLabel(QStringLiteral("What the window holds"), &window);
-        column->addWidget(content);
-        AnWindowHeading* const heading =
-            an::ui::headWindow(window, QStringLiteral("Find Object"), QStringLiteral("Search the catalogs."),
-                               an::ui::windowEyebrow(QStringLiteral("Astrometry")));
-        ASSERT_NE(heading, nullptr);
-        EXPECT_EQ(column->indexOf(heading), 0) << "the heading is not at the window's head";
-        EXPECT_EQ(column->indexOf(content), 1);
-        EXPECT_EQ(heading->title(), QStringLiteral("Find Object"));
-        EXPECT_EQ(heading->description(), QStringLiteral("Search the catalogs."));
-        EXPECT_EQ(heading->eyebrow(), QStringLiteral("Astrometry"));
-        an::ui::setWindowEyebrow(window, QStringLiteral("Astrometry · M83"));
-        EXPECT_EQ(heading->eyebrow(), QStringLiteral("Astrometry · M83"));
-    }
-    const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0],
-                                                         an::ui::StyleProfile::Classic);
-    EXPECT_FALSE(an::ui::windowsTakeHeadings());
+    const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
     QDialog window;
     auto* const column = new QVBoxLayout(&window);
-    column->addWidget(new QLabel(QStringLiteral("What the window holds"), &window));
-    EXPECT_EQ(an::ui::headWindow(window, QStringLiteral("Find Object"), QString()), nullptr);
-    EXPECT_EQ(column->count(), 1);
-    an::ui::setWindowEyebrow(window, QStringLiteral("Astrometry"));
+    auto* const content = new QLabel(QStringLiteral("What the window holds"), &window);
+    column->addWidget(content);
+    AnWindowHeading* const heading =
+        an::ui::headWindow(window, QStringLiteral("Find Object"), QStringLiteral("Search the catalogs."),
+                           an::ui::windowEyebrow(QStringLiteral("Astrometry")));
+    ASSERT_NE(heading, nullptr);
+    EXPECT_EQ(column->indexOf(heading), 0) << "the heading is not at the window's head";
+    EXPECT_EQ(column->indexOf(content), 1);
+    EXPECT_EQ(heading->title(), QStringLiteral("Find Object"));
+    EXPECT_EQ(heading->description(), QStringLiteral("Search the catalogs."));
+    EXPECT_EQ(heading->eyebrow(), QStringLiteral("Astrometry"));
+    an::ui::setWindowEyebrow(window, QStringLiteral("Astrometry · M83"));
+    EXPECT_EQ(heading->eyebrow(), QStringLiteral("Astrometry · M83"));
 }
 
 // A window's own header - a title over a description, in labels the style knows by their names - gives way to a
-// heading that says what they said, in the header's place; the header is shown no more. Under the Classic profile the
-// header stays.
+// heading that says what they said, in the header's place; the header is shown no more.
 TEST(WindowHeading, AHeaderGivesWayToAHeadingInItsPlace)
 {
     const auto headed = [](QDialog& window) {
@@ -210,32 +196,23 @@ TEST(WindowHeading, AHeaderGivesWayToAHeadingInItsPlace)
         column->addWidget(new QLabel(QStringLiteral("Below"), &window));
         return header;
     };
-    {
-        const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
-        QDialog window;
-        QWidget* const header = headed(window);
-        AnWindowHeading* const heading = an::ui::headWindowInPlaceOf(header, QStringLiteral("Analysis · M31"));
-        ASSERT_NE(heading, nullptr);
-        auto* const column = qobject_cast<QVBoxLayout*>(window.layout());
-        EXPECT_EQ(column->indexOf(heading), 1) << "the heading is not where the header was";
-        EXPECT_EQ(column->indexOf(header), -1);
-        EXPECT_TRUE(header->isHidden());
-        EXPECT_EQ(heading->title(), QStringLiteral("Image Statistics"));
-        EXPECT_EQ(heading->description(), QStringLiteral("The statistics of each channel."));
-        EXPECT_EQ(heading->eyebrow(), QStringLiteral("Analysis · M31"));
-    }
-    const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0],
-                                                         an::ui::StyleProfile::Classic);
+    const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
     QDialog window;
     QWidget* const header = headed(window);
-    EXPECT_EQ(an::ui::headWindowInPlaceOf(header), nullptr);
-    EXPECT_FALSE(header->isHidden());
-    EXPECT_EQ(window.layout()->indexOf(header), 1);
+    AnWindowHeading* const heading = an::ui::headWindowInPlaceOf(header, QStringLiteral("Analysis · M31"));
+    ASSERT_NE(heading, nullptr);
+    auto* const column = qobject_cast<QVBoxLayout*>(window.layout());
+    EXPECT_EQ(column->indexOf(heading), 1) << "the heading is not where the header was";
+    EXPECT_EQ(column->indexOf(header), -1);
+    EXPECT_TRUE(header->isHidden());
+    EXPECT_EQ(heading->title(), QStringLiteral("Image Statistics"));
+    EXPECT_EQ(heading->description(), QStringLiteral("The statistics of each channel."));
+    EXPECT_EQ(heading->eyebrow(), QStringLiteral("Analysis · M31"));
 }
 
 // The part of a window's column between two of its widgets scrolls: its items - a widget, a row of widgets, the room
 // between them - move as they are, in their order, into an area that takes their place and the column's room; what is
-// outside stays where it was. Under the Classic profile, and for a part the column does not hold, nothing moves.
+// outside stays where it was. For a part the column does not hold, nothing moves.
 TEST(WindowBody, ThePartBetweenTwoWidgetsScrolls)
 {
     struct Built
@@ -266,43 +243,35 @@ TEST(WindowBody, ThePartBetweenTwoWidgetsScrolls)
         built.column->addWidget(built.footer);
         return built;
     };
-    {
-        const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
-        QDialog window;
-        const Built built = build(window);
-        QScrollArea* const body = an::ui::scrollWindowBody(*built.column, built.heading, built.footer);
-        ASSERT_NE(body, nullptr);
-        EXPECT_EQ(body->objectName(), QString::fromLatin1(an::ui::kWindowBodyName));
-        EXPECT_EQ(built.column->count(), 3) << "the heading, the body and the footer";
-        EXPECT_EQ(built.column->indexOf(built.heading), 0);
-        EXPECT_EQ(built.column->indexOf(body), 1);
-        EXPECT_EQ(built.column->indexOf(built.footer), 2);
-        EXPECT_EQ(built.column->stretch(1), 1) << "the body does not take the column's room";
-        ASSERT_NE(body->widget(), nullptr);
-        const auto* const moved = qobject_cast<QVBoxLayout*>(body->widget()->layout());
-        ASSERT_NE(moved, nullptr);
-        ASSERT_EQ(moved->count(), 4) << "a label, a row, the room between and a label";
-        EXPECT_EQ(moved->itemAt(0)->widget(), built.first);
-        EXPECT_NE(moved->itemAt(1)->layout(), nullptr);
-        EXPECT_NE(moved->itemAt(2)->spacerItem(), nullptr);
-        EXPECT_EQ(moved->itemAt(3)->widget(), built.last);
-        EXPECT_TRUE(body->widget()->isAncestorOf(built.first));
-        EXPECT_TRUE(body->widget()->isAncestorOf(built.inARow)) << "a widget of a row moved did not go with its row";
-        EXPECT_FALSE(body->widget()->isAncestorOf(built.footer));
-        EXPECT_EQ(body->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
-        EXPECT_EQ(body->frameShape(), QFrame::NoFrame);
-
-        // A part the column does not hold.
-        QDialog other;
-        const Built others = build(other);
-        EXPECT_EQ(an::ui::scrollWindowBody(*others.column, built.heading, others.footer), nullptr);
-        EXPECT_EQ(an::ui::scrollWindowBody(*others.column, 4, 9), nullptr);
-        EXPECT_EQ(others.column->count(), 6);
-    }
-    const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0],
-                                                         an::ui::StyleProfile::Classic);
+    const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
     QDialog window;
     const Built built = build(window);
-    EXPECT_EQ(an::ui::scrollWindowBody(*built.column, built.heading, built.footer), nullptr);
-    EXPECT_EQ(built.column->count(), 6);
+    QScrollArea* const body = an::ui::scrollWindowBody(*built.column, built.heading, built.footer);
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->objectName(), QString::fromLatin1(an::ui::kWindowBodyName));
+    EXPECT_EQ(built.column->count(), 3) << "the heading, the body and the footer";
+    EXPECT_EQ(built.column->indexOf(built.heading), 0);
+    EXPECT_EQ(built.column->indexOf(body), 1);
+    EXPECT_EQ(built.column->indexOf(built.footer), 2);
+    EXPECT_EQ(built.column->stretch(1), 1) << "the body does not take the column's room";
+    ASSERT_NE(body->widget(), nullptr);
+    const auto* const moved = qobject_cast<QVBoxLayout*>(body->widget()->layout());
+    ASSERT_NE(moved, nullptr);
+    ASSERT_EQ(moved->count(), 4) << "a label, a row, the room between and a label";
+    EXPECT_EQ(moved->itemAt(0)->widget(), built.first);
+    EXPECT_NE(moved->itemAt(1)->layout(), nullptr);
+    EXPECT_NE(moved->itemAt(2)->spacerItem(), nullptr);
+    EXPECT_EQ(moved->itemAt(3)->widget(), built.last);
+    EXPECT_TRUE(body->widget()->isAncestorOf(built.first));
+    EXPECT_TRUE(body->widget()->isAncestorOf(built.inARow)) << "a widget of a row moved did not go with its row";
+    EXPECT_FALSE(body->widget()->isAncestorOf(built.footer));
+    EXPECT_EQ(body->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    EXPECT_EQ(body->frameShape(), QFrame::NoFrame);
+
+    // A part the column does not hold.
+    QDialog other;
+    const Built others = build(other);
+    EXPECT_EQ(an::ui::scrollWindowBody(*others.column, built.heading, others.footer), nullptr);
+    EXPECT_EQ(an::ui::scrollWindowBody(*others.column, 4, 9), nullptr);
+    EXPECT_EQ(others.column->count(), 6);
 }

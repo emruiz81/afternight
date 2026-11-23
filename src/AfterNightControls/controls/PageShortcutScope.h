@@ -50,8 +50,8 @@ namespace an::ui
 /// An object in a window of its own that the page opened - a dialog's action, a dialog's shortcut - is left as it is:
 /// a key pressed in that window never reaches the page, so the scope could take its sequence but not run it.
 ///
-/// Inactive - the process in a window of its own - every sequence is put back and the objects are live again, as in
-/// AfterNight 1.1. Used on the GUI thread.
+/// Inactive - the process in a window of its own - every sequence is put back and the objects are live again. Used on
+/// the GUI thread.
 class AFTERNIGHTCONTROLS_API PageShortcutScope final : public QObject
 {
 public:

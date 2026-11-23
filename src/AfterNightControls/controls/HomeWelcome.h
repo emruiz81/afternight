@@ -7,8 +7,8 @@
 /// Home with nothing to show yet - no recent file: on a quiet star field, the logo and the version; three cards to
 /// start with - Open an image, Stack your frames, Read the guide - and under them one quiet line, "Projects are
 /// optional. Without one, AfterNight works as it always has.", with New project...; a drop zone for images and
-/// sequences with Open file; and the six things AfterNight does that the dashboard's first-run panel shows. A file
-/// dragged over it lights the drop zone, and a file dropped on it is opened as a file dropped on the dashboard is.
+/// sequences with Open file; and six things AfterNight does. A file dragged over it lights the drop zone, and a file
+/// dropped on it is opened as one dropped on the window is.
 
 #include "AfterNightControlsExport.h"
 

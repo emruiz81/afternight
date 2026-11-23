@@ -58,27 +58,27 @@
 - **No QSS.** Ever. See [Absolute Rules](#absolute-rules--what-is-forbidden).
 - Every visual aspect is controlled by either `AnProxyStyle` (C++ `QProxyStyle` overrides) or custom `paintEvent()` implementations.
 - All colors, spacings, radii, fonts and control sizes are resolved through the `AnDesignTokens` singleton — never hardcoded.
-- The system supports dark/light themes, multiple accent families, contrast profiles, surface tints and, under the Observatory profile, two densities — all switchable at runtime.
+- The system supports dark/light themes, multiple accent families, contrast profiles, surface tints and two densities — all switchable at runtime.
 
 ### File Map
 
 | File | Purpose |
 |---|---|
 | `theme/AnDesignTokens.h/.cpp` | Token definitions, resolution pipeline, theme preference API |
-| `theme/StyleProfile.h` | The style profiles, `Classic` and `Observatory` (see [Profiles](#profiles)) |
+| `theme/StyleProfile.h` | The style profile a shell names, `Observatory` (see [Profiles](#profiles)) |
 | `theme/ObservatoryPalette.h/.cpp` | The Observatory profile's tables, derivations and contrast rules (see [The surface ladder](#the-surface-ladder)), its sizes (see [Density](#density)) and Night's tones and rules (see [Night](#night)) |
 | `theme/NightImage.h/.cpp` | Night's form of a colour and of a picture: `nightColor`, `colorAsShown`, `nightImage` and its cache, `NightPicture` (see [Night](#night)) |
 | `theme/NightImageWidgets.h` | Every widget that paints a picture, and how it shows it under Night |
 | `widgets/NightPictureLabel.h/.cpp` | A label showing a picture in its Night form under Night |
 | `controls/settings/ThemePresetTile.h/.cpp` | A colour preset's tile and a theme's on the Interface page (see [Presets](#presets)) |
 | `controls/settings/ThemeSwatch.h/.cpp` | An accent's disc and a surface tint's square on the Interface page (see [Presets](#presets)) |
-| `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~3000 LOC) |
-| `theme/AnProxyStyleObservatory.cpp` | The proxy style's drawing under the Observatory profile (see [The Observatory look](#the-observatory-look)) |
+| `theme/AnProxyStyle.h/.cpp` | Global `QProxyStyle` for all standard Qt widgets (~1500 LOC): polish, the palette, the sizes and metrics, and the dispatch to the Observatory painters |
+| `theme/AnProxyStyleObservatory.cpp` | The Observatory painters: how the proxy style draws every standard widget (see [The Observatory look](#the-observatory-look)) |
 | `theme/Elevation.h/.cpp` | A raised part's shadow and edge line: the kept nine-patch images (see [Elevation](#elevation)) |
 | `theme/KddwProxyStyle.h/.cpp` | `QProxyStyle` for KDDockWidgets subsystem (~700 LOC) |
-| `theme/ObservatoryDock.h/.cpp` | The dock decorations' sizes, layout and painters under the Observatory profile (see [The dock decorations](#the-dock-decorations-kddwproxystyle-the-an_-views)) |
+| `theme/ObservatoryDock.h/.cpp` | The dock decorations' sizes, layout and painters (see [The dock decorations](#the-dock-decorations-kddwproxystyle-the-an_-views)) |
 | `controls/KDDockWidgetsHelper.h/.cpp` | The dock decorations (`AN_TabBar`, `AN_Stack`, `AN_TitleBar`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator`, `AN_DockButton`), the view factory, a tab's adornment |
-| `controls/DockDropIndicators.h/.cpp` | The Observatory profile's drop indicators and band (`AN_DropIndicators`, `AN_DropBand`) |
+| `controls/DockDropIndicators.h/.cpp` | The dock library's drop indicators and band (`AN_DropIndicators`, `AN_DropBand`) |
 | `theme/AnimationUtils.h/.cpp` | Global animation toggle (accessibility) |
 | `theme/PainterGuard.h` | `an::ui::PainterGuard`, the RAII `QPainter` save/restore guard |
 | `theme/ComponentParts.h/.cpp` | The small parts' fixed sizes and what they paint the same way (see [Small parts](#small-parts)) |
@@ -109,11 +109,9 @@ Organized into semantic groups accessible via helper methods:
 | **Effects** | `colors.effects()` | `shadowOverlay` |
 | **Observatory roles** | members only | `bgCanvas`, `bgWell`, `bgSnack`, `textOnSnack`, `stateLayer`, `scrim`, `scrimSoft`, `edge`, `textOnImage`, `textOnImageSecondary`, `accentOnImage`, `textOnAccentImage`, `accentContainer`, `textOnAccentContainer`, `accentTrack`, `accentSoft`, `accentSofter`, `accentLine`, `channelRed`/`Green`/`Blue`/`Gray`, `plotRed`/`Green`/`Blue`/`Gray` |
 
-The Observatory roles are what the Observatory profile's design names. Each holds a colour under both profiles: under
-`Classic` the colour AfterNight 1.1 paints in that role (the view's background around an image, the histogram's well,
-the selected row's fill, the channel selectors' dots, the histogram's curves, and so on), so a widget shared by both
-profiles that reads a role paints under `Classic` what it painted. `NewTokens.ClassicValuesAreWhatClassicPaints` in
-`Test_Widgets` reads each from where 1.1 has it.
+The Observatory roles are the roles the Observatory profile's design added to AfterNight 1.1's: the view's background
+around an image, the histogram's well, the selected row's fill, the channel selectors' dots, the histogram's curves,
+and so on. The profile resolves each from its tables ([The surface ladder](#the-surface-ladder)).
 
 #### SpacingTokens
 ```cpp
@@ -137,8 +135,9 @@ struct RadiusTokens {
 };
 ```
 
-These are the `Classic` profile's radii. The `Observatory` profile's are `sm` 6 (small parts: tooltips, palette rows),
-`md` 8 (controls), `lg` 12 (cards and popups), `xl` 16 (sheets); a pill is half its height.
+These are the struct's defaults. Every token set - the base sets and every resolution - carries the profile's radii,
+which its sizes step fills in: `sm` 6 (small parts: tooltips, palette rows), `md` 8 (controls), `lg` 12 (cards and
+popups), `xl` 16 (sheets); a pill is half its height.
 
 #### LayerTokens
 Five elevation layers derived from background colors:
@@ -168,79 +167,73 @@ struct TypographyTokens {
 };
 ```
 
-These are the `Classic` profile's fonts. The `Observatory` profile sizes its type scale by the density
-([Density](#density)).
+These are the fonts the base sets are made with, from the platform's interface font. The sizes step then sizes the
+type scale by the density ([Density](#density)), in the base sets as in every resolution.
 
 #### MetricTokens
 The sizes of the interface in logical pixels: what a control, a row and a bar are high, the font sizes, a panel's
 padding and gaps, a scroll bar's thickness (`fontBody`, `fontSmall`, `fontCaption`, `control`, `controlSmall`,
 `controlXSmall`, `controlLarge`, `rowTable`, `rowDense`, `rowKeyValue`, `rowSettings`, `rowPalette`, `barTop`, `strip`,
-`statusLine`, `rail`, `pad`, `gap`, `sectionHeader`, `chip`, `tag`, `floatingToolbar`, `scrollBar`). Under the
-`Observatory` profile they are the density's column; under `Classic`, 1.1's sizes. See [Density](#density).
+`statusLine`, `rail`, `pad`, `gap`, `sectionHeader`, `chip`, `tag`, `floatingToolbar`, `scrollBar`). They are the
+density's column; the unresolved base sets (`darkTokens()`, `lightTokens()`) carry the Compact one. See
+[Density](#density).
 
 ### Token Resolution Pipeline
 
 Tokens go through a multi-stage resolution before becoming active. The resolution of one combination is a pure function,
 `resolveDesignTokens(const ThemeChoices&)`: its inputs are a struct - the theme, the contrast profile, the accent family,
-the surface tint, the tint strength, the style profile, the density and whether the native backdrop is used - and it reads and writes
+the surface tint, the tint strength, the density, Night and whether the native backdrop is used - and it reads and writes
 no global, so a test resolves any combination without touching the application's state. `refreshTokens()` builds the
-choices in force for each theme, resolves both and publishes them. Under the `Classic` profile the stages are these:
+choices in force for each theme, resolves both and publishes them. The stages are these:
 
 ```
-Base Tokens (createDarkTokens / createLightTokens)
+Base Tokens (darkTokens / lightTokens: createDarkTokens / createLightTokens, the Compact density's sizes)
        │
        ▼
-Apply Accent Family (Blue, Teal, Amber, Amethyst, Rose)
-       │
-       ▼
-Apply Surface Tint Family (Neutral, Ocean, Mint, Amethyst, Rose, Amber)
-       │
-       ▼
-Apply Contrast Profile (High, Balanced, Soft, Oled)
-       │
-       ▼
-Compute textOnAccent (WCAG contrast auto-selection)
+Resolve the colours (resolveObservatoryColors: the surface ladder, the accent family,
+                     the surface tint and its strength, the contrast profile)
        │
        ▼
 Resolve Material Tokens (native vs. fallback backdrop)
        │
        ▼
-Validate Contrast Ratios (debug builds only)
+Resolve the sizes (resolveObservatorySizes: the density's metrics, the radii, the type scale)
+       │
+       ▼
+Map to Night (mapToNight, while Night is on)
+       │
+       ▼
+Validate Contrast Ratios (debug builds only: observatoryContrastFailures)
        │
        ▼
 Publish Snapshot (lock-free atomic pointer swap)
 ```
 
-Under the `Observatory` profile the base, accent, tint and contrast stages are replaced by the tables and derivations of
-`theme/ObservatoryPalette.cpp` ([The surface ladder](#the-surface-ladder)); the materials and the publication are the
-same, and the debug-build validation runs the profile's own rules. After the materials the profile's sizes are filled in:
-the density's metrics, the radii and the type scale ([Density](#density)).
+The colour and size stages are the tables and derivations of `theme/ObservatoryPalette.cpp`
+([The surface ladder](#the-surface-ladder), [Density](#density)); the validation runs the profile's own rules.
 
 ### Profiles
 
-Two **style profiles** resolve the tokens. `Classic` resolves every token to the value AfterNight 1.1 paints;
-`TokenBaseline.ClassicValuesAreRecorded` holds all 240 combinations of theme, contrast profile, accent family and surface
-tint to a record, which is never written again whole. `Observatory` is the 2.0 look: the same user choices, resolved by
-other tables, plus a **tint strength**.
+A **style profile** is the look the tokens resolve to, and a shell names the one it is drawn in. There is one,
+`Observatory`: the user's choices - the theme, the contrast profile, the accent family, the surface tint and its
+**tint strength** - resolved by its tables ([The surface ladder](#the-surface-ladder)), and its sizes by the density
+([Density](#density)). `ThemeChoices` carries no profile: every resolution is the profile's. The profile stays a name
+a shell states so that a later shell drawn in a look of its own can name a profile of its own (`theme/StyleProfile.h`).
+The Observatory tokens are held by their own cases in `Test_ThemeSystem`: `ObservatoryLadder.*`,
+`ObservatoryAccents.*`, `ObservatoryStatus.*` and `ObservatoryValidation.*` (`ObservatoryTokensTest.cpp`),
+`Presets.*`, `Night.*`, and `Density.*`, `ObservatoryRadius.*` and `Typography.*` (`DensityTest.cpp`).
 
 - **The shell names the profile.** `ShellDescriptor::styleProfile` (`core/IShell.h`) says which profile a shell is drawn
   in; the application puts it in force with `setStyleProfile()` from the style step of `startApplication`, after the
-  settings stores open and before the first widget exists.
+  settings stores open and before the first widget exists. No environment variable starts a shell under another
+  profile (`ShellSelection.NoVariableStartsTheShellUnderAnotherProfile`).
 - **A profile is fixed once a widget exists.** A widget is sized and painted under one profile for its life, so
   `setStyleProfile()` refuses a profile other than the one in force once `QApplication::allWidgets()` is not empty,
-  logs the refusal and returns false. `styleProfile()` answers the profile in force; it is `Classic` until a shell
-  names another.
-- **Suites test a profile through `an::ui::testing::ScopedStyleProfile`** (`src/AfterNightTests/fixtures/ScopedStyleProfile.h`),
-  which puts a profile in force for its scope whatever widgets exist and puts the previous one back. Only the test
-  executables compile it; the library's `an::ui::testing::forceStyleProfile()` exists for it alone. A suite that needs
-  only token values calls `resolveDesignTokens()` with the profile in its choices and needs neither.
-- **The developer switch.** `AFTERNIGHT_STYLE_PROFILE=observatory` (or `classic`, in any case) in the environment starts
-  the chosen shell under that profile instead of the one its descriptor names (`ShellSelection::kStyleProfileVariable`);
-  an unknown value is passed over with a warning in the log. It is a developer aid, to look at the Observatory colours
-  in the classic shell, and goes when every shell draws in a profile of its own.
+  logs the refusal and returns false. `styleProfile()` answers the profile in force, `Observatory`.
+- **A suite that needs only token values** calls `resolveDesignTokens()` with the choices it means and reads no global.
 - **The tint strength** - `ThemeTintStrength {Off, Subtle, Balanced, Strong}`, `setThemeTintStrength()`, stored as
   `interface/themeTintStrength` (`off`, `subtle`, `balanced`, `strong`; default `balanced`) and read at start with the
-  other theme choices - is an input of both profiles; `Classic` ignores it.
+  other theme choices - is an input of every resolution.
 
 ### The surface ladder
 
@@ -251,7 +244,7 @@ component rounded to the nearest 8-bit value.
 
 - **Neutrals and text.** Each theme and contrast profile has five neutral surfaces `n0`-`n4`, three text tones and the
   opacity of its line and outline (white in the dark theme, `#18181B` in the light one). OLED is the dark theme's: the
-  light theme resolves it as Balanced, as `Classic` does. The Soft profile's secondary text is set by its third surface
+  light theme resolves it as Balanced. The Soft profile's secondary text is set by its third surface
   under the Strong tint, the most tinted that surface gets: it is the lightest tone (dark theme) or the darkest (light
   theme) that keeps 4.5 : 1 there.
 - **The softened tint.** A tint's hue is first mixed with a lift grey (`#808086` dark, `#8A8A90` light), keeping a share
@@ -287,7 +280,7 @@ component rounded to the nearest 8-bit value.
 
 ### Density
 
-The `Observatory` profile lays the interface out at one of two **densities**: `ThemeDensity {Compact, Comfortable}`,
+The interface is laid out at one of two **densities**: `ThemeDensity {Compact, Comfortable}`,
 `setThemeDensity()`, stored as `interface/density` (`compact`, `comfortable`; default `compact`) and read at start with the
 other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`), in logical pixels:
 
@@ -306,7 +299,7 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
 | `floatingToolbar` | 40 | 44 |
 | `scrollBar` | 8 | 8 |
 
-- **The proxy style answers sizes from them.** Under `Observatory`, `AnProxyStyle` makes a push button, a field (a
+- **The proxy style answers sizes from them.** `AnProxyStyle` makes a push button, a field (a
   line edit with a frame), a combo box and a spin box `control` high, a button's text padded 14 at each side; a tool
   button and a push button with no text a `control` square; a tab `strip` high, or `controlSmall` in a tab bar with
   `anTabCompact` (a panel's tabs); a row of a table, a list or a tree, and a table's header, `rowTable` high (the
@@ -320,11 +313,11 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
   The column is the 16 px check's own, so the text leads the row, unless the box's items have icons: then it is the
   row's decoration (the list's icon size or `PM_ListViewIconSize`) and 4 px. A menu's items keep their icon column and
   10 px gap. A line
-  edit with no frame is a spin box's or a combo box's text and keeps its own size. Every other answer is the
-  `Classic` one; the drawing is not the density's.
+  edit with no frame is a spin box's or a combo box's text and keeps its own size. Every other size is the style's
+  own or the base style's, the same in both densities; the drawing is not the density's.
 - **The type scale follows the density.** The body and the third heading are `fontBody`, the caption `fontCaption`,
   the first two headings 24 and 17 in both, every heading semibold; the font is the platform's interface font, the one
-  the `Classic` body is, with tabular figures; the monospace is the first of Cascadia Mono, Cascadia Code and Consolas
+  the base sets' body is, with tabular figures; the monospace is the first of Cascadia Mono, Cascadia Code and Consolas
   the platform has, or its own monospace, at `fontBody`. Sizes are set as points at the 96 logical dots per inch Qt 6
   presents to an application, which is the same size, so that code that makes a font from another by its point size
   keeps working. The application's font is the body.
@@ -334,15 +327,7 @@ other theme choices. A density is a column of `MetricTokens` (`tokens().metrics`
   is set: a widget drops the size hint it keeps (a button, a combo box, a spin box, a tab bar, a header) and asks its
   layout to run again, and a shown window grows to hold its controls. The new font reaches only the widgets that take
   the application's; a widget given a font of its own, and what it holds, hears of the density through the style change
-  alone. A top-level widget's `updateGeometry()` would do nothing: a window has no layout above it to ask. Under
-  `Classic` the sizes never move, so none of it runs.
-- **`Classic` keeps 1.1's sizes and ignores the density.** Its `metrics` are 1.1's where 1.1 has a size for the role -
-  `control` 24, the least its style makes a field, a combo box, a spin box or a button, `scrollBar` 12, the font sizes
-  of its type scale (`fontSmall` is its caption's) - and the Compact column where it has none, so a widget made for the
-  `Observatory` profile is sized as designed if it is shown under `Classic`. The proxy style's `Classic` answers read
-  none of them: `Density.ClassicMetricsAreUnchanged` holds them, under either density, to a record taken before the
-  metrics existed (`src/AfterNightTests/Test_ThemeSystem/data/ClassicMetrics.txt`), edited by the change that means to
-  move an entry. The density setting is offered only under `Observatory`.
+  alone. A top-level widget's `updateGeometry()` would do nothing: a window has no layout above it to ask.
 - **A new widget sizes itself from `tokens().metrics`** in its `sizeHint()`, read there and never kept from a
   constructor, and is checked in both densities ([Checklist for New Controls](#checklist-for-new-controls)).
 
@@ -368,23 +353,20 @@ the contrast profile stay the user's:
   its parts in force, so a preset whose parts change in a later version brings its users the new ones; `custom`, or no
   setting at all, leaves the parts stored as they are. The settings of AfterNight 1.1 hold an accent and a tint and no
   strength (Balanced): they are the preset they make, or `Custom`.
-- **The presets are the `Observatory` profile's.** Under `Classic` the page offers none and writes no preset, strength,
-  density or Night setting, so a 1.1 user's settings file stays as 1.1 wrote it.
-- **The Interface page under `Observatory`** holds the appearance's choices in one group, in their order: the presets'
+- **The Interface page** holds the appearance's choices in one group, in their order: the presets'
   tiles, the theme as tiles (`ThemeModeTile`: the system's choice, light, dark, each a window's miniature in the parts in
   force), the contrast as segments, the accent as discs and the surface tint as squares (`ThemeSwatch`, each its colour
   as the theme in force resolves it, asked at each paint), the tint strength and the density as segments
   (`AnSegmentedControl`), Night, starting in it, the animations and the menu bar as switches (`AnSwitch`), then the
-  Shell row, above the rows 1.1's page had. Every one acts at once. 1.1's combo boxes for the theme, the contrast, the
-  accent and the tint stay the page's record of those four, not shown: a picker chooses in its combo box, and the
-  combo box's change is what previews, is kept by Apply and is put back by Cancel, as it is under `Classic`, where the
-  page is as 1.1 drew it.
+  Shell row - shown only while the application registers more than one shell - above the image viewing, the file
+  browser and the window layout. Every one acts at once. Combo boxes for the theme, the contrast, the accent and the
+  tint are the page's record of those four, not shown: a picker chooses in its combo box, and the combo box's change is
+  what previews, is kept by Apply and is put back by Cancel.
 
 ### Night
 
 **Night** keeps the eyes dark-adapted: everything on screen is red. `setNightMode()` sets it; `isNightMode()` says
-whether it is in force, which it is under `Observatory` alone (the `Classic` profile has no Night, as it has no strength
-or density). Night is never kept with the other choices: it is off at every start unless `interface/startInNight` asks
+whether it is in force. Night is never kept with the other choices: it is off at every start unless `interface/startInNight` asks
 to start in it. It is three things, and none of them is an effect laid over the window:
 
 - **The tokens' last step.** `ThemeChoices::night` makes the resolver resolve the dark theme whatever the preference,
@@ -471,8 +453,8 @@ an::ui::AnProxyStyle* style = an::ui::installedAnProxyStyle();
 
 The full extension host loads the same style through the `afternight` style plugin
 (`QStyleFactory::create("afternight")`) and registers it with `registerInstalledAnProxyStyle()`,
-or calls `installAnProxyStyle()` when the plugin is not found. The application installs the style
-unless `AN_UI_TOKENS_ENABLED` is set false.
+or calls `installAnProxyStyle()` when the plugin is not found. The application always installs the
+style.
 
 The host draws under the application's style profile, which the application passes it at its start
 (`--style-profile`) and the host sets before its first widget, and under the application's choices: the
@@ -484,28 +466,31 @@ Window In The Application".
 
 ### What It Overrides
 
+Every element below is drawn by the Observatory painters (`theme/AnProxyStyleObservatory.cpp`, [The Observatory
+look](#the-observatory-look)) unless the row says it is the style's own code (`theme/AnProxyStyle.cpp`); what neither
+draws or answers falls to the base style, Fusion.
+
 | Override | Widgets/Elements |
 |---|---|
-| `drawPrimitive()` | `PE_PanelLineEdit`, `PE_IndicatorCheckBox`, `PE_IndicatorRadioButton`, `PE_PanelItemViewItem`, `PE_PanelTipLabel`, `PE_FrameGroupBox`, `PE_Frame` (cards, banners, context messages, item views, generic `anFrameRadius` frames), `PE_FrameTabWidget`, `PE_FrameMenu`, `PE_PanelMenu`, `PE_PanelMenuBar`, `PE_PanelStatusBar`, `PE_PanelToolBar`, `PE_IndicatorToolBarSeparator`, `PE_PanelButtonCommand`, `PE_PanelButtonTool`, `PE_IndicatorTabClose` |
-| `drawControl()` | `CE_PushButtonBevel`, `CE_PushButtonLabel`, `CE_TabBarTabShape`, `CE_TabBarTabLabel`, `CE_ProgressBar*`, `CE_HeaderSection`, `CE_HeaderLabel`, `CE_MenuItem`, `CE_MenuBarItem`, `CE_MenuBarEmptyArea`, `CE_ComboBoxLabel`, `CE_ToolButtonLabel`, `CE_Splitter`, `CE_DockWidgetTitle`, `CE_ItemViewItem` |
+| `drawPrimitive()` | `PE_PanelLineEdit`, `PE_FrameLineEdit`, `PE_IndicatorCheckBox`, `PE_IndicatorRadioButton`, `PE_IndicatorItemViewItemCheck`, `PE_PanelItemViewItem`, `PE_PanelItemViewRow`, `PE_PanelTipLabel`, `PE_FrameGroupBox`, `PE_Frame` (cards, banners, context messages, item views), `PE_FrameFocusRect`, `PE_FrameTabWidget`, `PE_FrameTabBarBase`, `PE_FrameMenu`, `PE_PanelMenu`, `PE_PanelMenuBar`, `PE_PanelStatusBar`, `PE_PanelToolBar`, `PE_IndicatorToolBarSeparator`, `PE_IndicatorToolBarHandle`, `PE_PanelButtonCommand`, `PE_PanelButtonTool`, `PE_IndicatorTabClose`; the style's own: the rounded card a `QFrame` asks for by `anFrameRadius` (`PE_Frame`) |
+| `drawControl()` | `CE_PushButton`, `CE_PushButtonBevel`, `CE_PushButtonLabel`, `CE_CheckBoxLabel`, `CE_RadioButtonLabel`, `CE_TabBarTabShape`, `CE_TabBarTabLabel`, `CE_ProgressBar`, `CE_HeaderSection`, `CE_HeaderLabel`, `CE_HeaderEmptyArea`, `CE_MenuItem`, `CE_MenuEmptyArea`, `CE_MenuHMargin`, `CE_MenuVMargin`, `CE_MenuBarItem`, `CE_MenuBarEmptyArea`, `CE_ComboBoxLabel`, `CE_ToolButtonLabel`, `CE_ToolBar`, `CE_Splitter`, `CE_SizeGrip`, `CE_RubberBand`, `CE_ItemViewItem`; the style's own: `CE_DockWidgetTitle` |
 | `drawComplexControl()` | `CC_ComboBox`, `CC_SpinBox`, `CC_Slider`, `CC_ScrollBar`, `CC_GroupBox` |
-| `sizeFromContents()` | `CT_PushButton`, `CT_LineEdit`, `CT_ComboBox`, `CT_SpinBox`, `CT_TabBarTab`; under the Observatory profile also `CT_ToolButton`, `CT_HeaderSection`, `CT_ItemViewItem`, `CT_MenuItem`, all from the metric tokens ([Density](#density)) |
-| `subControlRect()` | `CC_SpinBox`, `CC_ComboBox`, `CC_GroupBox` |
-| `subElementRect()` | `SE_LineEditContents` |
-| `pixelMetric()` | Margins, frame widths, scroll bar extent, slider dimensions, layout spacing, toolbar metrics, splitter width, indicator sizes; under the Observatory profile the scroll bar extent and a table's row height from the metric tokens |
-| `styleHint()` | Tooltip delay, etch-disabled-text, item-view decoration |
-| `standardIcon()` | Maps Qt standard pixmaps to themed SVG icons from `IconManager` |
-| `polish()` | Sets `WA_Hover` on interactive widgets, applies palette colors to `QLabel`, configures `QDialogButtonBox` roles/icons, normalizes layout spacing to tokens, promotes process-shell frames |
+| `sizeFromContents()` | `CT_PushButton`, `CT_ToolButton`, `CT_LineEdit`, `CT_ComboBox`, `CT_SpinBox`, `CT_TabBarTab`, `CT_HeaderSection`, `CT_ItemViewItem`, `CT_MenuItem`, all from the metric tokens ([Density](#density)) |
+| `subControlRect()` | `CC_SpinBox`, `CC_ComboBox`, `CC_ScrollBar`; the style's own: `CC_GroupBox` |
+| `subElementRect()` | The style's own: `SE_LineEditContents` |
+| `pixelMetric()` | From the tokens: the scroll bar's extent and its handle's least length, a table's row height, the slider's handle, a menu's panel and margins, a tooltip's frame, a tab's close button. The style's own: margins, frame widths, tab spacing, layout spacing, toolbar metrics, splitter width, indicator sizes |
+| `styleHint()` | The dialog button layout, the menu and tooltip masks, a table's grid line colour, a tooltip's opacity. The style's own: tooltip delay, etch-disabled-text, item-view decoration, the scroll bar's context menu, an anchored combo box popup |
+| `standardIcon()` | The style's own: maps Qt standard pixmaps to themed SVG icons from `IconManager` |
+| `polish()` | The style's own: sets `WA_Hover` on interactive widgets, applies palette colors to `QLabel`, configures `QDialogButtonBox` roles/icons, normalizes layout spacing to tokens, promotes process-shell frames, sets the palette; then the Observatory polish of the windows and parts it decides |
 
 ### The Observatory look
 
-Under the `Observatory` profile the proxy style draws the standard widgets in the profile's look. The Classic code is not
-touched: each of `drawPrimitive()`, `drawControl()` and `drawComplexControl()` hands an element to the Observatory
-painters (`theme/AnProxyStyleObservatory.cpp`) in one line at its top, and what they do not draw falls through to the
-Classic code; `subControlRect()`, `styleHint()` and `polish()` do the same for the geometry, the hints and the windows
-they decide. Under `Classic` none of it runs: `ProxyStyleDispatch.ClassicRunsNoObservatoryPainter` (`Test_ThemeSystem`)
-counts the Observatory painters' calls (`an::ui::testing::observatoryPaints()`) while every kind of widget paints under
-`Classic`, and expects none.
+The proxy style draws every standard widget in the Observatory look. Each of `drawPrimitive()`, `drawControl()` and
+`drawComplexControl()` hands an element to the Observatory painters (`theme/AnProxyStyleObservatory.cpp`) in one line at
+its top; `subControlRect()`, `styleHint()` and `polish()` do the same for the geometry, the hints and the windows they
+decide. What the painters leave is the style's own code in `theme/AnProxyStyle.cpp` - its polish, the palette, the
+pixel metrics and hints the painters do not answer, the rounded card a `QFrame` asks for by `anFrameRadius`, a group
+box's geometry and a dock widget's title - and everything else falls to the base style, Fusion.
 
 Every colour is a token read when the element paints, so the look follows a theme, a preset, a density and Night without
 a widget's help. The rules, which `ProxyStyleObservatory.*` holds in dark, light and a tinted preset, at both densities
@@ -606,13 +591,15 @@ void AnProxyStyle::drawSomething(...) const {
 
 ### State Helper Functions
 
+The Observatory painters (`theme/AnProxyStyleObservatory.cpp`) read a state through these file-local helpers:
+
 ```cpp
-bool isHovered(const QStyleOption* opt);   // State_MouseOver && State_Enabled
-bool isPressed(const QStyleOption* opt);   // State_Sunken && State_Enabled
-bool isFocused(const QStyleOption* opt);   // State_HasFocus && State_Enabled
-bool isEnabled(const QStyleOption* opt);   // State_Enabled
-bool isSelected(const QStyleOption* opt);  // State_Selected
-bool isChecked(const QStyleOption* opt);   // State_On
+bool enabled(const QStyleOption* opt);        // State_Enabled
+bool hovered(const QStyleOption* opt);        // State_MouseOver && enabled
+bool pressed(const QStyleOption* opt);        // State_Sunken && enabled
+bool on(const QStyleOption* opt);             // State_On
+bool focused(const QStyleOption* opt);        // State_HasFocus && enabled
+bool keyboardFocus(const QStyleOption* opt);  // focused && State_KeyboardFocusChange: the focus a ring is drawn for
 ```
 
 ---
@@ -634,15 +621,10 @@ A style set on a widget is that widget's alone - Qt hands it to no child - so wh
 a dock area is the palette it sets on the main window; the parts are drawn by their own paint events and by the
 application's style, and the library gives its tab strips a style of its own (one that turns their animation off).
 
-**Under the Classic profile** every part paints through the code it had in 1.1: the tab strips are drawn by the library's
-style with an accent bar laid over the current tab, the separator by the application's style, the indicators by the
-library's window of pictures, and the library keeps its own separator of five pixels.
-`Decorations.ClassicUnchanged` (`Test_ControlsDocking`) paints a dock area with tabs, a separator, a floating window, the
-indicators and the band under that profile and expects no Observatory painter of the decorations
-(`an::ui::testing::observatoryDockPaints()`) or of the style (`observatoryPaints()`) to have run.
-
-**Under the Observatory profile** each part hands over to the Observatory painters (`theme/ObservatoryDock.h`) in one
-line at the top of its paint event, as the proxy style does ([The Observatory look](#the-observatory-look)):
+Each part paints in the Observatory look through the painters of `theme/ObservatoryDock.h`, handed over in one line at
+the top of its paint event, as the proxy style does ([The Observatory look](#the-observatory-look)). `KddwProxyStyle`
+draws a tab strip through its strip code and keeps its other overrides - the title bar, the separator, the buttons, the
+group frame - for the dock widgets that are not strips:
 
 - **A tab strip** is `metrics.strip` high (34 / 40), the first surface with a `borderSubtle` hairline under it, which the
   stack paints across the group's width. `AN_TabBar` takes a `KddwProxyStyle` as its style in place of the library's -
@@ -661,15 +643,15 @@ line at the top of its paint event, as the proxy style does ([The Observatory lo
 - **A tab's adornment**, set by `an::ui::setTabAdornment(dockWidget, {iconKey, toolTip, locked, activated})`, is an icon in
   an 18 px square of `accentContainer` after the name, with its own tooltip; a click on it runs `activated` and neither
   selects nor drags the tab. `locked` disables the tab's close button and, while the tab is current, the strip's buttons:
-  a disabled button is painted whole at 38 %, its glyph one path so that where its strokes cross is no brighter. Under the
-  Classic profile an adornment is kept and neither drawn nor acted on.
+  a disabled button is painted whole at 38 %, its glyph one path so that where its strokes cross is no brighter.
 - **A floating image window** is the first surface inside a one-pixel frame, `borderPrimary`, the accent while the
   window is active, and its strip is the smaller one (`metrics.strip` less four: 30 / 36); docked again, its strip is the
   density's. The library's title bar, where the platform shows it instead of its own, is that smaller strip with the
   title in the primary text.
-- **Groups** lie two pixels apart: `applyDockDecorationsProfile()` gives the library the profile's separator when the
-  application starts (the library takes it only while no dock widget exists), and the separator is the dock area's
-  ground (`surface0`), `accentLine` under the pointer. A docked group's ground is the first surface.
+- **Groups** lie two pixels apart: `applyDockDecorationsProfile()` gives the library the decorations' separator
+  (`kObservatoryDockSeparator`) when the application starts (the library takes it only while no dock widget exists),
+  and the separator is the dock area's ground (`surface0`), `accentLine` under the pointer. A docked group's ground is
+  the first surface.
 - **The drop indicators** are the product's window (`AN_DropIndicators`, `controls/DockDropIndicators.h`), which the
   factory makes in place of the library's: a cross of five 32 px targets over the group under the cursor, 36 px apart,
   and four at the dock area's edges, 12 px in. A target is a raised square of the third surface with a `borderPrimary`
@@ -698,7 +680,7 @@ Maps hardcoded spacing values to the nearest design token:
 ```
 
 ### `normalizeLayoutSpacingToTokens(QLayout*, SpacingTokens)`
-Recursively walks a layout tree and normalizes all spacing and margins to design tokens. **Called automatically by `AnProxyStyle::polish()`** on every widget's root layout. Under the Observatory profile the polish keeps the density's gap and a panel's padding (`KeptSpacings`): a layout a widget sizes from `metrics.gap` or `metrics.pad` - 10 and 14 in the Comfortable density - is not moved to the nearest spacing token.
+Recursively walks a layout tree and normalizes all spacing and margins to design tokens. **Called automatically by `AnProxyStyle::polish()`** on every widget's root layout. The polish keeps the density's gap and a panel's padding (`KeptSpacings`): a layout a widget sizes from `metrics.gap` or `metrics.pad` - 10 and 14 in the Comfortable density - is not moved to the nearest spacing token.
 
 Layouts can opt out with dynamic properties:
 - `anKeepLayoutSpacing` — skip spacing normalization
@@ -783,14 +765,14 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | Component | Purpose |
 |---|---|
 | `AnButtonGroup` | Grouped exclusive/non-exclusive button set |
-| `AnCardWidget` | Elevated card with rounded corners, drop shadow, border tint |
+| `AnCardWidget` | A tonal card: `bgCard` over its whole rectangle with `radius.lg` corners, no border and no shadow, an optional title |
 | `AnCollapsibleSection` | Expandable/collapsible section with smooth animation |
 | `AnElidedLabel` | Label of a set number of lines: wraps its text, cuts it with an ellipsis past the last line - at its end, or in its middle (`setElideMode(Qt::ElideMiddle)`) so a name keeps its start and its end - and puts the whole text in its tooltip, so what lies around it never moves |
 | `AnInfoBanner` | Status-toned info/warning/error banner |
 | `AnInputField` | Labeled input with validation styling |
 | `AnProgressCard` | Card with embedded progress bar and status |
 | `AnSectionHeader` | Section heading with optional action widgets |
-| `AnWindowHeading` | The heading of a window that stays a window: an optional eyebrow in small capitals, the title at 19 px in semibold, an optional description in the small text of `textSecondary`, one under the other (`parts::windowHeading*Font`). `headWindow()` puts one at the head of a window's column and `headWindowInPlaceOf()` in the place of the header the window had, `setWindowEyebrow()` renames its eyebrow, and `scrollWindowBody()` makes the part of the column between the heading and the footer scroll (`anWindowBody`), so the window can be lower than its content; each acts under the Observatory profile alone and answers null under Classic. The title is the heading's accessible name |
+| `AnWindowHeading` | The heading of a window that stays a window: an optional eyebrow in small capitals, the title at 19 px in semibold, an optional description in the small text of `textSecondary`, one under the other (`parts::windowHeading*Font`). `headWindow()` puts one at the head of a window's column and `headWindowInPlaceOf()` in the place of the header the window had, `setWindowEyebrow()` renames its eyebrow, and `scrollWindowBody()` makes the part of the column between the heading and the footer scroll (`anWindowBody`), so the window can be lower than its content; each answers null where the window is not laid out as it needs. The title is the heading's accessible name |
 | `AnSliderControl` | Labeled slider with value display |
 | `AnStatusBadge` | Colored status indicator chip |
 | `AnStyledTable` | Pre-themed `QTableWidget`: row selection, alternating rows, token palette and header font; `refreshTheme()` re-applies them |
@@ -819,7 +801,7 @@ The `components/` directory contains pre-themed composite widgets that follow al
 | `AnTaskHeader` | A task page's header: `metrics.strip` high (34 / 40) on `surface1` over a `borderSubtle` hairline; the target's 22 px thumbnail (radius 5; its Night form under Night), the process's name semibold, "on" in `textTertiary`, the target's name elided in the middle, the state with a 13 px icon (up to date in `statusSuccess`, a run in `textAccent` semibold, a failure in `statusError`), Float as window (Attach) and Close; during a run a 2 px `accentPrimary` bar along its foot, sliding when the run cannot tell its progress |
 | `ViewProcessingNotice` (`controls/`) | What covers a view a run writes: `scrimSoft` over the canvas and a pill of `scrim` at its centre (see [The view's chrome](#the-views-chrome)) |
 
-Under the Observatory profile the components read its tokens and sizes: a card is `bgCard` over its whole rectangle with
+The components read the tokens and sizes: a card is `bgCard` over its whole rectangle with
 no border and no drop shadow, padded by `metrics.pad`, its title `textPrimary`; a collapsible section is a hairline over
 a `metrics.sectionHeader` header whose title is the caption in small capitals of `textSecondary`; a section header's
 description is the small text and its action a quiet button; a status badge is a tag - `metrics.tag` high, its status
@@ -1250,15 +1232,15 @@ The proxy style uses dynamic properties to differentiate visual variants without
 
 | Property | Values | Effect |
 |---|---|---|
-| `buttonVariant` | `"primary"` | Accent-colored button |
-| `anButtonVariant` | `"primary"`; under the Observatory profile also `"tonal"`, `"outlined"`, `"quiet"`, `"destructive"` | Same as above (preferred prefix); the Observatory profile's five roles ([The Observatory look](#the-observatory-look)), outlined being a button with none; on a tool button, `"quiet"` keeps it unfilled when checked |
-| `anProcessButtonRole` | `"primary"`, `"secondary"`, `"neutral"`, `"danger"` | Dialog/process button roles (set automatically on `QDialogButtonBox`); under the Observatory profile primary, outlined, quiet and destructive |
+| `buttonVariant` | as `anButtonVariant` | Read where `anButtonVariant` is not set |
+| `anButtonVariant` | `"primary"`, `"tonal"`, `"outlined"`, `"quiet"`, `"destructive"` | The five roles ([The Observatory look](#the-observatory-look)), outlined being a button with none; on a tool button, `"quiet"` keeps it unfilled when checked |
+| `anProcessButtonRole` | `"primary"`, `"secondary"`, `"neutral"`, `"danger"` | Dialog/process button roles (set automatically on `QDialogButtonBox`): primary, outlined, quiet and destructive |
 
 ### Frame / Card Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anFrameRadius` | integer (e.g., `8`) | Generic rounded card via `PE_Frame` |
+| `anFrameRadius` | integer (e.g., `8`) | Generic rounded card via `PE_Frame`: the palette's `Window` inside a border of its `Mid` |
 | `anFrameBorderDashed` | `true` | Dashed border style |
 
 ### Label Properties
@@ -1271,51 +1253,49 @@ The proxy style uses dynamic properties to differentiate visual variants without
 
 | Property | Values | Effect |
 |---|---|---|
-| `anUsageTone` | `"high"`, `"medium"`, `"low"` | Chunk color: error/warning/success |
+| `anUsageTone` | `"high"`, `"medium"`, `"low"` | Fill color: error/warning/success, over that colour's soft share |
 
 ### Splitter Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anSplitterVariant` | `"process"` | Wider handle (8px) with groove indicator |
+| `anSplitterVariant` | `"process"` | Wider handle (8px) with a grip |
 
 ### Tab Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anTabCompact` | `true` | Reduced vertical padding |
-| `anTabHeightScale` | `double` (e.g., `0.8`) | Scale tab height |
+| `anTabCompact` | `true` | A panel's tabs: `controlSmall` high instead of `strip` |
 | `anTabMinWidth` | integer | Minimum tab width |
-| `anTabMinHeight` | integer | Minimum tab height |
 | `anTabAccentLinePosition` | `"top"` | Place accent line on top instead of bottom |
-| `forceUnselected` | `true` | Visually de-select all tabs (KDDW); under the Observatory profile the current tab keeps a bar in the tertiary text: its group is not the active view's |
+| `forceUnselected` | `true` | A dock tab strip whose group is not the active view's (KDDW): the current tab keeps a bar in the tertiary text instead of the accent |
 
 ### Toolbar Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anUseCardBackground` | `true` | Use acrylic surface + tint instead of solid |
+| `anUseCardBackground` | `true` | A tool bar on `bgCard` instead of `solidSurface` |
 
 ### Context Message Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anContextMessageTone` | `"info"`, `"warning"`, `"error"` | Border color tone |
+| `anContextMessageTone` | `"info"`, `"warning"`, `"error"` | The note's tone: its soft share and the bar at its start |
 
 ### Banner, Group Box and Combo Box Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anProcessMessageTone` | `"info"`, `"warning"`, `"error"` | Border tone of an `anProcessShellBanner` |
-| `anGroupVariant` | `"flat"` | Flat (process-shell) group box, as `QGroupBox::isFlat()` |
+| `anProcessMessageTone` | `"info"`, `"warning"`, `"error"` | The note's tone of an `anProcessShellBanner` |
+| `anGroupVariant` | `"flat"` | Flat (process-shell) group box, as `QGroupBox::isFlat()`: a hairline over the window |
 | `anComboPopupAnchored` | `"true"` | Drop-down list opens below the combo box (`SH_ComboBox_Popup` = 0) |
 
 ### Window Properties
 
 | Property | Values | Effect |
 |---|---|---|
-| `anDialogSurface` | `true` | Under the Observatory profile a window that is not a `QDialog` lies on the first surface as a dialog does (`parts::kDialogSurfaceProperty`; the process windows set it) |
-| `anDialogButtonOrder` | a `QDialogButtonBox::ButtonLayout` | Written by the style on a `QDialogButtonBox` under the Observatory profile: the order its buttons are laid out in. Not set by a window |
+| `anDialogSurface` | `true` | A window that is not a `QDialog` lies on the first surface as a dialog does (`parts::kDialogSurfaceProperty`; the process windows set it) |
+| `anDialogButtonOrder` | a `QDialogButtonBox::ButtonLayout` | Written by the style on a `QDialogButtonBox`: the order its buttons are laid out in. Not set by a window |
 
 ### Layout Opt-Out Properties
 
@@ -1331,10 +1311,10 @@ Some widgets are identified by `objectName()` for specific styling:
 
 | Object Name | Applied To | Effect |
 |---|---|---|
-| `anProcessShellCard` | `QFrame` | Elevated card with surface tint, rounded `radius.lg` |
-| `anProcessShellBanner` | `QWidget`/`QFrame` | Status-toned banner |
-| `anProcessShellHeaderTitle` | `QLabel` | `heading1` font; under the Observatory profile the window heading's title font |
-| `anProcessShellHeaderDescription` | `QLabel` | `textSecondary` color, `body` font; under the Observatory profile the window heading's description font |
+| `anProcessShellCard` | `QFrame` | `bgCard` with no border, rounded `radius.lg` |
+| `anProcessShellBanner` | `QWidget`/`QFrame` | Status-toned note |
+| `anProcessShellHeaderTitle` | `QLabel` | The window heading's title font |
+| `anProcessShellHeaderDescription` | `QLabel` | `textSecondary` color, the window heading's description font |
 | `anWindowHeadingEyebrow` | `QLabel` | `textSecondary` color, the caption in small capitals |
 | `anWindowHeadingTitle` | `QLabel` | 19 px, semibold |
 | `anWindowHeadingDescription` | `QLabel` | `textSecondary` color, the small text |
@@ -1358,7 +1338,8 @@ ThemeManager::applyTheme(themeId)              (app/ThemeManager.cpp)
   │     re-reads tokens(); dock-window palette; polish()+update() its children
   ├─ clears the KDDW view factory's icon cache
   ├─ loadIcons(): IconManager recoloured from the new tokens; action icons reset
-  └─ refreshCascade(): dashboard, image views, dock tabs/stacks, open processes; native backdrop
+  └─ refreshCascade(): image views, dock tabs/stacks, open processes; native backdrop
+the shell, told of the theme, takes its icons again (Home, the Integration hub, the top bar) and refreshes its own parts
 ```
 
 The same flow applies for accent family, contrast profile, surface tint, tint strength and density changes. Each `set*()` function calls `refreshTokens()` internally.
@@ -1366,9 +1347,6 @@ The same flow applies for accent family, contrast profile, surface tint, tint st
 ### Environment Variable
 
 Set `AN_THEME_TOKEN_DEBUG_DUMP=1` to log the resolved token values each time the tokens are resolved, once the logger is initialized, in any build configuration.
-
-Set `AFTERNIGHT_STYLE_PROFILE=observatory` to start the chosen shell under the Observatory profile (see
-[Profiles](#profiles)): a developer aid.
 
 ---
 
@@ -1469,13 +1447,10 @@ widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 | Token | Value | When to Use |
 |---|---|---|
 | `none` (0px) | Never use for interactive controls |
-| `sm` (4px) | Buttons, inputs, combo boxes, spin boxes, tabs, menus, line edits, tooltips, item views |
-| `md` (8px) | Group boxes, cards, banners |
-| `lg` (12px) | Process shell cards, elevated panels |
-| `xl` (14px) | Large overlay panels, prominent floating UI |
-
-Under the Observatory profile: `sm` 6 for tooltips, palette rows and other small parts, `md` 8 for controls, `lg` 12
-for cards and popups, `xl` 16 for sheets.
+| `sm` (6px) | Small parts: tooltips, palette rows, a menu's items |
+| `md` (8px) | Controls - buttons, inputs, combo boxes, spin boxes - and menus |
+| `lg` (12px) | Cards, group boxes, process shell cards and popups |
+| `xl` (16px) | Sheets, large overlay panels |
 
 ### Typography Usage Guide
 
@@ -1568,7 +1543,7 @@ Before submitting a new control or widget, verify:
 - [ ] **All spacing from `an::ui::tokens().spacing`** — no hardcoded pixel values (except for sub-pixel antialiasing adjustments like `0.5`)
 - [ ] **All radii from `an::ui::tokens().radius`**
 - [ ] **All control, row and bar sizes from `an::ui::tokens().metrics`**, read in `sizeHint()` — never kept from a constructor
-- [ ] **Both densities tested** — under the Observatory profile, Compact and Comfortable each size the widget from their metrics
+- [ ] **Both densities tested** — Compact and Comfortable each size the widget from their metrics
 - [ ] **All fonts from `an::ui::tokens().typography`** — no `QFont` constructed with literal family/size
 - [ ] **Animations gated through `AnimationUtils::duration()`**
 - [ ] **Disabled state handled** — uses `textTertiary`, `bgSurface`, `borderSubtle`
@@ -1581,7 +1556,7 @@ Before submitting a new control or widget, verify:
 - [ ] **Surface tint tested** — card backgrounds reflect the active tint family (if applicable)
 - [ ] **Accent family tested** — accent-colored elements reflect the active accent (if applicable)
 - [ ] **Contrast profiles tested** — widget remains readable in High and Soft profiles
-- [ ] **Night tested** — under the Observatory profile with Night on, the widget paints no green or blue; a widget that paints a picture shows its Night form (`nightImage`, `NightPicture`, `NightPictureLabel`) and is on `theme/NightImageWidgets.h`, and a colour no token holds goes through `colorAsShown()`
+- [ ] **Night tested** — with Night on, the widget paints no green or blue; a widget that paints a picture shows its Night form (`nightImage`, `NightPicture`, `NightPictureLabel`) and is on `theme/NightImageWidgets.h`, and a colour no token holds goes through `colorAsShown()`
 - [ ] **`PainterGuard` used** for all `QPainter::save()`/`restore()` cycles
 - [ ] **`QPainter::Antialiasing` enabled** for all rounded shapes
 
@@ -1589,19 +1564,18 @@ Before submitting a new control or widget, verify:
 
 ## Appendix: Helper Utilities Available in AnProxyStyle
 
-These helpers are file-local to `AnProxyStyle.cpp` and can be reused when adding new draw methods; outside the style use the exported `compositeOver`, `contrastRatio` and `bestContrastTextColor` from `theme/AnDesignTokens.h`:
+These helpers are file-local and can be reused when adding new draw methods; outside the style use the exported `compositeOver`, `contrastRatio` and `bestContrastTextColor` from `theme/AnDesignTokens.h`:
 
-| Function | Purpose |
-|---|---|
-| `roundedRectPath(rect, radius)` | Creates a `QPainterPath` for a rounded rect |
-| `blendRgb(base, tint, ratio)` | Linear RGB blend (preserves base alpha) |
-| `compositeOver(foreground, background)` | Alpha-composite foreground over background |
-| `contrastRatio(a, b)` | WCAG relative luminance contrast ratio |
-| `bestContrastTextColor(bg, preferred, fallbackA, fallbackB, minRatio)` | Pick best contrast text |
-| `stripMnemonicMarkers(text)` | Remove `&` mnemonic markers from label text |
-| `hasProperty(widget, name, value)` | Check dynamic property string equality |
-| `hasParentProperty(widget, name, value)` | Walk ancestors checking dynamic property |
-| `intPropertyOrDefault(widget, name, default)` | Read integer property with fallback |
-| `colorizePixmap(source, color)` | Recolor a pixmap using `CompositionMode_SourceIn` |
-| `iconFromManager(iconName)` | Get a themed icon through `appContext()->getIconProvider()` |
-| `isHovered/isPressed/isFocused/isEnabled/isSelected/isChecked` | State flag checks |
+| Function | File | Purpose |
+|---|---|---|
+| `contrastRatio(a, b)` | `AnProxyStyle.cpp` | WCAG relative luminance contrast ratio |
+| `hasProperty(widget, name, value)` | `AnProxyStyle.cpp` | Check dynamic property string equality |
+| `hasParentProperty(widget, name, value)` | `AnProxyStyle.cpp` | Walk ancestors checking dynamic property |
+| `intPropertyOrDefault(widget, name, default)` | `AnProxyStyle.cpp` | Read integer property with fallback |
+| `iconFromManager(iconName)` | `AnProxyStyle.cpp` | Get a themed icon through `appContext()->getIconProvider()` |
+| `enabled/hovered/pressed/on/focused/keyboardFocus` | `AnProxyStyleObservatory.cpp` | State flag checks ([State Helper Functions](#state-helper-functions)) |
+| `propertyText(widget, name)` | `AnProxyStyleObservatory.cpp` | A dynamic property as text, empty for a null widget |
+| `atShare(colour, share)` | `AnProxyStyleObservatory.cpp` | A colour at a share of its own opacity |
+| `fillRounded`, `strokeRounded` | `AnProxyStyleObservatory.cpp` | Fill or stroke a rounded rect |
+| `tinted(source, colour)` | `AnProxyStyleObservatory.cpp` | Recolor a pixmap in one colour |
+| `toneColour(tone, colors)` | `AnProxyStyleObservatory.cpp` | The status colour a tone property names |

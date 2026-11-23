@@ -4,7 +4,6 @@
 #include "stdafx.hpp"
 #include "TopLevelProcessBaseControl.h"
 #include "controls/IAppContext.h"
-#include "app/ModernizationFeatureFlags.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/ImageViewControl.h"
 #include "theme/AnDesignTokens.h"
@@ -532,29 +531,9 @@ void fitFreeformButtonWidths(QWidget* root)
     }
 }
 
-/// The fonts of the shell's header: under the Observatory profile a process window's header is a window's heading,
-/// and under the Classic profile the first heading over the body text, as AfterNight 1.1 drew it.
-[[nodiscard]] QFont headerTitleFont(const an::ui::DesignTokens& tok)
-{
-    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::windowHeadingTitleFont(tok)
-                                                                       : tok.typography.heading1;
-}
-
-[[nodiscard]] QFont headerDescriptionFont(const an::ui::DesignTokens& tok)
-{
-    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory
-               ? an::ui::parts::windowHeadingDescriptionFont(tok)
-               : tok.typography.body;
-}
-
 void ensureModernShellSize(QWidget* root, const double widthMultiplier, const double heightMultiplier)
 {
     if (!root)
-    {
-        return;
-    }
-
-    if (!an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
     {
         return;
     }
@@ -596,9 +575,8 @@ void ensureModernShellSize(QWidget* root, const double widthMultiplier, const do
 
     // Keep non-fixed windows shrinkable down to their natural minimum
     // (unscaled), while still opening them larger when multipliers apply.
-    // Under the Observatory profile a window that can be resized shrinks to what its layout needs at the least, so
-    // that it fits a small display; under the Classic profile to the size its layout asks for, as in AfterNight 1.1.
-    const bool toLayoutsLeast = an::ui::styleProfile() == an::ui::StyleProfile::Observatory && layoutMinSize.isValid();
+    // A window that can be resized shrinks to what its layout needs at the least, so that it fits a small display.
+    const bool toLayoutsLeast = layoutMinSize.isValid();
     const QSize minSizeTarget = wasFixedSize
                                     ? root->minimumSize().expandedTo(scaledRequiredSize)
                                     : root->minimumSize().expandedTo(toLayoutsLeast ? layoutMinSize : baseRequiredSize);
@@ -872,11 +850,6 @@ void TopLevelProcessBaseControl::initializeModernProcessShell()
         return;
     }
 
-    if (!an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
-    {
-        return;
-    }
-
     if (!isModernShellEnabled(this))
     {
         return;
@@ -911,7 +884,7 @@ void TopLevelProcessBaseControl::initializeModernProcessShell()
 
     auto* processShellHeaderTitle = new QLabel(QString::fromUtf8(m_tl_process_name), processShellHeader);
     processShellHeaderTitle->setObjectName(QString::fromUtf8(PROCESS_HEADER_TITLE_OBJECT_NAME));
-    processShellHeaderTitle->setFont(headerTitleFont(tok));
+    processShellHeaderTitle->setFont(an::ui::parts::windowHeadingTitleFont(tok));
     {
         QPalette pal = processShellHeaderTitle->palette();
         pal.setColor(QPalette::WindowText, tok.colors.textPrimary);
@@ -923,7 +896,7 @@ void TopLevelProcessBaseControl::initializeModernProcessShell()
     processShellHeaderDescription->setObjectName(QString::fromUtf8(PROCESS_HEADER_DESCRIPTION_OBJECT_NAME));
     processShellHeaderDescription->setWordWrap(true);
     processShellHeaderDescription->setVisible(!processDescription.isEmpty());
-    processShellHeaderDescription->setFont(headerDescriptionFont(tok));
+    processShellHeaderDescription->setFont(an::ui::parts::windowHeadingDescriptionFont(tok));
     {
         QPalette pal = processShellHeaderDescription->palette();
         pal.setColor(QPalette::WindowText, tok.colors.textSecondary);
@@ -1131,7 +1104,7 @@ void TopLevelProcessBaseControl::refreshTheme()
 
     if (auto* titleLabel = findChild<QLabel*>(QString::fromUtf8(PROCESS_HEADER_TITLE_OBJECT_NAME)))
     {
-        titleLabel->setFont(headerTitleFont(tok));
+        titleLabel->setFont(an::ui::parts::windowHeadingTitleFont(tok));
         QPalette pal = titleLabel->palette();
         pal.setColor(QPalette::WindowText, tok.colors.textPrimary);
         titleLabel->setPalette(pal);
@@ -1139,7 +1112,7 @@ void TopLevelProcessBaseControl::refreshTheme()
 
     if (auto* descLabel = findChild<QLabel*>(QString::fromUtf8(PROCESS_HEADER_DESCRIPTION_OBJECT_NAME)))
     {
-        descLabel->setFont(headerDescriptionFont(tok));
+        descLabel->setFont(an::ui::parts::windowHeadingDescriptionFont(tok));
         QPalette pal = descLabel->palette();
         pal.setColor(QPalette::WindowText, tok.colors.textSecondary);
         descLabel->setPalette(pal);
@@ -1600,7 +1573,7 @@ void TopLevelProcessBaseControl::keyPressEvent(QKeyEvent* evt)
 {
     if (evt->key() == Qt::Key_Escape)
     {
-        // A page closes when it is idle, and a run on its way ends by Cancel; a 1.1 window closes at once.
+        // A page closes when it is idle, and a run on its way ends by Cancel; a window that is no page closes at once.
         if (m_Page == nullptr || !m_RunState.running())
         {
             close();

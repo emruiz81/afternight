@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// The dashboard's settings, which the classic dashboard and Home share: the format they are kept in, the quick actions
+/// Home's settings, which AfterNight 1.1's dashboard kept before it: the format they are kept in, the quick actions
 /// as the person arranged them, the recent files pinned to the top, the pinned featured file, the recent files' sort
 /// and search, and the record of the last action. Each is read from and written to the application's global settings
 /// through the application context, under the keys of `SettingsKeys.h`; with no context nothing is read or written.

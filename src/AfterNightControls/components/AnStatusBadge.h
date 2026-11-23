@@ -30,7 +30,7 @@ public:
 
     void refreshTheme();
 
-    /// A tag high under the Observatory profile.
+    /// A tag high: the height of the tag token.
     [[nodiscard]] QSize sizeHint() const override;
     [[nodiscard]] QSize minimumSizeHint() const override;
 
@@ -40,7 +40,6 @@ protected:
 private:
     Status m_status = Status::Info;
     QColor m_bgColor;
-    QColor m_borderColor;
     QColor m_toneColor;
     int m_radius = 4;
 };

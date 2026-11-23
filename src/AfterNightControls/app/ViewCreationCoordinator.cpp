@@ -11,7 +11,6 @@
 #include "session/ImageDocument.h"
 
 #include <QPointer>
-#include <QScrollArea>
 #include <QTimer>
 #include <QWidget>
 
@@ -53,20 +52,8 @@ void applyPendingChanges(ImageViewControl* imageViewControl, const bool pendingC
     }
 }
 
-void ensureDockManagerVisible(const an::ui::ViewCreationCoordinator::Dependencies& dependencies)
-{
-    auto* dockMainWindow = dependencies.dockMainWindow ? *dependencies.dockMainWindow : nullptr;
-    const QWidget* currentWidget = dependencies.currentCentralWidget ? dependencies.currentCentralWidget() : nullptr;
-
-    if (!dockMainWindow || currentWidget == dockMainWindow || !dependencies.switchToDockManager)
-    {
-        return;
-    }
-    dependencies.switchToDockManager();
-}
-
 /// Gives a view made in the standard mode its icon and its place: through the placement the coordinator was given, or
-/// docked beside its neighbour or on the right, and the dock area shown.
+/// docked beside its neighbour.
 void placeCreatedView(const an::ui::ViewCreationCoordinator::Dependencies& dependencies,
                       ImageViewControl& imageViewControl, ImageViewControl* neighbour, const bool keepFocusedNeighbour,
                       const bool fromSequence)
@@ -85,9 +72,7 @@ void placeCreatedView(const an::ui::ViewCreationCoordinator::Dependencies& depen
 
     if (dockWidget)
     {
-        an::ui::dockCreatedView(imageViewControl, neighbour,
-                                dependencies.dockMainWindow ? *dependencies.dockMainWindow : nullptr);
-        ensureDockManagerVisible(dependencies);
+        an::ui::dockCreatedView(imageViewControl, neighbour, nullptr);
     }
 }
 
@@ -202,36 +187,6 @@ ImageViewControl* ViewCreationCoordinator::createNewImageViewControl(const std::
     if (!m_dependencies.imageViewControlManager)
     {
         return nullptr;
-    }
-
-    if (mode == ViewControlMode::standard)
-    {
-        const QWidget* currentWidget =
-            m_dependencies.currentCentralWidget ? m_dependencies.currentCentralWidget() : nullptr;
-        QScrollArea* mainDashboard =
-            m_dependencies.mainDashboardScrollArea ? *m_dependencies.mainDashboardScrollArea : nullptr;
-        auto* dockMainWindow = m_dependencies.dockMainWindow ? *m_dependencies.dockMainWindow : nullptr;
-
-        ImageViewControl* activeControl = nullptr;
-        if (currentWidget && currentWidget != mainDashboard && currentWidget != dockMainWindow)
-        {
-            activeControl = m_dependencies.imageViewControlManager->getActiveImageViewControl();
-        }
-
-        const NewViewLayoutTransitionDecision decision = decideNewViewLayoutTransition(
-            true, currentWidget == mainDashboard, currentWidget == dockMainWindow, activeControl != nullptr,
-            activeControl ? activeControl->isInFloatingWindow() : false,
-            activeControl ? activeControl->isMaximized() : false);
-
-        if (decision.shouldRestoreMaximizedActiveView && activeControl)
-        {
-            activeControl->switchMaximized();
-        }
-
-        if (decision.shouldSwitchToDockManager && m_dependencies.switchToDockManager)
-        {
-            m_dependencies.switchToDockManager();
-        }
     }
 
     auto* imageViewControl = new ImageViewControl(parent);

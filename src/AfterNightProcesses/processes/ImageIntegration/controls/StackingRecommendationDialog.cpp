@@ -205,16 +205,12 @@ void StackingRecommendationDialog::setupUi()
         new QLabel(tr("Based on %1 <b>%2</b> frames in this stacking group.").arg(m_frameCount).arg(frameTypeName));
     headerLayout->addWidget(subtitleLabel);
     mainLayout->addLayout(headerLayout);
-    // Under the Observatory profile the two lines are a window's heading, its description in plain text.
-    const bool observatoryLook =
-        an::ui::headWindow(*this, titleLabel->text(),
-                           tr("Based on %1 %2 frames in this stacking group.").arg(m_frameCount).arg(frameTypeName),
-                           tr("Image Integration")) != nullptr;
-    if (observatoryLook)
-    {
-        titleLabel->setVisible(false);
-        subtitleLabel->setVisible(false);
-    }
+    // The two lines are a window's heading, its description in plain text, which the window's column always takes.
+    an::ui::headWindow(*this, titleLabel->text(),
+                       tr("Based on %1 %2 frames in this stacking group.").arg(m_frameCount).arg(frameTypeName),
+                       tr("Image Integration"));
+    titleLabel->setVisible(false);
+    subtitleLabel->setVisible(false);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // --- Comparison Section ---
@@ -625,18 +621,8 @@ void StackingRecommendationDialog::setupUi()
     auto* closeRow = new QHBoxLayout();
     closeRow->addStretch();
     closeRow->addWidget(closeButton);
-    if (observatoryLook)
-    {
-        // One footer: Close, then the button that applies, the primary one at the right.
-        closeRow->addWidget(applyButton);
-    }
-    else
-    {
-        auto* applyRow = new QHBoxLayout();
-        applyRow->addWidget(applyButton);
-        applyRow->addStretch();
-        mainLayout->addLayout(applyRow);
-    }
+    // One footer: Close, then the button that applies, the primary one at the right.
+    closeRow->addWidget(applyButton);
     mainLayout->addLayout(closeRow);
 
     connect(applyButton, &QPushButton::clicked, this, [this]() {

@@ -250,9 +250,7 @@ QString described(const QList<Finding>& findings)
 }
 
 // The trees whose look is held to the design tokens: the shell core, which every shell is built on, the Observatory
-// shell and the reusable components. The theme's own tree is where the look is decided, and is not among them; the
-// classic shell is the
-// interface of AfterNight 1.1, kept as it was until it leaves or stays whole.
+// shell and the reusable components. The theme's own tree is where the look is decided, and is not among them.
 const QStringList& lookTrees()
 {
     static const QStringList trees{QStringLiteral("src/AfterNightShellCore/"),
@@ -570,10 +568,6 @@ TEST(SourceGuards, ShellsDoNotReachEachOther)
     };
     // Each shell's tree, and the trees that may include it: the application and the suites that drive it.
     const QList<Shell> shells = {
-        {QStringLiteral("src/AfterNightShellClassic/"),
-         {QStringLiteral("src/AfterNightApp/"), QStringLiteral("src/AfterNightTests/Test_ShellClassic/"),
-          QStringLiteral("src/AfterNightTests/Test_ShellParity/"),
-          QStringLiteral("src/AfterNightTests/Test_AfterNightApp/")}},
         {QStringLiteral("src/AfterNightShellObservatory/"),
          {QStringLiteral("src/AfterNightApp/"), QStringLiteral("src/AfterNightTests/Test_ShellObservatory/"),
           QStringLiteral("src/AfterNightTests/Test_ShellParity/"),
@@ -651,6 +645,67 @@ TEST(SourceGuards, ShellsDoNotReachEachOther)
         << "a shell's header included from below it or from another shell; reach the application through the shell "
            "core's units and contract (core/IShell.h) instead:\n"
         << described(findings).toStdString();
+}
+
+// The classic shell is gone, and the Classic style profile with it: no source names the profile, the classic shell's
+// tree and its suite's are not in the repository, and no source - of the product or of the test tree - includes a
+// header that went with them: the classic shell's, its suite's and those of the parts only it showed. A comment may
+// name one.
+TEST(SourceGuards, NoClassicProfileIsLeft)
+{
+    const QString root = repositoryRoot();
+    ASSERT_FALSE(root.isEmpty());
+    const QDir rootFolder(root);
+
+    for (const QString tree :
+         {QStringLiteral("src/AfterNightShellClassic"), QStringLiteral("src/AfterNightTests/Test_ShellClassic")})
+    {
+        EXPECT_FALSE(rootFolder.exists(tree)) << tree.toStdString() << " is still in the repository";
+    }
+
+    const QList<Finding> named =
+        findingsInSources(root, QRegularExpression(QStringLiteral(R"(\bStyleProfile\s*::\s*Classic\b)")), true);
+    EXPECT_TRUE(named.isEmpty()) << "a source names the Classic style profile, which is gone; the Observatory profile "
+                                    "is the only one:\n"
+                                 << described(named).toStdString();
+
+    // The headers that went: an include names one by its file name, from whichever folder it is reached - the classic
+    // shell's, its suite's and its driver's, the profile's test scope, the dashboard and the parts only it used, Image
+    // Integration's window of a run's progress, and the switches that chose a path of AfterNight 1.x.
+    static const QStringList removed{
+        QStringLiteral("AfterNightApp.h"),
+        QStringLiteral("AfterNightAppUiBuilder.h"),
+        QStringLiteral("AfterNightShellClassicExport.h"),
+        QStringLiteral("ClassicShell.h"),
+        QStringLiteral("ClassicUiBootstrap.h"),
+        QStringLiteral("ClassicWindowLayout.h"),
+        QStringLiteral("MenuActionManager.h"),
+        QStringLiteral("ViewControlCoordinator.h"),
+        QStringLiteral("ApplicationDriving.h"),
+        QStringLiteral("ClassicDriver.h"),
+        QStringLiteral("ScopedStyleProfile.h"),
+        QStringLiteral("MainDashboard.h"),
+        QStringLiteral("DashboardToolbar.h"),
+        QStringLiteral("DashboardIdentityBar.h"),
+        QStringLiteral("RecentFilesGrid.h"),
+        QStringLiteral("ActionCardEventFilter.h"),
+        QStringLiteral("WorkflowProgressDialogV2.h"),
+        QStringLiteral("ModernizationFeatureFlags.h"),
+    };
+    const QRegularExpression include(QStringLiteral(R"(^[ \t]*#[ \t]*include[ \t]*[<"]([^>"]+)[>"])"),
+                                     QRegularExpression::MultilineOption);
+    QList<Finding> included;
+    for (const Finding& finding : findingsInSources(root, include, true))
+    {
+        const QString name = include.match(finding.text).captured(1);
+        if (removed.contains(QFileInfo(name).fileName()) || name.contains(QLatin1String("AfterNightShellClassic/")) ||
+            name.contains(QLatin1String("Test_ShellClassic/")))
+        {
+            included.append(finding);
+        }
+    }
+    EXPECT_TRUE(included.isEmpty()) << "a source includes a header that went with the classic shell:\n"
+                                    << described(included).toStdString();
 }
 
 // In the shell core and the reusable components no colour and no font size is written as a literal: a colour comes

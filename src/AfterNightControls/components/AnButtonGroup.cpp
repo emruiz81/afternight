@@ -116,8 +116,8 @@ void AnButtonGroup::refreshTheme()
 
     if (m_layout)
     {
-        // A panel's gap apart under the Observatory profile.
-        m_layout->setSpacing(styleProfile() == StyleProfile::Observatory ? tokenSet.metrics.gap : tokenSet.spacing.sm);
+        // The buttons a panel's gap apart.
+        m_layout->setSpacing(tokenSet.metrics.gap);
     }
 
     const QList<QPushButton*> buttonList = buttons();

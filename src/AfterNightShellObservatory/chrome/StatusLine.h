@@ -4,8 +4,8 @@
 #pragma once
 
 /// @file
-/// The status line of the Observatory window: the band along the bottom of the centre and the column, which writes what
-/// the classic status bar writes of the active image.
+/// The status line of the Observatory window: the band along the bottom of the centre and the column, which writes the
+/// texts `widgets/ImageStatusTexts.h` makes of the active image.
 
 #include "AfterNightShellObservatoryExport.h"
 
@@ -61,7 +61,7 @@ private:
 
 /// The band along the bottom of the window, right of the rail: the first surface with a hairline above it, as high as
 /// the density's status line. From the left, the selector of the active view (every view by its full name), the image's
-/// facts and its zoom, in mono, as AfterNight 1.1's status bar writes them (`widgets/ImageStatusTexts.h`); at the right
+/// facts and its zoom, in mono, as `widgets/ImageStatusTexts.h` words them; at the right
 /// the right ascension and the declination under the cursor, "RA -" and "Dec -" in the tertiary colour while there is
 /// no position to tell, the button that shows or hides the readout, and the Console chip, which opens the Session
 /// Console.

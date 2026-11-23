@@ -23,15 +23,14 @@ protected:
     ~IWorkflowRunObserver() = default;
 };
 
-/// A front end that can show a run in itself, in place of the Processing window that stands over the application: a
-/// process shown as a page of a main window. The widget a workflow is launched from implements it, and the launch asks
-/// it once, as the run starts, with the run's view (`widgets/WorkflowRunView.h`).
+/// A front end that shows a run in itself: the process a workflow is launched from. The widget a workflow is launched
+/// from implements it, and the launch asks it once, as the run starts, with the run's view
+/// (`widgets/WorkflowRunView.h`); a launch from a widget that does not starts no run.
 class IWorkflowRunHost
 {
 public:
     /// Takes the view of a run that starts and shows it in the front end, which owns it from then on - for as long as
-    /// the run is on its way at the least - or answers false and leaves the view alone: the launch then opens the
-    /// Processing window, which holds a view of its own.
+    /// the run is on its way at the least - or answers false and leaves the view alone: the run is then not started.
     ///
     /// @return whether the front end took the view.
     virtual bool showWorkflowRun(WorkflowRunView* view) = 0;

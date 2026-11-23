@@ -125,15 +125,14 @@ StackingSettingsDialog::StackingSettingsDialog(FrameType frameType, const QStrin
         break;
     }
 
-    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
-    if (an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration")) != nullptr)
-    {
-        m_ui.titleLabel->setVisible(false);
-        m_ui.groupLabel->setVisible(false);
-        m_ui.separator1->setVisible(false);
-        // The settings scroll between the heading and the footer: opened whole they are taller than a small display.
-        an::ui::scrollWindowBody(*m_ui.verticalLayout_main, m_ui.separator1, m_ui.separator2);
-    }
+    // The lines that say whose settings these are give way to a window's heading, which the window's column always
+    // takes.
+    an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration"));
+    m_ui.titleLabel->setVisible(false);
+    m_ui.groupLabel->setVisible(false);
+    m_ui.separator1->setVisible(false);
+    // The settings scroll between the heading and the footer: opened whole they are taller than a small display.
+    an::ui::scrollWindowBody(*m_ui.verticalLayout_main, m_ui.separator1, m_ui.separator2);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Connect signals

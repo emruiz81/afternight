@@ -178,7 +178,7 @@ no Show.
   lets the host take the foreground (`AllowSetForegroundWindow`).
 
 A host follows the application's look. The full host is started under the application's style profile
-(`--style-profile` and the profile's name, `hostLookArguments`), put in force before its first widget, and both hosts are
+(`--style-profile` and the profile's name, `observatory`; `hostLookArguments`), put in force before its first widget, and both hosts are
 sent the theme state (`theme.describe`, then `theme.changed` at each change): the choices in force - the theme, the
 style profile, the contrast profile, the accent, the surface tint, its strength, the preset they make, the density and
 Night - and the tokens they resolve to - the colours, the surface ladder, the sizes, the spacing, the radii and the

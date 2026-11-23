@@ -51,7 +51,7 @@ namespace an::ui
 namespace
 {
 
-/// How long the search waits for the next key before it orders the tiles again: the dashboard's.
+/// How long the search waits for the next key before it orders the tiles again.
 constexpr int kSearchSettleMs = 120;
 
 /// The size a tile's picture is decoded at, and the key it is cached under.
@@ -70,13 +70,13 @@ QIcon providedIcon(const QString& name)
     return {};
 }
 
-/// The dashboard's words for a recorded action, under its translation context.
+/// The words of a recorded action, under the translation context AfterNight 1.1's dashboard gave them.
 QString dashboardWords(const char* words)
 {
     return QCoreApplication::translate("MainDashboard", words);
 }
 
-/// The search field: the dashboard's search, with its shortcut shown at its right while it is empty.
+/// The search field, with its shortcut shown at its right while it is empty.
 class SearchField final : public QLineEdit
 {
 public:
@@ -683,7 +683,7 @@ void HomeRecentGrid::setFileReveal(FileRevealFunction reveal)
 void HomeRecentGrid::setRecentFiles(const std::deque<QString>& recentFiles)
 {
     const QSet<QString> pinned = loadPinnedRecentFiles();
-    // The pins of files no longer recent go, as the dashboard drops them.
+    // The pins of files no longer recent go.
     QSet<QString> kept;
     for (const QString& path : recentFiles)
     {

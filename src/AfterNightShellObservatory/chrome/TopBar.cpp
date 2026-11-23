@@ -46,7 +46,7 @@ protected:
         QImage mark = QIcon(QStringLiteral(":/AfterNight/icons/PNG/afternight_icon_128x128_blue.png"))
                           .pixmap(size(), ratio)
                           .toImage();
-        if (an::ui::nightModeSet() && an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+        if (an::ui::nightModeSet())
         {
             // The form is made off the GUI thread the first time; the mark is drawn once it is kept.
             mark = an::ui::nightImage(mark, this, [this]() { update(); });

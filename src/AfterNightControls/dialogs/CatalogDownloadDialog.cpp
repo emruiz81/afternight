@@ -287,14 +287,13 @@ CatalogDownloadDialog::CatalogDownloadDialog(QVector<CatalogPackDescriptor> pack
     connect(m_service, &CatalogDownloadService::downloadProgress, this, &CatalogDownloadDialog::applyProgress);
     connect(m_service, &CatalogDownloadService::downloadFinished, this, &CatalogDownloadDialog::applyResult);
 
-    if (an::ui::headWindow(*this, windowTitle(),
-                           tr("Download a catalog pack and install it where AfterNight reads it. A pack that is "
-                              "installed can be verified and repaired."),
-                           tr("Catalogs & Data")) != nullptr)
-    {
-        // Under the Observatory profile the button that downloads is the footer's primary one.
-        m_downloadButton->setProperty("anButtonVariant", QStringLiteral("primary"));
-    }
+    // The window's layout is a column, so it always takes the heading; the button that downloads is the footer's
+    // primary one.
+    an::ui::headWindow(*this, windowTitle(),
+                       tr("Download a catalog pack and install it where AfterNight reads it. A pack that is "
+                          "installed can be verified and repaired."),
+                       tr("Catalogs & Data"));
+    m_downloadButton->setProperty("anButtonVariant", QStringLiteral("primary"));
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     refreshPackChoices();

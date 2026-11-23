@@ -876,9 +876,7 @@ std::string written(const std::vector<SettingsSearchRow>& rows)
 TEST_F(CommandIndex, TheSettingsTableIsWhatThePagesShow)
 {
     SettingsDialog dialog;
-    an::ui::SettingsPagesOptions options;
-    options.order = an::ui::SettingsPageOrder::Observatory;
-    an::ui::addSettingsPages(dialog, nullptr, options);
+    an::ui::addSettingsPages(dialog, nullptr, an::ui::SettingsPagesOptions{});
 
     const std::vector<SettingsSearchPage> table = an::ui::settingsSearchPages();
     ASSERT_EQ(table.size(), static_cast<std::size_t>(dialog.pageCount()))

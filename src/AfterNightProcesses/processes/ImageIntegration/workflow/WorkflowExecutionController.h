@@ -29,11 +29,11 @@ class IntegrationDataModel;
  * model state from the preparation worker.
  *
  * Where the run is shown:
- * A run is followed in its view (`widgets/WorkflowRunView.h`). The widget the run is launched from is asked to show
- * the view in itself (`IWorkflowRunHost`, `workflow/WorkflowRunObserver.h`): a process shown as a page does, and no
- * window opens. Any other front end gets the Processing window, which holds the view and stands over the application
- * until the run has ended. Either way the process window the run is launched from says the run's standing as its run
- * state: the step it is at among its stages and how far the whole has come.
+ * A run is followed in its view (`widgets/WorkflowRunView.h`), which the widget the run is launched from is asked to
+ * show in itself (`IWorkflowRunHost`, `workflow/WorkflowRunObserver.h`). A widget that is no run host, or that refuses
+ * the view, gets no run: the refusal is logged, the run is not started and the launch answers false, so that no run
+ * goes on unseen. The process window the run is launched from says the run's standing as its run state: the step it is
+ * at among its stages and how far the whole has come.
  */
 class AFTERNIGHTPROCESSES_API WorkflowExecutionController
 {

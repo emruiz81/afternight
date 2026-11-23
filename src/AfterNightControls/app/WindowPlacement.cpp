@@ -5,8 +5,6 @@
 
 #include "app/WindowPlacement.h"
 
-#include "theme/AnDesignTokens.h"
-
 #include <QAbstractButton>
 #include <QAbstractSpinBox>
 #include <QComboBox>
@@ -185,11 +183,11 @@ private:
     int m_stated = 0;
 };
 
-/// Sizes a window's parts for the look in force. A window drawn for AfterNight 1.1 states sizes in pixels - a field
-/// 60 wide, a row 28 high, a window no smaller than 500 by 380 - that the Observatory profile's font and its
-/// densities outgrow: a field, a button with a text, a part that lays out others and the window itself each take
-/// what they need where what was stated is less. The innermost parts come first, so that a part that lays out
-/// others is asked what it needs once they have taken what they need.
+/// Sizes a window's parts for the look in force. A window may state sizes in pixels - a field 60 wide, a row 28
+/// high, a window no smaller than 500 by 380 - that the look's font and its densities outgrow: a field, a button
+/// with a text, a part that lays out others and the window itself each take what they need where what was stated
+/// is less. The innermost parts come first, so that a part that lays out others is asked what it needs once they
+/// have taken what they need.
 void fitToTheLook(QWidget& window)
 {
     const QList<QWidget*> parts = window.findChildren<QWidget*>();
@@ -239,7 +237,7 @@ void fitToTheLook(QWidget& window)
         else if (const auto* const label = qobject_cast<const QLabel*>(part))
         {
             // A label that does not wrap shows its text whole only as wide as the text: a width stated under it
-            // (1.1's "Output File Name", 100 px) cut the text short. A label that elides by design says so in its
+            // (an "Output File Name" held to 100 px) cut the text short. A label that elides by design says so in its
             // own least size.
             if (!label->wordWrap() && !label->text().isEmpty())
             {
@@ -313,11 +311,8 @@ public:
             auto* const window = qobject_cast<QWidget*>(watched);
             if (window != nullptr && window->isWindow())
             {
-                if (styleProfile() == StyleProfile::Observatory)
-                {
-                    fitToTheLook(*window);
-                    showBodyWhole(*window);
-                }
+                fitToTheLook(*window);
+                showBodyWhole(*window);
                 holdWithinAvailableArea(*window);
             }
             watched->removeEventFilter(this);

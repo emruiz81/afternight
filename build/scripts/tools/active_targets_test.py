@@ -215,8 +215,8 @@ class InvalidationTest(ActiveCase):
         self.plant_files(staged + kept)
         registry = planted.targets.read_registry(self.root)
         self.assertEqual(active.retired_targets(registry),
-                         ['AfterNightEngineBenchCompare', 'Test_FixtureNext', 'Test_Gone', 'cfitsio', 'libxisf',
-                          'pthreads'])
+                         ['AfterNightEngineBenchCompare', 'AfterNightShellClassic', 'Test_FixtureNext', 'Test_Gone',
+                          'Test_ShellClassic', 'cfitsio', 'libxisf', 'pthreads'])
         removed = active.invalidate(self.root)
         self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in removed), sorted(staged))
         for relative in kept:
@@ -288,6 +288,33 @@ class InvalidationTest(ActiveCase):
         registry = planted.targets.read_registry(self.root)
         self.assertIn('Test_FixtureNext', active.retired_targets(registry))
         self.assertIn('AfterNightEngineBenchCompare', active.retired_targets(registry))
+        removed = active.invalidate(self.root)
+        self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in removed), sorted(staged))
+        for relative in kept:
+            self.assertTrue((self.root / relative).exists(), relative)
+        projects = active.remove_retired_projects(self.root)
+        self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in projects), sorted(left))
+
+    # When the classic shell went, its library and its suite went with it. A clone generated and built before keeps
+    # their projects, which the build refuses, and their binaries: the application would find a shell it no longer
+    # links, a packager sweeping the directory would ship it, and the runners would execute the suite as current.
+    def test_invalidation_removes_what_the_classic_shell_left(self) -> None:
+        self.plant()
+        staged = ['bin/clang/release/libAfterNightShellClassic.so', 'bin/clang/debug/libAfterNightShellClassic_d.so',
+                  'bin/clang/release/Test_ShellClassic', 'bin/clang/release/Test_ShellClassic.debug',
+                  'bin/msvc/release/AfterNightShellClassic.dll', 'bin/msvc/release/AfterNightShellClassic.pdb',
+                  'bin/msvc/debug/AfterNightShellClassic_d.dll', 'bin/msvc/release/Test_ShellClassic.exe',
+                  'bin/msvc/debug/Test_ShellClassic_d.exe', 'lib/msvc/release/AfterNightShellClassic.lib']
+        kept = ['bin/clang/release/libAfterNightShellObservatory.so', 'bin/msvc/release/AfterNightShellObservatory.dll',
+                'bin/msvc/release/Test_ShellObservatory.exe']
+        left = ['build/make-linux/AfterNightShellClassic.make', 'build/make-linux/tests/Test_ShellClassic.make',
+                'build/vs2026-msvc/AfterNightShellClassic.vcxproj',
+                'build/vs2026-msvc/tests/Test_ShellClassic.vcxproj.filters']
+        self.plant_files(staged + kept)
+        self.plant_files(left, b'generated')
+        registry = planted.targets.read_registry(self.root)
+        self.assertIn('AfterNightShellClassic', active.retired_targets(registry))
+        self.assertIn('Test_ShellClassic', active.retired_targets(registry))
         removed = active.invalidate(self.root)
         self.assertEqual(sorted(path.relative_to(self.root).as_posix() for path in removed), sorted(staged))
         for relative in kept:

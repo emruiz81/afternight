@@ -27,11 +27,10 @@ namespace an::ui
 
 /// Fills every colour of `tokens` - the colour roles, the surface layers and the material surfaces - as the
 /// Observatory profile resolves `choices`, and leaves the spacing, the radii and the type scale as they are. The light
-/// theme with the OLED contrast profile resolves as Balanced, as it does under the Classic profile. With `night` set it
-/// gives Night's tones - the primary text white, the secondary and tertiary text raised until they reach 3 : 1 against
-/// surface 2 once in red, the accent's fill its 300 step under black text - for choices the caller has already made
-/// dark and untinted; mapToNight() maps them to red afterwards. resolveDesignTokens() is the way in; this is its
-/// Observatory half.
+/// theme with the OLED contrast profile resolves as Balanced. With `night` set it gives Night's tones - the primary
+/// text white, the secondary and tertiary text raised until they reach 3 : 1 against surface 2 once in red, the
+/// accent's fill its 300 step under black text - for choices the caller has already made dark and untinted;
+/// mapToNight() maps them to red afterwards. resolveDesignTokens() is the way in; this is its Observatory half.
 AFTERNIGHTCONTROLS_API void resolveObservatoryColors(DesignTokens& tokens, const ThemeChoices& choices);
 
 /// Night's last step: every colour of `tokens` - the roles, the surface layers, the material surfaces - becomes its

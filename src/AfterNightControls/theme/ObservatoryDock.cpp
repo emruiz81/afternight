@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The dock decorations under the Observatory profile. A tab strip is the first surface with a hairline under it; a tab
+// The dock decorations in the Observatory look. A tab strip is the first surface with a hairline under it; a tab
 // is its icon, its name in the small text, semibold, elided in the middle, a star in the accent's text colour when the
 // image has unsaved changes, an adornment and a close button, and the current tab stands over a three-pixel bar with
 // rounded top corners, ten pixels in from each end: the accent in the active view's group, the tertiary text in the
@@ -24,7 +24,6 @@
 #include <QPixmap>
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 
 namespace
@@ -33,14 +32,6 @@ namespace
 using an::ui::ObservatoryDockGlyph;
 using an::ui::ObservatoryDropSide;
 using an::ui::PainterGuard;
-
-/// How many dock parts the Observatory painters have drawn; the suites read it.
-std::atomic<std::uint64_t> g_observatoryDockPaints{0};
-
-void counted()
-{
-    g_observatoryDockPaints.fetch_add(1u, std::memory_order_relaxed);
-}
 
 /// The opacity a disabled part is painted at, and the state colour's share over a surface hovered and pressed.
 constexpr qreal kDisabledOpacity = 0.38;
@@ -246,11 +237,6 @@ int tabTextWidth(const QString& text)
 namespace an::ui
 {
 
-bool observatoryDockDecorations()
-{
-    return styleProfile() == StyleProfile::Observatory;
-}
-
 int observatoryDockStripHeight(const bool floatingWindow)
 {
     const int strip = tokens().metrics.strip;
@@ -359,7 +345,6 @@ void paintObservatoryDockStrip(QPainter& painter, const QRect& strip)
     const PainterGuard guard(&painter);
     painter.fillRect(strip, t.layers.surface1);
     painter.fillRect(QRect(strip.left(), strip.bottom(), strip.width(), 1), t.colors.borderSubtle);
-    counted();
 }
 
 void paintObservatoryDockTab(QPainter& painter, const QRect& rect, const ObservatoryDockTab& tab,
@@ -409,7 +394,6 @@ void paintObservatoryDockTab(QPainter& painter, const QRect& rect, const Observa
         fillRounded(painter, bar.adjusted(0.0, 0.0, 0.0, kMarkBar), kMarkBar,
                     state.activeGroup ? c.accentPrimary : c.textTertiary);
     }
-    counted();
 }
 
 void paintObservatoryDockButton(QPainter& painter, const QRect& rect, const ObservatoryDockGlyph glyph,
@@ -429,7 +413,6 @@ void paintObservatoryDockButton(QPainter& painter, const QRect& rect, const Obse
         fillRounded(painter, QRectF(rect), t.radius.sm, atShare(c.stateLayer, pressed ? kPressedShare : kHoverShare));
     }
     drawGlyph(painter, centred(QRectF(rect), kButtonGlyph), glyph, active ? c.textPrimary : c.textSecondary);
-    counted();
 }
 
 void paintObservatoryDockTabClose(QPainter& painter, const QRect& rect, const bool hovered, const bool pressed,
@@ -454,7 +437,6 @@ void paintObservatoryDockTabClose(QPainter& painter, const QRect& rect, const bo
     painter.setPen(Qt::NoPen);
     painter.setBrush(active ? c.textPrimary : c.textTertiary);
     painter.drawPath(stroker.createStroke(crossIn(centred(QRectF(rect), kCloseCross))).simplified());
-    counted();
 }
 
 void paintObservatoryDockTitleBar(QPainter& painter, const QRect& rect, const QString& title, const QRect& titleRect)
@@ -467,7 +449,6 @@ void paintObservatoryDockTitleBar(QPainter& painter, const QRect& rect, const QS
     painter.setFont(observatoryDockTabFont());
     painter.setPen(t.colors.textPrimary);
     painter.drawText(text, Qt::AlignLeft | Qt::AlignVCenter, observatoryDockTabText(title, text.width()));
-    counted();
 }
 
 void paintObservatoryDockFrame(QPainter& painter, const QRect& rect, const bool active)
@@ -476,13 +457,11 @@ void paintObservatoryDockFrame(QPainter& painter, const QRect& rect, const bool 
     const PainterGuard guard(&painter);
     painter.fillRect(rect, t.layers.surface1);
     strokeInside(painter, QRectF(rect), 0.0, active ? t.colors.accentPrimary : t.colors.borderPrimary);
-    counted();
 }
 
 void paintObservatoryDockPane(QPainter& painter, const QRect& rect)
 {
     painter.fillRect(rect, tokens().layers.surface1);
-    counted();
 }
 
 void paintObservatoryDockSeparator(QPainter& painter, const QRect& rect, const bool active)
@@ -493,7 +472,6 @@ void paintObservatoryDockSeparator(QPainter& painter, const QRect& rect, const b
     {
         painter.fillRect(rect, t.colors.accentLine);
     }
-    counted();
 }
 
 int observatoryDropTargetSide()
@@ -545,7 +523,6 @@ void paintObservatoryDropTarget(QPainter& painter, const QRect& rect, const Obse
     strokeInside(painter, QRectF(inside), kDropHalfRadius, c.textTertiary);
     fillRounded(painter, QRectF(observatoryDropTargetHalf(rect, side)), kDropHalfRadius,
                 hot ? c.accentPrimary : c.accentLine);
-    counted();
 }
 
 void paintObservatoryDropBand(QPainter& painter, const QRect& rect)
@@ -559,17 +536,6 @@ void paintObservatoryDropBand(QPainter& painter, const QRect& rect)
     painter.fillRect(QRect(rect.left(), rect.bottom() - b + 1, rect.width(), b), border);
     painter.fillRect(QRect(rect.left(), rect.top() + b, b, rect.height() - 2 * b), border);
     painter.fillRect(QRect(rect.right() - b + 1, rect.top() + b, b, rect.height() - 2 * b), border);
-    counted();
 }
-
-namespace testing
-{
-
-std::uint64_t observatoryDockPaints()
-{
-    return g_observatoryDockPaints.load(std::memory_order_relaxed);
-}
-
-} // namespace testing
 
 } // namespace an::ui

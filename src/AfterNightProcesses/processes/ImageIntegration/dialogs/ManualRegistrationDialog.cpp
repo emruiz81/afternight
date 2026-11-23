@@ -324,11 +324,9 @@ ManualRegistrationDialog::ManualRegistrationDialog(const QString& referenceFrame
                    this);
     instructions->setWordWrap(true);
     main_layout->addWidget(instructions);
-    // Under the Observatory profile the instructions are the description of a window's heading.
-    if (an::ui::headWindow(*this, windowTitle(), instructions->text(), tr("Image Integration")) != nullptr)
-    {
-        instructions->setVisible(false);
-    }
+    // The instructions are the description of a window's heading, which the window's column always takes.
+    an::ui::headWindow(*this, windowTitle(), instructions->text(), tr("Image Integration"));
+    instructions->setVisible(false);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     auto* header_layout = new QHBoxLayout();

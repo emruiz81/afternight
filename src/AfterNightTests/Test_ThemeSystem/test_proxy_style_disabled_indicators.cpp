@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <cmath>
+#include <functional>
 #include <QAbstractButton>
 #include <QColor>
 #include <QComboBox>
@@ -16,6 +17,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPoint>
 #include <QPushButton>
 #include <QStyle>
 #include <QStyleOptionButton>
@@ -26,11 +28,17 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "fixtures/ObservatoryLook.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 
 namespace
 {
+
+using an::ui::testing::layered;
+
+/// The opacity the proxy style paints a disabled control at, whole.
+constexpr qreal kDisabledOpacity = 0.38;
 
 bool colorNear(const QColor& actual, const QColor& expected, const int tolerance = 3)
 {
@@ -40,7 +48,38 @@ bool colorNear(const QColor& actual, const QColor& expected, const int tolerance
            std::abs(actual.alpha() - expected.alpha()) <= tolerance;
 }
 
-QImage renderPrimitive(const QStyle::PrimitiveElement element, const QStyle::State state)
+/// Pixels of a rendered indicator that the style paints whole in one colour: the centre, inside a check box's fill
+/// clear of its mark, on the mark's second stroke, on a check box's border, on a radio button's ring, and between the
+/// ring and the dot.
+constexpr QPoint kCentre(10, 10);
+constexpr QPoint kCheckFill(4, 4);
+constexpr QPoint kCheckMark(11, 10);
+constexpr QPoint kCheckBorder(2, 10);
+constexpr QPoint kRadioRing(3, 9);
+constexpr QPoint kRadioGap(6, 6);
+
+/// The surface the indicators are drawn on: the panel surface a control usually sits on.
+QColor panelSurface()
+{
+    return an::ui::tokens().layers.surface1;
+}
+
+/// Runs a check under the dark theme and under the light one, and puts the theme preference back.
+void forEachTheme(const std::function<void()>& check)
+{
+    const an::ui::ThemePreference original = an::ui::themePreference();
+    for (const an::ui::ThemePreference theme : {an::ui::ThemePreference::Dark, an::ui::ThemePreference::Light})
+    {
+        SCOPED_TRACE(theme == an::ui::ThemePreference::Dark ? "dark" : "light");
+        an::ui::setThemePreference(theme);
+        check();
+    }
+    an::ui::setThemePreference(original);
+    an::ui::refreshTokens();
+}
+
+/// An indicator drawn in a state on a twenty-pixel square of the surface, its sixteen-pixel box centred on (10, 10).
+QImage renderPrimitive(const QStyle::PrimitiveElement element, const QStyle::State state, const QColor& surface)
 {
     an::ui::AnProxyStyle* style = an::ui::installedAnProxyStyle();
     if (!style)
@@ -61,7 +100,7 @@ QImage renderPrimitive(const QStyle::PrimitiveElement element, const QStyle::Sta
     option.state = state;
 
     QImage image(20, 20, QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::transparent);
+    image.fill(surface);
 
     QPainter painter(&image);
     style->drawPrimitive(element, &option, &painter, nullptr);
@@ -127,48 +166,98 @@ QColor resolvedCardSurfaceColorForCurrentTokens()
 
 } // namespace
 
+// A disabled check box is its enabled look painted whole at the disabled opacity, in both themes: checked, the accent's
+// fill and the mark in the text on the accent, each laid over what is under it at 38 %; unchecked, the border in the
+// secondary text at 38 % with the surface left inside. Neither shows a colour at its full strength.
 TEST(ThemeSystemProxyStyle, DisabledCheckbox_UsesDisabledTokenColors)
 {
-    const auto& colors = an::ui::tokens().colors;
-    const QImage checked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_On);
-    const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_None);
+    forEachTheme([] {
+        const auto& colors = an::ui::tokens().colors;
+        const QColor surface = panelSurface();
+        const QImage checked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_On, surface);
+        const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_None, surface);
 
-    EXPECT_TRUE(imageContainsColor(checked, colors.accentDisabled));
-    EXPECT_TRUE(imageContainsColor(checked, colors.textTertiary));
-    EXPECT_TRUE(imageContainsColor(unchecked, colors.bgSurface));
+        const QColor fill = layered(colors.accentPrimary, kDisabledOpacity, surface);
+        const QColor mark = layered(colors.textOnAccent, kDisabledOpacity, fill);
+        EXPECT_TRUE(imageContainsColor(checked, fill));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCheckFill), fill)) << "the fill";
+        EXPECT_TRUE(imageContainsColor(checked, mark));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCheckMark), mark)) << "the mark";
+        EXPECT_FALSE(imageContainsColor(checked, colors.accentPrimary));
+
+        const QColor border = layered(colors.textSecondary, kDisabledOpacity, surface);
+        EXPECT_TRUE(imageContainsColor(unchecked, border));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCheckBorder), border)) << "the border";
+        EXPECT_FALSE(imageContainsColor(unchecked, colors.textSecondary));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCentre), surface));
+    });
 }
 
+// A disabled radio button is its enabled look painted whole at the disabled opacity, in both themes: checked, the
+// accent's ring and dot laid over the surface at 38 %; unchecked, the ring in the secondary text at 38 % with the
+// surface left inside. Neither shows a colour at its full strength.
 TEST(ThemeSystemProxyStyle, DisabledRadio_UsesDisabledTokenColors)
 {
-    const auto& colors = an::ui::tokens().colors;
-    const QImage checked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_On);
-    const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_None);
+    forEachTheme([] {
+        const auto& colors = an::ui::tokens().colors;
+        const QColor surface = panelSurface();
+        const QImage checked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_On, surface);
+        const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_None, surface);
 
-    EXPECT_TRUE(imageContainsColor(checked, colors.accentDisabled));
-    EXPECT_TRUE(imageContainsColor(checked, colors.textTertiary));
-    EXPECT_TRUE(imageContainsColor(unchecked, colors.bgSurface));
+        const QColor accent = layered(colors.accentPrimary, kDisabledOpacity, surface);
+        EXPECT_TRUE(imageContainsColor(checked, accent));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kRadioRing), accent)) << "the ring";
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCentre), accent)) << "the dot";
+        EXPECT_FALSE(imageContainsColor(checked, colors.accentPrimary));
+
+        const QColor ring = layered(colors.textSecondary, kDisabledOpacity, surface);
+        EXPECT_TRUE(imageContainsColor(unchecked, ring));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kRadioRing), ring)) << "the ring";
+        EXPECT_FALSE(imageContainsColor(unchecked, colors.textSecondary));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCentre), surface));
+    });
 }
 
+// An enabled check box, in both themes: checked, filled with the accent under a mark in the text on the accent;
+// unchecked, a border in the secondary text with the surface left inside.
 TEST(ThemeSystemProxyStyle, EnabledCheckbox_UsesEnabledTokenColors)
 {
-    const auto& colors = an::ui::tokens().colors;
-    const QImage checked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_On | QStyle::State_Enabled);
-    const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_Enabled);
+    forEachTheme([] {
+        const auto& colors = an::ui::tokens().colors;
+        const QColor surface = panelSurface();
+        const QImage checked =
+            renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_On | QStyle::State_Enabled, surface);
+        const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorCheckBox, QStyle::State_Enabled, surface);
 
-    EXPECT_TRUE(imageContainsColor(checked, colors.accentPrimary));
-    EXPECT_TRUE(imageContainsColor(checked, QColor(Qt::white)));
-    EXPECT_TRUE(imageContainsColor(unchecked, colors.bgInput));
+        EXPECT_TRUE(imageContainsColor(checked, colors.accentPrimary));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCheckFill), colors.accentPrimary)) << "the fill";
+        EXPECT_TRUE(imageContainsColor(checked, colors.textOnAccent));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCheckMark), colors.textOnAccent)) << "the mark";
+        EXPECT_TRUE(imageContainsColor(unchecked, colors.textSecondary));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCheckBorder), colors.textSecondary)) << "the border";
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCentre), surface));
+    });
 }
 
+// An enabled radio button, in both themes: checked, an accent ring around an accent dot with the surface between them;
+// unchecked, a ring in the secondary text with the surface left inside.
 TEST(ThemeSystemProxyStyle, EnabledRadio_UsesEnabledTokenColors)
 {
-    const auto& colors = an::ui::tokens().colors;
-    const QImage checked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_On | QStyle::State_Enabled);
-    const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_Enabled);
+    forEachTheme([] {
+        const auto& colors = an::ui::tokens().colors;
+        const QColor surface = panelSurface();
+        const QImage checked =
+            renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_On | QStyle::State_Enabled, surface);
+        const QImage unchecked = renderPrimitive(QStyle::PE_IndicatorRadioButton, QStyle::State_Enabled, surface);
 
-    EXPECT_TRUE(imageContainsColor(checked, colors.accentPrimary));
-    EXPECT_TRUE(imageContainsColor(checked, QColor(Qt::white)));
-    EXPECT_TRUE(imageContainsColor(unchecked, colors.bgInput));
+        EXPECT_TRUE(imageContainsColor(checked, colors.accentPrimary));
+        EXPECT_TRUE(colorNear(checked.pixelColor(kRadioRing), colors.accentPrimary)) << "the ring";
+        EXPECT_TRUE(colorNear(checked.pixelColor(kCentre), colors.accentPrimary)) << "the dot";
+        EXPECT_TRUE(colorNear(checked.pixelColor(kRadioGap), surface)) << "between the ring and the dot";
+        EXPECT_TRUE(imageContainsColor(unchecked, colors.textSecondary));
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kRadioRing), colors.textSecondary)) << "the ring";
+        EXPECT_TRUE(colorNear(unchecked.pixelColor(kCentre), surface));
+    });
 }
 
 TEST(ThemeSystemProxyStyle, LayoutPixelMetricsUseSpacingTokens)
@@ -261,6 +350,9 @@ TEST(ThemeSystemProxyStyle, AnchoredComboPopupDisablesSelectedItemCenteredPopup)
     EXPECT_EQ(style->styleHint(QStyle::SH_ComboBox_Popup, nullptr, &combo), 0);
 }
 
+// A process window's header is a window's heading: polish gives its title and its description the fonts it gives a
+// window heading's title and description - the title semibold and larger than the body, the description the small text
+// at the body's weight, in the secondary text.
 TEST(ThemeSystemProxyStyle, PolishAppliesTypographyRolesToHeaderLabels)
 {
     an::ui::AnProxyStyle* style = an::ui::installedAnProxyStyle();
@@ -278,14 +370,29 @@ TEST(ThemeSystemProxyStyle, PolishAppliesTypographyRolesToHeaderLabels)
     QLabel processDescription;
     processDescription.setObjectName(QStringLiteral("anProcessShellHeaderDescription"));
 
+    QLabel headingTitle;
+    headingTitle.setObjectName(QStringLiteral("anWindowHeadingTitle"));
+
+    QLabel headingDescription;
+    headingDescription.setObjectName(QStringLiteral("anWindowHeadingDescription"));
+
     style->polish(&processTitle);
     style->polish(&processDescription);
+    style->polish(&headingTitle);
+    style->polish(&headingDescription);
 
-    const auto& typography = an::ui::tokens().typography;
-    EXPECT_EQ(processTitle.font().pointSize(), typography.heading1.pointSize());
-    EXPECT_EQ(processTitle.font().weight(), typography.heading1.weight());
-    EXPECT_EQ(processDescription.font().pointSize(), typography.body.pointSize());
+    const auto& tokenSet = an::ui::tokens();
+    const auto& typography = tokenSet.typography;
+    EXPECT_DOUBLE_EQ(processTitle.font().pointSizeF(), headingTitle.font().pointSizeF());
+    EXPECT_EQ(processTitle.font().weight(), headingTitle.font().weight());
+    EXPECT_EQ(processTitle.font().weight(), QFont::DemiBold);
+    EXPECT_GT(processTitle.font().pointSizeF(), typography.body.pointSizeF());
+
+    EXPECT_DOUBLE_EQ(processDescription.font().pointSizeF(), headingDescription.font().pointSizeF());
+    EXPECT_DOUBLE_EQ(processDescription.font().pointSizeF(), tokenSet.metrics.fontSmall * 72.0 / 96.0);
     EXPECT_EQ(processDescription.font().weight(), typography.body.weight());
+    EXPECT_EQ(processDescription.palette().color(QPalette::Active, QPalette::WindowText),
+              tokenSet.colors.textSecondary);
 }
 
 TEST(ThemeSystemProxyStyle, PolishAppliesHeadingTypographyToTableHeaders)

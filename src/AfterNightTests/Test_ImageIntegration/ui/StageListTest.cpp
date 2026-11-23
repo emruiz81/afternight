@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// Image Integration's stages as a list, on a page of a main window: the list holds every page the window's two levels
-/// of tabs hold - the same widgets, by the record of the tabs' pages - and none else; each row's mark and line follow
+/// Image Integration's stages as a list, in a window of its own as on a page of a main window: the list holds every
+/// page of the record of Image Integration's pages and none else, and no tab is left; each row's mark and line follow
 /// the job, what its output folder holds of its runs and a run on its way; the Navigate menu's actions and their keys
 /// move the list's selection, and so does the keyboard in the list; the list's foot holds the output folder and the
 /// project file's acts; a page with a side panel keeps it as an aside and the stacking page's options stand in two
-/// rows; a frame shown in the lights' tree from another page goes there through the list; and in a window of its own
-/// the process keeps its tabs and its foot.
+/// rows; a frame shown in the lights' tree from another page goes there through the list; and a window of its own
+/// shows the same list, with no foot of its own.
 
 #include "Test_ImageIntegration/ui/IntegrationPageCase.h"
 
@@ -28,6 +28,7 @@
 
 #include <QAbstractButton>
 #include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QFile>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -62,9 +63,8 @@ using an::ui::StageStatus;
 using ImageIntegration::StageListNavigator;
 using ImageIntegration::StageNavigator;
 using ImageIntegration::StagePage;
-using ImageIntegration::TabStageNavigator;
 
-/// A page as the record of the tabs' pages states it.
+/// A page as the record of Image Integration's pages states it.
 struct RecordedPage
 {
     QString first;
@@ -85,7 +85,7 @@ struct RecordedPage
     return lines.join(QLatin1Char('\n')).toStdString();
 }
 
-/// The record of the tabs' pages, read from the tree.
+/// The record of Image Integration's pages, read from the tree.
 [[nodiscard]] std::vector<RecordedPage> recordedPages()
 {
     const QString relative = QStringLiteral("src/AfterNightTests/Test_ImageIntegration/data/IntegrationPages.txt");
@@ -126,17 +126,6 @@ struct RecordedPage
 {
     const QList<QWidget*> held = page.findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly);
     return held.isEmpty() ? QString() : QString::fromLatin1(held.front()->metaObject()->className());
-}
-
-/// A tab's name without the frames a frame source's tab says after it.
-[[nodiscard]] QString tabName(const QTabWidget& tabs, const int tab)
-{
-    QString text = tabs.tabText(tab);
-    if (const qsizetype counted = text.lastIndexOf(QStringLiteral(" (")); counted > 0)
-    {
-        text.truncate(counted);
-    }
-    return text;
 }
 
 [[nodiscard]] const StageRow* rowOf(const std::vector<StageRow>& rows, const char* id)
@@ -213,7 +202,7 @@ void forgetTheAsideWidth()
 class StageList : public IntegrationPageCase
 {
 protected:
-    /// The stage list of a process shown as a page; null for one that keeps its tabs.
+    /// The stage list of the process; null for none.
     [[nodiscard]] StageListNavigator* stages() const
     {
         return m_process.isNull() ? nullptr : dynamic_cast<StageListNavigator*>(m_process->stageNavigator());
@@ -246,101 +235,70 @@ protected:
 
 } // namespace
 
-// The record holds the pages the window's tabs reach, and the list on a page reaches the same ones - the very widgets
-// the tabs held - and no other: a row for each, and no page shown by two rows.
-TEST_F(StageList, HoldsEveryTabPage)
+// The record holds the pages of Image Integration, and its list reaches the same ones - in a window of its own as on a
+// page - and no other: a row for each, named as the record names the page, and no page shown by two rows. No tab is
+// left in the process.
+TEST_F(StageList, HoldsEveryRecordedPage)
 {
     const std::vector<RecordedPage> recorded = recordedPages();
-    ASSERT_EQ(recorded.size(), 8u) << "the record of the tabs' pages was not found, or does not hold eight";
-
-    // The window's tabs, as they are.
+    ASSERT_EQ(recorded.size(), 8u) << "the record of the pages was not found, or does not hold eight";
+    QStringList recordedNames;
+    for (const RecordedPage& entry : recorded)
     {
-        ImageIntegrationProcess& window = openAsWindow();
-        ASSERT_FALSE(window.hasPageLayout());
-        const auto* const root = window.findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
-        ASSERT_NE(root, nullptr);
-        std::vector<RecordedPage> ofTheTabs;
-        for (int first = 0; first < root->count(); ++first)
+        recordedNames.append(entry.second);
+    }
+
+    for (const bool asPage : {false, true})
+    {
+        const char* const shownAs = asPage ? "on a page" : "in a window";
+        ImageIntegrationProcess& process = asPage ? openAsPage() : openAsWindow();
+        ASSERT_EQ(process.isPresentedAsPage(), asPage);
+        StageListNavigator* const list = stages();
+        ASSERT_NE(list, nullptr) << shownAs << ": the stages are a list";
+        EXPECT_TRUE(list->widget()->isVisibleTo(&process)) << shownAs;
+        EXPECT_TRUE(process.findChildren<QTabWidget*>().isEmpty()) << shownAs << ": no tab is left";
+
+        const std::vector<StageRow> shown = list->list()->rows();
+        QStringList titles;
+        for (const StageRow& row : shown)
         {
-            const auto* const second = root->widget(first)->findChild<QTabWidget*>();
-            ASSERT_NE(second, nullptr) << root->tabText(first).toStdString();
-            for (int tab = 0; tab < second->count(); ++tab)
+            titles.append(row.title);
+        }
+        EXPECT_EQ(titles, recordedNames) << shownAs << ": a row for each page, named as the record names it";
+
+        QList<QWidget*> reachedWidgets;
+        for (const StageRow& row : shown)
+        {
+            list->list()->setSelectedId(row.id);
+            pump();
+            QWidget* const page = list->page(list->currentPage());
+            ASSERT_NE(page, nullptr) << shownAs << ": " << row.id.toStdString();
+            EXPECT_TRUE(page->isVisibleTo(&process)) << shownAs << ": " << row.id.toStdString() << " shows its page";
+            EXPECT_FALSE(reachedWidgets.contains(page))
+                << shownAs << ": " << row.id.toStdString() << " shows a page another row shows";
+            if (!reachedWidgets.contains(page))
             {
-                const QWidget* const page = second->widget(tab);
-                ofTheTabs.push_back(
-                    RecordedPage{tabName(*root, first), tabName(*second, tab), page->objectName(), heldBy(*page)});
+                reachedWidgets.append(page);
             }
         }
-        EXPECT_EQ(ofTheTabs, recorded) << "the tabs hold\n"
-                                       << said(ofTheTabs) << "\nand the record\n"
-                                       << said(recorded);
+        ASSERT_EQ(reachedWidgets.size(), ImageIntegration::kStagePageCount)
+            << shownAs << ": eight rows reach the eight pages";
+
+        std::vector<RecordedPage> reached;
+        for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
+        {
+            QWidget* const widget = list->page(static_cast<StagePage>(page));
+            ASSERT_NE(widget, nullptr);
+            EXPECT_TRUE(reachedWidgets.contains(widget)) << widget->objectName().toStdString() << " is reached";
+            const RecordedPage& entry = recorded[static_cast<std::size_t>(page)];
+            reached.push_back(RecordedPage{entry.first, entry.second, widget->objectName(), heldBy(*widget)});
+        }
+        EXPECT_EQ(reached, recorded) << shownAs << ": the list reaches\n"
+                                     << said(reached) << "\nand the record holds\n"
+                                     << said(recorded);
         delete m_process.data();
         pump();
     }
-
-    // The same process, first with its tabs, then taken into a page: the pages the list reaches.
-    m_scope.context().presenter = &m_window;
-    ImageIntegrationProcess& process = make();
-    ASSERT_NE(process.stageNavigator(), nullptr);
-    ASSERT_NE(dynamic_cast<TabStageNavigator*>(process.stageNavigator()), nullptr) << "tabs until it is a page";
-    std::array<QPointer<QWidget>, ImageIntegration::kStagePageCount> ofTheTabs;
-    for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
-    {
-        ofTheTabs[static_cast<std::size_t>(page)] = process.stageNavigator()->page(static_cast<StagePage>(page));
-        ASSERT_FALSE(ofTheTabs[static_cast<std::size_t>(page)].isNull());
-        EXPECT_EQ(ofTheTabs[static_cast<std::size_t>(page)]->objectName(),
-                  recorded[static_cast<std::size_t>(page)].name);
-    }
-    m_window.show();
-    process.show();
-    pump();
-    ASSERT_TRUE(process.isPresentedAsPage());
-    StageListNavigator* const list = stages();
-    ASSERT_NE(list, nullptr) << "a page shows its stages as a list";
-    EXPECT_EQ(process.findChild<QTabWidget*>(QStringLiteral("rootTabWidget")), nullptr) << "the tabs are gone";
-    EXPECT_EQ(process.findChild<QTabWidget*>(QStringLiteral("sourceTabWidget")), nullptr);
-    EXPECT_EQ(process.findChild<QTabWidget*>(QStringLiteral("workflowTabWidget")), nullptr);
-
-    const std::vector<StageRow> shown = list->list()->rows();
-    QStringList titles;
-    for (const StageRow& row : shown)
-    {
-        titles.append(row.title);
-    }
-    EXPECT_EQ(titles,
-              (QStringList{QStringLiteral("Bias"), QStringLiteral("Darks"), QStringLiteral("Flats"),
-                           QStringLiteral("Lights"), QStringLiteral("Calibration"), QStringLiteral("Registration"),
-                           QStringLiteral("Stacking"), QStringLiteral("Summary")}));
-
-    std::vector<RecordedPage> reached;
-    QList<QWidget*> reachedWidgets;
-    for (const StageRow& row : shown)
-    {
-        list->list()->setSelectedId(row.id);
-        pump();
-        QWidget* const page = list->page(list->currentPage());
-        ASSERT_NE(page, nullptr) << row.id.toStdString();
-        EXPECT_TRUE(page->isVisibleTo(&process)) << row.id.toStdString() << " shows its page";
-        EXPECT_FALSE(reachedWidgets.contains(page)) << row.id.toStdString() << " shows a page another row shows";
-        if (!reachedWidgets.contains(page))
-        {
-            reachedWidgets.append(page);
-        }
-    }
-    ASSERT_EQ(shown.size(), static_cast<std::size_t>(ImageIntegration::kStagePageCount)) << "a row for each page";
-    ASSERT_EQ(reachedWidgets.size(), ImageIntegration::kStagePageCount) << "eight rows reach the eight pages";
-    for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
-    {
-        QWidget* const widget = list->page(static_cast<StagePage>(page));
-        ASSERT_NE(widget, nullptr);
-        EXPECT_EQ(widget, ofTheTabs[static_cast<std::size_t>(page)].data()) << "the widget the tabs held";
-        EXPECT_TRUE(reachedWidgets.contains(widget)) << widget->objectName().toStdString() << " is reached";
-        const RecordedPage& entry = recorded[static_cast<std::size_t>(page)];
-        reached.push_back(RecordedPage{entry.first, entry.second, widget->objectName(), heldBy(*widget)});
-    }
-    EXPECT_EQ(reached, recorded) << "the list reaches\n"
-                                 << said(reached) << "\nand the record holds\n"
-                                 << said(recorded);
 }
 
 // Each row's mark and line follow the workflow: not started with nothing to do, ready once it has what it needs, done
@@ -618,10 +576,9 @@ TEST_F(StageList, Keyboard)
     EXPECT_EQ(told.count(), 2) << "two rows down, two pages";
 }
 
-// The list's foot holds the job's output folder - the field and the button the window's foot holds, the field at the
-// foot's whole width under its label and the button, saying the whole path when pointed at - and the project file's
-// acts: import, export, the recent projects, the presets and Reset Settings, each the process's own act or menu,
-// enabled as it is. The window's foot, with its Close and Reset, is not shown on a page.
+// The list's foot holds the job's output folder - its field at the foot's whole width under its label and the button
+// that chooses it, saying the whole path when pointed at - and the project file's acts: import, export, the recent
+// projects, the presets and Reset Settings, each the process's own act or menu, enabled as it is.
 TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
 {
     QTemporaryDir folder;
@@ -657,9 +614,6 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     EXPECT_GT(buttonAt.left(), labelAt.left()) << "the button at the label's right";
     EXPECT_TRUE(buttonAt.top() <= labelAt.bottom() && labelAt.top() <= buttonAt.bottom()) << "in the label's row";
     EXPECT_EQ(edit->toolTip(), QDir::toNativeSeparators(folder.path()));
-    const auto* const windowsFoot = process.findChild<QWidget*>(QStringLiteral("bottomActionBar"));
-    ASSERT_NE(windowsFoot, nullptr);
-    EXPECT_FALSE(windowsFoot->isVisibleTo(&process)) << "Close and Reset are the header's and the list's foot's";
 
     const QList<QAbstractButton*> buttons = list->footButtons();
     ASSERT_EQ(buttons.size(), 5);
@@ -717,9 +671,9 @@ TEST_F(StageList, TheFootHoldsTheOutputFolderAndTheProjectFilesActs)
     EXPECT_TRUE(offered.contains(QStringLiteral("Save Preset..."))) << offered.join(QStringLiteral(", ")).toStdString();
 }
 
-// On a page a side panel is an aside - the frame pages' and the calibration's - that opens at the aside's width, and
-// the stacking page's execution options stand in two rows; in a window the panels keep their own widths and the
-// options stand in one.
+// A side panel is an aside - the frame pages' and the calibration's - that opens at the aside's width, and the
+// stacking page's execution options stand in two rows: the pages stand beside the list in a window of its own as on a
+// page, and a window's panels are asides within the same bounds.
 TEST_F(StageList, ASidePanelIsAnAsideAndTheStackingOptionsStandInTwoRows)
 {
     const auto optionsAreInTwoRows = [](const ImageIntegrationProcess& process) {
@@ -734,10 +688,10 @@ TEST_F(StageList, ASidePanelIsAnAsideAndTheStackingOptionsStandInTwoRows)
         const auto* const lights = window.findChild<QWidget*>(QStringLiteral("lightTab"))->findChild<FrameSourceTab*>();
         ASSERT_NE(lights, nullptr);
         ASSERT_NE(lights->sidePanel(), nullptr);
-        EXPECT_GT(lights->sidePanel()->minimumSizeHint().width(), an::ui::parts::kStageAsideWidth)
-            << "a window's panel keeps its own least width";
-        EXPECT_NE(lights->sidePanel()->maximumWidth(), an::ui::parts::kStageAsideWidth);
-        EXPECT_FALSE(optionsAreInTwoRows(window));
+        EXPECT_EQ(lights->sidePanel()->minimumWidth(), an::ui::parts::kStageAsideMinWidth)
+            << "a window's panel is an aside";
+        EXPECT_EQ(lights->sidePanel()->maximumWidth(), an::ui::parts::kStageAsideMaxWidth);
+        EXPECT_TRUE(optionsAreInTwoRows(window));
         delete m_process.data();
         pump();
     }
@@ -917,39 +871,42 @@ TEST_F(StageList, AFrameShownInTheLightsTreeGoesThereThroughTheList)
     EXPECT_EQ(process.model()->selectedFrameIds().front().canonicalPath(), light.id.canonicalPath());
 }
 
-// In a window of its own the process is what it was: its two levels of tabs, with a frame source's frames in its
-// tab's label and a page's issues in its badge, and its foot with the output folder, Close and Reset.
-TEST_F(StageList, InAWindowTheTabsAndTheFootStay)
+// In a window of its own the process shows the list a page shows: the rows follow the job - a source's frames in its
+// row's line - the output folder and the project file's acts are at the list's foot, and the window has no foot of its
+// own: its title bar closes it and the list's foot resets its settings. The list is asked through the same seam.
+TEST_F(StageList, InAWindowTheStagesAreTheSameList)
 {
     QTemporaryDir folder;
     ASSERT_TRUE(folder.isValid());
     ImageIntegrationProcess& window = openAsWindow();
     ASSERT_FALSE(window.hasPageLayout());
-    EXPECT_EQ(stages(), nullptr);
-    auto* const tabs = dynamic_cast<TabStageNavigator*>(window.stageNavigator());
-    ASSERT_NE(tabs, nullptr);
-    const auto* const root = window.findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
-    const auto* const sources = window.findChild<QTabWidget*>(QStringLiteral("sourceTabWidget"));
-    ASSERT_TRUE(root != nullptr && sources != nullptr);
-    EXPECT_EQ(tabs->widget(), root);
-    EXPECT_TRUE(root->isVisibleTo(&window));
-    EXPECT_EQ(window.findChild<AnStageList*>(), nullptr) << "no list in a window";
-    const auto* const foot = window.findChild<QWidget*>(QStringLiteral("bottomActionBar"));
+    StageListNavigator* const list = stages();
+    ASSERT_NE(list, nullptr) << "a window shows its stages as a list";
+    EXPECT_EQ(window.stageNavigator(), list);
+    EXPECT_TRUE(list->widget()->isVisibleTo(&window));
+    EXPECT_TRUE(window.findChildren<QTabWidget*>().isEmpty()) << "no tab is left";
+    EXPECT_TRUE(window.findChildren<QDialogButtonBox*>().isEmpty()) << "no Close and Reset of the window's own";
     const auto* const edit = window.findChild<QLineEdit*>(QStringLiteral("outputDirectoryEdit"));
-    ASSERT_TRUE(foot != nullptr && edit != nullptr);
-    EXPECT_TRUE(foot->isVisibleTo(&window));
-    EXPECT_TRUE(foot->isAncestorOf(edit));
+    ASSERT_NE(edit, nullptr);
+    EXPECT_TRUE(list->foot()->isAncestorOf(edit)) << "the output folder is the list's foot's";
+    EXPECT_TRUE(edit->isVisibleTo(&window));
+    ASSERT_EQ(list->footButtons().size(), 5);
+    EXPECT_EQ(list->footButtons().back()->text(), QStringLiteral("Reset Settings..."));
 
-    // The tabs are asked through the same seam: a page shown, and told.
-    QSignalSpy told(tabs, &StageNavigator::currentPageChanged);
-    tabs->setCurrentPage(StagePage::Registration);
-    EXPECT_EQ(tabs->currentPage(), StagePage::Registration);
-    EXPECT_EQ(root->currentIndex(), 1);
+    // The list is asked through the same seam: a page shown, and told.
+    QSignalSpy told(list, &StageNavigator::currentPageChanged);
+    list->setCurrentPage(StagePage::Registration);
+    EXPECT_EQ(list->currentPage(), StagePage::Registration);
+    EXPECT_EQ(list->currentRow(), QStringLiteral("registration"));
+    EXPECT_TRUE(list->page(StagePage::Registration)->isVisibleTo(&window));
     EXPECT_EQ(told.count(), 1);
-    EXPECT_EQ(StageNavigator::of(tabs->page(StagePage::Lights)), tabs);
+    EXPECT_EQ(StageNavigator::of(list->page(StagePage::Lights)), list);
 
-    // A source's frames are in its tab's label.
+    // A source's frames are in its row's line.
     window.model()->addFrames(FrameType::Light, {lightFrame(folder.path(), 0), lightFrame(folder.path(), 1)});
-    pump();
-    EXPECT_EQ(sources->tabText(static_cast<int>(StagePage::Lights)), QStringLiteral("Lights (2)"));
+    EXPECT_TRUE(pumpUntil([this]() {
+        const std::vector<StageRow> now = rows();
+        const StageRow* const lights = rowOf(now, "lights");
+        return lights != nullptr && lights->line.startsWith(QStringLiteral("2 frames"));
+    })) << said(rows());
 }

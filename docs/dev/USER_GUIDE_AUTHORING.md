@@ -411,15 +411,17 @@ guide otherwise, as the home page opens.
 - **Moving or renaming a page** changes its row in the same change. Rule R15 of `check_user_guide.py` reads the
   table from the source: every path is a page the guide has, every row is of a registered action, every registered
   action has a row or is a non-interactive operation, and the page a row names is one whose `menu` reaches the
-  action. `Test_ShellClassic` holds the same of the descriptors the application registers, and
-  `Test_ProcessesShared` that every window a launch shows carries its descriptor's page.
+  action. `ProcessRegistry.InventoryMatchesTheRecord` in `Test_ShellObservatory` holds the page each descriptor the
+  application registers states to the record of the processes (`ProcessInventory.txt`), and `Test_ProcessesShared`
+  that every window a launch shows carries its descriptor's page.
 
 ## Sources of truth
 
 A page states what the product does, and each statement is read from the product, in this order:
 
 1. **Reachability and labels:** `src/AfterNightProcesses/app/ProcessRegistryBuiltins.cpp`,
-   `src/AfterNightShellCore/actions/MenuTree.cpp` and `ActionCatalogue.cpp`, `src/AfterNightShellClassic/MenuActionManager.cpp`, the
+   `src/AfterNightShellCore/actions/MenuTree.cpp`, `ActionCatalogue.cpp` and `ProcessMenuModel.cpp` (the favourite,
+   recent and extensions' processes the process menus list), the Observatory shell's own actions (`src/AfterNightShellObservatory/ShellActions.cpp`), the
    action-state code and the registration of dialogs and pages - for Settings,
    `DialogOrchestrationCoordinator::openSettingsAt`.
 2. **Control behavior:** the process or control implementation, its UI builder, its parameter structs, settings keys

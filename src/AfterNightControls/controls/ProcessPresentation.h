@@ -34,7 +34,7 @@ namespace an::ui
 /// Where a process is shown when a presenter takes it.
 enum class ProcessSurface : std::uint8_t
 {
-    /// A window of its own, as in AfterNight 1.1. Every process is one until its descriptor states another surface.
+    /// A window of its own. Every process is one until its descriptor states another surface.
     Window,
 
     /// A page of the main window: the process's preview as the canvas, its controls in a column beside it.

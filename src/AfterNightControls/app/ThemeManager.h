@@ -18,7 +18,6 @@
 #include "theme/AnDesignTokens.h"
 
 class ImageViewControlManager;
-class MainDashboard;
 class QToolButton;
 class TopLevelProcessBaseControl;
 
@@ -363,7 +362,6 @@ public:
         std::function<void()> setActionIcons;
 
         // Cascade dependencies
-        MainDashboard** mainDashboard = nullptr;
         QToolButton** toolbarLockLayout = nullptr;
         std::function<bool()> isLayoutLocked;
         ImageViewControlManager* imageViewControlManager = nullptr;

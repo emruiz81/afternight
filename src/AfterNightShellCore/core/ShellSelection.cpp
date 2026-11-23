@@ -72,37 +72,13 @@ public:
         return m_known;
     }
 
-    /// The chosen shell starts under its descriptor's profile, or under the one the developer switch names.
-    void chooseStyleProfile(const QProcessEnvironment& environment)
+    /// The chosen shell starts under the profile its descriptor names.
+    void chooseStyleProfile()
     {
-        if (m_choice.descriptor == nullptr)
+        if (m_choice.descriptor != nullptr)
         {
-            return;
+            m_choice.styleProfile = m_choice.descriptor->styleProfile;
         }
-        m_choice.styleProfile = m_choice.descriptor->styleProfile;
-        const QString variable = QString::fromLatin1(ShellSelection::kStyleProfileVariable);
-        const QString value = environment.value(variable).trimmed();
-        if (value.isEmpty())
-        {
-            return;
-        }
-        if (value.compare(QStringLiteral("classic"), Qt::CaseInsensitive) == 0)
-        {
-            m_choice.styleProfile = an::ui::StyleProfile::Classic;
-        }
-        else if (value.compare(QStringLiteral("observatory"), Qt::CaseInsensitive) == 0)
-        {
-            m_choice.styleProfile = an::ui::StyleProfile::Observatory;
-        }
-        else
-        {
-            warn(QStringLiteral("%1=%2 names no style profile and was passed over; the profiles are classic and "
-                                "observatory")
-                     .arg(variable, value));
-            return;
-        }
-        LOG_INFO("The {} shell starts under the style profile {} names: {}", m_choice.descriptor->id.toStdString(),
-                 variable.toStdString(), value.toLower().toStdString());
     }
 
     [[nodiscard]] ShellChoice result()
@@ -207,7 +183,7 @@ ShellChoice ShellSelection::resolve(const QStringList& arguments, const QProcess
 {
     Chooser chooser(registry);
     chooseShell(arguments, environment, settings, chooser);
-    chooser.chooseStyleProfile(environment);
+    chooser.chooseStyleProfile();
     return chooser.result();
 }
 

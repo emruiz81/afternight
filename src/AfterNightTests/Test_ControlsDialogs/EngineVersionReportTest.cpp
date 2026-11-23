@@ -2,14 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The versions the about dialog, the system information dialog and the dashboard show: the product's, which the
-/// application states, and the engine's and its libraries', as the loaded engine reports them; and what the about
-/// dialog's licence says of the processes derived from other people's work and of the one that is not.
+/// The versions the about dialog and the system information dialog show: the product's, which the application states,
+/// and the engine's and its libraries', as the loaded engine reports them; and what the about dialog's licence says of
+/// the processes derived from other people's work and of the one that is not.
 
 #include "Test_ControlsDialogs/DialogsTestSupport.h"
 
 #include "controls/AboutDialog.h"
-#include "controls/DashboardIdentityBar.h"
 #include "controls/EngineVersionReport.h"
 #include "controls/SystemInformationDialog.h"
 
@@ -199,22 +198,6 @@ TEST_F(VersionDialogsTest, TheSystemInformationListsTheProductsVersionTheEngineA
     {
         EXPECT_TRUE(dependencies.contains(library.label)) << library.label.toStdString();
     }
-}
-
-TEST_F(VersionDialogsTest, TheDashboardShowsTheProductsVersionAndDevWhenNoneIsStated)
-{
-    {
-        const StatedVersion stated(QStringLiteral("3.2.1"));
-        an::ui::DashboardIdentityBar bar;
-        auto* label = bar.findChild<QLabel*>(QStringLiteral("dashboardIdentityBarVersion"));
-        ASSERT_NE(label, nullptr);
-        EXPECT_EQ(label->text(), QStringLiteral("v3.2.1"));
-    }
-    const StatedVersion none{QString()};
-    an::ui::DashboardIdentityBar bar;
-    auto* label = bar.findChild<QLabel*>(QStringLiteral("dashboardIdentityBarVersion"));
-    ASSERT_NE(label, nullptr);
-    EXPECT_EQ(label->text(), QStringLiteral("dev"));
 }
 
 /// The licence's paragraph under one provenance heading, up to the next heading of its kind.

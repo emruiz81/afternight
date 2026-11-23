@@ -14,9 +14,9 @@
 #include "ObservatoryWindow.h"
 #include "chrome/StatusLine.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "fixtures/WindowDriving.h"
-#include "Test_ShellClassic/InventoryRecords.h"
+#include "Test_ShellObservatory/InventoryRecords.h"
 
 #include "actions/ActionIds.h"
 #include "app/ProcessRegistry.h"

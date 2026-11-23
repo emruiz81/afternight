@@ -1,10 +1,11 @@
-# The pages of Image Integration: every page its window's two levels of tabs reach, an entry a page, in the tabs'
+# The pages of Image Integration: every page its window's two levels of tabs reached, an entry a page, in the tabs'
 # order:
 #   tab of the first level | tab of the second level | the page's name | the class of what the page holds
 #
-# Written from the window's tabs before a list of stages took their place on a page of a main window. In
-# Test_ImageIntegration StageList.HoldsEveryTabPage compares the window's tabs with it, and holds the pages the stage
-# list reaches on a page to the same entries: the same pages, the same widgets, none left behind and none added.
+# Written from the window's tabs before a list of stages took their place. In Test_ImageIntegration
+# StageList.HoldsEveryRecordedPage holds the pages the stage list reaches - in a window of its own and on a page of a
+# main window - to the same entries: the same pages, a row named as the tab of the second level for each, none left
+# behind and none added.
 # An entry is edited by the change that means to move it; the record is not written again whole.
 
 Frame Sources | Bias | biasTab | FrameSourceTab

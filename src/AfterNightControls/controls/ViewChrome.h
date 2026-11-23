@@ -31,7 +31,7 @@ namespace an::ui
 /// Where a view's toolbar is.
 enum class ViewChromeMode : std::uint8_t
 {
-    /// The toolbar is the view's first row, as in AfterNight 1.1. The default.
+    /// The toolbar is the view's first row. The default.
     Embedded,
 
     /// The view builds no toolbar row; a part outside it shows its actions (`ImageViewControl::chromeActions`).

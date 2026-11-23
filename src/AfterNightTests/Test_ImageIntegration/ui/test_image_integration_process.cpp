@@ -8,16 +8,13 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
-#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QIODevice>
 #include <QLineEdit>
-#include <QPushButton>
 #include <QRegularExpression>
 #include <QStringList>
-#include <QTabWidget>
 #include <QTimeZone>
 
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
@@ -195,24 +192,6 @@ TEST_F(ImageIntegrationProcessTest, EveryRunEndsByReadingAgainWhatItWrote)
     EXPECT_TRUE(registration.contains(refresh)) << "a registration alone";
 }
 
-TEST_F(ImageIntegrationProcessTest, TabWidgetCanNavigateProgrammatically)
-{
-    QTabWidget tabs;
-    QWidget w1, w2, w3, w4;
-    tabs.addTab(&w1, "Tab1");
-    tabs.addTab(&w2, "Tab2");
-    tabs.addTab(&w3, "Tab3");
-    tabs.addTab(&w4, "Tab4");
-
-    EXPECT_EQ(tabs.currentIndex(), 0);
-
-    tabs.setCurrentIndex(2);
-    EXPECT_EQ(tabs.currentIndex(), 2);
-
-    tabs.setCurrentWidget(&w4);
-    EXPECT_EQ(tabs.currentIndex(), 3);
-}
-
 TEST_F(ImageIntegrationProcessTest, LineEditCanReceiveFocusProgrammatically)
 {
     QLineEdit edit;
@@ -223,110 +202,6 @@ TEST_F(ImageIntegrationProcessTest, LineEditCanReceiveFocusProgrammatically)
     edit.selectAll();
 
     EXPECT_EQ(edit.selectedText(), "test/path/to/output");
-}
-
-// -----------------------------------------------------------------------------
-// UI structure tests.
-// These tests verify the unified tab widget structure and bottom action bar.
-// -----------------------------------------------------------------------------
-
-TEST_F(ImageIntegrationProcessTest, NestedTabStructure)
-{
-    // Verify the nested UI structure: Root -> (Sources | Workflow)
-    QTabWidget rootTabs;
-
-    QTabWidget sourceTabs;
-    QWidget bias, darks, flats, lights;
-    sourceTabs.addTab(&bias, "Bias");
-    sourceTabs.addTab(&darks, "Darks");
-    sourceTabs.addTab(&flats, "Flats");
-    sourceTabs.addTab(&lights, "Lights");
-
-    QTabWidget workflowTabs;
-    QWidget calibration, registration, stacking, summary;
-    workflowTabs.addTab(&calibration, "Calibration");
-    workflowTabs.addTab(&registration, "Registration");
-    workflowTabs.addTab(&stacking, "Stacking");
-    workflowTabs.addTab(&summary, "Summary");
-
-    rootTabs.addTab(&sourceTabs, "Frame Sources");
-    rootTabs.addTab(&workflowTabs, "Workflow");
-
-    EXPECT_EQ(rootTabs.count(), 2);
-    EXPECT_EQ(sourceTabs.count(), 4);
-    EXPECT_EQ(workflowTabs.count(), 4);
-}
-
-TEST_F(ImageIntegrationProcessTest, BottomActionBarOutputDirectoryComponentsExist)
-{
-    // Verify bottom action bar has the expected components:
-    // - Output directory edit + browse button
-
-    QWidget bottomBar;
-    QLineEdit outputEdit;
-    outputEdit.setObjectName("outputDirectoryEdit");
-    QPushButton browseBtn;
-    browseBtn.setObjectName("outputDirectoryBrowseButton");
-
-    // Reparent widgets to bottomBar for findChild tests
-    outputEdit.setParent(&bottomBar);
-    browseBtn.setParent(&bottomBar);
-
-    // Verify all components can be found
-    EXPECT_NE(bottomBar.findChild<QLineEdit*>("outputDirectoryEdit"), nullptr);
-    EXPECT_NE(bottomBar.findChild<QPushButton*>("outputDirectoryBrowseButton"), nullptr);
-}
-
-TEST_F(ImageIntegrationProcessTest, BottomActionBarHasResetAndCloseButtons)
-{
-    // Verify the bottom action bar contains a QDialogButtonBox with Reset and Close buttons
-    QWidget bottomBar;
-    QDialogButtonBox buttonBox;
-    buttonBox.setObjectName("dialogButtonBox");
-    buttonBox.setStandardButtons(QDialogButtonBox::Reset | QDialogButtonBox::Close);
-    buttonBox.setParent(&bottomBar);
-
-    auto* box = bottomBar.findChild<QDialogButtonBox*>("dialogButtonBox");
-    EXPECT_NE(box, nullptr);
-    EXPECT_NE(box->button(QDialogButtonBox::Reset), nullptr);
-    EXPECT_NE(box->button(QDialogButtonBox::Close), nullptr);
-}
-
-TEST_F(ImageIntegrationProcessTest, TabNavigationWithKeyboardShortcuts)
-{
-    // Verify tab navigation shortcuts work (Ctrl+1 through Ctrl+8)
-    QTabWidget tabs;
-    QWidget w[8];
-    for (int i = 0; i < 8; ++i)
-    {
-        tabs.addTab(&w[i], QString("Tab%1").arg(i + 1));
-    }
-
-    // Simulate programmatic navigation (shortcuts are handled by QAction in the real widget)
-    for (int i = 0; i < 8; ++i)
-    {
-        tabs.setCurrentIndex(i);
-        EXPECT_EQ(tabs.currentIndex(), i);
-    }
-}
-
-TEST_F(ImageIntegrationProcessTest, TabIconsCanBeSet)
-{
-    // Verify tab icons can be set on a QTabWidget
-    QTabWidget tabs;
-    QWidget w1, w2;
-    tabs.addTab(&w1, "Tab1");
-    tabs.addTab(&w2, "Tab2");
-
-    QIcon icon1 = QIcon::fromTheme("document-open");
-    QIcon icon2 = QIcon::fromTheme("document-save");
-
-    tabs.setTabIcon(0, icon1);
-    tabs.setTabIcon(1, icon2);
-
-    // Icons are set even if theme icons are not available (they'll be null)
-    // The test verifies the API works without crashing
-    SUCCEED();
 }
 
 TEST_F(ImageIntegrationProcessTest, ExecutionPlanPreparationReportsDeterminateReadableProgress)

@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// Image Integration's pages under a list of the job's stages, as a page of a main window shows them.
+/// Image Integration's pages under a list of the job's stages, in a window of its own as on a page of a main window.
 
 #include "AfterNightProcessesExport.h"
 
@@ -43,11 +43,12 @@ namespace ImageIntegration
 /// **The list** (`components/AnStageList.h`) holds a row for each page - the frame sources and the workflow's pages in
 /// the order a run reaches them, and the summary last (`kStageRows`). Selecting a row shows its page, and no two rows
 /// show the same one; a page asked for (`setCurrentPage`) selects its row. The rows' marks and lines are given whole
-/// (`setRows`): the navigator shows them and decides none.
+/// (`setRows`): the navigator shows them and decides none - a frame source's frames and what the validation found in
+/// a page are said there.
 ///
-/// **The foot** holds the job's output folder - the label, the field and the button the window's foot holds, moved
-/// here: the button beside the label and the field under them at the foot's whole width, a path being long and the
-/// column narrow - and the acts of the project file, each a button for an act or a menu of the process's own:
+/// **The foot** holds the job's output folder - the process's label, field and button: the button beside the label
+/// and the field under them at the foot's whole width, a path being long and the column narrow - and the acts of the
+/// project file, each a button for an act or a menu of the process's own:
 /// import, export, the recent projects, the presets and Reset Settings. A button is enabled as its act is, and says
 /// the act's tooltip.
 ///
@@ -88,10 +89,6 @@ public:
     [[nodiscard]] QWidget* page(StagePage page) const override;
     [[nodiscard]] StagePage currentPage() const override;
     void setCurrentPage(StagePage page) override;
-
-    /// The rows say the frames and the issues: these change nothing by themselves.
-    void setFrameCounts(const std::array<int, kFrameSourcePageCount>& counts) override;
-    void setIssues(const std::array<StagePageIssues, kStagePageCount>& issues) override;
     void refreshTheme() override;
 
     /// The rows' marks and lines, by their ids; the selection stays.

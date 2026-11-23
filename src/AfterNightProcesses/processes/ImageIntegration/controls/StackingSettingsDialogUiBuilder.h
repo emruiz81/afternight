@@ -658,20 +658,17 @@ public:
         weightingOptionsGroupBox->setExpanded(true);
 
         retranslateUi(StackingSettingsDialog);
-        if (an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+        // The labels' column is as wide as its widest label in the style's font, and no narrower than it was drawn:
+        // the fields stay in line, and no label is cut.
+        int column = 120;
+        for (const QLabel* label : rowLabels)
         {
-            // The labels' column is as wide as its widest label in the profile's font, and no narrower than it was
-            // drawn: the fields stay in line, and no label is cut.
-            int column = 120;
-            for (const QLabel* label : rowLabels)
-            {
-                column = (std::max)(column, label->sizeHint().width());
-            }
-            for (QLabel* label : rowLabels)
-            {
-                label->setMinimumWidth(column);
-                label->setMaximumWidth(column);
-            }
+            column = (std::max)(column, label->sizeHint().width());
+        }
+        for (QLabel* label : rowLabels)
+        {
+            label->setMinimumWidth(column);
+            label->setMaximumWidth(column);
         }
         QObject::connect(okButton, &QPushButton::clicked, StackingSettingsDialog, &QDialog::accept);
         QObject::connect(cancelButton, &QPushButton::clicked, StackingSettingsDialog, &QDialog::reject);

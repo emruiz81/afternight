@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The application's teardown in its own order: each case starts the classic shell as the application starts it, over a
-// core and a session of its own, uses its window and ends it as the application ends - the window gone before the
-// session is shut down.
+// The application's teardown in its own order: each case starts the Observatory shell as the application starts it,
+// over a core and a session of its own, uses its window and ends it as the application ends - the window gone before
+// the session is shut down.
 
-#include "ClassicShell.h"
-
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "Test_ControlsSeams/FreedMemoryQuarantine.h"
 #include "app/ApplicationStart.h"
 #include "core/ApplicationSession.h"
@@ -27,7 +25,6 @@
 
 #include "controls/LogViewerControl.h"
 
-#include <QAction>
 #include <QPointer>
 #include <QProcessEnvironment>
 #include <QThreadPool>
@@ -46,14 +43,13 @@
 namespace
 {
 
-/// The classic shell started as the application starts it, over the core and the session the case owns.
-an::ui::StartedApplication startClassicShell(an::ui::shell::ApplicationCore& core, an::ui::ApplicationSession& session)
+/// The Observatory shell started as the application starts it, over the core and the session the case owns.
+an::ui::StartedApplication startShell(an::ui::shell::ApplicationCore& core, an::ui::ApplicationSession& session)
 {
     core.setApplicationSession(&session);
     an::ui::shell::ShellRegistry registry;
-    EXPECT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-    return an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
-                                    QProcessEnvironment(), {});
+    an::ui::registerApplicationShells(registry);
+    return an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
 }
 
 } // namespace
@@ -64,7 +60,7 @@ TEST(ApplicationTeardown, TheWindowTakesItsContextDownAndTheSessionShutsDownClea
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    an::ui::StartedApplication started = startClassicShell(core, session);
+    an::ui::StartedApplication started = startShell(core, session);
     ASSERT_NE(started.shell, nullptr);
     QWidget* const window = started.shell->mainWindow();
     ASSERT_NE(window, nullptr);
@@ -106,15 +102,13 @@ TEST(ApplicationTeardown, QuittingWithTheSessionConsoleOpenReadsNothingOfTheWind
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    an::ui::StartedApplication started = startClassicShell(core, session);
+    an::ui::StartedApplication started = startShell(core, session);
     ASSERT_NE(started.shell, nullptr);
     QWidget* const window = started.shell->mainWindow();
     ASSERT_NE(window, nullptr);
     ASSERT_TRUE(session.isOpen());
-    auto* const console = window->findChild<QAction*>(QStringLiteral("actionLog_Viewer"));
-    ASSERT_NE(console, nullptr);
-    console->trigger();
-    ASSERT_TRUE(console->isChecked());
+    started.shell->setSessionConsoleVisible(true);
+    ASSERT_TRUE(started.shell->isSessionConsoleVisible());
     // The console declares no meta-object of its own, so it is told by its type.
     const QList<QWidget*> children = window->findChildren<QWidget*>();
     ASSERT_TRUE(std::any_of(children.cbegin(), children.cend(), [](QWidget* child) {
@@ -142,7 +136,7 @@ TEST(ApplicationTeardown, ASettingsReadStillWaitingOnThePoolWhenTheApplicationCl
 
     an::ui::ApplicationSession session;
     an::ui::shell::ApplicationCore core;
-    an::ui::StartedApplication started = startClassicShell(core, session);
+    an::ui::StartedApplication started = startShell(core, session);
     ASSERT_NE(started.shell, nullptr);
     QWidget* const window = started.shell->mainWindow();
     ASSERT_NE(window, nullptr);

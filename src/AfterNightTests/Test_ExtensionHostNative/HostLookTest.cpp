@@ -15,7 +15,6 @@
 #include "HostThemeSync.h"
 
 #include "app/ExtensionThemeState.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QCborArray>
@@ -34,7 +33,6 @@ namespace
 {
 
 using an::ui::StyleProfile;
-using an::ui::testing::ScopedStyleProfile;
 
 /// The theme choices in force when a case starts, put back when it ends.
 class HostLook : public ::testing::Test
@@ -118,7 +116,6 @@ private:
 // are the tokens in force.
 TEST_F(HostLook, ThemeStateCarriesTheNewFields)
 {
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     chooseAsTheApplication();
     QCborMap state = an::ui::extensions::currentExtensionThemeTokens();
 
@@ -155,10 +152,10 @@ TEST_F(HostLook, ThemeStateCarriesTheNewFields)
 
 // A host told the state resolves the tokens the application resolved, whatever it held before: the same colours, the
 // same ladder, the same sizes and type. A choice the host does not know is left as it was. The host is started under
-// the application's profile by `--style-profile`, whose name it reads back.
+// the application's profile by `--style-profile`, whose name it reads back; "observatory" is the one name a profile
+// has, and "classic" names none.
 TEST_F(HostLook, HostResolvesTheApplicationsTokens)
 {
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     chooseAsTheApplication();
     const an::ui::DesignTokens application = an::ui::tokens();
     const an::ui::extensions::ExtensionThemeSnapshot snapshot = an::ui::extensions::currentExtensionThemeSnapshot();
@@ -181,12 +178,10 @@ TEST_F(HostLook, HostResolvesTheApplicationsTokens)
 
     EXPECT_EQ(an::ui::extensions::hostLookArguments(StyleProfile::Observatory),
               (std::vector<std::string>{"--style-profile", "observatory"}));
-    EXPECT_EQ(an::ui::extensions::hostLookArguments(StyleProfile::Classic),
-              (std::vector<std::string>{"--style-profile", "classic"}));
+    EXPECT_EQ(an::ui::extensions::styleProfileName(StyleProfile::Observatory), QStringLiteral("observatory"));
     EXPECT_EQ(an::ui::extensions::styleProfileNamed(QStringLiteral(" Observatory ")),
               std::optional<StyleProfile>(StyleProfile::Observatory));
-    EXPECT_EQ(an::ui::extensions::styleProfileNamed(QStringLiteral("classic")),
-              std::optional<StyleProfile>(StyleProfile::Classic));
+    EXPECT_FALSE(an::ui::extensions::styleProfileNamed(QStringLiteral("classic")).has_value());
     EXPECT_FALSE(an::ui::extensions::styleProfileNamed(QStringLiteral("workbench")).has_value());
 }
 
@@ -194,7 +189,6 @@ TEST_F(HostLook, HostResolvesTheApplicationsTokens)
 // text the window draws in them follows once the host refreshes it, as it does when the theme changes.
 TEST_F(HostLook, NightReachesTheHostWindow)
 {
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     chooseAsTheApplication();
     an::ui::setNightMode(true);
     const an::ui::extensions::ExtensionThemeSnapshot snapshot = an::ui::extensions::currentExtensionThemeSnapshot();

@@ -35,8 +35,8 @@ inline constexpr int kTagPadding = 7;
 inline constexpr int kTagIcon = 12;
 inline constexpr int kTagGap = 4;
 
-/// The property of a menu's action that holds the quiet tag the Observatory profile paints after its text - an
-/// extension's process carries "extension" - and the room between the text and the tag.
+/// The property of a menu's action that holds the quiet tag the style paints after its text - an extension's process
+/// carries "extension" - and the room between the text and the tag.
 inline constexpr const char* kMenuTagProperty = "anMenuTag";
 inline constexpr int kMenuTagGap = 8;
 
@@ -96,8 +96,8 @@ inline constexpr int kSwatchCheck = 12;
 // A window's heading: its title at 19 px, its lines 2 px apart.
 inline constexpr int kWindowHeadingTitleFont = 19;
 inline constexpr int kWindowHeadingLineGap = 2;
-/// The property by which a window that is no dialog says it stays a window as a dialog does: the Observatory profile
-/// lays it on the first surface, as it lays a dialog.
+/// The property by which a window that is no dialog says it stays a window as a dialog does: the style lays it on the
+/// first surface, as it lays a dialog.
 inline constexpr const char* kDialogSurfaceProperty = "anDialogSurface";
 
 // A process's page: its column's widths, standard and wide, and in a window under the narrow width; the run's row.

@@ -3,10 +3,10 @@
 
 /// @file
 /// Image Integration Lite as a page: it is taken into a page whole, with no column and no menus of its own; the page's
-/// primary action is its Run Integration button; and a run it starts there is shown in the page - the run's own view
-/// in the process's place, no Processing window over the application - going through the stages and ending as the run
-/// its window starts does, the process back in its page once the view is closed. The runs are the suite's fixture
-/// pipeline's, over lights that are real files, so the manifest is the one the process prepares.
+/// primary action is its Run Integration button; and a run it starts is shown in the process - the run's own view in
+/// the process's place, in a window of its own as on a page, and no window over the application - going through the
+/// same stages and ending the same way either way, the process back in its place once the view is closed. The runs are
+/// the suite's fixture pipeline's, over lights that are real files, so the manifest is the one the process prepares.
 
 #include "Test_ImageIntegration/ui/IntegrationPageCase.h"
 #include "Test_ImageIntegration/workflow/FixturePipeline.h"
@@ -16,7 +16,6 @@
 #include "components/AnStageList.h"
 #include "controls/ProcessLaunchScope.h"
 #include "controls/ProcessPageLayout.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegrationLiteProcess.h"
@@ -26,7 +25,6 @@
 #include <QGuiApplication>
 #include <QLayout>
 #include <QMenuBar>
-#include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
@@ -206,17 +204,17 @@ protected:
         return dynamic_cast<an::ui::AnInfoBanner*>(process.findChild<QWidget*>(QStringLiteral("liteStatusBanner")));
     }
 
-    /// Closes every message box shown: the Processing window says how a run ended in one.
-    static void closeMessageBoxes()
+    /// Whether a dialog or a message box stands open.
+    [[nodiscard]] static bool aDialogIsOpen()
     {
-        for (QWidget* widget : QApplication::topLevelWidgets())
+        for (const QWidget* widget : QApplication::topLevelWidgets())
         {
-            if (auto* const box = qobject_cast<QMessageBox*>(widget); box != nullptr && box->isVisible())
+            if (widget->isVisible() && qobject_cast<const QDialog*>(widget) != nullptr)
             {
-                box->close();
+                return true;
             }
         }
-        pump();
+        return false;
     }
 
     QTemporaryDir m_folder;
@@ -297,35 +295,55 @@ TEST_F(PageLayout, ImageIntegrationLiteFillsItsPage)
 }
 
 // A run started on the page goes as the run its window starts: through the same stages, to the same end, the process
-// saying the same of it. In the window the Processing window shows it; on the page the run's view takes the process's
-// place - no window opens over the application - and the process is back once the view is closed.
+// saying the same of it. Either way the run's view takes the process's place - in the window, the place of what the
+// window lays out; on the page, the page's area - no window opens over the application, and the process is back once
+// the view is closed.
 TEST_F(LitePage, AppliesAsInAWindow)
 {
     LiteRunEnd inWindow;
     {
         ImageIntegrationLiteProcess& process = open(false);
         ASSERT_FALSE(process.isPresentedAsPage());
+        ASSERT_EQ(process.pageLayout(), nullptr);
         giveItLights(process, QDir(m_folder.path()).filePath(QStringLiteral("from-window")));
         m_gate = std::make_shared<RunGate>();
         process.setRunPipeline(fixturePipelineWithAStack(m_gate));
         QPushButton* const run = runButton(process);
         ASSERT_NE(run, nullptr);
         ASSERT_TRUE(run->isEnabled());
+        auto* const framesCard = process.findChild<QWidget*>(QStringLiteral("liteFramesCard"));
+        ASSERT_NE(framesCard, nullptr);
+        ASSERT_TRUE(framesCard->isVisibleTo(&process));
         run->click();
-        const QPointer<WorkflowProgressDialogV2> dialog = process.findChild<WorkflowProgressDialogV2*>();
-        ASSERT_FALSE(dialog.isNull()) << "a window's run is shown by the Processing window";
+        const QPointer<WorkflowRunView> view = process.runView();
+        ASSERT_FALSE(view.isNull()) << "a window shows its run in itself";
+        EXPECT_TRUE(process.isAncestorOf(view.data()));
+        EXPECT_TRUE(view->isVisibleTo(&process));
+        EXPECT_FALSE(framesCard->isVisibleTo(&process)) << "the run's view takes the place of what the window lays out";
+        EXPECT_FALSE(run->isVisibleTo(&process));
+        EXPECT_FALSE(aDialogIsOpen()) << "no window opens over the application";
         m_gate->open();
         ASSERT_TRUE(pumpUntil([&process]() { return process.runState().ended(); }, 30000));
         pump();
-        closeMessageBoxes();
-        ASSERT_FALSE(dialog.isNull());
+        ASSERT_FALSE(view.isNull()) << "the view stays, with how the run ended, until it is closed";
+        EXPECT_TRUE(view->isFinished());
+        EXPECT_FALSE(aDialogIsOpen());
         inWindow.phase = process.runState().phase;
-        inWindow.stages = stagesOf(*dialog->runView());
+        inWindow.stages = stagesOf(*view);
         ASSERT_NE(banner(process), nullptr);
         inWindow.tone = banner(process)->tone();
         inWindow.said = banner(process)->message();
-        dialog->close();
+
+        // Close on the view gives the window back to the process, as it was.
+        auto* const close = view->findChild<QAbstractButton*>(QStringLiteral("btnClose"));
+        ASSERT_NE(close, nullptr);
+        ASSERT_FALSE(close->isHidden());
+        close->click();
         pump();
+        EXPECT_EQ(process.runView(), nullptr);
+        EXPECT_TRUE(view.isNull());
+        EXPECT_TRUE(framesCard->isVisibleTo(&process));
+        EXPECT_TRUE(run->isVisibleTo(&process));
     }
     ASSERT_EQ(inWindow.phase, an::ui::ProcessRunState::Phase::Succeeded)
         << inWindow.said.toStdString() << " - the fixture run ends well";
@@ -344,7 +362,7 @@ TEST_F(LitePage, AppliesAsInAWindow)
     ASSERT_TRUE(process.triggerPrimaryAction()) << "the page's primary action is Run Integration";
     const QPointer<WorkflowRunView> view = process.runView();
     ASSERT_FALSE(view.isNull()) << "a page shows the run in itself";
-    EXPECT_EQ(process.findChild<WorkflowProgressDialogV2*>(), nullptr) << "no Processing window on a page";
+    EXPECT_FALSE(aDialogIsOpen()) << "no window opens over the application";
     EXPECT_TRUE(m_page.host.isAncestorOf(view.data()));
     EXPECT_TRUE(view->isVisibleTo(&process));
     EXPECT_FALSE(page->fullArea()->isVisibleTo(&process)) << "the run's view takes the process's place";

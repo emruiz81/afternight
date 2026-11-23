@@ -11,7 +11,6 @@
 #include "processes/ImageIntegration/workflow/WorkflowPreparation.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunObserver.h"
 #include "processes/ImageIntegration/workflow/WorkflowRunStanding.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 
 #include "controls/IAppContext.h"
@@ -34,6 +33,7 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <unordered_set>
 
@@ -175,49 +175,39 @@ void followRunStanding(WorkflowRunView& view, QWidget* parent)
         });
 }
 
-/// What shows a run: its controller, its view, and the Processing window where the front end the run is launched from
-/// does not show the view in itself.
+/// What shows a run: its controller, and its view, which the front end the run is launched from holds.
 struct RunFront
 {
     WorkflowProgressController* controller = nullptr;
     WorkflowRunView* view = nullptr;
-    WorkflowProgressDialogV2* dialog = nullptr;
-
-    /// Opens the Processing window; a front end that took the view shows it already.
-    void show() const
-    {
-        if (dialog != nullptr)
-        {
-            dialog->open();
-        }
-    }
 };
 
-/// Makes a run's controller and what shows the run. The front end the run is launched from is asked to show the view
-/// in itself, and the controller then lives with the view; otherwise the Processing window is made over the front
-/// end, holding the view and the controller, and goes when it is closed.
-[[nodiscard]] RunFront openRunFront(IntegrationDataModel* model, QWidget* parent,
-                                    const WorkflowExecutionController::Pipeline& pipeline)
+/// Makes a run's controller and its view and asks the front end the run is launched from to show the view in itself;
+/// the controller then lives with the view. Every front end that launches a run is a host that shows it: one that is
+/// not, or that refuses the view, is a fault of the code that launched the run, which no person can act on. It is
+/// logged, nothing made is kept, and the run is not started - no run goes on unseen.
+///
+/// @return what shows the run; none when the front end shows no run.
+[[nodiscard]] std::optional<RunFront> openRunFront(IntegrationDataModel* model, QWidget* parent,
+                                                   const WorkflowExecutionController::Pipeline& pipeline)
 {
-    RunFront front;
-    front.controller = new WorkflowProgressController(model, applicationSession(), nullptr, pipeline);
-    if (auto* const host = dynamic_cast<IWorkflowRunHost*>(parent))
+    auto* const host = dynamic_cast<IWorkflowRunHost*>(parent);
+    if (host == nullptr)
     {
-        auto* const view = new WorkflowRunView(front.controller);
-        if (host->showWorkflowRun(view))
-        {
-            front.controller->setParent(view);
-            front.view = view;
-            return front;
-        }
-        delete view;
+        LOG_ERROR("WorkflowExecutionController: a run launched from a front end that shows no run was not started");
+        return std::nullopt;
     }
-    front.dialog = new WorkflowProgressDialogV2(front.controller, parent);
-    front.controller->setParent(front.dialog);
-    front.view = front.dialog->runView();
-    QObject::connect(front.dialog, &QDialog::finished, front.dialog,
-                     [dialog = front.dialog](int) { dialog->deleteLater(); });
-    return front;
+    auto* const controller = new WorkflowProgressController(model, applicationSession(), nullptr, pipeline);
+    auto* const view = new WorkflowRunView(controller);
+    if (!host->showWorkflowRun(view))
+    {
+        delete view;
+        delete controller;
+        LOG_ERROR("WorkflowExecutionController: the front end refused to show a run, and the run was not started");
+        return std::nullopt;
+    }
+    controller->setParent(view);
+    return RunFront{.controller = controller, .view = view};
 }
 
 [[nodiscard]] qint64 elapsedMilliseconds(const std::chrono::steady_clock::time_point start)
@@ -389,9 +379,13 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
         return runAsyncPrepared([manifest]() { return manifest; }, std::move(onFinished));
     }
 
-    const RunFront front = openRunFront(m_model, m_parent, m_pipeline);
-    WorkflowProgressController* const controller = front.controller;
-    WorkflowRunView* const view = front.view;
+    const std::optional<RunFront> front = openRunFront(m_model, m_parent, m_pipeline);
+    if (!front.has_value())
+    {
+        return false;
+    }
+    WorkflowProgressController* const controller = front->controller;
+    WorkflowRunView* const view = front->view;
     followRunProgress(*controller, m_parent);
     view->setStages(manifest.stageSequence, ImageIntegration::workflowStageWeights(manifest));
 
@@ -416,7 +410,6 @@ bool WorkflowExecutionController::runAsyncPrevalidated(
                                                     std::move(preparationSnapshot));
                            }
                        });
-    front.show();
     return true;
 }
 
@@ -428,9 +421,13 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
         return false;
     }
 
-    const RunFront front = openRunFront(m_model, m_parent, m_pipeline);
-    WorkflowProgressController* const controller = front.controller;
-    WorkflowRunView* const view = front.view;
+    const std::optional<RunFront> front = openRunFront(m_model, m_parent, m_pipeline);
+    if (!front.has_value())
+    {
+        return false;
+    }
+    WorkflowProgressController* const controller = front->controller;
+    WorkflowRunView* const view = front->view;
     followRunProgress(*controller, m_parent);
     view->setStages({trImageIntegrationProcess("Preparing")});
     view->onLogMessage(WorkflowLogLevel::Info, trImageIntegrationProcess("Preparing workflow..."));
@@ -518,7 +515,6 @@ bool WorkflowExecutionController::runAsyncPrepared(ManifestPreparationCallback p
                                });
         });
 
-    front.show();
     QTimer::singleShot(
         0, view, [watcher, prepareManifest = std::move(prepareManifest), preparationCancelled]() mutable {
             watcher->setFuture(QtConcurrent::run([prepareManifest = std::move(prepareManifest), preparationCancelled,

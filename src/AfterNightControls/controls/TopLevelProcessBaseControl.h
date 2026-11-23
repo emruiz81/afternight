@@ -127,7 +127,7 @@ public:
     // ---- A page
 
     /// At the first show the shell's presenter is asked whether it takes the process into a page
-    /// (`IProcessPresenter::adopt`); with no presenter, or one that does not, nothing changes from a 1.1 window.
+    /// (`IProcessPresenter::adopt`); with no presenter, or one that does not, it stays a window of its own.
     void setVisible(bool visible) override;
 
     /// Whether the process is arranged as a page and lies in a page of the main window, its shortcuts the page's.
@@ -148,7 +148,7 @@ public:
     /// process window's are. Nothing for a process not arranged as a page.
     void detachToWindow();
 
-    /// The page the process is arranged as; null for a process shown as a 1.1 window.
+    /// The page the process is arranged as; null for a process shown as a window of its own.
     [[nodiscard]] an::ui::ProcessPageLayout* pageLayout() const noexcept;
 
     /// Runs the process's primary action as its primary button does - Apply, or Ok - when the button is there, shown

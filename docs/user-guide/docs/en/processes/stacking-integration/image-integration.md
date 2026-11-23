@@ -36,6 +36,7 @@ controls_ignore:
   - {label: Add Lights..., reason: "The same action under both Add Folder... submenus, which the Add Files... entry describes."}
   - {label: Auto-sort by file type..., reason: "The same action under both Add Folder... submenus, which the Add Files... entry describes."}
   - {label: (No recent projects), reason: "A disabled line of Open Recent while it lists no project; the Import Project... entry describes Open Recent."}
+  - {label: Save Preset..., reason: "The same action in the menu of Presets under the stages, which the Presets entry names; the Project block describes it."}
   - {label: No presets saved, reason: "A disabled line of Load Preset... and Delete Preset... while no preset exists; the Save Preset... entry describes both."}
   - {label: Add Files..., reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
   - {label: Add Folder, reason: "The same button on the Darks, Flats and Lights tabs, which the Bias block describes."}
@@ -251,7 +252,7 @@ controls:
   - name: Reset Settings...
     kind: action
     default: ""
-    effect: Does what the window's **Reset** does.
+    effect: Does what the **Reset Settings...** button under the stages does.
 ```
 
 ```controls
@@ -329,6 +330,51 @@ controls:
       ++shift+f1++ opens it. Besides the keys of the menus, it lists ++f5++ to refresh the view, ++ctrl+f++ for the search
       box, ++ctrl+a++ to select every frame, ++esc++ to clear the selection, and ++home++ and ++end++ for the first
       and last frame.
+```
+
+### The window
+
+```controls
+window: Image Integration
+controls:
+  - name: ...
+    kind: button
+    default: ""
+    effect: Opens a folder dialog, **Select Output Directory**, for the output directory.
+  - name: Output Directory
+    kind: field
+    default: ""
+    effect: Names the folder every output, record and run history goes into. It opens with the project's folder, and empty in a new project.
+    range: >-
+      An existing folder you can write to, or one that can be made in a folder you can write to. An empty, unusable
+      or file path blocks the run, as the Summary says.
+    tradeoff: Every stage writes here, so a slow or full disk slows or stops them all.
+    persistence: Part of the project, not of a preset.
+  - name: Import...
+    kind: button
+    default: ""
+    effect: Does what **Project > Import Project...** does.
+  - name: Export...
+    object: stageFootExport
+    kind: button
+    default: ""
+    effect: Does what **Project > Export Project...** does.
+  - name: Recent
+    kind: button
+    default: ""
+    effect: Lists the projects **Project > Open Recent** lists, and opens the one you choose.
+  - name: Presets
+    kind: button
+    default: ""
+    effect: Opens **Save Preset...**, **Load Preset...** and **Delete Preset...**, as the **Project** menu does.
+  - name: Reset Settings...
+    object: stageFootReset
+    kind: button
+    default: ""
+    effect: >-
+      Returns every setting to its default after a question: the grouping, the calibration, the registration, the
+      stacking and the masters chosen by hand. The frames and the output directory stay.
+    note: It also clears **Undo** and shows **Bias**. **Project > Reset Settings...** does the same.
 ```
 
 ### Frame Sources
@@ -2150,40 +2196,6 @@ controls:
     note: >-
       At the end a box reads "Workflow completed successfully.", "Workflow was cancelled.", "Workflow failed:" with
       the reason, or, under **Completed with Errors**, the frames and groups that failed.
-```
-
-### The window
-
-```controls
-window: Image Integration
-controls:
-  - name: Output Directory
-    kind: field
-    default: ""
-    effect: Names the folder every output, record and run history goes into. It opens with the project's folder, and empty in a new project.
-    range: >-
-      An existing folder you can write to, or one that can be made in a folder you can write to. An empty, unusable
-      or file path blocks the run, as the Summary says.
-    tradeoff: Every stage writes here, so a slow or full disk slows or stops them all.
-    persistence: Part of the project, not of a preset.
-  - name: ...
-    kind: button
-    default: ""
-    effect: Opens a folder dialog, **Select Output Directory**, for the output directory.
-  - name: Close
-    kind: button
-    default: ""
-    effect: Closes the window. The project is saved first, and the next window opens with it.
-    note: >-
-      The window saves the project every five seconds while it changes, so a crash loses little. Its size is kept, as
-      every process window's is.
-  - name: Reset
-    kind: button
-    default: ""
-    effect: >-
-      Returns every setting to its default after a question: the grouping, the calibration, the registration, the
-      stacking and the masters chosen by hand. The frames and the output directory stay.
-    note: It also clears **Undo** and shows the first tab. **Project > Reset Settings...** does the same.
 ```
 
 ## How it works

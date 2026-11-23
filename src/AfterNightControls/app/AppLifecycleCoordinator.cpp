@@ -74,10 +74,6 @@ void AppLifecycleCoordinator::initialize() const
         m_dependencies.updateRecentFilesMenuEntries();
     }
 
-    if (m_dependencies.initializeMainDashboard)
-    {
-        m_dependencies.initializeMainDashboard();
-    }
     if (m_dependencies.initializeDockManager)
     {
         m_dependencies.initializeDockManager();

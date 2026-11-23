@@ -221,13 +221,8 @@ AN_DropBand::AN_DropBand(QWidget* parent) : KDDockWidgets::QtWidgets::RubberBand
     }
 }
 
-void AN_DropBand::paintEvent(QPaintEvent* event)
+void AN_DropBand::paintEvent(QPaintEvent* /*event*/)
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        QPainter painter(this);
-        an::ui::paintObservatoryDropBand(painter, rect());
-        return;
-    }
-    KDDockWidgets::QtWidgets::RubberBand::paintEvent(event);
+    QPainter painter(this);
+    an::ui::paintObservatoryDropBand(painter, rect());
 }

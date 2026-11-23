@@ -3,9 +3,9 @@
 
 /// @file
 /// The application's actions as the record of the 1.1 interface holds them, made as plain actions: what a suite below
-/// the shell core hands the classic window's builder in place of the shell core's action catalogue, which it cannot
-/// link. Each action carries the object name, text, tool tip, shortcut, shortcut context and checkability the record
-/// states, so the menus a builder makes from them read as the application's; nothing is bound to them.
+/// the shell core holds in place of the shell core's action catalogue, which it cannot link. Each action carries the
+/// object name, text, tool tip, shortcut, shortcut context and checkability the record states, so the menus made from
+/// them read as the application's; nothing is bound to them.
 #pragma once
 
 #include "fixtures/BaselineRecord.h"
@@ -23,7 +23,8 @@ namespace an::tests::fixtures
 {
 
 /// The record of the application's actions, from the repository's root.
-inline constexpr const char* kRecordedActionsPath = "src/AfterNightTests/Test_ShellClassic/data/ActionInventory.txt";
+inline constexpr const char* kRecordedActionsPath =
+    "src/AfterNightTests/Test_ShellObservatory/data/ActionInventory.txt";
 
 /// The actions the record holds, made under an owner, which deletes them.
 class RecordedActions

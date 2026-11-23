@@ -11,13 +11,11 @@ namespace an::ui
 {
 
 /// The look the tokens resolve to, named by the shell the application starts and set once, before the first widget
-/// exists (`setStyleProfile()` in `theme/AnDesignTokens.h`). `Classic` resolves every token to the value AfterNight 1.1
-/// paints; `Observatory` resolves the surface ladder, the softened tint and the accent tables of
-/// `theme/ObservatoryPalette.h`. The user's theme, contrast profile, accent family and surface tint are choices under
-/// both.
+/// exists (`setStyleProfile()` in `theme/AnDesignTokens.h`). `Observatory` resolves the surface ladder, the softened
+/// tint and the accent tables of `theme/ObservatoryPalette.h`; the user's theme, contrast profile, accent family and
+/// surface tint are choices under it. A later shell that draws in a look of its own names a profile of its own here.
 enum class StyleProfile
 {
-    Classic,
     Observatory
 };
 

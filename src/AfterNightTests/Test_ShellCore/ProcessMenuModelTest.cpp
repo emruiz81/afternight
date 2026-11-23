@@ -314,7 +314,7 @@ TEST_F(ProcessMenuModelTest, AnExtensionsProcessCarriesTheExtensionTag)
 }
 
 // Asked to, a family's menu lists the extension's processes first - the very actions its category's menu holds, so
-// they are bound and tagged as there - then its links; by default it holds the links alone, as the classic window's.
+// they are bound and tagged as there - then its links; by default it holds the links alone, as 1.1's window's did.
 TEST_F(ProcessMenuModelTest, AFamilysMenuListsItsProcessesFirstWhenAsked)
 {
     m_processes.add("extensions.blur", "Fancy Blur process");

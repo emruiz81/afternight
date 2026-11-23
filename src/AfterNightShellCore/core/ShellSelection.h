@@ -40,9 +40,8 @@ struct ShellChoice
     const ShellDescriptor* descriptor = nullptr;
     /// Where it was named. `Default` when nothing was chosen.
     ShellChoiceSource source = ShellChoiceSource::Default;
-    /// The style profile the shell starts under: the one its descriptor names, unless the developer switch
-    /// `AFTERNIGHT_STYLE_PROFILE` names another. `Classic` when no shell was chosen.
-    an::ui::StyleProfile styleProfile = an::ui::StyleProfile::Classic;
+    /// The style profile the shell starts under: the one its descriptor names.
+    an::ui::StyleProfile styleProfile = an::ui::StyleProfile::Observatory;
     /// One line for each source that was passed over and each option that was not read, in the order they were met.
     /// Each was logged as a warning when the choice was made.
     QStringList warnings;
@@ -55,17 +54,13 @@ struct ShellChoice
 /// the registry does not hold, and an option with no value, are passed over with a warning: a mistyped option never
 /// stops the application from starting. A value is read without the spaces around it, and an empty one is no choice.
 ///
-/// The chosen shell starts under the style profile its descriptor names. The environment variable
-/// `AFTERNIGHT_STYLE_PROFILE` - `classic` or `observatory`, in any case - starts it under another: a developer aid, to
-/// look at a profile in a shell that does not name it. A value that names no profile is passed over with a warning.
+/// The chosen shell starts under the style profile its descriptor names.
 class AFTERNIGHTSHELLCORE_API ShellSelection
 {
 public:
     /// The option, written `--shell=<id>`: the value is joined to it, so the argument after it is never read as one.
     static constexpr char kOption[] = "--shell";
     static constexpr char kEnvironmentVariable[] = "AFTERNIGHT_SHELL";
-    /// The developer switch that starts the chosen shell under another style profile.
-    static constexpr char kStyleProfileVariable[] = "AFTERNIGHT_STYLE_PROFILE";
 
     ShellSelection() = delete;
 

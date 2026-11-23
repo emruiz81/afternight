@@ -149,7 +149,7 @@ nothing pans the image under the run, a pill naming the run with its progress an
 action and choice of the toolbar disabled - the actions by a non-exclusive `QActionGroup` and the choices by the
 disabled toolbar they are children of, because both give back on `clearProcessingNotice` the state the view set
 meanwhile (an action enabled while held disabled is enabled when the group lets it go, one disabled stays so), where
-saving and restoring the states would undo the view's own changes. The classic shell sets no notice. The processing
+saving and restoring the states would undo the view's own changes. The processing
 lock, an atomic flag taken on whichever thread starts a run, tells the listeners on the GUI thread
 (`onProcessingLockChanged`) of the state it is in when they are told - a notification arriving after a later one tells
 nothing new, and a lock taken and let go before the GUI thread could tell is not told. The history answers its steps
@@ -345,8 +345,8 @@ show every open process - as a task in a rail, over the image a run writes - wit
 - **What it targets.** A single-image window tells the shell its target as it is made, when it is pointed at another
   image and when its image closes (`processTarget`).
 - **The presenter.** The shell's `IProcessPresenter`, lent through `IAppContext::getProcessPresenter`, is told of both
-  (`runStateChanged`, `targetChanged`); a shell that lends none - the classic shell - shows every process as the window
-  it is, and nothing of it changes.
+  (`runStateChanged`, `targetChanged`); where none is lent - the full extension host's context, a suite's own - every
+  process is the window it is, and nothing of it changes.
 
 ### A process shown as a page (`controls/ProcessPageLayout.h`, `controls/PageShortcutScope.h`)
 
@@ -540,7 +540,7 @@ moving once shown. A sequence step references its `DocumentSequence` and keeps t
 sequence's own frame through `openProcessFrames`. Each history writes into its own `AN_HISTORY_*` directory and
 reclaims only that, until a project gives it a home ("A history that outlives its view", below). The window previews on a worker through `presentForView` and shows the histogram through
 `createPreviewHistogram`. A step that is linear data (`isLinearData`, `controls/AutostretchApply.h`) is presented
-through the unlinked autostretch the recent-file thumbnails take, so it looks as the dashboard shows it, and any other
+through the unlinked autostretch the recent-file thumbnails take, so it looks as Home shows it, and any other
 step as it is. The step's title and details are `AnElidedLabel`s of a set number of lines, because a label that wraps
 to its text moved the preview below it from one step to the next. `Test_ControlsHistory` holds the history, and
 `Test_ImageViewControl` the viewer's history cases.
@@ -775,8 +775,10 @@ a worker and drops an answer a later request, a change of the image or its closi
 per solution, the scene and layout once per change of what is shown or placed (a colour only repaints), the preview's
 base per stretch and zoom, and the picture with its own read lease taken on the GUI thread before admission. It is one
 per view (`ViewTool::AnnotateImage`), opened from the view's toolbar and **Image > Information**, the latter enabled by
-`ImageViewControl::canAnnotateCurrentImage`. `Test_ControlsAstrometry` holds the steps and the window, and
-`ApplicationMenu` the menu entry.
+`ImageViewControl::canAnnotateCurrentImage`. `Test_ControlsAstrometry` holds the steps and the window,
+`ActionStateTest.EachStateOffersTheActionsTheTableStates` (`Test_ShellCore`) when the menu entry is offered, and
+`AnnotateImageWindow.OpensFromTheObservatory` (`Test_ShellObservatory`) the window opened from the readout's
+Astrometry card.
 
 ### Statistics, curves and stars (`widgets/HistogramComputation.h`, `widgets/HistogramCompanions.h`, `widgets/ToneCurveModel.h`, `controls/StarFilter.h`)
 
@@ -886,7 +888,7 @@ Images page and a settings import store the settings in the texts every open rea
 `setRawOpenSettings` (an import publishing the mode, the gains and auto-rotate together), and a view's own read - a
 static preview, a file it loads - takes the policy published when it is asked and keeps it until it lands, a cached
 preview shown again only under the settings it was read with. The policy comes from one service the context lends so
-that no maker of a static preview - the dashboard, the integration lists, the process dialogs - has to wire it in, and
+that no maker of a static preview - Home, the integration lists, the process dialogs - has to wire it in, and
 none can forget it and read a camera file untreated. `RawOpenPolicy`'s accessors are defined in
 `app/FilePolicies.h`. The Processing page shows the session's threads and memory budget beside the stored limits and
 says when a change waits for the next start; `controls/settings/ProcessingLimits.h` reads and stores the limits and
@@ -894,14 +896,13 @@ gives the session settings the application builds its session with (`sessionSett
 and stores through `readExportSettings` and `writeExportSettings`, the table every save reads. The Projects page
 (`controls/settings/ProjectsSettingsPage.h`) shows and stores what a project starts from through `readProjectSettings`
 and `writeProjectSettings` (`controls/settings/ProjectSettings.h`). A shell's Settings dialog is made by
-`addSettingsPages` (`controls/settings/SettingsPages.h`) in the order the shell asks for
-(`DialogOrchestrationCoordinator::Dependencies::settingsPages`): the classic shell's lists 1.1's pages in 1.1's order
-and no Projects page, since it offers no projects; the Observatory shell's puts first what a person changes most -
-General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export, External Tools, Logging.
-The table the palette finds settings in (`settingsSearchPages`) is that order's pages and their rows, and the dialog's
+`addSettingsPages` (`controls/settings/SettingsPages.h`) in one order, what a person changes most first - General,
+Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export, External Tools, Logging.
+The table the palette finds settings in (`settingsSearchPages`) is those pages and their rows, and the dialog's
 own search finds a page by a row it shows too, so a row added to a page is found without a search word of its own. A
 shell whose menu bar shows on Alt hands the dialog a keeper (`Dependencies::keepMenuBarShown`), and the Interface page
-then offers "Always show the menu bar", which acts at once, as every appearance row does under the Observatory profile.
+then offers "Always show the menu bar", which acts at once, as every appearance row does. The Interface page's Shell
+row lists the shells the application registers (`SettingsPagesOptions::shells`) and hides itself while there is one.
 The dialog opens within the available area of its screen, its frame included (`holdWithinAvailableArea`,
 `app/WindowPlacement.h`), where that area holds its least size: on a 1280 x 720 display its default height put its
 title bar above the screen. The Extensions window (`DialogOrchestrationCoordinator`'s:
@@ -914,8 +915,8 @@ the second of an installed package alone (`installed_sdk_backend`, `installed_pr
 `resolvedExtensionInterface` as a launch resolves it), so a package not installed says it is known once installed. The product's version is
 `productVersion()` - `QCoreApplication::applicationVersion`, which the application states - and the about and system
 information dialogs show the engine's (`engineVersionText`) and its libraries' from its own report
-(`engineLibraries`, over `engineDependencies`). A dashboard card probes its file with `probeDashboardFile`, background
-work admitted with `tryAdmit` that never waits. The FITS header, Exif and summary windows read the view's document with
+(`engineLibraries`, over `engineDependencies`). Home's tiles and featured card probe their file with
+`probeDashboardFile`, background work admitted with `tryAdmit` that never waits. The FITS header, Exif and summary windows read the view's document with
 `inspectDocument` under a lease that never waits and keep what they show while a writer holds it; `openViewTool` opens
 every tool window, the astrometry and plate-solve windows once per view. The PixelMath editor highlights
 `pixelMathVocabulary()`, the engine's function tables and the syntax's operators. `Test_ControlsDialogs` holds all of
@@ -926,9 +927,7 @@ it, with the settings dialog's cases.
 A tool window or a dialog the Observatory shell does not draw as a page - the information windows, Plate Solve, Find
 Object, Annotate Image, the sequence windows, the Autostretch settings, Image Integration's settings dialogs and its
 tools, the catalog downloads, Manage Favorite Processes, an extension's settings, About, System Information - is the
-window 1.1 had, made by the same builder, and both shells open the same one. What the Observatory profile asks of it
-is done where the window is built, by calls that do nothing under the Classic profile, so the classic shell shows it
-as 1.1 drew it:
+window 1.1 had, made by the same builder. What the Observatory look asks of it is done where the window is built:
 
 - **A heading.** `headWindow` puts an `AnWindowHeading` at the head of the window's column: an eyebrow that says
   where the window belongs and, for a window of a view, the image it reads (`windowEyebrow`: "Analysis · M31"), the
@@ -942,25 +941,24 @@ as 1.1 drew it:
   least size is not its content's. The Stacking, Calibration and advanced Registration settings, the Autostretch
   settings and Plate Solve have one.
 - **Its first show.** `holdWithinAvailableAreaWhenFirstShown` acts once, as the window is first shown and before it
-  is put on the screen. Under the Observatory profile it sizes the window for the look first: 1.1's builders state
-  sizes in pixels - a field 60 wide, a row 28 high, a window no smaller than 500 by 380 - which the profile's font and
-  its densities outgrow, so a field, a button with a text, a part that lays out others and the window itself, the
-  innermost first, each take what they need where what was stated is less; and a window with a scrolling body is
-  given the height that shows the body whole. Then, under either profile, the window is held within the available
-  area of its screen, its frame included (`holdWithinAvailableArea`), where that area holds its least size. Two facts
+  is put on the screen. It sizes the window for the look first: 1.1's builders state sizes in pixels - a field 60
+  wide, a row 28 high, a window no smaller than 500 by 380 - which the look's font and its densities outgrow, so a
+  field, a button with a text, a part that lays out others and the window itself, the innermost first, each take what
+  they need where what was stated is less; and a window with a scrolling body is given the height that shows the body
+  whole. Then the window is held within the available area of its screen, its frame included
+  (`holdWithinAvailableArea`), where that area holds its least size. Two facts
   of Qt decide how the sizing is written: a least size set to nothing in one direction alone
   (`setMinimumHeight(0)`) still counts as stated, and a layout leaves a stated size alone, so both directions are
   cleared together and the one that stands is stated again; and a combo box keeps the least width it worked out when
   it was first asked, which for one filled since is an empty box's, until it is told its style changed.
 - **A height that follows the content.** Plate Solve is as high as what it shows: when a section opens or a message
   appears it asks for the height that shows its body whole (`fitHeightToBodyWithinAvailableArea`), and only when what
-  the body needs changed (`windowBodyHeightNeeded`), so a window a person made lower stays as they left it. Under the
-  Classic profile it keeps the fixed height 1.1 gave it. A dialog that resizes itself to its content
-  (`scheduleDialogResize`, `processes/FixedDialogUiSizing.h`) is held within the screen after it does, under the
-  Observatory profile alone: under the Classic one it is sized as 1.1 sized it.
+  the body needs changed (`windowBodyHeightNeeded`), so a window a person made lower stays as they left it. A dialog
+  that resizes itself to its content (`scheduleDialogResize`, `processes/FixedDialogUiSizing.h`) is held within the
+  screen after it does.
 - **Its surface and its footer** are the style's: the first surface, and the button that accepts at the right ("The
-  Observatory look" in `docs/dev/THEME_SYSTEM.md`). A footer a window lays out by hand puts its primary button last
-  under the Observatory profile - Plate Solve's Solve, Annotate Image's Export, the recommended settings' Apply.
+  Observatory look" in `docs/dev/THEME_SYSTEM.md`). A footer a window lays out by hand puts its primary button last -
+  Plate Solve's Solve, Annotate Image's Export, the recommended settings' Apply.
 
 `WindowLook.<Window>` in the suite that owns each window holds the result in both densities ("A window's size is not
 measured under the suites' platform" in `docs/dev/guides/TESTING.md`), and `<Window>.OpensFromTheObservatory`
@@ -971,15 +969,15 @@ history strip, the view's toolbar, the palette, the menu tree, a page's button.
 
 Docking is KDDockWidgets. The decorations declare the configuration they are drawn for beside them - the flags of
 `kDockLibraryFlags`, `kDraggedDockWindowOpacity`, `kDockWidgetMinimumSide` - and `AN_ViewFactory` makes them: `AN_TabBar`,
-`AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator`, and under the Observatory profile the drop
-indicators and band (`controls/DockDropIndicators.h`), painted from the design tokens ("The dock decorations" in
-`docs/dev/THEME_SYSTEM.md` says how under each profile). The library's configuration and its three hooks are
-process-wide state, which the shell core's `DockHooks` alone sets ("The shell core"); the separator depends on the style
-profile, which is chosen after the core is made, so `startApplication` gives it (`applyDockDecorationsProfile()`) once
-the profile is in force and before the shell makes a dock area - the library takes it only while no dock widget exists.
+`AN_TitleBar`, `AN_Stack`, `AN_Group`, `AN_FloatingWindow`, `AN_Separator`, and the drop indicators and band
+(`controls/DockDropIndicators.h`), painted from the design tokens ("The dock decorations" in
+`docs/dev/THEME_SYSTEM.md` says how). The library's configuration and its three hooks are process-wide state, which
+the shell core's `DockHooks` alone sets ("The shell core"); `startApplication` gives the library the decorations'
+separator, two pixels (`applyDockDecorationsProfile()`), once the style is set and before the shell makes a dock
+area - the library takes it only while no dock widget exists.
 A tab can carry an adornment after its name, an icon with a tooltip that runs what it is given when clicked and can
 lock the tab's buttons (`an::ui::setTabAdornment`); the decorations draw it and the shell decides what it stands for.
-`KddwProxyStyle` is installed on each dock main window, and under the Observatory profile on each tab strip. The decorations and the style carry `AFTERNIGHTCONTROLS_API`: a
+`KddwProxyStyle` is installed on each dock main window and on each tab strip. The decorations and the style carry `AFTERNIGHTCONTROLS_API`: a
 window outside the library makes its dock areas from them, and the docking suite configures its process from the same
 declaration and makes its own factory from `AN_ViewFactory` as such a window would.
 
@@ -1046,8 +1044,8 @@ none of it is the library's documented promise and each fact decides how a windo
 
 `AfterNightControls` (registry class `engine`) compiles every unit of `src/AfterNightControls/`, the session bridge
 included, and links the consumer runtime and the engine. Every Controls suite - the `Test_Controls*` lists, the
-process, preview and mask drawing suites, and the viewer, dashboard, persistence, widgets, theme and system
-information suites - compiles its own cases and links the library, so a class or free function a case calls carries
+process, preview and mask drawing suites, and the viewer, Home parts (`Test_MainDashboard`), persistence, widgets,
+theme and system information suites - compiles its own cases and links the library, so a class or free function a case calls carries
 `AFTERNIGHTCONTROLS_API` and a list names no production unit. A suite links the library rather than compiling its
 units so that every case runs the code the application links, and only what a caller outside the library uses is
 exported, because a blanket export would pin the layout of classes nothing outside it touches. `Test_ControlsSeams` is
@@ -1442,8 +1440,8 @@ optimization or one file at a time as frames are shown, and kept while it is lis
 reads its settings on the GUI thread, runs on the thread pool and closes without waiting. `Test_ProcessesWorkflowTools`
 holds the four windows and the shared records over frames it writes, the companions stood in.
 
-**The tools as pages.** Each of the four states a full page (`kPageSurfaces`), so a shell that shows processes as pages
-holds it whole in one, and in the classic shell - or made outside a launch - it is the window it has always been. None
+**The tools as pages.** Each of the four states a full page (`kPageSurfaces`), so the shell holds it whole in one, and
+made outside a launch it is the window it has always been. None
 has menus or key sequences of its own, so its page offers none. A page's primary action
 (`triggerPrimaryAction`, Ctrl+Enter) is the tool's own run button, pressed when it is offered: Calibrate Images, Stack
 Images, the Analyzer's Optimize For Fast Play, and for Image Registration Align once the registration is current and
@@ -1689,9 +1687,8 @@ not there gives no job and is not made by being read. What an open Image Integra
 named session (`ImageIntegrationProcess::openSession`): what it showed is saved first, and a run or an import on its way
 refuses it. `Test_ImageIntegration` holds the record (`IntegrationRunRecord.*`) and the model (`IntegrationJobsModel.*`).
 
-**Image Integration as a page.** Its descriptor states a full page, so a shell that shows processes as pages holds it
-whole in one, and in the classic shell - or made outside a launch - it is the window it has always been: nothing of
-what follows runs in a window.
+**Image Integration as a page.** Its descriptor states a full page, so the shell holds it whole in one, and a task
+floated as a window keeps its page. Its stages are always a list, and a run is always shown in it:
 
 - **Its header says its job** (`pageLayoutMade`, `publishJobHeading`): the session's name, as the jobs' list names it;
   its facts (`ui_models/IntegrationJobFacts.h`) - its lights, their groups, the time the included ones integrate, what
@@ -1740,15 +1737,11 @@ what follows runs in a window.
   carries its progress, the group it is at and, under its line, the parts of what it does to that group as the run
   names them; what the run does now; a bar for the whole run; the file it is at; the log; the time it has taken and,
   once it can tell, the time it has left; Cancel; and Open Report and Close once it has ended. The launch
-  (`WorkflowExecutionController`) asks the widget a run is launched from to show the view in itself
-  (`IWorkflowRunHost`, `workflow/WorkflowRunObserver.h`). A window of its own answers no, and the launch opens the
-  Processing window (`dialogs/WorkflowProgressDialogV2.h`), which holds the view and adds what a window adds: it stands
-  over the application until the run has ended, closing it during a run asks the run to stop, and the run's end is said
-  in a message over it. A page answers yes (`ImageIntegrationProcess::showWorkflowRun`): the view takes the place of
-  the stage's page, beside the list (`StageListNavigator::showRun`), and no window opens, so the rest of the
-  application stays usable and leaving the page leaves the run running - the view and the run's controller live with
-  the process, not with what is on screen. While the run is on its way the page's own acts wait for it, as its window
-  waits behind the Processing window (`holdPageForRun`): the stages' pages and the list's foot are disabled and so is
+  (`WorkflowExecutionController`) hands the view to the process the run is launched from
+  (`ImageIntegrationProcess::showWorkflowRun`): the view takes the place of the stage's page, beside the list
+  (`StageListNavigator::showRun`), and no window opens, so the rest of the application stays usable and leaving the
+  page leaves the run running - the view and the run's controller live with the process, not with what is on screen.
+  While the run is on its way the page's own acts wait for it (`holdPageForRun`): the stages' pages and the list's foot are disabled and so is
   every entry of the menus but the Navigate menu's and the help - a job is not edited under its run, whose completion
   reads the model. The stages can still be looked at: a row selected, or a Navigate entry, shows its page, and the
   header's primary act, which in place of Execute is "Show progress" with how far the run has come, shows the run
@@ -1763,17 +1756,12 @@ what follows runs in a window.
   it; the launch makes it the run state of the process the run was launched from - "Step 5/9: Registration", 58 % -
   which is what a shell's rail, a task's header and the jobs' table say of the run without knowing what a workflow is.
   The time left is the time taken scaled by what is left, said only after ten seconds and a twentieth of the way.
-- **Its stages are a list, in place of the window's tabs** (`widgets/StageNavigator.h`). The eight pages - the four
-  frame sources, calibration, registration, stacking and the summary - are the same widgets whatever moves between
-  them, and the process reaches them through one seam: a `StageNavigator` answers for a page, for the page shown and
-  for showing another, and is told what the process has to say of each - a source's frames, what the validation finds
-  in a page. In a window it is `TabStageNavigator`: the two levels of tabs, which say those in their labels and their
-  badges. When a main window takes the process as a page (`presentStagesAsAList`, once, before the first show) the
-  pages leave the tabs for a `StageListNavigator` (`widgets/StageListNavigator.h`) and the tabs go. A part of a page
-  that must show another page - a frame shown in the lights' tree from the stacking page - asks the navigator above
-  itself (`StageNavigator::of`), never a tab by its name: under the list there is no tab to find. A seam, rather than
-  tabs with their bars hidden, because the two say a stage's state by different means, and the process should know
-  neither.
+- **Its stages are a list** (`widgets/StageListNavigator.h`). The eight pages - the four frame sources, calibration,
+  registration, stacking and the summary - are shown one at a time beside a list of the job's stages, a
+  `StageListNavigator`, which answers for a page, for the page shown and for showing another, and is told what the
+  process has to say of each - a source's frames, what the validation finds in a page - which it says in its rows. A
+  part of a page that must show another page - a frame shown in the lights' tree from the stacking page - asks the
+  navigator above itself, never a tab by its name: there is no tab to find.
 - **The list's rows** are `kStageRows` (`ui_models/IntegrationStageStates.h`): a row for each of the eight pages, in
   the order a run reaches them, the summary last, and no page shown by two rows. Normalization and drizzle are stages
   of the workflow with no page of their own - their settings are the stacking page's, per group - and so no rows:
@@ -1782,11 +1770,11 @@ what follows runs in a window.
   that asks most, its line says the groups and their method - or the drizzle, where a group is drizzled - its tooltip
   says each of the three, and a run at any of them is at its row, which then names the step. The Navigate menu's
   actions and their keys select the row of their page. `Test_ImageIntegration/data/IntegrationPages.txt` records the
-  pages the tabs reach, and `StageList.HoldsEveryTabPage` holds the list to them: the same pages, the same widgets,
-  each by a row of its own.
+  pages AfterNight 1.1's two levels of tabs reached, and `StageList.HoldsEveryTabPage` holds the list to them: the
+  same pages, the same widgets, each by a row of its own.
 - **A row's mark and line** are read from three places and guessed from none (`integrationStageRows`). The job as it
-  stands, from the model on the GUI thread (`stageModelFacts`), with what the validation says of each page - the count
-  and the words the tabs' badges show. What the output folder holds of its runs, read on the thread pool
+  stands, from the model on the GUI thread (`stageModelFacts`), with what the validation says of each page - a count
+  and its words. What the output folder holds of its runs, read on the thread pool
   (`readStageRunFacts`): the manifest the job would run now, built from a snapshot of the model and adjusted as a run
   adjusts it, compared with the manifest the last successful run left (`stageStandings`, over `compareManifests`) - a
   stage the comparison says must run again is out of date, and with it every later stage that reads what it makes - and
@@ -1824,14 +1812,13 @@ what follows runs in a window.
   stacking page lays its execution options in two
   rows (`layExecutionOptionsInRows`), where the window's one row set the whole window's least width. A page arranged
   before it was ever shown is told to measure again: a layout that was never activated tells none above it of a
-  change, and the page behind the one shown would otherwise keep its old least width until visited. With the list the
-  page's least size is 1006 x 539 at the compact density, from 1437 x 637 with the tabs.
+  change, and the page behind the one shown would otherwise keep its old least width until visited. The page's least
+  size is 1006 x 539 at the compact density.
 
 **Image Integration Lite as a page.** Its descriptor states a full page too, and it is its window's layout whole, with
-no menus of its own. It answers the same seam as the full workflow (`IWorkflowRunHost::showWorkflowRun`): a run it
-starts on a page is shown in the page, not in the Processing window - the run's view takes the process's place under
-the page's head until the run has ended and its Close is pressed, which gives the page back to the process, whose own
-banner then says how the run ended. The page's primary action is Run Integration, and the page's Cancel is the view's
+no menus of its own. It shows a run as the full workflow does (`showWorkflowRun`): the run's view takes the process's
+place under the page's head until the run has ended and its Close is pressed, which gives the page back to the
+process, whose own banner then says how the run ended. The page's primary action is Run Integration, and the page's Cancel is the view's
 (`cancelRun`). It holds no job and keeps no session, so its header names the process, and it joins no project.
 `setRunPipeline` states the stages a run goes through in place of the workflow's own, for the suites: the manifest is
 still the one the process prepares from its model. `PageLayout.ImageIntegrationLiteFillsItsPage` and `LitePage.*` in
@@ -1889,7 +1876,7 @@ process presenter and the projects a job reaches (`IShell::jobProjects`, null in
 declaration only, so a unit that includes it reaches no widget header through it.
 
 `ShellRegistry` holds the descriptors of the shells one run can make, in the order they were registered; the
-application owns one as a local object, never a global. An id is a lowercase word (`classic`, `observatory`),
+application owns one as a local object, never a global. An id is a lowercase word (`observatory`),
 matched as it is written, because it is typed on a command line and stored in a setting; a second descriptor under
 an id, an id of another shape and a descriptor that cannot make its shell are refused. A descriptor the registry
 hands out stays where it is while more are registered.
@@ -1899,7 +1886,9 @@ hands out stays where it is while more are registered.
 A store that names no shell - a fresh one, or one AfterNight 1.1 wrote, which knew no other - starts the Observatory
 shell and is not written to; the setting is written only when a person chooses a shell on the Interface page.
 A source that names no registered shell, and an option with no value, is passed over with a warning in the log and
-in the returned `ShellChoice`: a mistyped option never stops the application from starting. The value is joined to
+in the returned `ShellChoice`, and a stored setting that names none is left as it is: a mistyped option never stops
+the application from starting, and `classic`, which a store may still hold, starts the Observatory shell. The value is
+joined to
 the option (`--shell=observatory`), so the argument after a bare `--shell` - a file to open, perhaps - is never taken
 for a shell. The arguments are the ones `main` received, handed in by the caller: on Windows the application gives
 `QApplication` an argument list of its own, so `QCoreApplication::arguments()` is not what the user typed and is never
@@ -1949,7 +1938,7 @@ it is handed as its `Hooks` by the window, which sets them as it is made and cle
 
 The actions belong to the core too (`actions/`). `ActionCatalogue` makes the application's 186 actions once, from one
 table (`ActionSpec`: the text, the icon's key, the shortcut and its context, whether it can be checked, its group - the
-menu of the menu bar it belongs to), each under the object name the classic window always gave it, which
+menu of the menu bar it belongs to), each under the object name AfterNight 1.1's window gave it, which
 `actions/ActionIds.h` spells as a constant; a unit of Controls is handed them as an `an::ui::ActionLookup`
 (`app/ActionLookup.h`) and never names the catalogue. The actions are the core's children: a shell's window hosts them
 while it lives (`host`) - they are then its children in Qt's object tree, as a window's own actions are, which is what
@@ -1963,14 +1952,15 @@ actions act on and the view the looking actions act on, and tells a menu its sta
 of that id follows. `ProcessMenuModel` holds what the process menus list beyond the catalogue - the favourite and the
 recent processes, and each extension's processes, bound to their descriptors, in the menu of their category, and
 each extension once in the Extensions menu, its family's menu listing the extension's processes first where a shell asks
-for them (`FamilyEntries::ProcessesAndLinks`: the Observatory shell's menu tree; the classic window's holds the links
-alone) - and says what changed; a shell makes its menus from it on demand. Each action of an extension's process carries
-the quiet tag "extension" (`process_registry::extensionProcessTag`) in `parts::kMenuTagProperty`, which the Observatory
-profile paints after the entry's text, the entry widened for it; a catalogue action an extension bound loses it when the
-extension goes.
-`MenuTree` declares the menu bar as data, entry for entry the classic window's, and builds a menu bar or one menu of it
-over the catalogue: a shell that builds its own menus builds them from it. `ViewMenuBuilder` builds the menu a view
-shows on a right click, entry for entry the classic window's - the menus it shares with the menu bar, which the shell
+for them (`FamilyEntries::ProcessesAndLinks`, as the Observatory shell's menu tree does; under the default,
+`FamilyEntries::LinksOnly`, a family's menu holds the links alone) - and says what changed; a shell makes its menus from it on demand. Each action of an
+extension's process carries the quiet tag "extension" (`process_registry::extensionProcessTag`) in
+`parts::kMenuTagProperty`, which the style paints after the entry's text, the entry widened for it; a catalogue action
+an extension bound loses it when the extension goes.
+`MenuTree` declares the menu bar as data, entry for entry the menu bar the record of the interface holds
+(`Test_ShellObservatory/data/ActionInventory.txt`), and builds a menu bar or one menu of it over the catalogue: a shell
+that builds its own menus builds them from it. `ViewMenuBuilder` builds the menu a view shows on a right click, entry
+for entry the record's (`Test_ShellObservatory/data/ViewMenuInventory.txt`) - the menus it shares with the menu bar, which the shell
 names by their ids, Current Window and Show In File Browser - and the menu of a view's tab, which makes its view the
 active one so the catalogue's file actions act on it.
 
@@ -1982,7 +1972,7 @@ memory, the commands collected once as the palette opens (`refresh`), each title
 providers (`commands/CommandProviders.h`) read the application only through the functions they are handed, which the
 core binds to its services: `ActionCommands`, the catalogue's actions a menu holds, subtitled by the menus a person
 reads down to them (`MenuTree::pathsOf`) - an action that launches a process is left to the process, so a process is
-listed once, and the five actions of the 1.1 window no menu or binding reaches are no command; `ProcessCommands`,
+listed once, and the five actions of the catalogue no menu or binding reaches are no command; `ProcessCommands`,
 every descriptor of the registry, dimmed with what stands in its way - the registry's reason, or what the launch guards
 say of the image the image actions act on - but never for having no image at all: such a process runs, and its launch
 says there is no image, as the menu's does, because a palette that dims every process with no image open would hide
@@ -2058,10 +2048,10 @@ out of the locked main window and an indicator into it, and nothing of another, 
 (`setDockAreaLocked`, Controls' `controls/KDDockWidgetsHelper.h`); the decorations ask `layoutChangesLockedAt` of the tab, the
 title bar or the strip a double click lands on - the whole layout locked, or the dock area it is in - so a double click
 floats nothing in a locked workspace and floats in a free one. The lock of a shell's only dock area is the whole
-layout's, as the classic window's lock always was: a floating window's drag refused too, and the indicators inhibited.
+layout's: a floating window's drag refused too, and the indicators inhibited.
 The lock offers Unlock Layout in place of Lock Layout, and `offerFor` offers what another dock area is when it comes on
-screen. Fit Images To Window takes the shell's target when the shell gives one (`ActionBindings::Targets::fitAll`);
-the classic shell gives none and fits every image. `views/WorkspaceModel` is a shell's workspaces with no widget: their
+screen. Fit Images To Window takes the shell's target when the shell gives one (`ActionBindings::Targets::fitAll`),
+and fits every image when it gives none. `views/WorkspaceModel` is a shell's workspaces with no widget: their
 names ("Workspace N", the lowest number free) and order, the current one, each one's lock and whether it is in a window
 of its own; the only one never closes, and the observers hear every change. `services/WindowGeometryStore` keeps where the main window was in the interface
 settings and shows it there - when the person asked for it, at the saved place if that place is on a screen there is
@@ -2143,23 +2133,25 @@ of a session: a view's actions and history shown, another view bound, two views 
 goes, More's menu); `TaskModel.*` (process windows over real views, made inside launches of the case's descriptors: the
 names and the glyph, two tasks of one process, the running task on a view, the unseen result, a window gone, the
 observers in order) and `ViewThumbnailService.*` (the square through the view's stretch, a refusal while every thread is
-held and its retry, a new image, a view gone). The actions' cases are held to the records of the classic window beside `Test_ShellClassic`
-(`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar`
-read the record of the actions and the menu bar, `ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the
-record of the processes; `ActionState.*` is the coordinator's table, a state of the application a row; and
-`ProcessMenuModel.*` the categories, the lists and an extension's processes and family. A suite below the shell core that
-builds the classic window's menus builds them over the actions the record holds (`fixtures/RecordedActions.h`).
+held and its retry, a new image, a view gone). The actions' cases are held to the records of the interface beside
+`Test_ShellObservatory` (`Test_ShellCore/ShellCoreRecords.h`): `ActionCatalogue.HoldsTheRecordedInventory` and
+`MenuTree.EqualsTheRecordedMenuBar` read the record of the actions and the menu bar,
+`ActionBindings.EveryProcessActionLaunchesTheRecordedDescriptor` the record of the processes; `ActionState.*` is the
+coordinator's table, a state of the application a row; and `ProcessMenuModel.*` the categories, the lists and an
+extension's processes and family. A suite below the shell core, which can link neither the catalogue nor the menu
+tree, reads the menus in the menu bar the record holds, made of the recorded actions (`fixtures/RecordedActions.h`,
+`fixtures/RecordedMenus.h`).
 `DockHooksTest.*` asks the library's own hooks about real main windows and dock widgets; `DockLayoutOperationsTest.*`
 groups, splits, fits and locks real views in a main window the case makes; `ViewMenuBuilderTest.EqualsTheRecordedTree`
 reads the record of the view's menu; `WindowGeometryStoreTest.*` and `FileDropHandlerTest.*` need no window.
 
 ### The shells
 
-The application holds two shells, each a library over the shell core: `AfterNightShellClassic`, the window of
-AfterNight 1.1, and `AfterNightShellObservatory`, the window of places and tasks. One run makes one of them, chosen at
-the start (`--shell=<id>`, `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default `observatory`), and each names the
-style profile it is drawn in. A shell is a window and what only a window answers; everything else is the core's, made
-and started before the shell is: `ApplicationCore::initialize` makes and installs the application context, opens the
+A shell is a library over the shell core, and the application registers one: `AfterNightShellObservatory`, the window
+of places and tasks (`registerApplicationShells`, `app/ApplicationStart.h`). The registry and the choice of a shell
+(`--shell=<id>`, `AFTERNIGHT_SHELL`, the setting `interface/shell`, the default `observatory`) let another shell be
+registered beside it, and a shell names the style profile it is drawn in. A shell is a window and what only a window
+answers; everything else is the core's, made and started before the shell is: `ApplicationCore::initialize` makes and installs the application context, opens the
 session from the limits the settings store states, puts the interface's settings in force so the first widget is made
 under them, sweeps the temporary folders and readies the extensions' SDK, and `ApplicationCore::start` finds the
 installed extensions, whose processes join the process menus' data. The context is the core's (`ApplicationCore::
@@ -2167,30 +2159,13 @@ context`): made over the core alone, it answers what is the shell's through the 
 window hands it the little it still answers itself (`ApplicationContext::setDependencies`) and takes it out of the
 global as it goes, so the windows destroyed after it find none. A window is therefore made over an application that is
 ready - its session open, its settings in force, its extensions known - and holds only its own parts. No shell includes
-the other, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachEachOther`, `check_consumer_layering.py`,
-`check_build_graph.py`).
-
-### The classic shell (`src/AfterNightShellClassic/`: `ClassicShell.h`, `AfterNightApp.h`)
-
-`AfterNightShellClassic` is the main window of AfterNight 1.1, kept whole in a library of its own. `AfterNightApp` (a
-`QMainWindow`) implements `IViewHost` and `IStatusDisplay` for the core's services: it docks a new view beside its
-neighbour or on the right of its dock area, lists the views in its image selector (`ViewControlCoordinator`, which
-keeps the selector and the docks' order and no longer the list), shows its dashboard as home and its dock area as the
-place of views, and fills its status bar. It composes its own coordinators - `ClassicUiBootstrap`, which builds its
-three pages (the dashboard, the dock area, the maximized view) into its central widget; `ClassicWindowLayout`, its dock
-tool bar, the switch between dashboard and dock area and the maximized view; `MenuActionManager`, its process, recent
-and favourite menus; `AfterNightAppUiBuilder.h`, its widgets - and Controls' (`DialogOrchestrationCoordinator`,
-`PersistenceCoordinator`, `AppLifecycleCoordinator`, …), each handed what it needs of the shell core through its
-`Dependencies`, and hands the core's `ApplicationContext` what it still answers - the theme, the recent and the
-dropped files. Its lock, group, split and
-fit, the view's menu, its saved place and the files dropped on it are the core's (`DockLayoutOperations`,
-`ViewMenuBuilder`, `WindowGeometryStore`, `FileDropHandler`) over its one dock area. It hosts the core's actions while
-it lives, its builder making its menus and its tool bar of them, gives the action bindings their targets, and makes its
-process menus from the core's process menu model whenever it changes.
+another, and nothing below a shell includes one (`SourceGuards.ShellsDoNotReachEachOther`, `check_consumer_layering.py`,
+`check_build_graph.py`), and `SourceGuards.NoClassicProfileIsLeft` holds that no source names the Classic style profile
+of AfterNight 1.1's window or includes a header that went with that window.
 
 The application's session is opened by the core before the window is made (`ApplicationCore::initialize`), once the
 settings store has been read, from the processing limits stored there (`applicationSessionSettings`:
-`sessionSettingsForLimits` with the product's codecs), before anything reads an image; the window is refused over a
+`sessionSettingsForLimits` with the product's codecs), before anything reads an image; a shell is refused over a
 core that is not initialized and started. The core lends that session (`IEngineSessionProvider`) once it is open, and
 the persistence coordinator's RAW policy (`IRawOpenPolicyService`) and output intents
 (`IOutputIntentProvider`). The view factory and the events that carry an image move an `ImageDocument`; an event whose
@@ -2199,19 +2174,6 @@ which the core's extension service sets, land a result as an edit the history re
 `replaceImage`, generated images and output masks as new documents, and hand an execute an output mask of the target's
 shape with every sample zero; a view snapshot is exported under a read lease taken without waiting; a workflow's
 sequence output is opened on a worker.
-
-`ClassicShell` (`ClassicShell.h`) is that window behind the shell contract: made over the core, it makes and readies the
-window when it is built, with the session the core was given (`ApplicationCore::setApplicationSession`), forwards the
-contract's calls to it, and destroys it - its views, history and extension sessions with it - when it goes.
-`classicShellDescriptor()` is how the application registers it: `classic`, "Classic". The library links the shell core
-and what is below it; no shell includes another, and neither the shell core nor Controls nor Processes includes a shell
-(`SourceGuards.ShellsDoNotReachEachOther`, `check_consumer_layering.py`, `check_build_graph.py`). Its code is 1.1's,
-moved and renamed, not rewritten, so it carries no `.clang-tidy` of its own. `Test_ShellClassic` links it and runs the
-real window in one session the suite owns: `ApplicationMenu` holds every menu behaviour, `ProductSmoke` every format
-read, a save read back and a process of every framework family, and `Test_ShellClassic/ApplicationDriving.h`'s
-`RealWindowCase` drives the window as a person does; the records of the 1.1 interface are beside it
-(`Test_ShellClassic/data/`). What a case of any shell's window shares - running the event loop until something holds,
-answering the dialogs a menu action opens - is `fixtures/WindowDriving.h`.
 
 ### The Observatory shell (`src/AfterNightShellObservatory/`: `ObservatoryShell.h`, `ObservatoryWindow.h`)
 
@@ -2234,29 +2196,28 @@ screen; maximized, it covers its workspace's page while its dock keeps a stand-i
 the person had locked it already. With no image open the window shows Home, and the workspace once one is. A process
 opens as a task of the window, a page of its centre ("Every open process is a task", below).
 
-Home's parts are Controls', and hold no shell: `controls/HomeQuickActions` (the dashboard's quick actions as a row, Open
-file the accent's and each with its shortcut, the others in More, and the customization in More and on the row's
-right-click), `controls/HomeContinueRow` (the dashboard's `FeaturedFileCard` and `FeaturedFilePresenter` over the recent
-images - a sequence is never the featured image - and the last sequence's card with its Resume),
-`controls/HomeRecentGrid` (a tile per recent file, as a grid or a list, with its format's tag, a sequence's with a film
-glyph and its frame count, and the tile's menu, the dashboard thumbnail's five entries) and `controls/HomeWelcome` (with
-no recent file: the logo and the version, three cards to start with and under them one line that says projects are
-optional, with New project..., the drop zone with Open file, and the first-run panel's six things AfterNight does,
-`dashboardFeatures()`). The page asks for what they ask in the dashboard's signals, which the window answers as it
-answered the dashboard. New project is not one of the dashboard's actions: the classic dashboard shows those too, and
-has no projects. The page adds it to the row itself (`HomeQuickActions::addRowAction`), after the dashboard's actions
-and before More, where the dashboard's settings neither move, hide nor reset it. Home and the classic dashboard read and write the same settings,
-through `controls/DashboardSettings.h`: the quick actions' order and hidden ones (`DashboardQuickActionLayout`, whose
-customization menu is the dashboard's), the pinned recent files and the pinned featured file, the sort and the search -
-each loader bringing the settings to their format first, so that no part reads settings of another format whichever
-part reads first - and the recent files are ordered by one function, `DashboardUtils::visibleRecentFileOrder`, which the
-dashboard's `RecentFilesGrid` uses too: what a person arranged in one shell is what the other shows. A tile's picture
+Home's parts are Controls', and hold no shell: `controls/HomeQuickActions` (the quick actions as a row, Open file the
+accent's and each with its shortcut, the others in More, and the customization in More and on the row's right-click),
+`controls/HomeContinueRow` (a `FeaturedFileCard` and the `FeaturedFilePresenter` over the recent images - a sequence is
+never the featured image - and the last sequence's card with its Resume), `controls/HomeRecentGrid` (a tile per recent
+file, as a grid or a list, with its format's tag, a sequence's with a film glyph and its frame count, and the tile's
+menu of five entries) and `controls/HomeWelcome` (with no recent file: the logo and the version, three cards to start
+with and under them one line that says projects are optional, with New project..., the drop zone with Open file, and
+six things AfterNight does). The page asks for what they ask in its
+signals, which the window answers. New project is not one of the quick actions the settings hold: the page adds it to
+the row itself (`HomeQuickActions::addRowAction`), after them and before More, where the settings neither move, hide
+nor reset it. Home reads and writes its settings through `controls/DashboardSettings.h`, under the keys AfterNight
+1.1's dashboard wrote, so what a person arranged there is what Home shows: the quick actions' order and hidden ones
+(`DashboardQuickActionLayout`, which makes the customization menu), the pinned recent files and the pinned featured
+file, the sort and the search - each loader bringing the settings to their format first, so that no part reads
+settings of another format whichever part reads first - and the recent files are ordered by one function,
+`DashboardUtils::visibleRecentFileOrder`. A tile's picture
 and facts are read off the GUI thread (`readHomeRecentFile`): the thumbnail decoded on the thread pool, and the facts by
 `probeHomeRecentFile` - an image's description, or a sequence's container and frame count (`probeDashboardSequence`) -
 as background work a busy session refuses. Home reads the recent files when the window says they changed - where the
-file manager told the dashboard - never because it is shown, so changing place asks the engine for nothing. A tile, and
+file manager says so - never because it is shown, so changing place asks the engine for nothing. A tile, and
 the sequence's card, read again when their thumbnail changes - a file is a recent file before its thumbnail is written -
-and when a busy session left the facts of a file on disk unread. The grid or list choice is one of the dashboard's
+and when a busy session left the facts of a file on disk unread. The grid or list choice is one of the dashboard
 settings (`interface/dashboardRecentArrangement`), so the next Home shows the recent files as the last one did.
 
 The rail holds the places - Home, the workspace (shown only while an image is open: with none, Home is the place) and
@@ -2265,9 +2226,9 @@ Settings; the place on screen is the one marked. The column right of the centre 
 by the shell core's `ReadoutController`, which follows the active view: it is shown beside the workspace only - Home
 is no place to read an image, so the column is hidden there even while one is open - and is told the window's size at
 every resize so it narrows and folds as the window does.
-The status line (`chrome/StatusLine`) writes what the classic status bar writes of the active image - its facts, its
-zoom, the position under the cursor - from the same functions (`widgets/ImageStatusTexts.h`, which the classic
-`ImageInfoStatusBarWidget` writes through too), "RA -" and "Dec -" in the tertiary colour while there is no position. The
+The status line (`chrome/StatusLine`) writes what AfterNight 1.1's status bar wrote of the active image - its facts,
+its zoom, the position under the cursor - from the same functions (`widgets/ImageStatusTexts.h`, which that bar,
+`ImageInfoStatusBarWidget`, writes through too), "RA -" and "Dec -" in the tertiary colour while there is no position. The
 menu bar (`chrome/MenuBarOnAlt`) is the shell core's menu tree over the catalogue's actions, hidden unless the person
 keeps it (`interface/alwaysShowMenuBar`): Alt alone shows it and gives it the focus, Alt and a menu's first letter
 opens that menu, and it hides once its menus close and the focus is elsewhere. Every catalogue action is the window's
@@ -2287,9 +2248,9 @@ keeps its player strip at the bottom of its own view, where a toolbar centred at
 workspace's page, a floating window's chrome and a task's page hand their toolbar the strips shown under it
 (`chrome/ToolbarClearance`, which finds them and has the toolbar placed again when one is shown, hidden, moved or
 resized), and the toolbar is lifted to 8 px above those it would cover; over an image, or with the sequence behind
-another view's tab, it is where it always is. The layout icons (`workspaces/WorkspaceToolbar`) sit at the right of the top bar while the workspace is shown: the classic dock
-tool bar's lock button and its Group All Images, Split All Images and Fit Images To Window - the catalogue's own
-actions - acting through `DockLayoutOperations` on the workspace's target. A right click on a view opens the view's
+another view's tab, it is where it always is. The layout icons (`workspaces/WorkspaceToolbar`) sit at the right of the top bar while the workspace is shown: the lock
+button and Group All Images, Split All Images and Fit Images To Window - the catalogue's own actions - acting through
+`DockLayoutOperations` on the workspace's target. A right click on a view opens the view's
 menu at the pointer and one on a tab the tab's menu, both from `ViewMenuBuilder` (the tab's through an event filter on
 the strips, which tells a tab's view by its dock widget); `F11` maximizes and `F11` or `Esc` restores. While a view is
 maximized the layout is not the person's to change: Lock, Unlock, Group and Split are withdrawn, and once it is
@@ -2313,8 +2274,9 @@ last. The shell's own actions (`ShellActions.h`: Home, Command Palette, Readout,
 beside the catalogue's that only this shell holds, added to the window and to the menu bar's View menu, and offered by
 the index through a provider the window adds and takes back (`CommandIndex::removeProvider`); Night switches the
 tokens' Night and applies the theme again, the densities store `interface/density` and apply it. `Ctrl+W` is set on the
-catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table and the classic
-shell keep 1.1's shortcuts.
+catalogue's Close by this shell when it builds, and given back when it goes: the catalogue's table keeps 1.1's
+shortcuts, which the record of the interface holds (`NewShortcuts.DoNotCollideWithTheRecordedOnes`,
+`NewShortcuts.CtrlWIsTheObservatoryShellsAlone`).
 
 The window keeps the system's title bar, with the top bar under it. Drawing the top bar in the title bar's place - the
 window hints by which Qt extends the client area under the title bar and leaves the title bar's background out, the bar
@@ -2354,8 +2316,8 @@ its filters stay as the person left them. Its header is the console's own toolba
 parts about it - the title first, a stretch and the count of the session's warnings as a tag before Search, then Float
 and the close button - each marked as the drawer's (`ConsoleDrawer::kOwnPartProperty`); `LogViewerControl` lends the
 toolbar and its Search entry for it and is otherwise unchanged, and the record of its toolbar
-(`Test_ShellObservatory/data/ConsoleToolbar.txt`, written from the classic window's console) holds both shells to one
-console. It is 220 px high at first and resized by a band along its top edge between 120 px and 60 % of the window's
+(`Test_ShellObservatory/data/ConsoleToolbar.txt`, written from AfterNight 1.1's console) holds the drawer to that
+console (`ConsoleDrawer.TheToolbarIsTheConsoles`). It is 220 px high at first and resized by a band along its top edge between 120 px and 60 % of the window's
 height. `Float` moves the console into a floating window of the dock library - a dock widget with the affinity
 `an.console`, which no workspace and no image's window shares, made with `LayoutSaverOption::Skip` so no saved layout
 holds it, with one title bar and no tab strip - and `Attach` brings it back; the console is the same widget
@@ -2364,7 +2326,7 @@ error that arrives while the console is closed is counted on the rail's Console 
 until it opens. The rail's item, the chip, the catalogue's Session Console action and `IShell::setSessionConsoleVisible`
 open and close it; whether it is open, its height and whether it floats are kept (`interface/consoleDrawerOpen`,
 `interface/consoleDrawerHeight`, `interface/consoleFloating`), the height read as the window is made and the rest put
-back once it is first shown. The classic shell's console is the dock of 1.1, unchanged.
+back once it is first shown.
 
 Every open process is a task (`tasks/TaskPresenter`), the shell's `IProcessPresenter`: it takes a process whose
 descriptor states a page - a preview, a mirror or a full page - into a page of the centre (below) and leaves a process
@@ -2508,9 +2470,9 @@ full page fits the centre: Image Integration Lite and Image List Analyzer read a
 (Lite's dataset over its frames beside its setup over its settings; the Analyzer's images beside the image chosen),
 and are the one column they were in a window of their own.
 
-The window composes Controls' coordinators as the classic window does - the file manager, the image operations, the
-mask overlay, the dialogs, the theme manager, the lifecycle coordinator that asks before it closes and keeps the
-window's place - hosts the core's actions while it lives, gives the action bindings their targets and the core's
+The window composes Controls' coordinators - the file manager, the image operations, the mask overlay, the dialogs, the
+theme manager, the lifecycle coordinator that asks before it closes and keeps the window's place - each handed what it
+needs of the shell core through its `Dependencies`, hosts the core's actions while it lives, gives the action bindings their targets and the core's
 services their hooks, and takes all of it back as it goes, after destroying the process windows still open and before
 the stores close. `ObservatoryShell` is the window behind the shell contract: made over the core, it is refused over one
 that is not initialized and started or holds no open session, sets itself as the core's shell, makes and readies the
@@ -2518,7 +2480,14 @@ window when it is built, and destroys it when it goes; `observatoryShellDescript
 "Observatory", in the Observatory profile. The library carries the shell core's naming table (`.clang-tidy`), and its
 tree is held by the look guards (`SourceGuards.NoLookLiteralsInShellsAndComponents`,
 `.TokensAreNotCachedInConstructors`). `Test_ShellObservatory` links it and drives the real window, started and ended in
-the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/ObservatoryWindowCase.h`).
+the application's order by `ObservatoryWindowCase` (`Test_ShellObservatory/ObservatoryWindowCase.h`). It also holds
+the cases of shared parts the window shows - the extension manager's and the installed packages' pages, the About dialog, the inspector windows' builders, the process menus' state, the
+session console's bridge, the theme manager, the lifecycle coordinator and the window's geometry, the progress
+dialog - and the records of the interface beside it (`Test_ShellObservatory/data/`): `ProcessRegistry.InventoryMatchesTheRecord`
+holds the registry and `Shortcuts.MatchTheRecord` the keys of the Session Console and a view, read over the window
+(`Test_ShellObservatory/RecordsTest.cpp`). What a case of a window shares - running the event loop until something
+holds, answering the dialogs a menu action opens - is `fixtures/WindowDriving.h`, and a small image of a session and
+the guard of a case that needs the full extension host are `fixtures/AppTestSupport.h`.
 
 **The Integration hub** (`pages/IntegrationHubPage.h`). The rail's Integration, and Integration in the View menu and the
 palette (`actionShow_Integration_Hub`, the shell's own), show a place of the centre rather than a process: the three
@@ -2539,8 +2508,8 @@ the jobs change: a handful of jobs, each with a tag and a button, read rather th
 
 A project is optional: a folder a person chooses that keeps what a body of work gathers - the history of its images,
 its workspaces, its integrations, its notes - while the images stay where they are. Without one the application works
-as it always has, so nothing below runs until a project is made or opened, and the classic shell, which offers none,
-never opens one.
+as it always has, so nothing below runs until a project is made or opened, and a shell that offers none never opens
+one.
 
 **The folder and its document.** `project.anproj` is one JSON object of the format `afternight-project`, version 1
 (`projects/ProjectDocument.h`): the project's id and name, when and how it was made, its object when it has one, how
@@ -2618,7 +2587,7 @@ said to be freed is what is freed.
 Controls). An integration reaches the application's projects through one interface of Controls, `an::ui::IJobProjects`,
 which the application context answers (`IAppContext::getJobProjects`, read through `an::ui::jobProjects()`) with what
 its shell offers (`IShell::jobProjects`): the core's `JobProjects` in the Observatory shell while its window lives, and
-nothing in the classic shell and in the extension hosts, where a job runs as it always has. It is a member of the
+nothing in the extension hosts, where a job runs as it always has. It is a member of the
 context, as the process presenter is, and no state of its own: a shell that offers no projects answers none, and so
 does a context that says nothing. The processes library includes no shell core and knows nothing of how projects are
 kept. `JobProjects` answers the interface from the project service:
@@ -2642,8 +2611,8 @@ folder that holds a run's manifest, so an image's history beside the archives is
 made holds its jobs in its integration folder alone.
 
 **In the Observatory window** `ProjectFlows` connects the shell's five project actions - New Project..., Open
-Project..., Switch Project..., Close Project and Project Settings..., the window's own, so the classic shell's records
-of actions and menus do not hold them - to the service, keeps the top bar's switcher naming the open project and fills
+Project..., Switch Project..., Close Project and Project Settings..., the window's own, so the record of the
+catalogue's actions and the menu bar does not hold them - to the service, keeps the top bar's switcher naming the open project and fills
 its menu (the open project checked, the ones used last, New project..., Open project..., Close project). New Project
 opens `NewProjectDialog` (Controls: the name, the location and the folder they make, the object, the compression, and
 with images open whether they join the project and whether their undo history moves into it, with the size the shell
@@ -2727,21 +2696,24 @@ The executable composes a shell and owns what outlives it. `main.cpp` calls `run
 which installs the platform crash handler before any Qt object, states the product's version (`kProductVersion`, in
 `core/ApplicationSession.h`; the engine's is a crash annotation beside it) - a version of its own because an
 extension's minimum version names the product - initializes the platform logger, owns one `ApplicationSession`, makes
-the `ApplicationCore` a shell is made over, registers the shells it can make (`ShellRegistry`) and hands the core both.
+the `ApplicationCore` a shell is made over, registers the shells it can make (`registerApplicationShells`: the
+Observatory shell) in a `ShellRegistry` and hands the core both.
 It starts them in one order (`startApplication`, `app/ApplicationStart.h`): the core's stores first - they make no
 widget, and a shell is chosen from one of them - then the shell chosen among the registered ones (`--shell=<id>`,
-`AFTERNIGHT_SHELL`, the setting `interface/shell`, the default; a source that names none is passed over with a warning
-in the log), then the style under the profile the chosen shell names (or the developer switch
-`AFTERNIGHT_STYLE_PROFILE`; `ShellChoice::styleProfile`), before the first widget exists, then the core initialized and
+`AFTERNIGHT_SHELL`, the setting `interface/shell`, the default; a source that names none - `classic` among them - is
+passed over with a warning in the log, and a stored value is left as it is), then the style under the profile the
+chosen shell names (`ShellChoice::styleProfile`), before the first widget exists, then the core initialized and
 started (`ApplicationCore::initialize`, `ApplicationCore::start`), then the shell made over the core and built;
 `showApplication` shows it where it was. The Interface page offers the choice of a shell only when the application
-registers more than one (`IInterfaceSettingsRuntimeService::availableShells`), and the choice takes effect at the next
-start. At the end `stopApplication` has the shell keep its geometry and tears the application down
+registers more than one (`IInterfaceSettingsRuntimeService::availableShells`): with one shell its Shell row hides
+itself, and a choice takes effect at the next start. At the end `stopApplication` has the shell keep its geometry and tears the application down
 (`shutDownApplication`): admission closed, the shell destroyed - its window, views, history and extension sessions, the
 context it installed cleared - the windows closed on the way out deleted, the thread pool drained and what it posted
 back delivered, the session shut down, checked; then the logger and the crash handler. `Test_AfterNightApp` compiles
-the application's start and holds its order and its end (`ApplicationStart.*`, `ApplicationTeardown.*`) and the session
-the application owns (`ApplicationSession.*`).
+the application's start and holds its order and its end (`ApplicationStart.*`, `ApplicationTeardown.*`) - the one
+shell registered (`ApplicationStart.OnlyTheObservatoryShellIsRegistered`), and the Observatory shell started whatever
+names `classic`, with the store left as it was (`ApplicationStart.DefaultIsObservatory`) - and the session the
+application owns (`ApplicationSession.*`).
 
 ### The shells' parity (`Test_ShellParity/ShellDriver.h`, `Test_ShellParity/ShellScenarioTest.cpp`, `Test_ShellParity/Capabilities.txt`)
 
@@ -2749,19 +2721,20 @@ What a person does to the application is written once and run against every regi
 handful of things a scenario does to a shell - open a file, name the active view and the views, close a view answering
 its question, run an action by its id and read whether the shell offers it enabled, launch a process by its id, press
 Apply and cancel a run, read the status line and a view's menu, drop files, close the window - each done as that shell
-lets a person do it, with one driver per shell (`ClassicDriver` drives the 1.1 window through its menus and tool bars,
-its file dialog and its process and progress windows; `ObservatoryDriver` the Observatory window through its menu tree,
-its file dialog, its process windows and its status line, whose placeholders it does not read). `ShellScenario` is a value-parameterised case instantiated for
-every registered shell, named `ShellScenario.<Case>/<shell>`; its fixture starts a shell as the application starts it -
+lets a person do it, with one driver per shell (`ObservatoryDriver` drives the Observatory window through its menu
+tree, its file dialog, its process windows and its status line, whose placeholders it does not read). `ShellScenario`
+is a value-parameterised case instantiated for every registered shell, named `ShellScenario.<Case>/<shell>` - the
+Observatory shell's `ShellScenario.<Case>/observatory`; its fixture starts a shell as the application starts it -
 the registry, the choice on the command line, the style, the shell built and shown - and ends it as the application
 ends it. The run over a sequence is cancelled before its first frame - the thread pool held while Apply and Cancel are
 pressed - so the case does not race the run. A shell that cannot yet do what a scenario asks fails it until it can, and
 a shell that is retired leaves the instantiation and the scenarios stay.
 
-`Test_ShellParity/Capabilities.txt` is the register of the interface's capabilities, a record each: the `shared` cases of code every
-shell uses, and for each shell the cases that drive its window - `pending` while a shell has none.
-`check_shell_capabilities.py` holds it to the suites: every case it names is defined, a scenario is named on the line
-of the shell it ran for, no capability is listed twice, and every capability has an `observatory` line;
+`Test_ShellParity/Capabilities.txt` is the register of the interface's capabilities, a record each: the `shared` cases
+of code every shell uses, and on its `observatory` line the cases that drive the Observatory window - `pending` while
+it has none. `check_shell_capabilities.py` holds it to the suites: every case it names is defined, a scenario is named
+on the line of the shell it ran for, no capability is listed twice, every capability has an `observatory` line, and a
+line of another kind is refused;
 `--require-shell <shell>` leaves nothing of that shell pending. A capability the interface gains is added to the
 register in the change that adds it.
 
@@ -2863,8 +2836,8 @@ before it could draw one; with no such list the extension shows a window of its 
 `kHostedPanelCapability` in the handshake (the host in its hello, the application in its acknowledgement), and the
 application asks for it (`ExtensionHostLaunchRequest::hosted_panel`, `ExtensionHostLaunchCoordinator::hostsPanels`) for
 a process of one image whose interface is a panel and whose parameters were kept: a `runtime` extension's only when a
-shell takes processes into pages - an `IAppContext` with a process presenter, the Observatory shell - so the classic
-shell keeps the host's window (`setHostsPanels` states another policy); a `protocol` extension's in every shell, since
+shell takes processes into pages - an `IAppContext` with a process presenter, the Observatory shell - and a context
+that lends none keeps the host's window (`setHostsPanels` states another policy); a `protocol` extension's in every shell, since
 the Lite host has no window to draw it in, the process then a window of its own where no presenter takes it. A host that
 does not state the capability is acknowledged without it and shows its window as before. An extension with no interface
 (`none`) is launched to show none - the full host with `--no-process-window` - and its session raises no window.
@@ -3138,11 +3111,8 @@ checker alone is never evidence of what an installer contains. Both test runners
   one engine session through the product's own import, the shared preparation in `workflow/WorkflowPreparation.h` and
   `WorkflowProgressController`, and records the engine's own accounting beside the resident peak.
   `product_measurement.py` `archive`, `run` and `compare` archive a deployment from a clean commit, run the paired
-  protocol, keep each side's first images and compare every later run's and the two sides' sample by sample;
-  `--path application` measures each deployment's application through its own windows instead
-  (`product_application_driver.ps1` through Windows UI Automation, and on Linux `product_application_driver_linux.py`
-  through AT-SPI on a private virtual display), and the executor writes the engine's memory over a run into its log
-  (`WorkflowExecutor::Result::engineMemory`). An archive keeps a deployment with its symbols and provenance so that a
+  protocol, keep each side's first images and compare every later run's and the two sides' sample by sample, and the
+  executor writes the engine's memory over a run into its log (`WorkflowExecutor::Result::engineMemory`). An archive keeps a deployment with its symbols and provenance so that a
   later comparison runs it rather than a rebuild, and every run's storage root and settings are its own, so that a
   measurement reads none of the host user's.
 - **The real-time preview measured through a dialog.** `Test_ImageRTPreviewControl`'s opt-in

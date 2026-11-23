@@ -16,7 +16,7 @@
 #include "pages/HomePage.h"
 #include "projects/ProjectFlows.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
 #include "commands/CommandIndex.h"
@@ -432,7 +432,7 @@ TEST_F(ProjectSwitcher, SwitchProjectOpensTheSwitchersMenu)
 }
 
 // The palette offers the project's commands, says which project they are about, and Close Project only while one is
-// open; the File menu lists the five before Exit; and the classic shell's catalogue holds none of them.
+// open; the File menu lists the five before Exit; and the catalogue every shell shares holds none of them.
 TEST_F(ProjectSwitcher, ThePaletteOffersTheCommandsAndTheFileMenuListsThem)
 {
     an::ui::shell::CommandIndex& index = core().commands();

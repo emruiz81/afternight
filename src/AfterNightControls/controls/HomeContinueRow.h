@@ -4,8 +4,8 @@
 #pragma once
 
 /// @file
-/// Home's Continue row: the featured image - the dashboard's featured file card and its presenter, over the recent
-/// images, with its Continue and its pin, which is the dashboard's setting - and beside it the last project's card,
+/// Home's Continue row: the featured image - the featured file card and its presenter, over the recent images, with
+/// its Continue and its pin, kept in the dashboard's settings - and beside it the last project's card,
 /// with its picture, what it holds and Open project, and the last sequence's card, with its picture, its frames and its
 /// Resume.
 
@@ -45,13 +45,13 @@ public:
 
     /// The recent files, most recent first and normalized: the featured image is the pinned one, or else the most
     /// recent image with a thumbnail; the sequence card shows the most recent sequence. A pinned file no longer among
-    /// them, or no longer on disk, is unpinned, as the dashboard does.
+    /// them, or no longer on disk, is unpinned.
     void setRecentFiles(const std::deque<QString>& recentFiles);
 
     /// Takes the icons the application's icon provider gives now.
     void refreshIcons();
 
-    /// The dashboard's featured file card the row shows.
+    /// The featured file card the row shows.
     [[nodiscard]] FeaturedFileCard* featuredCard() const;
 
     /// The featured image; empty while there is none.

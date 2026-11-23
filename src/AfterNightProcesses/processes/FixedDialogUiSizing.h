@@ -187,12 +187,8 @@ inline void scheduleDialogResize(QDialog* dialog, const int delayMs = 0)
         }
         guard->setMaximumWidth(oldMaximumWidth);
         guard->resize(currentWidth, targetHeight);
-        // Under the Observatory profile, as high as what it holds and no higher than its screen leaves it: past
-        // that, a body that scrolls scrolls. Under the Classic profile it is sized as AfterNight 1.1 sized it.
-        if (an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
-        {
-            an::ui::holdWithinAvailableArea(*guard);
-        }
+        // As high as what it holds and no higher than its screen leaves it: past that, a body that scrolls scrolls.
+        an::ui::holdWithinAvailableArea(*guard);
         guard->updateGeometry();
     };
 

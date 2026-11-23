@@ -217,8 +217,7 @@ public:
 
     /// Lays a run's notice over the view: its image dimmed under a scrim and still seen, every action and choice of its
     /// toolbar disabled, and at its centre a pill that says what runs, how far it has come and offers the way to it. A
-    /// notice set while another is shown replaces it. A shell sets one while a run writes the view's image; the classic
-    /// shell sets none.
+    /// notice set while another is shown replaces it. A shell sets one while a run writes the view's image.
     void setProcessingNotice(const an::ui::ProcessingNotice& notice);
 
     /// Takes the notice away: the image is seen as before, and every action and choice is as the view would have it had

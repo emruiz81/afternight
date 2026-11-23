@@ -36,7 +36,7 @@ static_assert(std::is_abstract_v<IStatusDisplay> && std::has_virtual_destructor_
 TEST(ShellRegistry, FindsARegisteredShellByItsId)
 {
     ShellRegistry registry;
-    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("classic"), QStringLiteral("Classic"))));
+    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("aurora"), QStringLiteral("Aurora"))));
     ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("observatory"), QStringLiteral("Observatory"))));
 
     const ShellDescriptor* found = registry.find(QStringLiteral("observatory"));
@@ -48,24 +48,24 @@ TEST(ShellRegistry, FindsARegisteredShellByItsId)
 
 TEST(ShellRegistry, FindsNothingUnderAnIdNoShellIsRegisteredUnder)
 {
-    const ShellRegistry registry = registryOf({"classic"});
+    const ShellRegistry registry = registryOf({"aurora"});
 
     EXPECT_EQ(registry.find(QStringLiteral("observatory")), nullptr);
     EXPECT_EQ(registry.find(QString()), nullptr);
     // An id is matched as it is written: the registry holds lowercase ids only.
-    EXPECT_EQ(registry.find(QStringLiteral("Classic")), nullptr);
+    EXPECT_EQ(registry.find(QStringLiteral("Aurora")), nullptr);
 }
 
 TEST(ShellRegistry, ListsTheShellsInTheOrderTheyWereRegistered)
 {
-    const ShellRegistry registry = registryOf({"observatory", "classic", "nebula"});
+    const ShellRegistry registry = registryOf({"observatory", "aurora", "nebula"});
 
     EXPECT_EQ(registry.ids(),
-              (QStringList{QStringLiteral("observatory"), QStringLiteral("classic"), QStringLiteral("nebula")}));
+              (QStringList{QStringLiteral("observatory"), QStringLiteral("aurora"), QStringLiteral("nebula")}));
     const auto descriptors = registry.descriptors();
     ASSERT_EQ(descriptors.size(), 3u);
     EXPECT_EQ(descriptors[0]->id, QStringLiteral("observatory"));
-    EXPECT_EQ(descriptors[1]->id, QStringLiteral("classic"));
+    EXPECT_EQ(descriptors[1]->id, QStringLiteral("aurora"));
     EXPECT_EQ(descriptors[2]->id, QStringLiteral("nebula"));
     EXPECT_EQ(registry.size(), 3u);
 }
@@ -83,12 +83,12 @@ TEST(ShellRegistry, AnEmptyRegistryListsNothing)
 TEST(ShellRegistry, RefusesASecondDescriptorWithTheSameId)
 {
     ShellRegistry registry;
-    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("classic"), QStringLiteral("First"))));
+    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("aurora"), QStringLiteral("First"))));
 
-    EXPECT_FALSE(registry.add(descriptorOf(QStringLiteral("classic"), QStringLiteral("Second"))));
+    EXPECT_FALSE(registry.add(descriptorOf(QStringLiteral("aurora"), QStringLiteral("Second"))));
 
     EXPECT_EQ(registry.size(), 1u);
-    const ShellDescriptor* kept = registry.find(QStringLiteral("classic"));
+    const ShellDescriptor* kept = registry.find(QStringLiteral("aurora"));
     ASSERT_NE(kept, nullptr);
     EXPECT_EQ(kept->displayName, QStringLiteral("First"));
 }
@@ -97,15 +97,15 @@ TEST(ShellRegistry, RefusesAnIdThatIsNotALowercaseWord)
 {
     ShellRegistry registry;
     for (const QString& id :
-         {QString(), QStringLiteral("Classic"), QStringLiteral("two words"), QStringLiteral(" classic"),
-          QStringLiteral("-classic"), QStringLiteral("9shell"), QStringLiteral("dark_sky"), QStringLiteral("céleste")})
+         {QString(), QStringLiteral("Aurora"), QStringLiteral("two words"), QStringLiteral(" aurora"),
+          QStringLiteral("-aurora"), QStringLiteral("9shell"), QStringLiteral("dark_sky"), QStringLiteral("céleste")})
     {
         EXPECT_FALSE(ShellRegistry::isValidId(id)) << id.toStdString();
         EXPECT_FALSE(registry.add(descriptorOf(id, QStringLiteral("A shell")))) << id.toStdString();
     }
     EXPECT_TRUE(registry.isEmpty());
 
-    for (const QString& id : {QStringLiteral("classic"), QStringLiteral("dark-sky"), QStringLiteral("shell2")})
+    for (const QString& id : {QStringLiteral("aurora"), QStringLiteral("dark-sky"), QStringLiteral("shell2")})
     {
         EXPECT_TRUE(ShellRegistry::isValidId(id)) << id.toStdString();
         EXPECT_TRUE(registry.add(descriptorOf(id))) << id.toStdString();
@@ -115,7 +115,7 @@ TEST(ShellRegistry, RefusesAnIdThatIsNotALowercaseWord)
 TEST(ShellRegistry, RefusesADescriptorThatCannotMakeItsShell)
 {
     ShellRegistry registry;
-    ShellDescriptor descriptor = descriptorOf(QStringLiteral("classic"));
+    ShellDescriptor descriptor = descriptorOf(QStringLiteral("aurora"));
     descriptor.create = nullptr;
 
     EXPECT_FALSE(registry.add(std::move(descriptor)));
@@ -125,17 +125,17 @@ TEST(ShellRegistry, RefusesADescriptorThatCannotMakeItsShell)
 TEST(ShellRegistry, ADescriptorFoundEarlierStaysValidAsMoreAreRegistered)
 {
     ShellRegistry registry;
-    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("classic"), QStringLiteral("Classic"))));
-    const ShellDescriptor* classic = registry.find(QStringLiteral("classic"));
-    ASSERT_NE(classic, nullptr);
+    ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("aurora"), QStringLiteral("Aurora"))));
+    const ShellDescriptor* aurora = registry.find(QStringLiteral("aurora"));
+    ASSERT_NE(aurora, nullptr);
 
     for (int index = 0; index < 64; ++index)
     {
         ASSERT_TRUE(registry.add(descriptorOf(QStringLiteral("shell%1").arg(index))));
     }
 
-    EXPECT_EQ(registry.find(QStringLiteral("classic")), classic);
-    EXPECT_EQ(classic->displayName, QStringLiteral("Classic"));
+    EXPECT_EQ(registry.find(QStringLiteral("aurora")), aurora);
+    EXPECT_EQ(aurora->displayName, QStringLiteral("Aurora"));
 }
 
 } // namespace

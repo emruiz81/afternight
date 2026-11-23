@@ -73,7 +73,7 @@
 #include "controls/settings/SettingsKeys.h"
 #include "theme/AnDesignTokens.h"
 
-#include "AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 
 #include <AfterNightPlatform/Logging.h>
 
@@ -4066,10 +4066,8 @@ TEST_F(ExtensionManagerPageTest, ExtensionsDialogTabsUseTopAccentLineThemeProper
         ASSERT_NE(tab_bar, nullptr);
         EXPECT_EQ(tabs->tabBar(), tab_bar);
 
-        // The properties the proxy style paints a tab bar's accent line and height from.
+        // The property the proxy style paints a tab bar's accent line from.
         EXPECT_EQ(tab_bar->property("anTabAccentLinePosition").toString(), QStringLiteral("top"));
-        EXPECT_DOUBLE_EQ(tab_bar->property("anTabHeightScale").toDouble(), 1.0);
-        EXPECT_EQ(tab_bar->property("anTabMinHeight").toInt(), 22);
         EXPECT_FALSE(tab_bar->drawBase());
         ASSERT_EQ(tab_bar->count(), 2);
         EXPECT_EQ(tab_bar->tabText(0), QStringLiteral("Browse"));
@@ -4819,55 +4817,4 @@ TEST_F(ExtensionManagerPageTest, InstalledSourceControlsRepositoryActionsAndBoot
     auto* repository_remove = page.findChild<QPushButton*>(buttonObjectName("repo_ext", "remove"));
     ASSERT_NE(repository_remove, nullptr);
     EXPECT_TRUE(repository_remove->isEnabled());
-}
-
-// An extension's details say how it runs - with the engine's access when its host is the full one, without it
-// otherwise - and where its processes open: in the classic window every one opens in a window of its own, a panel the
-// application draws among them, and one with no interface opens nowhere. Where the processes differ, each says its
-// own; a package not installed cannot say yet, since its manifest says it, and its release's backend says how it runs.
-using ExtensionManagerPage = ExtensionManagerPageTest;
-
-TEST_F(ExtensionManagerPage, DetailsSayHowItRunsAndWhereItOpens)
-{
-    using an::ui::extensions::ExtensionInterface;
-    using an::ui::extensions::ExtensionProcessInterface;
-    an::ui::ExtensionManagerPage page(nullptr);
-    page.setRepositoryProvider([]() {
-        ExtensionManagerPageRepositorySnapshot snapshot;
-        snapshot.success = true;
-        ExtensionRepositoryBrowseEntry panel = makeEntry("panel_ext", "Panel Ext", "A panel", "1.0.0",
-                                                         ExtensionRepositoryInstallState::Installed, "1.0.0");
-        panel.installed_sdk_backend = "runtime";
-        panel.installed_process_interfaces = {ExtensionProcessInterface{"Denoise", ExtensionInterface::Panel}};
-        ExtensionRepositoryBrowseEntry window = makeEntry("window_ext", "Window Ext", "A window", "1.0.0",
-                                                          ExtensionRepositoryInstallState::Installed, "1.0.0");
-        window.release_sdk_backend = "runtime";
-        window.installed_sdk_backend = "protocol";
-        window.installed_process_interfaces = {ExtensionProcessInterface{"Viewer", ExtensionInterface::Window}};
-        ExtensionRepositoryBrowseEntry mixed =
-            makeEntry("mixed_ext", "Mixed Ext", "Mixed", "1.0.0", ExtensionRepositoryInstallState::Installed, "1.0.0");
-        mixed.installed_sdk_backend = "protocol";
-        mixed.installed_process_interfaces = {ExtensionProcessInterface{"Viewer", ExtensionInterface::Window},
-                                              ExtensionProcessInterface{"Batch", ExtensionInterface::None}};
-        ExtensionRepositoryBrowseEntry absent =
-            makeEntry("absent_ext", "Absent Ext", "Absent", "1.0.0", ExtensionRepositoryInstallState::NotInstalled);
-        absent.release_sdk_backend = "protocol";
-        snapshot.entries = {panel, window, mixed, absent};
-        return snapshot;
-    });
-    page.loadSettings();
-
-    const auto said = [&page](const char* id, const char* field) {
-        const QLabel* const label = page.findChild<QLabel*>(fieldObjectName(id, field));
-        return label != nullptr ? label->text() : QStringLiteral("<no %1>").arg(QString::fromLatin1(field));
-    };
-    EXPECT_EQ(said("panel_ext", "runs"), QStringLiteral("With engine access"));
-    EXPECT_EQ(said("panel_ext", "opens"), QStringLiteral("In a window of its own"))
-        << "the classic window takes no process into a page";
-    EXPECT_EQ(said("window_ext", "runs"), QStringLiteral("Without engine access")) << "the installed package's backend";
-    EXPECT_EQ(said("window_ext", "opens"), QStringLiteral("In a window of its own"));
-    EXPECT_EQ(said("mixed_ext", "opens"),
-              QStringLiteral("Viewer: in a window of its own; Batch: nowhere, it has no interface"));
-    EXPECT_EQ(said("absent_ext", "runs"), QStringLiteral("Without engine access")) << "the release's backend";
-    EXPECT_EQ(said("absent_ext", "opens"), QStringLiteral("Known once it is installed"));
 }

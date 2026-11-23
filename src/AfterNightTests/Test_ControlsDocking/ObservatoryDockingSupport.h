@@ -3,9 +3,9 @@
 
 #pragma once
 
-// What the cases of the dock decorations under the Observatory profile share: the profile, a look and the separator
-// the profile gives the dock library, in force while a case's windows live; the strips and buttons of a dock widget's
-// group; and how a picture of them is read.
+// What the cases of the dock decorations in the Observatory look share: a look and the separator the decorations give
+// the dock library, in force while a case's windows live; the strips and buttons of a dock widget's group; and how a
+// picture of them is read.
 
 #include "DockingTestSupport.h"
 
@@ -39,9 +39,9 @@ using an::ui::testing::PaintRecorder;
 using an::ui::testing::RenderedPicture;
 using an::ui::testing::sameColour;
 
-/// A case of the dock decorations under the Observatory profile, in the first look unless it puts another in force.
-/// The profile, the look and the separator are put in force before the case makes a window, while the dock library
-/// still takes a separator, and put back once its windows are gone.
+/// A case of the dock decorations in the first look unless it puts another in force. The look and the separator are put
+/// in force before the case makes a window, while the dock library still takes a separator, and put back once its
+/// windows are gone.
 class ObservatoryDockingTest : public DockingTest
 {
 protected:
@@ -56,7 +56,7 @@ protected:
     {
         DockingTest::TearDown();
         m_scope.reset();
-        // The application's style, as the suite installed it for the cases that follow, and the Classic separator.
+        // The application's style, as the suite installed it for the cases that follow, and the separator.
         an::ui::installAnProxyStyle();
         an::ui::applyDockDecorationsProfile();
     }

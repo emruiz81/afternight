@@ -39,8 +39,6 @@
 namespace
 {
 
-/// The dock library's own separator: what it lays groups apart by unless told otherwise, and the Classic profile's.
-constexpr int kLibraryDockSeparator = 5;
 
 /// What follows a view's name in its title while its image has unsaved changes.
 constexpr QStringView kUnsavedMark = u" *";
@@ -65,7 +63,7 @@ KDDockWidgets::QtWidgets::DockWidget* dockWidgetViewAt(KDDockWidgets::Core::TabB
 
 QIcon iconFromContext(const QString& iconName);
 
-/// What a button of the strip or of a title bar shows under the Observatory profile.
+/// What a button of the strip or of a title bar shows.
 an::ui::ObservatoryDockGlyph observatoryGlyph(const KDDockWidgets::TitleBarButtonType type, const bool tabList,
                                               const QWidget* button)
 {
@@ -170,7 +168,7 @@ const TabAdornment* tabAdornment(const KDDockWidgets::QtWidgets::DockWidget* doc
 
 void applyDockDecorationsProfile()
 {
-    const int thickness = observatoryDockDecorations() ? kObservatoryDockSeparator : kLibraryDockSeparator;
+    const int thickness = kObservatoryDockSeparator;
     KDDockWidgets::Config& config = KDDockWidgets::Config::self();
     if (config.separatorThickness() == thickness)
     {
@@ -242,14 +240,7 @@ AN_DockButton* AN_DockButton::makeTabList(QWidget* parent)
 
 QSize AN_DockButton::sizeHint() const
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        return {an::ui::observatoryDockButtonSide(), an::ui::observatoryDockButtonSide()};
-    }
-    // VS-style: compact square. Scale with logical DPI.
-    const qreal scale = logicalDpiX() / 96.0;
-    const int side = qRound(16 * scale);
-    return QSize(side, side);
+    return {an::ui::observatoryDockButtonSide(), an::ui::observatoryDockButtonSide()};
 }
 
 QSize AN_DockButton::minimumSizeHint() const
@@ -298,92 +289,9 @@ bool AN_DockButton::event(QEvent* ev)
 
 void AN_DockButton::paintEvent(QPaintEvent* /*event*/)
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        QPainter painter(this);
-        an::ui::paintObservatoryDockButton(painter, rect(), observatoryGlyph(m_type, m_tabList, this), m_hovered,
-                                           isDown(), isEnabled());
-        return;
-    }
-    using KDDockWidgets::TitleBarButtonType;
-    const auto& c = an::ui::tokens().colors;
-    const bool pressed = isDown();
-
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, true);
-    const QRect r = rect();
-
-    // ── Background ─────────────────────────────────────────────────
-    if (pressed)
-    {
-        p.fillRect(r, c.bgCardSecondary);
-    }
-    else if (m_hovered)
-    {
-        p.fillRect(r, c.bgHover);
-    }
-
-    // ── Glyph ──────────────────────────────────────────────────────
-    QColor glyphColor;
-    if (m_hovered || pressed)
-        glyphColor = c.textPrimary;
-    else
-        glyphColor = c.textSecondary;
-
-    QPen pen(glyphColor, 1.4, Qt::SolidLine, Qt::RoundCap);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-
-    // Draw a larger centered glyph so tab-corner controls are easier to hit/read.
-    const qreal glyphSide = qMin<qreal>(r.width(), r.height()) * 0.58;
-    const QRectF glyph(r.center().x() - (glyphSide / 2.0), r.center().y() - (glyphSide / 2.0), glyphSide, glyphSide);
-
-    switch (m_type)
-    {
-    case TitleBarButtonType::Close: {
-        // × glyph: two diagonal lines
-        p.drawLine(glyph.topLeft(), glyph.bottomRight());
-        p.drawLine(glyph.topRight(), glyph.bottomLeft());
-        break;
-    }
-    case TitleBarButtonType::Float:
-    case TitleBarButtonType::Normal: {
-        // Detach / float glyph: two overlapping small rectangles (VS-style)
-        const qreal w = glyph.width();
-        const qreal h = glyph.height();
-        const qreal off = w * 0.22; // offset for the back rectangle
-        // Back rectangle (upper-right, slightly offset)
-        QRectF back(glyph.left() + off, glyph.top(), w - off, h - off);
-        // Front rectangle (lower-left)
-        QRectF front(glyph.left(), glyph.top() + off, w - off, h - off);
-        p.drawRect(back);
-        p.drawRect(front);
-        break;
-    }
-    case TitleBarButtonType::Maximize: {
-        // Single rectangle (maximize)
-        p.drawRect(glyph);
-        break;
-    }
-    case TitleBarButtonType::Minimize: {
-        // Horizontal line at vertical center
-        const qreal cy = glyph.center().y();
-        p.drawLine(QPointF(glyph.left(), cy), QPointF(glyph.right(), cy));
-        break;
-    }
-    case TitleBarButtonType::AutoHide: {
-        // Pin glyph — draw a simple pushpin: vertical line with a circle
-        const qreal cx = glyph.center().x();
-        p.drawLine(QPointF(cx, glyph.top()), QPointF(cx, glyph.bottom()));
-        p.drawEllipse(QPointF(cx, glyph.top() + glyph.height() * 0.35), glyph.width() * 0.3, glyph.width() * 0.3);
-        break;
-    }
-    default:
-        // Fallback: draw ×
-        p.drawLine(glyph.topLeft(), glyph.bottomRight());
-        p.drawLine(glyph.topRight(), glyph.bottomLeft());
-        break;
-    }
+    QPainter painter(this);
+    an::ui::paintObservatoryDockButton(painter, rect(), observatoryGlyph(m_type, m_tabList, this), m_hovered, isDown(),
+                                       isEnabled());
 }
 
 namespace
@@ -483,14 +391,11 @@ AN_TabBar::AN_TabBar(KDDockWidgets::Core::TabBar* controller, KDDockWidgets::Cor
     setIconSize(QSize(12, 12));
     setDrawBase(false);
     applyThemeColors();
-    if (an::ui::observatoryDockDecorations())
-    {
-        // The library gives its strips a style of its own; the dock style draws them under this profile and keeps the
-        // library's reason for its own (no animation of the tabs).
-        auto* style = new an::ui::KddwProxyStyle();
-        style->setParent(this);
-        setStyle(style);
-    }
+    // The library gives its strips a style of its own; the dock style draws them and keeps the library's reason for its
+    // own (no animation of the tabs).
+    auto* style = new an::ui::KddwProxyStyle();
+    style->setParent(this);
+    setStyle(style);
 }
 
 an::ui::ObservatoryDockTab AN_TabBar::observatoryDockTab(int index) const
@@ -525,7 +430,7 @@ an::ui::ObservatoryDockTab AN_TabBar::observatoryDockTab(int index) const
 
 QRect AN_TabBar::adornmentRect(int index) const
 {
-    if (!an::ui::observatoryDockDecorations() || index < 0 || index >= count())
+    if (index < 0 || index >= count())
     {
         return {};
     }
@@ -535,7 +440,7 @@ QRect AN_TabBar::adornmentRect(int index) const
 
 QString AN_TabBar::toolTipAt(QPoint position) const
 {
-    const int index = an::ui::observatoryDockDecorations() ? tabAt(position) : -1;
+    const int index = tabAt(position);
     if (index < 0)
     {
         return {};
@@ -570,43 +475,19 @@ bool AN_TabBar::inFloatingWindow() const
 
 QSize AN_TabBar::minimumTabSizeHint(int index) const
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), true),
-                an::ui::observatoryDockStripHeight(inFloatingWindow())};
-    }
-    return KDDockWidgets::QtWidgets::TabBar::minimumTabSizeHint(index);
+    return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), true),
+            an::ui::observatoryDockStripHeight(inFloatingWindow())};
 }
 
 QSize AN_TabBar::tabSizeHint(int index) const
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), false),
-                an::ui::observatoryDockStripHeight(inFloatingWindow())};
-    }
-    QSize hint = KDDockWidgets::QtWidgets::TabBar::tabSizeHint(index);
-
-    const auto& spacing = an::ui::tokens().spacing;
-    const int textWidth = fontMetrics().horizontalAdvance(tabText(index));
-    const int iconWidth = tabIcon(index).isNull() ? 0 : iconSize().width() + spacing.xs;
-    const int closeIndicatorWidth =
-        tabsClosable() && style() ? style()->pixelMetric(QStyle::PM_TabCloseIndicatorWidth, nullptr, this) : 0;
-    const int closeWidth = closeIndicatorWidth > 0 ? closeIndicatorWidth + spacing.sm : 0;
-    const int minimumReadableWidth = textWidth + iconWidth + closeWidth + (spacing.sm * 2) + spacing.xs;
-    hint.setWidth(qMax(hint.width(), minimumReadableWidth));
-
-    constexpr qreal kTabHeightScale = 0.85;
-    hint.setHeight(qMax(18, qRound(hint.height() * kTabHeightScale)));
-    return hint;
+    return {an::ui::observatoryDockTabWidth(observatoryDockTab(index), false),
+            an::ui::observatoryDockStripHeight(inFloatingWindow())};
 }
 
 void AN_TabBar::applyThemeColors()
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        refreshTabs();
-    }
+    refreshTabs();
     // All tab shape/color drawing is handled by KddwProxyStyle / AnProxyStyle.
     // We only need to set palette colors so the tab label text renders correctly,
     // and configure close button icons per theme.
@@ -637,36 +518,6 @@ void AN_TabBar::setForceUnselected(bool enabled)
 bool AN_TabBar::isForceUnselected() const
 {
     return property("forceUnselected").toBool();
-}
-
-void AN_TabBar::paintEvent(QPaintEvent* event)
-{
-    if (an::ui::observatoryDockDecorations())
-    {
-        // The tabs, through the dock style; the strip's ground is the stack's.
-        KDDockWidgets::QtWidgets::TabBar::paintEvent(event);
-        return;
-    }
-    // Let the base QTabBar do all its normal painting through the style system.
-    KDDockWidgets::QtWidgets::TabBar::paintEvent(event);
-
-    // Overlay a bold accent line on the currently-selected tab when this tab bar
-    // belongs to the active view-control group (i.e. forceUnselected is false).
-    const int idx = currentIndex();
-    if (idx < 0 || isForceUnselected())
-        return;
-
-    const QRect tr = tabRect(idx);
-    if (tr.isEmpty())
-        return;
-
-    const auto& c = an::ui::tokens().colors;
-    constexpr int barHeight = 3;
-
-    QPainter p(this);
-    p.setPen(Qt::NoPen);
-    p.setBrush(c.accentPrimary);
-    p.drawRect(tr.left(), tr.top(), tr.width(), barHeight);
 }
 
 void AN_TabBar::mouseDoubleClickEvent(QMouseEvent* event)
@@ -735,54 +586,23 @@ void AN_TabBar::mouseReleaseEvent(QMouseEvent* event)
 
 bool AN_TabBar::event(QEvent* event)
 {
-    if (an::ui::observatoryDockDecorations())
+    if (event->type() == QEvent::Show)
     {
-        if (event->type() == QEvent::Show)
-        {
-            // Shown again after its group moved between a floating window and a dock area: its height may differ.
-            refreshTabs();
-        }
-        else if (event->type() == QEvent::ToolTip)
-        {
-            auto* helpEvent = static_cast<QHelpEvent*>(event);
-            if (const QString text = toolTipAt(helpEvent->pos()); !text.isEmpty())
-            {
-                QToolTip::showText(helpEvent->globalPos(), text, this);
-                return true;
-            }
-            QToolTip::hideText();
-            event->ignore();
-            return true;
-        }
+        // Shown again after its group moved between a floating window and a dock area: its height may differ.
+        refreshTabs();
     }
-    if (event->type() == QEvent::ToolTip)
+    else if (event->type() == QEvent::ToolTip)
     {
         auto* helpEvent = static_cast<QHelpEvent*>(event);
-        KDDockWidgets::Core::DockWidget* dwCore = nullptr;
-        if (auto* coreTabBar = this->tabBar())
+        if (const QString text = toolTipAt(helpEvent->pos()); !text.isEmpty())
         {
-            const int idx = tabAt(helpEvent->pos());
-            if (idx < 0)
-            {
-                QToolTip::hideText();
-                event->ignore();
-                return KDDockWidgets::QtWidgets::TabBar::event(event);
-            }
-            dwCore = coreTabBar->dockWidgetAt(idx);
-        }
-
-        const auto tooltipText = buildImageSummaryTooltip(dwCore);
-        if (!tooltipText.isEmpty())
-        {
-            QToolTip::showText(helpEvent->globalPos(), tooltipText, this);
+            QToolTip::showText(helpEvent->globalPos(), text, this);
             return true;
         }
-
         QToolTip::hideText();
         event->ignore();
-        return KDDockWidgets::QtWidgets::TabBar::event(event);
+        return true;
     }
-
     return KDDockWidgets::QtWidgets::TabBar::event(event);
 }
 
@@ -826,24 +646,16 @@ AN_TitleBar::AN_TitleBar(KDDockWidgets::Core::TitleBar* controller, KDDockWidget
 QSize AN_TitleBar::sizeHint() const
 {
     QSize hint = KDDockWidgets::QtWidgets::TitleBar::sizeHint();
-    if (an::ui::observatoryDockDecorations())
-    {
-        // A title bar heads a floating window: it is the smaller strip.
-        hint.setHeight(an::ui::observatoryDockStripHeight(true));
-    }
+    // A title bar heads a floating window: it is the smaller strip.
+    hint.setHeight(an::ui::observatoryDockStripHeight(true));
     return hint;
 }
 
-void AN_TitleBar::paintEvent(QPaintEvent* event)
+void AN_TitleBar::paintEvent(QPaintEvent* /*event*/)
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        QPainter painter(this);
-        const QRect title = rect().adjusted(iconRect().isEmpty() ? 0 : iconRect().right(), 0, -buttonAreaWidth(), 0);
-        an::ui::paintObservatoryDockTitleBar(painter, rect(), titleBar()->title(), title);
-        return;
-    }
-    KDDockWidgets::QtWidgets::TitleBar::paintEvent(event);
+    QPainter painter(this);
+    const QRect title = rect().adjusted(iconRect().isEmpty() ? 0 : iconRect().right(), 0, -buttonAreaWidth(), 0);
+    an::ui::paintObservatoryDockTitleBar(painter, rect(), titleBar()->title(), title);
 }
 
 bool AN_TitleBar::event(QEvent* event)
@@ -990,32 +802,28 @@ void AN_Stack::init()
         });
     }
 
-    if (an::ui::observatoryDockDecorations())
+    // The list of the strip's tabs, before its other buttons.
+    if (auto* corner = cornerWidget(Qt::TopRightCorner))
     {
-        // The list of the strip's tabs, before its other buttons.
-        if (auto* corner = cornerWidget(Qt::TopRightCorner))
+        m_tabList = AN_DockButton::makeTabList(corner);
+        if (auto* layout = qobject_cast<QBoxLayout*>(corner->layout()))
         {
-            m_tabList = AN_DockButton::makeTabList(corner);
-            if (auto* layout = qobject_cast<QBoxLayout*>(corner->layout()))
-            {
-                layout->insertWidget(0, m_tabList, 0, Qt::AlignVCenter);
-            }
-            connect(m_tabList, &QAbstractButton::clicked, this, [this]() { showTabList(); });
+            layout->insertWidget(0, m_tabList, 0, Qt::AlignVCenter);
         }
-        // After the library's own answers to a change of tabs, which enable the strip's buttons.
-        if (auto* strip = qobject_cast<KDDockWidgets::QtWidgets::TabBar*>(tabBar()))
-        {
-            connect(strip, &KDDockWidgets::QtWidgets::TabBar::countChanged, this,
-                    [this]() { applyObservatoryStrip(); });
-        }
-        connect(this, &QTabWidget::currentChanged, this, [this](int) { applyTabLocks(); });
-        applyObservatoryStrip();
+        connect(m_tabList, &QAbstractButton::clicked, this, [this]() { showTabList(); });
     }
+    // After the library's own answers to a change of tabs, which enable the strip's buttons.
+    if (auto* strip = qobject_cast<KDDockWidgets::QtWidgets::TabBar*>(tabBar()))
+    {
+        connect(strip, &KDDockWidgets::QtWidgets::TabBar::countChanged, this, [this]() { applyObservatoryStrip(); });
+    }
+    connect(this, &QTabWidget::currentChanged, this, [this](int) { applyTabLocks(); });
+    applyObservatoryStrip();
 }
 
 bool AN_Stack::event(QEvent* event)
 {
-    if (an::ui::observatoryDockDecorations() && event->type() == QEvent::Show)
+    if (event->type() == QEvent::Show)
     {
         // Shown again after its group moved between a floating window and a dock area: its strip's height may differ.
         applyObservatoryStrip();
@@ -1023,27 +831,18 @@ bool AN_Stack::event(QEvent* event)
     return KDDockWidgets::QtWidgets::Stack::event(event);
 }
 
-void AN_Stack::paintEvent(QPaintEvent* event)
+void AN_Stack::paintEvent(QPaintEvent* /*event*/)
 {
-    if (an::ui::observatoryDockDecorations())
+    // The strip's ground under the tabs and the buttons; the pages below lie on the group's.
+    if (const QTabBar* strip = tabBar(); strip != nullptr && strip->isVisible())
     {
-        // The strip's ground under the tabs and the buttons; the pages below lie on the group's.
-        if (const QTabBar* strip = tabBar(); strip != nullptr && strip->isVisible())
-        {
-            QPainter painter(this);
-            an::ui::paintObservatoryDockStrip(painter, QRect(0, strip->y(), width(), strip->height()));
-        }
-        return;
+        QPainter painter(this);
+        an::ui::paintObservatoryDockStrip(painter, QRect(0, strip->y(), width(), strip->height()));
     }
-    KDDockWidgets::QtWidgets::Stack::paintEvent(event);
 }
 
 void AN_Stack::applyObservatoryStrip()
 {
-    if (!an::ui::observatoryDockDecorations())
-    {
-        return;
-    }
     const bool floating = inFloatingWindowOf(this);
     if (auto* corner = cornerWidget(Qt::TopRightCorner); corner != nullptr && corner->layout() != nullptr)
     {
@@ -1084,7 +883,7 @@ void AN_Stack::applyObservatoryStrip()
 
 void AN_Stack::applyTabLocks()
 {
-    if (!an::ui::observatoryDockDecorations() || stack() == nullptr)
+    if (stack() == nullptr)
     {
         return;
     }
@@ -1252,45 +1051,11 @@ AN_Group::AN_Group(KDDockWidgets::Core::Group* controller, QWidget* parent)
 
 void AN_Group::paintEvent(QPaintEvent*)
 {
-    if (an::ui::observatoryDockDecorations())
+    // A docked group's ground; a floating window paints its own.
+    if (!m_group->isFloating())
     {
-        // A docked group's ground; a floating window paints its own.
-        if (!m_group->isFloating())
-        {
-            QPainter painter(this);
-            an::ui::paintObservatoryDockPane(painter, QWidget::rect());
-        }
-        return;
-    }
-    if (m_group->isFloating())
-        return; // floating windows have their own border painting
-
-    const auto& c = an::ui::tokens().colors;
-    const auto r = an::ui::tokens().radius.sm;
-
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-
-    const qreal penWidth = 1.0;
-    const qreal halfPen = penWidth / 2.0;
-    const QRectF rectf = QWidget::rect();
-
-    const bool isOverlayed = m_group->isOverlayed();
-    const QColor penColor = isOverlayed ? c.borderPrimary : c.borderSubtle;
-    QPen pen(penColor);
-    pen.setWidthF(penWidth);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-
-    if (isOverlayed)
-    {
-        pen.setJoinStyle(Qt::MiterJoin);
-        p.setPen(pen);
-        p.drawRect(rectf.adjusted(halfPen, penWidth, -halfPen, -halfPen));
-    }
-    else
-    {
-        p.drawRoundedRect(rectf.adjusted(halfPen, halfPen, -halfPen, -halfPen), r, r);
+        QPainter painter(this);
+        an::ui::paintObservatoryDockPane(painter, QWidget::rect());
     }
 }
 
@@ -1304,7 +1069,7 @@ AN_FloatingWindow::AN_FloatingWindow(KDDockWidgets::Core::FloatingWindow* contro
 
 bool AN_FloatingWindow::event(QEvent* event)
 {
-    if (an::ui::observatoryDockDecorations() && event->type() == QEvent::ActivationChange)
+    if (event->type() == QEvent::ActivationChange)
     {
         // The frame is the accent while the window is active.
         update();
@@ -1314,26 +1079,8 @@ bool AN_FloatingWindow::event(QEvent* event)
 
 void AN_FloatingWindow::paintEvent(QPaintEvent*)
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        QPainter painter(this);
-        an::ui::paintObservatoryDockFrame(painter, QWidget::rect(), isActiveWindow());
-        return;
-    }
-    const auto& c = an::ui::tokens().colors;
-
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-
-    QPen pen(c.borderPrimary);
-    pen.setWidth(1);
-    pen.setJoinStyle(Qt::MiterJoin);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-
-    const qreal halfPen = pen.widthF() / 2.0;
-    const QRectF rectf = rect();
-    p.drawRect(rectf.adjusted(halfPen, halfPen, -halfPen, -halfPen));
+    QPainter painter(this);
+    an::ui::paintObservatoryDockFrame(painter, QWidget::rect(), isActiveWindow());
 }
 
 // ---------------- AN_Separator ----------------
@@ -1343,15 +1090,10 @@ AN_Separator::AN_Separator(KDDockWidgets::Core::Separator* controller, KDDockWid
 {
 }
 
-void AN_Separator::paintEvent(QPaintEvent* event)
+void AN_Separator::paintEvent(QPaintEvent* /*event*/)
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        QPainter painter(this);
-        an::ui::paintObservatoryDockSeparator(painter, QWidget::rect(), m_hovered);
-        return;
-    }
-    KDDockWidgets::QtWidgets::Separator::paintEvent(event);
+    QPainter painter(this);
+    an::ui::paintObservatoryDockSeparator(painter, QWidget::rect(), m_hovered);
 }
 
 void AN_Separator::enterEvent(QEnterEvent* event)
@@ -1471,20 +1213,12 @@ KDDockWidgets::Core::View* AN_ViewFactory::createSeparator(KDDockWidgets::Core::
 
 KDDockWidgets::Core::ClassicIndicatorWindowViewInterface*
 AN_ViewFactory::createClassicIndicatorWindow(KDDockWidgets::Core::ClassicDropIndicatorOverlay* indicators,
-                                             KDDockWidgets::Core::View* parent) const
+                                             KDDockWidgets::Core::View* /*parent*/) const
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        return new AN_DropIndicators(indicators);
-    }
-    return KDDockWidgets::QtWidgets::ViewFactory::createClassicIndicatorWindow(indicators, parent);
+    return new AN_DropIndicators(indicators);
 }
 
 KDDockWidgets::Core::View* AN_ViewFactory::createRubberBand(KDDockWidgets::Core::View* parent) const
 {
-    if (an::ui::observatoryDockDecorations())
-    {
-        return new AN_DropBand(KDDockWidgets::QtCommon::View_qt::asQWidget(parent));
-    }
-    return KDDockWidgets::QtWidgets::ViewFactory::createRubberBand(parent);
+    return new AN_DropBand(KDDockWidgets::QtCommon::View_qt::asQWidget(parent));
 }

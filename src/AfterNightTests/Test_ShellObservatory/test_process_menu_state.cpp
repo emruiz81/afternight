@@ -9,11 +9,8 @@
 #include <string>
 #include <vector>
 
-#include <QMainWindow>
 
-#include "AfterNightAppUiBuilder.h"
 #include "app/ProcessMenuState.h"
-#include "fixtures/RecordedActions.h"
 
 namespace
 {
@@ -188,57 +185,4 @@ TEST(AfterNightAppProcessMenuSuite, FavoriteMenuLayoutReflectsManageAndClearPlac
     const an::ui::FavoriteProcessMenuLayout withFavorites = an::ui::buildFavoriteProcessMenuLayout(3);
     EXPECT_TRUE(withFavorites.addSeparatorBeforeManage);
     EXPECT_TRUE(withFavorites.clearEnabled);
-}
-
-TEST(AfterNightAppProcessMenuSuite, BuildUiProvidesDedicatedExtensionsMenuForManagement)
-{
-    QMainWindow window;
-    const an::tests::fixtures::RecordedActions actions(window);
-    ASSERT_TRUE(actions.loaded());
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window, actions.lookup());
-
-    ASSERT_NE(ui.menuBar, nullptr);
-    ASSERT_NE(ui.menuProcess, nullptr);
-    ASSERT_NE(ui.menuExtensions, nullptr);
-    ASSERT_NE(ui.menuWindow, nullptr);
-    ASSERT_NE(ui.actionManage_Extensions, nullptr);
-
-    const QList<QAction*> topLevelActions = ui.menuBar->actions();
-    const int processIndex = topLevelActions.indexOf(ui.menuProcess->menuAction());
-    const int extensionsIndex = topLevelActions.indexOf(ui.menuExtensions->menuAction());
-    const int windowIndex = topLevelActions.indexOf(ui.menuWindow->menuAction());
-
-    ASSERT_GE(processIndex, 0);
-    ASSERT_GE(extensionsIndex, 0);
-    ASSERT_GE(windowIndex, 0);
-    EXPECT_LT(processIndex, extensionsIndex);
-    EXPECT_LT(extensionsIndex, windowIndex);
-
-    const QList<QAction*> extensionActions = ui.menuExtensions->actions();
-    ASSERT_EQ(extensionActions.size(), 1);
-    EXPECT_EQ(extensionActions.at(0), ui.actionManage_Extensions);
-    EXPECT_TRUE(ui.menuExtensions->title().contains(QStringLiteral("Extensions")));
-    EXPECT_TRUE(ui.actionManage_Extensions->text().contains(QStringLiteral("Manage")));
-    EXPECT_TRUE(ui.actionManage_Extensions->toolTip().contains(QStringLiteral("configure")));
-}
-
-TEST(AfterNightAppProcessMenuSuite, BuildUiPlacesNBRGBCombinationNearLRGBInColorSpaces)
-{
-    QMainWindow window;
-    const an::tests::fixtures::RecordedActions actions(window);
-    ASSERT_TRUE(actions.loaded());
-    an::ui::app::AfterNightAppUiElements ui = an::ui::app::buildAfterNightAppUi(&window, actions.lookup());
-
-    ASSERT_NE(ui.menuColor_Spaces, nullptr);
-    ASSERT_NE(ui.actionLRGB_Combination, nullptr);
-    ASSERT_NE(ui.actionNBRGB_Combination, nullptr);
-
-    const QList<QAction*> colorActions = ui.menuColor_Spaces->actions();
-    const int lrgbIndex = colorActions.indexOf(ui.actionLRGB_Combination);
-    const int nbrgbIndex = colorActions.indexOf(ui.actionNBRGB_Combination);
-
-    ASSERT_GE(lrgbIndex, 0);
-    ASSERT_GE(nbrgbIndex, 0);
-    EXPECT_EQ(nbrgbIndex, lrgbIndex + 1);
-    EXPECT_TRUE(ui.actionNBRGB_Combination->text().contains(QStringLiteral("NBRGB Combination")));
 }

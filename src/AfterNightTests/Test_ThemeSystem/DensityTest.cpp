@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// Density: the sizes of the interface as tokens. The Observatory profile has two densities, Compact and Comfortable,
-// each a column of metrics - the heights of a control, a row, a bar, the font sizes, a panel's padding - and a type
-// scale sized by them; the proxy style answers the sizes of the standard widgets from them, and a density changed while
-// a window is shown sizes the window again. The Classic profile keeps AfterNight 1.1's sizes and ignores the density.
+// Density: the sizes of the interface as tokens. There are two densities, Compact and Comfortable, each a column of
+// metrics - the heights of a control, a row, a bar, the font sizes, a panel's padding - and a type scale sized by them;
+// the proxy style answers the sizes of the standard widgets from them, and a density changed while a window is shown
+// sizes the window again.
 
 #include "app/ThemeManager.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 
@@ -49,33 +48,23 @@ namespace
 
 using an::ui::DesignTokens;
 using an::ui::MetricTokens;
-using an::ui::StyleProfile;
 using an::ui::ThemeChoices;
 using an::ui::ThemeContrastProfile;
 using an::ui::ThemeDensity;
 using an::ui::ThemeVariant;
-using an::ui::testing::ScopedStyleProfile;
 
 constexpr std::array<ThemeDensity, 2u> kDensities{ThemeDensity::Compact, ThemeDensity::Comfortable};
 constexpr std::array<ThemeContrastProfile, 4u> kContrasts{ThemeContrastProfile::High, ThemeContrastProfile::Balanced,
                                                           ThemeContrastProfile::Soft, ThemeContrastProfile::Oled};
-constexpr std::array<an::ui::ThemeAccentFamily, 5u> kAccents{
-    an::ui::ThemeAccentFamily::Blue, an::ui::ThemeAccentFamily::Teal, an::ui::ThemeAccentFamily::Amber,
-    an::ui::ThemeAccentFamily::Amethyst, an::ui::ThemeAccentFamily::Rose};
-constexpr std::array<an::ui::ThemeSurfaceTintFamily, 6u> kTints{
-    an::ui::ThemeSurfaceTintFamily::Neutral, an::ui::ThemeSurfaceTintFamily::Ocean,
-    an::ui::ThemeSurfaceTintFamily::Mint,    an::ui::ThemeSurfaceTintFamily::Amethyst,
-    an::ui::ThemeSurfaceTintFamily::Rose,    an::ui::ThemeSurfaceTintFamily::Amber};
 
 const char* densityName(const ThemeDensity density)
 {
     return density == ThemeDensity::Comfortable ? "comfortable" : "compact";
 }
 
-DesignTokens resolved(const StyleProfile profile, const ThemeDensity density,
-                      const ThemeVariant theme = ThemeVariant::Dark)
+DesignTokens resolved(const ThemeDensity density, const ThemeVariant theme = ThemeVariant::Dark)
 {
-    return an::ui::resolveDesignTokens(ThemeChoices{.theme = theme, .profile = profile, .density = density});
+    return an::ui::resolveDesignTokens(ThemeChoices{.theme = theme, .density = density});
 }
 
 /// The density's column of the table, as the design states it.
@@ -199,8 +188,8 @@ bool eventually(const std::function<bool()>& holds)
     return true;
 }
 
-/// The proxy style installed for the application under the Observatory profile at a density; the style, palette, font
-/// and density the process had are put back, and the profile with them, when the scope ends.
+/// The proxy style installed for the application at a density; the style, palette, font and density the process had
+/// are put back when the scope ends.
 class ObservatoryStyleInstalled final
 {
 public:
@@ -231,7 +220,6 @@ public:
     }
 
 private:
-    ScopedStyleProfile m_profile{StyleProfile::Observatory};
     ThemeDensity m_density;
     QPalette m_palette;
     QFont m_font;
@@ -257,7 +245,7 @@ private:
 
 } // namespace
 
-// Under the Observatory profile each density resolves to its column of the table, in every theme and contrast profile.
+// Each density resolves to its column of the table, in every theme and contrast profile.
 TEST(Density, TableMatches)
 {
     for (const ThemeDensity density : kDensities)
@@ -266,8 +254,8 @@ TEST(Density, TableMatches)
         {
             for (const ThemeContrastProfile contrast : kContrasts)
             {
-                const DesignTokens tokens = an::ui::resolveDesignTokens(ThemeChoices{
-                    .theme = theme, .contrast = contrast, .profile = StyleProfile::Observatory, .density = density});
+                const DesignTokens tokens =
+                    an::ui::resolveDesignTokens(ThemeChoices{.theme = theme, .contrast = contrast, .density = density});
                 expectMetrics(tokens.metrics, designColumn(density),
                               std::string(densityName(density)) + (theme == ThemeVariant::Dark ? ", dark" : ", light") +
                                   ", contrast " + std::to_string(static_cast<int>(contrast)));
@@ -276,51 +264,10 @@ TEST(Density, TableMatches)
     }
 }
 
-// The Classic profile keeps 1.1's sizes: its control floor and its scroll bar, the sizes of its type scale, and the
-// Compact column for what 1.1 has no size for. The density moves none of its tokens, in any combination.
-TEST(Density, ClassicIgnoresTheDensity)
-{
-    const DesignTokens classic = resolved(StyleProfile::Classic, ThemeDensity::Compact);
-    MetricTokens expected = designColumn(ThemeDensity::Compact);
-    expected.control = 24;
-    expected.scrollBar = 12;
-    expected.fontBody = logicalPixels(classic.typography.body);
-    expected.fontSmall = logicalPixels(classic.typography.caption);
-    expected.fontCaption = logicalPixels(classic.typography.caption);
-    expectMetrics(classic.metrics, expected, "classic");
-
-    for (const ThemeVariant theme : {ThemeVariant::Dark, ThemeVariant::Light})
-    {
-        for (const ThemeContrastProfile contrast : kContrasts)
-        {
-            for (const an::ui::ThemeAccentFamily accent : kAccents)
-            {
-                for (const an::ui::ThemeSurfaceTintFamily tint : kTints)
-                {
-                    ThemeChoices choices{.theme = theme, .contrast = contrast, .accent = accent, .tint = tint};
-                    const DesignTokens compact = an::ui::resolveDesignTokens(choices);
-                    choices.density = ThemeDensity::Comfortable;
-                    EXPECT_TRUE(an::ui::resolveDesignTokens(choices) == compact)
-                        << "theme " << static_cast<int>(theme) << ", contrast " << static_cast<int>(contrast)
-                        << ", accent " << static_cast<int>(accent) << ", tint " << static_cast<int>(tint);
-                }
-            }
-        }
-    }
-
-    const DensityRestored restored;
-    const ScopedStyleProfile classicInForce(StyleProfile::Classic);
-    an::ui::setThemeDensity(ThemeDensity::Compact);
-    const DesignTokens before = an::ui::tokens();
-    an::ui::setThemeDensity(ThemeDensity::Comfortable);
-    EXPECT_TRUE(an::ui::tokens() == before);
-}
-
 // The density in force is one of the choices the tokens in force are resolved from.
 TEST(Density, TheTokensInForceFollowTheDensity)
 {
     const DensityRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     for (const ThemeDensity density : kDensities)
     {
         an::ui::setThemeDensity(density);
@@ -330,9 +277,9 @@ TEST(Density, TheTokensInForceFollowTheDensity)
     }
 }
 
-// Under the Observatory profile the proxy style sizes the standard widgets from the metrics of the density in force: a
-// control (a button, a tool button, a combo box, a spin box, a line edit), a tab, a table's rows and its header, a
-// list's rows, a scroll bar and a menu's items.
+// The proxy style sizes the standard widgets from the metrics of the density in force: a control (a button, a tool
+// button, a combo box, a spin box, a line edit), a tab, a table's rows and its header, a list's rows, a scroll bar and
+// a menu's items.
 TEST(Density, ProxyStyleMetricsFollow)
 {
     for (const ThemeDensity density : kDensities)
@@ -420,15 +367,14 @@ TEST(Density, ChangeResizesAShownWindow)
     EXPECT_EQ(logicalPixels(QApplication::font()), 14);
 }
 
-// The type scale under the Observatory profile: the body, the caption, the third heading and the monospace at the
-// density's sizes, the first two headings at theirs in both, every heading semibold, tabular figures throughout. The
-// Classic profile's type scale is 1.1's in both densities.
+// The type scale: the body, the caption, the third heading and the monospace at the density's sizes, the first two
+// headings at theirs in both, every heading semibold, tabular figures throughout.
 TEST(Typography, SizesByDensity)
 {
     for (const ThemeDensity density : kDensities)
     {
         SCOPED_TRACE(densityName(density));
-        const DesignTokens tokens = resolved(StyleProfile::Observatory, density);
+        const DesignTokens tokens = resolved(density);
         const an::ui::TypographyTokens& t = tokens.typography;
         const int body = density == ThemeDensity::Comfortable ? 14 : 13;
         const int caption = density == ThemeDensity::Comfortable ? 12 : 11;
@@ -444,8 +390,8 @@ TEST(Typography, SizesByDensity)
         EXPECT_EQ(t.heading1.weight(), QFont::DemiBold);
         EXPECT_EQ(t.heading2.weight(), QFont::DemiBold);
         EXPECT_EQ(t.heading3.weight(), QFont::DemiBold);
-        // The interface font is the platform's, the one the Classic profile's body is.
-        EXPECT_EQ(t.body.family(), resolved(StyleProfile::Classic, density).typography.body.family());
+        // The interface font is the platform's, the one the base set's body is.
+        EXPECT_EQ(t.body.family(), an::ui::darkTokens().typography.body.family());
         EXPECT_EQ(t.monospace.families().value(0), QStringLiteral("Cascadia Mono"));
         EXPECT_EQ(t.monospace.families().value(1), QStringLiteral("Cascadia Code"));
         EXPECT_EQ(t.monospace.families().value(2), QStringLiteral("Consolas"));
@@ -458,25 +404,21 @@ TEST(Typography, SizesByDensity)
         EXPECT_GT(t.body.pointSizeF(), 0.0);
         EXPECT_GT(t.body.pointSize(), 0);
     }
-
-    EXPECT_TRUE(resolved(StyleProfile::Classic, ThemeDensity::Compact).typography ==
-                resolved(StyleProfile::Classic, ThemeDensity::Comfortable).typography);
 }
 
-// The Observatory profile's radii: small parts 6, controls 8, cards and popups 12, sheets 16. Classic keeps 1.1's.
+// The radii: small parts 6, controls 8, cards and popups 12, sheets 16.
 TEST(ObservatoryRadius, IsTheShapeTable)
 {
     for (const ThemeDensity density : kDensities)
     {
         for (const ThemeVariant theme : {ThemeVariant::Dark, ThemeVariant::Light})
         {
-            const an::ui::RadiusTokens observatory = resolved(StyleProfile::Observatory, density, theme).radius;
+            const an::ui::RadiusTokens observatory = resolved(density, theme).radius;
             EXPECT_EQ(observatory.none, 0);
             EXPECT_EQ(observatory.sm, 6);
             EXPECT_EQ(observatory.md, 8);
             EXPECT_EQ(observatory.lg, 12);
             EXPECT_EQ(observatory.xl, 16);
-            EXPECT_TRUE(resolved(StyleProfile::Classic, density, theme).radius == an::ui::RadiusTokens{});
         }
     }
 }

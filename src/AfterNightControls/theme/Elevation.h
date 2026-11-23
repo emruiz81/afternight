@@ -4,8 +4,8 @@
 #pragma once
 
 /// @file
-/// How a raised part stands off what is under it under the Observatory profile: a menu, a tooltip, a popover, the
-/// palette, the transient message. A raised part draws a 1 px line of the `edge` colour under its bottom edge and a
+/// How a raised part stands off what is under it: a menu, a tooltip, a popover, the palette, the transient
+/// message. A raised part draws a 1 px line of the `edge` colour under its bottom edge and a
 /// shadow of the `shadowOverlay` colour 10 px down, whose edge fades over 28 px. Nothing behind it is blurred and no
 /// gradient is drawn: the shadow is an image, rendered once per corner radius, device pixel ratio and colour and drawn
 /// as a nine-patch around the part, so a part of any size costs nine image draws.

@@ -43,7 +43,7 @@ public:
     DockLayoutOperations& operator=(DockLayoutOperations&&) = delete;
 
     /// Gathers the target's views into its dock area as one tab group: a workspace's, the views docked in it; a
-    /// shell's only dock area's, every listed view, as 1.1's Window menu did. The active view stays active.
+    /// shell's only dock area's, every listed view. The active view stays active.
     void groupAll(const DockTarget& target);
     /// Places the target's views - as `groupAll` takes them - in its dock area in a grid of equal shares; the active
     /// view stays active.

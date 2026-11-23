@@ -6,7 +6,6 @@
 #include "components/AnStyledTable.h"
 
 #include "theme/AnDesignTokens.h"
-#include "theme/ComponentParts.h"
 
 #include <QAbstractItemView>
 #include <QHeaderView>
@@ -18,19 +17,8 @@ namespace an::ui
 namespace
 {
 
-/// How much of the state colour an alternate row takes under the Observatory profile.
+/// How much of the state colour an alternate row takes.
 constexpr float kAlternateShare = 0.04f;
-QColor resolvedSelectionTextColor(const QPalette& palette, const DesignTokens& tokenSet)
-{
-    QColor selectionFill = tokenSet.colors.accentPrimary;
-    selectionFill.setAlpha(an::ui::isDarkTheme() ? 116 : 84);
-
-    const QColor baseColor =
-        palette.color(QPalette::Base).isValid() ? palette.color(QPalette::Base) : palette.color(QPalette::Window);
-    const QColor effectiveSelectionBg = an::ui::compositeOver(selectionFill, baseColor);
-
-    return an::ui::parts::contrastingTextColor(effectiveSelectionBg, tokenSet.colors.textOnAccent, 4.5);
-}
 
 } // namespace
 
@@ -51,62 +39,24 @@ void AnStyledTable::refreshTheme()
     refreshTokens();
     const auto& tokenSet = tokens();
 
-    if (styleProfile() == StyleProfile::Observatory)
-    {
-        // The rows on the first surface, every other one a breath lighter; the selection the accent's soft share under
-        // the primary text; the header the third surface in the secondary text, in the style's small capitals.
-        QPalette pal = palette();
-        pal.setColor(QPalette::Base, tokenSet.layers.surface1);
-        QColor alternate = tokenSet.colors.stateLayer;
-        alternate.setAlphaF(kAlternateShare);
-        pal.setColor(QPalette::AlternateBase, compositeOver(alternate, tokenSet.layers.surface1));
-        pal.setColor(QPalette::Text, tokenSet.colors.textPrimary);
-        pal.setColor(QPalette::Highlight, tokenSet.colors.accentSoft);
-        pal.setColor(QPalette::HighlightedText, tokenSet.colors.textPrimary);
-        setPalette(pal);
-        if (QHeaderView* header = horizontalHeader())
-        {
-            QPalette headerPal = header->palette();
-            headerPal.setColor(QPalette::Window, tokenSet.layers.surface3);
-            headerPal.setColor(QPalette::WindowText, tokenSet.colors.textSecondary);
-            header->setPalette(headerPal);
-        }
-        style()->unpolish(this);
-        style()->polish(this);
-        update();
-        return;
-    }
-
-    // Table colors via palette
+    // The rows on the first surface, every other one a breath lighter; the selection the accent's soft share under the
+    // primary text; the header the third surface in the secondary text, in the style's small capitals.
     QPalette pal = palette();
-    pal.setColor(QPalette::Base, tokenSet.colors.bgInput);
-    pal.setColor(QPalette::AlternateBase, tokenSet.colors.bgSurface);
+    pal.setColor(QPalette::Base, tokenSet.layers.surface1);
+    QColor alternate = tokenSet.colors.stateLayer;
+    alternate.setAlphaF(kAlternateShare);
+    pal.setColor(QPalette::AlternateBase, compositeOver(alternate, tokenSet.layers.surface1));
     pal.setColor(QPalette::Text, tokenSet.colors.textPrimary);
-    QColor selectionFill = tokenSet.colors.accentPrimary;
-    selectionFill.setAlpha(an::ui::isDarkTheme() ? 116 : 84);
-    pal.setColor(QPalette::Highlight, selectionFill);
-
-    const QColor selectedTextColor = resolvedSelectionTextColor(pal, tokenSet);
-    pal.setColor(QPalette::HighlightedText, selectedTextColor);
-    pal.setColor(QPalette::Active, QPalette::HighlightedText, selectedTextColor);
-    pal.setColor(QPalette::Inactive, QPalette::HighlightedText, selectedTextColor);
+    pal.setColor(QPalette::Highlight, tokenSet.colors.accentSoft);
+    pal.setColor(QPalette::HighlightedText, tokenSet.colors.textPrimary);
     setPalette(pal);
-
-    // Header styling via palette + font
-    QHeaderView* hHeader = horizontalHeader();
-    if (hHeader)
+    if (QHeaderView* header = horizontalHeader())
     {
-        QPalette headerPal = hHeader->palette();
-        headerPal.setColor(QPalette::Window, tokenSet.colors.bgCardPrimary);
+        QPalette headerPal = header->palette();
+        headerPal.setColor(QPalette::Window, tokenSet.layers.surface3);
         headerPal.setColor(QPalette::WindowText, tokenSet.colors.textSecondary);
-        hHeader->setPalette(headerPal);
-
-        QFont headerFont = hHeader->font();
-        headerFont.setWeight(QFont::DemiBold);
-        hHeader->setFont(headerFont);
+        header->setPalette(headerPal);
     }
-
-    // Re-polish so the proxy style paints properly
     style()->unpolish(this);
     style()->polish(this);
     update();

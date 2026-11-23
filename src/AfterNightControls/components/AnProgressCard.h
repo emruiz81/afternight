@@ -65,7 +65,6 @@ private:
     int m_rangeMinimum = 0;
     int m_rangeMaximum = 100;
     QColor m_bgColor;
-    QColor m_borderColor;
     int m_radius = 12;
 };
 

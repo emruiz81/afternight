@@ -227,14 +227,14 @@ TEST_F(Settings, TheShellRowOffersEveryShellRegistered)
     an::ui::shell::ShellRegistry registry;
     const auto made = [](an::ui::shell::ApplicationCore&) -> std::unique_ptr<an::ui::shell::IShell> { return nullptr; };
     ASSERT_TRUE(
-        registry.add({.id = QStringLiteral("classic"), .displayName = QStringLiteral("Classic"), .create = made}));
+        registry.add({.id = QStringLiteral("nebula"), .displayName = QStringLiteral("Nebula"), .create = made}));
     ASSERT_TRUE(registry.add(
         {.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory"), .create = made}));
     core().setShellRegistry(&registry);
     an::ui::IGlobalSettingsProvider* const settings = core().globalSettings();
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_SHELL);
     const QString previous = settings->select(key, QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL));
-    (void)settings->upsert(key, QStringLiteral("classic"));
+    (void)settings->upsert(key, QStringLiteral("nebula"));
 
     QStringList offered;
     QString shownChoice;
@@ -253,8 +253,8 @@ TEST_F(Settings, TheShellRowOffersEveryShellRegistered)
         pressOk(dialog);
     }));
     core().setShellRegistry(nullptr);
-    EXPECT_EQ(offered, (QStringList{QStringLiteral("Classic"), QStringLiteral("Observatory")}));
-    EXPECT_EQ(shownChoice, QStringLiteral("classic")) << "the row does not show the shell stored";
+    EXPECT_EQ(offered, (QStringList{QStringLiteral("Nebula"), QStringLiteral("Observatory")}));
+    EXPECT_EQ(shownChoice, QStringLiteral("nebula")) << "the row does not show the shell stored";
     EXPECT_EQ(settings->select(key, QString()), QStringLiteral("observatory")) << "OK did not keep the shell chosen";
     (void)settings->upsert(key, previous);
 }

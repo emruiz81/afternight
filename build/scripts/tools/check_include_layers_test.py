@@ -193,10 +193,6 @@ class PrefixAndForeignTests(EngineTreeCase):
         self.private_file('core/Version.cpp', '#include <AfterNightShellCore/core/ShellRegistry.h>\n')
         self.assertRejected('belongs to AfterNightShellCore')
 
-    def test_the_classic_shell_is_another_first_party_component(self):
-        self.private_file('core/Version.cpp', '#include <AfterNightShellClassic/ClassicShell.h>\n')
-        self.assertRejected('belongs to AfterNightShellClassic')
-
     def test_the_observatory_shell_is_another_first_party_component(self):
         self.private_file('core/Version.cpp', '#include <AfterNightShellObservatory/ObservatoryShell.h>\n')
         self.assertRejected('belongs to AfterNightShellObservatory')

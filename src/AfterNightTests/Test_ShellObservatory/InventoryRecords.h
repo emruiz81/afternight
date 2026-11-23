@@ -45,12 +45,14 @@
 namespace an::tests::app
 {
 
-inline constexpr const char* kActionInventoryPath = "src/AfterNightTests/Test_ShellClassic/data/ActionInventory.txt";
+inline constexpr const char* kActionInventoryPath =
+    "src/AfterNightTests/Test_ShellObservatory/data/ActionInventory.txt";
 inline constexpr const char* kShortcutInventoryPath =
-    "src/AfterNightTests/Test_ShellClassic/data/ShortcutInventory.txt";
+    "src/AfterNightTests/Test_ShellObservatory/data/ShortcutInventory.txt";
 inline constexpr const char* kViewMenuInventoryPath =
-    "src/AfterNightTests/Test_ShellClassic/data/ViewMenuInventory.txt";
-inline constexpr const char* kProcessInventoryPath = "src/AfterNightTests/Test_ShellClassic/data/ProcessInventory.txt";
+    "src/AfterNightTests/Test_ShellObservatory/data/ViewMenuInventory.txt";
+inline constexpr const char* kProcessInventoryPath =
+    "src/AfterNightTests/Test_ShellObservatory/data/ProcessInventory.txt";
 
 inline constexpr const char* kActionsSection = "actions";
 inline constexpr const char* kMenuBarSection = "menu bar";
@@ -59,16 +61,18 @@ inline constexpr const char* kWindowShortcutsSection = "window";
 inline constexpr const char* kConsoleShortcutsSection = "session console";
 inline constexpr const char* kProcessesSection = "processes";
 
-/// What every record of the interface closes its preamble with: how it is held and how it changes.
-[[nodiscard]] inline QStringList recordKeeping(const QString& heldBy)
+/// What every record of the interface closes its preamble with: the cases that hold it, a line an element, and how it
+/// changes.
+[[nodiscard]] inline QStringList recordKeeping(const QStringList& heldBy)
 {
-    return {
-        QString(),
-        heldBy + QStringLiteral(" in Test_ShellClassic compares the running application with this record."),
+    QStringList keeping{QString()};
+    keeping.append(heldBy);
+    keeping.append({
         QStringLiteral("An entry is edited by the change that means to move it - a renamed action, a new menu"),
         QStringLiteral("entry, a retired process; the record is not written again whole. A field is `-` when"),
         QStringLiteral("empty; `\\t` is a tab and `\\|` a bar inside a text."),
-    };
+    });
+    return keeping;
 }
 
 [[nodiscard]] inline QStringList actionInventoryPreamble()
@@ -93,8 +97,10 @@ inline constexpr const char* kProcessesSection = "processes";
         QStringLiteral("what is installed, only the actions of [actions] are held. Neither counts among the menus"),
         QStringLiteral("that hold an action."),
     };
-    preamble.append(recordKeeping(
-        QStringLiteral("ApplicationMenu.ActionInventoryMatchesTheRecord and .MenuBarTreeMatchesTheRecord")));
+    preamble.append(recordKeeping({
+        QStringLiteral("ActionCatalogue.HoldsTheRecordedInventory and MenuTree.EqualsTheRecordedMenuBar in"),
+        QStringLiteral("Test_ShellCore hold the running application to this record."),
+    }));
     return preamble;
 }
 
@@ -111,7 +117,10 @@ inline constexpr const char* kProcessesSection = "processes";
         QStringLiteral("  entry | text                                   an entry of the view's own"),
         QStringLiteral("  separator"),
     };
-    preamble.append(recordKeeping(QStringLiteral("ApplicationMenu.ViewMenuTreeMatchesTheRecord")));
+    preamble.append(recordKeeping({
+        QStringLiteral("ViewMenuBuilderTest.EqualsTheRecordedTree in Test_ShellCore and ShellScenario.ViewMenuEntries"),
+        QStringLiteral("in Test_ShellParity hold the running application to this record."),
+    }));
     return preamble;
 }
 
@@ -120,10 +129,12 @@ inline constexpr const char* kProcessesSection = "processes";
     QStringList preamble = {
         QStringLiteral("The key sequences AfterNight 1.1 answers."),
         QString(),
-        QStringLiteral("[window]: every shortcut an action or a shortcut object of the main window carries, sorted:"),
+        QStringLiteral("[window]: every shortcut an action or a shortcut object of AfterNight 1.1's main window"),
+        QStringLiteral("carried, sorted - the keys a person brings from 1.1, which the Observatory window's own"),
+        QStringLiteral("shortcuts are kept apart from:"),
         QStringLiteral("  key sequence | context | action or shortcut | its object name, or its text | its owner"),
         QStringLiteral("[session console]: the same of the Session Console, which the window makes when it is first"),
-        QStringLiteral("shown and which is read apart, so [window] is the same whether or not it has been."),
+        QStringLiteral("shown."),
         QString(),
         QStringLiteral("[view standard], [view rt_preview], [view st_preview]: the key presses a view's own key"),
         QStringLiteral("handling takes for itself in each mode of a view - an image's view, a process's real-time"),
@@ -133,7 +144,11 @@ inline constexpr const char* kProcessesSection = "processes";
         QStringLiteral("A key is listed when the view takes the press, whether or not it has something to act on."),
         QStringLiteral("Undo and Redo, Ctrl+Z and Ctrl+Y, are the window's."),
     };
-    preamble.append(recordKeeping(QStringLiteral("ApplicationWindow.ShortcutsMatchTheRecord")));
+    preamble.append(recordKeeping({
+        QStringLiteral("Shortcuts.MatchTheRecord in Test_ShellObservatory holds the running application to the"),
+        QStringLiteral("Session Console's and the views' sections; NewShortcuts.DoNotCollideWithTheRecordedOnes there"),
+        QStringLiteral("keeps the Observatory window's own shortcuts apart from [window]."),
+    }));
     return preamble;
 }
 
@@ -146,7 +161,10 @@ inline constexpr const char* kProcessesSection = "processes";
         QStringLiteral("The name is the one the menu gives the process. The guards are what a launch asks of the"),
         QStringLiteral("active view; the outputs, what the process states it makes beside its result."),
     };
-    preamble.append(recordKeeping(QStringLiteral("ProcessRegistry.InventoryMatchesTheRecord")));
+    preamble.append(recordKeeping({
+        QStringLiteral("ProcessRegistry.InventoryMatchesTheRecord in Test_ShellObservatory holds the running"),
+        QStringLiteral("application to this record."),
+    }));
     return preamble;
 }
 

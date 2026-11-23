@@ -113,7 +113,7 @@ ImageStatisticsControl::ImageStatisticsControl(ImageViewControl* control)
     : QDialog(control), ImageViewControlListener(control), m_Requests(std::make_shared<RequestState>())
 {
     m_ui = an::ui::controls::buildImageStatisticsControlUi(this);
-    // Under the Observatory profile the header is a window's heading, which says the image too.
+    // The header is a window's heading, which says the image too.
     an::ui::headWindowInPlaceOf(m_ui.headerSection,
                                 an::ui::windowEyebrow(QStringLiteral("Analysis"),
                                                       QString::fromStdString(m_image_view_control->getUniqueName())));

@@ -1469,8 +1469,8 @@ struct ProcessPageLayout::Impl : public QObject
                     elided = true;
                 }
             }
-            // A spin box stated wider than it needs - 1.1's builders state its least width in pixels; its own is its
-            // widest value's - gives way to what it needs where the controls are wider than the body even without
+            // A spin box stated wider than it needs - a process's builder states its least width in pixels; its own is
+            // its widest value's - gives way to what it needs where the controls are wider than the body even without
             // their side margins.
             if (least > available)
             {

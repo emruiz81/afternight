@@ -5,7 +5,6 @@
 
 #include "AfterNightControlsExport.h"
 
-#include <QColor>
 #include <QString>
 #include <QWidget>
 
@@ -40,7 +39,6 @@ public:
     void refreshTheme();
 
 protected:
-    void changeEvent(QEvent* event) override;
     bool event(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
@@ -57,9 +55,6 @@ private:
     QPropertyAnimation* m_contentAnimation = nullptr;
     bool m_isExpanded = false;
     bool m_contentHeightSyncQueued = false;
-    QColor m_bgColor;
-    QColor m_borderColor;
-    int m_radius = 8;
 };
 
 } // namespace an::ui

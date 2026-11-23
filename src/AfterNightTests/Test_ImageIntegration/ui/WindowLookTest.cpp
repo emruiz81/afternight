@@ -56,10 +56,6 @@ struct Said
 /// Expects a window made under the Observatory profile to say that Image Integration holds it, under a title.
 void expectHeldByImageIntegration(const QWidget& window, const QString& title)
 {
-    if (!an::ui::windowsTakeHeadings())
-    {
-        return;
-    }
     const Said said = saidBy(window);
     EXPECT_EQ(said.eyebrow, QStringLiteral("Image Integration"));
     EXPECT_EQ(said.title, title);
@@ -93,12 +89,9 @@ TEST(WindowLook, StackingSettings)
             new StackingSettingsDialog(StackingSettingsDialog::FrameType::LIGHT, QStringLiteral("Light - Ha - 300 s"));
         dialog->resetToDefaults();
         expectHeldByImageIntegration(*dialog, QStringLiteral("LIGHT Integration Stacking Settings"));
-        if (an::ui::windowsTakeHeadings())
-        {
-            const auto* const heading = dialog->findChild<an::ui::AnWindowHeading*>(QStringLiteral("anWindowHeading"));
-            EXPECT_TRUE(heading != nullptr && heading->description() == QStringLiteral("Light - Ha - 300 s"))
-                << "the heading does not say whose settings these are";
-        }
+        const auto* const heading = dialog->findChild<an::ui::AnWindowHeading*>(QStringLiteral("anWindowHeading"));
+        EXPECT_TRUE(heading != nullptr && heading->description() == QStringLiteral("Light - Ha - 300 s"))
+            << "the heading does not say whose settings these are";
         return dialog;
     });
     AN_WINDOW_LOOK_REPORT(measured);
@@ -221,10 +214,7 @@ TEST(WindowLook, RecommendedStackingSettings)
     const WindowLookMeasured measured = expectWindowLook([&]() -> QWidget* {
         auto* const dialog = new StackingRecommendationDialog(
             StackingSettingsDialog::FrameType::LIGHT, QStringLiteral("Light - Ha"), 20, recommended, drizzle, current);
-        if (an::ui::windowsTakeHeadings())
-        {
-            EXPECT_EQ(saidBy(*dialog).eyebrow, QStringLiteral("Image Integration"));
-        }
+        EXPECT_EQ(saidBy(*dialog).eyebrow, QStringLiteral("Image Integration"));
         return dialog;
     });
     AN_WINDOW_LOOK_REPORT(measured);

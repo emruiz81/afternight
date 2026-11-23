@@ -4,11 +4,10 @@
 #pragma once
 
 /// @file
-/// The looks a render case of the Observatory profile runs under - dark, light and a tinted preset, each at both
-/// densities - the proxy style installed in one of them for a scope, and the picture of a painting read in logical
-/// coordinates at a device pixel ratio.
+/// The looks a render case runs under - dark, light and a tinted preset, each at both densities - the proxy style
+/// installed in one of them for a scope, and the picture of a painting read in logical coordinates at a device pixel
+/// ratio.
 
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 
@@ -62,17 +61,16 @@ inline const std::array<ObservatoryLook, 6u>& observatoryLooks()
 /// The device pixel ratios a render case paints at.
 inline constexpr std::array<qreal, 4u> kRenderRatios{1.0, 1.25, 1.5, 2.0};
 
-/// The proxy style installed as the application's style under a profile - the Observatory one unless said - in a look,
-/// for a scope. Everything it changes is put back when it goes: the profile, the theme and the user's choices, Night,
-/// the application's style, palette and font.
+/// The proxy style installed as the application's style in a look, for a scope. Everything it changes is put back when
+/// it goes: the theme and the user's choices, Night, the application's style, palette and font.
 class ObservatoryStyleScope final
 {
 public:
-    explicit ObservatoryStyleScope(const ObservatoryLook& look, const StyleProfile profile = StyleProfile::Observatory)
-        : m_profile(profile), m_preference(themePreference()), m_contrast(themeContrastProfile()),
-          m_accent(themeAccentFamily()), m_tint(themeSurfaceTintFamily()), m_strength(themeTintStrength()),
-          m_density(themeDensity()), m_night(nightModeSet()), m_palette(QApplication::palette()),
-          m_font(QApplication::font()), m_styleName(QApplication::style()->name())
+    explicit ObservatoryStyleScope(const ObservatoryLook& look)
+        : m_preference(themePreference()), m_contrast(themeContrastProfile()), m_accent(themeAccentFamily()),
+          m_tint(themeSurfaceTintFamily()), m_strength(themeTintStrength()), m_density(themeDensity()),
+          m_night(nightModeSet()), m_palette(QApplication::palette()), m_font(QApplication::font()),
+          m_styleName(QApplication::style()->name()), m_hadProxyStyle(installedAnProxyStyle() != nullptr)
     {
         setNightMode(false);
         setThemeContrastProfile(ThemeContrastProfile::Balanced);
@@ -89,9 +87,17 @@ public:
         setThemeSurfaceTintFamily(m_tint);
         setThemeTintStrength(m_strength);
         setThemeDensity(m_density);
-        // The application's style goes with the one that replaces it.
-        QApplication::setStyle(QStyleFactory::create(m_styleName));
-        registerInstalledAnProxyStyle(nullptr);
+        // The application's style goes with the one that replaces it: the proxy style again when one was installed
+        // before, else the style it replaced, by its name.
+        if (m_hadProxyStyle)
+        {
+            (void)installAnProxyStyle();
+        }
+        else
+        {
+            QApplication::setStyle(QStyleFactory::create(m_styleName));
+            registerInstalledAnProxyStyle(nullptr);
+        }
         QApplication::setPalette(m_palette);
         QApplication::setFont(m_font);
     }
@@ -128,7 +134,6 @@ private:
         setThemeDensity(look.density);
     }
 
-    ScopedStyleProfile m_profile;
     ThemePreference m_preference;
     ThemeContrastProfile m_contrast;
     ThemeAccentFamily m_accent;
@@ -139,6 +144,7 @@ private:
     QPalette m_palette;
     QFont m_font;
     QString m_styleName;
+    bool m_hadProxyStyle = false;
     AnProxyStyle* m_style = nullptr;
 };
 

@@ -31,7 +31,6 @@
 
 #include "app/ExtensionHostManager.h"
 #include "app/IconManager.h"
-#include "app/ModernizationFeatureFlags.h"
 
 #include "app/PersistenceCoordinator.h"
 #include "app/RuntimeStorageCoordinator.h"
@@ -385,24 +384,6 @@ void ApplicationCore::openStores()
 namespace
 {
 
-void logModernizationFeatureFlags()
-{
-    using an::ui::modernization::ModernizationFeatureFlags;
-
-    LOG_DEBUG("Modernization feature flags: "
-              "AN_UI_TOKENS_ENABLED={} (default={}), "
-              "AN_UI_PROGRAMMATIC_PROCESSES={} (default={}), "
-              "AN_DIALOG_MODERN_STYLE_ENABLED={} (default={}), "
-              "AN_PERSISTENCE_THREADSAFE_ENABLED={} (default={})",
-              ModernizationFeatureFlags::uiTokensEnabled(), ModernizationFeatureFlags::kUiTokensEnabledDefault,
-              ModernizationFeatureFlags::programmaticProcessesEnabled(),
-              ModernizationFeatureFlags::kProgrammaticProcessesEnabledDefault,
-              ModernizationFeatureFlags::dialogModernStyleEnabled(),
-              ModernizationFeatureFlags::kDialogModernStyleEnabledDefault,
-              ModernizationFeatureFlags::persistenceThreadsafeEnabled(),
-              ModernizationFeatureFlags::kPersistenceThreadsafeEnabledDefault);
-}
-
 /// Puts the interface's stored settings in force, in the order each depends on the last: a preset stored puts its three
 /// parts in force over the ones stored beside it, and Night is off at every start unless the person asked to start in
 /// it. The theme itself - system, light or dark - is the shell's window's to apply, once it exists.
@@ -447,7 +428,6 @@ void ApplicationCore::initialize()
     {
         throw std::runtime_error("The application is initialized over its stores, and they are not open");
     }
-    logModernizationFeatureFlags();
 
     // The context first: a control made from here on finds the application through it.
     impl.context = std::make_unique<ApplicationContext>(*this);

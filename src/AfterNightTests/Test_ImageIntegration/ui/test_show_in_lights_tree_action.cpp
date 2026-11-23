@@ -6,7 +6,6 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QSize>
-#include <QTabWidget>
 #include <QTableWidget>
 #include <QtTest/QTest>
 
@@ -17,6 +16,7 @@
 #include "processes/ImageIntegration/model/GroupingKeys.h"
 #include "processes/ImageIntegration/widgets/FrameQualityDashboard.h"
 #include "processes/ImageIntegration/widgets/FrameTreeView.h"
+#include "processes/ImageIntegration/widgets/StageNavigator.h"
 #include "processes/ImageIntegration/ui_models/GroupTreeModel.h"
 
 #include "Test_ImageIntegration/ui/ProcessWindowContext.h"
@@ -59,14 +59,8 @@ protected:
         model->reset();
         QApplication::processEvents();
 
-        rootTabs = process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget"));
-        ASSERT_NE(rootTabs, nullptr);
-
-        workflowTabs = process->findChild<QTabWidget*>(QStringLiteral("workflowTabWidget"));
-        ASSERT_NE(workflowTabs, nullptr);
-
-        sourceTabs = process->findChild<QTabWidget*>(QStringLiteral("sourceTabWidget"));
-        ASSERT_NE(sourceTabs, nullptr);
+        stages = process->stageNavigator();
+        ASSERT_NE(stages, nullptr);
 
         lightTab = process->findChild<QWidget*>(QStringLiteral("lightTab"));
         ASSERT_NE(lightTab, nullptr);
@@ -93,9 +87,7 @@ protected:
     ImageIntegrationProcess* process = nullptr;
     IntegrationDataModel* model = nullptr;
     FrameQualityDashboard* dashboard = nullptr;
-    QTabWidget* rootTabs = nullptr;
-    QTabWidget* workflowTabs = nullptr;
-    QTabWidget* sourceTabs = nullptr;
+    ImageIntegration::StageNavigator* stages = nullptr;
     QWidget* lightTab = nullptr;
     FrameTreeView* lightTree = nullptr;
 };
@@ -123,8 +115,7 @@ TEST_F(ShowInLightsTreeActionTest, ContextMenuNavigatesToLightsTree)
     ASSERT_NE(table, nullptr);
     ASSERT_GT(table->rowCount(), 0);
 
-    rootTabs->setCurrentIndex(1); // Workflow
-    workflowTabs->setCurrentIndex(2); // Stacking
+    stages->setCurrentPage(ImageIntegration::StagePage::Stacking);
 
     QApplication::processEvents();
 
@@ -135,8 +126,8 @@ TEST_F(ShowInLightsTreeActionTest, ContextMenuNavigatesToLightsTree)
     QTest::qWait(50);
     QApplication::processEvents();
 
-    EXPECT_EQ(rootTabs->currentIndex(), 0); // Frame Sources
-    EXPECT_EQ(sourceTabs->currentIndex(), static_cast<int>(FrameType::Light));
+    EXPECT_EQ(stages->currentPage(), ImageIntegration::StagePage::Lights);
+    EXPECT_TRUE(lightTab->isVisibleTo(process)) << "the lights' page is shown";
 
     QStringList selectedPaths = lightTree->selectedFilePaths();
     EXPECT_TRUE(selectedPaths.contains(canonical)) << selectedPaths.join(", ").toStdString();

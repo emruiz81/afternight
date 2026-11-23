@@ -453,7 +453,7 @@ TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIs
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_SHELL);
 
     InterfaceSettingsPage alone(&settings);
-    alone.setAvailableShells({{QStringLiteral("classic"), QStringLiteral("Classic")}});
+    alone.setAvailableShells({{QStringLiteral("observatory"), QStringLiteral("Observatory")}});
     alone.loadSettings();
     auto* const aloneRow = alone.findChild<QGroupBox*>(QStringLiteral("anInterfaceSettingsShellGroup"));
     ASSERT_NE(aloneRow, nullptr);
@@ -461,9 +461,9 @@ TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIs
     alone.saveSettings();
     EXPECT_EQ(settings.select(key, QStringLiteral("(none)")), QStringLiteral("(none)"));
 
-    ASSERT_TRUE(settings.upsert(key, QStringLiteral("classic")));
+    ASSERT_TRUE(settings.upsert(key, QStringLiteral("nebula")));
     InterfaceSettingsPage choosing(&settings);
-    choosing.setAvailableShells({{QStringLiteral("classic"), QStringLiteral("Classic")},
+    choosing.setAvailableShells({{QStringLiteral("nebula"), QStringLiteral("Nebula")},
                                  {QStringLiteral("observatory"), QStringLiteral("Observatory")}});
     choosing.loadSettings();
     auto* const row = choosing.findChild<QGroupBox*>(QStringLiteral("anInterfaceSettingsShellGroup"));
@@ -472,8 +472,8 @@ TEST_F(SettingsDialogTest, InterfaceSettingsPage_ShowsTheShellRowOnlyWhenThereIs
     ASSERT_NE(combo, nullptr);
     EXPECT_FALSE(row->isHidden());
     ASSERT_EQ(combo->count(), 2);
-    EXPECT_EQ(combo->itemText(0), QStringLiteral("Classic"));
-    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("classic"));
+    EXPECT_EQ(combo->itemText(0), QStringLiteral("Nebula"));
+    EXPECT_EQ(combo->currentData().toString(), QStringLiteral("nebula"));
 
     combo->setCurrentIndex(1);
     choosing.saveSettings();

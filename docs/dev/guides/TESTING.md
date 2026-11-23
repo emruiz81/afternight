@@ -56,11 +56,12 @@ for the engine's fault harness over the product's paths, `Test_AfterNightCLI`, t
 `Test_Processes*` families, `Test_ImageIntegration` - the largest, its model, workflow, persistence, reporting and
 interface subtrees mirroring the production structure - `Test_ProcessFramework`, `Test_ExtensionHostNative`,
 `Test_ExtensionRuntimeBackend`, `Test_ThemeSystem`, `Test_Persistence`, `Test_Widgets`, `Test_ImageViewControl`,
-`Test_ImageProcessControl`, `Test_ImageRTPreviewControl`, `Test_MainDashboard`, `Test_MaskDrawing`,
-`Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window, `Test_ShellClassic` for the
-classic shell's window, `Test_ShellObservatory` for the Observatory shell's window, `Test_ShellParity` (every scenario for both shells, each
-case starting the shell it names and letting its start settle before it runs) for what a person does in every shell, `Test_AfterNightApp` for the
-application's start and end, and
+`Test_ImageProcessControl`, `Test_ImageRTPreviewControl`, `Test_MainDashboard` for Home's parts in Controls,
+`Test_MaskDrawing`, `Test_SystemInformationPanel`, `Test_ShellCore` for the application without a window,
+`Test_ShellObservatory` for the Observatory shell's window, the shared parts it shows and the records of the interface,
+`Test_ShellParity` (every scenario for each registered shell, each case starting the shell it names and letting its
+start settle before it runs) for what a person does in every shell, `Test_AfterNightApp` for the application's start
+and end, and
 the fixture executables `Test_FixtureNeutral` and `Test_FixtureEngine`. The fuzz targets `Fuzz_Engine*` and `Fuzz_Consumer*` are run by the fuzz campaign below.
 `build/scripts/tools/consumer_targets.txt` is the list that is authoritative.
 
@@ -83,9 +84,9 @@ in `AGENTS.md` requires.
 `Test_ShellCore` holds the shell core ("The shell core" in [the product guide](PRODUCT_ARCHITECTURE.md)) with no
 window: a case about a class of that library lives there, never in a suite of Controls or Processes, which cannot link
 a library above them. The choice of a shell is held to the arguments it is handed by starting the executable again
-with `--shell=classic` on its own command line: the copy runs the one disabled case,
-`ShellSelection.DISABLED_OwnCommandLineIsNotRead`, which finds the option in `QCoreApplication::arguments()` and not
-in the shell chosen.
+with `--shell=aurora`, a shell of the case's own registry, on its own command line: the copy runs the one disabled
+case, `ShellSelection.DISABLED_OwnCommandLineIsNotRead`, which finds the option in `QCoreApplication::arguments()` and
+not in the shell chosen.
 
 A project is held where each part of it lives ("Projects" in [the product guide](PRODUCT_ARCHITECTURE.md)): its
 document and its service in `Test_ShellCore` (`ProjectDocument.*`, `ProjectServiceCase.*`), each case over a temporary
@@ -145,38 +146,38 @@ change; `docs/dev/LOCAL_VALIDATION.md` has the commands and `docs/dev/IMAGE_INTE
 
 ## The interface's records
 
-What the interface is - its design tokens, its actions and menus, the keys it answers, the processes it registers -
-is recorded in nine text files beside the suites that read them, and a case compares each with the running product:
+What the interface is - its actions and menus, the keys it answers, the processes it registers, what its windows are
+made of - is recorded in eight text files beside the suites that read them, and a case compares each with the running
+product:
 
 | Record | Holds | Held by |
 |---|---|---|
-| `Test_ThemeSystem/data/TokenBaseline.txt` | Every colour of every combination the interface settings can choose - two themes, four contrast profiles, five accent families, six surface tints, 240 in all - and the spacing, the radii and the type scale no choice changes | `TokenBaseline.ClassicValuesAreRecorded` |
-| `Test_ShellClassic/data/ActionInventory.txt` | The main window's 186 actions with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | `ApplicationMenu.ActionInventoryMatchesTheRecord`, `ApplicationMenu.MenuBarTreeMatchesTheRecord`; the shell core's catalogue and menu tree, by `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar` in `Test_ShellCore` |
-| `Test_ShellClassic/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | `ApplicationMenu.ViewMenuTreeMatchesTheRecord`; the shell core's view menu, by `ViewMenuBuilderTest.EqualsTheRecordedTree` in `Test_ShellCore` |
-| `Test_ShellClassic/data/ShortcutInventory.txt` | Every shortcut of the main window and of the Session Console, and every key press a view takes for itself in each of its three modes | `ApplicationWindow.ShortcutsMatchTheRecord` |
-| `Test_ShellClassic/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
-| `Test_ShellObservatory/data/ConsoleToolbar.txt` | The Session Console's toolbar as 1.1 shows it: every action, label, choice and separator in order with its text, tool tip, shortcut and checkability | `ApplicationWindow.TheSessionConsolesToolbarMatchesTheRecord` in `Test_ShellClassic`; the Observatory shell's console drawer, less its own parts, by `ConsoleDrawer.TheToolbarIsTheConsoles` |
+| `Test_ShellObservatory/data/ActionInventory.txt` | The application's 186 actions, as AfterNight 1.1's main window declared them, with their text, tool tip, shortcut, icon, whether they can be checked and the menus that hold them; and the menu bar's tree | The shell core's catalogue and menu tree, by `ActionCatalogue.HoldsTheRecordedInventory` and `MenuTree.EqualsTheRecordedMenuBar` in `Test_ShellCore` |
+| `Test_ShellObservatory/data/ViewMenuInventory.txt` | The tree of the menu a view shows on a right click | The shell core's view menu, by `ViewMenuBuilderTest.EqualsTheRecordedTree` in `Test_ShellCore`; the Observatory window's, by `ShellScenario.ViewMenuEntries/observatory` in `Test_ShellParity` |
+| `Test_ShellObservatory/data/ShortcutInventory.txt` | Every shortcut of the Session Console, and every key press a view takes for itself in each of its three modes; and in its `[window]` section every shortcut AfterNight 1.1's main window answered, the keys a person brings from 1.1 | `Shortcuts.MatchTheRecord` in `Test_ShellObservatory`, for the Session Console's and the views' sections; `NewShortcuts.DoNotCollideWithTheRecordedOnes` there keeps the Observatory window's own shortcuts apart from `[window]` |
+| `Test_ShellObservatory/data/ProcessInventory.txt` | What the registry states of every process of the application: its id, names, category, launch mode, guards, outputs and help page | `ProcessRegistry.InventoryMatchesTheRecord` in `Test_ShellObservatory`; the descriptor each process action launches and the name it gives it, by `ActionBindingsTest.EveryProcessActionLaunchesTheRecordedDescriptor` in `Test_ShellCore` |
+| `Test_ShellObservatory/data/ConsoleToolbar.txt` | The Session Console's toolbar as 1.1 shows it: every action, label, choice and separator in order with its text, tool tip, shortcut and checkability | The Observatory shell's console drawer, less its own parts, by `ConsoleDrawer.TheToolbarIsTheConsoles` |
 | `Test_ImageViewControl/data/ViewToolbar.txt` | The toolbar row an image view builds by default in each of its modes - a standard view, a real-time preview before and after it offers its autostretch controls, a static preview: where the row is, and every action, choice and separator in order with its text, tool tip, checkability and whether it is shown | `ViewToolbar.EmbeddedContentsMatchTheRecord` |
-| `Test_ImageIntegration/data/IntegrationPages.txt` | The pages Image Integration's two levels of tabs reach: the tabs that lead to each, the page's name and the class of what it holds | `StageList.HoldsEveryTabPage`, which compares the window's tabs with it and holds the pages the stage list reaches on a page of a main window to the same entries |
+| `Test_ImageIntegration/data/IntegrationPages.txt` | The pages AfterNight 1.1's two levels of tabs in Image Integration reached: the tabs that led to each, the page's name and the class of what it holds | `StageList.HoldsEveryTabPage`, which holds the pages the stage list reaches to the same entries |
 | `Test_ProcessFramework/data/ProcessShapes.txt` | What the window of every registered process is made of: the framework class it derives from, how its controls and its preview are laid out, its preview checkbox and where the preview view lands, its button box, its selectors of images and channels, its menus, whether its size is fixed and which window hints it changes, what the person marks on a view for it, and every key sequence its own actions and shortcuts carry | `ProcessCensus.EveryProcessStatesItsShape` |
 
 The records exist so that a change which reorganises the interface's code - a part of the window moved to another
-library, the tokens resolved another way, the menus built from a table - proves that it changed nothing a person sees
+library, the menus built from a table - proves that it changed nothing a person sees
 or presses: the case reads the live objects, so it does not care how they were made. A change that means to move
 something says so in the same diff, as an edited entry a reviewer reads: a renamed action, a new menu entry, a
 retired process.
 
-Each record is read from the running product - the tokens from the resolution, the actions and menus from the
-classic shell's main window, a view's keys by pressing them on a view - and holds nothing that follows the host: no
-geometry, no font but its size against the body font's, the material surfaces with the native backdrop off. Nor
-anything that follows what ran before the case: a menu whose entries are what a person did - the recent files, the
+Each record is read from the running product - the actions and menus from the shell core's catalogue and menu tree,
+the registry and the Session Console's keys over the Observatory window, a view's keys by pressing them on a view -
+and holds nothing that follows the host: no geometry and no font. Nor anything that follows what ran before the case: a menu whose entries are what a person did - the recent files, the
 favourite and the recent processes - is held by name alone, of the Extensions menu only its own actions, and the
 actions are read over one image that was never edited, because Undo, Redo and Maximize View are worded after the
 active image. `fixtures/BaselineRecord.h` is the reader: a record is sections of entries, a case compares one section
 in order, and the failure names the first entry that differs with what the record holds and what the product has.
-A suite below the shell core, which cannot link its action catalogue, builds the classic window's menus over the
-actions the record holds (`fixtures/RecordedActions.h`): their object names, texts, tool tips, shortcuts and
-checkability are the catalogue's, which `ActionCatalogue.HoldsTheRecordedInventory` holds to the same record.
+A suite below the shell core, which can link neither its action catalogue nor its menu tree, reads the application's
+menus in the menu bar the record holds, made of the actions the record holds (`fixtures/RecordedActions.h`,
+`fixtures/RecordedMenus.h`): their object names, texts, tool tips, shortcuts and checkability are the catalogue's,
+which `ActionCatalogue.HoldsTheRecordedInventory` holds to the same record.
 
 The process shapes are read by launching every descriptor as the application launches it, on a colour view with a
 grey one open beside it, under window settings that hold nothing, so no case that ran before decides what a window
@@ -227,14 +228,13 @@ settings): under the box font what such a window holds needs more than the windo
 needs, so there it is held to be no smaller.
 
 `fixtures/WindowLook.h` holds a window that stays a window to the Observatory look, whichever window it is.
-`expectWindowLook(make)` makes the window as the product makes it - once under the Classic profile, to learn which
-labels are cut short there, then in each density of the Observatory profile - and holds that it shows a heading that
+`expectWindowLook(make)` makes the window as the product makes it in each density and holds that it shows a heading that
 says a title (an `AnWindowHeading`, or a process window's header) with nothing above it; that the rightmost button of
 its footer, the lowest row of buttons that can be seen, is the primary one; that every text meets the contrast rule
 against the surface it is painted on, read from the palette roles in the dark theme, the light one and a tinted
 preset (4.5:1, and 3:1 for the tertiary and the status texts); that no scroll area's content is shorter than its
 width needs; and, where text is measured, that nothing is clipped as it opens or at its least size, that no label is
-cut short that the Classic profile shows whole, that the window opens within its screen's available area - a second
+cut short as it opens, that the window opens within its screen's available area - a second
 one is asked before its first show to be larger than the screen - and that its least size fits the room a 1280 x 720
 display leaves a window (`kFloorRoom`). `expectModalWindowLook(run, isIt)` holds the same of a dialog the product
 runs to its answer, looked at from inside its loop. The cases are `WindowLook.<Window>`, in the suite that owns the
@@ -292,17 +292,19 @@ a defect included, and the diff of a rewritten record hides the one entry that m
 rename and duplicate, undo and redo, apply a process, cancel a run over a sequence, the launch guards, a view's menu,
 every action reachable in the catalogue's state, the recent files, a drop, the status line, the questions a close asks,
 a theme change, the settings at a page - against every registered shell: each is a `ShellScenario` case instantiated
-for each shell id (`ShellScenario.ViewMenuEntries/classic`), started and ended as the application starts and ends it,
-and driven through that shell's `ShellDriver`. A scenario reads the records above where a record holds what it shows.
+for each shell id (`ShellScenario.ViewMenuEntries/observatory`), started and ended as the application starts and ends
+it, and driven through that shell's `ShellDriver`. A scenario reads the records above where a record holds what it
+shows.
 
 `Test_ShellParity/Capabilities.txt` names, for each capability of the interface, the cases that prove it - the
-`shared` ones, of code every shell uses, and each shell's own - and `check_shell_capabilities.py` holds every name to a
-case the suites define. A capability with no case of a kind is an empty line, and one a shell has no case of yet is
+`shared` ones, of code every shell uses, and the `observatory` ones, which drive the Observatory window - and
+`check_shell_capabilities.py` holds every name to a case the suites define and refuses a line of another kind. A
+capability with no shared case is an empty `shared` line, and one the Observatory window has no case of yet is
 `pending` on its line.
 
 ## The source guards
 
-Six rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
+Seven rules of the source tree are held by cases that read the sources themselves, the `SourceGuards` cases of
 `Test_ImageIntegration` (`Test_ImageIntegration/unit/SourceGuardsTest.cpp`); a change to any C or C++ file under
 `src/` runs them (`Test_ImageIntegration --gtest_filter=SourceGuards.*`), whatever other suites it reaches:
 
@@ -312,14 +314,15 @@ Six rules of the source tree are held by cases that read the sources themselves,
 | `NoStyleSheetsInSrc` | The product sets and reads no stylesheet, names no stylesheet style and no `.qss` file, and the tree holds none: the look is painted from the design tokens |
 | `NoDefaultQSettingsInSrc` | The product makes no `QSettings` but the one `an::ui::applicationSettings()` returns: any other is the platform's native store, which no test storage root redirects |
 | `ShellsDoNotReachEachOther` | A shell is reached only by the application that composes it and the suites that drive it: no shell includes another's header, and neither the shell core, Controls, Processes nor a suite of theirs includes one |
-| `NoLookLiteralsInShellsAndComponents` | In the shell core and `components/`, no colour and no font size is written as a literal: no `QColor` made from numbers, a name or a string (as a temporary, a variable, `QColor::from...` or `qRgb`), no Qt colour constant but `Qt::transparent`, no `"#RRGGBB"` string, no point or pixel size set from a number |
-| `TokensAreNotCachedInConstructors` | In the shell core and `components/`, no constructor - its initializers, its body and a lambda made there - calls `tokens()` or the dark or light set: a part reads them where it paints, sizes itself or is polished |
+| `NoClassicProfileIsLeft` | No source names the Classic style profile of AfterNight 1.1's window, neither that window's library nor its suite is in the repository, and no source includes a header that went with them - the window's, its suite's and its parity driver's, the parts only it showed, Image Integration's window of a run's progress, and the switches that chose a path of AfterNight 1.x |
+| `NoLookLiteralsInShellsAndComponents` | In the shell core, the Observatory shell and `components/`, no colour and no font size is written as a literal: no `QColor` made from numbers, a name or a string (as a temporary, a variable, `QColor::from...` or `qRgb`), no Qt colour constant but `Qt::transparent`, no `"#RRGGBB"` string, no point or pixel size set from a number |
+| `TokensAreNotCachedInConstructors` | In the shell core, the Observatory shell and `components/`, no constructor - its initializers, its body and a lambda made there - calls `tokens()` or the dark or light set: a part reads them where it paints, sizes itself or is polished |
 
 `NoStyleSheetsInSrc` and `NoDefaultQSettingsInSrc` read the product and not the test tree, whose cases read a widget's stylesheet to prove it empty and
 make settings files of their own in temporary folders; and they read code, not comments, so a comment may name what
-the code may not do. The two look guards read the trees whose look is held to the tokens - the shell core and the
-reusable components - and not the theme's tree, where the look is decided, nor the classic shell, which is AfterNight
-1.1's interface kept as it was; a shell's tree joins their list when it is made. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
+the code may not do. The two look guards read the trees whose look is held to the tokens - the shell core, the
+Observatory shell and the reusable components - and not the theme's tree, where the look is decided; a shell's tree
+joins their list when it is made. `NoDefaultQSettingsInSrc` lists the lines it allows - the function that opens the settings file
 and its one wrapper - and fails when a listed line is gone, so the list cannot outlive what it allowed. A guard is
 shown to fail on a violation planted in a scratch file before it is relied on.
 
@@ -466,7 +469,7 @@ Windows and Linux. Most need nothing but a checkout; three read the generated pr
 | What is built, deployed and shipped | `check_deployed_runtimes.py`, `check_installer_payload.py`, `check_gpu_backend_optionality.py`, `remove_gpu_proof.py` |
 | Dependencies and safety | `check_dependency_provenance.py`, `check_safety_register.py` |
 | The product's layering, state and targets | `check_consumer_layering.py`, `check_consumer_state.py`, `consumer_targets.py check`, `product_measurement.py check` |
-| The interface's capabilities | `check_shell_capabilities.py`, which fails a case the capability register names that no suite defines, a scenario named on another shell's line, a capability listed twice and one with no `observatory` line |
+| The interface's capabilities | `check_shell_capabilities.py`, which fails a case the capability register names that no suite defines, a scenario named on another shell's line, a capability listed twice, one with no `observatory` line and a line of another kind |
 | The campaigns' registries | the `--check` mode of each campaign runner and of `run_performance_campaign.py`, and `generate_skimage_goldens.py check` |
 | The licence of every source | `check_license_headers.py`, which fails a source file that does not open with its SPDX licence and copyright lines, or states a licence other than its own |
 | The links of the developer documents | `check_markdown_links.py`, which fails a link in `docs/dev/`, the contributor guides, the README or the repository's root documents that leads to no file |

@@ -6,7 +6,7 @@
 /// @file
 /// What Home's parts share: a line of text in one of Home's roles, drawn in the type scale and the colours in force;
 /// and what a recent file's tile and card say about it - its picture, read from its thumbnail, and its facts, read from
-/// the file - read off the GUI thread as the dashboard reads them.
+/// the file - read off the GUI thread.
 
 #include "AfterNightControlsExport.h"
 
@@ -102,7 +102,7 @@ struct HomeRecentFacts
 /// What reads a recent file's facts: run off the GUI thread, never waited for.
 using HomeRecentProbe = std::function<HomeRecentFacts(const QString& path)>;
 
-/// Reads a recent file's facts as the dashboard reads them: a sequence's container (`probeDashboardSequence`) or an
+/// Reads a recent file's facts: a sequence's container (`probeDashboardSequence`) or an
 /// image's description (`probeDashboardFile`), in the session the context lends, and the file's last change. Background
 /// work: a busy session leaves the size and the frames unknown.
 ///

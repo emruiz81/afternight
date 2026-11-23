@@ -71,6 +71,9 @@ TEST(ThemeSystemCascade, IconPaletteMatchesTheme)
     EXPECT_EQ(lightDisabled, an::ui::resolvedLightTokens().colors.textTertiary);
 }
 
+// The cascade's colours are the tokens resolved under the contrast profile in force: the semantic roles and the icon
+// palette follow a change of profile, the window surface and the text tones moving with it and the accent staying the
+// accent family's.
 TEST(ThemeSystemCascade, CascadeColorsFollowResolvedContrastProfile)
 {
     ScopedThemePreferenceOverride preferenceGuard;
@@ -80,29 +83,38 @@ TEST(ThemeSystemCascade, CascadeColorsFollowResolvedContrastProfile)
     profileGuard.set(an::ui::ThemeContrastProfile::High);
     const QColor highSemanticAccent = an::ui::styling::semanticColor(an::ui::styling::ThemeVariant::Dark,
                                                                      an::ui::styling::SemanticColorRole::AccentPrimary);
+    const QColor highSemanticWindow = an::ui::styling::semanticColor(an::ui::styling::ThemeVariant::Dark,
+                                                                     an::ui::styling::SemanticColorRole::SurfaceWindow);
     const auto [highIconNormal, highIconDisabled] = an::ui::iconPaletteForTheme(true);
     const QColor highResolvedAccent = an::ui::resolvedDarkTokens().colors.accentPrimary;
+    const QColor highResolvedWindow = an::ui::resolvedDarkTokens().layers.surface0;
     const QColor highResolvedIconNormal = an::ui::resolvedDarkTokens().colors.textPrimary;
     const QColor highResolvedIconDisabled = an::ui::resolvedDarkTokens().colors.textTertiary;
 
     profileGuard.set(an::ui::ThemeContrastProfile::Soft);
     const QColor softSemanticAccent = an::ui::styling::semanticColor(an::ui::styling::ThemeVariant::Dark,
                                                                      an::ui::styling::SemanticColorRole::AccentPrimary);
+    const QColor softSemanticWindow = an::ui::styling::semanticColor(an::ui::styling::ThemeVariant::Dark,
+                                                                     an::ui::styling::SemanticColorRole::SurfaceWindow);
     const auto [softIconNormal, softIconDisabled] = an::ui::iconPaletteForTheme(true);
     const QColor softResolvedAccent = an::ui::resolvedDarkTokens().colors.accentPrimary;
+    const QColor softResolvedWindow = an::ui::resolvedDarkTokens().layers.surface0;
     const QColor softResolvedIconNormal = an::ui::resolvedDarkTokens().colors.textPrimary;
     const QColor softResolvedIconDisabled = an::ui::resolvedDarkTokens().colors.textTertiary;
 
     EXPECT_EQ(highSemanticAccent, highResolvedAccent);
     EXPECT_EQ(softSemanticAccent, softResolvedAccent);
+    EXPECT_EQ(highSemanticWindow, highResolvedWindow);
+    EXPECT_EQ(softSemanticWindow, softResolvedWindow);
     EXPECT_EQ(highIconNormal, highResolvedIconNormal);
     EXPECT_EQ(softIconNormal, softResolvedIconNormal);
     EXPECT_EQ(highIconDisabled, highResolvedIconDisabled);
     EXPECT_EQ(softIconDisabled, softResolvedIconDisabled);
 
-    EXPECT_NE(highSemanticAccent, softSemanticAccent);
+    EXPECT_NE(highSemanticWindow, softSemanticWindow);
     EXPECT_NE(highIconNormal, softIconNormal);
     EXPECT_NE(highIconDisabled, softIconDisabled);
+    EXPECT_EQ(highSemanticAccent, softSemanticAccent);
 }
 
 TEST(ThemeSystemCascade, SemanticColorsRemainDistinctBetweenVariants)

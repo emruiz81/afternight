@@ -7609,7 +7609,7 @@ int main(int argc, char* argv[])
     const QCommandLineOption style_profile_option(
         QStringLiteral("style-profile"),
         QStringLiteral("The style profile the application draws under, which the host's windows are drawn under too: "
-                       "classic or observatory."),
+                       "observatory."),
         QStringLiteral("profile"));
     parser.addOption(endpoint_option);
     parser.addOption(session_option);
@@ -7673,7 +7673,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-            LOG_WARNING("Extension host: the style profile '{}' is not one; the classic profile is kept",
+            LOG_WARNING("Extension host: the style profile '{}' is not one; the Observatory profile is kept",
                         parser.value(style_profile_option).toStdString());
         }
     }

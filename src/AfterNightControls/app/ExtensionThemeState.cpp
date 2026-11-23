@@ -154,18 +154,16 @@ QString styleProfileName(const StyleProfile profile)
 {
     switch (profile)
     {
-    case StyleProfile::Classic:
-        return QStringLiteral("classic");
     case StyleProfile::Observatory:
         return QStringLiteral("observatory");
     }
-    return QStringLiteral("classic");
+    return QStringLiteral("observatory");
 }
 
 std::optional<StyleProfile> styleProfileNamed(const QString& name)
 {
     const QString normalized = name.trimmed().toLower();
-    for (const StyleProfile profile : {StyleProfile::Classic, StyleProfile::Observatory})
+    for (const StyleProfile profile : {StyleProfile::Observatory})
     {
         if (normalized == styleProfileName(profile))
         {

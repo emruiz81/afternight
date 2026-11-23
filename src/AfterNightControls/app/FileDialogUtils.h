@@ -366,7 +366,7 @@ template <typename SettingsT> [[nodiscard]] inline bool useSystemFileBrowser(Set
 {
     // Under Night the built-in browser, which is drawn in Night's red as the window is: the system's would be drawn in
     // its own colours, whatever the setting says.
-    if (an::ui::nightModeSet() && an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
+    if (an::ui::nightModeSet())
     {
         return false;
     }

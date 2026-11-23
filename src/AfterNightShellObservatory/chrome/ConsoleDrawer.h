@@ -37,7 +37,7 @@ class AnTag;
 namespace an::ui::observatory
 {
 
-/// The drawer of the Session Console. It holds AfterNight 1.1's console (`LogViewerControl`), made when it is first
+/// The drawer of the Session Console. It holds the console (`LogViewerControl`), made when it is first
 /// opened and kept while the window lives, so its lines, its scroll position and its filters stay as the person left
 /// them. Its header is the console's own toolbar, in its order, with the drawer's parts about it: the title first, a
 /// stretch and the count of the session's warnings as a tag before Search, then Float and a button that closes the

@@ -158,9 +158,9 @@ HomeContinueRow::HomeContinueRow(QWidget* parent) : QWidget(parent), m_impl(std:
     row->setContentsMargins(0, 0, 0, 0);
     row->setSpacing(parts::kHomeCardGap);
 
-    // The featured image: the dashboard's card and presenter.
+    // The featured image: the featured file card and its presenter.
     m_impl->featured = new FeaturedFileCard(this);
-    // The dashboard gives the card a height; on Home it fills the row.
+    // The card fills the row.
     m_impl->featured->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_impl->featured->hide();
     m_impl->presenter = new FeaturedFilePresenter(this);
@@ -326,7 +326,7 @@ void HomeContinueRow::setRecentFiles(const std::deque<QString>& recentFiles)
         }
     }
 
-    // A pinned file no longer recent, or no longer on disk, is unpinned - as the dashboard unpins it.
+    // A pinned file no longer recent, or no longer on disk, is unpinned.
     QString pinned = loadPinnedFeaturedFile();
     if (!pinned.isEmpty())
     {

@@ -32,14 +32,12 @@ class IntegrationDataModel;
 class AutosaveManager;
 class IntegrationDatabase;
 class QAction;
-class QDialogButtonBox;
 class QKeyEvent;
 class QLabel;
 class QLineEdit;
 class QMenu;
 class QMenuBar;
 class QPushButton;
-class QTabWidget;
 class QTimer;
 class QUndoStack;
 class ProjectManager;
@@ -80,7 +78,7 @@ inline constexpr char kPageAsideWidthSetting[] = "ImageIntegration/Page/asideWid
  *
  * Coordinates:
  * - Frame tree views for lights, darks, flats, biases
- * - Calibration, registration, stacking, and summary tabs
+ * - Calibration, registration, stacking, and summary pages
  * - Image preview panel and grouping options
  * - Workflow execution via WorkflowProgressController
  * - Session persistence via AutosaveManager and IntegrationDatabase
@@ -88,10 +86,27 @@ inline constexpr char kPageAsideWidthSetting[] = "ImageIntegration/Page/asideWid
  * Inherits from TopLevelProcessBaseControl for dock widget integration.
  * Uses a programmatic UI builder.
  *
+ * ### Its stages and its runs
+ *
+ * In a window of its own as on a page of a main window:
+ *
+ * - **Its stages are a list** (`widgets/StageListNavigator.h`), reached through `widgets/StageNavigator.h`: a row
+ *   for each frame source and each stage of the workflow, with the summary last, each saying where it stands by a mark
+ *   and a line (`ui_models/IntegrationStageStates.h`) - from the job as it stands and what its validation finds, from
+ *   what its output folder holds of its last runs, read off the GUI thread, and from a run on its way. Beside the list
+ *   is the page of the stage selected. The list's foot holds the output folder and the project file's acts. A page
+ *   with a side panel keeps it as an aside of a width a person drags, and the stacking page lays its execution
+ *   options in two rows.
+ * - **A run is shown in the process** (`showWorkflowRun`): the run's view (`widgets/WorkflowRunView.h`) takes the
+ *   place of the stage's page, beside the list, whose rows follow the run. While the run is on its way the process's
+ *   own acts wait for it - the stages' pages, the list's foot and the menus' entries - but the stages can still be
+ *   looked at, from the list and the Navigate menu. When the run ends the acts are given back and the view is shown,
+ *   with how it ended, until it is closed.
+ *
  * ### As a page
  *
  * Its descriptor states a full page: a shell that shows processes as pages holds it whole in one, and in a shell
- * that does not - or made outside a launch - it is the window it has always been. As a page:
+ * that does not - or made outside a launch - it is a window of its own. As a page:
  *
  * - **Its header says its job.** It states a job heading to its page (`an::ui::JobHeading`): the session's name,
  *   its facts - its lights, their groups, the time they integrate, what their files weigh, the setup they say - the
@@ -99,20 +114,9 @@ inline constexpr char kPageAsideWidthSetting[] = "ImageIntegration/Page/asideWid
  *   from the model when it changes; what the disk adds is read on the thread pool.
  * - **Its menus are under the header's button**, the same six, and its key sequences are the page's own
  *   (`an::ui::PageShortcutScope`); Execute is its primary action, from either Enter key with Ctrl.
- * - **Its stages are a list**, in place of the window's two levels of tabs (`widgets/StageNavigator.h`): a row for
- *   each frame source and each stage of the workflow, with the summary last, each saying where it stands by a mark and
- *   a line (`ui_models/IntegrationStageStates.h`) - from the job as it stands, from what its output folder holds of
- *   its last runs, read off the GUI thread, and from a run on its way. The pages are the widgets the tabs hold. The
- *   list's foot holds the output folder and the project file's acts; the window's foot, with its Close and Reset, is
- *   not shown. A page with a side panel keeps it as an aside of a fixed width, and the stacking page lays its
- *   execution options in two rows, so the page fits the centre of a main window.
- * - **A run is shown in the page**, not in the Processing window over the application (`showWorkflowRun`): the run's
- *   view (`widgets/WorkflowRunView.h`) takes the place of the stage's page, beside the list, whose rows follow the run.
- *   While the run is on its way the page's own acts wait for it, as its window waits behind the Processing window -
- *   the stages' pages, the list's foot and the menus' entries - but the stages can still be looked at, from the list
- *   and the Navigate menu, and the header's primary act, in place of Execute, is the way back to the run: "Show
- *   progress" with how far the run has come. Leaving the page leaves the run running. When the run ends the page's
- *   acts are given back and the view is shown, with how it ended, until it is closed.
+ * - **A run on its way has a way back**: the header's primary act, in place of Execute, shows the run's view again
+ *   after a stage was looked at - "Show progress" with how far the run has come. Leaving the page leaves the run
+ *   running.
  * - **An import is shown in the page**, not in a dialog over the window: the import's panel stands over the stages,
  *   and the stages, the foot and every entry of the menus wait for it - as the window waits behind the dialog - while
  *   the rest of the application stays usable. Esc cancels the import and leaves the page; closing the page cancels it.
@@ -205,20 +209,20 @@ public:
     /// @return whether it ran.
     bool triggerPrimaryAction() override;
 
-    /// What moves between the pages: the window's tabs, or the stage list once the process is a page.
+    /// What moves between the pages: the list of the job's stages.
     [[nodiscard]] ImageIntegration::StageNavigator* stageNavigator() const noexcept;
 
     /// A run launched from here moved on: the stage list's rows follow it.
     void workflowRunProgressed(const WorkflowProgress& progress) override;
 
-    /// Shows a run that starts in the page - its view where the stage's page is, the page's acts waiting for the run -
-    /// and answers true; in a window of its own it answers false, and the run opens the Processing window.
+    /// Shows a run that starts in the process - its view where the stage's page is, the process's acts waiting for the
+    /// run - and answers true, in a window of its own as on a page.
     bool showWorkflowRun(WorkflowRunView* view) override;
 
-    /// The view of the run the page shows or showed last, until it is closed; null in a window of its own.
+    /// The view of the run the process shows or showed last, until it is closed; null with none.
     [[nodiscard]] WorkflowRunView* runView() const noexcept;
 
-    /// Whether the page shows the run's view, and not a stage's page looked at meanwhile.
+    /// Whether the process shows the run's view, and not a stage's page looked at meanwhile.
     [[nodiscard]] bool isRunShown() const;
 
     /// Starts a run of a manifest as it is, shown as any run launched from here is: for a caller that holds a manifest
@@ -264,10 +268,9 @@ private:
     void refreshJobHeading();
     void publishJobHeading();
 
-    /// Puts the pages under a list of the job's stages in place of the tabs, the output folder and the project file's
-    /// acts at the list's foot, and arranges the pages for the centre of a main window. Once, as the process becomes
-    /// a page.
-    void presentStagesAsAList();
+    /// Puts the pages under a list of the job's stages, the output folder and the project file's acts at the list's
+    /// foot, arranges the pages beside the list, and makes the rows follow the job. Once, as the process is set up.
+    void presentStages();
     /// What the process does when another page is shown, whatever shows it.
     void followNavigator();
     /// The width a page's asides open at: the one a person left them with, within the aside's bounds, or the aside's
@@ -351,10 +354,9 @@ private:
     void goToGroupDefinition(FrameType type, const GroupKey& key);
     void showKeyboardShortcutsHelp();
 
-    /// Says again what the validation finds in each page: as the tabs' badges, or in the stage list's rows.
-    void scheduleTabBadgeRefresh();
-    void updateTabBadgesNow();
-    void updateFrameTabLabels();
+    /// Says again what the validation finds in each page, in the stage list's rows.
+    void scheduleIssuesRefresh();
+    void updateIssuesNow();
 
     void updateLightCalibrationPreview(const QString& selectedPath);
     void refreshLightCalibrationPreview();
@@ -396,14 +398,13 @@ private:
     QAction* m_clearRecentProjectsAction = nullptr;
     int m_lastFrameTabIndex = 0;
 
-    QTimer* m_tabBadgeDebounce = nullptr;
+    QTimer* m_issuesDebounce = nullptr;
 
     /// The width a person gave the asides, waiting to be kept; none when there is nothing to keep.
     int m_asideWidthToKeep = 0;
     QTimer* m_asideWidthDebounce = nullptr;
 
-    /// What moves between the pages, a child of this widget; and the same object while it is the stage list.
-    ImageIntegration::StageNavigator* m_navigator = nullptr;
+    /// What moves between the pages, a child of this widget.
     ImageIntegration::StageListNavigator* m_stageList = nullptr;
 
     CalibrationTab* m_calibrationTab = nullptr;
@@ -429,7 +430,7 @@ private:
     QPointer<ImageIntegration::ImportProgressPanel> m_pageImportPanel;
     std::vector<QPointer<QAction>> m_importHeldActions;
 
-    /// A run shown in the page: its view, the act that shows it again, and the acts that wait for it.
+    /// A run shown in the process: its view, the act that shows it again, and the acts that wait for it.
     QPointer<WorkflowRunView> m_runView;
     QAction* m_showRunAction = nullptr;
     std::vector<QPointer<QAction>> m_runHeldActions;
@@ -441,7 +442,7 @@ private:
     struct JobHeadingState;
     std::unique_ptr<JobHeadingState> m_jobHeading;
 
-    /// Where the job's stages stand, for the stage list's rows; made when the process becomes a page.
+    /// Where the job's stages stand, for the stage list's rows; made with the list.
     struct StageStatesState;
     std::unique_ptr<StageStatesState> m_stageStates;
 
@@ -449,8 +450,6 @@ private:
 
     QVBoxLayout* verticalLayout = nullptr;
     QMenuBar* mainMenuBar = nullptr;
-    QTabWidget* rootTabWidget = nullptr;
-    QTabWidget* sourceTabWidget = nullptr;
     QWidget* biasTab = nullptr;
     QWidget* darkTab = nullptr;
     QWidget* flatTab = nullptr;
@@ -459,12 +458,10 @@ private:
     QVBoxLayout* verticalLayout_3 = nullptr;
     QVBoxLayout* verticalLayout_4 = nullptr;
     QVBoxLayout* verticalLayout_5 = nullptr;
-    QTabWidget* workflowTabWidget = nullptr;
     QWidget* calibrationTab = nullptr;
     QWidget* registrationTab = nullptr;
     QWidget* stackingTab = nullptr;
     QWidget* summaryTab = nullptr;
     QLineEdit* outputDirectoryEdit = nullptr;
     QPushButton* outputDirectoryBrowseButton = nullptr;
-    QDialogButtonBox* dialogButtonBox = nullptr;
 };

@@ -156,13 +156,12 @@ RegistrationSettingsDialog::RegistrationSettingsDialog(const QString& groupLabel
 
     // Set window title
     setWindowTitle(tr("Registration Settings"));
-    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
-    if (an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration")) != nullptr)
-    {
-        m_ui.titleLabel->setVisible(false);
-        m_ui.groupLabel->setVisible(false);
-        m_ui.separator1->setVisible(false);
-    }
+    // The lines that say whose settings these are give way to a window's heading, which the window's column always
+    // takes.
+    an::ui::headWindow(*this, windowTitle(), m_groupLabel, tr("Image Integration"));
+    m_ui.titleLabel->setVisible(false);
+    m_ui.groupLabel->setVisible(false);
+    m_ui.separator1->setVisible(false);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     setWindowModality(Qt::WindowModal);
     setModal(true);
@@ -949,14 +948,12 @@ void RegistrationSettingsDialog::ensureAdvancedSettingsDialog()
     QObject::connect(buttonBox, &QDialogButtonBox::accepted, m_advancedSettingsDialog, &QDialog::accept);
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, m_advancedSettingsDialog, &QDialog::reject);
     layout->addWidget(buttonBox);
-    if (an::ui::AnWindowHeading* const heading =
-            an::ui::headWindow(*m_advancedSettingsDialog, m_advancedSettingsDialog->windowTitle(),
-                               tr("How stars are detected, and the settings a registration seldom needs changed."),
-                               tr("Image Integration")))
-    {
-        // The panel scrolls between the heading and the footer: opened whole it is taller than a small display.
-        an::ui::scrollWindowBody(*layout, heading, buttonBox);
-    }
+    // The dialog's layout is a column, so it always takes the heading. The panel scrolls between the heading and the
+    // footer: opened whole it is taller than a small display.
+    an::ui::AnWindowHeading* const heading = an::ui::headWindow(
+        *m_advancedSettingsDialog, m_advancedSettingsDialog->windowTitle(),
+        tr("How stars are detected, and the settings a registration seldom needs changed."), tr("Image Integration"));
+    an::ui::scrollWindowBody(*layout, heading, buttonBox);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*m_advancedSettingsDialog);
 
     an::ui::processes::fixed_dialog_ui::applyStandardControlHeights(m_advancedSettingsDialog);

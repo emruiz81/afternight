@@ -5,23 +5,19 @@
 /// The parity scenarios: what a person does to AfterNight, written once and run against every registered shell, each
 /// started as the application starts it - its registry, its choice, the style, the shell made over the core and built -
 /// and driven as a person drives it (ShellDriver). A scenario names the shell it ran in after its name:
-/// `ShellScenario.OpensAnImageAndShowsItActive/classic`.
+/// `ShellScenario.OpensAnImageAndShowsItActive/observatory`.
 
-#include "ClassicDriver.h"
 #include "ObservatoryDriver.h"
 #include "ShellDriver.h"
 
-#include "ClassicShell.h"
-
-#include "Test_ShellClassic/AppTestSupport.h"
-#include "Test_ShellClassic/ApplicationDriving.h"
-#include "Test_ShellClassic/InventoryRecords.h"
+#include "fixtures/AppTestSupport.h"
+#include "fixtures/WindowDriving.h"
+#include "Test_ShellObservatory/InventoryRecords.h"
 
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
 #include "actions/ProcessMenuModel.h"
 #include "app/ApplicationStart.h"
-#include "app/ModernizationFeatureFlags.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
 #include "core/IShell.h"
@@ -97,7 +93,6 @@ inline void PrintTo(const QStringList& list, std::ostream* out)
 namespace
 {
 
-using an::tests::parity::ClassicDriver;
 using an::tests::parity::ObservatoryDriver;
 using an::tests::parity::ProcessLaunch;
 using an::tests::parity::ShellDriver;
@@ -111,8 +106,7 @@ constexpr std::string_view kCrop = "geometry.actionCrop";
 an::ui::shell::ShellRegistry registeredShells()
 {
     an::ui::shell::ShellRegistry registry;
-    EXPECT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-    EXPECT_TRUE(registry.add(an::ui::observatory::observatoryShellDescriptor()));
+    an::ui::registerApplicationShells(registry);
     return registry;
 }
 
@@ -233,18 +227,20 @@ protected:
         running->registry = std::make_unique<an::ui::shell::ShellRegistry>(registeredShells());
         running->core->setApplicationSession(running->session.get());
         running->core->setShellRegistry(running->registry.get());
-        running->started = an::ui::startApplication(
-            *running->core, *running->registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=") + id},
-            QProcessEnvironment(), [](const an::ui::StyleProfile profile) {
-                // The shell's profile, put in force in a process whose widgets an earlier shell made, as the suites do.
-                an::ui::testing::forceStyleProfile(profile);
-                // The style is the process's: one start of the application installs it once.
-                if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled() &&
-                    an::ui::installedAnProxyStyle() == nullptr)
-                {
-                    (void)an::ui::installAnProxyStyle();
-                }
-            });
+        running->started = an::ui::startApplication(*running->core, *running->registry,
+                                                    {QStringLiteral("AfterNight"), QStringLiteral("--shell=") + id},
+                                                    QProcessEnvironment(), [](const an::ui::StyleProfile profile) {
+                                                        // The shell's profile, put in force as the application puts it:
+                                                        // the one in force already, so it is accepted whatever widgets
+                                                        // an earlier start made.
+                                                        EXPECT_TRUE(an::ui::setStyleProfile(profile));
+                                                        // The style is the process's: one start of the application
+                                                        // installs it once.
+                                                        if (an::ui::installedAnProxyStyle() == nullptr)
+                                                        {
+                                                            (void)an::ui::installAnProxyStyle();
+                                                        }
+                                                    });
         ASSERT_NE(running->started.shell, nullptr);
         ASSERT_NE(running->started.choice.descriptor, nullptr);
         ASSERT_EQ(running->started.choice.descriptor->id, id);
@@ -254,13 +250,7 @@ protected:
         ASSERT_NE(settings, nullptr);
         ASSERT_TRUE(settings->upsert(QString::fromLatin1(SettingsKeys::INTERFACE_USE_SYSTEM_FILE_BROWSER),
                                      QStringLiteral("0")));
-        if (id == QLatin1String(an::ui::shell::ClassicShell::kId))
-        {
-            auto* const classic = dynamic_cast<an::ui::shell::ClassicShell*>(running->started.shell.get());
-            ASSERT_NE(classic, nullptr);
-            running->driver = std::make_unique<ClassicDriver>(*classic);
-        }
-        else if (id == QLatin1String(an::ui::observatory::ObservatoryShell::kId))
+        if (id == QLatin1String(an::ui::observatory::ObservatoryShell::kId))
         {
             auto* const observatory =
                 dynamic_cast<an::ui::observatory::ObservatoryShell*>(running->started.shell.get());
@@ -879,7 +869,5 @@ TEST_P(ShellScenario, ClosingTheApplicationWithAProcessOpenLeavesNothingBehind)
     EXPECT_TRUE(left.isEmpty()) << left.join(QStringLiteral(", ")).toStdString();
 }
 
-INSTANTIATE_TEST_SUITE_P(, ShellScenario,
-                         ::testing::Values(std::string(an::ui::shell::ClassicShell::kId),
-                                           std::string(an::ui::observatory::ObservatoryShell::kId)),
+INSTANTIATE_TEST_SUITE_P(, ShellScenario, ::testing::Values(std::string(an::ui::observatory::ObservatoryShell::kId)),
                          [](const ::testing::TestParamInfo<std::string>& shellId) { return shellId.param; });

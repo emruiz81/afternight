@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The application's start and end in their order, each case over a shell of its own: the stores open first, a shell is
-// chosen among the registered ones - from the command line, the environment, the setting, or the default - the style
-// is installed under the chosen shell's profile before the first widget, and the chosen shell is made over the core
-// and built; the application shows it,
-// and at its end asks it to keep its geometry before it goes with the session. Each case makes, starts and destroys a
-// shell of its own.
+// The application's start and end in their order: the stores open first, a shell is chosen among the registered ones -
+// from the command line, the environment, the setting, or the default - the style is installed under the chosen
+// shell's profile before the first widget, and the chosen shell is made over the core and built; the application shows
+// it, and at its end asks it to keep its geometry before it goes with the session. Each case makes, starts and destroys
+// a shell of its own: the Observatory shell, as the application registers it, or a recording shell that makes a plain
+// window.
 
-#include "ClassicShell.h"
 #include "app/ApplicationStart.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
@@ -16,33 +15,26 @@
 #include "core/ShellRegistry.h"
 #include "core/ShellSelection.h"
 
+#include "app/ExtensionThemeState.h"
 #include "controls/GlobalSettingsPersistence.h"
 #include "controls/IAppContext.h"
 #include "controls/settings/SettingsKeys.h"
 #include "fixtures/HeadlessQtFixture.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
 #include "theme/ObservatoryDock.h"
 
-#include <QAction>
 #include <QApplication>
 #include <QFont>
-#include <QImage>
 #include <QPalette>
-#include <QPixmap>
 #include <QProcessEnvironment>
 #include <QString>
 #include <QStringList>
-#include <QToolBar>
-#include <QToolButton>
 #include <QWidget>
 
 #include <gtest/gtest.h>
 
 #include <kddockwidgets/Config.h>
-
-#include <utility>
 
 #include <memory>
 #include <tuple>
@@ -142,43 +134,49 @@ private:
     std::unique_ptr<QWidget> m_window;
 };
 
-ShellDescriptor recordingDescriptor(const QString& id, QStringList& log,
-                                    const an::ui::StyleProfile profile = an::ui::StyleProfile::Classic)
+ShellDescriptor recordingDescriptor(const QString& id, QStringList& log)
 {
     return ShellDescriptor{
         .id = id,
         .displayName = id,
-        .styleProfile = profile,
+        .styleProfile = an::ui::StyleProfile::Observatory,
         .create = [id, &log](ApplicationCore&) -> std::unique_ptr<IShell> {
             return std::make_unique<RecordingShell>(id, log);
         },
     };
 }
 
-/// Three recording shells: `classic`, under the Classic profile, and `observatory` - the default - and `second`, under
-/// the Observatory one.
+/// Three recording shells: `first`, `observatory` - the default - and `second`.
 ShellRegistry recordingShells(QStringList& log)
 {
     ShellRegistry registry;
-    EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("classic"), log)));
-    EXPECT_TRUE(
-        registry.add(recordingDescriptor(QStringLiteral("observatory"), log, an::ui::StyleProfile::Observatory)));
-    EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("second"), log, an::ui::StyleProfile::Observatory)));
+    EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("first"), log)));
+    EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("observatory"), log)));
+    EXPECT_TRUE(registry.add(recordingDescriptor(QStringLiteral("second"), log)));
     return registry;
 }
 
 /// What the style step was handed, as the log reads it.
 QString styledUnder(const an::ui::StyleProfile profile, const bool storesOpen)
 {
-    const QString name =
-        profile == an::ui::StyleProfile::Observatory ? QStringLiteral("observatory") : QStringLiteral("classic");
-    return QStringLiteral("styled %1%2").arg(name, storesOpen ? QStringLiteral(", the stores open") : QString());
+    return QStringLiteral("styled %1%2")
+        .arg(an::ui::extensions::styleProfileName(profile),
+             storesOpen ? QStringLiteral(", the stores open") : QString());
+}
+
+/// The shells the application registers, as it registers them.
+ShellRegistry applicationShells()
+{
+    ShellRegistry registry;
+    an::ui::registerApplicationShells(registry);
+    return registry;
 }
 
 } // namespace
 
 // The stores open before anything else, because a shell is chosen from one of them; the style is installed next, before
-// the first widget exists; and the classic shell's window is made last, over the core, and readied with the session.
+// the first widget exists, under the profile the Observatory shell names; and the shell's window is made last, over the
+// core, and readied with the session.
 TEST(ApplicationStart, TheStoresOpenBeforeTheStyleAndTheFirstWidget)
 {
     ASSERT_EQ(an::ui::appContext(), nullptr);
@@ -186,29 +184,27 @@ TEST(ApplicationStart, TheStoresOpenBeforeTheStyleAndTheFirstWidget)
     an::ui::ApplicationSession session;
     ApplicationCore core;
     core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    const ShellRegistry registry = applicationShells();
     ASSERT_FALSE(core.storesOpen());
     const qsizetype widgetsBefore = QApplication::allWidgets().size();
     int styled = 0;
     bool storesOpenWhenStyled = false;
     qsizetype widgetsWhenStyled = -1;
-    an::ui::StyleProfile profileWhenStyled = an::ui::StyleProfile::Observatory;
+    QString profileWhenStyled;
 
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
-                                 QProcessEnvironment(), [&](const an::ui::StyleProfile profile) {
-                                     ++styled;
-                                     storesOpenWhenStyled = core.storesOpen();
-                                     widgetsWhenStyled = QApplication::allWidgets().size();
-                                     profileWhenStyled = profile;
-                                 });
+    an::ui::StartedApplication started = an::ui::startApplication(
+        core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), [&](const an::ui::StyleProfile profile) {
+            ++styled;
+            storesOpenWhenStyled = core.storesOpen();
+            widgetsWhenStyled = QApplication::allWidgets().size();
+            profileWhenStyled = styledUnder(profile, false);
+        });
 
     ASSERT_NE(started.shell, nullptr);
     QWidget* const window = started.shell->mainWindow();
     ASSERT_NE(window, nullptr);
     EXPECT_EQ(styled, 1);
-    EXPECT_EQ(profileWhenStyled, an::ui::StyleProfile::Classic) << "the classic shell names the Classic profile";
+    EXPECT_EQ(profileWhenStyled, QStringLiteral("styled observatory"));
     EXPECT_TRUE(storesOpenWhenStyled) << "the style was installed before the stores were open";
     EXPECT_EQ(widgetsWhenStyled, widgetsBefore) << "a widget was made before the style was installed";
     EXPECT_TRUE(session.isOpen());
@@ -224,7 +220,7 @@ TEST(ApplicationStart, TheStoresOpenBeforeTheStyleAndTheFirstWidget)
 
 // The shell the command line names is made and built - after the stores, and after the style installed under the
 // profile that shell names - shown, asked at the end to keep its geometry, and destroyed before the session is shut
-// down; the other registered shell is never made.
+// down; the other registered shells are never made.
 TEST(ApplicationStart, StartsTheChosenShell)
 {
     QStringList log;
@@ -253,132 +249,51 @@ TEST(ApplicationStart, StartsTheChosenShell)
         << log.join(QStringLiteral(", ")).toStdString();
 }
 
-// The developer switch reaches the style step: the classic shell, which names the Classic profile, is styled under the
-// profile the environment names, before it is made.
-TEST(ApplicationStart, TheDeveloperSwitchStylesTheShellUnderTheProfileItNames)
+// The dock library is given the Observatory profile's separator, two pixels, once the profile is in force and before
+// the shell is made, whatever it held before.
+TEST(ApplicationStart, TheDockLibraryTakesTheSeparatorOfTheProfile)
 {
     QStringList log;
     const ShellRegistry registry = recordingShells(log);
     an::ui::ApplicationSession session;
     ApplicationCore core;
     core.setApplicationSession(&session);
-    QProcessEnvironment environment;
-    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
-                       QStringLiteral("observatory"));
+    // The library's own thickness, as a process that has not started holds it.
+    constexpr int kLibrarySeparator = 5;
+    KDDockWidgets::Config::self().setSeparatorThickness(kLibrarySeparator);
+    int whenMade = -1;
+    ShellRegistry watched;
+    ShellDescriptor second = *registry.find(QStringLiteral("second"));
+    second.create = [&whenMade, made = second.create](ApplicationCore& given) {
+        whenMade = KDDockWidgets::Config::self().separatorThickness();
+        return made(given);
+    };
+    ASSERT_TRUE(watched.add(std::move(second)));
 
     an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, environment,
-        [&](const an::ui::StyleProfile profile) { log.append(styledUnder(profile, true)); });
+        core, watched, {QStringLiteral("AfterNight"), QStringLiteral("--shell=second")}, QProcessEnvironment(), {});
 
-    ASSERT_NE(started.choice.descriptor, nullptr);
-    EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("classic"));
-    EXPECT_EQ(log, (QStringList{QStringLiteral("styled observatory, the stores open"), QStringLiteral("classic made"),
-                                QStringLiteral("classic built")}))
-        << log.join(QStringLiteral(", ")).toStdString();
+    EXPECT_EQ(whenMade, an::ui::kObservatoryDockSeparator) << "the shell was made before the separator was given";
+    EXPECT_EQ(KDDockWidgets::Config::self().separatorThickness(), an::ui::kObservatoryDockSeparator);
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
 }
 
-// The dock library is given the separator of the profile the shell starts under, once the profile is in force and
-// before the shell is made: two pixels under the Observatory profile, the library's own under the Classic one.
-TEST(ApplicationStart, TheDockLibraryTakesTheSeparatorOfTheProfile)
-{
-    const an::ui::testing::ScopedStyleProfile classicAfterwards(an::ui::StyleProfile::Classic);
-    const int librarySeparator = KDDockWidgets::Config::self().separatorThickness();
-    for (const auto& [shell, expected] : {std::pair{QStringLiteral("second"), an::ui::kObservatoryDockSeparator},
-                                          std::pair{QStringLiteral("classic"), 5}})
-    {
-        SCOPED_TRACE(shell.toStdString());
-        QStringList log;
-        const ShellRegistry registry = recordingShells(log);
-        an::ui::ApplicationSession session;
-        ApplicationCore core;
-        core.setApplicationSession(&session);
-
-        an::ui::StartedApplication started = an::ui::startApplication(
-            core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=") + shell}, QProcessEnvironment(),
-            [](const an::ui::StyleProfile profile) { an::ui::testing::forceStyleProfile(profile); });
-
-        EXPECT_EQ(KDDockWidgets::Config::self().separatorThickness(), expected);
-        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
-    }
-    EXPECT_EQ(KDDockWidgets::Config::self().separatorThickness(), librarySeparator);
-}
-
-// With the developer switch the classic shell starts under the Observatory profile and paints in its colours: the style
-// step is handed the profile before the window exists, and the palette the proxy style fills from the tokens - the
-// window's background among it - is the Observatory profile's, not the Classic one's.
-TEST(ApplicationStart, TheDeveloperSwitchStartsTheClassicShellInTheObservatoryColours)
-{
-    const an::ui::testing::ScopedStyleProfile classicAfterwards(an::ui::StyleProfile::Classic);
-    const QPalette paletteBefore = QApplication::palette();
-    an::ui::ApplicationSession session;
-    ApplicationCore core;
-    core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-    QProcessEnvironment environment;
-    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
-                       QStringLiteral("observatory"));
-
-    an::ui::StartedApplication started =
-        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
-                                 environment, [](const an::ui::StyleProfile profile) {
-                                     // The application's step, but for the widgets
-                                     // earlier cases of this process made.
-                                     an::ui::testing::forceStyleProfile(profile);
-                                     (void)an::ui::installAnProxyStyle();
-                                 });
-
-    ASSERT_NE(started.shell, nullptr);
-    EXPECT_EQ(an::ui::styleProfile(), an::ui::StyleProfile::Observatory);
-    QWidget* const window = started.shell->mainWindow();
-    ASSERT_NE(window, nullptr);
-    window->resize(1280, 800);
-    EXPECT_FALSE(window->grab().toImage().isNull()) << "the window does not paint under the Observatory profile";
-
-    const an::ui::ThemeChoices choices{.theme = an::ui::isDarkTheme() ? an::ui::ThemeVariant::Dark
-                                                                      : an::ui::ThemeVariant::Light,
-                                       .contrast = an::ui::themeContrastProfile(),
-                                       .accent = an::ui::themeAccentFamily(),
-                                       .tint = an::ui::themeSurfaceTintFamily(),
-                                       .tintStrength = an::ui::themeTintStrength(),
-                                       .profile = an::ui::StyleProfile::Observatory,
-                                       .nativeBackdrop = an::ui::usingNativeBackdropMaterials()};
-    an::ui::ThemeChoices classicChoices = choices;
-    classicChoices.profile = an::ui::StyleProfile::Classic;
-    const QColor background = QApplication::palette().color(QPalette::Window);
-    EXPECT_EQ(background, an::ui::resolveDesignTokens(choices).materials.micaSurface);
-    EXPECT_NE(background, an::ui::resolveDesignTokens(classicChoices).materials.micaSurface);
-    EXPECT_EQ(window->palette().color(QPalette::Window), background);
-
-    ASSERT_TRUE(window->close());
-    EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
-
-    // The process's style and palette as they were: the proxy style goes with the style it replaced.
-    QApplication* const application = qobject_cast<QApplication*>(QCoreApplication::instance());
-    ASSERT_NE(application, nullptr);
-    an::tests::fixtures::applyFusionStyle(*application);
-    an::ui::registerInstalledAnProxyStyle(nullptr);
-    QApplication::setPalette(paletteBefore);
-}
-
-// The classic shell reads the theme from the settings store as it starts; the tint strength among it, which the
-// Observatory profile blends by and the Classic one keeps for when it is asked for.
+// The theme is read from the settings store as the shell starts; the tint strength among it, which the Observatory
+// profile blends the surfaces' tint by.
 TEST(ApplicationStart, TheTintStrengthIsReadFromTheSettingsStore)
 {
     ASSERT_EQ(an::ui::themeTintStrength(), an::ui::ThemeTintStrength::Balanced);
     an::ui::ApplicationSession session;
     ApplicationCore core;
     core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    const ShellRegistry registry = applicationShells();
     core.openStores();
     ASSERT_NE(core.globalSettingsStore(), nullptr);
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH);
     ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("strong")));
 
-    an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themeTintStrength(), an::ui::ThemeTintStrength::Strong);
 
@@ -391,34 +306,54 @@ TEST(ApplicationStart, TheTintStrengthIsReadFromTheSettingsStore)
     EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
 }
 
-// The density is read from the settings store with the rest of the theme as the shell starts; the Classic profile keeps
-// it for when it is asked for and sizes nothing by it.
-TEST(ApplicationStart, TheDensityIsReadFromTheSettingsStore)
+// The shell starts in the density the settings store names, read with the rest of the theme: the controls are the
+// density's height and the application's font is its body size. Changed and started again, it starts in the other.
+TEST(ApplicationStart, TheShellStartsInTheDensityTheSettingsStoreNames)
 {
     ASSERT_EQ(an::ui::themeDensity(), an::ui::ThemeDensity::Compact);
-    an::ui::ApplicationSession session;
-    ApplicationCore core;
-    core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-    core.openStores();
-    ASSERT_NE(core.globalSettingsStore(), nullptr);
-    const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
-    ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("comfortable")));
-    const an::ui::MetricTokens classicMetrics = an::ui::tokens().metrics;
+    const QPalette paletteBefore = QApplication::palette();
+    const QFont fontBefore = QApplication::font();
 
-    an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
+    for (const auto& [setting, density, control, bodyPixels] :
+         {std::tuple{QStringLiteral("comfortable"), an::ui::ThemeDensity::Comfortable, 36, 14},
+          std::tuple{QStringLiteral("compact"), an::ui::ThemeDensity::Compact, 32, 13}})
+    {
+        SCOPED_TRACE(setting.toStdString());
+        an::ui::ApplicationSession session;
+        ApplicationCore core;
+        core.setApplicationSession(&session);
+        const ShellRegistry registry = applicationShells();
+        core.openStores();
+        ASSERT_NE(core.globalSettingsStore(), nullptr);
+        const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
+        ASSERT_TRUE(core.globalSettingsStore()->upsert(key, setting));
 
-    EXPECT_EQ(an::ui::themeDensity(), an::ui::ThemeDensity::Comfortable);
-    EXPECT_TRUE(an::ui::tokens().metrics == classicMetrics) << "the Classic profile sized something by the density";
+        an::ui::StartedApplication started =
+            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(),
+                                     [](const an::ui::StyleProfile /*profile*/) {
+                                         // The application's step: the proxy style sets the font from the tokens.
+                                         (void)an::ui::installAnProxyStyle();
+                                     });
 
-    // The setting and the density are taken back before the stores close with the application.
-    EXPECT_TRUE(core.globalSettingsStore()->remove(key));
-    an::ui::setThemeDensity(an::ui::ThemeDensity::Compact);
-    ASSERT_NE(started.shell, nullptr);
-    ASSERT_TRUE(started.shell->mainWindow()->close());
-    EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+        ASSERT_NE(started.shell, nullptr);
+        EXPECT_EQ(an::ui::themeDensity(), density);
+        EXPECT_EQ(an::ui::tokens().metrics.control, control);
+        const QFont font = QApplication::font();
+        EXPECT_EQ(qRound(font.pointSizeF() * 96.0 / 72.0), bodyPixels);
+
+        EXPECT_TRUE(core.globalSettingsStore()->remove(key));
+        an::ui::setThemeDensity(an::ui::ThemeDensity::Compact);
+        ASSERT_TRUE(started.shell->mainWindow()->close());
+        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
+
+        // The process's style, palette and font as they were: the proxy style goes with the style it replaced.
+        QApplication* const application = qobject_cast<QApplication*>(QCoreApplication::instance());
+        ASSERT_NE(application, nullptr);
+        an::tests::fixtures::applyFusionStyle(*application);
+        an::ui::registerInstalledAnProxyStyle(nullptr);
+        QApplication::setPalette(paletteBefore);
+        QApplication::setFont(fontBefore);
+    }
 }
 
 // The colour preset the settings store names is put in force as the shell starts: its accent, tint and strength,
@@ -429,15 +364,14 @@ TEST(ApplicationStart, ThePresetIsReadFromTheSettingsStore)
     an::ui::ApplicationSession session;
     ApplicationCore core;
     core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    const ShellRegistry registry = applicationShells();
     core.openStores();
     ASSERT_NE(core.globalSettingsStore(), nullptr);
     const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_PRESET);
     ASSERT_TRUE(core.globalSettingsStore()->upsert(key, QStringLiteral("nebula")));
 
-    an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themePreset(), an::ui::ThemePreset::Nebula);
     EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Rose);
@@ -458,8 +392,7 @@ TEST(ApplicationStart, AnEarlierVersionsAccentAndTintAreKept)
     an::ui::ApplicationSession session;
     ApplicationCore core;
     core.setApplicationSession(&session);
-    ShellRegistry registry;
-    ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+    const ShellRegistry registry = applicationShells();
     core.openStores();
     ASSERT_NE(core.globalSettingsStore(), nullptr);
     const QString accent = QString::fromLatin1(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY);
@@ -467,8 +400,8 @@ TEST(ApplicationStart, AnEarlierVersionsAccentAndTintAreKept)
     ASSERT_TRUE(core.globalSettingsStore()->upsert(accent, QStringLiteral("amber")));
     ASSERT_TRUE(core.globalSettingsStore()->upsert(tint, QStringLiteral("ocean")));
 
-    an::ui::StartedApplication started = an::ui::startApplication(
-        core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")}, QProcessEnvironment(), {});
+    an::ui::StartedApplication started =
+        an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
 
     EXPECT_EQ(an::ui::themeAccentFamily(), an::ui::ThemeAccentFamily::Amber);
     EXPECT_EQ(an::ui::themeSurfaceTintFamily(), an::ui::ThemeSurfaceTintFamily::Ocean);
@@ -492,8 +425,7 @@ TEST(ApplicationStart, NightIsSetAtStartOnlyWhenAskedFor)
         an::ui::ApplicationSession session;
         ApplicationCore core;
         core.setApplicationSession(&session);
-        ShellRegistry registry;
-        ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
+        const ShellRegistry registry = applicationShells();
         core.openStores();
         ASSERT_NE(core.globalSettingsStore(), nullptr);
         const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_START_IN_NIGHT);
@@ -503,8 +435,7 @@ TEST(ApplicationStart, NightIsSetAtStartOnlyWhenAskedFor)
         }
 
         an::ui::StartedApplication started =
-            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
-                                     QProcessEnvironment(), {});
+            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight")}, QProcessEnvironment(), {});
 
         EXPECT_EQ(an::ui::nightModeSet(), asked);
 
@@ -516,82 +447,6 @@ TEST(ApplicationStart, NightIsSetAtStartOnlyWhenAskedFor)
         ASSERT_NE(started.shell, nullptr);
         ASSERT_TRUE(started.shell->mainWindow()->close());
         EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
-    }
-}
-
-// With the developer switch the classic shell starts in the density the settings store names: a tool bar's buttons are
-// the density's control high, and the application's font is its body size. Changed and started again, it starts in the
-// other.
-TEST(ApplicationStart, TheDeveloperSwitchStartsTheClassicShellInEitherDensity)
-{
-    const an::ui::testing::ScopedStyleProfile classicAfterwards(an::ui::StyleProfile::Classic);
-    const QPalette paletteBefore = QApplication::palette();
-    const QFont fontBefore = QApplication::font();
-    QProcessEnvironment environment;
-    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable),
-                       QStringLiteral("observatory"));
-
-    for (const auto& [setting, control, bodyPixels] :
-         {std::tuple{QStringLiteral("comfortable"), 36, 14}, std::tuple{QStringLiteral("compact"), 32, 13}})
-    {
-        SCOPED_TRACE(setting.toStdString());
-        an::ui::ApplicationSession session;
-        ApplicationCore core;
-        core.setApplicationSession(&session);
-        ShellRegistry registry;
-        ASSERT_TRUE(registry.add(an::ui::shell::classicShellDescriptor()));
-        core.openStores();
-        ASSERT_NE(core.globalSettingsStore(), nullptr);
-        const QString key = QString::fromLatin1(SettingsKeys::INTERFACE_DENSITY);
-        ASSERT_TRUE(core.globalSettingsStore()->upsert(key, setting));
-
-        an::ui::StartedApplication started =
-            an::ui::startApplication(core, registry, {QStringLiteral("AfterNight"), QStringLiteral("--shell=classic")},
-                                     environment, [](const an::ui::StyleProfile profile) {
-                                         // The application's step, but for the widgets earlier cases of this process
-                                         // made.
-                                         an::ui::testing::forceStyleProfile(profile);
-                                         (void)an::ui::installAnProxyStyle();
-                                     });
-
-        ASSERT_NE(started.shell, nullptr);
-        QWidget* const window = started.shell->mainWindow();
-        ASSERT_NE(window, nullptr);
-        EXPECT_EQ(an::ui::tokens().metrics.control, control);
-        const QFont font = QApplication::font();
-        EXPECT_EQ(qRound(font.pointSizeF() * 96.0 / 72.0), bodyPixels);
-        QToolButton* toolButton = nullptr;
-        for (QToolBar* const toolBar : window->findChildren<QToolBar*>())
-        {
-            for (QAction* const action : toolBar->actions())
-            {
-                if (auto* const button = qobject_cast<QToolButton*>(toolBar->widgetForAction(action));
-                    button != nullptr && !action->icon().isNull())
-                {
-                    toolButton = button;
-                    break;
-                }
-            }
-            if (toolButton != nullptr)
-            {
-                break;
-            }
-        }
-        ASSERT_NE(toolButton, nullptr) << "the classic window has no tool bar button";
-        EXPECT_EQ(toolButton->sizeHint().height(), control);
-
-        EXPECT_TRUE(core.globalSettingsStore()->remove(key));
-        an::ui::setThemeDensity(an::ui::ThemeDensity::Compact);
-        ASSERT_TRUE(window->close());
-        EXPECT_TRUE(an::ui::stopApplication(std::move(started.shell), session).ok());
-
-        // The process's style, palette and font as they were: the proxy style goes with the style it replaced.
-        QApplication* const application = qobject_cast<QApplication*>(QCoreApplication::instance());
-        ASSERT_NE(application, nullptr);
-        an::tests::fixtures::applyFusionStyle(*application);
-        an::ui::registerInstalledAnProxyStyle(nullptr);
-        QApplication::setPalette(paletteBefore);
-        QApplication::setFont(fontBefore);
     }
 }
 
@@ -615,7 +470,8 @@ TEST(ApplicationStart, ReadsTheShellFromTheSettingsStore)
     EXPECT_EQ(started.choice.descriptor->id, QStringLiteral("second"));
     EXPECT_EQ(started.choice.source, ShellChoiceSource::Setting);
     EXPECT_TRUE(log.contains(QStringLiteral("second built")));
-    EXPECT_FALSE(log.contains(QStringLiteral("classic made")));
+    EXPECT_FALSE(log.contains(QStringLiteral("first made")));
+    EXPECT_FALSE(log.contains(QStringLiteral("observatory made")));
 
     // The setting lasts: it is taken back, so no case after this one starts from it.
     ASSERT_TRUE(core.globalSettingsStore()->remove(QString::fromLatin1(SettingsKeys::INTERFACE_SHELL)));

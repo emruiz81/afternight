@@ -23,9 +23,7 @@ inline void applyStandardProcessTabBarSizing(QTabWidget* tabWidget)
         tabBar->setUsesScrollButtons(false);
         tabBar->setDrawBase(false);
         tabBar->setProperty("anTabCompact", true);
-        tabBar->setProperty("anTabHeightScale", 0.85);
         tabBar->setProperty("anTabMinWidth", 170);
-        tabBar->setProperty("anTabMinHeight", 18);
         tabBar->setProperty("anTabAccentLinePosition", QStringLiteral("top"));
     }
 }

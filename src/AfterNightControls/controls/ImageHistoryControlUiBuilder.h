@@ -134,10 +134,9 @@ public:
 
         previewWidgetHost = new QWidget(previewCard);
         previewWidgetHost->setObjectName(QStringLiteral("historyStepPreviewHost"));
-        // Under the Observatory profile the window's least height fits a small display: the preview and the
-        // histogram may be lower there than they were drawn for.
-        const bool observatoryLook = an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
-        previewWidgetHost->setMinimumHeight(observatoryLook ? 140 : 220);
+        // The window's least height fits a small display: the preview and the histogram may be lower there than they
+        // were drawn for.
+        previewWidgetHost->setMinimumHeight(140);
         previewWidgetHostLayout = new QVBoxLayout(previewWidgetHost);
         previewWidgetHostLayout->setContentsMargins(0, 0, 0, 0);
         previewWidgetHostLayout->setSpacing(0);
@@ -145,7 +144,7 @@ public:
 
         histogramWidgetHost = new QWidget(previewCard);
         histogramWidgetHost->setObjectName(QStringLiteral("historyStepHistogramHost"));
-        histogramWidgetHost->setMinimumHeight(observatoryLook ? 100 : 160);
+        histogramWidgetHost->setMinimumHeight(100);
         histogramWidgetHostLayout = new QVBoxLayout(histogramWidgetHost);
         histogramWidgetHostLayout->setContentsMargins(0, 0, 0, 0);
         histogramWidgetHostLayout->setSpacing(0);

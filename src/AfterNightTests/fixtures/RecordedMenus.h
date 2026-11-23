@@ -3,9 +3,9 @@
 
 /// @file
 /// The application's menu bar as the record of the 1.1 interface holds it, made of the recorded actions: what a suite
-/// below the shell core reads the application's menus in, since it can link neither the shell core's menu tree nor the
-/// classic shell's builder. Each menu carries the object name and title the record states; a menu that follows a
-/// person's history is made empty; nothing is bound.
+/// below the shell core reads the application's menus in, since it cannot link the shell core's menu tree. Each menu
+/// carries the object name and title the record states; a menu that follows a person's history is made empty; nothing
+/// is bound.
 #pragma once
 
 #include "fixtures/BaselineRecord.h"

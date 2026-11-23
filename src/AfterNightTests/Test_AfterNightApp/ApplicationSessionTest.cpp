@@ -7,7 +7,7 @@
 
 #include "core/ApplicationSession.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "app/ApplicationStorage.h"
 #include "controls/settings/ProcessingLimits.h"
 

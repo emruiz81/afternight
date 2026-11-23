@@ -4,8 +4,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
+#include <memory>
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -15,11 +18,14 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QThreadPool>
 #include <QTimeZone>
+#include <QWidget>
 
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/model/RegistrationGroupEngine.h"
 #include "processes/ImageIntegration/workflow/WorkflowExecutionController.h"
+#include "processes/ImageIntegration/workflow/WorkflowRunObserver.h"
 
 namespace
 {
@@ -66,9 +72,38 @@ QString readRepoSourceFile(const QString& relativePath)
 
     return {};
 }
+
+/// A front end that is asked to show a run and refuses it, counting the times it was asked.
+class RefusingRunHost final : public QWidget, public IWorkflowRunHost
+{
+public:
+    bool showWorkflowRun(WorkflowRunView* /*view*/) override
+    {
+        ++asked;
+        return false;
+    }
+
+    int asked = 0;
+};
+
+/// How many top-level windows are shown.
+[[nodiscard]] int shownTopLevelWindows()
+{
+    int shown = 0;
+    for (const QWidget* widget : QApplication::topLevelWidgets())
+    {
+        if (widget->isVisible())
+        {
+            ++shown;
+        }
+    }
+    return shown;
+}
 } // namespace
 
-TEST(WorkflowExecutionController, SourceGuardLaunchesProgressDialogAsynchronously)
+// A launch opens nothing that waits: no dialog run modally, no message box that blocks, and no window of its own for
+// the run - the warnings it gives are opened and left.
+TEST(WorkflowExecutionController, SourceGuardOpensNothingThatWaits)
 {
     const QString source = readRepoSourceFile(
         QStringLiteral("src/AfterNightProcesses/processes/ImageIntegration/workflow/WorkflowExecutionController.cpp"));
@@ -78,8 +113,57 @@ TEST(WorkflowExecutionController, SourceGuardLaunchesProgressDialogAsynchronousl
     EXPECT_FALSE(source.contains(
         QRegularExpression(QStringLiteral(R"(QMessageBox::(warning|information|critical|question)\s*\()"))));
     EXPECT_FALSE(source.contains(QStringLiteral("runModalValidated")));
-    EXPECT_TRUE(source.contains(QStringLiteral("&QDialog::finished")));
+    EXPECT_FALSE(source.contains(QStringLiteral("QDialog"))) << "a run is shown by its front end, in no window";
     EXPECT_TRUE(source.contains(QRegularExpression(QStringLiteral(R"(\->open\s*\()"))));
+}
+
+// A run is shown by the front end it is launched from, or it does not run: from a front end that refuses its view, one
+// that shows no run, or none at all, nothing is started and nothing is prepared, no window opens in the front end's
+// place, nothing is left in it, and the launch answers that it started nothing.
+TEST(WorkflowExecutionController, ARunNoFrontEndShowsIsNotStarted)
+{
+    IntegrationDataModel model;
+    std::atomic<int> pipelines{0};
+    std::atomic<int> preparations{0};
+    int finished = 0;
+    const auto pipeline = [&pipelines]() -> std::unique_ptr<WorkflowExecutor> {
+        ++pipelines;
+        return nullptr;
+    };
+    const auto prepare = [&preparations]() {
+        ++preparations;
+        return WorkflowManifest{};
+    };
+    const auto completion = [&finished](const WorkflowExecutor::Result&) { ++finished; };
+    const int windowsBefore = shownTopLevelWindows();
+
+    RefusingRunHost refusing;
+    WorkflowExecutionController fromRefusing(&model, &refusing);
+    fromRefusing.setPipeline(pipeline);
+    EXPECT_FALSE(fromRefusing.runAsyncPrevalidated(WorkflowManifest{}, completion));
+    EXPECT_FALSE(fromRefusing.runAsyncPrepared(prepare, completion));
+    EXPECT_EQ(refusing.asked, 2) << "the front end is asked to show each run";
+
+    QWidget noHost;
+    WorkflowExecutionController fromNoHost(&model, &noHost);
+    fromNoHost.setPipeline(pipeline);
+    EXPECT_FALSE(fromNoHost.runAsyncPrevalidated(WorkflowManifest{}, completion));
+    EXPECT_FALSE(fromNoHost.runAsyncPrepared(prepare, completion));
+
+    WorkflowExecutionController fromNothing(&model, nullptr);
+    fromNothing.setPipeline(pipeline);
+    EXPECT_FALSE(fromNothing.runAsyncPrevalidated(WorkflowManifest{}, completion));
+
+    // Whatever a launch would have done next has had its chance to.
+    QCoreApplication::processEvents();
+    QThreadPool::globalInstance()->waitForDone();
+    QCoreApplication::processEvents();
+    EXPECT_EQ(pipelines.load(), 0) << "no run was started";
+    EXPECT_EQ(preparations.load(), 0) << "no run was prepared";
+    EXPECT_EQ(finished, 0);
+    EXPECT_TRUE(refusing.findChildren<QWidget*>().isEmpty()) << "nothing was left in the front end";
+    EXPECT_TRUE(noHost.findChildren<QWidget*>().isEmpty());
+    EXPECT_EQ(shownTopLevelWindows(), windowsBefore) << "no window opened in a front end's place";
 }
 
 TEST(WorkflowExecutionController, ProcessPreparationUsesMonotonicExclusiveAsyncBoundaries)

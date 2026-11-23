@@ -67,7 +67,7 @@ void upsertSetting(const char* key, const QString& value)
     }
 }
 
-/// The dashboard's words, under the dashboard's translation context: the classic dashboard and Home say the same.
+/// Home's words, under the translation context AfterNight 1.1's dashboard gave them, which the translations keep.
 QString dashboardText(const char* text)
 {
     return QCoreApplication::translate("MainDashboard", text);
@@ -111,7 +111,7 @@ void ensureDashboardSettingsFormat()
     }
     if (!setAside.isEmpty())
     {
-        LOG_WARNING("MainDashboard: the dashboard's settings {}; this version of AfterNight reads format {}. They were "
+        LOG_WARNING("Home: the dashboard's settings {}; this version of AfterNight reads format {}. They were "
                     "set aside under their names with '{}' beside them, and the dashboard starts from its defaults.",
                     numbered && statedFormat > 0 ? fmt::format("were written in format {}", statedFormat)
                                                  : std::string("state no format version"),

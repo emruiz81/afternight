@@ -62,9 +62,8 @@ enum class ThemeVariant
     Light
 };
 
-/// How much of the surface tint goes into the surfaces and the lines under the Observatory profile: Off, Subtle 5 % and
-/// 8 %, Balanced 8 % and 12 % (1.1's blend), Strong 12 % and 18 %. The Neutral tint is Off whatever the strength. The
-/// Classic profile has one blend and ignores it.
+/// How much of the surface tint goes into the surfaces and the lines: Off, Subtle 5 % and 8 %, Balanced 8 % and 12 %
+/// (1.1's blend), Strong 12 % and 18 %. The Neutral tint is Off whatever the strength.
 enum class ThemeTintStrength
 {
     Off,
@@ -73,8 +72,7 @@ enum class ThemeTintStrength
     Strong
 };
 
-/// How dense the Observatory profile lays the interface out: Compact (the default) or Comfortable, a column of the
-/// metric tokens each. The Classic profile has AfterNight 1.1's sizes and ignores it.
+/// How dense the interface is laid out: Compact (the default) or Comfortable, a column of the metric tokens each.
 enum class ThemeDensity
 {
     Compact,
@@ -295,8 +293,7 @@ struct ColorTokens
 
     QColor shadowOverlay;
 
-    // The roles the Observatory profile names. Under the Classic profile each holds the colour AfterNight 1.1 paints
-    // in that role, so a widget shared by both profiles reads it under either.
+    // The roles the Observatory profile added to AfterNight 1.1's.
 
     QColor bgCanvas; ///< Behind an image in a view.
     QColor bgWell; ///< Behind a plot: dark in both themes, as an image is judged against dark.
@@ -449,9 +446,8 @@ struct TypographyTokens
 };
 
 /// The sizes of the interface, in logical pixels: what a control, a row and a bar are high, the font sizes, a panel's
-/// padding and gaps. Under the Observatory profile they are the density's column (the defaults below are Compact's);
-/// under the Classic profile they are AfterNight 1.1's where 1.1 has a size for the role and Compact's where it has
-/// none. The proxy style sizes the standard widgets from them, and a widget sizes itself from them in its sizeHint().
+/// padding and gaps - the density's column (the defaults below are Compact's). The proxy style sizes the standard
+/// widgets from them, and a widget sizes itself from them in its sizeHint().
 struct MetricTokens
 {
     int fontBody = 13; ///< The body text.
@@ -494,9 +490,8 @@ struct DesignTokens
     [[nodiscard]] bool operator==(const DesignTokens&) const = default;
 };
 
-/// Everything one resolution of the tokens reads: the theme it resolves, the user's choices and the profile. The
-/// application's state is one of these per theme (refreshTokens()); a suite resolves any of them with
-/// resolveDesignTokens() and no global.
+/// Everything one resolution of the tokens reads: the theme it resolves and the user's choices. The application's state
+/// is one of these per theme (refreshTokens()); a suite resolves any of them with resolveDesignTokens() and no global.
 struct ThemeChoices
 {
     ThemeVariant theme = ThemeVariant::Dark;
@@ -504,10 +499,9 @@ struct ThemeChoices
     ThemeAccentFamily accent = ThemeAccentFamily::Blue;
     ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral;
     ThemeTintStrength tintStrength = ThemeTintStrength::Balanced;
-    StyleProfile profile = StyleProfile::Classic;
     ThemeDensity density = ThemeDensity::Compact;
-    /// Whether Night is on: under the Observatory profile the resolution's last step resolves the dark theme with the
-    /// tint off and maps every colour to its luma in red (`THEME_SYSTEM.md`, "Night"). The Classic profile ignores it.
+    /// Whether Night is on: the resolution's last step resolves the dark theme with the tint off and maps every colour
+    /// to its luma in red (`THEME_SYSTEM.md`, "Night").
     bool night = false;
     /// Whether the material surfaces take the window system's backdrop (setMaterialBackdropMode()).
     bool nativeBackdrop = false;
@@ -516,8 +510,8 @@ struct ThemeChoices
 };
 
 /// Resolves the tokens of one combination in the pipeline's order - the base, the accent, the tint, the contrast
-/// profile, the text on the accent, the materials, the sizes and the type scale, and Night last - under the
-/// combination's profile. Reads and writes no global state, so it may be called from any thread.
+/// profile, the text on the accent, the materials, the sizes and the type scale, and Night last. Reads and writes no
+/// global state, so it may be called from any thread.
 [[nodiscard]] AFTERNIGHTCONTROLS_API DesignTokens resolveDesignTokens(const ThemeChoices& choices);
 
 [[nodiscard]] AFTERNIGHTCONTROLS_API const DesignTokens& tokens();
@@ -576,11 +570,11 @@ AFTERNIGHTCONTROLS_API void applyThemePreset(ThemePreset preset);
 /// start unless the user asked to start in it. Switched off, it lets go of the Night pictures it kept.
 AFTERNIGHTCONTROLS_API void setNightMode(bool night);
 
-/// Whether Night is set, whatever the profile.
+/// Whether Night is set.
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool nightModeSet();
 
-/// Whether Night is in force: set, and the Observatory profile in force. What a widget asks before it paints a picture,
-/// and what the viewer asks before it presents one.
+/// Whether Night is in force. What a widget asks before it paints a picture, and what the viewer asks before it
+/// presents one.
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool isNightMode();
 
 /// Puts a style profile in force and resolves the tokens again. The application sets the profile its shell names once,
@@ -591,17 +585,8 @@ AFTERNIGHTCONTROLS_API void setNightMode(bool night);
 ///         it was refused.
 AFTERNIGHTCONTROLS_API bool setStyleProfile(StyleProfile profile);
 
-/// The style profile in force: `Classic` until setStyleProfile() sets another.
+/// The style profile in force: `Observatory`, the one the shell names.
 [[nodiscard]] AFTERNIGHTCONTROLS_API StyleProfile styleProfile();
-
-namespace testing
-{
-/// Puts a style profile in force whatever widgets exist, and resolves the tokens again. For the suites alone, through
-/// `an::ui::testing::ScopedStyleProfile` (`fixtures/ScopedStyleProfile.h`), which only the test executables compile: a
-/// suite tests a profile in a process whose widgets were made under another. The application calls
-/// setStyleProfile().
-AFTERNIGHTCONTROLS_API void forceStyleProfile(StyleProfile profile);
-} // namespace testing
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool nativeBackdropSupported();
 [[nodiscard]] AFTERNIGHTCONTROLS_API bool usingNativeBackdropMaterials();
 

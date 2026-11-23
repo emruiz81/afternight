@@ -12,6 +12,7 @@
 #include <cmath>
 
 #include "theme/AnDesignTokens.h"
+#include "theme/ObservatoryPalette.h"
 
 namespace
 {
@@ -283,6 +284,8 @@ TEST(ThemeSystemDesignTokens, DISABLED_DesignTokens_PreferNativeUsesNativeWhenSu
     }
 }
 
+// Under the System preference the theme follows the application's palette: a refresh after its window turns dark puts
+// the dark theme's resolved tokens in force, and one after it turns light the light theme's.
 TEST(ThemeSystemDesignTokens, DesignTokens_RefreshDetectsThemeChange)
 {
     ScopedThemePreferenceOverride preferenceGuard;
@@ -291,10 +294,11 @@ TEST(ThemeSystemDesignTokens, DesignTokens_RefreshDetectsThemeChange)
     ScopedPaletteOverride paletteGuard;
     paletteGuard.setWindowColor(QColor(10, 10, 10));
     EXPECT_TRUE(an::ui::isDarkTheme());
+    EXPECT_EQ(an::ui::tokens().colors.bgPrimary, an::ui::resolvedDarkTokens().colors.bgPrimary);
 
     paletteGuard.setWindowColor(QColor(245, 245, 245));
     EXPECT_FALSE(an::ui::isDarkTheme());
-    EXPECT_EQ(an::ui::tokens().colors.bgPrimary, an::ui::lightTokens().colors.bgPrimary);
+    EXPECT_EQ(an::ui::tokens().colors.bgPrimary, an::ui::resolvedLightTokens().colors.bgPrimary);
 }
 
 // Every component refreshes the tokens when it refreshes its theme, and a published token set is kept for the life of
@@ -350,6 +354,8 @@ TEST(ThemeSystemDesignTokens, DesignTokens_DarkAndLightDiffer)
     EXPECT_NE(an::ui::darkTokens().colors.accentPrimary, an::ui::lightTokens().colors.accentPrimary);
 }
 
+// The contrast profile sets the dark theme's intensity: High lays darker surfaces than Soft under brighter text and a
+// stronger outline, and leaves the accent as the accent family sets it.
 TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesShiftDarkThemeIntensity)
 {
     ScopedThemePreferenceOverride preferenceGuard;
@@ -359,14 +365,23 @@ TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesShiftDarkThemeIntensi
 
     profileGuard.set(an::ui::ThemeContrastProfile::High);
     const QColor highBg = an::ui::tokens().colors.bgPrimary;
+    const QColor highText = an::ui::tokens().colors.textPrimary;
+    const QColor highSecondaryText = an::ui::tokens().colors.textSecondary;
+    const QColor highOutline = an::ui::tokens().colors.borderPrimary;
     const QColor highAccent = an::ui::tokens().colors.accentPrimary;
 
     profileGuard.set(an::ui::ThemeContrastProfile::Soft);
     const QColor softBg = an::ui::tokens().colors.bgPrimary;
+    const QColor softText = an::ui::tokens().colors.textPrimary;
+    const QColor softSecondaryText = an::ui::tokens().colors.textSecondary;
+    const QColor softOutline = an::ui::tokens().colors.borderPrimary;
     const QColor softAccent = an::ui::tokens().colors.accentPrimary;
 
     EXPECT_LT(highBg.value(), softBg.value());
-    EXPECT_GT(highAccent.saturation(), softAccent.saturation());
+    EXPECT_GT(highText.value(), softText.value());
+    EXPECT_GT(highSecondaryText.value(), softSecondaryText.value());
+    EXPECT_GT(highOutline.alpha(), softOutline.alpha());
+    EXPECT_EQ(highAccent, softAccent);
 }
 
 TEST(ThemeSystemDesignTokens, DesignTokens_OledProfileProducesPureBlackBackground)
@@ -388,7 +403,9 @@ TEST(ThemeSystemDesignTokens, DesignTokens_OledProfileProducesPureBlackBackgroun
     EXPECT_NE(c.bgCardPrimary, c.bgPrimary);
 }
 
-TEST(ThemeSystemDesignTokens, DesignTokens_OledProfileBoostsAllStatusColors)
+// A contrast profile moves the surfaces and the text, not the colours that carry a meaning: under every profile, OLED
+// among them, the status colours and their soft forms are the dark theme's own, as the Balanced profile has them.
+TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesKeepTheStatusColors)
 {
     ScopedThemePreferenceOverride preferenceGuard;
     ScopedContrastProfileOverride profileGuard;
@@ -396,22 +413,27 @@ TEST(ThemeSystemDesignTokens, DesignTokens_OledProfileBoostsAllStatusColors)
     preferenceGuard.set(an::ui::ThemePreference::Dark);
 
     profileGuard.set(an::ui::ThemeContrastProfile::Balanced);
-    const QColor balancedSuccess = an::ui::tokens().colors.statusSuccess;
-    const QColor balancedWarning = an::ui::tokens().colors.statusWarning;
-    const QColor balancedError = an::ui::tokens().colors.statusError;
-    const QColor balancedInfo = an::ui::tokens().colors.statusInfo;
+    const an::ui::ColorTokens balanced = an::ui::tokens().colors;
 
-    profileGuard.set(an::ui::ThemeContrastProfile::Oled);
-    const QColor oledSuccess = an::ui::tokens().colors.statusSuccess;
-    const QColor oledWarning = an::ui::tokens().colors.statusWarning;
-    const QColor oledError = an::ui::tokens().colors.statusError;
-    const QColor oledInfo = an::ui::tokens().colors.statusInfo;
+    const std::array<an::ui::ThemeContrastProfile, 3> profiles = {
+        an::ui::ThemeContrastProfile::High,
+        an::ui::ThemeContrastProfile::Soft,
+        an::ui::ThemeContrastProfile::Oled,
+    };
 
-    // All status colors should be boosted (different from balanced).
-    EXPECT_NE(oledSuccess, balancedSuccess);
-    EXPECT_NE(oledWarning, balancedWarning);
-    EXPECT_NE(oledError, balancedError);
-    EXPECT_NE(oledInfo, balancedInfo);
+    for (const auto profile : profiles)
+    {
+        profileGuard.set(profile);
+        const auto& c = an::ui::tokens().colors;
+        EXPECT_EQ(c.statusSuccess, balanced.statusSuccess) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusWarning, balanced.statusWarning) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusError, balanced.statusError) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusInfo, balanced.statusInfo) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusSuccessSoft, balanced.statusSuccessSoft) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusWarningSoft, balanced.statusWarningSoft) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusErrorSoft, balanced.statusErrorSoft) << "profile=" << static_cast<int>(profile);
+        EXPECT_EQ(c.statusInfoSoft, balanced.statusInfoSoft) << "profile=" << static_cast<int>(profile);
+    }
 }
 
 TEST(ThemeSystemDesignTokens, DesignTokens_OledProfileSoftTokensTrackBaseColors)
@@ -507,6 +529,8 @@ TEST(ThemeSystemDesignTokens, DesignTokens_AccentFamiliesRetintAccentRoles)
     EXPECT_NE(amethystTextAccent, roseTextAccent);
 }
 
+// A chosen accent family leaves the contrast profile in force: under Teal, High still lays darker surfaces than Soft
+// under brighter text, while the accent stays the family's 400 step under both.
 TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesRemainActiveWithAccentFamily)
 {
     ScopedThemePreferenceOverride preferenceGuard;
@@ -519,15 +543,21 @@ TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesRemainActiveWithAccen
     profileGuard.set(an::ui::ThemeContrastProfile::High);
     const QColor highAccent = an::ui::tokens().colors.accentPrimary;
     const QColor highBg = an::ui::tokens().colors.bgPrimary;
+    const QColor highText = an::ui::tokens().colors.textPrimary;
 
     profileGuard.set(an::ui::ThemeContrastProfile::Soft);
     const QColor softAccent = an::ui::tokens().colors.accentPrimary;
     const QColor softBg = an::ui::tokens().colors.bgPrimary;
+    const QColor softText = an::ui::tokens().colors.textPrimary;
 
-    EXPECT_NE(highAccent, softAccent);
+    EXPECT_EQ(highAccent, QColor(0x2D, 0xD4, 0xBF));
+    EXPECT_EQ(softAccent, highAccent);
     EXPECT_LT(highBg.value(), softBg.value());
+    EXPECT_GT(highText.value(), softText.value());
 }
 
+// Each surface tint family but Neutral gives a widget a softened hue of its own to blend, for the surfaces and for the
+// lines, and mixes it into the card surfaces: no family's cards are the neutral ones, and no two families' are alike.
 TEST(ThemeSystemDesignTokens, DesignTokens_SurfaceTintFamiliesRetintCardSurfaces)
 {
     ScopedThemePreferenceOverride preferenceGuard;
@@ -592,15 +622,27 @@ TEST(ThemeSystemDesignTokens, DesignTokens_SurfaceTintFamiliesRetintCardSurfaces
     EXPECT_NE(violetTintBorder, indigoTintBorder);
     EXPECT_NE(tealTintBorder, indigoTintBorder);
 
-    // Surface tint families should not recolor global card/background tokens.
-    EXPECT_EQ(neutralCard, blueCard);
-    EXPECT_EQ(neutralCard, tealCard);
-    EXPECT_EQ(neutralCard, violetCard);
-    EXPECT_EQ(neutralCard, indigoCard);
-    EXPECT_EQ(neutralCardSecondary, blueCardSecondary);
-    EXPECT_EQ(neutralCardSecondary, tealCardSecondary);
-    EXPECT_EQ(neutralCardSecondary, violetCardSecondary);
-    EXPECT_EQ(neutralCardSecondary, indigoCardSecondary);
+    EXPECT_NE(neutralCard, blueCard);
+    EXPECT_NE(neutralCard, tealCard);
+    EXPECT_NE(neutralCard, violetCard);
+    EXPECT_NE(neutralCard, indigoCard);
+    EXPECT_NE(neutralCardSecondary, blueCardSecondary);
+    EXPECT_NE(neutralCardSecondary, tealCardSecondary);
+    EXPECT_NE(neutralCardSecondary, violetCardSecondary);
+    EXPECT_NE(neutralCardSecondary, indigoCardSecondary);
+
+    EXPECT_NE(blueCard, tealCard);
+    EXPECT_NE(blueCard, violetCard);
+    EXPECT_NE(blueCard, indigoCard);
+    EXPECT_NE(tealCard, violetCard);
+    EXPECT_NE(tealCard, indigoCard);
+    EXPECT_NE(violetCard, indigoCard);
+    EXPECT_NE(blueCardSecondary, tealCardSecondary);
+    EXPECT_NE(blueCardSecondary, violetCardSecondary);
+    EXPECT_NE(blueCardSecondary, indigoCardSecondary);
+    EXPECT_NE(tealCardSecondary, violetCardSecondary);
+    EXPECT_NE(tealCardSecondary, indigoCardSecondary);
+    EXPECT_NE(violetCardSecondary, indigoCardSecondary);
 }
 
 TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesRemainActiveWithSurfaceTintFamily)
@@ -621,43 +663,45 @@ TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesRemainActiveWithSurfa
     EXPECT_LT(highCard.value(), softCard.value());
 }
 
-TEST(ThemeSystemDesignTokens, DesignTokens_SurfaceTintProfilesFollowIntensityOrder)
+// A contrast profile leaves the surface tint as the tint strength sets it: under every profile the softened hue a
+// widget may blend is the same, for the surfaces and for the lines, and the card surface takes the same share of it
+// over the profile's own neutral card - twice the Balanced strength's 8 % in the dark theme, one and a half times in
+// the light.
+TEST(ThemeSystemDesignTokens, DesignTokens_ContrastProfilesLeaveTheSurfaceTintToItsStrength)
 {
-    ScopedThemePreferenceOverride preferenceGuard;
-    ScopedContrastProfileOverride profileGuard;
-    ScopedSurfaceTintFamilyOverride surfaceTintGuard;
+    const auto resolve = [](const an::ui::ThemeVariant theme, const an::ui::ThemeContrastProfile contrast,
+                            const an::ui::ThemeSurfaceTintFamily tint) {
+        return an::ui::resolveDesignTokens(an::ui::ThemeChoices{
+            .theme = theme, .contrast = contrast, .tint = tint, .tintStrength = an::ui::ThemeTintStrength::Balanced});
+    };
 
-    preferenceGuard.set(an::ui::ThemePreference::Dark);
-    surfaceTintGuard.set(an::ui::ThemeSurfaceTintFamily::Ocean);
+    const std::array<an::ui::ThemeContrastProfile, 4> profiles = {
+        an::ui::ThemeContrastProfile::High,
+        an::ui::ThemeContrastProfile::Balanced,
+        an::ui::ThemeContrastProfile::Soft,
+        an::ui::ThemeContrastProfile::Oled,
+    };
 
-    profileGuard.set(an::ui::ThemeContrastProfile::High);
-    const QColor highTint = an::ui::tokens().colors.cardSurfaceTint;
-    const QColor highBorderTint = an::ui::tokens().colors.cardSurfaceBorderTint;
+    for (const an::ui::ThemeVariant theme : {an::ui::ThemeVariant::Dark, an::ui::ThemeVariant::Light})
+    {
+        const double cardShare = 0.08 * (theme == an::ui::ThemeVariant::Dark ? 2.0 : 1.5);
+        const an::ui::ColorTokens balanced =
+            resolve(theme, an::ui::ThemeContrastProfile::Balanced, an::ui::ThemeSurfaceTintFamily::Ocean).colors;
+        ASSERT_TRUE(balanced.cardSurfaceTint.isValid());
+        ASSERT_TRUE(balanced.cardSurfaceBorderTint.isValid());
 
-    profileGuard.set(an::ui::ThemeContrastProfile::Balanced);
-    const QColor balancedTint = an::ui::tokens().colors.cardSurfaceTint;
-    const QColor balancedBorderTint = an::ui::tokens().colors.cardSurfaceBorderTint;
-
-    profileGuard.set(an::ui::ThemeContrastProfile::Soft);
-    const QColor softTint = an::ui::tokens().colors.cardSurfaceTint;
-    const QColor softBorderTint = an::ui::tokens().colors.cardSurfaceBorderTint;
-
-    ASSERT_TRUE(highTint.isValid());
-    ASSERT_TRUE(balancedTint.isValid());
-    ASSERT_TRUE(softTint.isValid());
-    ASSERT_TRUE(highBorderTint.isValid());
-    ASSERT_TRUE(balancedBorderTint.isValid());
-    ASSERT_TRUE(softBorderTint.isValid());
-
-    EXPECT_GT(highTint.saturation(), balancedTint.saturation());
-    EXPECT_GT(balancedTint.saturation(), softTint.saturation());
-    EXPECT_GT(highTint.value(), balancedTint.value());
-    EXPECT_GT(balancedTint.value(), softTint.value());
-
-    EXPECT_GT(highBorderTint.saturation(), balancedBorderTint.saturation());
-    EXPECT_GT(balancedBorderTint.saturation(), softBorderTint.saturation());
-    EXPECT_GT(highBorderTint.value(), balancedBorderTint.value());
-    EXPECT_GT(balancedBorderTint.value(), softBorderTint.value());
+        for (const auto profile : profiles)
+        {
+            const an::ui::ColorTokens tinted = resolve(theme, profile, an::ui::ThemeSurfaceTintFamily::Ocean).colors;
+            const an::ui::ColorTokens neutral = resolve(theme, profile, an::ui::ThemeSurfaceTintFamily::Neutral).colors;
+            EXPECT_EQ(tinted.cardSurfaceTint, balanced.cardSurfaceTint)
+                << "theme=" << static_cast<int>(theme) << ", profile=" << static_cast<int>(profile);
+            EXPECT_EQ(tinted.cardSurfaceBorderTint, balanced.cardSurfaceBorderTint)
+                << "theme=" << static_cast<int>(theme) << ", profile=" << static_cast<int>(profile);
+            EXPECT_EQ(tinted.bgCard, an::ui::mixColors(tinted.cardSurfaceTint, cardShare, neutral.bgCard))
+                << "theme=" << static_cast<int>(theme) << ", profile=" << static_cast<int>(profile);
+        }
+    }
 }
 
 TEST(ThemeSystemDesignTokens, DesignTokens_ExplicitPreferenceOverridesPalette)
@@ -680,17 +724,6 @@ TEST(ThemeSystemDesignTokens, DesignTokens_ExplicitPreferenceOverridesPalette)
 
 // ── Typography token tests ─────────────────────────────────────────────────
 
-TEST(ThemeSystemTypographyTokens, Typography_HeadingSizesAreRelativeToBody)
-{
-    const auto& typo = an::ui::darkTokens().typography;
-    const int bodySize = typo.body.pointSize();
-
-    ASSERT_GT(bodySize, 0) << "Body font must have a positive point size";
-    EXPECT_EQ(typo.heading1.pointSize(), bodySize + 4);
-    EXPECT_EQ(typo.heading2.pointSize(), bodySize + 2);
-    EXPECT_EQ(typo.heading3.pointSize(), bodySize + 1);
-}
-
 TEST(ThemeSystemTypographyTokens, Typography_CaptionIsSmallerThanBody)
 {
     const auto& typo = an::ui::darkTokens().typography;
@@ -700,13 +733,15 @@ TEST(ThemeSystemTypographyTokens, Typography_CaptionIsSmallerThanBody)
     EXPECT_LT(typo.caption.pointSize(), bodySize);
 }
 
+// Every heading is semibold over the regular body.
 TEST(ThemeSystemTypographyTokens, Typography_HeadingWeightsAreCorrect)
 {
     const auto& typo = an::ui::darkTokens().typography;
 
-    EXPECT_EQ(typo.heading1.weight(), QFont::Bold);
+    EXPECT_EQ(typo.heading1.weight(), QFont::DemiBold);
     EXPECT_EQ(typo.heading2.weight(), QFont::DemiBold);
     EXPECT_EQ(typo.heading3.weight(), QFont::DemiBold);
+    EXPECT_EQ(typo.body.weight(), QFont::Normal);
 }
 
 TEST(ThemeSystemTypographyTokens, Typography_MonospaceHasMonospaceHint)
@@ -728,23 +763,25 @@ TEST(ThemeSystemTypographyTokens, Typography_DarkAndLightShareSameHierarchy)
     EXPECT_EQ(dark.caption.pointSize(), light.caption.pointSize());
 }
 
+// The headings step down in size from the first to the third; the third is the body's size, set apart from it by its
+// weight; the caption is smaller than the body.
 TEST(ThemeSystemTypographyTokens, Typography_HeadingSizeOrderIsMonotonic)
 {
     const auto& typo = an::ui::darkTokens().typography;
 
     EXPECT_GT(typo.heading1.pointSize(), typo.heading2.pointSize());
     EXPECT_GT(typo.heading2.pointSize(), typo.heading3.pointSize());
-    EXPECT_GT(typo.heading3.pointSize(), typo.body.pointSize());
+    EXPECT_EQ(typo.heading3.pointSize(), typo.body.pointSize());
+    EXPECT_GT(typo.heading3.weight(), typo.body.weight());
     EXPECT_GT(typo.body.pointSize(), typo.caption.pointSize());
 }
 
-// ── Dynamic textOnAccent tests ─────────────────────────────────────────────
+// ── textOnAccent tests ─────────────────────────────────────────────────────
 
-TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentIsBlackForDarkBlueAccent)
+// The dark theme's Blue accent (#60A5FA) is light, so the text on it is the dark theme's dark tone, #0B1020, at the
+// 4.5 : 1 the text on the accent is held to and more.
+TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentIsDarkForDarkBlueAccent)
 {
-    // Dark-mode Blue accent (#60A5FA, luminance ~0.37) is bright enough that
-    // black text provides substantially higher contrast (~8.3:1) than white
-    // (~2.5:1), so the dynamic algorithm correctly selects black.
     ScopedThemePreferenceOverride preferenceGuard;
     ScopedContrastProfileOverride profileGuard;
     ScopedAccentFamilyOverride accentFamilyGuard;
@@ -753,8 +790,10 @@ TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentIsBlackForDarkBlueAccent)
     profileGuard.set(an::ui::ThemeContrastProfile::Balanced);
     accentFamilyGuard.set(an::ui::ThemeAccentFamily::Blue);
 
-    const QColor textOnAccent = an::ui::resolvedDarkTokens().colors.textOnAccent;
-    EXPECT_EQ(textOnAccent, QColor(0, 0, 0)) << "Dark Blue accent (#60A5FA) is bright; black text has higher contrast";
+    const auto& colors = an::ui::resolvedDarkTokens().colors;
+    EXPECT_EQ(colors.accentPrimary, QColor(0x60, 0xA5, 0xFA));
+    EXPECT_EQ(colors.textOnAccent, QColor(0x0B, 0x10, 0x20)) << "got " << colors.textOnAccent.name().toStdString();
+    EXPECT_GE(contrastRatio(colors.textOnAccent, colors.accentPrimary), 4.5);
 }
 
 TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentIsWhiteForBlueAccentLight)
@@ -839,38 +878,5 @@ TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentMeetsContrastAllProfiles)
             EXPECT_GE(ratio, 3.0) << "textOnAccent contrast too low (profile=" << static_cast<int>(profile)
                                   << ", family=" << static_cast<int>(family) << ", ratio=" << ratio << ")";
         }
-    }
-}
-
-TEST(ThemeSystemDesignTokens, DesignTokens_TextOnAccentIsOnlyWhiteOrBlack)
-{
-    ScopedThemePreferenceOverride preferenceGuard;
-    ScopedContrastProfileOverride profileGuard;
-    ScopedAccentFamilyOverride accentFamilyGuard;
-
-    preferenceGuard.set(an::ui::ThemePreference::Dark);
-    profileGuard.set(an::ui::ThemeContrastProfile::Balanced);
-
-    const QColor white(255, 255, 255);
-    const QColor black(0, 0, 0);
-
-    const std::array<an::ui::ThemeAccentFamily, 5> families = {
-        an::ui::ThemeAccentFamily::Blue,     an::ui::ThemeAccentFamily::Teal, an::ui::ThemeAccentFamily::Amber,
-        an::ui::ThemeAccentFamily::Amethyst, an::ui::ThemeAccentFamily::Rose,
-    };
-
-    for (const auto family : families)
-    {
-        accentFamilyGuard.set(family);
-
-        const QColor darkOnAccent = an::ui::resolvedDarkTokens().colors.textOnAccent;
-        EXPECT_TRUE(darkOnAccent == white || darkOnAccent == black)
-            << "textOnAccent must be pure white or black, got " << darkOnAccent.name().toStdString()
-            << " (family=" << static_cast<int>(family) << ")";
-
-        const QColor lightOnAccent = an::ui::resolvedLightTokens().colors.textOnAccent;
-        EXPECT_TRUE(lightOnAccent == white || lightOnAccent == black)
-            << "textOnAccent must be pure white or black, got " << lightOnAccent.name().toStdString()
-            << " (family=" << static_cast<int>(family) << ")";
     }
 }

@@ -218,7 +218,7 @@ ImageHistoryControl::ImageHistoryControl(ImageViewControl* control, const std::s
     : QDialog(control), ImageViewControlListener(control), m_Tracker(tracker)
 {
     m_ui = an::ui::controls::buildImageHistoryControlUi(this);
-    // Under the Observatory profile the header is a window's heading, which says the image too.
+    // The header is a window's heading, which says the image too.
     an::ui::headWindowInPlaceOf(
         m_ui.headerSection,
         an::ui::windowEyebrow(QStringLiteral("Image"), QString::fromStdString(m_image_view_control->getUniqueName())));

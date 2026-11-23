@@ -27,9 +27,7 @@ struct DesignTokens;
 ///
 ///   - CE_DockWidgetTitle  : gradient title-bar background + accent underline
 ///   - CE_Splitter         : thin separator with hover glow
-///   - CE_TabBarTabShape   : KDDW tab shape with forceUnselected support
-///   - CE_TabBarTabLabel   : KDDW tab label coloring
-///   - PE_PanelButtonTool  : transparent base, rounded hover/press for KDDW btns
+////   - PE_PanelButtonTool  : transparent base, rounded hover/press for KDDW btns
 ///   - PE_Frame            : KDDW group-frame border with token colors
 ///   - CC_ToolButton       : title-bar button icon rendering
 ///
@@ -40,12 +38,11 @@ struct DesignTokens;
 ///   kddwStyle->refreshThemeTokens();
 /// @endcode
 ///
-/// Under the Observatory profile it is also the style of each tab strip of the dock library (`AN_TabBar` sets it, in
-/// place of the library's own), so that what the library paints itself - the tabs, and the picture of a tab dragged
-/// along its strip - is drawn in that look: the strip tells it what each tab shows (`ObservatoryDockTabSource`), and
-/// it places the tab's close button and keeps the library's rule that tabs are not animated. Each override hands a tab
-/// strip's element to the Observatory code in one line at its top; what that code leaves falls through to the Classic
-/// code, which is otherwise untouched.
+/// It is also the style of each tab strip of the dock library (`AN_TabBar` sets it, in place of the library's own),
+/// so that what the library paints itself - the tabs, and the picture of a tab dragged along its strip - is drawn in
+/// the Observatory look: the strip tells it what each tab shows (`ObservatoryDockTabSource`), and it places the tab's
+/// close button and keeps the library's rule that tabs are not animated. Each override hands a tab strip's element to
+/// the strip's code in one line at its top; what that code leaves falls through to the overrides above.
 class AFTERNIGHTCONTROLS_API KddwProxyStyle : public QProxyStyle
 {
 public:
@@ -70,8 +67,6 @@ public:
     [[nodiscard]] int pixelMetric(PixelMetric metric, const QStyleOption* option = nullptr,
                                   const QWidget* widget = nullptr) const override;
 
-    [[nodiscard]] QSize sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& contentsSize,
-                                         const QWidget* widget = nullptr) const override;
 
     [[nodiscard]] QRect subElementRect(SubElement element, const QStyleOption* option,
                                        const QWidget* widget = nullptr) const override;
@@ -88,8 +83,8 @@ public:
     void refreshThemeTokens();
 
 private:
-    // The Observatory profile's drawing of a dock tab strip. Each answers whether it decided the element; what it
-    // leaves is the Classic code's.
+    // The drawing of a dock tab strip. Each answers whether it decided the element; what it leaves is the overrides'
+    // of the other dock widgets.
     [[nodiscard]] bool drawObservatoryPrimitive(PrimitiveElement element, const QStyleOption* option,
                                                 const QWidget* widget) const;
     [[nodiscard]] bool drawObservatoryControl(ControlElement element, const QStyleOption* option, QPainter* painter,
@@ -101,8 +96,6 @@ private:
 
     void drawDockTitleBar(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawDockSeparator(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
-    void drawDockTabShape(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
-    void drawDockTabLabel(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawDockToolButton(const QStyleOptionComplex* option, QPainter* painter, const QWidget* widget) const;
     void drawDockButtonPanel(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;
     void drawDockGroupFrame(const QStyleOption* option, QPainter* painter, const QWidget* widget) const;

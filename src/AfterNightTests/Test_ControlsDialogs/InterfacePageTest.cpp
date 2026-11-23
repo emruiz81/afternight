@@ -2,10 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The Interface page's rows of the Observatory profile - the colour presets, the tint strength, the density, Night and
-/// starting in it - shown under that profile alone: a preset's tile sets its three parts, a part changed by hand shows
-/// Custom, every change acts at once, Apply keeps it and Cancel puts back what was in force; and the settings file
-/// carries the new keys out and in.
+/// The Interface page's rows of the Observatory look - the colour presets, the tint strength, the density, Night and
+/// starting in it: a preset's tile sets its three parts, a part changed by hand shows Custom, every change acts at
+/// once, Apply keeps it and Cancel puts back what was in force; and the settings file carries the new keys out and in.
 
 #include "Test_ControlsDialogs/DialogsTestSupport.h"
 
@@ -14,7 +13,6 @@
 #include "controls/settings/InterfaceSettingsPage.h"
 #include "controls/settings/SettingsKeys.h"
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QAbstractButton>
@@ -41,8 +39,6 @@ namespace
 using an::tests::dialogs::DialogsTestContext;
 using an::tests::dialogs::InstalledContext;
 using an::tests::dialogs::SettingsStore;
-using an::ui::StyleProfile;
-using an::ui::testing::ScopedStyleProfile;
 
 /// The choices in force, put back when a case ends.
 class ChoicesRestored final
@@ -125,19 +121,9 @@ void discardAtTheNextMessageBox()
 
 } // namespace
 
-// The rows are shown under the Observatory profile alone: the Classic profile has neither presets, a strength, a
-// density nor Night.
-TEST_F(InterfacePage, ObservatoryRowsShownUnderObservatoryAndAbsentUnderClassic)
+// The rows are shown: the presets, the strengths, the densities, Night and starting in it.
+TEST_F(InterfacePage, ObservatoryRowsAreShown)
 {
-    {
-        const ScopedStyleProfile classic(StyleProfile::Classic);
-        InterfaceSettingsPage page(nullptr);
-        page.loadSettings();
-        auto* const group = named<QGroupBox>(page, "anInterfaceSettingsObservatoryGroup");
-        ASSERT_NE(group, nullptr);
-        EXPECT_TRUE(group->isHidden()) << "the Classic profile shows the Observatory profile's rows";
-    }
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     InterfaceSettingsPage page(nullptr);
     page.loadSettings();
     auto* const group = named<QGroupBox>(page, "anInterfaceSettingsObservatoryGroup");
@@ -174,7 +160,6 @@ TEST_F(InterfacePage, ObservatoryRowsShownUnderObservatoryAndAbsentUnderClassic)
 TEST_F(InterfacePage, ObservatoryRowsATileSetsThreeSettings)
 {
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsStore store;
     InterfaceSettingsPage page(store.persistence());
     page.loadSettings();
@@ -203,7 +188,6 @@ TEST_F(InterfacePage, ObservatoryRowsATileSetsThreeSettings)
 TEST_F(InterfacePage, ObservatoryRowsAHandChangeShowsCustom)
 {
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsStore store;
     InterfaceSettingsPage page(store.persistence());
     page.loadSettings();
@@ -228,7 +212,6 @@ TEST_F(InterfacePage, ObservatoryRowsAHandChangeShowsCustom)
 TEST_F(InterfacePage, ObservatoryRowsApplyAndCancelBehaveAsThePagesOtherRows)
 {
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsStore store;
     InterfaceSettingsPage page(store.persistence());
     page.loadSettings();
@@ -269,7 +252,6 @@ TEST_F(InterfacePage, ObservatoryRowsApplyAndCancelBehaveAsThePagesOtherRows)
 TEST_F(InterfacePage, TheDialogsCancelPutsBackWhatThePageShowedAtOnce)
 {
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsStore store;
     SettingsDialog dialog(nullptr);
     auto* const page = new InterfaceSettingsPage(store.persistence());
@@ -318,11 +300,11 @@ TEST_F(InterfacePage, TheSettingsFileCarriesTheNewInterfaceKeys)
 namespace
 {
 
-/// The two shells the application registers.
-std::vector<an::ui::ShellOption> bothShells()
+/// Two shells to choose among, the second a stand-in, so that the page shows its Shell row.
+std::vector<an::ui::ShellOption> twoShells()
 {
-    return {an::ui::ShellOption{.id = QStringLiteral("classic"), .displayName = QStringLiteral("Classic")},
-            an::ui::ShellOption{.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory")}};
+    return {an::ui::ShellOption{.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory")},
+            an::ui::ShellOption{.id = QStringLiteral("nebula"), .displayName = QStringLiteral("Nebula")}};
 }
 
 /// The titles of the groups a page shows, in the order its layout holds them.
@@ -378,33 +360,19 @@ QAbstractButton* choice(QWidget& page, const char* row, const char* value)
 
 } // namespace
 
-// Under the Observatory profile the page's first group holds the choices of the new interface in their order - the
-// colour preset, the theme, the contrast, the accent, the surface tint, the tint strength, the density, Night and
-// starting in it, the animations and the menu bar - with the Shell row right after it, above the rows 1.1 had, and the
-// combo boxes of 1.1's Appearance are not shown. Under the Classic profile the page is as 1.1 drew it, the Shell row
-// last.
+// The page's first group holds the choices of the interface in their order - the colour preset, the theme, the
+// contrast, the accent, the surface tint, the tint strength, the density, Night and starting in it, the animations and
+// the menu bar - with the Shell row right after it, above the rows 1.1 had, and the combo boxes of 1.1's Appearance are
+// not shown.
 TEST_F(InterfacePage, ObservatoryRowsHoldEveryChoiceInItsOrder)
 {
-    {
-        const ScopedStyleProfile classic(StyleProfile::Classic);
-        InterfaceSettingsPage page(nullptr);
-        page.setAvailableShells(bothShells());
-        page.loadSettings();
-        auto* const appearance = named<QGroupBox>(page, "anInterfaceSettingsAppearanceGroup");
-        ASSERT_NE(appearance, nullptr);
-        EXPECT_FALSE(appearance->isHidden());
-        EXPECT_EQ(shownGroups(page), (QStringList{QStringLiteral("Appearance"), QStringLiteral("Image Viewing"),
-                                                  QStringLiteral("File Browser"), QStringLiteral("Window Layout"),
-                                                  QStringLiteral("Shell")}));
-    }
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     InterfaceSettingsPage page(nullptr);
-    page.setAvailableShells(bothShells());
+    page.setAvailableShells(twoShells());
     page.setMenuBarKeeper([](bool) {});
     page.loadSettings();
     auto* const appearance = named<QGroupBox>(page, "anInterfaceSettingsAppearanceGroup");
     ASSERT_NE(appearance, nullptr);
-    EXPECT_TRUE(appearance->isHidden()) << "the Observatory profile shows 1.1's combo boxes";
+    EXPECT_TRUE(appearance->isHidden()) << "the page shows 1.1's combo boxes";
     EXPECT_EQ(shownGroups(page),
               (QStringList{QStringLiteral("Colours and Size"), QStringLiteral("Shell"), QStringLiteral("Image Viewing"),
                            QStringLiteral("File Browser"), QStringLiteral("Window Layout")}));
@@ -437,13 +405,11 @@ TEST_F(InterfacePage, ObservatoryRowsHoldEveryChoiceInItsOrder)
     EXPECT_NE(named<QAbstractButton>(page, "anInterfaceSettingsAlwaysShowMenuBar"), nullptr);
 }
 
-// Under the Observatory profile a theme's tile, a contrast's segment, an accent's disc and a tint's act at once, each
-// shown chosen; Cancel puts back what was in force and Apply keeps what is chosen. The light theme offers no OLED
-// contrast.
+// A theme's tile, a contrast's segment, an accent's disc and a tint's act at once, each shown chosen; Cancel puts back
+// what was in force and Apply keeps what is chosen. The light theme offers no OLED contrast.
 TEST_F(InterfacePage, ObservatoryPickersActAtOnce)
 {
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsStore store;
     InterfaceSettingsPage page(store.persistence());
     page.loadSettings();
@@ -492,7 +458,6 @@ TEST_F(InterfacePage, ObservatoryPickersActAtOnce)
 // brings it back to its default, the bar shown on Alt.
 TEST_F(InterfacePage, TheMenuBarRowIsOfferedWhereTheBarShowsOnAlt)
 {
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     {
         InterfaceSettingsPage page(nullptr);
         page.loadSettings();

@@ -6,14 +6,12 @@
 // paints holds no green and no blue; the histogram draws its curves red and tells its channels apart by their strokes.
 
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/NightImage.h"
 #include "widgets/FeaturedFileCard.h"
 #include "widgets/HistogramDisplayData.h"
 #include "widgets/HistogramWidget.h"
 #include "widgets/ImagePreviewWidget.h"
-#include "widgets/ImageThumbnailWidget.h"
 #include "widgets/NightPictureLabel.h"
 
 #include <QCoreApplication>
@@ -33,7 +31,6 @@ namespace
 {
 
 using an::ui::testing::ScopedNightMode;
-using an::ui::testing::ScopedStyleProfile;
 
 /// A picture in many colours: red across, green down, blue fixed.
 QPixmap colourful(const int width = 48, const int height = 32)
@@ -113,7 +110,6 @@ void paletteChanged(QWidget& widget)
 // A picture label shows its picture's Night form under Night, made off the GUI thread, and its picture again by day.
 TEST(NightPictures, ALabelShowsItsPictureInRed)
 {
-    const ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     an::ui::NightPictureLabel label;
     label.resize(48, 32);
     label.setPicture(colourful());
@@ -134,29 +130,10 @@ TEST(NightPictures, ALabelShowsItsPictureInRed)
     EXPECT_GT(colouredPixels(label.pixmap().toImage()), 0) << "the colours did not come back by day";
 }
 
-// A recent file's thumbnail is shown in its Night form.
-TEST(NightPictures, AThumbnailIsShownInRed)
-{
-    const ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
-    ImageThumbnailWidget thumbnail({}, {}, {}, true, nullptr);
-    thumbnail.resize(180, 160);
-    ASSERT_TRUE(thumbnail.loadImageFromData(QStringLiteral("M42.fits"), colourful(), QSize(4800, 3200)));
-    auto* const picture = thumbnail.findChild<QLabel*>(QStringLiteral("dashboardThumbnailImage"));
-    ASSERT_NE(picture, nullptr);
-    EXPECT_GT(colouredPixels(picture->pixmap().toImage()), 0);
-
-    const ScopedNightMode night(true);
-    paletteChanged(thumbnail);
-    ASSERT_TRUE(pumpUntil([picture]() { return !picture->pixmap().isNull(); })) << "the Night form never came";
-    EXPECT_EQ(colouredPixels(picture->pixmap().toImage()), 0);
-    EXPECT_GT(litPixels(picture->pixmap().toImage()), 0);
-}
-
 // The featured card paints its picture, and the softened copy over it, in their Night forms, over a surface the tokens
 // make red.
 TEST(NightPictures, TheFeaturedCardIsPaintedInRed)
 {
-    const ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     const ScopedNightMode night(true);
     an::ui::FeaturedFileCard card;
     card.resize(320, 180);
@@ -172,7 +149,6 @@ TEST(NightPictures, TheFeaturedCardIsPaintedInRed)
 // A preview paints its picture's Night form over its background, which is the tokens' and so red.
 TEST(NightPictures, APreviewIsPaintedInRed)
 {
-    const ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     ImagePreviewWidget preview(nullptr);
     preview.resize(96, 64);
     preview.setPixmap(colourful(), true);
@@ -197,7 +173,6 @@ TEST(NightPictures, TheHistogramIsRedAndItsChannelsDifferByStroke)
         EXPECT_EQ(HistogramWidget::channelStroke(channel, false), Qt::SolidLine) << channel;
     }
 
-    const ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     const ScopedNightMode night(true);
     HistogramWidget histogram(nullptr);
     histogram.resize(256, 120);

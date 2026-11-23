@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The Observatory look of the standard widgets: what the proxy style paints under the Observatory profile, one case per
-// family of primitives, each run under dark, light and a tinted preset at both densities and painted at four device
-// pixel ratios. Every expected colour is read from the tokens in force, so one case covers every look; a text's colour
-// is read from what the painting asked for, never from glyph pixels. Under the Classic profile the style paints through
-// its own code alone, which the dispatch case proves with a counter.
+// The Observatory look of the standard widgets: what the proxy style paints, one case per family of primitives, each
+// run under dark, light and a tinted preset at both densities and painted at four device pixel ratios. Every expected
+// colour is read from the tokens in force, so one case covers every look; a text's colour is read from what the
+// painting asked for, never from glyph pixels.
 
 #include "fixtures/ObservatoryLook.h"
 #include "fixtures/PaintRecorder.h"
@@ -70,7 +69,6 @@ namespace
 
 using an::ui::ColorTokens;
 using an::ui::DesignTokens;
-using an::ui::StyleProfile;
 using an::ui::testing::colourName;
 using an::ui::testing::kRenderRatios;
 using an::ui::testing::layered;
@@ -97,8 +95,8 @@ constexpr qreal kDisabled = 0.38;
 constexpr qreal kHover = 0.08;
 constexpr qreal kPressed = 0.12;
 
-/// Runs a check under every look, the style installed under the Observatory profile; widgets the check makes are made
-/// in the look they are painted in.
+/// Runs a check under every look, the style installed; widgets the check makes are made in the look they are painted
+/// in.
 void forEachLook(const std::function<void(ObservatoryStyleScope&, const DesignTokens&)>& check)
 {
     ObservatoryStyleScope scope(observatoryLooks()[0]);
@@ -1195,9 +1193,8 @@ TEST(ProxyStyleObservatory, MenuBarItemsLayerTheStateColour)
 // tooltip Qt shows is.
 // A raised part that is a window of its own - a menu, a tooltip - is translucent so that its shadow can lie in its
 // margin. Windows composes a window's alpha only when the window says it is frameless, which a popup and a tooltip do
-// not say by their type, so the margin would show black; and the system's own shadow would lie under the part's. Under
-// the profile both are frameless and cast no system shadow, still a popup and a tooltip; under Classic they keep their
-// flags.
+// not say by their type, so the margin would show black; and the system's own shadow would lie under the part's. Both
+// are frameless and cast no system shadow, still a popup and a tooltip.
 TEST(ProxyStyleObservatory, RaisedWindowsAreFramelessAndCastNoSystemShadow)
 {
     const auto raisedWindows = []() {
@@ -1220,14 +1217,6 @@ TEST(ProxyStyleObservatory, RaisedWindowsAreFramelessAndCastNoSystemShadow)
         EXPECT_EQ(menu->windowType(), Qt::Popup);
         EXPECT_EQ(tip->windowType(), Qt::ToolTip);
     });
-
-    const ObservatoryStyleScope classic(observatoryLooks()[0], an::ui::StyleProfile::Classic);
-    const auto [menu, tip] = raisedWindows();
-    for (QWidget* window : {static_cast<QWidget*>(menu.get()), static_cast<QWidget*>(tip.get())})
-    {
-        EXPECT_FALSE(window->windowFlags().testFlag(Qt::FramelessWindowHint));
-        EXPECT_FALSE(window->windowFlags().testFlag(Qt::NoDropShadowWindowHint));
-    }
 }
 
 TEST(ProxyStyleObservatory, ToolTipIsTheFourthSurface)
@@ -1333,8 +1322,7 @@ TEST(ProxyStyleObservatory, DialogButtonBoxButtonsTakeTheirRoles)
 }
 
 // A dialog's buttons stand with the one that accepts at the right: Reset at the left, then, after the room between
-// them, Apply, Cancel and Ok; of No and Yes, Yes at the right, in a box of buttons and in a message box. Under the
-// Classic profile the order is the one the platform gives.
+// them, Apply, Cancel and Ok; of No and Yes, Yes at the right, in a box of buttons and in a message box.
 TEST(ProxyStyleObservatory, ADialogsButtonsPutTheOneThatAcceptsAtTheRight)
 {
     const auto leftOf = [](const QAbstractButton* button) {
@@ -1369,10 +1357,6 @@ TEST(ProxyStyleObservatory, ADialogsButtonsPutTheOneThatAcceptsAtTheRight)
             << "Yes does not stand at the right of No";
         question.hide();
     });
-
-    const ObservatoryStyleScope classic(observatoryLooks()[0], StyleProfile::Classic);
-    EXPECT_EQ(classic.style()->styleHint(QStyle::SH_DialogButtonLayout),
-              classic.style()->baseStyle()->styleHint(QStyle::SH_DialogButtonLayout));
 }
 
 // Where Apply is the one button of a box that accepts - a window that applies and stays open, beside its Close - it
@@ -1401,9 +1385,8 @@ TEST(ProxyStyleObservatory, ApplyStandsAtTheRightWhereNothingElseAccepts)
     });
 }
 
-// Under the Observatory profile a window that stays a window - a dialog - lies on the first surface, so that its cards,
-// on the second, stand off it; what it holds takes the surface from it. A window that is no dialog keeps the
-// application's, and under the Classic profile a dialog does too.
+// A window that stays a window - a dialog - lies on the first surface, so that its cards, on the second, stand off it;
+// what it holds takes the surface from it. A window that is no dialog keeps the application's.
 TEST(ProxyStyleObservatory, ADialogLiesOnTheFirstSurface)
 {
     forEachLook([](ObservatoryStyleScope&, const DesignTokens& t) {
@@ -1424,13 +1407,6 @@ TEST(ProxyStyleObservatory, ADialogLiesOnTheFirstSurface)
         QCoreApplication::processEvents();
         EXPECT_EQ(plain.palette().color(QPalette::Window), QApplication::palette().color(QPalette::Window));
     });
-
-    const ObservatoryStyleScope classic(observatoryLooks()[0], StyleProfile::Classic);
-    QDialog dialog;
-    dialog.setAttribute(Qt::WA_DontShowOnScreen, true);
-    dialog.show();
-    QCoreApplication::processEvents();
-    EXPECT_EQ(dialog.palette().color(QPalette::Window), QApplication::palette().color(QPalette::Window));
 }
 
 // The process windows' card is the second surface with the cards' radius and no border; their banner is the status
@@ -1497,73 +1473,4 @@ TEST(ProxyStyleObservatory, ChromeBarsAreFlat)
         expectColour(statusPicture.at(status->width() - 30, 0.5), an::ui::compositeOver(c.borderSubtle, bar),
                      "the status bar's hairline");
     });
-}
-
-// Under the Classic profile the proxy style paints every widget through its own code: none of the Observatory profile's
-// painters runs. Under the Observatory profile they do.
-TEST(ProxyStyleDispatch, ClassicRunsNoObservatoryPainter)
-{
-    const auto paintEverything = [] {
-        QWidget panel;
-        auto* const layout = new QVBoxLayout(&panel);
-        layout->addWidget(new QPushButton(QStringLiteral("Apply")));
-        auto* const tool = new QToolButton;
-        tool->setText(QStringLiteral("Grid"));
-        layout->addWidget(tool);
-        layout->addWidget(new QLineEdit(QStringLiteral("M31")));
-        auto* const combo = new QComboBox;
-        combo->addItem(QStringLiteral("Linear"));
-        layout->addWidget(combo);
-        layout->addWidget(new QSpinBox);
-        auto* const check = new QCheckBox(QStringLiteral("Linked"));
-        check->setChecked(true);
-        layout->addWidget(check);
-        layout->addWidget(new QRadioButton(QStringLiteral("Mean")));
-        layout->addWidget(new QSlider(Qt::Horizontal));
-        auto* const progress = new QProgressBar;
-        progress->setValue(40);
-        layout->addWidget(progress);
-        auto* const tabs = new QTabWidget;
-        tabs->addTab(new QWidget, QStringLiteral("Stars"));
-        layout->addWidget(tabs);
-        auto* const group = new QGroupBox(QStringLiteral("Output"));
-        group->setLayout(new QVBoxLayout);
-        group->layout()->addWidget(new QLabel(QStringLiteral("Folder")));
-        layout->addWidget(group);
-        auto* const table = new QTableWidget(4, 2);
-        table->setHorizontalHeaderLabels({QStringLiteral("Frame"), QStringLiteral("FWHM")});
-        table->selectRow(1);
-        layout->addWidget(table);
-        layout->addWidget(new QScrollBar(Qt::Vertical));
-        auto* const splitter = new QSplitter;
-        splitter->addWidget(new QWidget);
-        splitter->addWidget(new QWidget);
-        layout->addWidget(splitter);
-        layout->addWidget(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel));
-        panel.resize(400, 900);
-        (void)RenderedPicture::ofWidget(panel, 1.0, Qt::black);
-
-        QMenu menu;
-        menu.addAction(QStringLiteral("Open"));
-        menu.resize(menu.sizeHint());
-        (void)RenderedPicture::ofWidget(menu, 1.0, Qt::black);
-        QMenuBar bar;
-        bar.addMenu(QStringLiteral("File"));
-        bar.resize(200, bar.sizeHint().height());
-        (void)RenderedPicture::ofWidget(bar, 1.0, Qt::black);
-    };
-
-    {
-        const ObservatoryStyleScope classic(observatoryLooks()[0], StyleProfile::Classic);
-        const std::uint64_t before = an::ui::testing::observatoryPaints();
-        paintEverything();
-        EXPECT_EQ(an::ui::testing::observatoryPaints(), before) << "the Classic profile ran an Observatory painter";
-    }
-    {
-        const ObservatoryStyleScope observatory(observatoryLooks()[0]);
-        const std::uint64_t before = an::ui::testing::observatoryPaints();
-        paintEverything();
-        EXPECT_GT(an::ui::testing::observatoryPaints(), before + 20u)
-            << "the Observatory profile's painters did not run";
-    }
 }

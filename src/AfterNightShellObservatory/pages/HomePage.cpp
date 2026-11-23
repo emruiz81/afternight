@@ -40,8 +40,7 @@ namespace an::ui::observatory
 namespace
 {
 
-/// The recent files as the application keeps them, most recent first, each once and normalized - as the dashboard
-/// reads them.
+/// The recent files as the application keeps them, most recent first, each once and normalized.
 std::deque<QString> recentFiles()
 {
     std::deque<QString> files;
@@ -283,7 +282,7 @@ void HomePage::showRows()
 
 void HomePage::recentFilesCleared()
 {
-    // The pins go with the files they pinned, as the dashboard forgets them.
+    // The pins go with the files they pinned.
     an::ui::storePinnedRecentFiles({});
     an::ui::storePinnedFeaturedFile(QString());
     m_impl->cache.clear();

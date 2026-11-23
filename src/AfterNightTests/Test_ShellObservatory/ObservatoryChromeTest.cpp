@@ -3,7 +3,7 @@
 
 // The Observatory window's chrome: the menu bar that shows on Alt - hidden at the start, shown and focused by Alt, a
 // menu opened by Alt and its letter, hidden again once left, kept by its setting - and the status line, which writes
-// what the classic status bar writes for the same view.
+// what the image status bar widget writes for the same view.
 
 #include "ObservatoryWindowCase.h"
 
@@ -154,8 +154,8 @@ TEST_F(MenuBarKept, TheSettingKeepsItShown)
     EXPECT_TRUE(shut.ok()) << shut.message();
 }
 
-/// The classic status bar's texts for the same view, as it shows them.
-struct ClassicTexts
+/// The image status bar widget's texts for the same view, as it shows them.
+struct WidgetTexts
 {
     QString facts;
     QString zoom;
@@ -165,14 +165,14 @@ struct ClassicTexts
     QString declinationTip;
 };
 
-[[nodiscard]] ClassicTexts classicTexts(ImageViewControl* view, double ra, double dec)
+[[nodiscard]] WidgetTexts widgetTexts(ImageViewControl* view, double ra, double dec)
 {
     QMainWindow host;
-    ImageInfoStatusBarWidget classic;
-    classic.initialize(host.statusBar());
-    classic.updateImageInfo(view);
-    classic.updateCelestialCoords(ra, dec);
-    ClassicTexts texts;
+    ImageInfoStatusBarWidget widget;
+    widget.initialize(host.statusBar());
+    widget.updateImageInfo(view);
+    widget.updateCelestialCoords(ra, dec);
+    WidgetTexts texts;
     const QList<QLabel*> labels = host.statusBar()->findChildren<QLabel*>();
     for (QLabel* label : labels)
     {
@@ -198,9 +198,9 @@ struct ClassicTexts
     return texts;
 }
 
-// For the same view the status line writes what the classic status bar writes: the image's facts, its zoom and the
-// position under the cursor, with the same tooltips.
-TEST_F(StatusLine, TheTextsEqualTheClassicStatusBars)
+// For the same view the status line writes what the image status bar widget writes: the image's facts, its zoom and
+// the position under the cursor, with the same tooltips.
+TEST_F(StatusLine, TheTextsEqualTheStatusBarWidgets)
 {
     ImageViewControl* const view = openView(QStringLiteral("status-line-texts"));
     ASSERT_NE(view, nullptr);
@@ -211,7 +211,7 @@ TEST_F(StatusLine, TheTextsEqualTheClassicStatusBars)
     status->updateImageInfoInStatusBar();
     status->updateImageCelestialCoordsInStatusBar(kRa, kDec);
 
-    const ClassicTexts expected = classicTexts(view, kRa, kDec);
+    const WidgetTexts expected = widgetTexts(view, kRa, kDec);
     an::ui::observatory::StatusLine& line = *window().statusLine();
     ASSERT_FALSE(expected.facts.isEmpty());
     EXPECT_EQ(line.factsText()->text(), expected.facts);

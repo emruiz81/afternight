@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The Settings dialog as a shell lists it: its pages in the shell's order - the Observatory shell's with Projects
-/// after General, the classic shell's as 1.1 listed them - each page laid out with nothing clipped at the dialog's
-/// least size in both densities, the search finding a page by any row it shows, Reset Page and Reset All to Defaults
-/// bringing every key the dialog shows back to its default, and the dialog held within the screen's available area as
-/// it is first shown.
+/// The Settings dialog as a shell lists it: its pages in their order, Projects after General, each page laid out with
+/// nothing clipped at the dialog's least size in both densities, the search finding a page by any row it shows, Reset
+/// Page and Reset All to Defaults bringing every key the dialog shows back to its default, and the dialog held within
+/// the screen's available area as it is first shown.
 
 #include "Test_ControlsDialogs/DialogsTestSupport.h"
 
@@ -20,7 +19,6 @@
 #include "controls/settings/SettingsPages.h"
 #include "fixtures/ClippedControls.h"
 #include "fixtures/ObservatoryLook.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
 #include <QAbstractButton>
@@ -61,10 +59,7 @@ namespace
 using an::tests::dialogs::DialogsTestContext;
 using an::tests::dialogs::InstalledContext;
 using an::tests::dialogs::SettingsStore;
-using an::ui::SettingsPageOrder;
 using an::ui::SettingsPagesOptions;
-using an::ui::StyleProfile;
-using an::ui::testing::ScopedStyleProfile;
 
 /// The dialogs' context, installed for a case.
 class Installed final
@@ -136,14 +131,14 @@ void settle()
     }
 }
 
-/// What the Observatory shell hands the dialog: its order, both shells to choose among, and a menu bar shown on Alt.
+/// What the Observatory shell hands the dialog: two shells to choose among - itself and a stand-in, so that the
+/// Interface page shows its Shell row - and a menu bar shown on Alt.
 SettingsPagesOptions observatoryOptions()
 {
     SettingsPagesOptions options;
-    options.order = SettingsPageOrder::Observatory;
     options.shells = {
-        an::ui::ShellOption{.id = QStringLiteral("classic"), .displayName = QStringLiteral("Classic")},
-        an::ui::ShellOption{.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory")}};
+        an::ui::ShellOption{.id = QStringLiteral("observatory"), .displayName = QStringLiteral("Observatory")},
+        an::ui::ShellOption{.id = QStringLiteral("nebula"), .displayName = QStringLiteral("Nebula")}};
     options.keepMenuBarShown = [](bool) {};
     return options;
 }
@@ -200,7 +195,7 @@ void pressAtTheNextMessageBox(const QMessageBox::StandardButton answer)
 /// The store holding, for every key of the new interface the dialog shows, a value that is not its default.
 void storeOtherThanTheDefaults(const SettingsStore& store, const QString& elsewhere)
 {
-    store.store(SettingsKeys::INTERFACE_SHELL, QStringLiteral("classic"));
+    store.store(SettingsKeys::INTERFACE_SHELL, QStringLiteral("nebula"));
     store.store(SettingsKeys::INTERFACE_THEME_ACCENT_FAMILY, QStringLiteral("rose"));
     store.store(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY, QStringLiteral("amethyst"));
     store.store(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, QStringLiteral("strong"));
@@ -276,28 +271,19 @@ private:
 
 } // namespace
 
-// The Observatory shell's Settings list General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs &
-// Data, Export, External Tools and Logging; the classic shell's list the pages of 1.1 in 1.1's order, and no Projects.
+// The Settings list General, Projects, Interface, Processing, Raw Images, Plate Solving, Catalogs & Data, Export,
+// External Tools and Logging.
 TEST(SettingsDialog, PagesInOrder)
 {
     const Installed installed;
-    {
-        SettingsDialog dialog;
-        an::ui::addSettingsPages(dialog, nullptr, observatoryOptions());
-        EXPECT_EQ(listedPages(dialog),
-                  (QStringList{QStringLiteral("General"), QStringLiteral("Projects"), QStringLiteral("Interface"),
-                               QStringLiteral("Processing"), QStringLiteral("Raw Images"),
-                               QStringLiteral("Plate Solving"), QStringLiteral("Catalogs & Data"),
-                               QStringLiteral("Export"), QStringLiteral("External Tools"), QStringLiteral("Logging")}));
-        EXPECT_EQ(shownEntries(dialog), listedPages(dialog)) << "the navigation lists another order than the pages";
-    }
     SettingsDialog dialog;
-    an::ui::addSettingsPages(dialog, nullptr, SettingsPagesOptions{});
-    EXPECT_EQ(
-        listedPages(dialog),
-        (QStringList{QStringLiteral("General"), QStringLiteral("Raw Images"), QStringLiteral("External Tools"),
-                     QStringLiteral("Interface"), QStringLiteral("Export"), QStringLiteral("Processing"),
-                     QStringLiteral("Logging"), QStringLiteral("Catalogs & Data"), QStringLiteral("Plate Solving")}));
+    an::ui::addSettingsPages(dialog, nullptr, observatoryOptions());
+    EXPECT_EQ(listedPages(dialog),
+              (QStringList{QStringLiteral("General"), QStringLiteral("Projects"), QStringLiteral("Interface"),
+                           QStringLiteral("Processing"), QStringLiteral("Raw Images"), QStringLiteral("Plate Solving"),
+                           QStringLiteral("Catalogs & Data"), QStringLiteral("Export"),
+                           QStringLiteral("External Tools"), QStringLiteral("Logging")}));
+    EXPECT_EQ(shownEntries(dialog), listedPages(dialog)) << "the navigation lists another order than the pages";
 }
 
 // In the Observatory look, drawn by the product's style in both densities, the dialog takes its least size - which a
@@ -369,26 +355,20 @@ TEST(SettingsDialog, NoControlIsClipped)
     }
 }
 
-// Each page scrolls only as far as its own rows need, in either profile and density: the pages' stack is as tall as the
-// page it shows, not as its tallest page, so a short page leaves no empty room under its rows to scroll into.
+// Each page scrolls only as far as its own rows need, in either density: the pages' stack is as tall as the page it
+// shows, not as its tallest page, so a short page leaves no empty room under its rows to scroll into.
 TEST(SettingsDialog, APageScrollsOnlyAsFarAsItsOwnRowsNeed)
 {
     const Installed installed;
     SettingsStore store;
     const auto& looks = an::ui::testing::observatoryLooks();
-    const std::vector<std::pair<an::ui::testing::ObservatoryLook, StyleProfile>> profiles = {
-        {looks[0], StyleProfile::Classic},
-        {looks[0], StyleProfile::Observatory},
-        {looks[3], StyleProfile::Observatory}};
-    for (const auto& [look, profile] : profiles)
+    for (const an::ui::testing::ObservatoryLook& look : {looks[0], looks[3]})
     {
-        const an::ui::testing::ObservatoryStyleScope scope(look, profile);
+        const an::ui::testing::ObservatoryStyleScope scope(look);
         settle();
-        const std::string named =
-            std::string(profile == StyleProfile::Classic ? "Classic" : "Observatory") + ", " + look.name;
+        const std::string named = look.name;
         SettingsDialog dialog;
-        an::ui::addSettingsPages(dialog, store.persistence(),
-                                 profile == StyleProfile::Classic ? SettingsPagesOptions{} : observatoryOptions());
+        an::ui::addSettingsPages(dialog, store.persistence(), observatoryOptions());
         dialog.setAttribute(Qt::WA_DontShowOnScreen, true);
         dialog.show();
         settle();
@@ -423,7 +403,6 @@ TEST(SettingsDialog, APageScrollsOnlyAsFarAsItsOwnRowsNeed)
 TEST(SettingsDialog, SearchFindsNewRows)
 {
     const Installed installed;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     SettingsDialog dialog;
     an::ui::addSettingsPages(dialog, nullptr, observatoryOptions());
     auto* const search = dialog.findChild<QLineEdit*>(QStringLiteral("settingsSearchEdit"));
@@ -471,7 +450,6 @@ TEST(SettingsDialog, ResetCoversNewKeys)
 {
     const Installed installed;
     const ChoicesRestored restored;
-    const ScopedStyleProfile observatory(StyleProfile::Observatory);
     const an::tests::dialogs::CaseDirectory folder;
     const QString elsewhere = QDir::cleanPath(folder.path(QStringLiteral("Elsewhere")));
     {
@@ -581,10 +559,9 @@ TEST(WindowPlacement, AWindowIsHeldAsItIsFirstShownAndNotAgain)
     EXPECT_EQ(window.geometry(), theirs) << "a window shown again was moved from where it was left";
 }
 
-// Under the Observatory profile a window held at its first show is sized for the look first: a field stated narrower
-// than it needs takes what it needs, a window stated smaller than its layout needs takes its layout's least size, and
-// a body that scrolls is shown whole where the screen has room for it. Under the Classic profile what was stated
-// stands.
+// A window held at its first show is sized for the look first: a field stated narrower than it needs takes what it
+// needs, a window stated smaller than its layout needs takes its layout's least size, and a body that scrolls is shown
+// whole where the screen has room for it.
 TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
 {
     struct Built
@@ -623,50 +600,39 @@ TEST(WindowPlacement, AWindowIsSizedForTheLookAsItIsFirstShown)
         an::ui::holdWithinAvailableAreaWhenFirstShown(window);
         return built;
     };
-    {
-        const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
-        QDialog window;
-        const Built built = build(window);
-        window.show();
-        settle();
-        EXPECT_GE(built.field->width(), built.field->minimumSizeHint().width())
-            << "the field kept the width stated for it";
-        EXPECT_GE(window.minimumHeight(), window.layout()->minimumSize().height())
-            << "the window's least size is under what its layout needs";
-        ASSERT_NE(built.body, nullptr);
-        const int whole = built.body->widget()->sizeHint().height();
-        const QRect area = window.screen()->availableGeometry();
-        const int heightShowingAll = window.frameGeometry().height() - built.body->viewport()->height() + whole;
-        if (heightShowingAll <= area.height())
-        {
-            EXPECT_GE(built.body->viewport()->height(), whole) << "the body is not shown whole";
-        }
-        else
-        {
-            EXPECT_TRUE(area.contains(window.frameGeometry())) << "the window stands out of its screen";
-        }
-        window.resize(1, 1);
-        settle();
-        EXPECT_GE(built.label->width(), built.label->minimumSizeHint().width())
-            << "at the window's least size the label kept the width stated for it, under its text's";
-    }
-    const an::ui::testing::ObservatoryStyleScope classic(an::ui::testing::observatoryLooks()[0], StyleProfile::Classic);
+    const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
     QDialog window;
     const Built built = build(window);
     window.show();
     settle();
-    EXPECT_EQ(built.field->width(), 12) << "under the Classic profile the stated width does not stand";
-    EXPECT_EQ(built.label->minimumWidth(), 10) << "under the Classic profile the label's stated width does not stand";
-    EXPECT_EQ(built.body, nullptr);
+    EXPECT_GE(built.field->width(), built.field->minimumSizeHint().width()) << "the field kept the width stated for it";
+    EXPECT_GE(window.minimumHeight(), window.layout()->minimumSize().height())
+        << "the window's least size is under what its layout needs";
+    ASSERT_NE(built.body, nullptr);
+    const int whole = built.body->widget()->sizeHint().height();
+    const QRect area = window.screen()->availableGeometry();
+    const int heightShowingAll = window.frameGeometry().height() - built.body->viewport()->height() + whole;
+    if (heightShowingAll <= area.height())
+    {
+        EXPECT_GE(built.body->viewport()->height(), whole) << "the body is not shown whole";
+    }
+    else
+    {
+        EXPECT_TRUE(area.contains(window.frameGeometry())) << "the window stands out of its screen";
+    }
+    window.resize(1, 1);
+    settle();
+    EXPECT_GE(built.label->width(), built.label->minimumSizeHint().width())
+        << "at the window's least size the label kept the width stated for it, under its text's";
 }
 
-// Under the Observatory profile a window whose text wraps is, at its least size, as high as its rows need at its least
-// width: Qt works a window's least size out without the height its layout needs for a width, so a card of wrapping
-// values under a wrapping description had its rows squeezed under their lines there, by a few pixels each in a font
-// whose lines are taller (Noto Sans). How a form lays its wrapping values out depends on how wide text is, and the
-// suites' own platform on Windows draws a box font about twice the interface's width: there the window's least height
-// is asserted and the labels' lines are reported skipped; started under the native platform
-// (`QT_QPA_PLATFORM=windows`), or under `offscreen`, the case measures them as the interface does.
+// A window whose text wraps is, at its least size, as high as its rows need at its least width: Qt works a window's
+// least size out without the height its layout needs for a width, so a card of wrapping values under a wrapping
+// description had its rows squeezed under their lines there, by a few pixels each in a font whose lines are taller
+// (Noto Sans). How a form lays its wrapping values out depends on how wide text is, and the suites' own platform on
+// Windows draws a box font about twice the interface's width: there the window's least height is asserted and the
+// labels' lines are reported skipped; started under the native platform (`QT_QPA_PLATFORM=windows`), or under
+// `offscreen`, the case measures them as the interface does.
 TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
 {
     const an::ui::testing::ObservatoryStyleScope observatory(an::ui::testing::observatoryLooks()[0]);
@@ -735,9 +701,9 @@ TEST(WindowPlacement, AWindowWhoseTextWrapsIsAsHighAsItsLinesAtItsLeastSize)
     }
 }
 
-// Under the Observatory profile a page whose rows need more than the page's least width widens the dialog's least size:
-// the pages' stack takes its scroll area's width whatever its pages need, so a row wider than the 600 px stated was cut
-// short at the dialog's least size - the Export page's byte-shuffle check box, 2 px short in Noto Sans.
+// A page whose rows need more than the page's least width widens the dialog's least size: the pages' stack takes its
+// scroll area's width whatever its pages need, so a row wider than the 600 px stated was cut short at the dialog's
+// least size - the Export page's byte-shuffle check box, 2 px short in Noto Sans.
 TEST(SettingsDialog, APageWhoseRowsNeedMoreThanTheLeastWidthWidensTheDialog)
 {
     const Installed installed;

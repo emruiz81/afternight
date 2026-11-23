@@ -4,10 +4,10 @@
 #pragma once
 
 /// @file
-/// A family's process windows opened under the Observatory profile - the developer switch's look - and held to the
-/// window AfterNight 1.1 shows: no control lies outside the widget that holds it, no text is cut that the 1.1 window
-/// shows whole, at either density; and grabbed with Night on, no pixel holds any green or blue. A primitive of the base
-/// style that lays a white or a black shade is the one way a hue survives Night, so the grab is where one is found.
+/// A family's process windows opened in the Observatory look and held to it: no control lies outside the widget that
+/// holds it and, where the platform measures text as the interface does, no text is cut, at either density; and grabbed
+/// with Night on, no pixel holds any green or blue. A primitive of the base style that lays a white or a black shade is
+/// the one way a hue survives Night, so the grab is where one is found.
 
 #include "Test_ProcessesShared/ProcessesSharedTestSupport.h"
 
@@ -18,6 +18,7 @@
 
 #include <QAbstractButton>
 #include <QAbstractScrollArea>
+#include <QApplication>
 #include <QCheckBox>
 #include <QFontMetrics>
 #include <QImage>
@@ -37,6 +38,15 @@
 
 namespace an::tests::processes::shared
 {
+
+/// Whether the platform measures text as the interface does: the box font of the suites' platform gives every
+/// character one width.
+[[nodiscard]] inline bool textIsMeasured()
+{
+    const QFontMetrics metrics(QApplication::font());
+    return metrics.horizontalAdvance(QStringLiteral("iiiiiiiiii")) <
+           metrics.horizontalAdvance(QStringLiteral("WWWWWWWWWW"));
+}
 
 /// What a look of a window shows that a case holds it to, each widget named by its path in the window.
 struct WindowLook
@@ -92,15 +102,11 @@ struct WindowLook
     return false;
 }
 
-/// How wide a button's text is as the style paints it: semibold under the Observatory profile, at the button's own font
-/// under the Classic one, with its icon beside it.
+/// How wide a button's text is as the style paints it: semibold, with its icon beside it.
 [[nodiscard]] inline int paintedTextWidth(const QAbstractButton& button)
 {
     QFont font = button.font();
-    if (an::ui::styleProfile() == an::ui::StyleProfile::Observatory)
-    {
-        font.setWeight(QFont::DemiBold);
-    }
+    font.setWeight(QFont::DemiBold);
     QString text = button.text();
     text.remove(QLatin1Char('&'));
     int width = QFontMetrics(font).horizontalAdvance(text);
@@ -232,8 +238,9 @@ struct ColouredPixels
     return opened.empty() ? nullptr : opened.front().window;
 }
 
-/// Opens each descriptor's window over the target in the 1.1 look, then under the Observatory profile at each density,
-/// and holds every Observatory window to the 1.1 one; grabs it with Night on and holds it to having no hue.
+/// Opens each descriptor's window over the target at each density and holds it to having nothing outside its parent
+/// and, where the platform measures text as the interface does, no text cut; grabs it with Night on and holds it to
+/// having no hue.
 inline void expectObservatoryWindowsHold(const std::vector<std::string>& descriptorIds, ImageViewControl& target)
 {
     using an::ui::testing::ObservatoryLook;
@@ -244,17 +251,6 @@ inline void expectObservatoryWindowsHold(const std::vector<std::string>& descrip
     for (const std::string& id : descriptorIds)
     {
         SCOPED_TRACE(id);
-        WindowLook classic;
-        {
-            const ObservatoryStyleScope scope(compact, an::ui::StyleProfile::Classic);
-            QWidget* const window = launchWindowOf(id, target);
-            if (window == nullptr)
-            {
-                continue;
-            }
-            classic = inspectWindow(*window);
-            closeOpenedProcessWindows();
-        }
         for (const ObservatoryLook* look : {&compact, &comfortable})
         {
             SCOPED_TRACE(look->name);
@@ -267,16 +263,11 @@ inline void expectObservatoryWindowsHold(const std::vector<std::string>& descrip
             const WindowLook observatory = inspectWindow(*window);
             EXPECT_TRUE(observatory.outsideTheirParent.isEmpty())
                 << "outside their parent: " << observatory.outsideTheirParent.join(QStringLiteral("; ")).toStdString();
-            QStringList newlyCut;
-            for (const QString& path : observatory.cutText)
+            if (textIsMeasured())
             {
-                if (!classic.cutText.contains(path))
-                {
-                    newlyCut.append(path);
-                }
+                const QStringList cut(observatory.cutText.cbegin(), observatory.cutText.cend());
+                EXPECT_TRUE(cut.isEmpty()) << "text cut: " << cut.join(QStringLiteral("; ")).toStdString();
             }
-            EXPECT_TRUE(newlyCut.isEmpty())
-                << "text cut that the 1.1 window shows whole: " << newlyCut.join(QStringLiteral("; ")).toStdString();
             if (look == &compact)
             {
                 // Night switched on as the application switches it for an open window: the style's tokens, then the

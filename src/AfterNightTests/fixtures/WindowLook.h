@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// What a window that stays a window is held to under the Observatory profile, whichever window it is: a heading at its
-/// head that says its title; a footer whose rightmost button is the primary one; text that meets the contrast rule
-/// against the surface it is painted on; no child outside its parent and no control smaller than it needs, as it opens
-/// and at its least size; no label cut short that the Classic profile shows whole; and a window no larger than the
-/// available area of its screen, however large it was asked to be.
+/// What a window that stays a window is held to, whichever window it is: a heading at its head that says its title; a
+/// footer whose rightmost button is the primary one; text that meets the contrast rule against the surface it is
+/// painted on; no child outside its parent and no control smaller than it needs, as it opens and at its least size; no
+/// label cut short as it opens; and a window no larger than the available area of its screen, however large it was
+/// asked to be.
 ///
 /// `expectWindowLook` runs it all over a window a case makes as the product makes it, in both densities. What depends
 /// on how wide text is drawn, and on a screen that can hold the window, is measured where the platform measures it -
@@ -431,10 +431,10 @@ struct WindowLookMeasured
 
 /// Holds a shown window to the look, in the density the scope's look states: a heading and a footer as the look says;
 /// in the dark theme, the light one and a tinted preset, text that meets the contrast rule; nothing of it clipped as it
-/// opens or at its least size; no label cut short that is whole in `elidedUnderClassic`; and the window within its
-/// screen's available area. `first` is the density's dark look among `observatoryLooks()`; the scope is left in it.
+/// opens or at its least size; no label cut short as it opens; and the window within its screen's available area.
+/// `first` is the density's dark look among `observatoryLooks()`; the scope is left in it.
 inline void checkShownWindow(QWidget& window, an::ui::testing::ObservatoryStyleScope& scope, const std::size_t first,
-                             const QStringList& elidedUnderClassic, WindowLookMeasured& measured)
+                             WindowLookMeasured& measured)
 {
     const auto& looks = an::ui::testing::observatoryLooks();
     measured.text = measured.text && textIsMeasured();
@@ -464,16 +464,8 @@ inline void checkShownWindow(QWidget& window, an::ui::testing::ObservatoryStyleS
         const QStringList opened = clippedControls(window);
         EXPECT_TRUE(opened.isEmpty()) << "as it opens, " << window.width() << " x " << window.height() << ":\n  "
                                       << opened.join(QStringLiteral("\n  ")).toStdString();
-        QStringList cut;
-        for (const QString& label : elidedLabels(window))
-        {
-            if (!elidedUnderClassic.contains(label))
-            {
-                cut.append(label);
-            }
-        }
-        EXPECT_TRUE(cut.isEmpty()) << "cut short, and whole under the Classic profile:\n  "
-                                   << cut.join(QStringLiteral("\n  ")).toStdString();
+        const QStringList cut = elidedLabels(window);
+        EXPECT_TRUE(cut.isEmpty()) << "cut short as it opens:\n  " << cut.join(QStringLiteral("\n  ")).toStdString();
     }
     if (screenHolds(window))
     {
@@ -508,31 +500,15 @@ inline void checkShownWindow(QWidget& window, an::ui::testing::ObservatoryStyleS
     }
 }
 
-/// Holds a window to the look in both densities of the Observatory profile. In each, a window made as the product
-/// makes it is held as `checkShownWindow` says - and a second one, asked before its first show to be larger than the
-/// screen, opens within the screen's available area all the same. A window the product shows as it makes it is taken
-/// as it comes: it cannot be asked to be larger first.
+/// Holds a window to the look in both densities. In each, a window made as the product makes it is held as
+/// `checkShownWindow` says - and a second one, asked before its first show to be larger than the screen, opens within
+/// the screen's available area all the same. A window the product shows as it makes it is taken as it comes: it cannot
+/// be asked to be larger first.
 inline WindowLookMeasured expectWindowLook(const MakeWindow& make, const LetWindowGo& dispose = letGo)
 {
     WindowLookMeasured measured;
     using an::ui::testing::observatoryLooks;
     using an::ui::testing::ObservatoryStyleScope;
-
-    // What the Classic profile cuts short, which the Observatory profile may cut short too.
-    QStringList elidedUnderClassic;
-    {
-        const ObservatoryStyleScope classic(observatoryLooks()[0], an::ui::StyleProfile::Classic);
-        settleWindow(10);
-        QWidget* const window = make();
-        EXPECT_NE(window, nullptr);
-        if (window == nullptr)
-        {
-            return measured;
-        }
-        showOffTheScreen(*window);
-        elidedUnderClassic = elidedLabels(*window);
-        dispose(window);
-    }
 
     const auto& looks = observatoryLooks();
     // Dark, light and tinted, in the compact density and then in the comfortable one.
@@ -550,7 +526,7 @@ inline WindowLookMeasured expectWindowLook(const MakeWindow& make, const LetWind
             return measured;
         }
         showOffTheScreen(*window);
-        checkShownWindow(*window, scope, first, elidedUnderClassic, measured);
+        checkShownWindow(*window, scope, first, measured);
         dispose(window);
 
         QWidget* const large = make();
@@ -589,9 +565,9 @@ using RunModalWindow = std::function<void()>;
 /// Says whether a window shown in a loop of its own is the one a case means.
 using IsTheWindow = std::function<bool(const QWidget&)>;
 
-/// Holds a window the product runs in a loop of its own to the look, in both densities of the Observatory profile: the
-/// window is looked at from inside its loop as `checkShownWindow` says, and then dismissed. `run` shows it, and
-/// returns once it is gone; `isIt` tells it from any other window. A case fails where `run` shows no such window.
+/// Holds a window the product runs in a loop of its own to the look, in both densities: the window is looked at from
+/// inside its loop as `checkShownWindow` says, and then dismissed. `run` shows it, and returns once it is gone; `isIt`
+/// tells it from any other window. A case fails where `run` shows no such window.
 inline WindowLookMeasured expectModalWindowLook(const RunModalWindow& run, const IsTheWindow& isIt)
 {
     WindowLookMeasured measured;
@@ -637,13 +613,6 @@ inline WindowLookMeasured expectModalWindowLook(const RunModalWindow& run, const
         return seen;
     };
 
-    QStringList elidedUnderClassic;
-    {
-        const ObservatoryStyleScope classic(observatoryLooks()[0], an::ui::StyleProfile::Classic);
-        settleWindow(10);
-        EXPECT_TRUE(inItsLoop([&elidedUnderClassic](QWidget& window) { elidedUnderClassic = elidedLabels(window); }))
-            << "under the Classic profile the window was not shown";
-    }
     const auto& looks = observatoryLooks();
     for (const std::size_t first : {std::size_t{0}, std::size_t{3}})
     {
@@ -651,9 +620,8 @@ inline WindowLookMeasured expectModalWindowLook(const RunModalWindow& run, const
         settleWindow(10);
         const std::string density = looks[first].name;
         SCOPED_TRACE(density);
-        EXPECT_TRUE(inItsLoop([&](QWidget& window) {
-            checkShownWindow(window, scope, first, elidedUnderClassic, measured);
-        })) << "the window was not shown";
+        EXPECT_TRUE(inItsLoop([&](QWidget& window) { checkShownWindow(window, scope, first, measured); }))
+            << "the window was not shown";
         settleWindow(20);
     }
     return measured;

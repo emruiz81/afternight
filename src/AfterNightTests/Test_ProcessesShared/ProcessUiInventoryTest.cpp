@@ -3,7 +3,8 @@
 
 /// @file
 /// The inventory of the controls every process window opens with, which the user guide's pages are held to: each
-/// window the registry opens is walked in layout order, tabs in tab order, and what it holds - each control's label,
+/// window the registry opens is walked in layout order, tabs in tab order and a list of stages' pages in its rows'
+/// order, and what it holds - each control's label,
 /// kind, object name, group, whether it shows, the text it opens with, a spin box's numbers, a combo's choices - is
 /// compared with the record under `docs/user-guide/data/ui`, one file per descriptor. A window that gains, loses or
 /// changes a control fails here until its record is written again, so the page that describes it is looked at too.
@@ -23,6 +24,8 @@
 #include "components/AnSectionHeader.h"
 #include "components/AnSliderControl.h"
 #include "controls/ImageViewControl.h"
+#include "processes/ImageIntegration/ui_models/IntegrationStageStates.h"
+#include "processes/ImageIntegration/widgets/StageListNavigator.h"
 
 #include <QAbstractButton>
 #include <QAbstractItemView>
@@ -393,6 +396,18 @@ public:
                 m_buddies.insert(label->buddy(), label);
             }
         }
+        // The pages a list of stages selects, each titled by its row as a tab's page is by its tab.
+        for (const ImageIntegration::StageListNavigator* stages :
+             window.findChildren<ImageIntegration::StageListNavigator*>())
+        {
+            for (const ImageIntegration::StageRowSpec& row : ImageIntegration::kStageRows)
+            {
+                if (QWidget* page = stages->page(row.page))
+                {
+                    m_stagePages.insert(page, ImageIntegration::stageRowTitle(QString::fromLatin1(row.id)));
+                }
+            }
+        }
     }
 
     /// The window's controls, in layout order.
@@ -449,12 +464,13 @@ private:
     }
 
     /// Whether the control shows when the window opens: nothing between it and the window is hidden, a tab's page
-    /// aside - what sits on another tab is one click away, and its group names the tab.
+    /// and a stage's page aside - what sits on another tab or behind another row of the stages is one click away, and
+    /// its group names the tab or the row.
     [[nodiscard]] bool shows(const QWidget* control) const
     {
         for (const QWidget* widget = control; widget != nullptr && widget != &m_window; widget = widget->parentWidget())
         {
-            if (!widget->isHidden())
+            if (!widget->isHidden() || m_stagePages.contains(widget))
             {
                 continue;
             }
@@ -1142,6 +1158,10 @@ private:
         {
             return;
         }
+        if (const auto stage = m_stagePages.constFind(widget); stage != m_stagePages.cend())
+        {
+            addGroup(groups, *stage);
+        }
 
         if (auto* field = dynamic_cast<an::ui::AnInputField*>(widget))
         {
@@ -1237,6 +1257,7 @@ private:
 
     QWidget& m_window;
     QHash<const QWidget*, QLabel*> m_buddies;
+    QHash<const QWidget*, QString> m_stagePages;
     std::vector<ControlRecord> m_records;
     QSet<const QWidget*> m_seen;
     QHash<QObject*, QLayout*> m_holders;

@@ -98,7 +98,7 @@ QToolButton* WorkspaceToolbar::fitButton() const noexcept
 void WorkspaceToolbar::refreshLock()
 {
     const bool locked = m_dependencies.isLocked && m_dependencies.isLocked();
-    // As the classic dock tool bar's button: it shows what a click does.
+    // The button shows what a click does.
     const QString iconName = locked ? QStringLiteral("unlock") : QStringLiteral("lock");
     m_lock->setIcon(m_dependencies.icon ? m_dependencies.icon(iconName) : QIcon());
     m_lock->setToolTip(locked ? tr("Unlock layout") : tr("Lock layout"));

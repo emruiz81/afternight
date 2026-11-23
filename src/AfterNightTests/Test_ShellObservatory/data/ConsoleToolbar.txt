@@ -5,10 +5,9 @@
 #   combo | its items | the current one | tooltip
 #   widget | its class
 #
-# Written from the classic window's console. In Test_ShellClassic
-# ApplicationWindow.TheSessionConsolesToolbarMatchesTheRecord compares the classic console with it;
-# in Test_ShellObservatory ConsoleDrawer.TheToolbarIsTheConsoles compares the console drawer's,
-# less the drawer's own parts.
+# Written from AfterNight 1.1's console. In Test_ShellObservatory
+# ConsoleDrawer.TheToolbarIsTheConsoles compares the console drawer's with it, less the drawer's
+# own parts.
 # An entry is edited by the change that means to move it; the record is not written again whole.
 # A field is `-` when empty; `\t` is a tab and `\|` a bar inside a text.
 

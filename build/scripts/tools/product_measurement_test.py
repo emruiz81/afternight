@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 """Tests for product_measurement.py: the schedule, the paired decision rule, the comparison's
-refusals, the archive's selection and verification, the application path, the pinned configuration and the recorded
+refusals, the archive's selection and verification, the driver's run, the pinned configuration and the recorded
 baselines."""
 
 from __future__ import annotations
 
 import copy
-import hashlib
+import io
 import json
 import os
 import pathlib
@@ -21,7 +21,6 @@ import unittest.mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-import product_application_driver_linux as linux_driver  # noqa: E402
 import product_measurement as measurement  # noqa: E402
 
 
@@ -192,7 +191,7 @@ class CompareTest(unittest.TestCase):
         report = measurement.compare([self.write('a', runs_record(self.pairs(candidate_scale=1.02)))], configuration)
         self.assertEqual(report['resolution']['wallTime'], 1.0)
         self.assertEqual(report['resolution']['residentPeak'], 1.0)
-        self.assertIn('no recorded driver baseline', report['resolution']['source'])
+        self.assertIn('no recorded baseline', report['resolution']['source'])
         self.assertEqual(report['verdict'], 'regression')
 
     def test_different_outputs_refuse_the_timing(self) -> None:
@@ -377,6 +376,16 @@ class CompareTest(unittest.TestCase):
         other['case'] = 'cold'
         with self.assertRaises(measurement.MeasurementError):
             measurement.compare([first, self.write('c', other)], self.configuration)
+
+    def test_a_batch_that_drove_the_application_is_refused(self) -> None:
+        # An older batch names the path it took. One that drove each deployment's application through its windows
+        # measured another region than the workflow driver's, and is never decided as if it were the driver's.
+        record = runs_record(self.pairs())
+        record['path'] = 'application'
+        with self.assertRaisesRegex(measurement.MeasurementError, 'application'):
+            measurement.compare([self.write('a', record)], self.configuration)
+        record['path'] = 'driver'
+        self.assertEqual(measurement.compare([self.write('b', record)], self.configuration)['verdict'], 'no regression')
 
     def test_the_cancellation_case_reports_latency_and_decides_no_throughput(self) -> None:
         runs = [run(pair * 2 + 1, side, pair, 20000.0, 1, success=False, cancelled=True, latency=8.0)
@@ -917,6 +926,20 @@ class CampaignTest(unittest.TestCase):
             self.assertIn('full-warm', text)
             self.assertFalse((pathlib.Path(directory) / 'out').exists())
 
+    def test_the_command_line_runs_the_workflow_driver_alone(self) -> None:
+        # A run launches each deployment's workflow driver and nothing else, so neither command offers a path.
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory) / 'out'
+            common = ['--baseline', directory, '--candidate', directory, '--host-id', 'bench-windows', '--corpus-root',
+                      directory, '--output', str(output), '--path', 'application']
+            for command in (['run', '--workflow', 'full', '--case', 'warm', *common], ['campaign', *common, '--dry-run']):
+                with unittest.mock.patch('sys.stderr', new_callable=io.StringIO) as error, \
+                        unittest.mock.patch('builtins.print'), self.assertRaises(SystemExit) as exited:
+                    measurement.main(command)
+                self.assertEqual(exited.exception.code, 2, command[0])
+                self.assertIn('unrecognized arguments: --path application', error.getvalue())
+            self.assertFalse(output.exists())
+
 
 class BaselineTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -988,285 +1011,36 @@ class BaselineTest(unittest.TestCase):
         (self.root / 'records/archive-manifest.json').write_text(json.dumps(dict(manifest, commit=elsewhere)))
         self.assertTrue(any('not an ancestor of HEAD' in problem for problem in self.findings(commit=elsewhere)))
 
-    def test_a_baseline_names_a_known_path(self) -> None:
-        self.assertEqual(self.findings(path='application'), [])
-        self.assertTrue(any('neither driver nor application' in problem for problem in self.findings(path='window')))
 
-    def test_each_path_is_decided_by_its_own_baselines_resolution(self) -> None:
-        driver = dict(self.entry, resolution={'wallTime': 1.01, 'residentPeak': 1.0002})
-        application = dict(self.entry, path='application', resolution={'wallTime': 1.04, 'residentPeak': 1.003})
-        configuration = dict(self.configuration, baselines=[driver, application])
-        self.assertEqual(measurement.host_resolution(configuration, 'bench-windows')['wallTime'], 1.01)
-        self.assertEqual(measurement.host_resolution(configuration, 'bench-windows', 'application')['wallTime'], 1.04)
-        alone = dict(self.configuration, baselines=[driver])
-        resolution = measurement.host_resolution(alone, 'bench-windows', 'application')
-        self.assertEqual(resolution['wallTime'], self.configuration['protocol']['noRegressionRatio'])
-        self.assertIn('no recorded application baseline', resolution['source'])
+class DriverRunTest(unittest.TestCase):
+    def test_a_deployment_runs_its_workflow_driver(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            with self.assertRaisesRegex(measurement.MeasurementError, measurement.DRIVER):
+                measurement.driver_path(root)
+            (root / 'bin').mkdir()
+            driver = root / 'bin' / (measurement.DRIVER + ('.exe' if measurement.host_platform() == 'windows' else ''))
+            driver.write_bytes(b'x')
+            self.assertEqual(measurement.driver_path(root), driver)
 
-
-def frame_set(roles: dict[str, list[str]]) -> dict:
-    return {'id': 'set', 'roles': [{'role': role, 'frames': [{'relativePath': path} for path in paths]}
-                                   for role, paths in roles.items()]}
-
-
-class ApplicationPathTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.root = pathlib.Path(self.directory.name)
-        self.corpus = self.root / 'corpus'
-        self.roles = {'lights': ['night/L1.fits', 'night/L2.fits', 'night/other.fits'],
-                      'bias': ['cal/B1.fits'], 'darks': ['cal/D1.fits'], 'flats': ['cal/F1.fits']}
-        for paths in self.roles.values():
-            for relative in paths:
-                (self.corpus / relative).parent.mkdir(parents=True, exist_ok=True)
-                (self.corpus / relative).write_bytes(relative.encode())
-        self.roles['lights'].remove('night/other.fits')
-
-    def test_each_role_is_staged_as_links_to_the_corpus_files_in_its_own_folder(self) -> None:
-        frames = self.root / 'frames'
-        counts = measurement.stage_frames(frame_set(self.roles), self.corpus, frames)
-        self.assertEqual(counts, {'LIGHTS': 2, 'BIAS': 1, 'DARK': 1, 'FLAT': 1})
-        self.assertTrue(os.path.samefile(frames / 'LIGHTS' / 'L1.fits', self.corpus / 'night/L1.fits'))
-        self.assertFalse((frames / 'LIGHTS' / 'other.fits').exists(), 'a corpus file outside the set was staged')
-        # Staging again keeps the links it made.
-        self.assertEqual(measurement.stage_frames(frame_set(self.roles), self.corpus, frames), counts)
-
-    def test_a_staged_folder_holding_anything_else_is_refused(self) -> None:
-        frames = self.root / 'frames'
-        measurement.stage_frames(frame_set(self.roles), self.corpus, frames)
-        (frames / 'LIGHTS' / 'stray.fits').write_bytes(b'x')
-        with self.assertRaisesRegex(measurement.MeasurementError, 'stray.fits'):
-            measurement.stage_frames(frame_set(self.roles), self.corpus, frames)
-        (frames / 'LIGHTS' / 'stray.fits').unlink()
-        (frames / 'notes.txt').write_bytes(b'x')
-        with self.assertRaisesRegex(measurement.MeasurementError, 'beside the role folders'):
-            measurement.stage_frames(frame_set(self.roles), self.corpus, frames)
-
-    def test_a_staged_frame_that_is_another_file_is_refused(self) -> None:
-        frames = self.root / 'frames'
-        (frames / 'BIAS').mkdir(parents=True)
-        (frames / 'BIAS' / 'B1.fits').write_bytes(b'cal/B1.fits')
-        with self.assertRaisesRegex(measurement.MeasurementError, 'is not'):
-            measurement.stage_frames(frame_set(self.roles), self.corpus, frames)
-
-    def test_a_role_no_window_adds_is_refused(self) -> None:
-        with self.assertRaisesRegex(measurement.MeasurementError, 'no window adds'):
-            measurement.stage_frames(frame_set({'masters': ['cal/B1.fits']}), self.corpus, self.root / 'frames')
-
-    def command(self, platform_name: str) -> list[str]:
-        with unittest.mock.patch.object(measurement, 'host_platform', return_value=platform_name), \
-                unittest.mock.patch.dict(os.environ, {'SystemRoot': r'C:\Windows'}):
-            return measurement.application_command(
-                pathlib.Path('driver'), pathlib.Path('bin/AfterNight'), 'full', pathlib.Path('frames'),
-                pathlib.Path('out'), pathlib.Path('storage'), pathlib.Path('result.json'), 1, 20000, 10, 'f' * 64)
-
-    def test_the_command_drives_the_deployments_application_through_windows_powershell(self) -> None:
-        self.assertEqual(self.command('windows'), [
-            r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', '-NoProfile', '-NonInteractive',
-            '-ExecutionPolicy', 'Bypass', '-File', 'driver', '-Application', str(pathlib.Path('bin/AfterNight')),
-            '-Workflow', 'full', '-Frames', 'frames', '-Output', 'out', '-Storage', 'storage', '-Result', 'result.json',
-            '-Variant', '1', '-CancelAfterMs', '20000', '-SamplingIntervalMs', '10', '-DatasetIdentity', 'f' * 64])
-
-    def test_the_command_drives_the_deployments_application_through_the_systems_python_on_linux(self) -> None:
-        command = self.command('linux')
-        # The project's Python, which runs this tool, carries numpy and not the AT-SPI client the driver needs.
-        self.assertEqual(command[:2], ['/usr/bin/python3', 'driver'])
-        arguments = dict(zip(command[2::2], command[3::2]))
-        self.assertEqual(arguments, {
-            '--application': str(pathlib.Path('bin/AfterNight')), '--workflow': 'full', '--frames': 'frames',
-            '--output': 'out', '--storage': 'storage', '--result': 'result.json', '--variant': '1',
-            '--cancel-after-ms': '20000', '--sampling-interval-ms': '10', '--dataset-identity': 'f' * 64})
-
-    def test_each_platform_has_an_application_driver(self) -> None:
-        for platform_name in ('windows', 'linux'):
-            self.assertTrue((measurement.REPO_ROOT / measurement.APPLICATION_DRIVER[platform_name]).is_file(),
-                            platform_name)
-
-    def test_the_linux_driver_reads_the_command_it_is_given(self) -> None:
-        parsed = linux_driver.parse_arguments(self.command('linux')[2:])
-        self.assertEqual((parsed.application, parsed.workflow, parsed.frames, parsed.output, parsed.storage),
-                         (str(pathlib.Path('bin/AfterNight')), 'full', 'frames', 'out', 'storage'))
-        self.assertEqual((parsed.result, parsed.variant, parsed.cancel_after_ms, parsed.sampling_interval_ms),
-                         ('result.json', 1, 20000, 10))
-        self.assertEqual((parsed.dataset_identity, parsed.timeout_seconds), ('f' * 64, 1800))
-
-    def test_the_linux_driver_starts_the_classic_shell(self) -> None:
-        # The windows, menus and dialogs the driver answers are the classic shell's; a build with one shell ignores
-        # the variable.
-        session = linux_driver.DisplaySession(pathlib.Path('session'))
-        env = session.application_environment(pathlib.Path('deployment'), pathlib.Path('storage'))
-        self.assertEqual(env['AFTERNIGHT_SHELL'], 'classic')
-
-    def test_the_windows_driver_starts_the_classic_shell(self) -> None:
-        driver = (measurement.REPO_ROOT / measurement.APPLICATION_DRIVER['windows']).read_text(encoding='utf-8')
-        self.assertIn("$start.EnvironmentVariables['AFTERNIGHT_SHELL'] = 'classic'", driver)
-
-    def test_a_deployment_runs_its_application_by_the_application_path(self) -> None:
-        (self.root / 'bin').mkdir()
-        application = self.root / 'bin' / measurement.APPLICATION[measurement.host_platform()]
-        application.write_bytes(b'x')
-        self.assertEqual(measurement.driver_path(self.root, 'application'), application)
-        with self.assertRaisesRegex(measurement.MeasurementError, measurement.DRIVER):
-            measurement.driver_path(self.root)
-
-    def test_an_application_result_is_read_as_a_drivers_with_its_processor_time_in_the_region(self) -> None:
+    def test_a_driver_result_is_read_as_the_comparison_reads_it(self) -> None:
         summary = measurement.summarize_result({
-            'outcome': {'success': True, 'completion': 'Complete'},
+            'outcome': {'success': True, 'cancelled': False},
             'timing': {'totalMs': 70000.0, 'preparationMs': 50.0, 'executionMs': 69950.0,
                        'stages': [{'name': 'LightsStacking'}]},
             'memory': {'residentPeakBytes': 14 << 30, 'idleBaselineBytes': 1 << 28},
-            'process': {'cpuSecondsInRegion': 1300.0, 'cpuSeconds': 1310.0},
             'preparation': {'executionMode': 'incremental'},
-            'outputs': [{'role': 'light-master', 'path': 'stacked.fit', 'sha256': 'aa'}]})
-        self.assertEqual((summary['totalMs'], summary['regionCpuSeconds'], summary['completion']),
-                         (70000.0, 1300.0, 'Complete'))
-        self.assertEqual(summary['stages'], ['LightsStacking'])
+            'outputs': [{'role': 'light-master', 'path': 'stacked.fit', 'sha256': 'aa'},
+                        {'role': 'report', 'path': 'history/report.html', 'sha256': 'bb'}]})
+        self.assertEqual((summary['success'], summary['totalMs'], summary['residentPeakBytes']),
+                         (True, 70000.0, 14 << 30))
+        self.assertEqual((summary['stages'], summary['executionMode']), (['LightsStacking'], 'incremental'))
         self.assertEqual(summary['outputs'], {'light-master:stacked.fit': 'aa'})
-
-    def test_the_campaign_estimate_adds_what_the_application_path_costs_per_run(self) -> None:
-        configuration = measurement.read_configuration()
-        driver = measurement.campaign_estimate(configuration, 'bench-windows')
-        application = measurement.campaign_estimate(configuration, 'bench-windows', 'application')
-        pairs = configuration['campaign']['hosts']['bench-windows']['pairs']
-        extra = measurement.APPLICATION_RUN_OVERHEAD_SECONDS - measurement.RUN_OVERHEAD_SECONDS
-        self.assertAlmostEqual(application['series']['full-warm'] - driver['series']['full-warm'], 2 * pairs * extra)
-        self.assertEqual(application['path'], 'application')
-
-    def test_a_campaign_over_its_budget_by_the_application_path_alone_is_refused(self) -> None:
-        configuration = copy.deepcopy(measurement.read_configuration())
-        seconds = configuration['hosts']['bench-windows']['runSeconds']
-        # Fresh runs that leave the driver path just inside the budget leave the application path outside it.
-        budget = configuration['campaign']['budgetMinutes'] * 60
-        series = configuration['campaign']['hosts']['bench-windows']['series']
-        driver = measurement.campaign_estimate(configuration, 'bench-windows')['totalSeconds']
-        seconds['baseline']['fresh'] += (budget - driver - 1) / (2 * 3 * sum(1 for s in series if 'warm' in s))
-        problems = measurement.campaign_findings(configuration)
-        self.assertTrue(any('by the application path' in problem for problem in problems), problems)
-        self.assertFalse(any('by the driver path' in problem for problem in problems), problems)
 
     def test_a_run_needs_numpy_before_its_first_pair(self) -> None:
         with unittest.mock.patch.object(measurement.importlib.util, 'find_spec', return_value=None):
             with self.assertRaisesRegex(measurement.MeasurementError, 'numpy'):
                 measurement.require_numpy()
-
-    def test_the_application_path_needs_a_frames_directory(self) -> None:
-        output = self.root / 'out'
-        with unittest.mock.patch('builtins.print') as printed:
-            self.assertEqual(measurement.main(['run', '--baseline', str(self.root), '--candidate', str(self.root),
-                                               '--workflow', 'full', '--case', 'warm', '--host-id', 'bench-windows',
-                                               '--corpus-root', str(self.corpus), '--output', str(output),
-                                               '--path', 'application']), 1)
-        self.assertIn('--frames', ' '.join(str(call.args[0]) for call in printed.call_args_list))
-        self.assertFalse(output.exists())
-
-    def test_batches_of_two_paths_are_not_analysed_together(self) -> None:
-        records = []
-        for index, path in enumerate(('driver', 'application')):
-            directory = self.root / f'batch{index}'
-            directory.mkdir()
-            record = runs_record([run(1, 'baseline', 0, 100.0, 1), run(2, 'candidate', 0, 100.0, 1)])
-            record['path'] = path
-            (directory / 'runs.json').write_text(json.dumps(record), encoding='utf-8')
-            records.append(directory)
-        with self.assertRaisesRegex(measurement.MeasurementError, 'differ in path'):
-            measurement.compare(records)
-
-
-
-class LinuxApplicationDriverTest(unittest.TestCase):
-    """What the Linux application driver reads outside the application: the run's log, the kernel's account of the
-    process and the objects it mapped. The windows themselves are driven only against a real application."""
-
-    RULE = '\u2550\u2550\u2550'
-    LOG = ['[2026-10-18T23:12:12.274] [HEADER] WORKFLOW STARTED',
-           f'{RULE} STAGE: Bias Stacking (1 group) {RULE}',
-           f'[2026-10-18T23:12:33.580] [SUCCESS] {RULE} Bias Stacking Complete {RULE} (1 group, 21 s)',
-           f'{RULE} STAGE: Lights Stacking (2 groups) {RULE}',
-           f'[2026-10-18T23:13:00.080] [SUCCESS] {RULE} Lights Stacking Complete {RULE} (2 groups, 26 s)',
-           '[2026-10-18T23:13:00.773] [DETAIL]     \u2192 Engine memory: peak 14226310712 bytes (0 when the run '
-           'started), 5 bytes still allocated, 70727 allocations of 278610723184 bytes, 2 refused']
-
-    def test_each_stage_is_timed_from_the_log_and_the_engine_line_is_read(self) -> None:
-        stages, engine = linux_driver.read_workflow_log(self.LOG)
-        self.assertEqual([stage['name'] for stage in stages], ['BiasStacking', 'LightsStacking'])
-        self.assertAlmostEqual(stages[0]['ms'], 21306.0)
-        self.assertAlmostEqual(stages[1]['ms'], 26500.0)
-        self.assertAlmostEqual(stages[1]['endMs'], 47806.0)
-        self.assertEqual(engine, {'region': {'peakBytes': 14226310712, 'peakBeforeRegionBytes': 0,
-                                             'liveBytesAfterRegion': 5, 'allocationsInRegion': 70727,
-                                             'bytesAllocatedInRegion': 278610723184, 'deniedAllocationsInRegion': 2}})
-
-    def test_a_log_without_the_engine_line_has_stages_and_no_engine_accounting(self) -> None:
-        stages, engine = linux_driver.read_workflow_log(self.LOG[:5])
-        self.assertEqual(len(stages), 2)
-        self.assertIsNone(engine)
-
-    def test_a_stage_that_did_not_complete_is_named_without_a_time(self) -> None:
-        stages, _ = linux_driver.read_workflow_log(self.LOG[:4])
-        self.assertEqual(stages[1], {'name': 'LightsStacking'})
-
-    def test_the_memory_lines_of_the_process_status_are_read_in_bytes(self) -> None:
-        fields = linux_driver._status_fields('Name:\tAfterNight\nVmHWM:\t  2048 kB\nVmRSS:\t  1024 kB\n'
-                                             'RssAnon:\t   512 kB\nThreads:\t9\n')
-        self.assertEqual(fields, {'VmHWM': 2 << 20, 'VmRSS': 1 << 20, 'RssAnon': 512 << 10})
-
-    def test_a_mapped_library_outside_the_deployment_and_the_system_is_reported(self) -> None:
-        deployment = pathlib.Path('/archive/bin')
-        checkout = pathlib.Path('/home/someone/afternight')
-        sorted_libraries = linux_driver.classify_shared_objects(
-            {'/archive/bin/libAfterNightControls.so', '/archive/bin/lib/libQt6Core.so.6.10.3',
-             '/usr/lib/x86_64-linux-gnu/libc.so.6', '/opt/other/libfoo.so.1',
-             '/home/someone/afternight/Qt6/6.10.3/gcc_64/lib/libQt6Gui.so.6.10.3'}, deployment, checkout)
-        self.assertEqual(len(sorted_libraries['deployment']), 2)
-        self.assertEqual(sorted_libraries['system'], ['/usr/lib/x86_64-linux-gnu/libc.so.6'])
-        qt = '/home/someone/afternight/Qt6/6.10.3/gcc_64/lib/libQt6Gui.so.6.10.3'
-        self.assertEqual(sorted_libraries['outside'], [qt, '/opt/other/libfoo.so.1'])
-        self.assertEqual(sorted_libraries['checkout'], [qt])
-
-    def test_a_deployment_inside_the_checkout_is_the_deployment(self) -> None:
-        sorted_libraries = linux_driver.classify_shared_objects(
-            {'/home/someone/afternight/bin/clang/release/libAfterNightControls.so'},
-            pathlib.Path('/home/someone/afternight/bin/clang/release'), pathlib.Path('/home/someone/afternight'))
-        self.assertEqual((len(sorted_libraries['deployment']), sorted_libraries['checkout']), (1, []))
-
-    def test_a_run_refuses_a_library_of_the_checkout(self) -> None:
-        driver = linux_driver.ApplicationDriver(linux_driver.parse_arguments(
-            ['--application', 'a', '--workflow', 'full', '--frames', 'f', '--output', 'o', '--storage', 's',
-             '--result', 'r']))
-        record = {'process': {}}
-        library = str(linux_driver.REPOSITORY / 'Qt6' / 'lib' / 'libQt6Core.so.6')
-        with self.assertRaisesRegex(linux_driver.DriverError, 'libraries of the checkout'):
-            driver.refuse_checkout_libraries(record, {library}, pathlib.Path('/archive/bin'))
-        self.assertEqual(record['process']['sharedObjects']['outside'], [library])
-
-    def test_only_the_images_the_run_published_after_its_request_are_its_outputs(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            output = pathlib.Path(directory) / 'out'
-            (output / 'history' / 'run').mkdir(parents=True)
-            (output / 'history' / 'run' / 'workflow_log.txt').write_text('\n'.join(self.LOG), encoding='utf-8')
-            for name in ('master_bias_1x1.fit', 'stacked_1x1_Red.fit', 'registered_1.fit', 'old_master_dark.fit'):
-                (output / name).write_bytes(name.encode())
-            earlier = os.stat(output / 'master_bias_1x1.fit').st_mtime - 60
-            os.utime(output / 'old_master_dark.fit', (earlier, earlier))
-            storage = pathlib.Path(directory) / 'storage'
-            (storage / 'logs').mkdir(parents=True)
-            (storage / 'logs' / 'AfterNight.log').write_text('WorkflowExecutor: starting incremental execution\n',
-                                                             encoding='utf-8')
-            record = linux_driver.new_record(linux_driver.parse_arguments(
-                ['--application', 'a', '--workflow', 'full', '--frames', 'f', '--output', str(output), '--storage',
-                 str(storage), '--result', 'r']))
-            linux_driver.collect_run_outputs(record, output, storage, earlier + 30)
-        self.assertEqual([(entry['role'], entry['path']) for entry in record['outputs']],
-                         [('bias-master', 'master_bias_1x1.fit'), ('light-master', 'stacked_1x1_Red.fit')])
-        self.assertEqual(record['outputs'][0]['sha256'], hashlib.sha256(b'master_bias_1x1.fit').hexdigest())
-        self.assertEqual(record['preparation']['executionMode'], 'incremental')
-        self.assertEqual(record['workflowLog'], 'history/run/workflow_log.txt')
-        self.assertEqual(record['engine']['region']['deniedAllocationsInRegion'], 2)
-        summary = measurement.summarize_result(record)
-        self.assertEqual(summary['stages'], ['BiasStacking', 'LightsStacking'])
-        self.assertEqual(summary['outputs'], {'bias-master:master_bias_1x1.fit': record['outputs'][0]['sha256'],
-                                              'light-master:stacked_1x1_Red.fit': record['outputs'][1]['sha256']})
 
 
 if __name__ == '__main__':

@@ -11,8 +11,7 @@
 namespace an::ui::testing
 {
 
-/// Sets Night for its scope and resolves the tokens again; Night as it was set before is put back when it goes. Night
-/// is in force only under the Observatory profile, which a case puts in force first (`ScopedStyleProfile`).
+/// Sets Night for its scope and resolves the tokens again; Night as it was set before is put back when it goes.
 class ScopedNightMode final
 {
 public:

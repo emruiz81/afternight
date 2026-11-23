@@ -23,14 +23,12 @@
 #include "processes/ImageIntegration/widgets/FrameTreeDragDropHandler.h"
 #include "processes/ImageIntegration/dialogs/BlinkComparatorDialog.h"
 #include "processes/ImageIntegration/dialogs/ConfirmationDialogUtils.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/tabs/CalibrationTab.h"
 #include "processes/ImageIntegration/tabs/CalibrationPanelUtils.h"
 #include "processes/ImageIntegration/tabs/FrameSourceTab.h"
 #include "processes/ImageIntegration/tabs/RegistrationTab.h"
 #include "processes/ImageIntegration/tabs/StackingTab.h"
 #include "processes/ImageIntegration/tabs/SummaryTab.h"
-#include "processes/ImageIntegration/widgets/TabIssueBadge.h"
 #include "processes/ImageIntegration/workflow/ManifestBuilder.h"
 #include "processes/ImageIntegration/workflow/ExecutionPlanner.h"
 #include "processes/ImageIntegration/workflow/ExecutionPreparationSnapshot.h"
@@ -92,8 +90,6 @@
 #include <QUrl>
 #include <QSignalBlocker>
 #include <QSettings>
-#include <QTabWidget>
-#include <QTabBar>
 #include <QThreadPool>
 #include <QTimer>
 #include <QMenu>
@@ -433,8 +429,6 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
 
     verticalLayout = m_ui.verticalLayout;
     mainMenuBar = m_ui.mainMenuBar;
-    rootTabWidget = m_ui.rootTabWidget;
-    sourceTabWidget = m_ui.sourceTabWidget;
     biasTab = m_ui.biasTab;
     darkTab = m_ui.darkTab;
     flatTab = m_ui.flatTab;
@@ -443,26 +437,24 @@ ImageIntegrationProcess::ImageIntegrationProcess(QObject* parent) : TopLevelProc
     verticalLayout_3 = m_ui.verticalLayout_3;
     verticalLayout_4 = m_ui.verticalLayout_4;
     verticalLayout_5 = m_ui.verticalLayout_5;
-    workflowTabWidget = m_ui.workflowTabWidget;
     calibrationTab = m_ui.calibrationTab;
     registrationTab = m_ui.registrationTab;
     stackingTab = m_ui.stackingTab;
     summaryTab = m_ui.summaryTab;
     outputDirectoryEdit = m_ui.outputDirectoryEdit;
     outputDirectoryBrowseButton = m_ui.outputDirectoryBrowseButton;
-    dialogButtonBox = m_ui.dialogButtonBox;
     if (outputDirectoryBrowseButton)
     {
         outputDirectoryBrowseButton->setProperty("anButtonVariant", QStringLiteral("secondary"));
     }
 
     // Ensure background is painted during interactive resizing; without this some styles can leave
-    // stale pixels when large child widgets move/resize within tabs (appearing as overlap trails).
+    // stale pixels when large child widgets move/resize within the pages (appearing as overlap trails).
     setAutoFillBackground(true);
     setAttribute(Qt::WA_StyledBackground, true);
     if (verticalLayout)
     {
-        // Prevent the top-level window's minimum size from "jumping" as different tabs
+        // Prevent the top-level window's minimum size from "jumping" as different pages
         // compute different minimum layout sizes (Qt's default constraint for top-level
         // widgets is to apply the layout minimum size to the window).
         verticalLayout->setSizeConstraint(QLayout::SetNoConstraint);
@@ -608,9 +600,9 @@ void ImageIntegrationProcess::refreshTheme()
 
     TopLevelProcessBaseControl::refreshTheme();
 
-    if (m_navigator)
+    if (m_stageList)
     {
-        m_navigator->refreshTheme();
+        m_stageList->refreshTheme();
     }
 
     if (m_addFilesAction)
@@ -714,18 +706,15 @@ void ImageIntegrationProcess::refreshTheme()
     {
         m_summaryTab->update();
     }
-
-    // Ensure visible tab badges pick up refreshed token colors/fonts.
-    updateTabBadgesNow();
 }
 
 ImageIntegrationProcess::~ImageIntegrationProcess()
 {
     QCoreApplication::removePostedEvents(this, QEvent::MetaCall);
 
-    if (m_tabBadgeDebounce)
+    if (m_issuesDebounce)
     {
-        m_tabBadgeDebounce->stop();
+        m_issuesDebounce->stop();
     }
     // A width a person gave the asides a moment ago is kept before the page goes.
     keepAsideWidthNow();
@@ -752,7 +741,7 @@ IntegrationDataModel* ImageIntegrationProcess::model() const noexcept
 
 void ImageIntegrationProcess::refreshAfterRun()
 {
-    // The page's own acts waited for the run.
+    // The process's own acts waited for the run.
     releasePageAfterRun();
     // A run wrote into the output folder: what is free there is read again for the page's header, and where its
     // stages stand for the stage list.
@@ -762,7 +751,7 @@ void ImageIntegrationProcess::refreshAfterRun()
         m_stageStates->progress.reset();
         scheduleStageStatesRead();
     }
-    // The tabs read the output directory's registration records only when something moves them; a run writes them
+    // The pages read the output directory's registration records only when something moves them; a run writes them
     // without moving anything.
     if (m_registrationTab)
     {
@@ -932,24 +921,17 @@ void ImageIntegrationProcess::showEvent(QShowEvent* evt)
 
 ImageIntegration::StageNavigator* ImageIntegrationProcess::stageNavigator() const noexcept
 {
-    return m_navigator;
+    return m_stageList;
 }
 
-void ImageIntegrationProcess::presentStagesAsAList()
+void ImageIntegrationProcess::presentStages()
 {
-    using ImageIntegration::StagePage;
-    QWidget* const content = rootTabWidget != nullptr ? rootTabWidget->parentWidget() : nullptr;
-    auto* const held = content != nullptr ? qobject_cast<QBoxLayout*>(content->layout()) : nullptr;
-    if (m_navigator == nullptr || m_stageList != nullptr || held == nullptr)
+    if (m_stageList != nullptr || verticalLayout == nullptr)
     {
         return;
     }
-    std::array<QWidget*, ImageIntegration::kStagePageCount> pages{};
-    for (int page = 0; page < ImageIntegration::kStagePageCount; ++page)
-    {
-        pages[static_cast<std::size_t>(page)] = m_navigator->page(static_cast<StagePage>(page));
-    }
-    const StagePage current = m_navigator->currentPage();
+    const std::array<QWidget*, ImageIntegration::kStagePageCount> pages = {
+        biasTab, darkTab, flatTab, lightTab, calibrationTab, registrationTab, stackingTab, summaryTab};
     const ImageIntegration::StageListNavigator::Foot foot{.outputLabel = m_ui.label,
                                                           .outputEdit = outputDirectoryEdit,
                                                           .outputBrowse = outputDirectoryBrowseButton,
@@ -959,36 +941,12 @@ void ImageIntegrationProcess::presentStagesAsAList()
                                                           .presets = m_presetsMenu,
                                                           .resetSettings = m_resetAction};
 
-    // The tabs' navigator goes before the tabs it asks; the pages leave the tabs for the list's own widget, which
-    // takes the tabs' place; and the tabs, empty, go: nothing of them is shown again.
-    delete m_navigator;
-    m_navigator = nullptr;
-    auto* const list = new ImageIntegration::StageListNavigator(pages, current, foot, content, this);
-    held->insertWidget((std::max)(0, held->indexOf(rootTabWidget)), list->widget(), 1);
-    delete rootTabWidget;
-    rootTabWidget = nullptr;
-    sourceTabWidget = nullptr;
-    workflowTabWidget = nullptr;
-    m_ui.rootTabWidget = nullptr;
-    m_ui.sourceTabWidget = nullptr;
-    m_ui.workflowTabWidget = nullptr;
-    m_ui.pageSources = nullptr;
-    m_ui.pageWorkflow = nullptr;
-    m_ui.verticalLayout_Sources = nullptr;
-    m_ui.verticalLayout_Workflow = nullptr;
-    // The window's foot held the output folder, which the list's foot holds now, and Close and Reset, which a page's
-    // header and the list's foot offer.
-    if (m_ui.bottomActionBar != nullptr)
-    {
-        m_ui.bottomActionBar->hide();
-    }
-    m_navigator = list;
-    m_stageList = list;
-    followNavigator();
+    // The list and the page of the stage selected take the window's room under its menu bar.
+    m_stageList = new ImageIntegration::StageListNavigator(pages, ImageIntegration::StagePage::Bias, foot, this, this);
+    verticalLayout->addWidget(m_stageList->widget(), 1);
 
-    // The pages fit the centre of a main window beside the list: a side panel is an aside - one width for every
-    // page's, which a person drags within the aside's bounds - and the stacking page's execution options stand in
-    // two rows.
+    // The pages share the room beside the list: a side panel is an aside - one width for every page's, which a person
+    // drags within the aside's bounds - and the stacking page's execution options stand in two rows.
     const int asideWidth = keptAsideWidth();
     for (FrameSourceTab* const tab : m_frameSourceTabs)
     {
@@ -1051,17 +1009,17 @@ void ImageIntegrationProcess::presentStagesAsAList()
         connect(model, &IntegrationDataModel::outputDirectoryChanged, this, moved);
         connect(model, &IntegrationDataModel::modelReset, this, moved);
     }
-    updateTabBadgesNow();
+    updateIssuesNow();
     readStageStates();
 }
 
 void ImageIntegrationProcess::followNavigator()
 {
-    if (m_navigator == nullptr)
+    if (m_stageList == nullptr)
     {
         return;
     }
-    connect(m_navigator, &ImageIntegration::StageNavigator::currentPageChanged, this,
+    connect(m_stageList, &ImageIntegration::StageNavigator::currentPageChanged, this,
             [this](const ImageIntegration::StagePage page) {
                 // The frame source shown last is the one the acts of the other pages add frames to.
                 const int index = static_cast<int>(page);
@@ -1211,7 +1169,7 @@ void ImageIntegrationProcess::publishStageRows()
         state.progress.reset();
     }
     std::vector<an::ui::StageRow> rows = ImageIntegration::integrationStageRows(state.model, state.run, state.progress);
-    // The summary's bar is the whole run's, as the run's view in the page says it; the stages' bars are their own.
+    // The summary's bar is the whole run's, as the run's view says it; the stages' bars are their own.
     if (state.progress.has_value() && !m_runView.isNull() && !m_runView->isFinished())
     {
         const int whole = static_cast<int>(std::lround(m_runView->standing().fraction * 100.0));
@@ -1238,7 +1196,7 @@ void ImageIntegrationProcess::workflowRunProgressed(const WorkflowProgress& prog
 
 bool ImageIntegrationProcess::showWorkflowRun(WorkflowRunView* const view)
 {
-    if (view == nullptr || !hasPageLayout() || m_stageList == nullptr)
+    if (view == nullptr || m_stageList == nullptr)
     {
         return false;
     }
@@ -1405,15 +1363,8 @@ bool ImageIntegrationProcess::cancelRun()
     {
         return false;
     }
-    // The run's view is the page's, or the Processing window's over a window of its own.
-    WorkflowRunView* view = m_runView.data();
-    if (view == nullptr)
-    {
-        if (const auto* const window = findChild<WorkflowProgressDialogV2*>())
-        {
-            view = window->runView();
-        }
-    }
+    // The run is stopped through its view, which the process shows.
+    WorkflowRunView* const view = m_runView.data();
     if (view == nullptr || view->isFinished())
     {
         return false;
@@ -1521,7 +1472,6 @@ void ImageIntegrationProcess::updateShowRunAction()
 
 void ImageIntegrationProcess::pageLayoutMade()
 {
-    presentStagesAsAList();
     m_jobHeading = std::make_unique<JobHeadingState>();
     m_jobHeading->debounce.setSingleShot(true);
     m_jobHeading->debounce.setInterval(ImageIntegration::Config::kDebounceIntervalMs);
@@ -1681,8 +1631,7 @@ void ImageIntegrationProcess::setupShortcuts()
         {
             m_stackingTab->refreshAll();
         }
-        scheduleTabBadgeRefresh();
-        updateFrameTabLabels();
+        scheduleIssuesRefresh();
     });
 }
 
@@ -1762,35 +1711,27 @@ void ImageIntegrationProcess::setupTabs()
     m_modelBoundCleanup.add(m_summaryTab);
     addTabWidget(summaryTab, m_summaryTab);
 
-    // In its window the pages are moved between by the two levels of tabs, which say each source's frames in their
-    // labels and each page's issues in their badges; a page of a main window puts a list of stages in their place.
-    if (rootTabWidget && sourceTabWidget && workflowTabWidget)
-    {
-        m_navigator =
-            new ImageIntegration::TabStageNavigator(*rootTabWidget, *sourceTabWidget, *workflowTabWidget, this);
-    }
-
-    // Update badges synchronously on first run to prevent flicker.
-    // Subsequent updates can use the debounced version.
-    updateTabBadgesNow();
+    // The pages are moved between by the list of the job's stages, whose rows say what the validation finds at once,
+    // so that the list does not open on rows that change a moment later.
+    presentStages();
 }
 
-void ImageIntegrationProcess::scheduleTabBadgeRefresh()
+void ImageIntegrationProcess::scheduleIssuesRefresh()
 {
-    if (!m_tabBadgeDebounce)
+    if (!m_issuesDebounce)
     {
-        m_tabBadgeDebounce = new QTimer(this);
-        m_tabBadgeDebounce->setSingleShot(true);
-        m_tabBadgeDebounce->setInterval(200);
-        connect(m_tabBadgeDebounce, &QTimer::timeout, this, &ImageIntegrationProcess::updateTabBadgesNow);
+        m_issuesDebounce = new QTimer(this);
+        m_issuesDebounce->setSingleShot(true);
+        m_issuesDebounce->setInterval(200);
+        connect(m_issuesDebounce, &QTimer::timeout, this, &ImageIntegrationProcess::updateIssuesNow);
     }
 
-    m_tabBadgeDebounce->start();
+    m_issuesDebounce->start();
 }
 
-void ImageIntegrationProcess::updateTabBadgesNow()
+void ImageIntegrationProcess::updateIssuesNow()
 {
-    if (!m_navigator || !m_model)
+    if (!m_stageStates || !m_model)
     {
         return;
     }
@@ -2106,19 +2047,13 @@ void ImageIntegrationProcess::updateTabBadgesNow()
                 // lines << tr("(Using nearby session - yellow cells in table)");
             }
 
-            if (m_stageList == nullptr)
-            {
-                // A tab's badge opens its tab; a row of the stage list is the page already.
-                lines << QString();
-                lines << tr("Click to open Calibration tab.");
-            }
             details.toolTip = lines.join(QStringLiteral("\n"));
 
             calibrationDetails = details;
         }
     }
 
-    // What each page's validation says: how many issues, how grave, in the badge's text and spelled out.
+    // What each page's validation says: how many issues, how grave, and spelled out.
     std::array<ImageIntegration::StagePageIssues, kLogicalTabCount> said;
     for (int i = 0; i < kLogicalTabCount; ++i)
     {
@@ -2142,26 +2077,8 @@ void ImageIntegrationProcess::updateTabBadgesNow()
         }
         page.errors = sev == ValidationIssue::Severity::Error;
     }
-    m_navigator->setIssues(said);
-    if (m_stageStates)
-    {
-        m_stageStates->model.issues = said;
-        publishStageRows();
-    }
-}
-
-void ImageIntegrationProcess::updateFrameTabLabels()
-{
-    if (!m_navigator || !m_model)
-    {
-        return;
-    }
-
-    // How many frames each source holds, as its tab says after its name.
-    m_navigator->setFrameCounts({static_cast<int>(m_model->frames(FrameType::Bias).size()),
-                                 static_cast<int>(m_model->frames(FrameType::Dark).size()),
-                                 static_cast<int>(m_model->frames(FrameType::Flat).size()),
-                                 static_cast<int>(m_model->frames(FrameType::Light).size())});
+    m_stageStates->model.issues = said;
+    publishStageRows();
 }
 
 void ImageIntegrationProcess::updateLightCalibrationPreview(const QString& selectedPath)
@@ -2605,17 +2522,8 @@ void ImageIntegrationProcess::setupUIConnections()
         });
     }
 
-    // Track most recently used frame tab for actions invoked from non-frame tabs.
+    // Track the frame source shown last for actions invoked from the other pages.
     followNavigator();
-
-    if (dialogButtonBox)
-    {
-        connect(dialogButtonBox, &QDialogButtonBox::rejected, this, &ImageIntegrationProcess::close);
-        if (auto* resetBtn = dialogButtonBox->button(QDialogButtonBox::Reset))
-        {
-            connect(resetBtn, &QPushButton::clicked, this, &ImageIntegrationProcess::onReset);
-        }
-    }
 }
 
 void ImageIntegrationProcess::setupModelConnections()
@@ -2705,29 +2613,22 @@ void ImageIntegrationProcess::setupModelConnections()
     connect(m_model.get(), &IntegrationDataModel::selectionChanged, this,
             &ImageIntegrationProcess::syncSelectionFromModel);
 
-    // Tab badges are driven by validation state.
-    connect(m_model.get(), &IntegrationDataModel::framesAdded, this, [this](FrameType, const QStringList&) {
-        scheduleTabBadgeRefresh();
-        updateFrameTabLabels();
-    });
-    connect(m_model.get(), &IntegrationDataModel::framesRemoved, this, [this](FrameType, const QStringList&) {
-        scheduleTabBadgeRefresh();
-        updateFrameTabLabels();
-    });
+    // What the stage list's rows say of each page's issues follows the validation.
+    connect(m_model.get(), &IntegrationDataModel::framesAdded, this,
+            [this](FrameType, const QStringList&) { scheduleIssuesRefresh(); });
+    connect(m_model.get(), &IntegrationDataModel::framesRemoved, this,
+            [this](FrameType, const QStringList&) { scheduleIssuesRefresh(); });
     connect(m_model.get(), &IntegrationDataModel::groupingChanged, this,
-            [this](FrameType) { scheduleTabBadgeRefresh(); });
+            [this](FrameType) { scheduleIssuesRefresh(); });
     connect(m_model.get(), &IntegrationDataModel::calibrationChanged, this,
-            [this](FrameType) { scheduleTabBadgeRefresh(); });
-    connect(m_model.get(), &IntegrationDataModel::registrationChanged, this, [this]() { scheduleTabBadgeRefresh(); });
+            [this](FrameType) { scheduleIssuesRefresh(); });
+    connect(m_model.get(), &IntegrationDataModel::registrationChanged, this, [this]() { scheduleIssuesRefresh(); });
     connect(m_model.get(), &IntegrationDataModel::integrationGroupsChanged, this,
-            [this]() { scheduleTabBadgeRefresh(); });
-    connect(m_model.get(), &IntegrationDataModel::settingsChanged, this, [this]() { scheduleTabBadgeRefresh(); });
+            [this]() { scheduleIssuesRefresh(); });
+    connect(m_model.get(), &IntegrationDataModel::settingsChanged, this, [this]() { scheduleIssuesRefresh(); });
     connect(m_model.get(), &IntegrationDataModel::outputDirectoryChanged, this,
-            [this](const QString&) { scheduleTabBadgeRefresh(); });
-    connect(m_model.get(), &IntegrationDataModel::modelReset, this, [this]() {
-        scheduleTabBadgeRefresh();
-        updateFrameTabLabels();
-    });
+            [this](const QString&) { scheduleIssuesRefresh(); });
+    connect(m_model.get(), &IntegrationDataModel::modelReset, this, [this]() { scheduleIssuesRefresh(); });
 }
 
 void ImageIntegrationProcess::setupTreeConnections()
@@ -4651,8 +4552,8 @@ void ImageIntegrationProcess::onFixWithGroupRequested(FixTarget target, const QS
 
 void ImageIntegrationProcess::updateButtonStates()
 {
-    // While an import or a run shown in the page holds the page's acts, they stay as it left them; they are set again
-    // from the job when it ends.
+    // While an import or a run shown in the process holds its acts, they stay as it left them; they are set again from
+    // the job when it ends.
     if (!m_importHeldActions.empty() || m_runHolds)
     {
         return;
@@ -5125,14 +5026,14 @@ void ImageIntegrationProcess::showKeyboardShortcutsHelp()
 
 void ImageIntegrationProcess::setCurrentLogicalIndex(int index)
 {
-    if (index < 0 || index >= kLogicalTabCount || m_navigator == nullptr)
+    if (index < 0 || index >= kLogicalTabCount || m_stageList == nullptr)
     {
         return;
     }
-    m_navigator->setCurrentPage(static_cast<ImageIntegration::StagePage>(index));
+    m_stageList->setCurrentPage(static_cast<ImageIntegration::StagePage>(index));
 }
 
 int ImageIntegrationProcess::currentLogicalIndex() const
 {
-    return m_navigator != nullptr ? static_cast<int>(m_navigator->currentPage()) : 0;
+    return m_stageList != nullptr ? static_cast<int>(m_stageList->currentPage()) : 0;
 }

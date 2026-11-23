@@ -2,10 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 /// @file
-/// The integration window as a whole, under the application context the suite lends it: its nested tabs and action
-/// bar, a plan preparation dismissed before it finishes, the warning a regroup shows and hides, the report exported
-/// from a run's archive - built on the thread pool in the context's engine session - the Frame Quality panel reading
-/// the records a run wrote, and the badge that summarizes the workflow's issues.
+/// The integration window as a whole, under the application context the suite lends it: a plan preparation dismissed
+/// before it finishes, the warning a regroup shows and hides, the report exported from a run's archive - built on the
+/// thread pool in the context's engine session - and the Frame Quality panel reading the records a run wrote.
 
 #include <gtest/gtest.h>
 #include <QtTest/QSignalSpy>
@@ -13,17 +12,13 @@
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
-#include <QDialogButtonBox>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
-#include <QPushButton>
 #include <QProgressDialog>
-#include <QTabWidget>
 #include <QTableWidget>
 #include <QCheckBox>
 #include <QLabel>
-#include <QLineEdit>
 #include <QMessageBox>
 #include <QTemporaryDir>
 #include <QSqlDatabase>
@@ -122,60 +117,6 @@ protected:
     an::tests::integration::ScopedProcessWindowContext m_scope;
     ImageIntegrationProcess* process = nullptr;
 };
-
-TEST_F(FullIntegrationUiTest, NestedTabStructureIsCorrect)
-{
-    QTabWidget* root = process->findChild<QTabWidget*>("rootTabWidget");
-    ASSERT_NE(root, nullptr);
-
-    QTabWidget* sources = process->findChild<QTabWidget*>("sourceTabWidget");
-    ASSERT_NE(sources, nullptr);
-
-    QTabWidget* workflow = process->findChild<QTabWidget*>("workflowTabWidget");
-    ASSERT_NE(workflow, nullptr);
-
-    // Verify Root has 2 tabs
-    EXPECT_EQ(root->count(), 2);
-    EXPECT_EQ(root->tabText(0), "Frame Sources");
-    EXPECT_EQ(root->tabText(1), "Workflow");
-
-    // Verify Sources has 4 tabs
-    EXPECT_EQ(sources->count(), 4);
-    EXPECT_EQ(sources->tabText(0), "Bias");
-    EXPECT_EQ(sources->tabText(1), "Darks");
-    EXPECT_EQ(sources->tabText(2), "Flats");
-    EXPECT_EQ(sources->tabText(3), "Lights");
-
-    // Verify Workflow has 4 tabs
-    EXPECT_EQ(workflow->count(), 4);
-    EXPECT_EQ(workflow->tabText(0), "Calibration");
-    EXPECT_EQ(workflow->tabText(1), "Registration");
-    EXPECT_EQ(workflow->tabText(2), "Stacking");
-    EXPECT_EQ(workflow->tabText(3), "Summary");
-}
-
-TEST_F(FullIntegrationUiTest, BottomActionBarExists)
-{
-    QWidget* bottomBar = process->findChild<QWidget*>("bottomActionBar");
-    ASSERT_NE(bottomBar, nullptr);
-
-    QLineEdit* outputEdit = bottomBar->findChild<QLineEdit*>("outputDirectoryEdit");
-    QPushButton* browseBtn = bottomBar->findChild<QPushButton*>("outputDirectoryBrowseButton");
-
-    EXPECT_NE(outputEdit, nullptr);
-    EXPECT_NE(browseBtn, nullptr);
-}
-
-TEST_F(FullIntegrationUiTest, BottomActionBarHasResetAndCloseButtons)
-{
-    QWidget* bottomBar = process->findChild<QWidget*>("bottomActionBar");
-    ASSERT_NE(bottomBar, nullptr);
-
-    QDialogButtonBox* box = bottomBar->findChild<QDialogButtonBox*>("dialogButtonBox");
-    ASSERT_NE(box, nullptr);
-    EXPECT_NE(box->button(QDialogButtonBox::Reset), nullptr);
-    EXPECT_NE(box->button(QDialogButtonBox::Close), nullptr);
-}
 
 TEST_F(FullIntegrationUiTest, DismissingPlanPreparationDoesNotOpenStaleExecutionPlan)
 {
@@ -627,49 +568,4 @@ TEST_F(FullIntegrationUiTest, TheStackingTabsFrameQualityReadsTheRecordsARunWrot
     settle();
     EXPECT_TRUE(showsStars(QStringLiteral("321")));
     EXPECT_TRUE(showsStars(QStringLiteral("322")));
-}
-
-TEST_F(FullIntegrationUiTest, WorkflowParentBadgeShowsSummary)
-{
-    // 1. Add frames to trigger calibration issues (Light frame with no calibration)
-    IntegrationDataModel* model = process->model();
-    ASSERT_NE(model, nullptr);
-
-    // Ensure we have grouping options set
-    GroupingOptions opts;
-    opts.byFilter = true;
-    model->setGroupingOptions(FrameType::Light, opts);
-
-    model->addFrames(FrameType::Light, {createTestFrame(QStringLiteral("C:/images/L_001.fit"), FrameType::Light)});
-
-    // 2. Ensure output directory is empty (triggers Summary issue)
-    model->setOutputDirectory(QString());
-
-    // Wait for debounce timer (200ms)
-    QElapsedTimer elapsed;
-    elapsed.start();
-    while (elapsed.elapsed() < 500)
-        QApplication::processEvents();
-
-    // Verify groups exist (prerequisite for calibration validation)
-    ASSERT_FALSE(model->lightGroups().empty()) << "Light groups should not be empty";
-
-    // 3. Find the parent badge for Workflow (index 1)
-    QTabWidget* root = process->findChild<QTabWidget*>("rootTabWidget");
-    ASSERT_NE(root, nullptr);
-
-    // Search recursively for the badge by object name
-    QLabel* badge = root->findChild<QLabel*>("parentBadge_1");
-    ASSERT_NE(badge, nullptr) << "Parent badge for Workflow not found";
-    EXPECT_TRUE(badge->property("anTabIssueBadge").toBool()) << "Parent badge should be a tokenized tab issue badge";
-    EXPECT_FALSE(badge->testAttribute(Qt::WA_TransparentForMouseEvents))
-        << "Badge must receive hover events so tooltip can be shown";
-
-    EXPECT_FALSE(badge->isHidden()) << "Parent badge should be visible (isHidden() == false)";
-
-    QString tooltip = badge->toolTip();
-    // Summary issue: Output dir -> "Summary Errors (1)" or similar
-
-    EXPECT_TRUE(tooltip.contains("Summary")) << "Tooltip should mention Summary tab: " << tooltip.toStdString();
-    EXPECT_TRUE(tooltip.contains("(1)")) << "Tooltip should show count (1): " << tooltip.toStdString();
 }

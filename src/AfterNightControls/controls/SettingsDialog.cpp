@@ -40,8 +40,6 @@ namespace
 {
 constexpr int NAV_ICON_SIZE = 20;
 constexpr int NAV_ITEM_HEIGHT = 36;
-constexpr int MIN_NAV_WIDTH = 200;
-constexpr int MIN_CONTENT_WIDTH = 550;
 constexpr int MIN_DIALOG_HEIGHT = 600;
 constexpr int DEFAULT_DIALOG_WIDTH = 900;
 constexpr int DEFAULT_DIALOG_HEIGHT = 700;
@@ -49,19 +47,11 @@ constexpr int DEFAULT_DIALOG_HEIGHT = 700;
 // Role for storing page pointer in list items
 constexpr int PagePointerRole = Qt::UserRole + 1;
 
-/// The navigation column's width: the Observatory profile's column, or 1.1's.
-int navigationWidth()
-{
-    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::kSettingsNavigationWidth
-                                                                       : MIN_NAV_WIDTH;
-}
+/// The navigation column's width.
+constexpr int kNavigationWidth = an::ui::parts::kSettingsNavigationWidth;
 
-/// The page's least width: the Observatory profile's, whose Comfortable density draws larger controls, or 1.1's.
-int pageLeastWidth()
-{
-    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory ? an::ui::parts::kSettingsPageLeastWidth
-                                                                       : MIN_CONTENT_WIDTH;
-}
+/// The page's least width, which the Comfortable density's larger controls need.
+constexpr int kPageLeastWidth = an::ui::parts::kSettingsPageLeastWidth;
 
 /// The pages' stack, as tall as the page it shows. A stack is as tall as its tallest page, and in the dialog's scroll
 /// area every page would then scroll as far as that one does, into empty room under a shorter page's rows.
@@ -141,7 +131,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent)
     // Set dialog properties
     setWindowTitle(tr("Settings"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
-    setMinimumSize(navigationWidth() + pageLeastWidth() + 50, MIN_DIALOG_HEIGHT);
+    setMinimumSize(kNavigationWidth + kPageLeastWidth + 50, MIN_DIALOG_HEIGHT);
     resize(DEFAULT_DIALOG_WIDTH, DEFAULT_DIALOG_HEIGHT);
 
     // Center on parent or primary screen
@@ -201,7 +191,7 @@ void SettingsDialog::setupUi()
     m_NavigationList->setFocusPolicy(Qt::StrongFocus);
     navLayout->addWidget(m_NavigationList, 1);
 
-    navPanel->setMinimumWidth(navigationWidth());
+    navPanel->setMinimumWidth(kNavigationWidth);
     splitter->addWidget(navPanel);
 
     // === Right Panel (Content) ===
@@ -231,11 +221,11 @@ void SettingsDialog::setupUi()
 
     contentLayout->addWidget(m_PageScrollArea, 1);
 
-    contentPanel->setMinimumWidth(pageLeastWidth());
+    contentPanel->setMinimumWidth(kPageLeastWidth);
     splitter->addWidget(contentPanel);
 
     // Set initial splitter sizes (nav:content = 1:3)
-    splitter->setSizes({navigationWidth(), pageLeastWidth() + 100});
+    splitter->setSizes({kNavigationWidth, kPageLeastWidth + 100});
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
 
@@ -458,10 +448,6 @@ void SettingsDialog::showEvent(QShowEvent* event)
 
 void SettingsDialog::widenForThePages()
 {
-    if (an::ui::styleProfile() != an::ui::StyleProfile::Observatory)
-    {
-        return;
-    }
     QWidget* const column = m_PageScrollArea->parentWidget();
     int widest = 0;
     for (SettingsPage* const page : m_Pages)
@@ -475,11 +461,11 @@ void SettingsDialog::widenForThePages()
     const QMargins around = column->layout() != nullptr ? column->layout()->contentsMargins() : QMargins();
     const int needs = widest + stack.left() + stack.right() + 2 * m_PageScrollArea->frameWidth() +
                       m_PageScrollArea->verticalScrollBar()->sizeHint().width() + around.left() + around.right();
-    const int least = (std::max)(pageLeastWidth(), needs);
+    const int least = (std::max)(kPageLeastWidth, needs);
     if (least != column->minimumWidth())
     {
         column->setMinimumWidth(least);
-        setMinimumWidth(navigationWidth() + least + 50);
+        setMinimumWidth(kNavigationWidth + least + 50);
     }
 }
 

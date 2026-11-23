@@ -5,10 +5,10 @@
 
 A lower library that included a header of the library built on top of it would need the higher one to compile,
 so a source of a product library includes no header of a product target above it - `AfterNightControls` none of
-`AfterNightProcesses`, `AfterNightShellCore`, a shell, the application or the full host; `AfterNightProcesses` none
-of the last four; `AfterNightShellCore`, the application without a window that every shell is built on, no shell,
-the application or the full host; and a shell - `AfterNightShellClassic` or `AfterNightShellObservatory`, the two
-built side by side on the shell core - neither the other shell, the application nor the full host. An include is
+`AfterNightProcesses`, `AfterNightShellCore`, the shell, the application or the full host; `AfterNightProcesses` none
+of the last four; `AfterNightShellCore`, the application without a window that every shell is built on, neither the
+shell, the application nor the full host; and the shell, `AfterNightShellObservatory`, neither the application nor
+the full host. An include is
 resolved the way the compiler searches - beside the including file, then the library's own root, then the roots
 below it - so a path that two libraries hold is the including library's own.
 
@@ -38,23 +38,18 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PLATFORM_INCLUDE = 'src/AfterNightPlatform/include'
 
 # Each product library held to the layer order: its source root, the roots below it that its includes may
-# resolve into besides its own and the platform library's, and the targets above it - for a shell, the other shell
-# too, which it is built beside and not on.
+# resolve into besides its own and the platform library's, and the targets above it.
 LAYERS = (
     ('AfterNightControls', 'src/AfterNightControls', (),
-     ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightShellObservatory',
-      'AfterNightApp', 'AfterNightExtensionHost')),
-    ('AfterNightProcesses', 'src/AfterNightProcesses', ('src/AfterNightControls',),
-     ('AfterNightShellCore', 'AfterNightShellClassic', 'AfterNightShellObservatory', 'AfterNightApp',
+     ('AfterNightProcesses', 'AfterNightShellCore', 'AfterNightShellObservatory', 'AfterNightApp',
       'AfterNightExtensionHost')),
+    ('AfterNightProcesses', 'src/AfterNightProcesses', ('src/AfterNightControls',),
+     ('AfterNightShellCore', 'AfterNightShellObservatory', 'AfterNightApp', 'AfterNightExtensionHost')),
     ('AfterNightShellCore', 'src/AfterNightShellCore', ('src/AfterNightProcesses', 'src/AfterNightControls'),
-     ('AfterNightShellClassic', 'AfterNightShellObservatory', 'AfterNightApp', 'AfterNightExtensionHost')),
-    ('AfterNightShellClassic', 'src/AfterNightShellClassic',
-     ('src/AfterNightShellCore', 'src/AfterNightProcesses', 'src/AfterNightControls'),
      ('AfterNightShellObservatory', 'AfterNightApp', 'AfterNightExtensionHost')),
     ('AfterNightShellObservatory', 'src/AfterNightShellObservatory',
      ('src/AfterNightShellCore', 'src/AfterNightProcesses', 'src/AfterNightControls'),
-     ('AfterNightShellClassic', 'AfterNightApp', 'AfterNightExtensionHost')),
+     ('AfterNightApp', 'AfterNightExtensionHost')),
 )
 
 _INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*([<"])([^>"]+)[>"]', re.MULTILINE)

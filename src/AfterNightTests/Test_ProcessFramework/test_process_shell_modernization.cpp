@@ -15,12 +15,11 @@
 #include "processes/ProcessCommonUtils.h"
 #include "theme/AnDesignTokens.h"
 
-#include <QByteArray>
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QPalette>
-#include <QPointer>
 #include <QProcess>
+#include <QPointer>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QStandardPaths>
@@ -41,39 +40,6 @@ namespace
 using namespace an::tests::processes;
 using framework::ScopedAppContext;
 using framework::WindowSettingsContext;
-
-/// Sets an environment variable for its lifetime and puts back what was there.
-class ScopedEnvVar
-{
-public:
-    ScopedEnvVar(const char* name, const QByteArray& value) : m_name(name)
-    {
-        m_hadOriginal = qEnvironmentVariableIsSet(m_name.constData());
-        if (m_hadOriginal)
-        {
-            m_original = qgetenv(m_name.constData());
-        }
-        qputenv(m_name.constData(), value);
-    }
-    ~ScopedEnvVar()
-    {
-        if (m_hadOriginal)
-        {
-            qputenv(m_name.constData(), m_original);
-        }
-        else
-        {
-            qunsetenv(m_name.constData());
-        }
-    }
-    ScopedEnvVar(const ScopedEnvVar&) = delete;
-    ScopedEnvVar& operator=(const ScopedEnvVar&) = delete;
-
-private:
-    QByteArray m_name;
-    QByteArray m_original;
-    bool m_hadOriginal = false;
-};
 
 /// Puts back the theme preference a case changed.
 class ScopedThemePreference
@@ -221,7 +187,6 @@ TEST(ProcessShellModernization, StopProcess_TerminatesRunningChild)
 // A shown window puts its content in the shell's card, inside the shell's content host.
 TEST(ProcessShellModernization, ProcessShell_HasCardContainer)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<DummyProcessShell> process;
     process->resize(420, 220);
     process->show();
@@ -238,7 +203,6 @@ TEST(ProcessShellModernization, ProcessShell_HasCardContainer)
 // A shown window's header names the process.
 TEST(ProcessShellModernization, ProcessShell_HasStyledHeader)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<DummyProcessShell> process("Calibrate Frames");
     process->show();
     QTest::qWait(20);
@@ -252,7 +216,6 @@ TEST(ProcessShellModernization, ProcessShell_HasStyledHeader)
 // A shown window's buttons carry their roles: Apply the primary one, Close the secondary one, Reset a neutral one.
 TEST(ProcessShellModernization, ProcessShell_HasStyledButtonBar)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<DummyProcessShell> process;
     process->show();
     QTest::qWait(20);
@@ -271,7 +234,6 @@ TEST(ProcessShellModernization, ProcessShell_HasStyledButtonBar)
 // follows a switch of theme when the window refreshes it.
 TEST(ProcessShellModernization, ProcessShell_ThemeAware)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     const ScopedThemePreference restoreTheme;
     ASSERT_NE(an::ui::resolvedDarkTokens().colors.textPrimary, an::ui::resolvedLightTokens().colors.textPrimary);
 
@@ -296,7 +258,6 @@ TEST(ProcessShellModernization, ProcessShell_ThemeAware)
 // A message is shown in the banner as its title and text, and clearing it hides the banner.
 TEST(ProcessShellModernization, ProcessShell_ShowsBannerMessages)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<DummyProcessShell> process;
     process->show();
     QTest::qWait(20);
@@ -318,7 +279,6 @@ TEST(ProcessShellModernization, ProcessShell_ShowsBannerMessages)
 // cleared banner, hides the bar.
 TEST(ProcessShellModernization, ProcessShell_ShowsBannerProgress)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<DummyProcessShell> process;
     process->show();
     QTest::qWait(20);
@@ -345,7 +305,6 @@ TEST(ProcessShellModernization, ProcessShell_ShowsBannerProgress)
 // where it grows with the window.
 TEST(ProcessShellModernization, ProcessShell_ExtractsNestedButtonBoxAndStretchesFixedRootWidget)
 {
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
     KeptWindow<NestedButtonBoxShell> process;
     process->resize(460, 300);
     process->show();
@@ -377,7 +336,6 @@ TEST(ProcessShellModernization, ProcessShell_DoesNotBreakExistingProcesses)
     WindowSettingsContext settings(framework::suiteContext());
     const ScopedAppContext installed(settings);
     settings.upsert(QString::fromUtf8(SettingsKeys::INTERFACE_REMEMBER_WINDOW_SIZE), QStringLiteral("1"));
-    const ScopedEnvVar uiTokensDisabled("AN_UI_TOKENS_ENABLED", "0");
     const std::size_t openBefore = framework::suiteContext().openProcesses.size();
 
     for (int i = 0; i < 5; ++i)
@@ -402,7 +360,6 @@ TEST(ProcessShellModernization, ProcessShell_DoesNotBreakExistingProcesses)
 // A fixed window is fitted to its content times its multipliers, and held there.
 TEST(ProcessShellModernization, ProcessShell_WindowSizeFitMultiplierAddsExtraSpace)
 {
-    const ScopedEnvVar uiTokensDisabled("AN_UI_TOKENS_ENABLED", "0");
     KeptWindow<DummyProcessShell> baselineProcess;
     baselineProcess->setFixedSize(300, 200);
     baselineProcess->show();
@@ -429,7 +386,6 @@ TEST(ProcessShellModernization, ProcessShell_NonFixedMultiplierPreservesNaturalM
     WindowSettingsContext settings(framework::suiteContext());
     const ScopedAppContext installed(settings);
     settings.upsert(QString::fromUtf8(SettingsKeys::INTERFACE_REMEMBER_WINDOW_SIZE), QStringLiteral("0"));
-    const ScopedEnvVar uiTokensEnabled("AN_UI_TOKENS_ENABLED", "1");
 
     int baselineMinWidth = 0;
     int baselineWidth = 0;

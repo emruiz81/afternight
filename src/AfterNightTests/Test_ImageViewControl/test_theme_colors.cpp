@@ -12,7 +12,6 @@
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewThemeColors.h"
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 
 namespace
@@ -141,7 +140,6 @@ TEST(ImageViewControlThemeColors, CardSurfaceTintMatchesToolbarAndCardBlendFormu
 // theme that went.
 TEST(ImageViewControlThemeColors, TheBannerTakesItsColourWhenItPaints)
 {
-    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     ViewControlTextOverlay banner;
     banner.setText(QStringLiteral("AUTOSTRETCH"), ViewOverlayTone::Preview);
     EXPECT_EQ(banner.textColour(), an::ui::imageViewOverlayAutostretchColor(an::ui::isDarkTheme()));

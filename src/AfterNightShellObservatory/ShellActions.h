@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// The Observatory shell's own actions: what this shell adds beside the catalogue, which the classic shell never shows.
+/// The Observatory shell's own actions: what this shell adds beside the catalogue.
 
 #include "AfterNightShellObservatoryExport.h"
 
@@ -73,7 +73,7 @@ struct ShellActionSpec
 /// - and, in the Window menu, Float as Window, Attach and Close Task; and the project's, in the File menu: New
 /// Project..., Open Project..., Switch Project..., Close Project and Project Settings.... They are children of the
 /// window and its own, so their shortcuts work wherever the focus is in it; the window connects what each does. The
-/// classic shell holds none of them, so its records of the actions, the menus and the shortcuts stay as they are.
+/// catalogue holds none of them.
 class AFTERNIGHTSHELLOBSERVATORY_API ShellActions final
 {
 public:

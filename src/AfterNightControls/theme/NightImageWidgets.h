@@ -50,7 +50,7 @@ struct NightImageWidget
 };
 
 /// The widgets that paint a picture, by source.
-inline constexpr std::array<NightImageWidget, 31u> kNightImageWidgets{{
+inline constexpr std::array<NightImageWidget, 27u> kNightImageWidgets{{
     {"ImageViewWidget", "widgets/ImageViewWidget.cpp", NightImageUse::Presentation,
      "The image's presentation, a preview's frames and the mask layer, mapped on the worker that presents them; under "
      "Night the lens magnifies what is painted and reads the image's own values."},
@@ -62,18 +62,12 @@ inline constexpr std::array<NightImageWidget, 31u> kNightImageWidgets{{
      "The compared image beside the split, through nightImage."},
     {"ImagePreviewWidget", "widgets/ImagePreviewWidget.cpp", NightImageUse::Picture,
      "A preview its owner hands it, and the crop its lens magnifies, through a NightPicture."},
-    {"ImageThumbnailWidget", "widgets/ImageThumbnailWidget.cpp", NightImageUse::Picture,
-     "A recent file's thumbnail, through a NightPicture."},
     {"FeaturedFileCard", "widgets/FeaturedFileCard.cpp", NightImageUse::Picture,
      "The featured file's picture behind the card and its softened copy, through NightPictures."},
     {"NightPictureLabel", "widgets/NightPictureLabel.cpp", NightImageUse::Picture,
      "A label's picture, through a NightPicture, shown again when Night is switched."},
     {"TimelineStageWidget", "widgets/TimelineStageWidget.cpp", NightImageUse::Icon,
      "The stage's icon, tinted in its state's colour."},
-    {"DashboardIdentityBar", "controls/DashboardIdentityBar.cpp", NightImageUse::Picture,
-     "The application's logo, in a NightPictureLabel."},
-    {"DashboardOnboardingPanel", "controls/DashboardOnboardingPanel.cpp", NightImageUse::Picture,
-     "The welcome's art, through NightPictures, and the logo in a NightPictureLabel; the cards' icons are tinted."},
     {"HomeWelcome", "controls/HomeWelcome.cpp", NightImageUse::Picture,
      "Home's welcome: the logo in a NightPictureLabel; its star field and its icons are drawn in the tokens' colours."},
     {"HomeRecentTile", "controls/HomeRecentGrid.cpp", NightImageUse::Picture,
@@ -96,10 +90,8 @@ inline constexpr std::array<NightImageWidget, 31u> kNightImageWidgets{{
     {"PlaceholderSettingsPage", "controls/settings/PlaceholderSettingsPage.cpp", NightImageUse::Icon,
      "The page's icon."},
     {"SettingsPage", "controls/settings/SettingsPage.cpp", NightImageUse::Icon, "A message's icon."},
-    {"AnProxyStyle", "theme/AnProxyStyle.cpp", NightImageUse::Icon,
-     "A control's icon, in its disabled or chosen form."},
     {"AnProxyStyle", "theme/AnProxyStyleObservatory.cpp", NightImageUse::Icon,
-     "A filled button's icon, painted in the button's text colour under the Observatory profile."},
+     "A filled button's icon, painted in the button's text colour."},
     {"Elevation", "theme/Elevation.cpp", NightImageUse::Colours,
      "A raised part's shadow, rendered in the shadow's colour and let go when the theme changes."},
     {"AnIconRail", "components/AnIconRail.cpp", NightImageUse::Handed,
@@ -112,7 +104,7 @@ inline constexpr std::array<NightImageWidget, 31u> kNightImageWidgets{{
     {"paintIcon", "theme/ComponentParts.cpp", NightImageUse::Colours,
      "A small part's icon, its shape filled with the part's text colour from the tokens."},
     {"paintObservatoryDockTab", "theme/ObservatoryDock.cpp", NightImageUse::Icon,
-     "A dock tab's icon and its adornment's, tinted in the tokens' colours under the Observatory profile."},
+     "A dock tab's icon and its adornment's, tinted in the tokens' colours."},
     {"AnnotationPicture", "controls/annotation/AnnotationPicture.cpp", NightImageUse::NeverShown,
      "The annotated picture, written to a file."},
 }};

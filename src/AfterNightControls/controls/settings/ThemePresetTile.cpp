@@ -25,7 +25,6 @@ DesignTokens partsTokens(const ThemePresetParts& parts, const ThemeVariant theme
                                             .accent = parts.accent,
                                             .tint = parts.tint,
                                             .tintStrength = parts.strength,
-                                            .profile = StyleProfile::Observatory,
                                             .density = themeDensity(),
                                             .night = isNightMode()});
 }

@@ -91,13 +91,10 @@ TEST_F(WindowLook, PlateSolve)
 {
     const WindowLookMeasured measured = expectWindowLook([this]() -> QWidget* {
         auto* const window = new an::ui::PlateSolveControl(m_view.get());
-        if (an::ui::windowsTakeHeadings())
-        {
-            EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Astrometry · M83_RGB"));
-            const auto* const clear = window->findChild<QPushButton*>(QStringLiteral("plateSolveClearAstrometry"));
-            EXPECT_TRUE(clear != nullptr && !an::tests::look::isPrimary(*clear))
-                << "the window has a second primary button";
-        }
+        EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Astrometry · M83_RGB"));
+        const auto* const clear = window->findChild<QPushButton*>(QStringLiteral("plateSolveClearAstrometry"));
+        EXPECT_TRUE(clear != nullptr && !an::tests::look::isPrimary(*clear))
+            << "the window has a second primary button";
         return window;
     });
     AN_WINDOW_LOOK_REPORT(measured);
@@ -123,14 +120,11 @@ TEST_F(WindowLook, AnnotateImage)
                            "object_type,magnitude\nNGC 1001,Bright One,120.5,10.6,40.0,24.0,10,Galaxy,8.0\n"),
                 QByteArray("id,common_name,bayer_designation,ra_deg,dec_deg,magnitude,spectral_type\n"
                            "HIP 1,Alpha Field,alf Fld,119.4,10.3,1.5,A0V\n")));
-            if (an::ui::windowsTakeHeadings())
-            {
-                EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M83_RGB"));
-                const QList<QPushButton*> order = {window->findChild<QPushButton*>(QStringLiteral("annotateClose")),
-                                                   window->findChild<QPushButton*>(QStringLiteral("annotateOpen")),
-                                                   window->findChild<QPushButton*>(QStringLiteral("annotateExport"))};
-                EXPECT_FALSE(order.contains(nullptr));
-            }
+            EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M83_RGB"));
+            const QList<QPushButton*> order = {window->findChild<QPushButton*>(QStringLiteral("annotateClose")),
+                                               window->findChild<QPushButton*>(QStringLiteral("annotateOpen")),
+                                               window->findChild<QPushButton*>(QStringLiteral("annotateExport"))};
+            EXPECT_FALSE(order.contains(nullptr));
             return window;
         },
         letGoOnceIdle);

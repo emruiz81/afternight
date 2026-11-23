@@ -9,7 +9,6 @@
 #include "components/AnWindowHeading.h"
 
 #include "controls/AboutDialog.h"
-#include "controls/MainDashboard.h"
 #include "controls/SettingsDialog.h"
 #include "controls/SystemInformationDialog.h"
 #include "controls/TopLevelProcessBaseControl.h"
@@ -312,9 +311,7 @@ private:
             tab_bar->setUsesScrollButtons(false);
             tab_bar->setDrawBase(false);
             tab_bar->setProperty("anTabCompact", true);
-            tab_bar->setProperty("anTabHeightScale", 1.0);
             tab_bar->setProperty("anTabMinWidth", 170);
-            tab_bar->setProperty("anTabMinHeight", 22);
             tab_bar->setProperty("anTabAccentLinePosition", QStringLiteral("top"));
         }
         root_layout->addWidget(m_Tabs, 1);
@@ -694,7 +691,6 @@ void DialogOrchestrationCoordinator::openSettingsAt(const QString& pageName) con
         m_dependencies.globalSettingsPersistence ? m_dependencies.globalSettingsPersistence() : nullptr;
 
     SettingsPagesOptions pages;
-    pages.order = m_dependencies.settingsPages;
     pages.keepMenuBarShown = m_dependencies.keepMenuBarShown;
     if (auto* context = an::ui::appContext();
         context != nullptr && context->getInterfaceSettingsRuntimeService() != nullptr)
@@ -739,10 +735,6 @@ void DialogOrchestrationCoordinator::openSettingsAt(const QString& pageName) con
         if (m_dependencies.updateRecentFilesMenuEntries)
         {
             m_dependencies.updateRecentFilesMenuEntries();
-        }
-        if (m_dependencies.mainDashboard && *m_dependencies.mainDashboard)
-        {
-            (*m_dependencies.mainDashboard)->reloadRecentFilesThumbnails();
         }
     });
 

@@ -176,7 +176,7 @@ TEST_F(ObservatoryWindow, HomeOpensANewSequence)
     }
 }
 
-// The window keeps where it is for the next start, in the settings store, as the classic window keeps its own.
+// The window keeps where it is for the next start, in the settings store, as 1.1's window kept its own.
 TEST_F(ObservatoryWindow, KeepsItsPlaceForTheNextStart)
 {
     an::ui::IGlobalSettingsProvider* const settings = an::ui::appContext()->getGlobalSettings();

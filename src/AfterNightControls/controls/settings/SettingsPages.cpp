@@ -29,30 +29,16 @@ void addSettingsPages(SettingsDialog& dialog, GlobalSettingsPersistence* setting
         interfacePage->setMenuBarKeeper(options.keepMenuBarShown);
     }
 
-    if (options.order == SettingsPageOrder::Observatory)
-    {
-        dialog.addPage(new GeneralSettingsPage(settings, &dialog));
-        dialog.addPage(new ProjectsSettingsPage(settings, &dialog));
-        dialog.addPage(interfacePage);
-        dialog.addPage(new ProcessingSettingsPage(settings, &dialog));
-        dialog.addPage(new RawImageSettingsPage(settings, &dialog));
-        dialog.addPage(new PlateSolvingSettingsPage(settings, &dialog));
-        dialog.addPage(new CatalogsDataSettingsPage(settings, &dialog));
-        dialog.addPage(new ExportSettingsPage(settings, &dialog));
-        dialog.addPage(new ExternalToolsSettingsPage(settings, &dialog));
-        dialog.addPage(new LoggingSettingsPage(settings, &dialog));
-        return;
-    }
-
     dialog.addPage(new GeneralSettingsPage(settings, &dialog));
-    dialog.addPage(new RawImageSettingsPage(settings, &dialog));
-    dialog.addPage(new ExternalToolsSettingsPage(settings, &dialog));
+    dialog.addPage(new ProjectsSettingsPage(settings, &dialog));
     dialog.addPage(interfacePage);
-    dialog.addPage(new ExportSettingsPage(settings, &dialog));
     dialog.addPage(new ProcessingSettingsPage(settings, &dialog));
-    dialog.addPage(new LoggingSettingsPage(settings, &dialog));
-    dialog.addPage(new CatalogsDataSettingsPage(settings, &dialog));
+    dialog.addPage(new RawImageSettingsPage(settings, &dialog));
     dialog.addPage(new PlateSolvingSettingsPage(settings, &dialog));
+    dialog.addPage(new CatalogsDataSettingsPage(settings, &dialog));
+    dialog.addPage(new ExportSettingsPage(settings, &dialog));
+    dialog.addPage(new ExternalToolsSettingsPage(settings, &dialog));
+    dialog.addPage(new LoggingSettingsPage(settings, &dialog));
 }
 
 } // namespace an::ui

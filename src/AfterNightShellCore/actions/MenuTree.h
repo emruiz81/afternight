@@ -51,8 +51,8 @@ struct MenuNode
 };
 
 /// A menu bar declared as data: its menus in order, each menu's entries, and where each action sits. `menuBar()` is the
-/// application's: File, Edit, View, Image, Process, Extensions, Window, Help and About, entry for entry the classic
-/// window's. A menu is made of the catalogue's actions handed through a lookup; the menus it makes are the caller's.
+/// application's: File, Edit, View, Image, Process, Extensions, Window, Help and About, entry for entry AfterNight
+/// 1.1's. A menu is made of the catalogue's actions handed through a lookup; the menus it makes are the caller's.
 class AFTERNIGHTSHELLCORE_API MenuTree
 {
 public:

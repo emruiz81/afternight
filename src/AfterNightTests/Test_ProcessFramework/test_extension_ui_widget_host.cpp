@@ -531,6 +531,7 @@ TEST(ExtensionUiWidgetHostTest, RefreshThemeKeepsRenderedWidgetsStyleSheetFreeAn
     ASSERT_NE(output_name, nullptr);
     ASSERT_NE(output_name->label(), nullptr);
     ASSERT_NE(settings_card, nullptr);
+    ASSERT_NE(settings_card->headerLabel(), nullptr);
 
     palette_override.setWindowColor(QColor(10, 10, 10));
     an::ui::refreshTokens();
@@ -540,12 +541,12 @@ TEST(ExtensionUiWidgetHostTest, RefreshThemeKeepsRenderedWidgetsStyleSheetFreeAn
     const QColor dark_field_color = strength_label->palette().color(QPalette::WindowText);
     const QColor dark_input_color = output_name->label()->palette().color(QPalette::WindowText);
     const QColor dark_banner_color = advanced_note->messageLabel()->palette().color(QPalette::WindowText);
-    const QColor dark_card_color = settings_card->property("anCardBgColor").value<QColor>();
+    const QColor dark_card_color = settings_card->headerLabel()->palette().color(QPalette::WindowText);
 
     EXPECT_EQ(dark_field_color, an::ui::tokens().colors.textSecondary);
     EXPECT_EQ(dark_input_color, an::ui::tokens().colors.textSecondary);
-    EXPECT_EQ(dark_banner_color, an::ui::tokens().colors.statusInfo);
-    EXPECT_TRUE(dark_card_color.isValid());
+    EXPECT_EQ(dark_banner_color, an::ui::tokens().colors.textPrimary);
+    EXPECT_EQ(dark_card_color, an::ui::tokens().colors.textPrimary);
 
     palette_override.setWindowColor(QColor(245, 245, 245));
     an::ui::refreshTokens();
@@ -555,12 +556,12 @@ TEST(ExtensionUiWidgetHostTest, RefreshThemeKeepsRenderedWidgetsStyleSheetFreeAn
     const QColor light_field_color = strength_label->palette().color(QPalette::WindowText);
     const QColor light_input_color = output_name->label()->palette().color(QPalette::WindowText);
     const QColor light_banner_color = advanced_note->messageLabel()->palette().color(QPalette::WindowText);
-    const QColor light_card_color = settings_card->property("anCardBgColor").value<QColor>();
+    const QColor light_card_color = settings_card->headerLabel()->palette().color(QPalette::WindowText);
 
     EXPECT_EQ(light_field_color, an::ui::tokens().colors.textSecondary);
     EXPECT_EQ(light_input_color, an::ui::tokens().colors.textSecondary);
-    EXPECT_EQ(light_banner_color, an::ui::tokens().colors.statusInfo);
-    EXPECT_TRUE(light_card_color.isValid());
+    EXPECT_EQ(light_banner_color, an::ui::tokens().colors.textPrimary);
+    EXPECT_EQ(light_card_color, an::ui::tokens().colors.textPrimary);
 
     EXPECT_NE(dark_field_color, light_field_color);
     EXPECT_NE(dark_input_color, light_input_color);

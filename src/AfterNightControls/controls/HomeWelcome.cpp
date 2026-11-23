@@ -5,7 +5,6 @@
 
 #include "controls/HomeWelcome.h"
 
-#include "controls/DashboardOnboardingPanel.h"
 #include "controls/DashboardSettings.h"
 #include "controls/EngineVersionReport.h"
 #include "controls/HomeParts.h"
@@ -27,6 +26,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <verdigris/wobjectimpl.h>
+
+#include <array>
 
 #include <array>
 #include <cstdint>
@@ -255,6 +256,39 @@ private:
 };
 
 /// One thing AfterNight does: its icon in the accent, its title and a line under it.
+/// One thing AfterNight does: a title and a line under it, each translated under the context AfterNight 1.1's
+/// first-run panel gave them, which the translations keep, and the icon's resource.
+struct Feature
+{
+    const char* title;
+    const char* description;
+    const char* icon;
+};
+
+constexpr const char* kFeatureContext = "an::ui::DashboardOnboardingPanel";
+
+/// The six things AfterNight does, in the order the welcome shows them.
+constexpr std::array<Feature, 6> kFeatures = {{
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Multi-Format Support"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "FITS, XISF, TIFF, RAW, JPEG and PNG"),
+     ":/AfterNight/icons/SVG/image_filled.svg"},
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Frame Calibration"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Bias, dark and flat-field correction"),
+     ":/AfterNight/icons/SVG/exposure.svg"},
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Star Alignment"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Sub-exposure registration and alignment"),
+     ":/AfterNight/icons/SVG/star.svg"},
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Image Stacking"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Sigma clipping, averaging and drizzle"),
+     ":/AfterNight/icons/SVG/stack.svg"},
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Background Extraction"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Gradient removal and sky modelling"),
+     ":/AfterNight/icons/SVG/area_chart.svg"},
+    {QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Enhancement"),
+     QT_TRANSLATE_NOOP("an::ui::DashboardOnboardingPanel", "Noise reduction, sharpening and curves"),
+     ":/AfterNight/icons/SVG/hq.svg"},
+}};
+
 class FeatureCard final : public QWidget
 {
 public:
@@ -429,7 +463,7 @@ HomeWelcome::HomeWelcome(QWidget* parent) : QWidget(parent), m_impl(std::make_un
     zoneRow->addWidget(m_impl->openFile, 0, Qt::AlignVCenter);
     centred(m_impl->zone);
 
-    // What AfterNight does: the first-run panel's six.
+    // What AfterNight does: six things.
     column->addSpacing(parts::kHomeSectionGap);
     auto* does = new HomeText(HomeText::Role::Caps, tr("What you can do"), content);
     does->setElideMode(Qt::ElideNone);
@@ -437,12 +471,11 @@ HomeWelcome::HomeWelcome(QWidget* parent) : QWidget(parent), m_impl(std::make_un
     auto* features = new QHBoxLayout();
     features->setContentsMargins(0, 0, 0, 0);
     features->setSpacing(parts::kHomeCardGap);
-    for (const DashboardFeature& feature : dashboardFeatures())
+    for (const Feature& feature : kFeatures)
     {
-        auto* card =
-            new FeatureCard(QCoreApplication::translate("an::ui::DashboardOnboardingPanel", feature.title),
-                            QCoreApplication::translate("an::ui::DashboardOnboardingPanel", feature.description),
-                            QString::fromUtf8(feature.icon), content);
+        auto* card = new FeatureCard(QCoreApplication::translate(kFeatureContext, feature.title),
+                                     QCoreApplication::translate(kFeatureContext, feature.description),
+                                     QString::fromUtf8(feature.icon), content);
         features->addWidget(card, 1);
     }
     column->addLayout(features);

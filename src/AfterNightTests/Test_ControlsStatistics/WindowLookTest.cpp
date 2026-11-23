@@ -75,10 +75,7 @@ TEST_F(WindowLook, Statistics)
 {
     const an::tests::look::WindowLookMeasured measured = an::tests::look::expectWindowLook([this]() -> QWidget* {
         auto* const window = new ImageStatisticsControl(m_view.get());
-        if (an::ui::windowsTakeHeadings())
-        {
-            EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M31_Lum"));
-        }
+        EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M31_Lum"));
         return window;
     });
     AN_WINDOW_LOOK_REPORT(measured);
@@ -88,10 +85,7 @@ TEST_F(WindowLook, Histogram)
 {
     const an::tests::look::WindowLookMeasured measured = an::tests::look::expectWindowLook([this]() -> QWidget* {
         auto* const window = new ImageHistogramControl(m_view.get());
-        if (an::ui::windowsTakeHeadings())
-        {
-            EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M31_Lum"));
-        }
+        EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Analysis · M31_Lum"));
         return window;
     });
     AN_WINDOW_LOOK_REPORT(measured);

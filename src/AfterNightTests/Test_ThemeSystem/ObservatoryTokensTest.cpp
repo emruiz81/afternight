@@ -26,7 +26,6 @@ namespace
 
 using an::ui::ColorTokens;
 using an::ui::DesignTokens;
-using an::ui::StyleProfile;
 using an::ui::ThemeAccentFamily;
 using an::ui::ThemeChoices;
 using an::ui::ThemeContrastProfile;
@@ -56,12 +55,8 @@ DesignTokens observatory(const ThemeVariant theme, const ThemeContrastProfile co
                          const ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral,
                          const ThemeTintStrength strength = ThemeTintStrength::Balanced)
 {
-    return an::ui::resolveDesignTokens(ThemeChoices{.theme = theme,
-                                                    .contrast = contrast,
-                                                    .accent = accent,
-                                                    .tint = tint,
-                                                    .tintStrength = strength,
-                                                    .profile = StyleProfile::Observatory});
+    return an::ui::resolveDesignTokens(
+        ThemeChoices{.theme = theme, .contrast = contrast, .accent = accent, .tint = tint, .tintStrength = strength});
 }
 
 std::array<QColor, 5u> ladder(const DesignTokens& tokens)
@@ -277,7 +272,7 @@ TEST(ObservatoryLadder, OledKeepsTheFirstTwoStepsBlack)
     EXPECT_EQ(strong.colors.bgCanvas, rgb(0x07101E));
 }
 
-// OLED is the dark theme's: the light theme resolves it as Balanced, as the Classic profile does.
+// OLED is the dark theme's: the light theme resolves it as Balanced.
 TEST(ObservatoryLadder, TheLightThemeResolvesOledAsBalanced)
 {
     for (const ThemeSurfaceTintFamily tint : kTints)
@@ -482,8 +477,7 @@ TEST(ObservatoryValidation, EveryCombinationMeetsTheContrastRules)
                                                    .contrast = contrast,
                                                    .accent = accent,
                                                    .tint = tint,
-                                                   .tintStrength = strength,
-                                                   .profile = StyleProfile::Observatory};
+                                                   .tintStrength = strength};
                         ++combinations;
                         for (const an::ui::ContrastFailure& failure :
                              an::ui::observatoryContrastFailures(an::ui::resolveDesignTokens(choices), choices))
@@ -511,8 +505,7 @@ TEST(ObservatoryValidation, EveryCombinationMeetsTheContrastRules)
 // The rules bite: a set whose secondary text is its surface, or whose two steps meet, is named.
 TEST(ObservatoryValidation, ARuleTheSetMissesIsNamed)
 {
-    const ThemeChoices choices{
-        .theme = ThemeVariant::Dark, .contrast = ThemeContrastProfile::Balanced, .profile = StyleProfile::Observatory};
+    const ThemeChoices choices{.theme = ThemeVariant::Dark, .contrast = ThemeContrastProfile::Balanced};
     DesignTokens tokens = an::ui::resolveDesignTokens(choices);
     ASSERT_TRUE(an::ui::observatoryContrastFailures(tokens, choices).empty());
 

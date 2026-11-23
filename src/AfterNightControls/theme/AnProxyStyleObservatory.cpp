@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// The Observatory profile's drawing of the standard widgets: what AnProxyStyle draws under that profile, each element
-// from the tokens in force. A control is its fill, its outline and its text from the colour tokens, its corners the
+// The drawing of the standard widgets in the Observatory look: what AnProxyStyle draws, each element from the tokens
+// in force. A control is its fill, its outline and its text from the colour tokens, its corners the
 // controls' radius; hovered and pressed it lays the state colour over its fill at 8 and 12 %; disabled it is painted
 // whole at 38 % opacity; the focus ring - two pixels of the focus colour - is drawn for focus that came from the
 // keyboard, and a field shows its focus as a border whatever brought it. A raised part (a menu, a tooltip) stands on
-// its elevation (theme/Elevation.h). What this file does not draw is drawn by the Classic code of AnProxyStyle.cpp.
+// its elevation (theme/Elevation.h). What this file does not draw is drawn by the style's own code in AnProxyStyle.cpp,
+// or by the base style.
 
 #include "stdafx.hpp"
 
@@ -48,7 +49,6 @@
 #include <QWidget>
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <utility>
 
@@ -58,9 +58,6 @@ namespace
 using an::ui::ColorTokens;
 using an::ui::DesignTokens;
 using an::ui::PainterGuard;
-
-/// How many elements the Observatory painters have drawn; the suites read it.
-std::atomic<std::uint64_t> g_observatoryPaints{0};
 
 /// The opacity a disabled control is painted at.
 constexpr qreal kDisabledOpacity = 0.38;
@@ -1159,7 +1156,6 @@ bool AnProxyStyle::drawObservatoryPrimitive(PrimitiveElement element, const QSty
     default:
         return false;
     }
-    g_observatoryPaints.fetch_add(1u, std::memory_order_relaxed);
     return true;
 }
 
@@ -1628,7 +1624,6 @@ bool AnProxyStyle::drawObservatoryControl(ControlElement element, const QStyleOp
     default:
         return false;
     }
-    g_observatoryPaints.fetch_add(1u, std::memory_order_relaxed);
     return true;
 }
 
@@ -1905,7 +1900,6 @@ bool AnProxyStyle::drawObservatoryComplexControl(ComplexControl control, const Q
     default:
         return false;
     }
-    g_observatoryPaints.fetch_add(1u, std::memory_order_relaxed);
     return true;
 }
 
@@ -2134,7 +2128,7 @@ void AnProxyStyle::polishObservatory(QWidget* widget)
 
 bool AnProxyStyle::eventFilter(QObject* watched, QEvent* event)
 {
-    if (event->type() == QEvent::Show && styleProfile() == StyleProfile::Observatory)
+    if (event->type() == QEvent::Show)
     {
         if (auto* menu = qobject_cast<QMenu*>(watched);
             menu != nullptr && menu->isWindow() && menu->testAttribute(Qt::WA_TranslucentBackground))
@@ -2147,15 +2141,5 @@ bool AnProxyStyle::eventFilter(QObject* watched, QEvent* event)
     }
     return QProxyStyle::eventFilter(watched, event);
 }
-
-namespace testing
-{
-
-std::uint64_t observatoryPaints()
-{
-    return g_observatoryPaints.load(std::memory_order_relaxed);
-}
-
-} // namespace testing
 
 } // namespace an::ui

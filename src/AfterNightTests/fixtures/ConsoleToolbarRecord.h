@@ -3,7 +3,7 @@
 
 /// @file
 /// The record of the Session Console's toolbar as AfterNight 1.1 shows it, and how a toolbar is read into its entries:
-/// the classic shell's console is compared with it, and the Observatory shell's console drawer, less its own parts.
+/// the Observatory shell's console drawer is compared with it, less its own parts.
 #pragma once
 
 #include "fixtures/BaselineRecord.h"
@@ -36,11 +36,10 @@ inline constexpr const char* kConsoleToolbarSection = "toolbar";
         QStringLiteral("  combo | its items | the current one | tooltip"),
         QStringLiteral("  widget | its class"),
         QString(),
-        QStringLiteral("Written from the classic window's console. In Test_ShellClassic"),
+        QStringLiteral("Written from AfterNight 1.1's console. In Test_ShellObservatory"),
         QStringLiteral(
-            "ApplicationWindow.TheSessionConsolesToolbarMatchesTheRecord compares the classic console with it;"),
-        QStringLiteral("in Test_ShellObservatory ConsoleDrawer.TheToolbarIsTheConsoles compares the console drawer's,"),
-        QStringLiteral("less the drawer's own parts."),
+            "ConsoleDrawer.TheToolbarIsTheConsoles compares the console drawer's with it, less the drawer's"),
+        QStringLiteral("own parts."),
         QStringLiteral(
             "An entry is edited by the change that means to move it; the record is not written again whole."),
         QStringLiteral("A field is `-` when empty; `\\t` is a tab and `\\|` a bar inside a text."),

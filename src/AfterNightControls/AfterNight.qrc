@@ -78,8 +78,6 @@
         <file alias="icons/PNG/afternight_icon_256x256_blue.png">../../icons/afternight_icon_256x256_blue.png</file>
         <file alias="icons/PNG/afternight_icon_512x512_blue.png">../../icons/afternight_icon_512x512_blue.png</file>
         <file alias="icons/PNG/afternight_icon_924x924_blue.png">../../icons/afternight_icon_924x924_blue.png</file>
-        <file>icons/PNG/onboarding_bg_dark.png</file>
-        <file>icons/PNG/onboarding_bg_light.png</file>
         <file>icons/SVG/computer.svg</file>
         <file>icons/SVG/help.svg</file>
         <file>icons/SVG/info.svg</file>

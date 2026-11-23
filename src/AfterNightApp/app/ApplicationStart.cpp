@@ -5,6 +5,7 @@
 
 #include "app/ApplicationStart.h"
 
+#include "ObservatoryShell.h"
 #include "controls/KDDockWidgetsHelper.h"
 #include "core/ApplicationCore.h"
 #include "core/ApplicationSession.h"
@@ -17,6 +18,11 @@
 
 namespace an::ui
 {
+
+void registerApplicationShells(an::ui::shell::ShellRegistry& registry)
+{
+    (void)registry.add(an::ui::observatory::observatoryShellDescriptor());
+}
 
 StartedApplication startApplication(an::ui::shell::ApplicationCore& core, const an::ui::shell::ShellRegistry& registry,
                                     const QStringList& arguments, const QProcessEnvironment& environment,

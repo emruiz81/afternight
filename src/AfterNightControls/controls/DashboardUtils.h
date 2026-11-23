@@ -4,64 +4,25 @@
 #pragma once
 
 /// @file DashboardUtils.h
-/// Lightweight, dependency-light helpers shared across dashboard-related code.
+/// Lightweight, dependency-light helpers of Home's recent files.
 /// Keep includes minimal so that adding this header does not pull in heavy Qt or
 /// project headers.
 
-#include <QApplication>
 #include <QDir>
 #include <QFileInfo>
-#include <QFont>
 #include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
-#include <QWidget>
 
 #include "controls/DashboardPreferences.h"
-#include "theme/AnDesignTokens.h"
 
 #include <algorithm>
-#include <cmath>
 #include <deque>
 #include <vector>
 
 namespace DashboardUtils
 {
-
-/// Scale a base pixel value by a DPI factor, clamping to a minimum.
-[[nodiscard]] inline int scaledPixels(qreal scale, int value, int minimum = 0)
-{
-    return (std::max)(minimum, static_cast<int>(std::lround(static_cast<double>(value) * scale)));
-}
-
-/// Return a system font scaled by @p scale with the given weight and style.
-[[nodiscard]] inline QFont scaledSystemFont(const QWidget* widget, qreal scale, QFont::Weight weight = QFont::Normal,
-                                            bool italic = false)
-{
-    const auto& typography = an::ui::tokens().typography;
-    QFont font = typography.body;
-    if (scale >= 1.35)
-    {
-        font = typography.heading2;
-    }
-    else if (scale >= 1.15)
-    {
-        font = typography.heading3;
-    }
-    else if (scale <= 0.9)
-    {
-        font = typography.caption;
-    }
-
-    if (widget)
-    {
-        font.setStyleHint(widget->font().styleHint());
-    }
-    font.setWeight(weight);
-    font.setItalic(italic);
-    return font;
-}
 
 /// Normalize a recent-file path: strip BOMs, trim, resolve file:// URLs,
 /// and clean the resulting local path.  Returns an empty string on failure.

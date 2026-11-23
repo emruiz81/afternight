@@ -5,13 +5,11 @@
 
 #include "AfterNightControlsExport.h"
 
-#include <QColor>
 #include <QFrame>
 #include <QString>
 
 class QLabel;
 class QLayout;
-class QVariantAnimation;
 class QWidget;
 
 namespace an::ui
@@ -34,22 +32,13 @@ public:
     void refreshTheme();
 
 protected:
-    void changeEvent(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
-    void enterEvent(QEnterEvent* event) override;
-    void leaveEvent(QEvent* event) override;
 
 private:
     void updateHeaderVisibility();
-    // The fill a hover's animation has reached: the card's colour blended toward the hover colour by `progress`.
-    void applyHoverProgress(qreal progress);
-    void startHoverAnimation(const QColor& targetBg);
 
     QLabel* m_headerLabel = nullptr;
     QWidget* m_contentWidget = nullptr;
-    QVariantAnimation* m_hoverAnimation = nullptr;
-    QColor m_currentBgColor;
-    QColor m_currentBorderColor;
 };
 
 } // namespace an::ui

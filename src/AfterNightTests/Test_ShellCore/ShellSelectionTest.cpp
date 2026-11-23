@@ -63,7 +63,7 @@ protected:
         ASSERT_TRUE(m_settings.upsert(QString::fromLatin1(SettingsKeys::INTERFACE_SHELL), id));
     }
 
-    ShellRegistry m_registry = registryOf({"classic", "observatory", "nebula"});
+    ShellRegistry m_registry = registryOf({"meridian", "observatory", "nebula"});
     MemorySettings m_settings;
 };
 
@@ -74,7 +74,7 @@ TEST_F(ShellSelection, TheCommandLineWinsOverTheEnvironmentAndTheSetting)
     setShellSetting(QStringLiteral("nebula"));
 
     const ShellChoice choice =
-        resolve({kProgram, QStringLiteral("--shell=observatory")}, environmentNaming(QStringLiteral("classic")));
+        resolve({kProgram, QStringLiteral("--shell=observatory")}, environmentNaming(QStringLiteral("meridian")));
 
     EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
     EXPECT_EQ(choice.source, ShellChoiceSource::CommandLine);
@@ -136,7 +136,7 @@ TEST_F(ShellSelection, AnUnknownIdOnTheCommandLineFallsThroughWithAWarning)
     ASSERT_EQ(choice.warnings.size(), 1);
     EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("--shell=aurora")))
         << choice.warnings.front().toStdString();
-    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("classic, observatory, nebula")))
+    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("meridian, observatory, nebula")))
         << choice.warnings.front().toStdString();
 }
 
@@ -307,7 +307,7 @@ TEST_F(ShellSelection, ReadsOnlyTheArgumentsItIsHanded)
     child.start(QCoreApplication::applicationFilePath(),
                 {QStringLiteral("--gtest_also_run_disabled_tests"),
                  QStringLiteral("--gtest_filter=ShellSelection.DISABLED_OwnCommandLineIsNotRead"),
-                 QStringLiteral("--shell=classic")});
+                 QStringLiteral("--shell=meridian")});
     ASSERT_TRUE(child.waitForStarted(30000)) << child.errorString().toStdString();
     ASSERT_TRUE(child.waitForFinished(120000)) << child.errorString().toStdString();
 
@@ -324,10 +324,10 @@ TEST_F(ShellSelection, DISABLED_OwnCommandLineIsNotRead)
     {
         GTEST_SKIP() << "run by ShellSelection.ReadsOnlyTheArgumentsItIsHanded in a copy of this executable";
     }
-    ASSERT_TRUE(QCoreApplication::arguments().contains(QStringLiteral("--shell=classic")))
+    ASSERT_TRUE(QCoreApplication::arguments().contains(QStringLiteral("--shell=meridian")))
         << QCoreApplication::arguments().join(QLatin1Char(' ')).toStdString();
 
-    const ShellRegistry registry = registryOf({"classic", "observatory"});
+    const ShellRegistry registry = registryOf({"meridian", "observatory"});
     const ShellChoice choice = an::ui::shell::ShellSelection::resolve({QCoreApplication::applicationFilePath()},
                                                                       QProcessEnvironment(), nullptr, registry);
 
@@ -337,86 +337,39 @@ TEST_F(ShellSelection, DISABLED_OwnCommandLineIsNotRead)
 
 // ---- The style profile the chosen shell starts under.
 
-[[nodiscard]] QProcessEnvironment environmentWithStyleProfile(const QString& profile)
-{
-    QProcessEnvironment environment;
-    environment.insert(QString::fromLatin1(an::ui::shell::ShellSelection::kStyleProfileVariable), profile);
-    return environment;
-}
-
 // A shell starts under the profile its descriptor names, whichever source chose it.
 TEST_F(ShellSelection, TheChosenShellStartsUnderTheProfileItsDescriptorNames)
 {
     ShellRegistry registry;
     an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("observatory"));
     observatory.styleProfile = an::ui::StyleProfile::Observatory;
-    ASSERT_TRUE(registry.add(an::tests::shellcore::descriptorOf(QStringLiteral("classic"))));
+    ASSERT_TRUE(registry.add(an::tests::shellcore::descriptorOf(QStringLiteral("meridian"))));
     ASSERT_TRUE(registry.add(std::move(observatory)));
 
     const ShellChoice byDefault =
         an::ui::shell::ShellSelection::resolve({kProgram}, QProcessEnvironment(), &m_settings, registry);
-    const ShellChoice chosen = an::ui::shell::ShellSelection::resolve({kProgram, QStringLiteral("--shell=classic")},
+    const ShellChoice chosen = an::ui::shell::ShellSelection::resolve({kProgram, QStringLiteral("--shell=meridian")},
                                                                       QProcessEnvironment(), &m_settings, registry);
 
     EXPECT_EQ(chosenId(byDefault), QStringLiteral("observatory"));
     EXPECT_EQ(byDefault.styleProfile, an::ui::StyleProfile::Observatory);
-    EXPECT_EQ(chosenId(chosen), QStringLiteral("classic"));
-    EXPECT_EQ(chosen.styleProfile, an::ui::StyleProfile::Classic);
+    EXPECT_EQ(chosenId(chosen), QStringLiteral("meridian"));
+    EXPECT_EQ(chosen.styleProfile, an::ui::StyleProfile::Observatory);
     EXPECT_TRUE(chosen.warnings.isEmpty()) << chosen.warnings.join(QLatin1Char('\n')).toStdString();
 }
 
-// The developer switch starts the chosen shell under the profile it names, in any case, the shell itself unchanged.
-TEST_F(ShellSelection, TheDeveloperSwitchStartsTheShellUnderTheProfileItNames)
+// The environment names no style profile: a variable that once started a shell under another profile is not read, and
+// says nothing.
+TEST_F(ShellSelection, NoVariableStartsTheShellUnderAnotherProfile)
 {
-    for (const QString& value :
-         {QStringLiteral("observatory"), QStringLiteral(" Observatory "), QStringLiteral("OBSERVATORY")})
-    {
-        const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(value));
+    QProcessEnvironment environment;
+    environment.insert(QStringLiteral("AFTERNIGHT_STYLE_PROFILE"), QStringLiteral("workbench"));
 
-        EXPECT_EQ(chosenId(choice), QStringLiteral("observatory")) << value.toStdString();
-        EXPECT_EQ(choice.source, ShellChoiceSource::Default) << value.toStdString();
-        EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Observatory) << value.toStdString();
-        EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
-    }
-
-    ShellRegistry registry;
-    an::ui::shell::ShellDescriptor observatory = an::tests::shellcore::descriptorOf(QStringLiteral("observatory"));
-    observatory.styleProfile = an::ui::StyleProfile::Observatory;
-    ASSERT_TRUE(registry.add(std::move(observatory)));
-    const ShellChoice underClassic = an::ui::shell::ShellSelection::resolve(
-        {kProgram}, environmentWithStyleProfile(QStringLiteral("classic")), &m_settings, registry);
-    EXPECT_EQ(chosenId(underClassic), QStringLiteral("observatory"));
-    EXPECT_EQ(underClassic.styleProfile, an::ui::StyleProfile::Classic);
-}
-
-// A switch that names no profile is passed over with a warning, and the descriptor's profile stands; an empty one is
-// no switch.
-TEST_F(ShellSelection, AStyleProfileTheSwitchDoesNotNameIsPassedOverWithAWarning)
-{
-    const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("workbench")));
+    const ShellChoice choice = resolve({kProgram}, environment);
 
     EXPECT_EQ(chosenId(choice), QStringLiteral("observatory"));
-    EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
-    ASSERT_EQ(choice.warnings.size(), 1);
-    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("AFTERNIGHT_STYLE_PROFILE=workbench")))
-        << choice.warnings.front().toStdString();
-    EXPECT_TRUE(choice.warnings.front().contains(QStringLiteral("classic and observatory")))
-        << choice.warnings.front().toStdString();
-
-    const ShellChoice empty = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("  ")));
-    EXPECT_EQ(empty.styleProfile, an::ui::StyleProfile::Classic);
-    EXPECT_TRUE(empty.warnings.isEmpty()) << empty.warnings.join(QLatin1Char('\n')).toStdString();
-}
-
-// With no shell chosen there is nothing to start: the profile is Classic and the switch is not read.
-TEST_F(ShellSelection, WithNoShellChosenTheProfileIsClassic)
-{
-    m_registry = registryOf({"nebula"});
-
-    const ShellChoice choice = resolve({kProgram}, environmentWithStyleProfile(QStringLiteral("observatory")));
-
-    EXPECT_EQ(choice.descriptor, nullptr);
-    EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Classic);
+    EXPECT_EQ(choice.styleProfile, an::ui::StyleProfile::Observatory);
+    EXPECT_TRUE(choice.warnings.isEmpty()) << choice.warnings.join(QLatin1Char('\n')).toStdString();
 }
 
 } // namespace

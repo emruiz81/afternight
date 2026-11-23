@@ -37,13 +37,11 @@ REGISTER = '''# The capability register.
 capability view.context-menu
     title        The context menu of a view, entry for entry
     shared       ViewMenuBuilder.EqualsTheRecordedTree
-    classic      ShellScenario.ViewMenuEntries/classic
     observatory  pending
 
 capability files.open
     title        Open
     shared       FileOpenTest.OpensTheFile, CodecRoundTrip.KeepsTheSamples/Fits, TypedImageTest.CopiesTheImage
-    classic
     observatory  ShellScenario.ViewMenuEntries/observatory
 '''
 
@@ -74,7 +72,7 @@ class ShellCapabilitiesTest(unittest.TestCase):
         self.assertEqual(self.problems(), [])
         self.assertIn('2 capabilities', capabilities.summary(self.root))
         self.assertIn('1 pending for the observatory shell', capabilities.summary(self.root))
-        self.assertIn('1 with no classic case', capabilities.summary(self.root))
+        self.assertNotIn('classic', capabilities.summary(self.root))
 
     def test_a_case_no_suite_defines_is_reported(self) -> None:
         self.write_register(REGISTER.replace('FileOpenTest.OpensTheFile', 'FileOpenTest.OpensNothing'))
@@ -97,29 +95,29 @@ class ShellCapabilitiesTest(unittest.TestCase):
         self.write_register(REGISTER.replace('observatory  pending',
                                              'observatory  pending, ShellScenario.ViewMenuEntries/observatory'))
         self.assertTrue(any('names cases there too' in problem for problem in self.problems()))
-        self.write_register(REGISTER.replace('classic      ShellScenario.ViewMenuEntries/classic',
-                                             'classic      pending'))
+        self.write_register(REGISTER.replace('shared       ViewMenuBuilder.EqualsTheRecordedTree',
+                                             'shared       pending'))
         self.assertTrue(any('only an observatory line may be' in problem for problem in self.problems()))
 
     def test_a_scenario_is_named_for_the_shell_of_its_line(self) -> None:
-        self.write_register(REGISTER.replace('classic      ShellScenario.ViewMenuEntries/classic',
-                                             'classic      ShellScenario.ViewMenuEntries/observatory'))
-        self.assertTrue(any('run for the observatory shell, on its classic line' in problem
+        self.write_register(REGISTER.replace('observatory  ShellScenario.ViewMenuEntries/observatory',
+                                             'observatory  ShellScenario.ViewMenuEntries/elsewhere'))
+        self.assertTrue(any('which names the instance a case ran for that shell in' in problem
                             for problem in self.problems()))
-        self.write_register(REGISTER.replace('classic      ShellScenario.ViewMenuEntries/classic',
-                                             'classic      ShellScenario.ViewMenuEntries'))
+        self.write_register(REGISTER.replace('observatory  ShellScenario.ViewMenuEntries/observatory',
+                                             'observatory  ShellScenario.ViewMenuEntries'))
         self.assertTrue(any('without the instance run for that shell' in problem for problem in self.problems()))
         # Named whole on the shared line, a parameterised case means every instance of it.
         self.write_register(REGISTER.replace('CodecRoundTrip.KeepsTheSamples/Fits', 'CodecRoundTrip.KeepsTheSamples'))
         self.assertEqual(self.problems(), [])
-        self.write_register(REGISTER.replace('classic      ShellScenario.ViewMenuEntries/classic',
-                                             'classic      FileOpenTest.OpensTheFile/classic'))
+        self.write_register(REGISTER.replace('observatory  ShellScenario.ViewMenuEntries/observatory',
+                                             'observatory  FileOpenTest.OpensTheFile/observatory'))
         self.assertTrue(any('not a value-parameterised case' in problem for problem in self.problems()))
 
     def test_the_lines_come_in_their_order_once_each(self) -> None:
         self.write_register(REGISTER.replace(
-            '    shared       ViewMenuBuilder.EqualsTheRecordedTree\n    classic      ShellScenario.ViewMenuEntries/classic\n',
-            '    classic      ShellScenario.ViewMenuEntries/classic\n    shared       ViewMenuBuilder.EqualsTheRecordedTree\n'))
+            '    shared       ViewMenuBuilder.EqualsTheRecordedTree\n    observatory  pending\n',
+            '    observatory  pending\n    shared       ViewMenuBuilder.EqualsTheRecordedTree\n'))
         self.assertTrue(any('where its shared line belongs' in problem for problem in self.problems()))
         self.write_register(REGISTER.replace('    title        Open\n', '    title        Open\n    title        Again\n'))
         self.assertTrue(any('states its title line twice' in problem for problem in self.problems()))
@@ -138,9 +136,17 @@ class ShellCapabilitiesTest(unittest.TestCase):
         problems = self.problems('observatory')
         self.assertEqual(len(problems), 1)
         self.assertIn('view.context-menu is still pending for the observatory shell', problems[0])
-        problems = self.problems('classic')
-        self.assertEqual(len(problems), 1)
-        self.assertIn('files.open names no case on its classic line', problems[0])
+
+    def test_a_classic_line_is_refused(self) -> None:
+        # The classic shell went with its lines: a record that still states one is refused, and the command line
+        # requires no such shell.
+        self.write_register(REGISTER.replace('    observatory  pending\n',
+                                             '    classic      ShellScenario.ViewMenuEntries/classic\n'
+                                             '    observatory  pending\n'))
+        self.assertTrue(any("has a line 'classic', which is not one of title, shared, observatory" in problem
+                            for problem in self.problems()), self.problems())
+        with self.assertRaises(SystemExit):
+            capabilities.main(['--repo-root', str(self.root), '--require-shell', 'classic'])
 
     def test_a_missing_register_is_reported(self) -> None:
         (self.root / capabilities.REGISTER).unlink()

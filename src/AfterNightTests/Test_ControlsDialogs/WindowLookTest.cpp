@@ -98,10 +98,7 @@ TEST_F(WindowLook, FitsHeader)
 {
     const WindowLookMeasured measured = expectWindowLook([this]() -> QWidget* {
         auto* const window = new ImageFITSHeaderViewerControl(view.get());
-        if (an::ui::windowsTakeHeadings())
-        {
-            EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Information · NGC7000_Ha"));
-        }
+        EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Information · NGC7000_Ha"));
         return window;
     });
     AN_WINDOW_LOOK_REPORT(measured);
@@ -123,7 +120,7 @@ TEST_F(WindowLook, AstrometryInfo)
 {
     const WindowLookMeasured measured = expectWindowLook([this]() -> QWidget* {
         QWidget* const window = an::ui::openViewTool(ViewTool::AstrometryInfo, *view);
-        if (window != nullptr && an::ui::windowsTakeHeadings())
+        if (window != nullptr)
         {
             EXPECT_EQ(eyebrowOf(*window), QStringLiteral("Astrometry · NGC7000_Ha"));
         }
@@ -144,15 +141,12 @@ TEST_F(WindowLook, SystemInformation)
 {
     const WindowLookMeasured measured = expectWindowLook([]() -> QWidget* {
         auto* const dialog = new SystemInformationDialog();
-        if (an::ui::windowsTakeHeadings())
+        for (const QGroupBox* section : dialog->findChildren<QGroupBox*>())
         {
-            for (const QGroupBox* section : dialog->findChildren<QGroupBox*>())
+            for (const QChar letter : section->title())
             {
-                for (const QChar letter : section->title())
-                {
-                    EXPECT_LT(letter.unicode(), 0x2000u)
-                        << "a section's title holds a picture: " << section->title().toStdString();
-                }
+                EXPECT_LT(letter.unicode(), 0x2000u)
+                    << "a section's title holds a picture: " << section->title().toStdString();
             }
         }
         return dialog;

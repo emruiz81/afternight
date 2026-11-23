@@ -23,7 +23,6 @@
 #include <QStringList>
 #include <QUrl>
 
-class MainDashboard;
 class GlobalSettingsPersistence;
 class QWidget;
 
@@ -227,7 +226,6 @@ public:
         QWidget* mainWindow = nullptr;
         bool* darkMode = nullptr;
         std::deque<std::string>* recentFiles = nullptr;
-        MainDashboard** mainDashboard = nullptr;
         extensions::ExtensionOperationCancellationToken extensionBackgroundWorkCancellationToken;
 
         std::function<GlobalSettingsPersistence*()> globalSettingsPersistence;
@@ -238,9 +236,6 @@ public:
         std::function<void()> updateRecentFilesMenuEntries;
         // Called on the GUI thread each time the Settings dialog applies what it holds, after its pages have stored it.
         std::function<void()> settingsApplied;
-        // The pages the shell's Settings dialog lists and their order: the Observatory shell's offer projects, and list
-        // the Projects page after General.
-        SettingsPageOrder settingsPages = SettingsPageOrder::Classic;
         // Keeps the shell's menu bar shown or lets it show on Alt, at once: set by a shell whose bar shows on Alt,
         // whose Interface page then offers "Always show the menu bar".
         std::function<void(bool)> keepMenuBarShown;

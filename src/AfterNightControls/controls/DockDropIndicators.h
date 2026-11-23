@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// The drop indicators of the Observatory profile: the window the dock library shows while a view is dragged over a
+/// The drop indicators: the window the dock library shows while a view is dragged over a
 /// dock area, made through the application's view factory in place of the library's, and the band that marks where the
 /// view would land. Both are drawn from the tokens (`theme/ObservatoryDock.h`).
 

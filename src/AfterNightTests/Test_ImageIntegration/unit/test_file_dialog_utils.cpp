@@ -14,7 +14,6 @@
 
 #include "app/FileDialogUtils.h"
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 
 namespace
 {
@@ -53,22 +52,16 @@ TEST(FileDialogUtils, StoredSettingParsesSystemDialogChoice)
 }
 
 // Under Night the built-in browser is used whatever the setting says, as only it is drawn in Night's red; with Night
-// off, or under the Classic profile, which has no Night, the setting decides again.
+// off the setting decides again.
 TEST(FileDialogUtils, NightUsesTheBuiltInBrowserWhateverTheSetting)
 {
     FakeSettings settings;
     settings.setValue(QStringLiteral("1"));
-    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     {
         const an::ui::testing::ScopedNightMode night(true);
         EXPECT_FALSE(an::ui::dialogs::useSystemFileBrowser(&settings));
     }
     EXPECT_TRUE(an::ui::dialogs::useSystemFileBrowser(&settings));
-    {
-        const an::ui::testing::ScopedStyleProfile classic(an::ui::StyleProfile::Classic);
-        const an::ui::testing::ScopedNightMode night(true);
-        EXPECT_TRUE(an::ui::dialogs::useSystemFileBrowser(&settings));
-    }
 }
 
 TEST(FileDialogUtils, ResolveDialogOptionsAddsQtDialogFlagWhenDisabled)

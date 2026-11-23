@@ -28,7 +28,6 @@
 #include "controls/settings/SettingsKeys.h"
 #include "core/ApplicationCore.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 #include "processes/ImageIntegration/persistence/IntegrationDatabase.h"
 #include "processes/ImageIntegration/ui_models/IntegrationJobsModel.h"
@@ -261,7 +260,7 @@ TEST_F(IntegrationTask, RailFollowsTheRun)
     ASSERT_NE(view, nullptr);
     EXPECT_TRUE(window().taskPage(taskId())->isAncestorOf(view));
     EXPECT_TRUE(view->isVisible());
-    EXPECT_EQ(process->findChild<WorkflowProgressDialogV2*>(), nullptr) << "no Processing window on a page";
+    EXPECT_EQ(QApplication::activeModalWidget(), nullptr) << "no window stands over the application";
 
     // The task is named by its job.
     const Task* const task = tasks().model().taskFor(process);

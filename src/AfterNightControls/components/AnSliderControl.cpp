@@ -169,9 +169,8 @@ void AnSliderControl::refreshTheme()
         rootLayout->setSpacing(tokenSet.spacing.xs);
         if (QLayoutItem* row = rootLayout->itemAt(1); row != nullptr && row->layout() != nullptr)
         {
-            // The slider and its value a panel's gap apart under the Observatory profile.
-            row->layout()->setSpacing(styleProfile() == StyleProfile::Observatory ? tokenSet.metrics.gap
-                                                                                  : tokenSet.spacing.sm);
+            // The slider and its value a panel's gap apart.
+            row->layout()->setSpacing(tokenSet.metrics.gap);
         }
     }
     m_label->setFont(tokenSet.typography.caption);

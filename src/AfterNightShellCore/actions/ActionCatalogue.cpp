@@ -23,11 +23,12 @@ namespace an::ui::shell
 namespace
 {
 
-/// The context the actions' texts are translated under: the one the classic window's texts always had.
+/// The context the actions' texts are translated under: the one AfterNight 1.1's main window gave them, which the
+/// translations keep.
 constexpr const char* kTranslationContext = "AfterNightAppClass";
 
 // clang-format off
-/// Every action of the application, in the order the classic window declared them. An action a shell alone gives
+/// Every action of the application, in the order AfterNight 1.1's main window declared them. An action a shell alone gives
 /// something - a shortcut of its own, a place in a menu of its own - is not given it here.
 constexpr ActionSpec kSpecs[] = {
     {.id = ids::kOpen, .text = "Open", .group = ActionGroup::File, .iconKey = "folder_open", .shortcut = "Ctrl+O"},

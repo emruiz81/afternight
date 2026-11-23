@@ -7,7 +7,6 @@
 
 #include "app/WindowPlacement.h"
 #include "components/AnLayoutUtils.h"
-#include "theme/AnDesignTokens.h"
 #include "theme/ComponentParts.h"
 
 #include <QBoxLayout>
@@ -118,11 +117,6 @@ QLabel* AnWindowHeading::descriptionLabel() const noexcept
     return m_description;
 }
 
-bool windowsTakeHeadings()
-{
-    return styleProfile() == StyleProfile::Observatory;
-}
-
 QString windowEyebrow(const QString& holder, const QString& subject)
 {
     return subject.isEmpty() ? holder : holder + QStringLiteral(" \u00B7 ") + subject;
@@ -131,7 +125,7 @@ QString windowEyebrow(const QString& holder, const QString& subject)
 AnWindowHeading* headWindow(QWidget& window, const QString& title, const QString& description, const QString& eyebrow)
 {
     auto* const column = qobject_cast<QBoxLayout*>(window.layout());
-    if (!windowsTakeHeadings() || column == nullptr ||
+    if (column == nullptr ||
         (column->direction() != QBoxLayout::TopToBottom && column->direction() != QBoxLayout::BottomToTop))
     {
         return nullptr;
@@ -157,8 +151,7 @@ AnWindowHeading* headWindowInPlaceOf(QWidget* header, const QString& eyebrow)
 AnWindowHeading* headWindowInPlaceOf(QWidget* header, const QString& title, const QString& description,
                                      const QString& eyebrow)
 {
-    if (!windowsTakeHeadings() || header == nullptr || header->parentWidget() == nullptr ||
-        header->parentWidget()->layout() == nullptr)
+    if (header == nullptr || header->parentWidget() == nullptr || header->parentWidget()->layout() == nullptr)
     {
         return nullptr;
     }
@@ -211,7 +204,7 @@ public:
 QScrollArea* scrollWindowBody(QBoxLayout& column, const int first, const int count)
 {
     QWidget* const holder = column.parentWidget();
-    if (!windowsTakeHeadings() || holder == nullptr || first < 0 || count <= 0 || first + count > column.count() ||
+    if (holder == nullptr || first < 0 || count <= 0 || first + count > column.count() ||
         (column.direction() != QBoxLayout::TopToBottom && column.direction() != QBoxLayout::BottomToTop))
     {
         return nullptr;

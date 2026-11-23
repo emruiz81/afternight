@@ -235,7 +235,7 @@ void AboutDialog::setupUi()
     headerLayout->addWidget(subtitleLabel);
     headerCard->setContentLayout(headerLayout);
     mainLayout->addWidget(headerCard);
-    // Under the Observatory profile the card is a window's heading: the product over its version and what it is.
+    // The card is a window's heading: the product over its version and what it is.
     an::ui::headWindowInPlaceOf(headerCard, titleLabel->text(),
                                 an::ui::windowEyebrow(versionText, subtitleLabel->text()), QString());
 

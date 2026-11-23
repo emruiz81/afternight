@@ -32,7 +32,7 @@ namespace an::ui
 namespace
 {
 
-/// The icon an action shows, by the icon provider's name - the dashboard's.
+/// The icon an action shows, by the icon provider's name.
 QString iconNameFor(const QString& actionId)
 {
     if (actionId == QLatin1String(DashboardPreferences::ACTION_ID_OPEN_FILE))
@@ -80,7 +80,7 @@ QIcon iconFor(const QString& actionId)
     return iconNamed(iconNameFor(actionId));
 }
 
-/// An action's tooltip: what it does and its shortcut - the dashboard's.
+/// An action's tooltip: what it does and its shortcut.
 QString tooltipFor(const QString& actionId)
 {
     const QString description = DashboardPreferences::actionDescriptionForId(actionId);
@@ -88,7 +88,7 @@ QString tooltipFor(const QString& actionId)
     return shortcut.isEmpty() ? description : QObject::tr("%1\nShortcut: %2").arg(description, shortcut);
 }
 
-/// The words the dashboard records an action by, under its translation context.
+/// The words an action is recorded by, under the translation context AfterNight 1.1's dashboard gave them.
 QString recordedWordsFor(const QString& actionId)
 {
     if (actionId == QLatin1String(DashboardPreferences::ACTION_ID_OPEN_FILE))

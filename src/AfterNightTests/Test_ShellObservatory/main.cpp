@@ -15,7 +15,6 @@
 #include <QThreadPool>
 
 #include "app/ApplicationStorage.h"
-#include "app/ModernizationFeatureFlags.h"
 #include "app/SessionConsoleBridge.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/AnProxyStyle.h"
@@ -61,10 +60,7 @@ int main(int argc, char** argv)
         // The shell's profile and the application's style before the first widget, as the application's start puts
         // them.
         (void)an::ui::setStyleProfile(an::ui::StyleProfile::Observatory);
-        if (an::ui::modernization::ModernizationFeatureFlags::uiTokensEnabled())
-        {
-            (void)an::ui::installAnProxyStyle();
-        }
+        (void)an::ui::installAnProxyStyle();
 
         an::platform::initializeLogging(
             QDir(test_storage.path()).filePath(QStringLiteral("Test_ShellObservatory.log")).toStdString());

@@ -200,14 +200,11 @@ void AnProgressCard::refreshTheme()
     m_percentageLabel->setFont(tokenSet.typography.caption);
     m_etaLabel->setFont(tokenSet.typography.caption);
 
-    // Store card visual parameters
-    const bool observatory = styleProfile() == StyleProfile::Observatory;
+    // Store card visual parameters: a card is a tonal container, with no border.
     m_bgColor = tokenSet.colors.bgCardPrimary;
-    // Under the Observatory profile a card is a tonal container, with no border.
-    m_borderColor = observatory ? QColor() : tokenSet.colors.borderPrimary;
     m_radius = tokenSet.radius.lg;
     // Its bar is a thin track, a gap high: the style draws a bar without text as a track across its middle.
-    m_progressBar->setMaximumHeight(observatory ? tokenSet.metrics.gap : QWIDGETSIZE_MAX);
+    m_progressBar->setMaximumHeight(tokenSet.metrics.gap);
 
     // Label colors via palette
     QPalette titlePal = m_titleLabel->palette();
@@ -234,19 +231,11 @@ void AnProgressCard::paintEvent(QPaintEvent* /*event*/)
 
     const auto& tokenSet = tokens();
     const QColor bg = m_bgColor.isValid() ? m_bgColor : tokenSet.colors.bgCardPrimary;
-    const QColor border = m_borderColor.isValid() ? m_borderColor : tokenSet.colors.borderPrimary;
     const int r = m_radius > 0 ? m_radius : tokenSet.radius.lg;
 
-    if (!m_borderColor.isValid())
-    {
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(bg);
-        painter.drawRoundedRect(QRectF(rect()), r, r);
-        return;
-    }
-    painter.setPen(QPen(border, 1));
+    painter.setPen(Qt::NoPen);
     painter.setBrush(bg);
-    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), r, r);
+    painter.drawRoundedRect(QRectF(rect()), r, r);
 }
 
 void AnProgressCard::updatePercentageLabel()

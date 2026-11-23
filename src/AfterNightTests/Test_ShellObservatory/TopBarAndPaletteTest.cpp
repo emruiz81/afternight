@@ -13,7 +13,7 @@
 #include "chrome/TopBar.h"
 #include "pages/WorkspacePage.h"
 
-#include "Test_ShellClassic/InventoryRecords.h"
+#include "Test_ShellObservatory/InventoryRecords.h"
 #include "fixtures/BaselineRecord.h"
 
 #include "actions/ActionCatalogue.h"
@@ -448,8 +448,8 @@ TEST_F(NewShortcuts, DoNotCollideWithTheRecordedOnes)
     }
 }
 
-// Ctrl+W closes the active image in this shell: the Close action carries it here, and the classic shell's record of its
-// shortcuts gives Close none.
+// Ctrl+W closes the active image in this shell: the Close action carries it here, and the record of 1.1's shortcuts
+// gives Close none.
 TEST_F(NewShortcuts, CtrlWIsTheObservatoryShellsAlone)
 {
     QAction* const close = core().actions().action(an::ui::shell::ids::kClose);

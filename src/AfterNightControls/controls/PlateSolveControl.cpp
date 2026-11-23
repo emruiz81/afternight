@@ -230,7 +230,7 @@ PlateSolveControl::PlateSolveControl(ImageViewControl* viewControl, QWidget* par
     }
     headerLayout->addWidget(headerDescriptionLabel);
     rootLayout->addWidget(headerWidget);
-    // Under the Observatory profile the header is a window's heading, which says the image too.
+    // The header is a window's heading, which says the image too.
     an::ui::headWindowInPlaceOf(headerWidget, headerTitleLabel->text(), headerDescriptionLabel->text(), QString());
 
     m_statusLabel = new QLabel(this);
@@ -402,9 +402,8 @@ PlateSolveControl::PlateSolveControl(ImageViewControl* viewControl, QWidget* par
     clearAstrometryLayout->setContentsMargins(0, 0, 0, 0);
     m_clearAstrometryButton = new QPushButton(tr("Clear Astrometry"), this);
     m_clearAstrometryButton->setObjectName(QStringLiteral("plateSolveClearAstrometry"));
-    // Under the Observatory profile the window's one primary button is its footer's: this one is quiet.
-    m_clearAstrometryButton->setProperty(
-        "anProcessButtonRole", an::ui::windowsTakeHeadings() ? QStringLiteral("neutral") : QStringLiteral("primary"));
+    // The window's one primary button is its footer's: this one is quiet.
+    m_clearAstrometryButton->setProperty("anProcessButtonRole", QStringLiteral("neutral"));
     m_clearAstrometryButton->setToolTip(tr("Remove all astrometry (WCS) data from the current image"));
     clearAstrometryLayout->addWidget(m_clearAstrometryButton);
     clearAstrometryLayout->addStretch(1);
@@ -426,18 +425,10 @@ PlateSolveControl::PlateSolveControl(ImageViewControl* viewControl, QWidget* par
     m_solveButton->setProperty("anProcessButtonRole", QStringLiteral("primary"));
     m_cancelButton = new QPushButton(tr("Close"), this);
     m_cancelButton->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
-    if (an::ui::windowsTakeHeadings())
-    {
-        // The primary button is the footer's rightmost, and the keyboard reaches the buttons in the order they stand.
-        buttonLayout->addWidget(m_cancelButton);
-        buttonLayout->addWidget(m_solveButton);
-        QWidget::setTabOrder(m_cancelButton, m_solveButton);
-    }
-    else
-    {
-        buttonLayout->addWidget(m_solveButton);
-        buttonLayout->addWidget(m_cancelButton);
-    }
+    // The primary button is the footer's rightmost, and the keyboard reaches the buttons in the order they stand.
+    buttonLayout->addWidget(m_cancelButton);
+    buttonLayout->addWidget(m_solveButton);
+    QWidget::setTabOrder(m_cancelButton, m_solveButton);
     rootLayout->addLayout(buttonLayout);
 
     connect(m_solveButton, &QPushButton::clicked, this, &PlateSolveControl::startSolve);
@@ -452,12 +443,9 @@ PlateSolveControl::PlateSolveControl(ImageViewControl* viewControl, QWidget* par
     refreshForCurrentImage();
 
     setFixedWidth(450);
-    if (an::ui::windowsTakeHeadings())
-    {
-        // Under the Observatory profile what lies between the heading and the footer scrolls: with the hints open
-        // the window is higher than a small display.
-        an::ui::scrollWindowBody(*rootLayout, 1, rootLayout->count() - 2);
-    }
+    // What lies between the heading and the footer scrolls: with the hints open the window is higher than a small
+    // display.
+    an::ui::scrollWindowBody(*rootLayout, 1, rootLayout->count() - 2);
     syncFixedWindowSize();
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 }
@@ -496,31 +484,15 @@ void PlateSolveControl::syncFixedWindowSize()
 
     m_syncingWindowSize = true;
 
-    if (an::ui::windowsTakeHeadings())
+    // As high as shows its middle whole, and no higher than its screen leaves it: past that the middle scrolls. A
+    // height worked out from the labels' own size hints is the height of their text wrapped at a width of Qt's
+    // choosing, far more than the window's width needs. Fitted again only when what the middle needs changes - a
+    // section opened, a message shown: a window a person made lower stays as they left it.
+    const int needs = an::ui::windowBodyHeightNeeded(*this);
+    if (needs != m_bodyHeightFitted)
     {
-        // As high as shows its middle whole, and no higher than its screen leaves it: past that the middle scrolls.
-        // A height worked out from the labels' own size hints is the height of their text wrapped at a width of
-        // Qt's choosing, far more than the window's width needs. Fitted again only when what the middle needs
-        // changes - a section opened, a message shown: a window a person made lower stays as they left it.
-        const int needs = an::ui::windowBodyHeightNeeded(*this);
-        if (needs != m_bodyHeightFitted)
-        {
-            m_bodyHeightFitted = needs;
-            an::ui::fitHeightToBodyWithinAvailableArea(*this);
-        }
-        m_syncingWindowSize = false;
-        return;
-    }
-
-    if (QLayout* rootLayout = layout())
-    {
-        rootLayout->activate();
-    }
-
-    const QSize targetSize = sizeHint();
-    if (targetSize.isValid())
-    {
-        setFixedHeight(targetSize.height());
+        m_bodyHeightFitted = needs;
+        an::ui::fitHeightToBodyWithinAvailableArea(*this);
     }
 
     m_syncingWindowSize = false;

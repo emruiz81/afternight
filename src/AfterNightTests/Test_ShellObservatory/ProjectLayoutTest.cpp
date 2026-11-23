@@ -17,7 +17,7 @@
 #include "tasks/TaskWindow.h"
 #include "workspaces/WorkspaceHost.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "actions/ActionCatalogue.h"
 #include "actions/ActionIds.h"
 #include "controls/IAppContext.h"

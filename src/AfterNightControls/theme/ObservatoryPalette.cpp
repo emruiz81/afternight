@@ -116,7 +116,7 @@ const NeutralRow& neutralRow(const bool dark, const ThemeContrastProfile contras
     case ThemeContrastProfile::Soft:
         return dark ? darkSoft : lightSoft;
     case ThemeContrastProfile::Oled:
-        // OLED is the dark theme's: the light theme resolves it as Balanced, as the Classic profile does.
+        // OLED is the dark theme's: the light theme resolves it as Balanced.
         return dark ? darkOled : lightBalanced;
     case ThemeContrastProfile::Balanced:
         break;
@@ -257,7 +257,7 @@ AccentRoles accentRoles(const bool dark, const ThemeAccentFamily family)
     return {ramp.s600, ramp.s700, ramp.s800, ramp.s700, hex(0xFFFFFF)};
 }
 
-/// The opacity of the accent's disabled form, as the Classic profile derives it.
+/// The opacity of the accent's disabled form.
 int accentDisabledAlpha(const bool dark)
 {
     return dark ? 90 : 96;

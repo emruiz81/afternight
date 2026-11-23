@@ -3,28 +3,31 @@
 
 /**
  * @file test_partial_success_dialog.cpp
- * @brief Tests that the progress dialogs correctly handle PartialSuccess results.
+ * @brief How a run's view says a run that succeeded with some errors.
  *
- * Covers:
- *  - WorkflowProgressDialogV2 shows warning popup on partial success
- *  - Successful label changes to "Completed with Warnings"
- *  - wasSuccessful() still returns true for partial success
+
+ * * Covers:
+ *  - the view says "Completed with Warnings" for a run that succeeded with errors
+ *  - wasSuccessful()
+ * still returns true for partial success
+ *  - a run that succeeded with no errors is said as a success, however many
+ * errors are kept
+ *  - the end of a run opens no message box: the view says it in itself
  */
 
 #include <gtest/gtest.h>
 #include <QApplication>
-#include <QGuiApplication>
 #include <QLabel>
 #include <QMessageBox>
 #include <QtTest/QTest>
 
-#include "processes/ImageIntegration/dialogs/WorkflowProgressDialogV2.h"
+#include "processes/ImageIntegration/widgets/WorkflowRunView.h"
 #include "processes/ImageIntegration/workflow/WorkflowProgressController.h"
 #include "processes/ImageIntegration/model/IntegrationDataModel.h"
 
 namespace
 {
-class PartialSuccessDialogTest : public ::testing::Test
+class PartialSuccessRunViewTest : public ::testing::Test
 {
 protected:
     static void SetUpTestSuite()
@@ -37,16 +40,35 @@ protected:
         }
     }
 
-    // The dialogs never start a run, so their controllers are lent no engine session.
+    // The views never start a run, so their controllers are lent no engine session.
     IntegrationDataModel model;
 };
 
+[[nodiscard]] QString operationText(const WorkflowRunView& view)
+{
+    const auto* const label = view.findChild<QLabel*>(QStringLiteral("lblCurrentOperation"));
+    return label != nullptr ? label->text() : QString();
+}
+
+[[nodiscard]] int openMessageBoxes()
+{
+    int open = 0;
+    for (QWidget* widget : QApplication::topLevelWidgets())
+    {
+        if (qobject_cast<QMessageBox*>(widget) != nullptr && widget->isVisible())
+        {
+            ++open;
+        }
+    }
+    return open;
+}
+
 } // namespace
 
-TEST_F(PartialSuccessDialogTest, PartialSuccessShowsWarningAndIsSuccessful)
+TEST_F(PartialSuccessRunViewTest, PartialSuccessShowsWarningAndIsSuccessful)
 {
     WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
+    WorkflowRunView view(&controller);
 
     WorkflowExecutor::Result result;
     result.success = true;
@@ -54,50 +76,56 @@ TEST_F(PartialSuccessDialogTest, PartialSuccessShowsWarningAndIsSuccessful)
     result.errors.append(QStringLiteral("[Registration] File not found: a.fit"));
     result.errors.append(QStringLiteral("[Registration] File not found: b.fit"));
 
-    dialog.onFinished(result);
+    view.onFinished(result);
     QCoreApplication::processEvents();
-    QTest::qWait(50);
 
-    EXPECT_TRUE(dialog.wasSuccessful()) << "Partial success should still be considered successful";
-    EXPECT_FALSE(dialog.wasCancelled());
-    EXPECT_FALSE(dialog.wasFailed());
-
-    auto* opLabel = dialog.findChild<QLabel*>(QStringLiteral("lblCurrentOperation"));
-    if (opLabel)
-    {
-        EXPECT_TRUE(opLabel->text().contains(QStringLiteral("Warning")) ||
-                    opLabel->text().contains(QStringLiteral("warning")))
-            << "Label should indicate warnings, got: " << opLabel->text().toStdString();
-    }
+    EXPECT_TRUE(view.wasSuccessful()) << "Partial success should still be considered successful";
+    EXPECT_FALSE(view.wasCancelled());
+    EXPECT_FALSE(view.wasFailed());
+    EXPECT_TRUE(operationText(view).contains(QStringLiteral("Warning"), Qt::CaseInsensitive))
+        << "Label should indicate warnings, got: " << operationText(view).toStdString();
 }
 
-TEST_F(PartialSuccessDialogTest, PureSuccessDoesNotShowWarningLabel)
+TEST_F(PartialSuccessRunViewTest, PureSuccessDoesNotShowWarningLabel)
 {
     WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
+    WorkflowRunView view(&controller);
 
     WorkflowExecutor::Result result;
     result.success = true;
     result.partialSuccess = false;
 
-    dialog.onFinished(result);
+    view.onFinished(result);
     QCoreApplication::processEvents();
-    QTest::qWait(50);
 
-    EXPECT_TRUE(dialog.wasSuccessful());
-
-    auto* opLabel = dialog.findChild<QLabel*>(QStringLiteral("lblCurrentOperation"));
-    if (opLabel)
-    {
-        EXPECT_TRUE(opLabel->text().contains(QStringLiteral("Success")))
-            << "Label should indicate success, got: " << opLabel->text().toStdString();
-    }
+    EXPECT_TRUE(view.wasSuccessful());
+    EXPECT_TRUE(operationText(view).contains(QStringLiteral("Success")))
+        << "Label should indicate success, got: " << operationText(view).toStdString();
 }
 
-TEST_F(PartialSuccessDialogTest, PartialSuccessWithManyErrorsTruncatesList)
+TEST_F(PartialSuccessRunViewTest, PartialSuccessWithEmptyErrorsShowsSuccess)
 {
     WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
+    WorkflowRunView view(&controller);
+
+    WorkflowExecutor::Result result;
+    result.success = true;
+    result.partialSuccess = true;
+    // No errors appended: the partial success flag is set, but the list is empty.
+
+    view.onFinished(result);
+    QCoreApplication::processEvents();
+
+    EXPECT_TRUE(view.wasSuccessful());
+    EXPECT_TRUE(operationText(view).contains(QStringLiteral("Success")))
+        << "Empty error list should show success, got: " << operationText(view).toStdString();
+}
+
+// The view says how a run ended in itself, however many errors it kept: no message box opens over it.
+TEST_F(PartialSuccessRunViewTest, PartialSuccessOpensNoMessageBox)
+{
+    WorkflowProgressController controller(&model, nullptr);
+    WorkflowRunView view(&controller);
 
     WorkflowExecutor::Result result;
     result.success = true;
@@ -107,119 +135,11 @@ TEST_F(PartialSuccessDialogTest, PartialSuccessWithManyErrorsTruncatesList)
         result.errors.append(QStringLiteral("[StageA] Error %1").arg(i));
     }
 
-    // The dialog should show max 10 errors and "... and N more"
-    // We just verify it doesn't crash with many errors
-    dialog.onFinished(result);
-    QCoreApplication::processEvents();
-    QTest::qWait(50);
-
-    EXPECT_TRUE(dialog.wasSuccessful());
-}
-
-TEST_F(PartialSuccessDialogTest, PartialSuccessWithEmptyErrorsShowsSuccess)
-{
-    WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
-
-    WorkflowExecutor::Result result;
-    result.success = true;
-    result.partialSuccess = true;
-    // No errors appended — partialSuccess flag set but empty list
-
-    dialog.onFinished(result);
-    QCoreApplication::processEvents();
-    QTest::qWait(50);
-
-    EXPECT_TRUE(dialog.wasSuccessful());
-    // With no errors, it should show normal success (because the errors list is empty)
-    auto* opLabel = dialog.findChild<QLabel*>(QStringLiteral("lblCurrentOperation"));
-    if (opLabel)
-    {
-        EXPECT_TRUE(opLabel->text().contains(QStringLiteral("Success")))
-            << "Empty error list should show success, got: " << opLabel->text().toStdString();
-    }
-}
-
-TEST_F(PartialSuccessDialogTest, PartialSuccessDoesNotOpenModalDialogOnHeadlessPlatform)
-{
-    const QString platform = QGuiApplication::platformName().toLower();
-    if (platform != QStringLiteral("offscreen") && platform != QStringLiteral("minimal") &&
-        platform != QStringLiteral("minimalegl"))
-    {
-        GTEST_SKIP() << "Headless-only regression check";
-    }
-
-    WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
-
-    WorkflowExecutor::Result result;
-    result.success = true;
-    result.partialSuccess = true;
-    result.errors.append(QStringLiteral("[Registration] File not found: a.fit"));
-
-    int before = 0;
-    for (QWidget* widget : QApplication::topLevelWidgets())
-    {
-        if (qobject_cast<QMessageBox*>(widget))
-        {
-            ++before;
-        }
-    }
-
-    dialog.onFinished(result);
+    const int before = openMessageBoxes();
+    view.onFinished(result);
     QCoreApplication::processEvents();
     QTest::qWait(20);
 
-    int after = 0;
-    for (QWidget* widget : QApplication::topLevelWidgets())
-    {
-        if (qobject_cast<QMessageBox*>(widget))
-        {
-            ++after;
-        }
-    }
-
-    EXPECT_EQ(after, before);
-    EXPECT_TRUE(dialog.wasSuccessful());
-}
-
-TEST_F(PartialSuccessDialogTest, PartialSuccessDoesNotOpenModalDialogWhenAppNameIsMutatedInTests)
-{
-    const QString originalAppName = QCoreApplication::applicationName();
-    QCoreApplication::setApplicationName(QStringLiteral("AfterNight"));
-
-    WorkflowProgressController controller(&model, nullptr);
-    WorkflowProgressDialogV2 dialog(&controller);
-
-    WorkflowExecutor::Result result;
-    result.success = true;
-    result.partialSuccess = true;
-    result.errors.append(QStringLiteral("[Registration] File not found: a.fit"));
-
-    int before = 0;
-    for (QWidget* widget : QApplication::topLevelWidgets())
-    {
-        if (qobject_cast<QMessageBox*>(widget))
-        {
-            ++before;
-        }
-    }
-
-    dialog.onFinished(result);
-    QCoreApplication::processEvents();
-    QTest::qWait(20);
-
-    int after = 0;
-    for (QWidget* widget : QApplication::topLevelWidgets())
-    {
-        if (qobject_cast<QMessageBox*>(widget))
-        {
-            ++after;
-        }
-    }
-
-    QCoreApplication::setApplicationName(originalAppName);
-
-    EXPECT_EQ(after, before);
-    EXPECT_TRUE(dialog.wasSuccessful());
+    EXPECT_EQ(openMessageBoxes(), before);
+    EXPECT_TRUE(view.wasSuccessful());
 }

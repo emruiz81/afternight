@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
 // The Observatory workspace as a person uses it: the active view's floating toolbar and history strip, the layout
-// icons of the classic dock tool bar, the view's and the tab's menus where they are asked for, a view maximized and
+// icons of 1.1's dock tool bar, the view's and the tab's menus where they are asked for, a view maximized and
 // restored with the lock offered again, the page of floating images, the files dropped on the window, and changing
 // place with images open, which asks the engine nothing.
 
@@ -308,10 +308,10 @@ TEST_F(WorkspacePage, TheHistoryStripFollowsTheActiveView)
     EXPECT_FALSE(page.historyStrip()->steps().steps.empty());
 }
 
-// The layout icons are the classic dock tool bar's: the lock's button, Group All Images, Split All Images, a separator
+// The layout icons are 1.1's dock tool bar's: the lock's button, Group All Images, Split All Images, a separator
 // and Fit Images To Window, the three the catalogue's own actions with their icons and tooltips; shown while the
 // workspace is.
-TEST_F(LayoutIcons, AreTheClassicDockToolbarsFour)
+TEST_F(LayoutIcons, AreTheDockToolbarsFour)
 {
     an::ui::observatory::WorkspaceToolbar* const icons = window().layoutIcons();
     ASSERT_NE(icons, nullptr);
@@ -322,7 +322,7 @@ TEST_F(LayoutIcons, AreTheClassicDockToolbarsFour)
     EXPECT_EQ(icons->fitButton()->defaultAction(), core().actions().action(an::ui::shell::ids::kFitImagesToWindow));
     EXPECT_EQ(icons->groupButton()->toolTip(), icons->groupButton()->defaultAction()->toolTip());
 
-    // In the classic bar's order, the separator before Fit.
+    // In 1.1's order, the separator before Fit.
     std::vector<QWidget*> order;
     for (QWidget* child : icons->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
     {

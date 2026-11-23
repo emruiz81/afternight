@@ -12,7 +12,7 @@
 #include "pages/ProjectHomePage.h"
 #include "projects/ProjectFlows.h"
 
-#include "Test_ShellClassic/AppTestSupport.h"
+#include "fixtures/AppTestSupport.h"
 #include "components/AnIconRail.h"
 #include "controls/DashboardPreferences.h"
 #include "controls/HomeContinueRow.h"

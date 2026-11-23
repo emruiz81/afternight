@@ -4,7 +4,6 @@
 #include "stdafx.hpp"
 #include "TableWidget.h"
 
-#include "app/ModernizationFeatureFlags.h"
 #include "theme/AnDesignTokens.h"
 
 namespace

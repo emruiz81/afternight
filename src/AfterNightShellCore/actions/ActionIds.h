@@ -4,8 +4,8 @@
 #pragma once
 
 /// @file
-/// The id of every action of the catalogue: the object name its action carries - the name the classic window's
-/// actions have always had - so a shell, a test and a record name an action alike. A constant is `k` and the name
+/// The id of every action of the catalogue: the object name its action carries - the name AfterNight 1.1's actions
+/// had - so a shell, a test and a record name an action alike. A constant is `k` and the name
 /// without its `action` prefix, each part capitalised and the underscores dropped (`actionSave_as` is `kSaveAs`); the
 /// bare `action` is `kAction`.
 

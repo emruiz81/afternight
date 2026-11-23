@@ -71,7 +71,6 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QTabWidget>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include <QTreeView>
@@ -364,7 +363,7 @@ protected:
         return process.findChild<QPushButton*>(QStringLiteral("outputDirectoryBrowseButton"));
     }
 
-    /// The page's stages: the list a page shows them as; null for a process that keeps its tabs.
+    /// The page's stages: the list the process shows them as.
     [[nodiscard]] static StageListNavigator* stagesOf(const ImageIntegrationProcess& process)
     {
         return dynamic_cast<StageListNavigator*>(process.stageNavigator());
@@ -415,7 +414,6 @@ TEST_F(IntegrationPage, OpensAsATaskPageUnderAHeaderThatSaysItsJob)
     ASSERT_NE(stages, nullptr) << "its stages are a list";
     EXPECT_TRUE(layout->fullArea()->isAncestorOf(stages->widget()));
     EXPECT_TRUE(stages->widget()->isVisibleTo(page));
-    EXPECT_EQ(process->findChild<QTabWidget*>(QStringLiteral("rootTabWidget")), nullptr) << "no tabs on a page";
     EXPECT_FALSE(process->findChild<QMenuBar*>(QStringLiteral("mainMenuBar"))->isVisibleTo(process));
 
     an::ui::AnTaskHeader* const header = page->header();
@@ -592,8 +590,8 @@ TEST_F(IntegrationPage, ImportShowsProgressInPlace)
     QAction* const addFiles = actionOf(*process, QStringLiteral("Auto-sort by file type..."));
     ASSERT_NE(addFiles, nullptr);
     ASSERT_NE(process->stageNavigator(), nullptr);
-    const QWidget* const tabs = process->stageNavigator()->widget();
-    ASSERT_NE(tabs, nullptr);
+    const QWidget* const stages = process->stageNavigator()->widget();
+    ASSERT_NE(stages, nullptr);
 
     an::tests::app::Answered chosen;
     an::tests::app::chooseInTheNextFileDialog(files, &chosen);
@@ -613,7 +611,7 @@ TEST_F(IntegrationPage, ImportShowsProgressInPlace)
     settle();
     QTest::qWait(150);
     EXPECT_EQ(framesOf(*process), 0) << "a paused import reads nothing";
-    EXPECT_FALSE(tabs->isEnabled()) << "the page's own controls wait for the import";
+    EXPECT_FALSE(stages->isEnabled()) << "the page's own controls wait for the import";
     EXPECT_FALSE(addFiles->isEnabled());
     EXPECT_TRUE(pause->isEnabled());
     EXPECT_TRUE(cancel->isEnabled());
@@ -634,7 +632,7 @@ TEST_F(IntegrationPage, ImportShowsProgressInPlace)
         << "resumed, the import ends and its frames are the job's";
     settle();
     EXPECT_EQ(importPanelOf(*process), nullptr) << "the panel goes with the import";
-    EXPECT_TRUE(tabs->isEnabled());
+    EXPECT_TRUE(stages->isEnabled());
     EXPECT_TRUE(addFiles->isEnabled());
 
     // A second import, cancelled by Esc: nothing joins the job and the page stays.
@@ -653,7 +651,7 @@ TEST_F(IntegrationPage, ImportShowsProgressInPlace)
     settle();
     EXPECT_EQ(framesOf(*process), files.size()) << "a cancelled import adds nothing";
     EXPECT_TRUE(process->isPresentedAsPage()) << "Esc cancelled the import, not the task";
-    EXPECT_TRUE(tabs->isEnabled());
+    EXPECT_TRUE(stages->isEnabled());
 }
 
 // The frame tree's menu opens over the page with its entries, and Blink Selected... opens the blink comparator from
@@ -983,9 +981,9 @@ TEST_F(IntegrationPage, FloatedItIsTheSamePageWithItsKeys)
     EXPECT_FALSE(page->header()->isFloating());
 }
 
-// The page's stages are a list at its left, in place of the window's tabs: a click on a row shows its page, the
-// Navigate menu under the header's button and its keys in the page move the selection, and each row says where its
-// stage stands - a source with no frames not started, the lights ready once there are some.
+// The page's stages are a list at its left: a click on a row shows its page, the Navigate menu under the header's
+// button and its keys in the page move the selection, and each row says where its stage stands - a source with no
+// frames not started, the lights ready once there are some.
 TEST_F(IntegrationPage, TheStagesAreAListThatNavigates)
 {
     ImageIntegrationProcess* const process = launch();
@@ -1103,12 +1101,11 @@ TEST_F(IntegrationPage, TheListsFootHoldsTheProjectFile)
     const auto said = std::make_shared<an::tests::app::Answered>();
     an::tests::app::answerEveryMessageBox(said);
 
-    // The output folder is the foot's field; the window's foot is not shown.
+    // The output folder is the foot's field.
     auto* const edit = process->findChild<QLineEdit*>(QStringLiteral("outputDirectoryEdit"));
     ASSERT_NE(edit, nullptr);
     EXPECT_TRUE(stages->foot()->isAncestorOf(edit));
     EXPECT_TRUE(edit->isVisibleTo(page));
-    EXPECT_FALSE(process->findChild<QWidget*>(QStringLiteral("bottomActionBar"))->isVisibleTo(page));
     QTemporaryDir output(QDir(folder()).filePath(QStringLiteral("foot-XXXXXX")));
     ASSERT_TRUE(output.isValid());
     process->model()->setOutputDirectory(output.path());

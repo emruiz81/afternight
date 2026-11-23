@@ -85,11 +85,11 @@ std::array<std::pair<an::ui::ThemePreset, QString>, 7u> presetNames()
              {ThemePreset::Custom, QCoreApplication::translate("InterfaceSettingsPage", "Custom")}}};
 }
 
-/// The themes, in the order of their tiles and of 1.1's combo box, by the ids the settings store keeps.
+/// The themes, in the order of their tiles and of the record's combo box, by the ids the settings store keeps.
 constexpr std::array<const char*, 3u> kThemeIds{"system", "light", "dark"};
 /// The contrast profiles, in the order of their segments.
 constexpr std::array<const char*, 4u> kContrastIds{"soft", "balanced", "high", "oled"};
-/// The accents and the surface tints, in the order of their swatches and of 1.1's combo boxes.
+/// The accents and the surface tints, in the order of their swatches and of the record's combo boxes.
 constexpr std::array<an::ui::ThemeAccentFamily, 5u> kAccents{
     an::ui::ThemeAccentFamily::Blue, an::ui::ThemeAccentFamily::Teal, an::ui::ThemeAccentFamily::Amber,
     an::ui::ThemeAccentFamily::Amethyst, an::ui::ThemeAccentFamily::Rose};
@@ -140,7 +140,7 @@ void chooseIn(QComboBox* combo, const QString& id)
     }
 }
 
-/// The tokens the choices in force resolve to under the Observatory profile with one part changed: what a swatch shows.
+/// The tokens the choices in force resolve to with one part changed: what a swatch shows.
 an::ui::DesignTokens tokensWith(const std::function<void(an::ui::ThemeChoices&)>& change)
 {
     an::ui::ThemeChoices choices{.theme =
@@ -149,7 +149,6 @@ an::ui::DesignTokens tokensWith(const std::function<void(an::ui::ThemeChoices&)>
                                  .accent = an::ui::themeAccentFamily(),
                                  .tint = an::ui::themeSurfaceTintFamily(),
                                  .tintStrength = an::ui::themeTintStrength(),
-                                 .profile = an::ui::StyleProfile::Observatory,
                                  .density = an::ui::themeDensity(),
                                  .night = an::ui::isNightMode()};
     change(choices);
@@ -196,10 +195,10 @@ void InterfaceSettingsPage::setupUi()
     mainLayout->setSpacing(16);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    // === The Observatory profile's rows: the appearance's choices, in their order ===
+    // === The appearance's choices, in their order ===
     setupObservatoryRows(this);
 
-    // === Appearance Section: 1.1's rows; under the Observatory profile, the record its pickers show ===
+    // === The appearance's record: the combo boxes and the check box its pickers show, not shown themselves ===
     m_AppearanceGroup = new QGroupBox(tr("Appearance"), this);
     m_AppearanceGroup->setObjectName(QStringLiteral("anInterfaceSettingsAppearanceGroup"));
     auto* appearanceLayout = new QVBoxLayout(m_AppearanceGroup);
@@ -328,28 +327,15 @@ void InterfaceSettingsPage::setupUi()
     shellLayout->addRow(createInfoLabel(tr("Takes effect when AfterNight restarts.")));
     m_ShellGroup->setVisible(false);
 
-    // The groups in the profile's order. Under the Observatory profile the appearance's choices come first and the
-    // Shell row after them, above what 1.1's page had, and 1.1's appearance rows are the record the pickers show; under
-    // the Classic profile the page is as 1.1 drew it, the Shell row last.
-    if (previewsAtOnce())
+    // The groups in their order: the appearance's choices first and the Shell row after them, above the image viewing,
+    // the file browser and the window layout; the appearance's record is not shown.
+    for (QWidget* group : {static_cast<QWidget*>(m_ObservatoryGroup), static_cast<QWidget*>(m_ShellGroup),
+                           static_cast<QWidget*>(m_AppearanceGroup), static_cast<QWidget*>(m_ViewingGroup),
+                           static_cast<QWidget*>(m_FileBrowserGroup), static_cast<QWidget*>(m_LayoutGroup)})
     {
-        for (QWidget* group : {static_cast<QWidget*>(m_ObservatoryGroup), static_cast<QWidget*>(m_ShellGroup),
-                               static_cast<QWidget*>(m_AppearanceGroup), static_cast<QWidget*>(m_ViewingGroup),
-                               static_cast<QWidget*>(m_FileBrowserGroup), static_cast<QWidget*>(m_LayoutGroup)})
-        {
-            mainLayout->addWidget(group);
-        }
-        m_AppearanceGroup->setVisible(false);
+        mainLayout->addWidget(group);
     }
-    else
-    {
-        for (QWidget* group : {static_cast<QWidget*>(m_ObservatoryGroup), static_cast<QWidget*>(m_AppearanceGroup),
-                               static_cast<QWidget*>(m_ViewingGroup), static_cast<QWidget*>(m_FileBrowserGroup),
-                               static_cast<QWidget*>(m_LayoutGroup), static_cast<QWidget*>(m_ShellGroup)})
-        {
-            mainLayout->addWidget(group);
-        }
-    }
+    m_AppearanceGroup->setVisible(false);
 
     // Add stretch to push content to top
     mainLayout->addStretch(1);
@@ -506,13 +492,7 @@ void InterfaceSettingsPage::setupObservatoryRows(QWidget* parent)
     form->addRow(tr("Menu bar:"), m_MenuBarSwitch);
     form->setRowVisible(m_MenuBarSwitch, false);
 
-    // The Classic profile has neither of these rows: 1.1's appearance rows are its own.
-    m_ObservatoryGroup->setVisible(previewsAtOnce());
-}
-
-bool InterfaceSettingsPage::previewsAtOnce() const
-{
-    return an::ui::styleProfile() == an::ui::StyleProfile::Observatory;
+    m_ObservatoryGroup->setVisible(true);
 }
 
 an::ui::ThemeTintStrength InterfaceSettingsPage::chosenTintStrength() const
@@ -615,10 +595,6 @@ void InterfaceSettingsPage::choosePreset(const an::ui::ThemePreset preset)
 
 void InterfaceSettingsPage::previewAppearance()
 {
-    if (!previewsAtOnce())
-    {
-        return;
-    }
     an::ui::setThemeContrastProfile(
         an::ui::resolveThemeContrastProfile(m_ContrastProfileCombo->currentData().toString()));
     an::ui::setThemeAccentFamily(an::ui::resolveThemeAccentFamily(m_AccentFamilyCombo->currentData().toString()));
@@ -652,7 +628,7 @@ void InterfaceSettingsPage::showMenuBarKept(const bool kept)
         const Showing showing(m_Showing);
         m_MenuBarSwitch->setChecked(kept);
     }
-    if (previewsAtOnce() && m_KeepMenuBarShown)
+    if (m_KeepMenuBarShown)
     {
         m_KeepMenuBarShown(kept);
     }
@@ -681,16 +657,12 @@ void InterfaceSettingsPage::connectSignals()
     trackChanges(m_ContrastProfileCombo);
     trackChanges(m_AccentFamilyCombo);
 
-    // The Observatory profile's pickers show what the combo boxes record; under that profile every appearance row acts
-    // at once, and under the Classic one it acts when applied.
+    // The pickers show what the combo boxes record, and every appearance row acts at once.
     for (QComboBox* combo : {m_ThemeCombo, m_ContrastProfileCombo, m_AccentFamilyCombo, m_SurfaceTintFamilyCombo})
     {
         connect(combo, &QComboBox::currentIndexChanged, this, [this]() {
             showAppearance();
-            if (previewsAtOnce())
-            {
-                appearanceChanged();
-            }
+            appearanceChanged();
         });
     }
     connect(m_PresetButtons, &QButtonGroup::idClicked, this, [this](const int id) {
@@ -740,10 +712,7 @@ void InterfaceSettingsPage::connectSignals()
     });
     connect(m_AnimationsEnabledCheck, &QCheckBox::toggled, this, [this](bool) {
         showAppearance();
-        if (previewsAtOnce())
-        {
-            appearanceChanged();
-        }
+        appearanceChanged();
     });
     connect(m_MenuBarSwitch, &QAbstractButton::toggled, this, [this](const bool kept) {
         if (m_Showing)
@@ -892,7 +861,7 @@ void InterfaceSettingsPage::loadSettings()
                                                  SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE ? "1" : "0");
     m_RememberWindowSizeCheck->setChecked(rememberSizeStr == "1");
 
-    // The Observatory profile's rows; Night is never stored, so the switch shows whether it is set.
+    // The strength, the density and Night; Night is never stored, so the switch shows whether it is set.
     showTintStrength(an::ui::resolveThemeTintStrength(m_Settings->select(
         SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH))));
     showDensity(an::ui::resolveThemeDensity(
@@ -974,14 +943,11 @@ void InterfaceSettingsPage::saveSettings()
     QString newSurfaceTintFamily = m_SurfaceTintFamilyCombo->currentData().toString();
     upsertSetting(SettingsKeys::INTERFACE_THEME_SURFACE_TINT_FAMILY, newSurfaceTintFamily);
 
-    // The Observatory profile's rows, kept only where they are offered; Night itself is never kept.
-    if (previewsAtOnce())
-    {
-        upsertSetting(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, an::ui::themeTintStrengthId(chosenTintStrength()));
-        upsertSetting(SettingsKeys::INTERFACE_DENSITY, an::ui::themeDensityId(chosenDensity()));
-        upsertSetting(SettingsKeys::INTERFACE_THEME_PRESET, an::ui::themePresetId(chosenPreset()));
-        upsertSetting(SettingsKeys::INTERFACE_START_IN_NIGHT, m_StartInNightSwitch->isChecked() ? "1" : "0");
-    }
+    // The strength, the density, the preset and starting in Night; Night itself is never kept.
+    upsertSetting(SettingsKeys::INTERFACE_THEME_TINT_STRENGTH, an::ui::themeTintStrengthId(chosenTintStrength()));
+    upsertSetting(SettingsKeys::INTERFACE_DENSITY, an::ui::themeDensityId(chosenDensity()));
+    upsertSetting(SettingsKeys::INTERFACE_THEME_PRESET, an::ui::themePresetId(chosenPreset()));
+    upsertSetting(SettingsKeys::INTERFACE_START_IN_NIGHT, m_StartInNightSwitch->isChecked() ? "1" : "0");
 
     // Apply the theme at runtime only if the setting was persisted.
     if (allSaved)
@@ -989,12 +955,9 @@ void InterfaceSettingsPage::saveSettings()
         an::ui::setThemeContrastProfile(an::ui::resolveThemeContrastProfile(newContrastProfile));
         an::ui::setThemeAccentFamily(an::ui::resolveThemeAccentFamily(newAccentFamily));
         an::ui::setThemeSurfaceTintFamily(an::ui::resolveThemeSurfaceTintFamily(newSurfaceTintFamily));
-        if (previewsAtOnce())
-        {
-            an::ui::setThemeTintStrength(chosenTintStrength());
-            an::ui::setThemeDensity(chosenDensity());
-            an::ui::setNightMode(m_NightSwitch->isChecked());
-        }
+        an::ui::setThemeTintStrength(chosenTintStrength());
+        an::ui::setThemeDensity(chosenDensity());
+        an::ui::setNightMode(m_NightSwitch->isChecked());
 
         if (auto* runtime = currentInterfaceSettingsRuntimeService())
         {
@@ -1052,11 +1015,7 @@ void InterfaceSettingsPage::saveSettings()
 
 void InterfaceSettingsPage::discardChanges()
 {
-    // Under the Classic profile nothing was put in force before Apply, so there is nothing to put back.
-    if (!previewsAtOnce())
-    {
-        return;
-    }
+    // Every appearance row acted at once: what was in force when the page last loaded or applied is put back.
     an::ui::setThemeContrastProfile(m_InForce.contrast);
     an::ui::setThemeAccentFamily(m_InForce.accent);
     an::ui::setThemeSurfaceTintFamily(m_InForce.tint);
@@ -1111,7 +1070,7 @@ void InterfaceSettingsPage::resetToDefaults()
     selectShell(QString::fromLatin1(SettingsDefaults::INTERFACE_SHELL));
     m_RememberWindowSizeCheck->setChecked(SettingsDefaults::INTERFACE_REMEMBER_WINDOW_SIZE);
 
-    // The Observatory profile's rows; Night is no setting and is left as it is.
+    // The strength, the density and Night; Night is no setting and is left as it is.
     showTintStrength(an::ui::resolveThemeTintStrength(QString(SettingsDefaults::INTERFACE_THEME_TINT_STRENGTH)));
     showDensity(an::ui::resolveThemeDensity(QString(SettingsDefaults::INTERFACE_DENSITY)));
     m_StartInNightSwitch->setChecked(SettingsDefaults::INTERFACE_START_IN_NIGHT);
@@ -1122,7 +1081,7 @@ void InterfaceSettingsPage::resetToDefaults()
 
     updateSensitivityLabel();
     markAsModified();
-    // Under the Observatory profile the defaults are shown at once, as any change is.
+    // The defaults are shown at once, as any change is.
     previewAppearance();
 }
 

@@ -1,9 +1,11 @@
 # The key sequences AfterNight 1.1 answers.
 #
-# [window]: every shortcut an action or a shortcut object of the main window carries, sorted:
+# [window]: every shortcut an action or a shortcut object of AfterNight 1.1's main window
+# carried, sorted - the keys a person brings from 1.1, which the Observatory window's own
+# shortcuts are kept apart from:
 #   key sequence | context | action or shortcut | its object name, or its text | its owner
 # [session console]: the same of the Session Console, which the window makes when it is first
-# shown and which is read apart, so [window] is the same whether or not it has been.
+# shown.
 #
 # [view standard], [view rt_preview], [view st_preview]: the key presses a view's own key
 # handling takes for itself in each mode of a view - an image's view, a process's real-time
@@ -13,7 +15,9 @@
 # A key is listed when the view takes the press, whether or not it has something to act on.
 # Undo and Redo, Ctrl+Z and Ctrl+Y, are the window's.
 #
-# ApplicationWindow.ShortcutsMatchTheRecord in Test_ShellClassic compares the running application with this record.
+# Shortcuts.MatchTheRecord in Test_ShellObservatory holds the running application to the
+# Session Console's and the views' sections; NewShortcuts.DoNotCollideWithTheRecordedOnes there
+# keeps the Observatory window's own shortcuts apart from [window].
 # An entry is edited by the change that means to move it - a renamed action, a new menu
 # entry, a retired process; the record is not written again whole. A field is `-` when
 # empty; `\t` is a tab and `\|` a bar inside a text.

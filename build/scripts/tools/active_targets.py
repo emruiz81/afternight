@@ -279,8 +279,10 @@ WINDOWS_STAGED_SUFFIXES = ('.exe', '.dll', '.pdb', '.lib', '.exp', '.ilk')
 # where they were deployed, so that a packager sweeping the directory ships neither. When the engine became the only
 # one, the fixture suite named after the development engine was renamed Test_FixtureEngine and the runner comparing the
 # two engines went; a clone generated before keeps their projects, which the build refuses, and their binaries, which
-# the runners would execute.
-RETIRED_TARGETS = ('AfterNightEngineBenchCompare', 'Test_FixtureNext', 'cfitsio', 'libxisf', 'pthreads')
+# the runners would execute. The classic shell's library and its suite went with the classic shell: the library left
+# in place would be shipped by a packager sweeping the directory, and the suite run as a current one.
+RETIRED_TARGETS = ('AfterNightEngineBenchCompare', 'AfterNightShellClassic', 'Test_FixtureNext', 'Test_ShellClassic',
+                   'cfitsio', 'libxisf', 'pthreads')
 
 # The names a retired target's binaries took when they were not its own, as `output` and `debug` gave them.
 RETIRED_OUTPUT_NAMES = {'cfitsio': ('cfitsio',), 'libxisf': ('xisf', 'xisfd'), 'pthreads': ('pthreadVC3', 'pthreadVC3d')}

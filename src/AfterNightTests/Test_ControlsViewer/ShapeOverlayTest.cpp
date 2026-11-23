@@ -15,7 +15,6 @@
 #include "controls/ShapeOverlayDisplayModule.h"
 #include "controls/ViewShapes.h"
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "widgets/ImageViewWidget.h"
 
 #include <QCoreApplication>
@@ -312,7 +311,6 @@ TEST_F(ShapeOverlay, AShapeTakenAwayIsGoneAndShapesTakenAwayDrawNothing)
 // still drawn.
 TEST_F(ShapeOverlay, UnderNightTheShapesHoldNoGreenAndNoBlue)
 {
-    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     ViewHandle view = blackView("night");
     ImageViewWidget* const widget = view->getViewWidget();
     view->setOwnedShapes("session", caseShapes());

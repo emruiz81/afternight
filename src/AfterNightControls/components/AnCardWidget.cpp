@@ -6,36 +6,18 @@
 #include "components/AnCardWidget.h"
 
 #include "components/AnLayoutUtils.h"
-#include "theme/AnimationUtils.h"
 #include "theme/AnDesignTokens.h"
-#include "app/UiStyleTokens.h"
 
-#include <QEasingCurve>
 #include <QAbstractButton>
-#include <QEnterEvent>
-#include <QEvent>
 #include <QLabel>
 #include <QLayout>
-#include <QMargins>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QVariant>
-#include <QVariantAnimation>
 #include <QVBoxLayout>
-
-#include <algorithm>
 
 namespace
 {
-
-QColor blendColors(const QColor& from, const QColor& to, const qreal t)
-{
-    const qreal clamped = std::clamp(t, 0.0, 1.0);
-    return QColor(static_cast<int>(from.red() + (to.red() - from.red()) * clamped),
-                  static_cast<int>(from.green() + (to.green() - from.green()) * clamped),
-                  static_cast<int>(from.blue() + (to.blue() - from.blue()) * clamped),
-                  static_cast<int>(from.alpha() + (to.alpha() - from.alpha()) * clamped));
-}
 
 void applyDisabledTextRoles(QWidget* root, const an::ui::DesignTokens& tokenSet)
 {
@@ -87,16 +69,6 @@ void applyDisabledTextRoles(QWidget* root, const an::ui::DesignTokens& tokenSet)
     }
 
     return an::ui::compositeOver(foreground, resolvedOpaqueBackingSurface(tokenSet));
-}
-
-[[nodiscard]] QColor resolvedOpaqueSurface(const QColor& foreground, const QColor& backingSurface)
-{
-    if (foreground.alpha() >= 255)
-    {
-        return foreground;
-    }
-
-    return an::ui::compositeOver(foreground, backingSurface);
 }
 
 [[nodiscard]] QColor configuredBackdropColor(const QWidget* widget)
@@ -151,15 +123,6 @@ AnCardWidget::AnCardWidget(const QString& title, QWidget* parent) : QFrame(paren
 
     rootLayout->addWidget(m_headerLabel, 0);
     rootLayout->addWidget(m_contentWidget, 1);
-
-    // Hover animation: animate background between bgCardPrimary and bgHover.
-    m_hoverAnimation = new QVariantAnimation(this);
-    m_hoverAnimation->setDuration(AnimationUtils::duration(200));
-    m_hoverAnimation->setEasingCurve(QEasingCurve::OutCubic);
-    connect(m_hoverAnimation, &QVariantAnimation::valueChanged, this,
-            [this](const QVariant& value) { applyHoverProgress(value.toReal()); });
-
-    setAttribute(Qt::WA_Hover, true);
 
     setTitle(title);
     refreshTheme();
@@ -229,13 +192,10 @@ void AnCardWidget::refreshTheme()
 
     refreshTokens();
     const auto& tokenSet = tokens();
-    const bool observatory = styleProfile() == StyleProfile::Observatory;
     const bool compact = property("anCardCompact").toBool();
-    // Under the Observatory profile a card is padded as a panel is, by the density.
-    const int outerMargin = observatory ? (compact ? tokenSet.metrics.gap : tokenSet.metrics.pad)
-                                        : (compact ? tokenSet.spacing.sm : tokenSet.spacing.lg);
-    const int outerSpacing = observatory ? (compact ? tokenSet.spacing.xs : tokenSet.metrics.gap)
-                                         : (compact ? tokenSet.spacing.xs : tokenSet.spacing.sm);
+    // A card is padded as a panel is, by the density.
+    const int outerMargin = compact ? tokenSet.metrics.gap : tokenSet.metrics.pad;
+    const int outerSpacing = compact ? tokenSet.spacing.xs : tokenSet.metrics.gap;
     const int bodyMargin = property("anCardBodyPadded").toBool() ? tokenSet.spacing.sm : 0;
 
     if (auto* rootLayout = qobject_cast<QVBoxLayout*>(layout()))
@@ -254,7 +214,7 @@ void AnCardWidget::refreshTheme()
 
     // Use palette-based styling instead of QSS — AnProxyStyle handles the painting.
     QPalette headerPal = m_headerLabel->palette();
-    headerPal.setColor(QPalette::WindowText, observatory ? tokenSet.colors.textPrimary : tokenSet.colors.textAccent);
+    headerPal.setColor(QPalette::WindowText, tokenSet.colors.textPrimary);
     headerPal.setColor(QPalette::Disabled, QPalette::WindowText, tokenSet.colors.textTertiary);
     headerPal.setColor(QPalette::Disabled, QPalette::Text, tokenSet.colors.textTertiary);
     headerPal.setColor(QPalette::Disabled, QPalette::PlaceholderText, tokenSet.colors.textTertiary);
@@ -263,21 +223,6 @@ void AnCardWidget::refreshTheme()
         auto headerFont = m_headerLabel->font();
         headerFont.setWeight(QFont::DemiBold);
         m_headerLabel->setFont(headerFont);
-    }
-
-    // Store card visual parameters as properties for the proxy style to read
-    setProperty("anCardBgColor", tokenSet.colors.bgCardPrimary);
-    setProperty("anCardBorderColor", tokenSet.colors.borderPrimary);
-    setProperty("anCardRadius", tokenSet.radius.lg);
-
-    // Initialise animated colors to the resting state (no hover).
-    m_currentBgColor = tokenSet.colors.bgCardPrimary;
-    m_currentBorderColor = tokenSet.colors.borderPrimary;
-
-    // Refresh the hover animation duration in case the toggle changed.
-    if (m_hoverAnimation)
-    {
-        m_hoverAnimation->setDuration(AnimationUtils::duration(200));
     }
 
     applyDisabledTextRoles(this, tokenSet);
@@ -294,178 +239,22 @@ void AnCardWidget::updateHeaderVisibility()
     m_headerLabel->setVisible(!m_headerLabel->text().isEmpty());
 }
 
-void AnCardWidget::applyHoverProgress(const qreal progress)
-{
-    const auto& tokenSet = tokens();
-    m_currentBgColor = blendColors(tokenSet.colors.bgCardPrimary, tokenSet.colors.bgHover, progress);
-    update();
-}
-
-void AnCardWidget::startHoverAnimation(const QColor& targetBg)
-{
-    if (!m_hoverAnimation)
-    {
-        return;
-    }
-
-    // Record current interpolation progress so rapid enter/leave looks smooth.
-    const qreal currentT = (m_hoverAnimation->state() == QVariantAnimation::Running)
-                               ? m_hoverAnimation->currentValue().toReal()
-                               : (m_currentBgColor == tokens().colors.bgHover ? 1.0 : 0.0);
-
-    const qreal targetT = (targetBg == tokens().colors.bgHover) ? 1.0 : 0.0;
-
-    m_hoverAnimation->stop();
-    m_hoverAnimation->setStartValue(currentT);
-    m_hoverAnimation->setEndValue(targetT);
-    m_hoverAnimation->setDuration(AnimationUtils::duration(200));
-    m_hoverAnimation->start();
-}
-
-void AnCardWidget::changeEvent(QEvent* event)
-{
-    QFrame::changeEvent(event);
-
-    if (event && event->type() == QEvent::EnabledChange)
-    {
-        if (!isEnabled() && m_hoverAnimation)
-        {
-            m_hoverAnimation->stop();
-        }
-        m_currentBgColor = tokens().colors.bgCardPrimary;
-        update();
-    }
-}
-
-void AnCardWidget::enterEvent(QEnterEvent* event)
-{
-    QFrame::enterEvent(event);
-
-    // Under the Observatory profile a card is a surface, not a control: it does not answer the pointer.
-    if (!isEnabled() || styleProfile() == StyleProfile::Observatory)
-    {
-        return;
-    }
-
-    if (!AnimationUtils::animationsEnabled())
-    {
-        m_currentBgColor = tokens().colors.bgHover;
-        update();
-        return;
-    }
-
-    startHoverAnimation(tokens().colors.bgHover);
-}
-
-void AnCardWidget::leaveEvent(QEvent* event)
-{
-    QFrame::leaveEvent(event);
-
-    if (styleProfile() == StyleProfile::Observatory)
-    {
-        return;
-    }
-
-    if (!AnimationUtils::animationsEnabled())
-    {
-        m_currentBgColor = tokens().colors.bgCardPrimary;
-        update();
-        return;
-    }
-
-    startHoverAnimation(tokens().colors.bgCardPrimary);
-}
-
 void AnCardWidget::paintEvent(QPaintEvent* /*event*/)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
     const auto& tokenSet = tokens();
-    const bool flatCard = property("anCardFlat").toBool();
-    const QColor backdropSurface = resolvedBackdropSurface(this, tokenSet);
-    if (!flatCard)
+    if (!property("anCardFlat").toBool())
     {
-        painter.fillRect(rect(), backdropSurface);
+        painter.fillRect(rect(), resolvedBackdropSurface(this, tokenSet));
     }
 
-    const int r = property("anCardRadius").toInt();
-    const int radius = r > 0 ? r : tokenSet.radius.lg;
-
-    if (styleProfile() == StyleProfile::Observatory)
-    {
-        // A tonal container: the second surface over the whole card, its title inside it, no border and no shadow.
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(tokenSet.colors.bgCard);
-        painter.drawRoundedRect(QRectF(rect()), tokenSet.radius.lg, tokenSet.radius.lg);
-        return;
-    }
-
-    const bool enabled = isEnabled();
-    const QColor rawBg = enabled ? (m_currentBgColor.isValid() ? m_currentBgColor : tokenSet.colors.bgCardPrimary)
-                                 : tokenSet.colors.bgSurface;
-    const QColor bg = resolvedOpaqueSurface(rawBg, backdropSurface);
-    const QColor border = enabled
-                              ? (m_currentBorderColor.isValid() ? m_currentBorderColor : tokenSet.colors.borderPrimary)
-                              : tokenSet.colors.borderSubtle;
-
-    QRectF bounds = QRectF(rect());
-    if (m_contentWidget)
-    {
-        QMargins bodyMargins;
-        int bodyTopInset = 0;
-        if (QLayout* rootLayout = layout())
-        {
-            bodyMargins = rootLayout->contentsMargins();
-            bodyTopInset = rootLayout->spacing();
-        }
-        if (bodyTopInset < 0)
-        {
-            bodyTopInset = 0;
-        }
-
-        const bool titleVisible = m_headerLabel && !m_headerLabel->isHidden();
-        if (!titleVisible)
-        {
-            bodyTopInset = bodyMargins.top();
-        }
-
-        bounds = QRectF(m_contentWidget->geometry())
-                     .adjusted(-bodyMargins.left(), -bodyTopInset, bodyMargins.right(), bodyMargins.bottom())
-                     .intersected(QRectF(rect()));
-    }
-
-    const bool shadowEnabled = enabled && !flatCard;
-    if (shadowEnabled)
-    {
-        // Paint a drop shadow for elevation.
-        const bool isDark = an::ui::styling::isDarkPalette(palette());
-        const int shadowBlur = 4;
-        const int shadowOffset = 2;
-        // The shadow colour, which is black under the Classic profile, at 1.1's strength for the theme.
-        QColor shadowColor = tokenSet.colors.shadowOverlay;
-        shadowColor.setAlpha(isDark ? 40 : 20);
-
-        QRectF shadowBounds = bounds.adjusted(shadowBlur, shadowBlur + shadowOffset, -shadowBlur, -shadowBlur);
-        QPainterPath shadowPath;
-        shadowPath.addRoundedRect(shadowBounds, radius, radius);
-
-        // Simple fast shadow by filling the rect multiple times with low opacity.
-        painter.setPen(Qt::NoPen);
-        QColor c = shadowColor;
-        for (int i = 0; i < shadowBlur; ++i)
-        {
-            c.setAlphaF(shadowColor.alphaF() * (1.0 - static_cast<qreal>(i) / shadowBlur));
-            painter.setBrush(c);
-            painter.drawRoundedRect(shadowBounds.adjusted(-i, -i, i, i), radius + i, radius + i);
-        }
-
-        bounds.adjust(shadowBlur, shadowBlur, -shadowBlur, -shadowBlur - shadowOffset);
-    }
-
-    painter.setPen(QPen(border, 1));
-    painter.setBrush(bg);
-    painter.drawRoundedRect(bounds.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    // A tonal container: the second surface over the whole card, its title inside it, no border and no shadow. A card
+    // is a surface, not a control: it does not answer the pointer.
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(tokenSet.colors.bgCard);
+    painter.drawRoundedRect(QRectF(rect()), tokenSet.radius.lg, tokenSet.radius.lg);
 }
 
 } // namespace an::ui

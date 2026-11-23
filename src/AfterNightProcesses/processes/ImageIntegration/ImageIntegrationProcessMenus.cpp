@@ -89,7 +89,7 @@ void ImageIntegrationProcess::setupMenuBar()
     setActionTooltip(projectMenu->menuAction(), tr("Project operations (import/export, presets, reset)."));
     setActionTooltip(editMenu->menuAction(), tr("Undo/redo changes."));
     setActionTooltip(runMenu->menuAction(), tr("Execute the integration workflow."));
-    setActionTooltip(navigateMenu->menuAction(), tr("Navigate between tabs quickly."));
+    setActionTooltip(navigateMenu->menuAction(), tr("Move between the stages quickly."));
     setActionTooltip(helpMenu->menuAction(), tr("Help and keyboard shortcuts."));
 
     auto* addFilesMenu = framesMenu->addMenu(tr("Add Files..."));
@@ -239,7 +239,7 @@ void ImageIntegrationProcess::setupMenuBar()
         auto* action = navigateMenu->addAction(navLabels[static_cast<size_t>(i)]);
         action->setShortcut(QKeySequence(QStringLiteral("Ctrl+%1").arg(i + 1)));
         connect(action, &QAction::triggered, this, [this, i]() { setCurrentLogicalIndex(i); });
-        setActionTooltip(action, tr("Switch to the %1 tab.").arg(navLabels[static_cast<size_t>(i)]));
+        setActionTooltip(action, tr("Show the %1 stage.").arg(navLabels[static_cast<size_t>(i)]));
     }
 
     auto* shortcutsAction = helpMenu->addAction(tr("Keyboard Shortcuts"));

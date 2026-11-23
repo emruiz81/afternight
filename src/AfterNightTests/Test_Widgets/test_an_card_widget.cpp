@@ -19,15 +19,37 @@
 #include "theme/AnDesignTokens.h"
 #include "theme_test_utils.h"
 
+namespace
+{
+
+/// The card painted alone, at a size, on a transparent picture.
+[[nodiscard]] QImage paintedCard(an::ui::AnCardWidget& card)
+{
+    card.resize(260, 140);
+    card.ensurePolished();
+    QImage image(card.size(), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    card.render(&image);
+    return image;
+}
+
+} // namespace
+
+// The card's corners are rounded at the cards' radius: at the corner its backdrop shows, inside it the card's surface.
 TEST(WidgetsComponentsAnCardWidget, AnCardWidget_HasBorderRadius)
 {
     an::ui::AnCardWidget card;
     card.refreshTheme();
+    const QImage image = paintedCard(card);
 
-    // Border radius is now stored as a dynamic property for the custom paintEvent.
-    EXPECT_GT(card.property("anCardRadius").toInt(), 0);
+    const int radius = an::ui::tokens().radius.lg;
+    ASSERT_GT(radius, 0);
+    const QColor surface = image.pixelColor(card.rect().center());
+    EXPECT_NE(image.pixelColor(0, 0), surface) << "the corner is the card's surface";
+    EXPECT_EQ(image.pixelColor(radius, radius), surface) << "inside the corner is not the card's surface";
 }
 
+// The card's surface follows the theme.
 TEST(WidgetsComponentsAnCardWidget, AnCardWidget_ThemeAware)
 {
     an::tests::widgets::ScopedPaletteOverride paletteOverride;
@@ -36,16 +58,16 @@ TEST(WidgetsComponentsAnCardWidget, AnCardWidget_ThemeAware)
     paletteOverride.setWindowColor(QColor(10, 10, 10));
     an::ui::refreshTokens();
     card.refreshTheme();
-    const QColor darkBg = card.property("anCardBgColor").value<QColor>();
+    const QColor darkSurface = paintedCard(card).pixelColor(card.rect().center());
 
     paletteOverride.setWindowColor(QColor(245, 245, 245));
     an::ui::refreshTokens();
     card.refreshTheme();
-    const QColor lightBg = card.property("anCardBgColor").value<QColor>();
+    const QColor lightSurface = paintedCard(card).pixelColor(card.rect().center());
 
-    EXPECT_TRUE(darkBg.isValid());
-    EXPECT_TRUE(lightBg.isValid());
-    EXPECT_NE(darkBg, lightBg);
+    EXPECT_EQ(darkSurface.alpha(), 255);
+    EXPECT_EQ(lightSurface.alpha(), 255);
+    EXPECT_NE(darkSurface, lightSurface);
 }
 
 TEST(WidgetsComponentsAnCardWidget, AnCardWidget_RendersOpaqueCardSurface)
@@ -113,7 +135,7 @@ TEST(WidgetsComponentsAnCardWidget, AnCardWidget_FlatCardLetsParentSurfaceShowTh
     host.render(&image);
 
     const QPoint cardOrigin = card.geometry().topLeft();
-    const QColor expectedCardSurface = an::ui::compositeOver(tokenSet.colors.bgCardPrimary, parentSurface);
+    const QColor expectedCardSurface = an::ui::compositeOver(tokenSet.colors.bgCard, parentSurface);
     EXPECT_EQ(image.pixelColor(cardOrigin + QPoint(1, 1)), parentSurface);
     EXPECT_EQ(image.pixelColor(cardOrigin + QPoint(2, card.height() / 2)), expectedCardSurface);
 }
@@ -148,61 +170,13 @@ TEST(WidgetsComponentsAnCardWidget, AnCardWidget_OptionalHeader)
     EXPECT_TRUE(card.headerLabel()->isHidden());
 }
 
-TEST(WidgetsComponentsAnCardWidget, AnCardWidget_HeaderUsesAccentTextColor)
+TEST(WidgetsComponentsAnCardWidget, AnCardWidget_HeaderUsesPrimaryTextColor)
 {
     an::ui::AnCardWidget card(QStringLiteral("Calibration"));
     card.refreshTheme();
 
     ASSERT_NE(card.headerLabel(), nullptr);
-    EXPECT_EQ(card.headerLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.textAccent);
-}
-
-TEST(WidgetsComponentsAnCardWidget, AnCardWidget_TitleRowStaysOutsideFlatCardSurface)
-{
-    // The card resolves the tokens again when it refreshes its theme, from the palette the application has now:
-    // resolve them first, so the colours expected are the ones it paints with whatever ran before.
-    an::ui::refreshTokens();
-    const auto& tokenSet = an::ui::tokens();
-    const QColor parentSurface = tokenSet.colors.bgSurface;
-
-    QWidget host;
-    host.setAttribute(Qt::WA_DontShowOnScreen, true);
-    host.resize(300, 180);
-    QPalette hostPalette = host.palette();
-    hostPalette.setColor(QPalette::Window, parentSurface);
-    host.setPalette(hostPalette);
-    host.setAutoFillBackground(true);
-
-    an::ui::AnCardWidget card(QStringLiteral("Registration Groups"), &host);
-    card.setGeometry(10, 10, 280, 160);
-    card.setProperty("anCardBackdropColor", parentSurface);
-    card.setProperty("anCardFlat", true);
-    auto* contentLayout = new QVBoxLayout();
-    contentLayout->addWidget(new QLabel(QStringLiteral("Card body content")));
-    card.setContentLayout(contentLayout);
-    card.refreshTheme();
-
-    host.ensurePolished();
-    card.ensurePolished();
-    host.show();
-    QCoreApplication::processEvents();
-
-    ASSERT_NE(card.headerLabel(), nullptr);
-    ASSERT_NE(card.contentWidget(), nullptr);
-    ASSERT_FALSE(card.headerLabel()->isHidden());
-    EXPECT_LT(card.headerLabel()->geometry().bottom(), card.contentWidget()->geometry().top());
-
-    QImage image(host.size(), QImage::Format_ARGB32_Premultiplied);
-    image.fill(Qt::transparent);
-    host.render(&image);
-
-    const QPoint cardOrigin = card.geometry().topLeft();
-    const QPoint headerBackdropProbe(card.width() - tokenSet.spacing.lg, card.headerLabel()->geometry().center().y());
-    const QPoint bodyProbe(card.width() / 2, card.contentWidget()->geometry().center().y());
-    const QColor expectedCardSurface = an::ui::compositeOver(tokenSet.colors.bgCardPrimary, parentSurface);
-
-    EXPECT_EQ(image.pixelColor(cardOrigin + headerBackdropProbe), parentSurface);
-    EXPECT_EQ(image.pixelColor(cardOrigin + bodyProbe), expectedCardSurface);
+    EXPECT_EQ(card.headerLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.textPrimary);
 }
 
 TEST(WidgetsComponentsAnCardWidget, AnCardWidget_CompactPaddedBodyUsesTokenSpacing)
@@ -216,9 +190,11 @@ TEST(WidgetsComponentsAnCardWidget, AnCardWidget_CompactPaddedBodyUsesTokenSpaci
     card.setContentLayout(contentLayout);
     card.refreshTheme();
 
+    // A compact card is padded by the density's gap; its body by the small step.
     const auto& spacing = an::ui::tokens().spacing;
+    const int gap = an::ui::tokens().metrics.gap;
     ASSERT_NE(card.layout(), nullptr);
-    EXPECT_EQ(card.layout()->contentsMargins(), QMargins(spacing.sm, spacing.sm, spacing.sm, spacing.sm));
+    EXPECT_EQ(card.layout()->contentsMargins(), QMargins(gap, gap, gap, gap));
     EXPECT_EQ(card.layout()->spacing(), spacing.xs);
     EXPECT_EQ(contentLayout->contentsMargins(), QMargins(spacing.sm, spacing.sm, spacing.sm, spacing.sm));
 }
@@ -309,54 +285,20 @@ TEST(WidgetsComponentsAnCardWidget, AnCardWidget_SetContentLayoutDoesNotEmitDupl
     EXPECT_EQ(card.contentLayout(), contentLayout);
 }
 
-TEST(WidgetsComponentsAnCardWidget, AnCardWidget_HoverChangesBackgroundInstantlyWhenAnimationsDisabled)
+// A card is a surface, not a control: the pointer entering and leaving it changes nothing it paints.
+TEST(WidgetsComponentsAnCardWidget, AnCardWidget_DoesNotAnswerThePointer)
 {
-    ScopedAnimationRestore guard;
-    an::ui::AnimationUtils::setAnimationsEnabled(false);
-
     an::ui::AnCardWidget card;
     card.refreshTheme();
-
-    const QColor restingBg = an::ui::tokens().colors.bgCardPrimary;
-    const QColor hoverBg = an::ui::tokens().colors.bgHover;
-    ASSERT_NE(restingBg, hoverBg);
-
-    // Simulate hover enter via QEvent::Enter — card should not crash and should update.
-    QEvent enterEv(QEvent::Enter);
-    QCoreApplication::sendEvent(&card, &enterEv);
-    SUCCEED(); // entering does not crash
-}
-
-TEST(WidgetsComponentsAnCardWidget, AnCardWidget_LeaveRestoresBgInstantlyWhenAnimationsDisabled)
-{
-    ScopedAnimationRestore guard;
-    an::ui::AnimationUtils::setAnimationsEnabled(false);
-
-    an::ui::AnCardWidget card;
-    card.refreshTheme();
+    const QColor resting = renderedCenterColor(card);
 
     QEvent enterEv(QEvent::Enter);
     QCoreApplication::sendEvent(&card, &enterEv);
+    EXPECT_EQ(renderedCenterColor(card), resting) << "the card answered the pointer entering it";
 
     QEvent leaveEv(QEvent::Leave);
     QCoreApplication::sendEvent(&card, &leaveEv);
-    SUCCEED(); // no crash after leave
-}
-
-TEST(WidgetsComponentsAnCardWidget, AnCardWidget_HoverAnimationSetupDoesNotCrashWhenEnabled)
-{
-    ScopedAnimationRestore guard;
-    an::ui::AnimationUtils::setAnimationsEnabled(true);
-
-    an::ui::AnCardWidget card;
-    card.refreshTheme();
-
-    QEvent enterEv(QEvent::Enter);
-    QCoreApplication::sendEvent(&card, &enterEv);
-
-    QEvent leaveEv(QEvent::Leave);
-    QCoreApplication::sendEvent(&card, &leaveEv);
-    SUCCEED();
+    EXPECT_EQ(renderedCenterColor(card), resting) << "the card answered the pointer leaving it";
 }
 
 TEST(WidgetsComponentsAnCardWidget, AnCardWidget_DisabledStateGraysTextAndSuppressesHover)

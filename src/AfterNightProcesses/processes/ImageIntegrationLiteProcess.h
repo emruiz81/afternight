@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 class IntegrationDataModel;
 class QWidget;
@@ -27,11 +28,10 @@ class WorkflowRunView;
 
 /// Image Integration Lite: lights and optional masters on one page, sensible defaults, one button.
 ///
-/// **Shown as a page** it is its page whole, and a run it starts is shown in the page, not in the Processing window
-/// over the application (`showWorkflowRun`): the run's own view takes the process's place until the run has ended and
-/// its Close is pressed, which gives the page back to the process. The page's primary action is Run Integration, and
-/// the page's Cancel is the run's own. In a window of its own nothing of this happens: the Processing window shows the
-/// run, as it always has.
+/// **A run it starts is shown in itself** (`showWorkflowRun`): the run's own view takes the process's place until the
+/// run has ended and its Close is pressed, which gives the place back to the process. Shown as a page, it is its page
+/// whole and the view takes the page's area; the page's primary action is Run Integration, and the page's Cancel is the
+/// run's own. In a window of its own the view takes the place of what the window lays out.
 class AFTERNIGHTPROCESSES_API ImageIntegrationLiteProcess : public TopLevelProcessBaseControl, public IWorkflowRunHost
 {
 public:
@@ -47,15 +47,14 @@ public:
     /// A page's primary action: the Run Integration button, pressed when it is offered and no run is on its way.
     bool triggerPrimaryAction() override;
 
-    /// Stops the run on its way through the run's own view - the page's, or the Processing window's over a window of
-    /// its own - as the view's Cancel does.
+    /// Stops the run on its way through the run's own view, as the view's Cancel does.
     bool cancelRun() override;
 
-    /// Shown as a page, takes the view of a run that starts and shows it in the page, in the process's place; in a
-    /// window of its own it takes none, and the Processing window opens.
+    /// Takes the view of a run that starts and shows it in the process's place: in the page's area as a page, and in
+    /// a window of its own in place of what the window lays out.
     bool showWorkflowRun(WorkflowRunView* view) override;
 
-    /// The view of the run the page shows - on its way, or ended and not yet closed; null in a window, and with none.
+    /// The view of the run the process shows - on its way, or ended and not yet closed; null with none.
     [[nodiscard]] WorkflowRunView* runView() const noexcept;
 
     /// States the stages a run this process starts goes through in place of the workflow's own: a pipeline of a
@@ -76,7 +75,9 @@ protected:
     [[nodiscard]] std::unique_ptr<an::ui::ProcessPageLayout> makePageLayout() override;
 
 private:
-    /// Takes the view of a run that has ended off the page and gives the page back to the process.
+    /// Shows a run's view in a window of its own: what the window lays out is hidden while the view takes its place.
+    bool showRunInItsBody(WorkflowRunView* view);
+    /// Takes the view of a run that has ended away and gives its place back to the process.
     void dismissRun();
     void setupConnections();
     void onAddFiles();
@@ -115,8 +116,11 @@ private:
     bool m_importInProgress = false;
     bool m_suppressFrameTableRefresh = false;
 
-    /// The view of the run the page shows; null in a window, and while the page shows the process.
+    /// The view of the run the process shows; null while it shows the process.
     QPointer<WorkflowRunView> m_runView;
+
+    /// What a window of its own laid out and hid for a run's view, shown again when the view is closed.
+    std::vector<QPointer<QWidget>> m_heldForRun;
 
     /// The stages a run goes through in place of the workflow's own; none runs the workflow.
     std::function<std::unique_ptr<WorkflowExecutor>()> m_runPipeline;

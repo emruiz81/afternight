@@ -3,12 +3,28 @@
 
 #include <gtest/gtest.h>
 
+#include <QImage>
 #include <QLabel>
+#include <QPixmap>
 
 #include "components/AnInfoBanner.h"
 #include "theme/AnDesignTokens.h"
 #include "theme_test_utils.h"
 
+namespace
+{
+
+/// The colour the banner paints at its start, in the middle of its height: its tone's bar.
+QColor barColour(an::ui::AnInfoBanner& banner)
+{
+    banner.resize(320, 48);
+    const QImage painted = banner.grab().toImage();
+    return painted.pixelColor(1, painted.height() / 2);
+}
+
+} // namespace
+
+// A note says its tone by a bar of the tone's colour at its start; its message is in the primary text.
 TEST(WidgetsComponentsAnInfoBanner, AnInfoBanner_ShowsInfoTone)
 {
     an::tests::widgets::ScopedPaletteOverride paletteOverride;
@@ -18,11 +34,11 @@ TEST(WidgetsComponentsAnInfoBanner, AnInfoBanner_ShowsInfoTone)
     an::ui::refreshTokens();
     banner.refreshTheme();
 
-    // Tone color is applied to the message label via palette (WindowText role).
-    const QColor msgColor = banner.messageLabel()->palette().color(QPalette::WindowText);
-    EXPECT_EQ(msgColor, an::ui::tokens().colors.statusInfo);
+    EXPECT_EQ(banner.messageLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.textPrimary);
+    EXPECT_EQ(barColour(banner), an::ui::tokens().colors.statusInfo);
 }
 
+// A warning and an error are told by their bars; the message stays in the primary text.
 TEST(WidgetsComponentsAnInfoBanner, AnInfoBanner_ShowsWarningAndErrorTones)
 {
     an::tests::widgets::ScopedPaletteOverride paletteOverride;
@@ -32,11 +48,13 @@ TEST(WidgetsComponentsAnInfoBanner, AnInfoBanner_ShowsWarningAndErrorTones)
     an::ui::refreshTokens();
     banner.refreshTheme();
 
-    EXPECT_EQ(banner.messageLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.statusWarning);
+    EXPECT_EQ(banner.messageLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.textPrimary);
+    EXPECT_EQ(barColour(banner), an::ui::tokens().colors.statusWarning);
 
     banner.setTone(an::ui::AnInfoBanner::Tone::Error);
     banner.refreshTheme();
-    EXPECT_EQ(banner.messageLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.statusError);
+    EXPECT_EQ(banner.messageLabel()->palette().color(QPalette::WindowText), an::ui::tokens().colors.textPrimary);
+    EXPECT_EQ(barColour(banner), an::ui::tokens().colors.statusError);
 }
 
 TEST(WidgetsComponentsAnInfoBanner, AnInfoBanner_UpdatesMessage)

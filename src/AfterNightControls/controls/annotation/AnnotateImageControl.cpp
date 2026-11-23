@@ -2035,17 +2035,14 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     description->setWordWrap(true);
     description->setProperty("anStatusTone", QStringLiteral("secondary"));
     root->addWidget(description);
-    if (windowsTakeHeadings())
-    {
-        // Under the Observatory profile the two lines are a window's heading, which says the image too.
-        auto* const windowHeading = new AnWindowHeading(heading->text(), description->text(), this);
-        windowHeading->setEyebrow(
-            windowEyebrow(translated("Analysis"),
-                          viewControl != nullptr ? QString::fromStdString(viewControl->getUniqueName()) : QString()));
-        root->insertWidget(0, windowHeading);
-        heading->setVisible(false);
-        description->setVisible(false);
-    }
+    // The two lines are a window's heading, which says the image too.
+    auto* const windowHeading = new AnWindowHeading(heading->text(), description->text(), this);
+    windowHeading->setEyebrow(
+        windowEyebrow(translated("Analysis"),
+                      viewControl != nullptr ? QString::fromStdString(viewControl->getUniqueName()) : QString()));
+    root->insertWidget(0, windowHeading);
+    heading->setVisible(false);
+    description->setVisible(false);
 
     impl.banner = new AnInfoBanner(QString(), AnInfoBanner::Tone::Info, this);
     impl.banner->setObjectName(QStringLiteral("annotateBanner"));
@@ -2061,16 +2058,13 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     scroll->setWidget(impl.buildChoices(scroll));
     scroll->setMinimumWidth(360);
     scroll->setMaximumWidth(420);
-    if (windowsTakeHeadings())
-    {
-        // Under the Observatory profile the choices are wider than the column drawn for them: the column takes the
-        // width they and its scroll bar need, so none of them is cut at its right.
-        const int needed = scroll->widget()->minimumSizeHint().width() +
-                           scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, scroll) +
-                           2 * scroll->frameWidth();
-        scroll->setMinimumWidth((std::max)(scroll->minimumWidth(), needed));
-        scroll->setMaximumWidth((std::max)(scroll->maximumWidth(), needed));
-    }
+    // The choices may be wider than the column drawn for them: the column takes the width they and its scroll bar need,
+    // so none of them is cut at its right.
+    const int needed = scroll->widget()->minimumSizeHint().width() +
+                       scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, scroll) +
+                       2 * scroll->frameWidth();
+    scroll->setMinimumWidth((std::max)(scroll->minimumWidth(), needed));
+    scroll->setMaximumWidth((std::max)(scroll->maximumWidth(), needed));
     body->addWidget(scroll);
 
     auto* previewColumn = new QVBoxLayout();
@@ -2117,24 +2111,15 @@ AnnotateImageControl::AnnotateImageControl(ImageViewControl* viewControl, QWidge
     auto* close = new QPushButton(translated("Close"), this);
     close->setObjectName(QStringLiteral("annotateClose"));
     close->setProperty("anProcessButtonRole", QStringLiteral("secondary"));
-    if (windowsTakeHeadings())
-    {
-        // The primary button is the footer's rightmost, the other way of taking the picture beside it in the tonal
-        // fill, and the keyboard reaches the buttons in the order they stand.
-        impl.openButton->setProperty("anButtonVariant", QStringLiteral("tonal"));
-        buttons->addWidget(close);
-        buttons->addWidget(impl.openButton);
-        buttons->addWidget(impl.exportButton);
-        QWidget::setTabOrder(reset, close);
-        QWidget::setTabOrder(close, impl.openButton);
-        QWidget::setTabOrder(impl.openButton, impl.exportButton);
-    }
-    else
-    {
-        buttons->addWidget(impl.openButton);
-        buttons->addWidget(impl.exportButton);
-        buttons->addWidget(close);
-    }
+    // The primary button is the footer's rightmost, the other way of taking the picture beside it in the tonal fill,
+    // and the keyboard reaches the buttons in the order they stand.
+    impl.openButton->setProperty("anButtonVariant", QStringLiteral("tonal"));
+    buttons->addWidget(close);
+    buttons->addWidget(impl.openButton);
+    buttons->addWidget(impl.exportButton);
+    QWidget::setTabOrder(reset, close);
+    QWidget::setTabOrder(close, impl.openButton);
+    QWidget::setTabOrder(impl.openButton, impl.exportButton);
     root->addLayout(buttons);
 
     impl.drawingTimer = new QTimer(this);

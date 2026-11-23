@@ -4,11 +4,11 @@
 #pragma once
 
 /// @file
-/// Home's quick actions: the dashboard's actions, as the person arranged them on the dashboard or here - the same
-/// settings - in a row of buttons, Open file the accent's and the others tonal, each with its shortcut; the others in a
-/// More menu with the customization; and the customization again on the row's right-click. A shell adds what only it
-/// offers - New project - after the dashboard's actions and before More: an action the dashboard's settings do not
-/// know, so it is neither moved, hidden nor reset.
+/// Home's quick actions: the dashboard's actions, as the person arranged them on AfterNight 1.1's dashboard or
+/// here - the same settings - in a row of buttons, Open file the accent's and the others tonal, each with its shortcut;
+/// the others in a More menu with the customization; and the customization again on the row's right-click. A shell adds
+/// what only it offers - New project - after the dashboard's actions and before More: an action the dashboard's
+/// settings do not know, so it is neither moved, hidden nor reset.
 
 #include "AfterNightControlsExport.h"
 

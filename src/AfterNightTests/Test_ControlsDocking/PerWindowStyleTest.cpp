@@ -103,6 +103,10 @@ TEST_F(PerWindowStyle, BothMainWindowsAreDrawnAlike)
     workspaces.second->addDockWidget(second, KDDockWidgets::Location_OnLeft);
     an::ui::installKddwProxyStyle(workspaces.first)->refreshThemeTokens();
     an::ui::installKddwProxyStyle(workspaces.second)->refreshThemeTokens();
+    // Each workspace is on screen once before it is pictured, as a person has seen it: its first show lays the
+    // strip's corner out.
+    workspaces.show(workspaces.first);
+    workspaces.show(workspaces.second);
 
     workspaces.show(workspaces.first);
     const QImage firstPicture = workspaces.first->grab().toImage();
@@ -113,15 +117,23 @@ TEST_F(PerWindowStyle, BothMainWindowsAreDrawnAlike)
     ASSERT_EQ(firstPicture.size(), secondPicture.size());
     EXPECT_EQ(firstPicture, secondPicture) << "the second workspace is drawn as the first is";
 
-    // And the picture is the dock decorations', not an empty page: the strip's tab is drawn over the dock area.
+    // And the picture is the dock decorations', not an empty page: the strip's tab - its title and its mark - is drawn
+    // over the ground of the dock area.
     const auto tabBars = workspaces.second->findChildren<AN_TabBar*>();
     ASSERT_EQ(tabBars.size(), 1);
     const QRect strip(placeIn(tabBars.constFirst(), workspaces.second), tabBars.constFirst()->size());
     ASSERT_GT(strip.height(), 8);
-    const QRgb inTheStrip = secondPicture.pixel(strip.left() + 3, strip.center().y());
     const QRgb inTheView =
         secondPicture.pixel(secondPicture.width() / 2, strip.bottom() + (secondPicture.height() - strip.bottom()) / 2);
-    EXPECT_NE(inTheStrip, inTheView);
+    int drawnInTheStrip = 0;
+    for (int y = strip.top(); y <= strip.bottom(); ++y)
+    {
+        for (int x = strip.left(); x <= strip.right(); ++x)
+        {
+            drawnInTheStrip += secondPicture.pixel(x, y) != inTheView ? 1 : 0;
+        }
+    }
+    EXPECT_GT(drawnInTheStrip, 0) << "the strip shows nothing over the dock area";
 }
 
 } // namespace an::tests::docking

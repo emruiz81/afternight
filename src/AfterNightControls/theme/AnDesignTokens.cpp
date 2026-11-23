@@ -35,15 +35,6 @@ QColor withAlpha(QColor color, const int alpha)
     return color;
 }
 
-QColor blendRgb(const QColor& base, const QColor& tint, const double ratio)
-{
-    const double t = std::clamp(ratio, 0.0, 1.0);
-    const auto lerp = [t](const int a, const int b) { return static_cast<int>(a + (b - a) * t); };
-
-    return QColor(lerp(base.red(), tint.red()), lerp(base.green(), tint.green()), lerp(base.blue(), tint.blue()),
-                  base.alpha());
-}
-
 const an::ui::DesignTokens& designTokensForVariant(const an::ui::ThemeVariant themeVariant)
 {
     return themeVariant == an::ui::ThemeVariant::Dark ? an::ui::resolvedDarkTokens() : an::ui::resolvedLightTokens();
@@ -161,7 +152,12 @@ const char* surfaceTintFamilyLabel(const an::ui::ThemeSurfaceTintFamily family)
 
 const char* styleProfileLabel(const an::ui::StyleProfile profile)
 {
-    return profile == an::ui::StyleProfile::Observatory ? "observatory" : "classic";
+    switch (profile)
+    {
+    case an::ui::StyleProfile::Observatory:
+        return "observatory";
+    }
+    return "unknown";
 }
 
 const char* densityLabel(const an::ui::ThemeDensity density)
@@ -186,75 +182,22 @@ const char* tintStrengthLabel(const an::ui::ThemeTintStrength strength)
     return "unknown";
 }
 
-struct ContrastValidationRule
-{
-    const char* name = "";
-    QColor foreground;
-    QColor background;
-    double minimumRatio = 4.5;
-};
-
 void validateTokenContrastRatios(const an::ui::DesignTokens& tokenSet, const an::ui::ThemeChoices& choices)
 {
 #ifndef NDEBUG
-    const bool canLogWarnings = an::platform::isLoggingInitialized();
-    const bool darkVariant = choices.theme == an::ui::ThemeVariant::Dark;
-    const auto& c = tokenSet.colors;
-
-    // The Observatory profile is held to its own rules, which its suite enumerates for every combination.
-    if (choices.profile == an::ui::StyleProfile::Observatory)
+    // The profile is held to its own rules, which its suite enumerates for every combination.
+    if (!an::platform::isLoggingInitialized())
     {
-        if (!canLogWarnings)
-        {
-            return;
-        }
-        for (const an::ui::ContrastFailure& failure : an::ui::observatoryContrastFailures(tokenSet, choices))
-        {
-            LOG_WARNING("Theme token contrast validation failed [observatory|{}|{}|{}|{}|{}] {}: {:.2f} < {:.2f}",
-                        themeVariantLabel(darkVariant), contrastProfileLabel(choices.contrast),
-                        accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint),
-                        tintStrengthLabel(choices.tintStrength), failure.pair.toStdString(), failure.ratio,
-                        failure.minimum);
-        }
         return;
     }
-
-    const QColor warningBackground = compositeOver(c.statusWarningSoft, c.bgCardSecondary);
-    const QColor warningText = blendRgba(c.textPrimary, c.statusWarning, darkVariant ? 0.34 : 0.56);
-
-    const QColor dangerBackground = compositeOver(c.statusErrorSoft, c.bgCardSecondary);
-    const QColor dangerText = blendRgba(c.textPrimary, c.statusError, darkVariant ? 0.34 : 0.52);
-
-    const QColor successBackground = compositeOver(c.statusSuccessSoft, c.bgCardSecondary);
-    const QColor successText = blendRgba(c.textPrimary, c.statusSuccess, darkVariant ? 0.34 : 0.56);
-
-    const QColor infoBackground = compositeOver(c.statusInfoSoft, c.bgCardSecondary);
-    const QColor infoText = blendRgba(c.textPrimary, c.statusInfo, darkVariant ? 0.34 : 0.56);
-
-    const std::array<ContrastValidationRule, 10> checks = {{
-        {"text.primary on bg.surface", c.textPrimary, c.bgSurface, 4.5},
-        {"text.primary on bg.cardPrimary", c.textPrimary, c.bgCardPrimary, 4.5},
-        {"text.secondary on bg.surface", c.textSecondary, c.bgSurface, 3.0},
-        {"text.secondary on bg.cardPrimary", c.textSecondary, c.bgCardPrimary, 3.0},
-        {"text.accent on bg.surface", c.textAccent, c.bgSurface, 3.0},
-        {"text.onAccent on accent.primary", c.textOnAccent, c.accentPrimary, 4.5},
-        {"warning.text on warning.background", warningText, warningBackground, 3.0},
-        {"danger.text on danger.background", dangerText, dangerBackground, 3.0},
-        {"success.text on success.background", successText, successBackground, 3.0},
-        {"info.text on info.background", infoText, infoBackground, 3.0},
-    }};
-
-    for (const auto& check : checks)
+    const bool darkVariant = choices.theme == an::ui::ThemeVariant::Dark;
+    for (const an::ui::ContrastFailure& failure : an::ui::observatoryContrastFailures(tokenSet, choices))
     {
-        const QColor effectiveForeground = compositeOver(check.foreground, check.background);
-        const double ratio = contrastRatio(effectiveForeground, check.background);
-        if (canLogWarnings && ratio + 1e-6 < check.minimumRatio)
-        {
-            LOG_WARNING("Theme token contrast validation failed [{}|{}|{}|{}] {}: {:.2f} < {:.2f}",
-                        themeVariantLabel(darkVariant), contrastProfileLabel(choices.contrast),
-                        accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint), check.name, ratio,
-                        check.minimumRatio);
-        }
+        LOG_WARNING("Theme token contrast validation failed [observatory|{}|{}|{}|{}|{}] {}: {:.2f} < {:.2f}",
+                    themeVariantLabel(darkVariant), contrastProfileLabel(choices.contrast),
+                    accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint),
+                    tintStrengthLabel(choices.tintStrength), failure.pair.toStdString(), failure.ratio,
+                    failure.minimum);
     }
 #else
     (void)tokenSet;
@@ -328,7 +271,7 @@ void appendIntDumpLine(std::string& report, const char* name, const int value)
     report += fmt::format("  {:<40} {}\n", name, value);
 }
 
-/// The colour roles the Observatory profile names, in the order the structure declares them, for the reports.
+/// The colour roles added to AfterNight 1.1's, in the order the structure declares them, for the reports.
 std::array<std::pair<const char*, const QColor*>, 26u> addedColorRoles(const an::ui::ColorTokens& colors)
 {
     return {{
@@ -618,8 +561,8 @@ std::string buildResolvedTokenDumpReport(const an::ui::DesignTokens& darkTokenSe
     report += fmt::format(
         "Resolved theme tokens report [active={}, profile={}, contrast={}, accent={}, surfaceTint={}, "
         "tintStrength={}, density={}]\n",
-        themeVariantLabel(darkThemeActive), styleProfileLabel(choices.profile), contrastProfileLabel(choices.contrast),
-        accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint),
+        themeVariantLabel(darkThemeActive), styleProfileLabel(an::ui::styleProfile()),
+        contrastProfileLabel(choices.contrast), accentFamilyLabel(choices.accent), surfaceTintFamilyLabel(choices.tint),
         tintStrengthLabel(choices.tintStrength), densityLabel(choices.density));
     appendDesignTokenDumpSection(report, "dark.resolved", darkTokenSet);
     appendDesignTokenDumpSection(report, "light.resolved", lightTokenSet);
@@ -712,303 +655,6 @@ QColor semanticColorFromTokens(const an::ui::ThemeVariant themeVariant, const an
     return c.textPrimary;
 }
 
-QColor adjustSaturationValue(const QColor& color, const double saturationScale, const double valueScale)
-{
-    float hue = 0.0F;
-    float saturation = 0.0F;
-    float value = 0.0F;
-    float alpha = 0.0F;
-    color.getHsvF(&hue, &saturation, &value, &alpha);
-
-    saturation = static_cast<float>(std::clamp(saturation * saturationScale, 0.0, 1.0));
-    value = static_cast<float>(std::clamp(value * valueScale, 0.0, 1.0));
-
-    QColor adjusted;
-    adjusted.setHsvF(hue, saturation, value, alpha);
-    return adjusted;
-}
-
-namespace Palette
-{
-constexpr QColor Blue300(147, 197, 253);
-constexpr QColor Blue400(96, 165, 250);
-constexpr QColor Blue500(59, 130, 246);
-constexpr QColor Blue600(37, 99, 235);
-constexpr QColor Blue700(29, 78, 216);
-constexpr QColor Blue800(30, 64, 175);
-
-constexpr QColor Teal300(94, 234, 212);
-constexpr QColor Teal400(45, 212, 191);
-constexpr QColor Teal500(20, 184, 166);
-constexpr QColor Teal600(13, 148, 136);
-constexpr QColor Teal700(15, 118, 110);
-constexpr QColor Teal800(17, 94, 89);
-
-constexpr QColor Amber200(253, 230, 138);
-constexpr QColor Amber300(252, 211, 77);
-constexpr QColor Amber400(251, 191, 36);
-constexpr QColor Amber500(245, 158, 11);
-constexpr QColor Amber600(217, 119, 6);
-constexpr QColor Amber700(180, 83, 9);
-constexpr QColor Amber800(146, 64, 14);
-
-constexpr QColor Amethyst300(196, 181, 253);
-constexpr QColor Amethyst400(167, 139, 250);
-constexpr QColor Amethyst500(139, 92, 246);
-constexpr QColor Amethyst600(124, 58, 237);
-constexpr QColor Amethyst700(109, 40, 217);
-constexpr QColor Amethyst800(91, 33, 182);
-
-constexpr QColor Rose300(253, 164, 175);
-constexpr QColor Rose400(251, 113, 133);
-constexpr QColor Rose500(244, 63, 94);
-constexpr QColor Rose600(225, 29, 72);
-constexpr QColor Rose700(190, 18, 60);
-constexpr QColor Rose800(159, 18, 57);
-} // namespace Palette
-
-struct AccentFamilyPalette
-{
-    QColor textAccent;
-    QColor borderFocus;
-    QColor statusInfo;
-    QColor accentPrimary;
-    QColor accentHover;
-    QColor accentPressed;
-    int accentDisabledAlpha = 96;
-};
-
-AccentFamilyPalette accentFamilyPalette(const bool darkVariant, const an::ui::ThemeAccentFamily family)
-{
-    using an::ui::ThemeAccentFamily;
-
-    if (darkVariant)
-    {
-        switch (family)
-        {
-        case ThemeAccentFamily::Amethyst:
-            return {
-                Palette::Amethyst300, // textAccent: #C4B5FD
-                withAlpha(Palette::Amethyst500, 206), // borderFocus: #8B5CF6
-                Palette::Amethyst500, // statusInfo: #8B5CF6
-                Palette::Amethyst500, // accentPrimary: #8B5CF6
-                Palette::Amethyst400, // accentHover: #A78BFA
-                Palette::Amethyst600, // accentPressed: #7C3AED
-                90,
-            };
-        case ThemeAccentFamily::Rose:
-            return {
-                Palette::Rose300, // textAccent: #FDA4AF
-                withAlpha(Palette::Rose500, 206), // borderFocus: #F43F5E
-                Palette::Rose500, // statusInfo: #F43F5E
-                Palette::Rose500, // accentPrimary: #F43F5E
-                Palette::Rose400, // accentHover: #FB7185
-                Palette::Rose600, // accentPressed: #E11D48
-                90,
-            };
-        case ThemeAccentFamily::Teal:
-            return {
-                Palette::Teal300, // textAccent: #5EEAD4
-                withAlpha(Palette::Teal400, 206), // borderFocus: #2DD4BF
-                Palette::Teal400, // statusInfo: #2DD4BF
-                Palette::Teal400, // accentPrimary: #2DD4BF
-                Palette::Teal300, // accentHover: #5EEAD4
-                Palette::Teal500, // accentPressed: #14B8A6
-                90,
-            };
-        case ThemeAccentFamily::Amber:
-            return {
-                Palette::Amber200, // textAccent: #FDE68A
-                withAlpha(Palette::Amber400, 206), // borderFocus: #FBBF24
-                Palette::Amber400, // statusInfo: #FBBF24
-                Palette::Amber400, // accentPrimary: #FBBF24
-                Palette::Amber300, // accentHover: #FCD34D
-                Palette::Amber500, // accentPressed: #F59E0B
-                90,
-            };
-        case ThemeAccentFamily::Blue:
-        default:
-            return {
-                Palette::Blue300, // textAccent: #93C5FD
-                withAlpha(Palette::Blue400, 206), // borderFocus: #60A5FA
-                Palette::Blue400, // statusInfo: #60A5FA
-                Palette::Blue400, // accentPrimary: #60A5FA
-                Palette::Blue300, // accentHover: #93C5FD
-                Palette::Blue500, // accentPressed: #3B82F6
-                90,
-            };
-        }
-    }
-
-    switch (family)
-    {
-    case ThemeAccentFamily::Amethyst:
-        return {
-            Palette::Amethyst700, // textAccent: #6D28D9
-            withAlpha(Palette::Amethyst600, 205), // borderFocus: #7C3AED
-            Palette::Amethyst600, // statusInfo: #7C3AED
-            Palette::Amethyst600, // accentPrimary: #7C3AED
-            Palette::Amethyst700, // accentHover: #6D28D9
-            Palette::Amethyst800, // accentPressed: #5B21B6
-            96,
-        };
-    case ThemeAccentFamily::Rose:
-        return {
-            Palette::Rose700, // textAccent: #BE123C
-            withAlpha(Palette::Rose600, 205), // borderFocus: #E11D48
-            Palette::Rose600, // statusInfo: #E11D48
-            Palette::Rose600, // accentPrimary: #E11D48
-            Palette::Rose700, // accentHover: #BE123C
-            Palette::Rose800, // accentPressed: #9F1239
-            96,
-        };
-    case ThemeAccentFamily::Teal:
-        return {
-            Palette::Teal700, // textAccent: #0F766E
-            withAlpha(Palette::Teal600, 205), // borderFocus: #0D9488
-            Palette::Teal600, // statusInfo: #0D9488
-            Palette::Teal600, // accentPrimary: #0D9488
-            Palette::Teal700, // accentHover: #0F766E
-            Palette::Teal800, // accentPressed: #115E59
-            96,
-        };
-    case ThemeAccentFamily::Amber:
-        return {
-            Palette::Amber700, // textAccent: #B45309
-            withAlpha(Palette::Amber600, 205), // borderFocus: #D97706
-            Palette::Amber600, // statusInfo: #D97706
-            Palette::Amber600, // accentPrimary: #D97706
-            Palette::Amber700, // accentHover: #B45309
-            Palette::Amber800, // accentPressed: #92400E
-            96,
-        };
-    case ThemeAccentFamily::Blue:
-    default:
-        return {
-            Palette::Blue700, // textAccent: #1D4ED8
-            withAlpha(Palette::Blue600, 205), // borderFocus: #2563EB
-            Palette::Blue600, // statusInfo: #2563EB
-            Palette::Blue600, // accentPrimary: #2563EB
-            Palette::Blue700, // accentHover: #1D4ED8
-            Palette::Blue800, // accentPressed: #1E40AF
-            96,
-        };
-    }
-}
-
-an::ui::DesignTokens applyThemeAccentFamily(const an::ui::DesignTokens& base, const bool darkVariant,
-                                            const an::ui::ThemeAccentFamily family)
-{
-    an::ui::DesignTokens tokenSet = base;
-    auto& c = tokenSet.colors;
-
-    const AccentFamilyPalette palette = accentFamilyPalette(darkVariant, family);
-    c.textAccent = palette.textAccent;
-    c.borderFocus = palette.borderFocus;
-    c.statusInfo = palette.statusInfo;
-    c.accentPrimary = palette.accentPrimary;
-    c.accentHover = palette.accentHover;
-    c.accentPressed = palette.accentPressed;
-    c.accentDisabled = withAlpha(c.accentPrimary, palette.accentDisabledAlpha);
-    return tokenSet;
-}
-
-QColor surfaceTintColor(const bool darkVariant, const an::ui::ThemeSurfaceTintFamily family)
-{
-    using an::ui::ThemeSurfaceTintFamily;
-
-    if (darkVariant)
-    {
-        switch (family)
-        {
-        case ThemeSurfaceTintFamily::Ocean:
-            return Palette::Blue500; // #3B82F6 (Vibrant Azure)
-        case ThemeSurfaceTintFamily::Mint:
-            return Palette::Teal500; // #14B8A6 (Mint/Emerald)
-        case ThemeSurfaceTintFamily::Amethyst:
-            return Palette::Amethyst500; // #8B5CF6 (Electric Violet)
-        case ThemeSurfaceTintFamily::Rose:
-            return Palette::Rose500; // #F43F5E (Energetic Rose)
-        case ThemeSurfaceTintFamily::Amber:
-            return Palette::Amber500; // #F59E0B (Warm Amber)
-        case ThemeSurfaceTintFamily::Neutral:
-        default:
-            return QColor();
-        }
-    }
-
-    switch (family)
-    {
-    case ThemeSurfaceTintFamily::Ocean:
-        return Palette::Blue600; // #2563EB (Royal Blue)
-    case ThemeSurfaceTintFamily::Mint:
-        return Palette::Teal600; // #0D9488 (Deep Teal)
-    case ThemeSurfaceTintFamily::Amethyst:
-        return Palette::Amethyst600; // #7C3AED (Deep Violet)
-    case ThemeSurfaceTintFamily::Rose:
-        return Palette::Rose600; // #E11D48 (Deep Rose)
-    case ThemeSurfaceTintFamily::Amber:
-        return Palette::Amber600; // #D97706 (Deep Amber)
-    case ThemeSurfaceTintFamily::Neutral:
-    default:
-        return QColor();
-    }
-}
-
-QColor surfaceTintBorderColor(const bool darkVariant, const an::ui::ThemeSurfaceTintFamily family)
-{
-    using an::ui::ThemeSurfaceTintFamily;
-
-    // For modern subtle borders, we can derive the border from the primary tint but slightly desaturated
-    // or just return the primary tint itself, as AnDesignTokens.cpp will blend it further.
-    if (darkVariant)
-    {
-        switch (family)
-        {
-        case ThemeSurfaceTintFamily::Ocean:
-            return Palette::Blue400; // Lighter Azure
-        case ThemeSurfaceTintFamily::Mint:
-            return Palette::Teal400; // Lighter Mint
-        case ThemeSurfaceTintFamily::Amethyst:
-            return Palette::Amethyst400; // Lighter Violet
-        case ThemeSurfaceTintFamily::Rose:
-            return Palette::Rose400; // Lighter Rose
-        case ThemeSurfaceTintFamily::Amber:
-            return Palette::Amber400; // Lighter Amber
-        case ThemeSurfaceTintFamily::Neutral:
-        default:
-            return QColor();
-        }
-    }
-
-    switch (family)
-    {
-    case ThemeSurfaceTintFamily::Ocean:
-        return Palette::Blue500; // Lighter Royal
-    case ThemeSurfaceTintFamily::Mint:
-        return Palette::Teal500; // Lighter Teal
-    case ThemeSurfaceTintFamily::Amethyst:
-        return Palette::Amethyst500; // Lighter Violet
-    case ThemeSurfaceTintFamily::Rose:
-        return Palette::Rose500; // Lighter Rose
-    case ThemeSurfaceTintFamily::Amber:
-        return Palette::Amber500; // Lighter Amber
-    case ThemeSurfaceTintFamily::Neutral:
-    default:
-        return QColor();
-    }
-}
-
-an::ui::DesignTokens applyThemeSurfaceTintFamily(const an::ui::DesignTokens& base, const bool darkVariant,
-                                                 const an::ui::ThemeSurfaceTintFamily family)
-{
-    an::ui::DesignTokens tokenSet = base;
-    auto& c = tokenSet.colors;
-    c.cardSurfaceTint = surfaceTintColor(darkVariant, family);
-    c.cardSurfaceBorderTint = surfaceTintBorderColor(darkVariant, family);
-    return tokenSet;
-}
-
 void refreshLayerAndMaterialMappings(an::ui::DesignTokens& tokenSet)
 {
     tokenSet.layers.surface0 = tokenSet.colors.bgPrimary;
@@ -1031,62 +677,6 @@ bool detectNativeBackdropSupport()
 #else
     return false;
 #endif
-}
-
-/// The roles the Observatory profile names, as AfterNight 1.1 paints them, each taken from where 1.1 has it, so that a
-/// widget shared by both profiles paints under Classic what it painted. Applied to a resolved set: they follow its
-/// accent and its surfaces. `darkWindow` is the dark theme's resolved window, which the viewer's overlays use in both
-/// themes.
-void applyClassicColorRoles(an::ui::DesignTokens& tokenSet, const bool darkVariant, const QColor& darkWindow)
-{
-    auto& c = tokenSet.colors;
-    const auto& layers = tokenSet.layers;
-
-    // The view's background around an image: the window mixed toward its border (imageViewScrollAreaWindowColor).
-    c.bgCanvas = blendRgb(layers.surface0, c.borderPrimary, darkVariant ? 0.22 : 0.52);
-    // A plot is drawn on the dark theme's window as it is before any choice, in both themes
-    // (HistogramWidget::getBackgroundColor).
-    c.bgWell = an::ui::darkTokens().colors.bgPrimary;
-    // 1.1 draws one transient message, the histogram's coordinates: the surface at 200 under the primary text
-    // (HistogramWidget::refreshOverlayColors).
-    c.bgSnack = withAlpha(c.bgSurface, 200);
-    c.textOnSnack = c.textPrimary;
-    // A hovered control is filled with the hover surface, not laid over (AnProxyStyle).
-    c.stateLayer = c.bgHover;
-    // The viewer's overlays lie on the dark theme's window at 170 in both themes (imageViewOverlayBackdropColor); a
-    // chip on a thumbnail on the theme's window at 170, or 190 in the light theme (ImageThumbnailWidget).
-    c.scrim = withAlpha(darkWindow, 170);
-    c.scrimSoft = withAlpha(layers.surface0, darkVariant ? 170 : 190);
-    // A menu's frame (AnProxyStyle).
-    c.edge = c.borderSubtle;
-    // The featured card's title and details over its picture (FeaturedFileCard).
-    c.textOnImage = QColor(255, 255, 255, 240);
-    c.textOnImageSecondary = QColor(255, 255, 255, 190);
-    // A selection drawn over the image, and the white edge of the handles drawn on it (ImageViewWidget,
-    // DrawingCanvasController).
-    c.accentOnImage = c.accentPrimary;
-    c.textOnAccentImage = QColor(255, 255, 255);
-    // A chosen item's highlight (SemanticColorRole::HighlightBackground), whose text stays the primary text
-    // (ImageSelectorControl).
-    c.accentContainer = blendRgba(layers.surface2, c.accentPrimary, darkVariant ? 0.18 : 0.12);
-    c.textOnAccentContainer = c.textPrimary;
-    // A slider's groove (AnProxyStyle).
-    c.accentTrack = c.borderSubtle;
-    // A selected row (AnProxyStyle), the lighter accent wash (SemanticColorRole::AccentSoft) and the focus line.
-    c.accentSoft = withAlpha(c.accentPrimary, darkVariant ? 116 : 84);
-    c.accentSofter = withAlpha(c.accentPrimary, darkVariant ? 46 : 36);
-    c.accentLine = c.borderFocus;
-    // The channel selectors' dots (icons/PNG/red_circle.png and its two siblings); the luminance has no dot, and its
-    // legend is drawn in the primary text (QualityDistributionWidget).
-    c.channelRed = QColor(255, 0, 0);
-    c.channelGreen = QColor(166, 215, 133);
-    c.channelBlue = QColor(65, 105, 225);
-    c.channelGray = c.textPrimary;
-    // The histogram's curves: the pure primaries, and white for a mono image (HistogramWidget).
-    c.plotRed = QColor(255, 0, 0);
-    c.plotGreen = QColor(0, 255, 0);
-    c.plotBlue = QColor(0, 0, 255);
-    c.plotGray = QColor(255, 255, 255);
 }
 
 an::ui::TypographyTokens createTypographyTokens()
@@ -1119,33 +709,6 @@ an::ui::TypographyTokens createTypographyTokens()
     typography.monospace.setPointSize(typography.body.pointSize());
 
     return typography;
-}
-
-/// A font's size in logical pixels: the pixel size it states, or its point size at the 96 logical dots per inch Qt 6
-/// presents to an application.
-int logicalPixels(const QFont& font)
-{
-    if (font.pixelSize() > 0)
-    {
-        return font.pixelSize();
-    }
-    return static_cast<int>(std::lround(font.pointSizeF() * 96.0 / 72.0));
-}
-
-/// The sizes AfterNight 1.1 has, where it has one for a role: the height its style gives a field, a combo box, a spin
-/// box and a button at least, the thickness of its scroll bars, the sizes of its type scale (it has two: the body and
-/// the caption, which is also its small text). A role 1.1 has no size for keeps the Compact density's, so that a widget
-/// made for the Observatory profile is sized as it was designed if it is shown under Classic. No Classic painter reads
-/// them: the proxy style's Classic answers are its own (Density.ClassicMetricsAreUnchanged holds them).
-an::ui::MetricTokens classicMetrics(const an::ui::TypographyTokens& typography)
-{
-    an::ui::MetricTokens metrics;
-    metrics.control = 24;
-    metrics.scrollBar = 12;
-    metrics.fontBody = logicalPixels(typography.body);
-    metrics.fontSmall = logicalPixels(typography.caption);
-    metrics.fontCaption = logicalPixels(typography.caption);
-    return metrics;
 }
 
 an::ui::DesignTokens createDarkTokens()
@@ -1200,7 +763,8 @@ an::ui::DesignTokens createDarkTokens()
     refreshLayerAndMaterialMappings(tokenSet);
 
     tokenSet.typography = createTypographyTokens();
-    tokenSet.metrics = classicMetrics(tokenSet.typography);
+    // The default density's sizes, which the resolution sets again for the density in force.
+    an::ui::resolveObservatorySizes(tokenSet, an::ui::ThemeDensity::Compact);
 
     return tokenSet;
 }
@@ -1264,7 +828,8 @@ an::ui::DesignTokens createLightTokens()
     tokenSet.materials.acrylicSurface = tokenSet.colors.bgCard;
 
     tokenSet.typography = createTypographyTokens();
-    tokenSet.metrics = classicMetrics(tokenSet.typography);
+    // The default density's sizes, which the resolution sets again for the density in force.
+    an::ui::resolveObservatorySizes(tokenSet, an::ui::ThemeDensity::Compact);
 
     return tokenSet;
 }
@@ -1289,197 +854,6 @@ bool shouldUseNativeBackdropMaterials(const an::ui::MaterialBackdropMode mode, c
     return mode == an::ui::MaterialBackdropMode::Auto || mode == an::ui::MaterialBackdropMode::PreferNative;
 }
 
-an::ui::DesignTokens applyThemeContrastProfile(const an::ui::DesignTokens& base, const bool darkVariant,
-                                               const an::ui::ThemeContrastProfile profile)
-{
-    an::ui::DesignTokens tokenSet = base;
-
-    const QColor bgTarget = darkVariant ? QColor(0, 0, 0) : QColor(255, 255, 255);
-    const QColor fgTarget = darkVariant ? QColor(255, 255, 255) : QColor(0, 0, 0);
-
-    auto& c = tokenSet.colors;
-    if (profile == an::ui::ThemeContrastProfile::High)
-    {
-        c.bgPrimary = blendRgb(c.bgPrimary, bgTarget, 0.205);
-        c.bgSurface = blendRgb(c.bgSurface, bgTarget, 0.172);
-        c.bgCard = blendRgb(c.bgCard, bgTarget, 0.152);
-        c.bgCardPrimary = blendRgb(c.bgCardPrimary, bgTarget, 0.142);
-        c.bgCardSecondary = blendRgb(c.bgCardSecondary, bgTarget, 0.162);
-        c.bgInput = blendRgb(c.bgInput, bgTarget, 0.132);
-        c.bgHover = blendRgb(c.bgHover, bgTarget, 0.102);
-
-        c.textPrimary = blendRgb(c.textPrimary, fgTarget, 0.115);
-        c.textSecondary = blendRgb(c.textSecondary, fgTarget, 0.135);
-        c.textTertiary = blendRgb(c.textTertiary, fgTarget, 0.125);
-        c.textAccent = adjustSaturationValue(c.textAccent, 1.17, darkVariant ? 1.06 : 0.94);
-
-        c.borderPrimary = blendRgb(c.borderPrimary, fgTarget, 0.18);
-        c.borderSubtle = blendRgb(c.borderSubtle, fgTarget, 0.145);
-        c.borderFocus = adjustSaturationValue(c.borderFocus, 1.17, darkVariant ? 1.07 : 0.93);
-        c.statusInfo = adjustSaturationValue(c.statusInfo, 1.17, darkVariant ? 1.07 : 0.93);
-
-        c.accentPrimary = adjustSaturationValue(c.accentPrimary, 1.24, darkVariant ? 1.08 : 0.92);
-        c.accentHover = adjustSaturationValue(c.accentHover, 1.20, darkVariant ? 1.10 : 0.90);
-        c.accentPressed = adjustSaturationValue(c.accentPressed, 1.21, darkVariant ? 1.05 : 0.95);
-        c.accentDisabled = withAlpha(c.accentPrimary, c.accentDisabled.alpha());
-    }
-    else if (profile == an::ui::ThemeContrastProfile::Soft)
-    {
-        c.bgPrimary = blendRgb(c.bgPrimary, fgTarget, 0.030);
-        c.bgSurface = blendRgb(c.bgSurface, fgTarget, 0.026);
-        c.bgCard = blendRgb(c.bgCard, fgTarget, 0.023);
-        c.bgCardPrimary = blendRgb(c.bgCardPrimary, fgTarget, 0.023);
-        c.bgCardSecondary = blendRgb(c.bgCardSecondary, fgTarget, 0.026);
-        c.bgInput = blendRgb(c.bgInput, fgTarget, 0.023);
-        c.bgHover = blendRgb(c.bgHover, fgTarget, 0.019);
-
-        c.textPrimary = blendRgb(c.textPrimary, c.bgSurface, 0.024);
-        c.textSecondary = blendRgb(c.textSecondary, c.bgSurface, 0.05);
-        c.textTertiary = blendRgb(c.textTertiary, c.bgSurface, 0.07);
-        c.textAccent = adjustSaturationValue(c.textAccent, 0.94, darkVariant ? 0.995 : 1.005);
-
-        c.borderPrimary = blendRgb(c.borderPrimary, c.bgSurface, 0.11);
-        c.borderSubtle = blendRgb(c.borderSubtle, c.bgSurface, 0.13);
-        c.borderFocus = adjustSaturationValue(c.borderFocus, 0.95, 1.00);
-        c.statusInfo = adjustSaturationValue(c.statusInfo, 0.95, 1.00);
-
-        c.accentPrimary = adjustSaturationValue(c.accentPrimary, 0.90, darkVariant ? 0.99 : 1.01);
-        c.accentHover = adjustSaturationValue(c.accentHover, 0.90, darkVariant ? 1.01 : 0.99);
-        c.accentPressed = adjustSaturationValue(c.accentPressed, 0.92, darkVariant ? 0.96 : 1.04);
-        c.accentDisabled = withAlpha(c.accentPrimary, c.accentDisabled.alpha());
-    }
-    else if (profile == an::ui::ThemeContrastProfile::Oled)
-    {
-        if (!darkVariant)
-        {
-            // OLED is a dark-only concept (pure black for AMOLED pixel-off).
-            // In light mode, silently fall back to the Balanced profile.
-            return applyThemeContrastProfile(base, darkVariant, an::ui::ThemeContrastProfile::Balanced);
-        }
-
-        c.bgPrimary = QColor(0, 0, 0, 255);
-        c.bgSurface = QColor(0, 0, 0, 255);
-        c.bgCard = QColor(12, 12, 12, 220);
-        c.bgCardPrimary = QColor(14, 14, 14, 240);
-        c.bgCardSecondary = QColor(8, 8, 8, 220);
-        c.bgInput = QColor(8, 8, 8, 255);
-        c.bgHover = QColor(32, 32, 32, 255);
-
-        c.textPrimary = QColor(255, 255, 255, 255);
-        c.textSecondary = QColor(180, 180, 180, 255);
-        c.textTertiary = QColor(120, 120, 120, 255);
-        c.textAccent = adjustSaturationValue(c.textAccent, 1.10, 1.05);
-
-        c.borderPrimary = QColor(255, 255, 255, 40);
-        c.borderSubtle = QColor(255, 255, 255, 20);
-
-        c.borderFocus = adjustSaturationValue(c.borderFocus, 1.10, 1.05);
-        c.statusSuccess = adjustSaturationValue(c.statusSuccess, 1.10, 1.05);
-        c.statusWarning = adjustSaturationValue(c.statusWarning, 1.10, 1.05);
-        c.statusError = adjustSaturationValue(c.statusError, 1.10, 1.05);
-        c.statusInfo = adjustSaturationValue(c.statusInfo, 1.10, 1.05);
-        c.accentPrimary = adjustSaturationValue(c.accentPrimary, 1.15, 1.05);
-        c.accentHover = adjustSaturationValue(c.accentHover, 1.15, 1.05);
-        c.accentPressed = adjustSaturationValue(c.accentPressed, 1.15, 1.00);
-        c.accentDisabled = withAlpha(c.accentPrimary, c.accentDisabled.alpha());
-    }
-    else
-    {
-        c.bgPrimary = blendRgb(c.bgPrimary, bgTarget, 0.010);
-        c.bgSurface = blendRgb(c.bgSurface, bgTarget, 0.008);
-        c.bgCard = blendRgb(c.bgCard, bgTarget, 0.007);
-        c.bgCardPrimary = blendRgb(c.bgCardPrimary, bgTarget, 0.006);
-        c.bgCardSecondary = blendRgb(c.bgCardSecondary, bgTarget, 0.008);
-        c.bgInput = blendRgb(c.bgInput, bgTarget, 0.006);
-        c.bgHover = blendRgb(c.bgHover, bgTarget, 0.005);
-
-        c.textPrimary = blendRgb(c.textPrimary, fgTarget, 0.020);
-        c.textSecondary = blendRgb(c.textSecondary, fgTarget, 0.024);
-        c.textTertiary = blendRgb(c.textTertiary, fgTarget, 0.022);
-        c.textAccent = adjustSaturationValue(c.textAccent, 1.03, darkVariant ? 1.01 : 0.99);
-
-        c.borderPrimary = blendRgb(c.borderPrimary, fgTarget, 0.045);
-        c.borderSubtle = blendRgb(c.borderSubtle, fgTarget, 0.035);
-        c.borderFocus = adjustSaturationValue(c.borderFocus, 1.03, darkVariant ? 1.01 : 0.99);
-        c.statusInfo = adjustSaturationValue(c.statusInfo, 1.03, darkVariant ? 1.01 : 0.99);
-
-        c.accentPrimary = adjustSaturationValue(c.accentPrimary, 1.04, darkVariant ? 1.01 : 0.99);
-        c.accentHover = adjustSaturationValue(c.accentHover, 1.03, darkVariant ? 1.02 : 0.98);
-        c.accentPressed = adjustSaturationValue(c.accentPressed, 1.03, 1.00);
-        c.accentDisabled = withAlpha(c.accentPrimary, c.accentDisabled.alpha());
-    }
-
-    // Recompute soft-status variants so they stay in sync with any
-    // saturation/value adjustments applied to the base status colors above.
-    c.statusSuccessSoft = withAlpha(c.statusSuccess, c.statusSuccessSoft.alpha());
-    c.statusWarningSoft = withAlpha(c.statusWarning, c.statusWarningSoft.alpha());
-    c.statusErrorSoft = withAlpha(c.statusError, c.statusErrorSoft.alpha());
-    c.statusInfoSoft = withAlpha(c.statusInfo, c.statusInfoSoft.alpha());
-
-    // Keep card tints profile-aware so soft/balanced/high stay visually
-    // ordered while remaining subtle.
-    double tintSaturationScale = 0.82;
-    double tintValueScale = 0.76;
-    double tintBgBlendRatio = 0.08;
-    double borderTintSaturationScale = 0.80;
-    double borderTintValueScale = 0.78;
-    double borderBlendRatio = 0.12;
-
-    switch (profile)
-    {
-    case an::ui::ThemeContrastProfile::High:
-        tintSaturationScale = 0.90;
-        tintValueScale = darkVariant ? 0.84 : 0.68;
-        tintBgBlendRatio = 0.04;
-        borderTintSaturationScale = 0.90;
-        borderTintValueScale = darkVariant ? 0.88 : 0.68;
-        borderBlendRatio = 0.08;
-        break;
-    case an::ui::ThemeContrastProfile::Oled:
-        // Light-mode values are unreachable (the OLED branch above
-        // returns early with Balanced), but kept for switch completeness.
-        tintSaturationScale = 1.00;
-        tintValueScale = darkVariant ? 0.90 : 0.60;
-        tintBgBlendRatio = 0.02;
-        borderTintSaturationScale = 1.00;
-        borderTintValueScale = darkVariant ? 0.95 : 0.60;
-        borderBlendRatio = 0.05;
-        break;
-    case an::ui::ThemeContrastProfile::Balanced:
-        tintSaturationScale = 0.82;
-        tintValueScale = 0.76;
-        tintBgBlendRatio = 0.08;
-        borderTintSaturationScale = 0.80;
-        borderTintValueScale = 0.78;
-        borderBlendRatio = 0.12;
-        break;
-    case an::ui::ThemeContrastProfile::Soft:
-        tintSaturationScale = 0.74;
-        tintValueScale = darkVariant ? 0.68 : 0.84;
-        tintBgBlendRatio = 0.12;
-        borderTintSaturationScale = 0.72;
-        borderTintValueScale = darkVariant ? 0.70 : 0.88;
-        borderBlendRatio = 0.18;
-        break;
-    }
-
-    if (c.cardSurfaceTint.isValid())
-    {
-        c.cardSurfaceTint = adjustSaturationValue(c.cardSurfaceTint, tintSaturationScale, tintValueScale);
-        c.cardSurfaceTint = blendRgb(c.cardSurfaceTint, c.bgCard, tintBgBlendRatio);
-    }
-
-    if (c.cardSurfaceBorderTint.isValid())
-    {
-        c.cardSurfaceBorderTint =
-            adjustSaturationValue(c.cardSurfaceBorderTint, borderTintSaturationScale, borderTintValueScale);
-        c.cardSurfaceBorderTint = blendRgb(c.cardSurfaceBorderTint, c.borderPrimary, borderBlendRatio);
-    }
-
-    refreshLayerAndMaterialMappings(tokenSet);
-    return tokenSet;
-}
-
 an::ui::MaterialTokens resolvedMaterials(const an::ui::DesignTokens& tokenSet, const bool darkVariant,
                                          const bool useNativeBackdrop)
 {
@@ -1493,25 +867,6 @@ an::ui::MaterialTokens resolvedMaterials(const an::ui::DesignTokens& tokenSet, c
     materials.micaSurface = withAlpha(tokenSet.layers.surface0, darkVariant ? 232 : 245);
     materials.acrylicSurface = withAlpha(tokenSet.colors.bgCard, darkVariant ? 204 : 226);
     return materials;
-}
-
-an::ui::DesignTokens resolvedTokenSet(const an::ui::DesignTokens& base, const bool darkVariant,
-                                      const bool useNativeBackdrop, const an::ui::ThemeContrastProfile contrastProfile,
-                                      const an::ui::ThemeAccentFamily accentFamily,
-                                      const an::ui::ThemeSurfaceTintFamily surfaceTintFamily)
-{
-    const an::ui::DesignTokens accented = applyThemeAccentFamily(base, darkVariant, accentFamily);
-    const an::ui::DesignTokens tinted = applyThemeSurfaceTintFamily(accented, darkVariant, surfaceTintFamily);
-    an::ui::DesignTokens resolved = applyThemeContrastProfile(tinted, darkVariant, contrastProfile);
-
-    const QColor white(255, 255, 255);
-    const QColor black(0, 0, 0);
-    const double contrastWhite = contrastRatio(white, resolved.colors.accentPrimary);
-    const double contrastBlack = contrastRatio(black, resolved.colors.accentPrimary);
-    resolved.colors.textOnAccent = (contrastWhite >= 4.5 || contrastWhite > contrastBlack) ? white : black;
-
-    resolved.materials = resolvedMaterials(resolved, darkVariant, useNativeBackdrop);
-    return resolved;
 }
 
 void ensureThemeInitialized();
@@ -1531,7 +886,7 @@ std::atomic_int g_themeAccentFamily{static_cast<int>(an::ui::ThemeAccentFamily::
 std::atomic_int g_themeSurfaceTintFamily{static_cast<int>(an::ui::ThemeSurfaceTintFamily::Neutral)};
 std::atomic_int g_themeTintStrength{static_cast<int>(an::ui::ThemeTintStrength::Balanced)};
 std::atomic_int g_themeDensity{static_cast<int>(an::ui::ThemeDensity::Compact)};
-std::atomic_int g_styleProfile{static_cast<int>(an::ui::StyleProfile::Classic)};
+std::atomic_int g_styleProfile{static_cast<int>(an::ui::StyleProfile::Observatory)};
 std::atomic_bool g_nightMode{false};
 std::atomic_bool g_nativeBackdropSupported{detectNativeBackdropSupport()};
 std::atomic<const ResolvedTokenSnapshot*> g_activeResolvedTokens{nullptr};
@@ -1590,18 +945,16 @@ an::ui::ThemeChoices activeChoices(const an::ui::ThemeVariant theme, const bool 
         .accent = static_cast<an::ui::ThemeAccentFamily>(g_themeAccentFamily.load()),
         .tint = static_cast<an::ui::ThemeSurfaceTintFamily>(g_themeSurfaceTintFamily.load()),
         .tintStrength = static_cast<an::ui::ThemeTintStrength>(g_themeTintStrength.load()),
-        .profile = static_cast<an::ui::StyleProfile>(g_styleProfile.load()),
         .density = static_cast<an::ui::ThemeDensity>(g_themeDensity.load()),
         .night = g_nightMode.load(),
         .nativeBackdrop = nativeBackdrop,
     };
 }
 
-/// Whether Night is in force: set, under the Observatory profile, the only one that has it.
+/// Whether Night is in force.
 bool nightInForce()
 {
-    return g_nightMode.load() &&
-           static_cast<an::ui::StyleProfile>(g_styleProfile.load()) == an::ui::StyleProfile::Observatory;
+    return g_nightMode.load();
 }
 
 /// The presets and their parts, in the order the Interface page shows them.
@@ -1646,38 +999,24 @@ const DesignTokens& lightTokens()
 
 DesignTokens resolveDesignTokens(const ThemeChoices& choices)
 {
-    if (choices.profile == StyleProfile::Observatory)
+    // Night resolves the dark theme whatever the preference, with the tint off whatever the tint and its strength: a
+    // hue cannot be seen in red, and a tinted surface would leave red text under its contrast.
+    ThemeChoices resolvedChoices = choices;
+    if (choices.night)
     {
-        // Night resolves the dark theme whatever the preference, with the tint off whatever the tint and its
-        // strength: a hue cannot be seen in red, and a tinted surface would leave red text under its contrast.
-        ThemeChoices resolvedChoices = choices;
-        if (choices.night)
-        {
-            resolvedChoices.theme = ThemeVariant::Dark;
-            resolvedChoices.tint = ThemeSurfaceTintFamily::Neutral;
-            resolvedChoices.tintStrength = ThemeTintStrength::Off;
-        }
-        const bool observatoryDark = resolvedChoices.theme == ThemeVariant::Dark;
-        DesignTokens resolved = observatoryDark ? darkTokens() : lightTokens();
-        resolveObservatoryColors(resolved, resolvedChoices);
-        resolved.materials = resolvedMaterials(resolved, observatoryDark, choices.nativeBackdrop);
-        resolveObservatorySizes(resolved, choices.density);
-        if (choices.night)
-        {
-            mapToNight(resolved);
-        }
-        return resolved;
+        resolvedChoices.theme = ThemeVariant::Dark;
+        resolvedChoices.tint = ThemeSurfaceTintFamily::Neutral;
+        resolvedChoices.tintStrength = ThemeTintStrength::Off;
     }
-    // The Classic profile has no Night.
-    const bool dark = choices.theme == ThemeVariant::Dark;
-    const DesignTokens& base = dark ? darkTokens() : lightTokens();
-    DesignTokens resolved =
-        resolvedTokenSet(base, dark, choices.nativeBackdrop, choices.contrast, choices.accent, choices.tint);
-    const QColor darkWindow = dark ? resolved.layers.surface0
-                                   : resolvedTokenSet(darkTokens(), true, choices.nativeBackdrop, choices.contrast,
-                                                      choices.accent, choices.tint)
-                                         .layers.surface0;
-    applyClassicColorRoles(resolved, dark, darkWindow);
+    const bool dark = resolvedChoices.theme == ThemeVariant::Dark;
+    DesignTokens resolved = dark ? darkTokens() : lightTokens();
+    resolveObservatoryColors(resolved, resolvedChoices);
+    resolved.materials = resolvedMaterials(resolved, dark, choices.nativeBackdrop);
+    resolveObservatorySizes(resolved, choices.density);
+    if (choices.night)
+    {
+        mapToNight(resolved);
+    }
     return resolved;
 }
 
@@ -1988,15 +1327,6 @@ StyleProfile styleProfile()
 {
     return static_cast<StyleProfile>(g_styleProfile.load());
 }
-
-namespace testing
-{
-void forceStyleProfile(const StyleProfile profile)
-{
-    g_styleProfile.store(static_cast<int>(profile));
-    refreshTokens();
-}
-} // namespace testing
 
 bool nativeBackdropSupported()
 {

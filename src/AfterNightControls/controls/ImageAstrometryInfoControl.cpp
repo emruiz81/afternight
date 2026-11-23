@@ -85,7 +85,7 @@ ImageAstrometryInfoControl::ImageAstrometryInfoControl(ImageViewControl* control
     }
     headerLayout->addWidget(descriptionLabel);
     rootLayout->addWidget(headerWidget);
-    // Under the Observatory profile the header is a window's heading, which says the image too.
+    // The header is a window's heading, which says the image too.
     an::ui::headWindowInPlaceOf(headerWidget, titleLabel->text(), descriptionLabel->text(), QString());
 
     m_statusLabel = new QLabel(this);
@@ -114,9 +114,8 @@ ImageAstrometryInfoControl::ImageAstrometryInfoControl(ImageViewControl* control
     auto* buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch(1);
     m_closeButton = new QPushButton(tr("Close"), this);
-    // The one button of the footer is its primary one under the Observatory profile.
-    m_closeButton->setProperty("anProcessButtonRole",
-                               an::ui::windowsTakeHeadings() ? QStringLiteral("primary") : QStringLiteral("secondary"));
+    // The one button of the footer is its primary one.
+    m_closeButton->setProperty("anProcessButtonRole", QStringLiteral("primary"));
     buttonLayout->addWidget(m_closeButton);
     rootLayout->addLayout(buttonLayout);
 

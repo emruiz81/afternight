@@ -175,7 +175,7 @@ void KddwProxyStyle::setupDockPalette(QPalette& palette) const
 void KddwProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter,
                                    const QWidget* widget) const
 {
-    if (observatoryDockDecorations() && drawObservatoryPrimitive(element, option, widget))
+    if (drawObservatoryPrimitive(element, option, widget))
     {
         return;
     }
@@ -257,7 +257,7 @@ void KddwProxyStyle::drawPrimitive(PrimitiveElement element, const QStyleOption*
 void KddwProxyStyle::drawControl(ControlElement element, const QStyleOption* option, QPainter* painter,
                                  const QWidget* widget) const
 {
-    if (observatoryDockDecorations() && drawObservatoryControl(element, option, painter, widget))
+    if (drawObservatoryControl(element, option, painter, widget))
     {
         return;
     }
@@ -269,14 +269,6 @@ void KddwProxyStyle::drawControl(ControlElement element, const QStyleOption* opt
 
     case CE_Splitter:
         drawDockSeparator(option, painter, widget);
-        return;
-
-    case CE_TabBarTabShape:
-        drawDockTabShape(option, painter, widget);
-        return;
-
-    case CE_TabBarTabLabel:
-        drawDockTabLabel(option, painter, widget);
         return;
 
     default:
@@ -315,8 +307,7 @@ void KddwProxyStyle::drawComplexControl(ComplexControl control, const QStyleOpti
 
 int KddwProxyStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const
 {
-    if (const std::optional<int> answer =
-            observatoryDockDecorations() ? observatoryPixelMetric(metric, widget) : std::nullopt)
+    if (const std::optional<int> answer = observatoryPixelMetric(metric, widget))
     {
         return *answer;
     }
@@ -346,53 +337,9 @@ int KddwProxyStyle::pixelMetric(PixelMetric metric, const QStyleOption* option, 
     }
 }
 
-QSize KddwProxyStyle::sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& contentsSize,
-                                       const QWidget* widget) const
-{
-    switch (type)
-    {
-    case CT_TabBarTab: {
-        QSize size = QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
-
-        double heightScale = 1.0;
-        if (widget)
-        {
-            bool ok = false;
-            const double propertyScale = widget->property("anTabHeightScale").toDouble(&ok);
-            if (ok && propertyScale > 0.0)
-            {
-                heightScale = propertyScale;
-            }
-        }
-
-        if (heightScale != 1.0)
-        {
-            size.setHeight(qMax(16, qRound(size.height() * heightScale)));
-        }
-
-        const int minWidth = widget ? widget->property("anTabMinWidth").toInt() : 0;
-        const int minHeight = widget ? widget->property("anTabMinHeight").toInt() : 0;
-        if (minWidth > 0)
-        {
-            size.setWidth(qMax(size.width(), minWidth));
-        }
-        if (minHeight > 0)
-        {
-            size.setHeight(qMax(size.height(), minHeight));
-        }
-
-        return size;
-    }
-
-    default:
-        return QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
-    }
-}
-
 QRect KddwProxyStyle::subElementRect(SubElement element, const QStyleOption* option, const QWidget* widget) const
 {
-    if (const std::optional<QRect> answer =
-            observatoryDockDecorations() ? observatorySubElementRect(element, option, widget) : std::nullopt)
+    if (const std::optional<QRect> answer = observatorySubElementRect(element, option, widget))
     {
         return *answer;
     }
@@ -402,8 +349,7 @@ QRect KddwProxyStyle::subElementRect(SubElement element, const QStyleOption* opt
 int KddwProxyStyle::styleHint(StyleHint hint, const QStyleOption* option, const QWidget* widget,
                               QStyleHintReturn* returnData) const
 {
-    if (const std::optional<int> answer =
-            observatoryDockDecorations() ? observatoryStyleHint(hint, widget) : std::nullopt)
+    if (const std::optional<int> answer = observatoryStyleHint(hint, widget))
     {
         return *answer;
     }
@@ -411,7 +357,7 @@ int KddwProxyStyle::styleHint(StyleHint hint, const QStyleOption* option, const 
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// The Observatory profile: a dock tab strip
+// A dock tab strip
 // ════════════════════════════════════════════════════════════════════════════
 
 namespace
@@ -661,117 +607,6 @@ void KddwProxyStyle::drawDockSeparator(const QStyleOption* option, QPainter* pai
         painter->drawRoundedRect(QRectF(x, option->rect.top() + 6, grooveThickness, option->rect.height() - 12), 1.0,
                                  1.0);
     }
-}
-
-// ── Tab Shape ──────────────────────────────────────────────────────────────
-
-void KddwProxyStyle::drawDockTabShape(const QStyleOption* option, QPainter* painter, const QWidget* widget) const
-{
-    const auto* tabOpt = qstyleoption_cast<const QStyleOptionTab*>(option);
-    if (!tabOpt)
-    {
-        QProxyStyle::drawControl(CE_TabBarTabShape, option, painter, widget);
-        return;
-    }
-
-    const PainterGuard guard(painter);
-    painter->setRenderHint(QPainter::Antialiasing, true);
-
-    const auto& c = m_tokens->colors;
-    const auto r = m_tokens->radius.sm;
-
-    const bool forceUnselected = widget && widget->property("forceUnselected").toBool();
-    const bool selected = !forceUnselected && (tabOpt->state & QStyle::State_Selected);
-    const bool hovered = isHovered(option) && !selected;
-
-    QColor bgColor;
-    QColor borderColor = c.borderSubtle;
-
-    if (selected)
-    {
-        bgColor = c.bgCard;
-        borderColor = c.borderPrimary;
-    }
-    else if (hovered)
-    {
-        bgColor = c.bgHover;
-    }
-    else
-    {
-        bgColor = c.bgCardSecondary;
-    }
-
-    painter->setPen(QPen(borderColor, 1));
-    painter->setBrush(bgColor);
-
-    // Top-rounded rect (tab shape)
-    QRectF tabRect = QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5);
-    QPainterPath path;
-    path.moveTo(tabRect.bottomLeft());
-    path.lineTo(tabRect.left(), tabRect.top() + r);
-    path.arcTo(tabRect.left(), tabRect.top(), 2 * r, 2 * r, 180, -90);
-    path.lineTo(tabRect.right() - r, tabRect.top());
-    path.arcTo(tabRect.right() - 2 * r, tabRect.top(), 2 * r, 2 * r, 90, -90);
-    path.lineTo(tabRect.bottomRight());
-
-    if (selected)
-    {
-        // Close the bottom to erase the base line for the selected tab
-        path.lineTo(tabRect.bottomLeft());
-    }
-
-    painter->drawPath(path);
-
-    // Selected-tab accent marker
-    if (selected)
-    {
-        const QString accentLinePosition = widget ? widget->property("anTabAccentLinePosition").toString() : QString();
-        const bool drawTopAccentLine = accentLinePosition == QLatin1String("top");
-
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(c.accentPrimary);
-
-        if (drawTopAccentLine)
-        {
-            constexpr qreal barHeight = 3.0;
-            painter->drawRect(QRectF(tabRect.left(), tabRect.top(), tabRect.width(), barHeight));
-        }
-        else
-        {
-            const qreal dotRadius = 2.0;
-            const QPointF center(tabRect.center().x(), tabRect.top() + m_tokens->spacing.xs + dotRadius);
-            painter->drawEllipse(center, dotRadius, dotRadius);
-        }
-    }
-}
-
-// ── Tab Label ──────────────────────────────────────────────────────────────
-
-void KddwProxyStyle::drawDockTabLabel(const QStyleOption* option, QPainter* painter, const QWidget* widget) const
-{
-    const auto* tabOpt = qstyleoption_cast<const QStyleOptionTab*>(option);
-    if (!tabOpt)
-    {
-        QProxyStyle::drawControl(CE_TabBarTabLabel, option, painter, widget);
-        return;
-    }
-
-    const PainterGuard guard(painter);
-    const auto& c = m_tokens->colors;
-
-    const bool forceUnselected = widget && widget->property("forceUnselected").toBool();
-    const bool selected = !forceUnselected && (tabOpt->state & QStyle::State_Selected);
-
-    painter->setPen(selected ? c.textAccent : c.textSecondary);
-
-    if (selected)
-    {
-        auto font = painter->font();
-        font.setWeight(QFont::DemiBold);
-        painter->setFont(font);
-    }
-
-    QProxyStyle::drawControl(CE_TabBarTabLabel, option, painter, widget);
 }
 
 // ── Tool Button (title bar buttons) ────────────────────────────────────────

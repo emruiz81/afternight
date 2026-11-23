@@ -77,13 +77,12 @@ void LightCalibrationSettingsDialog::setupUi()
     separator1->setFrameShape(QFrame::HLine);
     separator1->setFrameShadow(QFrame::Sunken);
     mainLayout->addWidget(separator1);
-    // Under the Observatory profile the lines that say whose settings these are give way to a window's heading.
-    if (an::ui::headWindow(*this, windowTitle(), m_GroupLabel, tr("Image Integration")) != nullptr)
-    {
-        titleLabel->setVisible(false);
-        groupLabel->setVisible(false);
-        separator1->setVisible(false);
-    }
+    // The lines that say whose settings these are give way to a window's heading, which the window's column always
+    // takes.
+    an::ui::headWindow(*this, windowTitle(), m_GroupLabel, tr("Image Integration"));
+    titleLabel->setVisible(false);
+    groupLabel->setVisible(false);
+    separator1->setVisible(false);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
 
     // Cosmetic Correction Group
@@ -272,8 +271,7 @@ void LightCalibrationSettingsDialog::setupUi()
     separator2->setFrameShape(QFrame::HLine);
     separator2->setFrameShadow(QFrame::Sunken);
     mainLayout->addWidget(separator2);
-    // Under the Observatory profile the sections scroll between the heading and the footer: opened whole they are
-    // higher than a small display.
+    // The sections scroll between the heading and the footer: opened whole they are higher than a small display.
     an::ui::scrollWindowBody(*mainLayout, separator1, separator2);
 
     // Buttons

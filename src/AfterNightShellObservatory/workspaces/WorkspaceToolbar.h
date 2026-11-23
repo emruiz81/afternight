@@ -4,7 +4,7 @@
 #pragma once
 
 /// @file
-/// The layout icons of a workspace: the classic dock tool bar's four, in the Observatory top bar.
+/// The four layout icons of a workspace, in the Observatory top bar.
 
 #include "AfterNightShellObservatoryExport.h"
 
@@ -20,10 +20,10 @@ class QToolButton;
 namespace an::ui::observatory
 {
 
-/// Lock layout, Group All Images, Split All Images, a separator and Fit Images To Window: the classic dock tool bar's
-/// icons, tooltips and behaviour, for the workspace on screen. Group, Split and Fit are the catalogue's own actions;
-/// Lock is a toggle the classic bar draws as a button of its own - its icon and tooltip say what a click does, Lock
-/// while the layout is free and Unlock while it is locked.
+/// Lock layout, Group All Images, Split All Images, a separator and Fit Images To Window, with their icons, tooltips
+/// and behaviour, for the workspace on screen. Group, Split and Fit are the catalogue's own actions; Lock is a toggle
+/// drawn as a button of its own - its icon and tooltip say what a click does, Lock while the layout is free and Unlock
+/// while it is locked.
 class AFTERNIGHTSHELLOBSERVATORY_API WorkspaceToolbar final : public QWidget
 {
 public:

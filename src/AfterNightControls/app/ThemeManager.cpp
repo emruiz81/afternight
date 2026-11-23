@@ -5,12 +5,10 @@
 
 #include "app/ThemeManager.h"
 
-#include "app/ModernizationFeatureFlags.h"
 #include "controls/ImageHistogramControl.h"
 #include "controls/ImageViewControl.h"
 #include "controls/ImageViewControlManager.h"
 #include "controls/KDDockWidgetsHelper.h"
-#include "controls/MainDashboard.h"
 #include "controls/NewSequenceControl.h"
 #include "controls/TopLevelProcessBaseControl.h"
 #include "theme/AnDesignTokens.h"
@@ -215,11 +213,6 @@ void ThemeManager::applyTheme(const QString& themeId) const
 
 void ThemeManager::refreshCascade() const
 {
-    if (m_deps.mainDashboard && *m_deps.mainDashboard)
-    {
-        (*m_deps.mainDashboard)->refreshIcons();
-    }
-
     if (m_deps.toolbarLockLayout && *m_deps.toolbarLockLayout && m_deps.iconProvider)
     {
         if (m_deps.isLayoutLocked && m_deps.isLayoutLocked())

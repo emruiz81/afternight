@@ -22,7 +22,7 @@
 #include "processes/ImageIntegration/ImageIntegrationConstants.h"
 #include "processes/ImageIntegration/ImageIntegrationProcess.h"
 
-#include "processes/ImageIntegration/widgets/StageNavigator.h"
+#include "processes/ImageIntegration/widgets/StageListNavigator.h"
 #include "processes/ImageIntegration/ImageIntegrationProcessShared.h"
 #include "processes/ImageIntegration/model/UndoCommands.h"
 #include "processes/ImageIntegration/model/FrameMetadata.h"
@@ -39,7 +39,6 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QTabWidget>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -294,7 +293,7 @@ void ImageIntegrationProcess::performImportWithProgress(const std::vector<QStrin
 ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(const int totalFiles)
 {
     // A band over the stages, inside what the page holds, with the import's panel in it.
-    QWidget* const stages = m_navigator != nullptr ? m_navigator->widget() : nullptr;
+    QWidget* const stages = m_stageList != nullptr ? m_stageList->widget() : nullptr;
     QWidget* const content = stages != nullptr ? stages->parentWidget() : this;
     auto* band = new QWidget(content);
     band->setObjectName(QStringLiteral("importProgressBand"));
@@ -313,15 +312,11 @@ ImageIntegration::ImportProgressPanel* ImageIntegrationProcess::beginPageImport(
     m_pageImportBand = band;
     m_pageImportPanel = panel;
 
-    // The page's own acts wait for the import, as its window waits behind the import's dialog: the stages, the foot
-    // and every entry of the menus - the header's buttons and the page's keys with them.
+    // The page's own acts wait for the import, as its window waits behind the import's dialog: the stages and the
+    // list's foot with them, and every entry of the menus - the header's buttons and the page's keys with them.
     if (stages != nullptr)
     {
         stages->setEnabled(false);
-    }
-    if (m_ui.bottomActionBar != nullptr)
-    {
-        m_ui.bottomActionBar->setEnabled(false);
     }
     m_importHeldActions.clear();
     const std::function<void(const QList<QAction*>&)> hold = [this, &hold](const QList<QAction*>& entries) {
@@ -358,13 +353,9 @@ void ImageIntegrationProcess::endPageImport()
         m_pageImportBand->deleteLater();
         m_pageImportBand = nullptr;
     }
-    if (QWidget* const stages = m_navigator != nullptr ? m_navigator->widget() : nullptr)
+    if (QWidget* const stages = m_stageList != nullptr ? m_stageList->widget() : nullptr)
     {
         stages->setEnabled(true);
-    }
-    if (m_ui.bottomActionBar != nullptr)
-    {
-        m_ui.bottomActionBar->setEnabled(true);
     }
     // Every act that waited is given back; the ones that follow the job - Execute, the removals - are then set from it.
     for (const QPointer<QAction>& entry : m_importHeldActions)

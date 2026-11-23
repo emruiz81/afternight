@@ -329,14 +329,6 @@ end
             linux_debug = { "-lAfterNightShellCore_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
             dependson = { "AfterNightShellCore" }
         },
-        -- The classic shell: a suite that links it drives the 1.1 window from the library's binary. It links the shell
-        -- core and the libraries below it, so GNU ld needs the docking framework's directory for the same reason.
-        AfterNightShellClassic = {
-            windows_release = { "AfterNightShellClassic.lib" }, windows_debug = { "AfterNightShellClassic_d.lib" },
-            linux_release = { "-lAfterNightShellClassic", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
-            linux_debug = { "-lAfterNightShellClassic_d", "-Wl,-rpath-link," .. kddockwidgetsLinuxLibdir },
-            dependson = { "AfterNightShellClassic" }
-        },
         -- The Observatory shell: a suite that links it drives the Observatory window from the library's binary. It links
         -- the shell core and the libraries below it, so GNU ld needs the docking framework's directory for the same reason.
         AfterNightShellObservatory = {
@@ -765,12 +757,9 @@ end
     -- Controls library.
     addIsolatedTestProject { name = "Test_ShellCore" }
 
-    -- The classic shell's suite: the 1.1 window driven from the library's binary, the records it is held to, the
-    -- settings pages, dialogs and coordinators it opens, and its own units.
-    addIsolatedTestProject { name = "Test_ShellClassic" }
-
     -- The Observatory shell's suite: its window driven as a person drives it, from the library's binary, in one engine
-    -- session the suite owns as the application owns its own.
+    -- session the suite owns as the application owns its own; the records of the interface it is held to, the settings
+    -- pages and dialogs it opens, and the units they share.
     addIsolatedTestProject { name = "Test_ShellObservatory" }
 
     -- The parity scenarios: written once against a driver and run for every registered shell, each started and ended

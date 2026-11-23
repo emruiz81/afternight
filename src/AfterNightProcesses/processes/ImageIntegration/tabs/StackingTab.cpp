@@ -585,8 +585,7 @@ public:
         // shrinkable (tables/histogram use vertical QSizePolicy::Ignored).
         dashboardGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
         dashboardGroup->setMinimumHeight(0);
-        // AnCardWidget handles its own background internally through anCardBgColor property
-        // applyBackground(dashboardGroup);
+        // The card paints its own background: no background is applied to it.
 
         // Keep Frame Quality usable when the top-level window is restored to a small height:
         // use a scroll area for the whole dashboard instead of forcing the window to grow.

@@ -47,9 +47,8 @@ class MainWindow;
 namespace an::ui
 {
 
-/// What a tab shows after its view's name under the Observatory profile: an icon in a small tonal square, with its own
-/// tooltip, that runs `activated` when it is clicked; `locked` disables the tab's close button and, while the tab is
-/// current, the strip's buttons. Under the Classic profile an adornment is kept and neither drawn nor acted on.
+/// What a tab shows after its view's name: an icon in a small tonal square, with its own tooltip, that runs `activated`
+/// when it is clicked; `locked` disables the tab's close button and, while the tab is current, the strip's buttons.
 struct TabAdornment
 {
     QString iconKey; ///< The icon, by the name the application's icon provider knows it by.
@@ -68,9 +67,9 @@ AFTERNIGHTCONTROLS_API void clearTabAdornment(KDDockWidgets::QtWidgets::DockWidg
 [[nodiscard]] AFTERNIGHTCONTROLS_API const TabAdornment*
 tabAdornment(const KDDockWidgets::QtWidgets::DockWidget* dockWidget);
 
-/// Gives the dock library the separator of the style profile in force: its own under the Classic profile, two pixels
-/// under the Observatory profile. The library takes it only while no dock widget or main window exists, so the
-/// application gives it once the profile is set and before the shell makes a window.
+/// Gives the dock library the decorations' separator: groups lie two pixels apart. The library takes it only while no
+/// dock widget or main window exists, so the application gives it once the profile is set and before the shell makes a
+/// window.
 AFTERNIGHTCONTROLS_API void applyDockDecorationsProfile();
 
 /// Marks a dock area locked, or free again. The decorations refuse a double click that would float or dock a view in a
@@ -113,7 +112,7 @@ class AN_DockButton : public QAbstractButton
 public:
     explicit AN_DockButton(KDDockWidgets::TitleBarButtonType type, QWidget* parent = nullptr);
 
-    /// The button that lists a strip's tabs, under the Observatory profile.
+    /// The button that lists a strip's tabs.
     [[nodiscard]] static AN_DockButton* makeTabList(QWidget* parent);
 
     QSize sizeHint() const override;
@@ -131,7 +130,7 @@ private:
     bool m_tabList = false;
 };
 
-/// A group's tab strip. Under the Observatory profile the dock style draws it (`theme/KddwProxyStyle.h`): its tabs are
+/// A group's tab strip. The dock style draws it (`theme/KddwProxyStyle.h`): its tabs are
 /// sized from the tokens, a floating image window's strip is the smaller one, a name too long is elided in the middle
 /// and never cut under twelve characters, the whole name is the tooltip, and a tab's adornment is drawn and clicked.
 class AFTERNIGHTCONTROLS_API AN_TabBar : public KDDockWidgets::QtWidgets::TabBar,
@@ -151,11 +150,11 @@ public:
     /// adornment.
     [[nodiscard]] an::ui::ObservatoryDockTab observatoryDockTab(int index) const override;
 
-    /// Where a tab's adornment lies under the Observatory profile; empty when it has none or the profile is Classic.
+    /// Where a tab's adornment lies; empty when it has none.
     [[nodiscard]] QRect adornmentRect(int index) const;
 
-    /// The tooltip at a place under the Observatory profile: an adornment's own, or the whole name of the tab there and
-    /// the image's summary after it; nothing past the tabs.
+    /// The tooltip at a place: an adornment's own, or the whole name of the tab there and the image's summary after it;
+    /// nothing past the tabs.
     [[nodiscard]] QString toolTipAt(QPoint position) const;
 
     /// Lays the tabs out again: a tab's parts, the density or the strip's height changed.
@@ -164,7 +163,6 @@ public:
 protected:
     QSize tabSizeHint(int index) const override;
     QSize minimumTabSizeHint(int index) const override;
-    void paintEvent(QPaintEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -202,8 +200,8 @@ public:
     void styleCornerButtons();
     void applyThemeColors();
 
-    /// Under the Observatory profile, disables a locked tab's close button and, while the current tab is locked, the
-    /// strip's buttons; enables what no lock holds.
+    /// Disables a locked tab's close button and, while the current tab is locked, the strip's buttons; enables what no
+    /// lock holds.
     void applyTabLocks();
 
 protected:
@@ -214,8 +212,8 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
 
 private:
-    /// The Observatory profile's strip: the buttons' size and place for the strip's height, their tooltips, the list
-    /// of the tabs shown with more than one.
+    /// The strip's buttons: their size and place for the strip's height, their tooltips, the list of the tabs shown
+    /// with more than one.
     void applyObservatoryStrip();
     void showTabList();
 
@@ -244,8 +242,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 };
 
-/// The line between two groups. Under the Classic profile the library draws it; under the Observatory profile it is
-/// the dock area's ground, the accent's line while the pointer is over it.
+/// The line between two groups: the dock area's ground, the accent's line while the pointer is over it.
 class AFTERNIGHTCONTROLS_API AN_Separator : public KDDockWidgets::QtWidgets::Separator
 {
 public:
@@ -279,8 +276,7 @@ public:
     KDDockWidgets::Core::View* createSeparator(KDDockWidgets::Core::Separator* controller,
                                                KDDockWidgets::Core::View* parent = nullptr) const override;
 
-    /// Under the Observatory profile, the product's indicator window and band (`controls/DockDropIndicators.h`); the
-    /// library's under the Classic profile.
+    /// The product's indicator window and band (`controls/DockDropIndicators.h`) in place of the library's.
     KDDockWidgets::Core::ClassicIndicatorWindowViewInterface*
     createClassicIndicatorWindow(KDDockWidgets::Core::ClassicDropIndicatorOverlay* indicators,
                                  KDDockWidgets::Core::View* parent) const override;

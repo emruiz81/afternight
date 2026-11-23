@@ -6,14 +6,15 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QFont>
 #include <QIcon>
 #include <QLabel>
 
 #include "controls/AboutDialog.h"
-#include "controls/DashboardUtils.h"
 #include "controls/settings/PathPickerWidget.h"
 #include "controls/settings/PlaceholderSettingsPage.h"
 #include "theme/AnDesignTokens.h"
+#include "theme/AnProxyStyle.h"
 
 namespace
 {
@@ -80,14 +81,19 @@ TEST_F(ThemeTokenSettingsWidgetsTest, PlaceholderSettingsPage_MessageUsesTokenTy
     }
 }
 
-TEST_F(ThemeTokenSettingsWidgetsTest, PathPicker_StatusLabelUsesCaptionToken)
+// The picker sets its status in the caption, and the application's style draws a status that has a tone semibold: a
+// path detected is said in the caption, semibold.
+TEST_F(ThemeTokenSettingsWidgetsTest, PathPicker_StatusLabelIsTheCaptionInSemibold)
 {
+    ASSERT_NE(an::ui::installedAnProxyStyle(), nullptr) << "the suite runs under the application's style";
     PathPickerWidget widget(PathPickerWidget::Mode::File);
     widget.setStatus(QStringLiteral("Detected"), false);
 
     auto* statusLabel = findLabelContainingText(&widget, QStringLiteral("Detected"));
     ASSERT_NE(statusLabel, nullptr);
-    EXPECT_EQ(statusLabel->font(), an::ui::tokens().typography.caption);
+    QFont expected = an::ui::tokens().typography.caption;
+    expected.setWeight(QFont::DemiBold);
+    EXPECT_EQ(statusLabel->font(), expected);
 }
 
 TEST_F(ThemeTokenSettingsWidgetsTest, AboutDialog_HeaderFontsUseTokens)
@@ -106,38 +112,6 @@ TEST_F(ThemeTokenSettingsWidgetsTest, AboutDialog_HeaderFontsUseTokens)
     EXPECT_EQ(title->font(), expectedTitle);
     EXPECT_EQ(version->font(), an::ui::tokens().typography.body);
     EXPECT_EQ(subtitle->font(), an::ui::tokens().typography.caption);
-}
-
-TEST_F(ThemeTokenSettingsWidgetsTest, DashboardUtils_ScaledSystemFontUsesTokenBuckets)
-{
-    QWidget host;
-
-    QFont small = DashboardUtils::scaledSystemFont(&host, 0.8);
-    QFont body = DashboardUtils::scaledSystemFont(&host, 1.0);
-    QFont medium = DashboardUtils::scaledSystemFont(&host, 1.2);
-    QFont large = DashboardUtils::scaledSystemFont(&host, 1.5);
-
-    QFont expectedSmall = an::ui::tokens().typography.caption;
-    QFont expectedBody = an::ui::tokens().typography.body;
-    QFont expectedMedium = an::ui::tokens().typography.heading3;
-    QFont expectedLarge = an::ui::tokens().typography.heading2;
-    expectedSmall.setStyleHint(host.font().styleHint());
-    expectedBody.setStyleHint(host.font().styleHint());
-    expectedMedium.setStyleHint(host.font().styleHint());
-    expectedLarge.setStyleHint(host.font().styleHint());
-    expectedSmall.setWeight(QFont::Normal);
-    expectedBody.setWeight(QFont::Normal);
-    expectedMedium.setWeight(QFont::Normal);
-    expectedLarge.setWeight(QFont::Normal);
-    expectedSmall.setItalic(false);
-    expectedBody.setItalic(false);
-    expectedMedium.setItalic(false);
-    expectedLarge.setItalic(false);
-
-    EXPECT_EQ(small, expectedSmall);
-    EXPECT_EQ(body, expectedBody);
-    EXPECT_EQ(medium, expectedMedium);
-    EXPECT_EQ(large, expectedLarge);
 }
 
 TEST_F(ThemeTokenSettingsWidgetsTest, ThemeChangeEventsDoNotCrashForSettingsWidgets)

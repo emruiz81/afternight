@@ -131,12 +131,12 @@ public:
 struct ShellDescriptor
 {
     /// The name the shell is chosen by: on the command line (`--shell=<id>`), in the environment and in the setting.
-    /// A lowercase word: `classic`, `observatory`.
+    /// A lowercase word: `observatory`.
     QString id;
     /// The name the user reads where shells are listed.
     QString displayName;
     /// The style profile the shell is drawn in, put in force before the first widget exists.
-    StyleProfile styleProfile = StyleProfile::Classic;
+    StyleProfile styleProfile = StyleProfile::Observatory;
     /// Makes the shell over the application. Called once, when the shell has been chosen; nothing is built or shown
     /// until the application asks the shell to.
     std::function<std::unique_ptr<IShell>(ApplicationCore&)> create;

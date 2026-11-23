@@ -89,11 +89,10 @@ namespace
 LocalNormalizationSettingsDialog::LocalNormalizationSettingsDialog(QWidget* parent) : QDialog(parent)
 {
     m_ui = an::ui::imageintegration::buildLocalNormalizationSettingsDialogUi(this);
-    // Under the Observatory profile the line that says what the settings do is the description of a window's heading.
-    if (an::ui::headWindow(*this, windowTitle(), m_ui.infoLabel->text(), tr("Image Integration")) != nullptr)
-    {
-        m_ui.infoLabel->setVisible(false);
-    }
+    // The line that says what the settings do is the description of a window's heading, which the window's column
+    // always takes.
+    an::ui::headWindow(*this, windowTitle(), m_ui.infoLabel->text(), tr("Image Integration"));
+    m_ui.infoLabel->setVisible(false);
     an::ui::holdWithinAvailableAreaWhenFirstShown(*this);
     setWindowModality(Qt::WindowModal);
     setModal(true);

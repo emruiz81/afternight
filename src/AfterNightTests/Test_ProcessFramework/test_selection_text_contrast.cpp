@@ -94,12 +94,10 @@ public:
     return drawnWith;
 }
 
-/// The selection fill the application's style and the styled table draw: the accent, translucent over the base.
+/// The selection fill the application's style and the styled table draw: the accent's soft share over the base.
 [[nodiscard]] QColor selectionFillOver(const QColor& base)
 {
-    QColor fill = an::ui::tokens().colors.accentPrimary;
-    fill.setAlpha(an::ui::isDarkTheme() ? 116 : 84);
-    return an::ui::compositeOver(fill, base);
+    return an::ui::compositeOver(an::ui::tokens().colors.accentSoft, base);
 }
 
 } // namespace
@@ -132,8 +130,8 @@ TEST(SelectionTextContrastTest, AHighlightedTableRowsTextReadsOverItsHighlight)
     }
 }
 
-// The styled table's selected text is chosen against its selection composited over its base, in the dark theme and in
-// the light one, and its base and text are the theme's.
+// The styled table's selection is the accent's soft share over its base, the first surface, and its selected text the
+// primary text, which reads over it in the dark theme and in the light one.
 TEST(SelectionTextContrastTest, TheStyledTablesSelectionReadsInBothThemes)
 {
     for (const an::ui::ThemePreference preference : {an::ui::ThemePreference::Dark, an::ui::ThemePreference::Light})
@@ -141,8 +139,9 @@ TEST(SelectionTextContrastTest, TheStyledTablesSelectionReadsInBothThemes)
         const ScopedTheme theme(preference);
         an::ui::AnStyledTable table;
         const QPalette palette = table.palette();
-        EXPECT_EQ(palette.color(QPalette::Base), an::ui::tokens().colors.bgInput);
+        EXPECT_EQ(palette.color(QPalette::Base), an::ui::tokens().layers.surface1);
         EXPECT_EQ(palette.color(QPalette::Text), an::ui::tokens().colors.textPrimary);
+        EXPECT_EQ(palette.color(QPalette::Highlight), an::ui::tokens().colors.accentSoft);
         const QColor fill = selectionFillOver(palette.color(QPalette::Base));
         for (const QPalette::ColorGroup group : {QPalette::Active, QPalette::Inactive})
         {
@@ -152,20 +151,22 @@ TEST(SelectionTextContrastTest, TheStyledTablesSelectionReadsInBothThemes)
     }
 }
 
-// The application's style draws a selected item's text in a colour chosen against the selection composited over the
-// view's base - on a dark base and on a light one - and leaves an unselected item's colours as the view gave them.
+// The application's style draws a selected item's text in the primary text, which reads over the selection - the
+// accent's soft share over the view's base, the theme's surfaces - in the dark theme and in the light one, and leaves
+// an unselected item's colours as the view gave them.
 TEST(SelectionTextContrastTest, TheStylesSelectedItemTextReadsOverTheSelection)
 {
     const QColor sentinel(1, 2, 3);
     for (const an::ui::ThemePreference preference : {an::ui::ThemePreference::Dark, an::ui::ThemePreference::Light})
     {
         const ScopedTheme theme(preference);
-        for (const QColor& base : {QColor(20, 20, 24), QColor(250, 250, 250)})
+        const auto& layers = an::ui::tokens().layers;
+        for (const QColor& base : {layers.surface1, layers.surface2, layers.surface3})
         {
             const std::optional<QPalette> selected = itemDrawnWith(base, true, sentinel);
             ASSERT_TRUE(selected.has_value()) << "the style handed the item to its base style";
             const QColor text = selected->color(QPalette::HighlightedText);
-            EXPECT_NE(text, sentinel);
+            EXPECT_EQ(text, an::ui::tokens().colors.textPrimary);
             EXPECT_GE(an::ui::contrastRatio(text, selectionFillOver(base)), kReadableContrast)
                 << base.name().toStdString();
             EXPECT_EQ(selected->color(QPalette::Text), text);

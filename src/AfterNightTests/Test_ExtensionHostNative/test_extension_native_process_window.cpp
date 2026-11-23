@@ -52,7 +52,6 @@
 #include <utility>
 #include <vector>
 
-#include "../fixtures/ScopedEnvVar.h"
 #include "controls/ExtensionNativeProcessWindow.h"
 #include "HostInFlightExecution.h"
 #include "HostNativeTestSupport.h"
@@ -2717,8 +2716,6 @@ TEST(ExtensionNativeProcessWindowTest, PreviewAreaCanStartDisabledAndRtPreviewMe
 
 TEST(ExtensionNativeProcessWindowTest, RtPreviewMetaHidesHeaderProgressUsesPreviewSpinnerAndLeftReset)
 {
-    TestHelpers::ScopedEnvVar ui_tokens_enabled("AN_UI_TOKENS_ENABLED", "1");
-
     an::ui::extensions::ExtensionNativeProcessWindow window("RT Preview Native Window", "session-preview-spinner",
                                                             nullptr);
     window.setKeepOpenMode(true);
@@ -2805,8 +2802,6 @@ TEST(ExtensionNativeProcessWindowTest, RtPreviewMetaHidesHeaderProgressUsesPrevi
 // close ends the session whether the window was ever shown or not, as the window's Close button does.
 TEST(ExtensionNativeProcessWindowTest, ARequestedCloseEndsTheSessionWhetherOrNotTheWindowWasShown)
 {
-    TestHelpers::ScopedEnvVar ui_tokens_enabled("AN_UI_TOKENS_ENABLED", "1");
-
     struct Setup
     {
         const char* name;
@@ -2857,8 +2852,6 @@ TEST(ExtensionNativeProcessWindowTest, ARequestedCloseEndsTheSessionWhetherOrNot
 
 TEST(ExtensionNativeProcessWindowTest, FullExecuteCancelButtonCancelsWithoutClosing)
 {
-    TestHelpers::ScopedEnvVar ui_tokens_enabled("AN_UI_TOKENS_ENABLED", "1");
-
     an::ui::extensions::ExtensionNativeProcessWindow window("RT Preview Native Window", "session-execute-cancel",
                                                             nullptr);
     int close_count = 0;
@@ -3043,8 +3036,6 @@ TEST(ExtensionNativeProcessWindowTest, SubAreaPreviewCompositePromotesMonoBaseFo
 
 TEST(ExtensionNativeProcessWindowTest, PreviewLayoutUsesModernShellAndRtPreviewSplitPane)
 {
-    TestHelpers::ScopedEnvVar ui_tokens_enabled("AN_UI_TOKENS_ENABLED", "1");
-
     an::ui::extensions::ExtensionNativeProcessWindow window("RT Preview Native Window", "session-split-pane", nullptr);
     window.setParamDefs(QJsonArray{QJsonObject{
                                        {QStringLiteral("id"), QStringLiteral("strength")},

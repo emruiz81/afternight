@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Ezequiel Ruiz
 
-// Night, the resolution's last step under the Observatory profile: the dark theme whatever the preference, the tint off
-// whatever the tint and its strength, the primary text white, the secondary and tertiary text raised to 3 : 1 against
-// the second surface, the accent's fill its 300 step under black text, and every colour then mapped to its luma in red.
-// The Night rules hold in every combination a user can choose; the user's tint is theirs again when Night goes; the
-// Classic profile has no Night.
+// Night, the resolution's last step: the dark theme whatever the preference, the tint off whatever the tint and its
+// strength, the primary text white, the secondary and tertiary text raised to 3 : 1 against the second surface, the
+// accent's fill its 300 step under black text, and every colour then mapped to its luma in red. The Night rules hold in
+// every combination a user can choose; the user's tint is theirs again when Night goes.
 
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/NightImage.h"
 #include "theme/ObservatoryPalette.h"
@@ -28,7 +26,6 @@ namespace
 
 using an::ui::ColorTokens;
 using an::ui::DesignTokens;
-using an::ui::StyleProfile;
 using an::ui::ThemeAccentFamily;
 using an::ui::ThemeChoices;
 using an::ui::ThemeContrastProfile;
@@ -51,13 +48,8 @@ ThemeChoices nightChoices(const ThemeVariant theme, const ThemeContrastProfile c
                           const ThemeSurfaceTintFamily tint = ThemeSurfaceTintFamily::Neutral,
                           const ThemeTintStrength strength = ThemeTintStrength::Balanced)
 {
-    return ThemeChoices{.theme = theme,
-                        .contrast = contrast,
-                        .accent = accent,
-                        .tint = tint,
-                        .tintStrength = strength,
-                        .profile = StyleProfile::Observatory,
-                        .night = true};
+    return ThemeChoices{
+        .theme = theme, .contrast = contrast, .accent = accent, .tint = tint, .tintStrength = strength, .night = true};
 }
 
 /// Every colour a token set holds: its roles, its surfaces and its materials.
@@ -294,24 +286,10 @@ TEST(Night, TheWorkedValues)
     EXPECT_EQ(high.colors.textSecondary, an::ui::nightColor(QColor(0xCD, 0xCF, 0xDA)));
 }
 
-// The Classic profile has no Night: the resolver ignores it there, and Night set under it is not in force.
-TEST(Night, TheClassicProfileHasNoNight)
-{
-    ThemeChoices classic{.theme = ThemeVariant::Light, .contrast = ThemeContrastProfile::Balanced};
-    const DesignTokens day = an::ui::resolveDesignTokens(classic);
-    classic.night = true;
-    EXPECT_TRUE(an::ui::resolveDesignTokens(classic) == day);
-
-    const an::ui::testing::ScopedStyleProfile classicProfile(StyleProfile::Classic);
-    const an::ui::testing::ScopedNightMode night(true);
-    EXPECT_FALSE(an::ui::isNightMode());
-}
-
 // Night in force resolves the application's tokens as the resolver does, makes the theme dark, and gives the user's
 // tint and strength back when it goes.
 TEST(Night, TheUsersChoicesReturnWhenNightGoes)
 {
-    const an::ui::testing::ScopedStyleProfile observatory(StyleProfile::Observatory);
     const an::ui::ThemePreference preference = an::ui::themePreference();
     const ThemeSurfaceTintFamily tint = an::ui::themeSurfaceTintFamily();
     const ThemeTintStrength strength = an::ui::themeTintStrength();

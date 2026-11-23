@@ -10,7 +10,6 @@
 #include "Test_ControlsViewer/ViewerTestContext.h"
 
 #include "fixtures/ScopedNightMode.h"
-#include "fixtures/ScopedStyleProfile.h"
 #include "theme/AnDesignTokens.h"
 #include "theme/NightImage.h"
 #include "widgets/PresentationBridge.h"
@@ -106,7 +105,6 @@ protected:
 // the GUI thread mapped nothing. Switched off, the colours come back.
 TEST_F(ViewerNight, PresentedFrameIsRed)
 {
-    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     ViewHandle view = makeView("night");
     std::optional<an::ui::ImageDocument> document = colourDocument(session());
     ASSERT_TRUE(document.has_value());
@@ -181,7 +179,6 @@ TEST_F(ViewerNight, PresentedFrameIsRed)
 // mapped already is their product, which is mapped, and is not mapped again.
 TEST_F(ViewerNight, TheMaskLayerIsRedAndMappedOnce)
 {
-    const an::ui::testing::ScopedStyleProfile observatory(an::ui::StyleProfile::Observatory);
     const an::ui::testing::ScopedNightMode night(true);
     ViewHandle target = makeView("target");
     ViewHandle mask = makeView("mask");
